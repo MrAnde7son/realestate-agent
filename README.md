@@ -1,6 +1,6 @@
-# Yad2 Real Estate Scraper & MCP Server
+# Real Estate Agent
 
-A comprehensive, organized real estate scraper for Yad2.co.il with MCP (Model Context Protocol) server integration for seamless LLM use.
+A comprehensive, organized real estate scraper for Real Estate data with MCP (Model Context Protocol) server integration for seamless LLM use.
 
 ## 🎯 Features
 

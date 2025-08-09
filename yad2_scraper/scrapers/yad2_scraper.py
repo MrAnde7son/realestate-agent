@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Yad2 Scraper
+
+Enhanced Yad2 scraper with dynamic parameter support and comprehensive data extraction.
+"""
+
+import requests
+import json
+import time
+from datetime import datetime
+from bs4 import BeautifulSoup
+try:
+    from urllib.parse import urljoin
+except ImportError:
+    from urlparse import urljoin
+
+from ..core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
+
+
+class Yad2Scraper:
+    """Enhanced Yad2 scraper with dynamic parameter support."""
+    
+    def __init__(self, search_params=None, headers=None):
+        """
+        Initialize the scraper.
+        
+        Args:
+            search_params: Yad2SearchParameters object or dict of parameters
+            headers: Custom headers for requests
+        """
+        self.base_url = "https://www.yad2.co.il"
+        self.search_endpoint = "/realestate/forsale"
+        
+        # Default headers to mimic a real browser
+        self.headers = headers or {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        }
+        
+        # Initialize search parameters
+        if isinstance(search_params, dict):
+            self.search_params = Yad2SearchParameters(**search_params)
+        elif isinstance(search_params, Yad2SearchParameters):
+            self.search_params = search_params
+        else:
+            self.search_params = Yad2SearchParameters()
+        
+        self.listings = []
+        self.session = requests.Session()
+        self.session.headers.update(self.headers)
+        
+        # Parameter reference for validation
+        self.param_reference = Yad2ParameterReference()
+    
+    def set_search_parameters(self, **kwargs):
+        """Set or update search parameters."""
+        for key, value in kwargs.items():
+            try:
+                self.search_params.set_parameter(key, value)
+            except ValueError as e:
+                print("Warning: {}".format(e))
+    
+    def build_search_url(self, page=1):
+        """Build the search URL with current parameters."""
+        # Set page parameter
+        self.search_params.set_parameter('page', page)
+        
+        # Build URL with all parameters
+        base_url = self.base_url + self.search_endpoint
+        return self.search_params.build_url(base_url)
+    
+    def fetch_page(self, url, retries=3, delay=1):
+        """
+        Fetch a page with retry logic.
+        
+        Args:
+            url: URL to fetch
+            retries: Number of retry attempts
+            delay: Delay between retries in seconds
+        
+        Returns:
+            BeautifulSoup object or None if failed
+        """
+        for attempt in range(retries):
+            try:
+                response = self.session.get(url, timeout=30)
+                
+                if response.status_code == 200:
+                    return BeautifulSoup(response.content, 'html.parser')
+                elif response.status_code == 429:  # Rate limited
+                    print("Rate limited, waiting {} seconds...".format(delay * (attempt + 1)))
+                    time.sleep(delay * (attempt + 1))
+                else:
+                    print("Failed to fetch page: {}".format(response.status_code))
+                    
+            except requests.exceptions.RequestException as e:
+                print("Error fetching page (attempt {}): {}".format(attempt + 1, e))
+                if attempt < retries - 1:
+                    time.sleep(delay)
+        
+        return None
+    
+    def extract_listing_info(self, listing_element):
+        """
+        Extract information from a listing element.
+        
+        Args:
+            listing_element: BeautifulSoup element containing listing data
+            
+        Returns:
+            RealEstateListing object or None
+        """
+        try:
+            listing = RealEstateListing()
+            
+            # Extract title
+            title_elem = listing_element.find('span', class_='title') or \
+                        listing_element.find('h3') or \
+                        listing_element.find('a', class_='title')
+            if title_elem:
+                listing.title = title_elem.get_text(strip=True)
+            
+            # Extract price
+            price_elem = listing_element.find('div', class_='price') or \
+                        listing_element.find('span', class_='price') or \
+                        listing_element.find('[data-auto="price"]')
+            if price_elem:
+                price_text = price_elem.get_text(strip=True)
+                listing.price = URLUtils.clean_price(price_text)
+            
+            # Extract address
+            address_elem = listing_element.find('span', class_='address') or \
+                          listing_element.find('div', class_='address') or \
+                          listing_element.find('[data-auto="address"]')
+            if address_elem:
+                listing.address = address_elem.get_text(strip=True)
+            
+            # Extract rooms
+            rooms_elem = listing_element.find('[data-auto="rooms"]') or \
+                        listing_element.find('span', string=lambda x: x and 'חדרים' in x)
+            if rooms_elem:
+                listing.rooms = URLUtils.extract_number(rooms_elem.get_text())
+            
+            # Extract size
+            size_elem = listing_element.find('[data-auto="size"]') or \
+                       listing_element.find('span', string=lambda x: x and 'מ"ר' in x)
+            if size_elem:
+                listing.size = URLUtils.extract_number(size_elem.get_text())
+            
+            # Extract floor
+            floor_elem = listing_element.find('[data-auto="floor"]') or \
+                        listing_element.find('span', string=lambda x: x and 'קומה' in x)
+            if floor_elem:
+                listing.floor = floor_elem.get_text(strip=True)
+            
+            # Extract URL
+            link_elem = listing_element.find('a', href=True)
+            if link_elem:
+                listing.url = urljoin(self.base_url, link_elem['href'])
+                # Extract listing ID from URL
+                listing.listing_id = URLUtils.extract_listing_id(listing.url)
+            
+            # Extract images
+            img_elements = listing_element.find_all('img')
+            for img in img_elements:
+                if img.get('src'):
+                    listing.images.append(img['src'])
+                elif img.get('data-src'):
+                    listing.images.append(img['data-src'])
+            
+            return listing
+            
+        except Exception as e:
+            print("Error extracting listing info: {}".format(e))
+            return None
+    
+    def scrape_page(self, page=1):
+        """
+        Scrape a single page of listings.
+        
+        Args:
+            page: Page number to scrape
+            
+        Returns:
+            List of RealEstateListing objects
+        """
+        url = self.build_search_url(page)
+        print("Scraping page {} from: {}".format(page, url))
+        
+        soup = self.fetch_page(url)
+        if not soup:
+            print("Failed to fetch page {}".format(page))
+            return []
+        
+        # Try different selectors for listing containers
+        selectors = [
+            '[data-auto="feedItem"]',
+            '.feeditem',
+            '.feed_item',
+            '.listing-item',
+            '.srp_container .srpItem',
+            '.realestateItemsContainer .srp_container'
+        ]
+        
+        listings = []
+        for selector in selectors:
+            elements = soup.select(selector)
+            if elements:
+                print("Found {} listings using selector: {}".format(len(elements), selector))
+                
+                for element in elements:
+                    listing = self.extract_listing_info(element)
+                    if listing and listing.title:  # Only add if we got meaningful data
+                        listings.append(listing)
+                break
+        
+        if not listings:
+            print("No listings found on page {} - trying fallback extraction".format(page))
+            # Fallback: try to find any elements with price information
+            price_elements = soup.find_all(text=lambda x: x and '₪' in str(x))[:10]
+            if price_elements:
+                print("Found {} potential price elements for debugging".format(len(price_elements)))
+        
+        return listings
+    
+    def scrape_all_pages(self, max_pages=10, delay=2):
+        """
+        Scrape multiple pages of listings.
+        
+        Args:
+            max_pages: Maximum number of pages to scrape
+            delay: Delay between page requests in seconds
+            
+        Returns:
+            List of all RealEstateListing objects
+        """
+        all_listings = []
+        
+        for page in range(1, max_pages + 1):
+            try:
+                listings = self.scrape_page(page)
+                
+                if not listings:
+                    print("No more listings found on page {}".format(page))
+                    break
+                
+                all_listings.extend(listings)
+                print("Page {}: Found {} listings (Total: {})".format(
+                    page, len(listings), len(all_listings)))
+                
+                # Add delay between requests to be respectful
+                if page < max_pages:
+                    time.sleep(delay)
+                    
+            except KeyboardInterrupt:
+                print("Scraping interrupted by user")
+                break
+            except Exception as e:
+                print("Error scraping page {}: {}".format(page, e))
+                continue
+        
+        self.listings = all_listings
+        return all_listings
+    
+    def get_search_summary(self):
+        """Get a summary of the current search parameters."""
+        active_params = self.search_params.get_active_parameters()
+        
+        summary = {
+            'search_url': self.build_search_url(1),
+            'parameters': active_params,
+            'parameter_descriptions': {}
+        }
+        
+        # Add human-readable descriptions for parameters
+        for param, value in active_params.items():
+            info = self.param_reference.get_parameter_info(param)
+            summary['parameter_descriptions'][param] = {
+                'value': value,
+                'description': info['description']
+            }
+            
+            # Add property type names if applicable
+            if param == 'property' and value:
+                prop_types = str(value).split(',')
+                type_names = []
+                for prop_id in prop_types:
+                    try:
+                        type_name = self.param_reference.get_property_types().get(int(prop_id.strip()))
+                        if type_name:
+                            type_names.append(type_name)
+                    except (ValueError, TypeError):
+                        pass
+                if type_names:
+                    summary['parameter_descriptions'][param]['type_names'] = type_names
+        
+        return summary
+    
+    def save_to_json(self, filename=None):
+        """Save listings to JSON file."""
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = "yad2_listings_{}.json".format(timestamp)
+        
+        data = {
+            'search_summary': self.get_search_summary(),
+            'scrape_time': datetime.now().isoformat(),
+            'total_listings': len(self.listings),
+            'listings': [listing.to_dict() for listing in self.listings]
+        }
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        print("Saved {} listings to {}".format(len(self.listings), filename))
+        return filename
+    
+    @classmethod
+    def from_url(cls, url, **kwargs):
+        """
+        Create scraper from existing Yad2 URL.
+        
+        Args:
+            url: Yad2 URL with parameters
+            **kwargs: Additional scraper options
+            
+        Returns:
+            Yad2Scraper instance
+        """
+        params_dict = URLUtils.extract_url_parameters(url)
+        return cls(search_params=params_dict, **kwargs) 

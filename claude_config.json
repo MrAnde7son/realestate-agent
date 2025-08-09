@@ -13,6 +13,13 @@
         "env": {
           "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
         }
+      },
+      "tel-aviv-gis": {
+        "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
+        "args": ["-m", "gis.mcp.server"],
+        "env": {
+          "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
+        }
       }
     }
   }

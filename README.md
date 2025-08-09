@@ -264,13 +264,20 @@ The MCP server provides seamless integration with LLMs.
 Run the core test suite:
 
 ```bash
-python -m yad2.tests.test_core
+python -m tests.test_all
+```
+
+For full coverage including GIS tests (pytest-style):
+
+```bash
+pytest -q
 ```
 
 Tests cover:
 - Parameter system validation
 - URL building and parsing
 - Data model functionality
+- GIS client behaviors (mocked HTTP)
 - Utility functions
 
 ## 📊 Data Export Format
@@ -347,14 +354,6 @@ The codebase is organized into logical modules:
 import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
-
-## 🎉 What's New in v1.0
-
-- ✅ **Organized Architecture**: Clean, modular codebase
-- ✅ **Consolidated Functionality**: No duplicated code
-- ✅ **Enhanced MCP Server**: Updated with dynamic parameter specifications
-- ✅ **Core Test Suite**: Easy to run via module
-- ✅ **Improved Examples**: Run with `python -m`
 
 ## 🤝 Contributing
 

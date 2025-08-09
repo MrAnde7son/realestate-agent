@@ -7,7 +7,7 @@ Tests for the core Yad2 scraper functionality.
 """
 
 import json
-from yad2_scraper.core import Yad2SearchParameters, Yad2ParameterReference, URLUtils
+from yad2.core import Yad2SearchParameters, Yad2ParameterReference, URLUtils
 
 
 def test_parameter_system():

@@ -9,42 +9,47 @@ A comprehensive, organized real estate scraper for Yad2.co.il with MCP (Model Co
 - 🤖 **MCP Server Integration**: Connect directly to your LLM for natural language real estate queries
 - 📊 **Advanced Analytics**: Price analysis, location breakdowns, property type distributions
 - 💾 **Data Export**: Save results to JSON with comprehensive metadata
-- 🌐 **Interactive CLI**: User-friendly command-line interface for building searches
+- 🌐 **Interactive CLI**: User-friendly interface for building searches
 - ⚡ **URL Builder**: Generate Yad2 URLs programmatically without scraping
 - 🏗️ **Organized Architecture**: Clean, modular codebase with proper separation of concerns
 
 ## 📁 Project Structure
 
 ```
-yad2/
-├── yad2_scraper/                    # Main package
-│   ├── core/                        # Core functionality
+realestate-agent/
+├── yad2/                          # Main package
+│   ├── core/                      # Core functionality
 │   │   ├── __init__.py
-│   │   ├── parameters.py            # Search parameters & validation
-│   │   ├── models.py                # Data models (RealEstateListing)
-│   │   └── utils.py                 # Utility functions
-│   ├── scrapers/                    # Web scrapers
+│   │   ├── parameters.py          # Search parameters & validation
+│   │   ├── models.py              # Data models (RealEstateListing)
+│   │   └── utils.py               # Utility functions
+│   ├── scrapers/                  # Web scrapers
 │   │   ├── __init__.py
-│   │   └── yad2_scraper.py         # Main Yad2 scraper
-│   ├── mcp/                         # MCP server for LLM integration
+│   │   └── yad2_scraper.py        # Main Yad2 scraper
+│   ├── mcp/                       # MCP server for LLM integration
 │   │   ├── __init__.py
-│   │   └── server.py               # MCP server implementation
-│   ├── cli/                         # Command-line interface
+│   │   └── server.py              # FastMCP server implementation
+│   ├── cli/                       # Command-line helpers
 │   │   ├── __init__.py
-│   │   └── interactive.py          # Interactive CLI
-│   ├── tests/                       # Test suite
+│   │   └── interactive.py         # Interactive CLI utilities
+│   ├── tests/                     # Test suite
 │   │   ├── __init__.py
-│   │   └── test_core.py            # Core functionality tests
-│   ├── examples/                    # Example scripts & configs
-│   │   ├── __init__.py
-│   │   ├── demo.py                 # Demonstration script
-│   │   └── search_config.json      # Example configuration
-│   └── __init__.py                 # Package exports
-├── run_cli.py                      # CLI entry point
-├── run_mcp_server.py              # MCP server entry point
-├── run_tests.py                   # Test runner entry point
+│   │   └── test_core.py           # Core functionality tests
+│   └── examples/                  # Example scripts & configs
+│       ├── __init__.py
+│       ├── demo.py                # Demonstration script
+│       └── search_config.json     # Example configuration
+├── gov/
+│   └── mcp/
+│       ├── __init__.py
+│       └── server.py              # gov.il FastMCP reference server
+├── utils/
+│   ├── gis.py
+│   ├── madlan_scraper.py
+│   └── yad2_scraper.py
 ├── requirements.txt               # Dependencies
-└── README.md                     # This file
+├── LICENSE                        # License
+└── README.md                      # This file
 ```
 
 ## 🚀 Quick Start
@@ -54,38 +59,44 @@ yad2/
 ```bash
 # Clone the repository
 git clone <your-repo-url>
-cd yad2
+cd realestate-agent
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Basic Usage
+### 2. Usage
+
+#### Run Demo (recommended)
+```bash
+python -m yad2.examples.demo
+```
 
 #### Interactive CLI
 ```bash
-python run_cli.py
+python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"
 ```
 
 #### Run Tests
 ```bash
-python run_tests.py
+python -m yad2.tests.test_core
 ```
 
 #### Start MCP Server
 ```bash
-python run_mcp_server.py
+python -m yad2.mcp.server
 ```
 
 #### Programmatic Usage
+
 ```python
-from yad2_scraper import Yad2Scraper, Yad2SearchParameters
+from yad2 import Yad2Scraper, Yad2SearchParameters
 
 # Create search parameters
 params = Yad2SearchParameters(
     maxPrice=8000000,
-    city=5000,  # Tel Aviv
-    property="1,33",  # Apartments and Penthouses
+    city=5000,           # Tel Aviv
+    property="1,33",     # Apartments and Penthouses
     rooms="3-4",
     elevator=1,
     parking=1
@@ -138,12 +149,13 @@ scraper.save_to_json("my_search.json")
 ## 📚 Usage Examples
 
 ### Example 1: Tel Aviv Luxury Apartments
+
 ```python
-from yad2_scraper import Yad2SearchParameters, Yad2Scraper
+from yad2 import Yad2SearchParameters, Yad2Scraper
 
 params = Yad2SearchParameters(
-    city=5000,           # Tel Aviv
-    property="1,33",     # Apartments + Penthouses
+    city=5000,            # Tel Aviv
+    property="1,33",      # Apartments + Penthouses
     minPrice=5000000,
     maxPrice=15000000,
     rooms="4+",
@@ -167,8 +179,9 @@ params = Yad2SearchParameters(
 ```
 
 ### Example 3: Extract from Existing URL
+
 ```python
-from yad2_scraper import Yad2Scraper
+from yad2 import Yad2Scraper
 
 # Your original URL
 url = "https://www.yad2.co.il/realestate/forsale?maxPrice=10500000&property=5%2C33%2C39&topArea=2&area=1&city=5000&neighborhood=203"
@@ -181,19 +194,19 @@ print(summary)
 
 ## 🤖 MCP Server for LLM Integration
 
-The MCP server provides seamless integration with LLMs like Claude, GPT-4, etc.
+The MCP server provides seamless integration with LLMs.
 
 ### Available Tools
 
-1. **search_real_estate** - Search listings with natural language
-2. **get_search_parameters_reference** - Get parameter documentation
-3. **analyze_search_results** - Analyze price trends, locations, property types
-4. **save_search_results** - Save results to JSON file
-5. **build_search_url** - Generate Yad2 URLs without scraping
+1. `search_real_estate` — Search listings with natural language
+2. `get_search_parameters_reference` — Get parameter documentation
+3. `analyze_search_results` — Analyze price trends, locations, property types
+4. `save_search_results` — Save results to JSON file
+5. `build_search_url` — Generate Yad2 URLs without scraping
 
 ### Usage with LLM
 
-1. Start the MCP server: `python run_mcp_server.py`
+1. Start the MCP server: `python -m yad2.mcp.server`
 2. Configure your LLM to connect to the server
 3. Use natural language queries:
    - "Find 4-room apartments in Tel Aviv under 8 million NIS with parking"
@@ -202,10 +215,10 @@ The MCP server provides seamless integration with LLMs like Claude, GPT-4, etc.
 
 ## 🧪 Testing
 
-Run the comprehensive test suite:
+Run the core test suite:
 
 ```bash
-python run_tests.py
+python -m yad2.tests.test_core
 ```
 
 Tests cover:
@@ -226,12 +239,14 @@ Example output:
 {
   "search_summary": {
     "search_url": "https://www.yad2.co.il/realestate/forsale?...",
-    "parameters": {...},
-    "parameter_descriptions": {...}
+    "parameters": {"...": "..."},
+    "parameter_descriptions": {"...": {"value": "...", "description": "..."}}
   },
   "scrape_time": "2024-01-15T10:30:00",
   "total_listings": 25,
-  "listings": [...]
+  "listings": [
+    {"title": "...", "price": 1234567, "address": "..."}
+  ]
 }
 ```
 
@@ -249,39 +264,39 @@ Example output:
 
 The codebase is organized into logical modules:
 
-- **Core**: Parameter handling, data models, utilities
-- **Scrapers**: Web scraping functionality
-- **MCP**: LLM integration server
-- **CLI**: Interactive command-line interface
-- **Tests**: Comprehensive test suite
-- **Examples**: Demo scripts and configurations
+- **Core**: Parameter handling, data models, utilities (`yad2/core/`)
+- **Scrapers**: Web scraping functionality (`yad2/scrapers/`)
+- **MCP**: LLM integration server (`yad2/mcp/`)
+- **CLI**: Interactive helpers (`yad2/cli/`)
+- **Tests**: Core tests (`yad2/tests/`)
+- **Examples**: Demo scripts and configurations (`yad2/examples/`)
 
 ### Adding New Features
 
-1. Core functionality goes in `yad2_scraper/core/`
-2. New scrapers go in `yad2_scraper/scrapers/`
-3. MCP tools go in `yad2_scraper/mcp/server.py`
-4. CLI features go in `yad2_scraper/cli/`
-5. Add tests in `yad2_scraper/tests/`
+1. Core functionality goes in `yad2/core/`
+2. New scrapers go in `yad2/scrapers/`
+3. MCP tools go in `yad2/mcp/server.py`
+4. CLI features go in `yad2/cli/`
+5. Add tests in `yad2/tests/`
 
 ### Entry Points
 
-- `run_cli.py` - Interactive command-line interface
-- `run_mcp_server.py` - MCP server for LLM integration  
-- `run_tests.py` - Test suite runner
+- Run Demo: `python -m yad2.examples.demo`
+- Start MCP server: `python -m yad2.mcp.server`
+- Run tests: `python -m yad2.tests.test_core`
+- Interactive CLI: `python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"`
 
 ## 🚨 Troubleshooting
 
 ### Common Issues
 
-1. **Import errors**: Run `python run_tests.py` to verify installation
+1. **Import errors**: Ensure you ran `pip install -r requirements.txt` and `cd realestate-agent`
 2. **No listings found**: Check if parameters are too restrictive
 3. **Rate limiting**: Increase delay between requests
 4. **Parsing errors**: Yad2 may have changed their HTML structure
 
 ### Debug Mode
 
-Enable verbose logging:
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -291,17 +306,16 @@ logging.basicConfig(level=logging.DEBUG)
 
 - ✅ **Organized Architecture**: Clean, modular codebase
 - ✅ **Consolidated Functionality**: No duplicated code
-- ✅ **Enhanced MCP Server**: Updated with user's parameter specifications
-- ✅ **Comprehensive Testing**: Full test suite
-- ✅ **Better CLI**: Improved interactive interface
-- ✅ **Proper Documentation**: Complete API reference
+- ✅ **Enhanced MCP Server**: Updated with dynamic parameter specifications
+- ✅ **Core Test Suite**: Easy to run via module
+- ✅ **Improved Examples**: Run with `python -m`
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Add tests for new functionality
-4. Run the test suite: `python run_tests.py`
+4. Run the test suite: `python -m yad2.tests.test_core`
 5. Submit a pull request
 
 ## 📄 License

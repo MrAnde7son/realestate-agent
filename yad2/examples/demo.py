@@ -11,15 +11,15 @@ import json
 
 # Support both package execution (python -m) and direct script execution
 try:
-    from yad2_scraper.core import Yad2SearchParameters, Yad2ParameterReference
-    from yad2_scraper.scrapers import Yad2Scraper
+    from yad2.core import Yad2SearchParameters, Yad2ParameterReference
+    from yad2.scrapers import Yad2Scraper
 except ModuleNotFoundError:
     import os, sys
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
-    from yad2_scraper.core import Yad2SearchParameters, Yad2ParameterReference
-    from yad2_scraper.scrapers import Yad2Scraper
+    from yad2.core import Yad2SearchParameters, Yad2ParameterReference
+    from yad2.scrapers import Yad2Scraper
 
 def demo_original_url_extraction():
     """Demo: Extract parameters from your original URL."""

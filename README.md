@@ -39,12 +39,14 @@ realestate-agent/
 │       ├── __init__.py
 │       ├── demo.py                # Demonstration script
 │       └── search_config.json     # Example configuration
+├── gis/                           # GIS utilities (Tel Aviv ArcGIS)
+│   ├── __init__.py
+│   └── gis_client.py              # Tel Aviv GIS client and mini CLI
 ├── gov/
 │   └── mcp/
 │       ├── __init__.py
 │       └── server.py              # gov.il FastMCP reference server
 ├── utils/
-│   ├── gis.py
 │   ├── madlan_scraper.py
 │   └── yad2_scraper.py
 ├── requirements.txt               # Dependencies
@@ -135,6 +137,23 @@ listings = scraper.scrape_all_pages(max_pages=3)
 
 # Save results
 scraper.save_to_json("my_search.json")
+```
+
+#### GIS (Tel Aviv) Usage
+
+- CLI (quick check):
+```bash
+python -m gis.gis_client --street "הגולן" --num 1 --radius 30
+```
+
+- Python API:
+```python
+from gis.gis_client import TelAvivGS
+
+gs = TelAvivGS()
+x, y = gs.get_address_coordinates("הגולן", 1)
+permits = gs.get_building_permits(x, y, radius=30, download_pdfs=True, save_dir="permits")
+print(len(permits))
 ```
 
 ## 🔧 Search Parameters

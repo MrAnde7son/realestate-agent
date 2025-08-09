@@ -65,6 +65,33 @@ cd realestate-agent
 pip install -r requirements.txt
 ```
 
+### 1.5 Claude Desktop (MCP) setup (optional)
+
+Copy the provided `claude_config.json` to Claude's config location (rename to `claude_desktop_config.json`). Adjust the `command` and `PYTHONPATH` if your Python path differs.
+
+- macOS:
+
+```bash
+mkdir -p "${HOME}/Library/Application Support/Claude"
+cp claude_config.json "${HOME}/Library/Application Support/Claude/claude_desktop_config.json"
+```
+
+- Linux:
+
+```bash
+mkdir -p "${HOME}/.config/Claude"
+cp claude_config.json "${HOME}/.config/Claude/claude_desktop_config.json"
+```
+
+- Windows (PowerShell):
+
+```powershell
+New-Item -ItemType Directory -Force "$env:APPDATA\Claude" | Out-Null
+Copy-Item -Force .\claude_config.json "$env:APPDATA\Claude\claude_desktop_config.json"
+```
+
+Then restart Claude Desktop.
+
 ### 2. Usage
 
 #### Run Demo (recommended)

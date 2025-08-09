@@ -261,13 +261,7 @@ The MCP server provides seamless integration with LLMs.
 
 ## 🧪 Testing
 
-Run the core test suite:
-
-```bash
-python -m tests.test_all
-```
-
-For full coverage including GIS tests (pytest-style):
+Run tests with pytest (also runs automatically in CI on push/PR):
 
 ```bash
 pytest -q

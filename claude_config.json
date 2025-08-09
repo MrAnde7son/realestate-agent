@@ -1,0 +1,18 @@
+{
+    "mcpServers": {
+      "yad2-real-estate": {
+        "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
+        "args": ["-m", "yad2.mcp.server"],
+        "env": {
+          "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
+        }
+      },
+      "data-gov": {
+        "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
+        "args": ["-m", "gov.mcp.server"],
+        "env": {
+          "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
+        }
+      }
+    }
+  }

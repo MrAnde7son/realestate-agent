@@ -287,9 +287,5 @@ async def save_search_results(ctx: Context, filename: Optional[str] = None):
         return {"success": False, "error": str(e)}
 
 
-def main():
-    mcp.run()
-
-
 if __name__ == "__main__":
-    main() 
+    mcp.run()

@@ -35,14 +35,11 @@ class Yad2Scraper:
         
         # Default headers to mimic a real browser
         self.headers = headers or {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)... Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive"
         }
-        
         # Initialize search parameters
         if isinstance(search_params, dict):
             self.search_params = Yad2SearchParameters(**search_params)
@@ -108,7 +105,7 @@ class Yad2Scraper:
     
     def extract_listing_info(self, listing_element):
         """
-        Extract information from a listing element.
+        Extract information from a listing element using working selectors.
         
         Args:
             listing_element: BeautifulSoup element containing listing data
@@ -119,60 +116,34 @@ class Yad2Scraper:
         try:
             listing = RealEstateListing()
             
-            # Extract title
-            title_elem = listing_element.find('span', class_='title') or \
-                        listing_element.find('h3') or \
-                        listing_element.find('a', class_='title')
-            if title_elem:
-                listing.title = title_elem.get_text(strip=True)
-            
-            # Extract price
-            price_elem = listing_element.find('div', class_='price') or \
-                        listing_element.find('span', class_='price') or \
-                        listing_element.find('[data-auto="price"]')
+            # Extract price using working selector
+            price_elem = listing_element.select_one('[data-testid="price"]')
             if price_elem:
                 price_text = price_elem.get_text(strip=True)
                 listing.price = URLUtils.clean_price(price_text)
             
-            # Extract address
-            address_elem = listing_element.find('span', class_='address') or \
-                          listing_element.find('div', class_='address') or \
-                          listing_element.find('[data-auto="address"]')
-            if address_elem:
-                listing.address = address_elem.get_text(strip=True)
+            # Extract title/address using working selector
+            title_elem = listing_element.select_one("span.item-data-content_heading__tphH4")
+            if title_elem:
+                listing.title = title_elem.get_text(strip=True)
+                listing.address = title_elem.get_text(strip=True)
             
-            # Extract rooms
-            rooms_elem = listing_element.find('[data-auto="rooms"]') or \
-                        listing_element.find('span', string=lambda x: x and 'חדרים' in x)
-            if rooms_elem:
-                listing.rooms = URLUtils.extract_number(rooms_elem.get_text())
-            
-            # Extract size
-            size_elem = listing_element.find('[data-auto="size"]') or \
-                       listing_element.find('span', string=lambda x: x and 'מ"ר' in x)
-            if size_elem:
-                listing.size = URLUtils.extract_number(size_elem.get_text())
-            
-            # Extract floor
-            floor_elem = listing_element.find('[data-auto="floor"]') or \
-                        listing_element.find('span', string=lambda x: x and 'קומה' in x)
-            if floor_elem:
-                listing.floor = floor_elem.get_text(strip=True)
+            # Extract property details using working selector
+            desc_lines = listing_element.select("span.item-data-content_itemInfoLine__AeoPP")
+            if len(desc_lines) > 1:
+                values = desc_lines[1].get_text(strip=True).split(' • ')
+                if len(values) >= 1:
+                    listing.rooms = URLUtils.extract_number(values[0])
+                if len(values) >= 2:
+                    listing.floor = values[1].strip()
+                if len(values) >= 3:
+                    listing.size = URLUtils.extract_number(values[2])
             
             # Extract URL
             link_elem = listing_element.find('a', href=True)
             if link_elem:
                 listing.url = urljoin(self.base_url, link_elem['href'])
-                # Extract listing ID from URL
                 listing.listing_id = URLUtils.extract_listing_id(listing.url)
-            
-            # Extract images
-            img_elements = listing_element.find_all('img')
-            for img in img_elements:
-                if img.get('src'):
-                    listing.images.append(img['src'])
-                elif img.get('data-src'):
-                    listing.images.append(img['data-src'])
             
             return listing
             
@@ -198,34 +169,22 @@ class Yad2Scraper:
             print("Failed to fetch page {}".format(page))
             return []
         
-        # Try different selectors for listing containers
-        selectors = [
-            '[data-auto="feedItem"]',
-            '.feeditem',
-            '.feed_item',
-            '.listing-item',
-            '.srp_container .srpItem',
-            '.realestateItemsContainer .srp_container'
-        ]
+        # Use the working selector from utils
+        items = soup.select("a.item-layout_itemLink__CZZ7w")
+        if not items:
+            print("No listings found on page {} - trying fallback extraction".format(page))
+            return []
+        
+        print("Found {} listings using working selector".format(len(items)))
         
         listings = []
-        for selector in selectors:
-            elements = soup.select(selector)
-            if elements:
-                print("Found {} listings using selector: {}".format(len(elements), selector))
-                
-                for element in elements:
-                    listing = self.extract_listing_info(element)
-                    if listing and listing.title:  # Only add if we got meaningful data
-                        listings.append(listing)
-                break
-        
-        if not listings:
-            print("No listings found on page {} - trying fallback extraction".format(page))
-            # Fallback: try to find any elements with price information
-            price_elements = soup.find_all(text=lambda x: x and '₪' in str(x))[:10]
-            if price_elements:
-                print("Found {} potential price elements for debugging".format(len(price_elements)))
+        for item in items:
+            # Find the parent card container
+            card = item.find_parent("div", class_="card_cardBox__KLi9I")
+            if card:
+                listing = self.extract_listing_info(card)
+                if listing and listing.title:  # Only add if we got meaningful data
+                    listings.append(listing)
         
         return listings
     

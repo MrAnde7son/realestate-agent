@@ -141,12 +141,12 @@ class Yad2ParameterReference:
     PARAMETER_INFO = {
         'maxPrice': {
             'description': 'Maximum price in NIS',
-            'example': '5000000',
+            'example': 5000000,
             'type': 'integer'
         },
         'minPrice': {
             'description': 'Minimum price in NIS',
-            'example': '2000000',
+            'example': 2000000,
             'type': 'integer'
         },
         'property': {
@@ -171,7 +171,7 @@ class Yad2ParameterReference:
         },
         'topArea': {
             'description': 'Regional area',
-            'example': '2 (Center)',
+            'example': 2,
             'type': 'integer',
             'options': {
                 1: 'North',
@@ -183,7 +183,7 @@ class Yad2ParameterReference:
         },
         'area': {
             'description': 'Sub-area within region (1=TLV, 3=RamatGan,Givataim)',
-            'example': '1',
+            'example': 1,
             'type': 'integer',
             'options': {
                 1: 'Tel Aviv',
@@ -192,7 +192,7 @@ class Yad2ParameterReference:
         },
         'city': {
             'description': 'City ID',
-            'example': '5000 (Tel Aviv), 6200 (Jerusalem), 6300 (Haifa)',
+            'example': 5000,
             'type': 'integer',
             'options': {
                 5000: 'Tel Aviv',
@@ -202,7 +202,7 @@ class Yad2ParameterReference:
         },
         'neighborhood': {
             'description': 'Neighborhood ID within city (e.g., 203=Ramat HaHayal)',
-            'example': '203',
+            'example': 203,
             'type': 'integer',
             'options': {
                 203: 'Ramat HaHayal',
@@ -228,17 +228,17 @@ class Yad2ParameterReference:
         },
         'minSize': {
             'description': 'Minimum size in square meters',
-            'example': '80',
+            'example': 80,
             'type': 'integer'
         },
         'maxSize': {
             'description': 'Maximum size in square meters',
-            'example': '120',
+            'example': 120,
             'type': 'integer'
         },
         'parking': {
             'description': 'Number of parking spaces',
-            'example': '1, 2',
+            'example': 1,
             'type': 'integer'
         },
         'elevator': {

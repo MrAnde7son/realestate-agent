@@ -1,0 +1,57 @@
+{
+  "name": "data-gov-il-mcp",
+  "version": "2.0.0",
+  "description": "Advanced MCP server for seamless access to Israeli Government Open Data through data.gov.il with intelligent tag discovery",
+  "main": "stdio.js",
+  "bin": {
+    "data-gov-il-mcp": "./stdio.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node stdio.js",
+    "dev": "node --watch stdio.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "data-gov-il",
+    "israel",
+    "government-data",
+    "open-data",
+    "ckan",
+    "claude",
+    "ai",
+    "hebrew",
+    "tags",
+    "categories",
+    "topic-discovery",
+    "data-exploration",
+    "israeli-data",
+    "government-transparency"
+  ],
+  "author": {
+    "name": "David Osher",
+    "email": "david@example.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DavidOsherProceed/data-gov-il-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DavidOsherProceed/data-gov-il-mcp/issues"
+  },
+  "homepage": "https://github.com/DavidOsherProceed/data-gov-il-mcp#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "axios": "^1.9.0",
+    "zod": "^3.25.64"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

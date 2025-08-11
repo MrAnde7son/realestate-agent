@@ -21,5 +21,16 @@
           "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
         }
       }
+    },
+     "israeli-bank-mcp": {
+        "command": "/Library/Frameworks/Node.framework/Versions/18/bin/node",
+        "args": [
+            "/Users/imizrahi/Documents/Git/realestate-agent/israeli-bank-mcp/build/server.js"
+        ]
+    },
+    "data-gov-il": {
+      "command": "/Library/Frameworks/Node.framework/Versions/18/bin/node",
+      "args": ["/Users/imizrahi/Documents/Git/realestate-agent/data-gov-il-mcp/stdio.js"]
     }
   }
+  

@@ -58,6 +58,12 @@ start_server() {
         print_status "Output: $log_file"
     else
         print_error "Failed to start $name MCP server"
+        if [ -s "$log_file" ]; then
+            print_status "Last log lines:"
+            tail -n 20 "$log_file" | sed 's/^/    /'
+        else
+            print_warning "No log output captured"
+        fi
         rm -f "$pid_file"
         return 1
     fi
@@ -181,11 +187,17 @@ show_server_info() {
 start_all() {
     print_status "Starting MCP servers..."
 
-    start_server "GIS" "gis.mcp.server"
-    start_server "Yad2" "yad2.mcp.server"
-    start_server "Government" "gov.mcp.server"
+    local failures=0
 
-    print_success "All start commands issued. Use './run_all.sh status' to verify."
+    start_server "GIS" "gis.mcp.server" || failures=$((failures + 1))
+    start_server "Yad2" "yad2.mcp.server" || failures=$((failures + 1))
+    start_server "Government" "gov.mcp.server" || failures=$((failures + 1))
+
+    if [ $failures -eq 0 ]; then
+        print_success "All start commands issued. Use './run_all.sh status' to verify."
+    else
+        print_warning "$failures server(s) failed to start. Check logs above."
+    fi
 }
 
 

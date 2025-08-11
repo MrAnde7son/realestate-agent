@@ -205,6 +205,66 @@ class TelAvivGS:
     def get_shelters(self, x: float, y: float, radius: int = 200) -> List[Dict[str, Any]]:
         return self._intersects_point(self.L_SHELTERS, x, y, radius)
 
+    def get_building_privilege_page(self, x: float, y: float, save_dir: Optional[str] = "privilege_pages") -> Optional[str]:
+        """
+        Downloads building privilege page for a given location by extracting gush and helka values.
+        Returns the path to the downloaded file, or None if not found.
+        
+        Args:
+            x: X coordinate in EPSG:2039
+            y: Y coordinate in EPSG:2039  
+            save_dir: Directory to save the privilege page (default: "privilege_pages")
+            
+        Returns:
+            Path to downloaded file, or None if gush/helka not found
+        """
+        self._logger.info("Getting building privilege page", extra={"x": x, "y": y})
+        
+        # Get blocks (gush) and parcels (helka) for the location
+        blocks = self.get_blocks(x, y)
+        parcels = self.get_parcels(x, y)
+        
+        if not blocks or not parcels:
+            self._logger.warning("No blocks or parcels found for location", extra={"x": x, "y": y})
+            return None
+            
+        # Extract gush and helka values
+        gush = blocks[0].get("gush")
+        helka = parcels[0].get("helka")
+        
+        if not gush or not helka:
+            self._logger.warning("Missing gush or helka values", extra={"gush": gush, "helka": helka})
+            return None
+            
+        self._logger.info("Found gush and helka", extra={"gush": gush, "helka": helka})
+        
+        # Construct the privilege page URL
+        privilege_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?gush={gush}&helka={helka}&iriaMode=internet"
+        
+        # Create save directory if it doesn't exist
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+            
+        # Generate filename
+        filename = f"privilege_gush_{gush}_helka_{helka}.html"
+        dest_path = os.path.join(save_dir, filename)
+        
+        try:
+            self._logger.info("Downloading privilege page", extra={"url": privilege_url, "dest": dest_path})
+            r = requests.get(privilege_url, headers=self.HDRS, timeout=30, allow_redirects=True)
+            r.raise_for_status()
+            
+            # Save the HTML content
+            with open(dest_path, "wb") as fh:
+                fh.write(r.content)
+                
+            self._logger.info("Privilege page downloaded successfully", extra={"path": dest_path})
+            return dest_path
+            
+        except requests.RequestException as e:
+            self._logger.error("Failed to download privilege page", extra={"url": privilege_url, "error": str(e)})
+            return None
+
     def _intersects_point(self, layer: str, x: float, y: float, radius: Optional[int] = None,
                           out_fields: str = "*") -> List[Dict[str, Any]]:
         p = {
@@ -258,3 +318,10 @@ if __name__ == "__main__":
     if permits:
         p0 = permits[0]
         print({k: p0.get(k) for k in ("permission_num","building_stage","addresses","url_hadmaya")})
+    
+    # Download building privilege page
+    privilege_path = gs.get_building_privilege_page(x, y)
+    if privilege_path:
+        print(f"Building privilege page downloaded to: {privilege_path}")
+    else:
+        print("Could not download building privilege page")

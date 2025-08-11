@@ -142,5 +142,34 @@ async def get_shelters(ctx: Context, x: float, y: float, radius: int = 200):
     return gs.get_shelters(x, y, radius=radius)
 
 
+@mcp.tool()
+async def get_building_privilege_page(
+    ctx: Context,
+    x: float,
+    y: float,
+    save_dir: Optional[str] = "privilege_pages"
+):
+    """Download building privilege page for a location by extracting gush and helka values from blocks and parcels."""
+    gs = _get_client()
+    await ctx.info(f"Downloading building privilege page for point ({x},{y})")
+    
+    privilege_path = gs.get_building_privilege_page(x, y, save_dir=save_dir)
+    
+    if privilege_path:
+        await ctx.info(f"Building privilege page downloaded successfully to: {privilege_path}")
+        return {
+            "success": True,
+            "file_path": privilege_path,
+            "message": "Building privilege page downloaded successfully"
+        }
+    else:
+        await ctx.warning("Failed to download building privilege page - gush/helka values not found")
+        return {
+            "success": False,
+            "file_path": None,
+            "message": "Could not download building privilege page - gush/helka values not found"
+        }
+
+
 if __name__ == "__main__":
     mcp.run() 

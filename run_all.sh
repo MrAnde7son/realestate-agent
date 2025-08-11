@@ -5,6 +5,9 @@
 
 set -e  # Exit on any error
 
+# Get the project root directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -29,38 +32,33 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to start an MCP server in a new terminal window
-start_server_start() {
+# Function to start an MCP server in the background
+start_server() {
     local name=$1
     local module_path=$2
-    
-    print_status "Starting $name MCP server in new terminal..."
-    
-    # Check if we're on macOS
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS - use osascript to open new terminal
-        osascript -e "
-        tell application \"Terminal\"
-            do script \"cd '$SCRIPT_DIR' && source .venv/bin/activate && python3 -m $module_path\"
-            set custom title of front window to \"$name MCP Server\"
-        end tell
-        "
-        print_success "$name MCP server started in new terminal window"
+    local pid_file="/tmp/${name}_mcp_server.pid"
+    local log_file="/tmp/${name}_mcp_output.log"
+
+    # If server already running, skip
+    if [ -f "$pid_file" ] && kill -0 $(cat "$pid_file") 2>/dev/null; then
+        print_warning "$name server already running (PID: $(cat "$pid_file"))"
         return 0
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        # Linux - try to use gnome-terminal or xterm
-        if command -v gnome-terminal &> /dev/null; then
-            gnome-terminal --title="$name MCP Server" -- bash -c "cd '$SCRIPT_DIR' && source .venv/bin/activate && python3 -m $module_path; exec bash"
-        elif command -v xterm &> /dev/null; then
-            xterm -title "$name MCP Server" -e "cd '$SCRIPT_DIR' && source .venv/bin/activate && python3 -m $module_path; bash" &
-        else
-            print_error "No supported terminal emulator found. Please install gnome-terminal or xterm."
-            return 1
-        fi
-        print_success "$name MCP server started in new terminal window"
-        return 0
+    fi
+
+    print_status "Starting $name MCP server..."
+
+    # Start server in background and record PID
+    (cd "$SCRIPT_DIR" && nohup python3 -m $module_path > "$log_file" 2>&1 & echo $! > "$pid_file")
+
+    # Give the process a moment to start
+    sleep 1
+
+    if [ -f "$pid_file" ] && kill -0 $(cat "$pid_file") 2>/dev/null; then
+        print_success "$name MCP server started (PID: $(cat "$pid_file"))"
+        print_status "Output: $log_file"
     else
-        print_error "Unsupported operating system: $OSTYPE"
+        print_error "Failed to start $name MCP server"
+        rm -f "$pid_file"
         return 1
     fi
 }
@@ -90,7 +88,7 @@ stop_servers() {
                 
                 rm "$pid_file"
                 print_success "$name server stopped"
-                ((servers_stopped++))
+                servers_stopped=$((servers_stopped + 1))
             else
                 print_warning "$name server PID file found but process not running"
                 rm "$pid_file"
@@ -119,7 +117,7 @@ show_status() {
         local module="${server_info#*:}"
         local pid_file="/tmp/${name}_mcp_server.pid"
         
-        ((total_count++))
+        total_count=$((total_count + 1))
         
         if [ -f "$pid_file" ]; then
             local pid=$(cat "$pid_file")
@@ -134,7 +132,7 @@ show_status() {
                     echo "  Output log: $log_file"
                 fi
                 
-                ((running_count++))
+                running_count=$((running_count + 1))
             else
                 print_warning "$name: PID file exists but process not running"
                 rm "$pid_file"
@@ -173,30 +171,26 @@ show_server_info() {
     echo
     print_status "Usage:"
     echo "------"
-    echo "  ./run_all.sh start    - Start servers in separate terminal windows"
+    echo "  ./run_all.sh start    - Start servers in the background"
     echo "  ./run_all.sh stop        - Stop all running servers"
     echo "  ./run_all.sh status      - Show server status"
     echo "  ./run_all.sh info        - Show this information"
 }
 
-# Function to start all servers in terminal mode
-start_all_start() {
-    print_status "Starting MCP servers in start windows..."
-    
-    # Start each server in a new terminal
-    start_server_start "GIS" "gis.mcp.server"
-    start_server_start "Yad2" "yad2.mcp.server"
-    start_server_start "Government" "gov.mcp.server"
-    
-    print_success "All MCP servers started in terminal windows!"
-    print_status "Each server is running in its own terminal window"
+# Function to start all servers
+start_all() {
+    print_status "Starting MCP servers..."
+
+    start_server "GIS" "gis.mcp.server"
+    start_server "Yad2" "yad2.mcp.server"
+    start_server "Government" "gov.mcp.server"
+
+    print_success "All start commands issued. Use './run_all.sh status' to verify."
 }
 
 
 # Main execution
 main() {
-    # Get the project root directory
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     cd "$SCRIPT_DIR"
     
     # Check if Python is available
@@ -218,7 +212,7 @@ main() {
 # Handle command line arguments
 case "${1:-}" in
     "start")
-        start_all_start
+        start_all
         ;;
     "stop")
         stop_servers
@@ -234,7 +228,7 @@ case "${1:-}" in
         ;;
     *)
         echo "Usage: $0 [start|stop|status|info]"
-        echo "  start   - Start servers in separate terminal windows (recommended)"
+        echo "  start   - Start servers in the background"
         echo "  stop       - Stop all MCP servers"
         echo "  status     - Show status of all MCP servers"
         echo "  info       - Show server information (default)"

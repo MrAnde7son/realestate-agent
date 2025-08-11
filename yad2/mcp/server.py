@@ -71,8 +71,20 @@ async def search_real_estate(
         if v is not None
     }
 
+    search_params = Yad2SearchParameters()
+    for key, value in params.items():
+        try:
+            search_params.set_parameter(key, value)
+        except ValueError:
+            search_params.parameters[key] = value
+
+    try:
+        max_pages = int(max_pages)
+    except (TypeError, ValueError):
+        max_pages = 3
+
     await ctx.info("Initializing scraper and generating search summary...")
-    _current_scraper = Yad2Scraper(params)
+    _current_scraper = Yad2Scraper(search_params)
     summary = _current_scraper.get_search_summary()
 
     await ctx.info(f"Scraping up to {max_pages} page(s)...")
@@ -150,7 +162,13 @@ async def build_search_url(
         if v is not None
     }
 
-    search_params = Yad2SearchParameters(**params)
+    search_params = Yad2SearchParameters()
+    for key, value in params.items():
+        try:
+            search_params.set_parameter(key, value)
+        except ValueError:
+            search_params.parameters[key] = value
+
     url = search_params.build_url()
 
     # Provide parameter descriptions

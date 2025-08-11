@@ -244,17 +244,20 @@ class TelAvivGS:
         # Create save directory if it doesn't exist
         if save_dir:
             os.makedirs(save_dir, exist_ok=True)
-            
-        # Generate filename
-        filename = f"privilege_gush_{gush}_helka_{helka}.html"
-        dest_path = os.path.join(save_dir, filename)
         
         try:
-            self._logger.info("Downloading privilege page", extra={"url": privilege_url, "dest": dest_path})
+            self._logger.info(
+                "Downloading privilege page", extra={"url": privilege_url, "gush": gush, "helka": helka}
+            )            
             r = requests.get(privilege_url, headers=self.HDRS, timeout=30, allow_redirects=True)
             r.raise_for_status()
             
-            # Save the HTML content
+            content_type = r.headers.get("Content-Type", "").lower()
+            ext = ".pdf" if "pdf" in content_type else ".html"
+            filename = f"privilege_gush_{gush}_helka_{helka}{ext}"
+            dest_path = os.path.join(save_dir, filename)
+
+            # Save the content
             with open(dest_path, "wb") as fh:
                 fh.write(r.content)
                 

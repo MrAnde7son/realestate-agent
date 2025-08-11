@@ -7,7 +7,7 @@ CKAN_BASE_URL = "https://data.gov.il/api/3/action"
 DEFAULT_TIMEOUT = 10
 SEARCH_TIMEOUT = 15
 
-USER_AGENT = "MCP-DataGovIL-Client/2.0.0"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)... Safari/537.36"
 
 DEFAULT_LIMITS = {
     "list": 10,

@@ -5,8 +5,15 @@
 
 set -e  # Exit on any error
 
-# Get the project root directory
+# Get the project root directory and Python interpreter
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Prefer virtualenv Python if available
+if [ -x "$SCRIPT_DIR/.venv/bin/python" ]; then
+    PYTHON_CMD="$SCRIPT_DIR/.venv/bin/python"
+else
+    PYTHON_CMD="$(command -v python3 || command -v python)"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -48,7 +55,7 @@ start_server() {
     print_status "Starting $name MCP server..."
 
     # Start server in background and record PID
-    (cd "$SCRIPT_DIR" && nohup python3 -m $module_path > "$log_file" 2>&1 & echo $! > "$pid_file")
+    (cd "$SCRIPT_DIR" && nohup "$PYTHON_CMD" -m $module_path > "$log_file" 2>&1 & echo $! > "$pid_file")
 
     # Give the process a moment to start
     sleep 1
@@ -205,16 +212,15 @@ start_all() {
 main() {
     cd "$SCRIPT_DIR"
     
-    # Check if Python is available
-    if ! command -v python3 &> /dev/null; then
-        print_error "Python3 is not installed or not in PATH"
+    # Show which Python interpreter will be used
+    if [ -x "$PYTHON_CMD" ]; then
+        print_status "Using Python: $PYTHON_CMD"
+    else
+        print_error "Python interpreter not found"
         exit 1
     fi
-    
-    # Check if virtual environment exists
-    if [ -d ".venv" ]; then
-        print_status "Virtual environment found: .venv"
-    else
+    # Warn if virtual environment missing
+    if [ ! -d ".venv" ]; then
         print_warning "No virtual environment found. Consider creating one."
     fi
     

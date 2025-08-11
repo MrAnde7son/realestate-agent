@@ -151,7 +151,7 @@ class Yad2ParameterReference:
         },
         'property': {
             'description': 'Property types (comma-separated IDs)',
-            'example': '1,5,33 (Apartment, Duplex, Penthouse)',
+            'example': 1,
             'type': 'string',
             'options': {
                 1: 'Apartment',

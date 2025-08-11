@@ -35,19 +35,19 @@ _last_search_results = []
 @mcp.tool()
 async def search_real_estate(
     ctx: Context,
-    maxPrice: Optional[int] = None,
-    minPrice: Optional[int] = None,
-    topArea: Optional[int] = None,
-    area: Optional[int] = None,
-    city: Optional[int] = None,
-    neighborhood: Optional[int] = None,
+    maxPrice: Optional[int | str] = None,
+    minPrice: Optional[int | str] = None,
+    topArea: Optional[int | str] = None,
+    area: Optional[int | str] = None,
+    city: Optional[int | str] = None,
+    neighborhood: Optional[int | str] = None,
     property: Optional[str] = None,
     rooms: Optional[str] = None,
-    parking: Optional[int] = None,
-    elevator: Optional[int] = None,
-    balcony: Optional[int] = None,
-    renovated: Optional[int] = None,
-    max_pages: int = 3,
+    parking: Optional[int | str] = None,
+    elevator: Optional[int | str] = None,
+    balcony: Optional[int | str] = None,
+    renovated: Optional[int | str] = None,
+    max_pages: int | str = 3,
 ):
     """Search for real estate listings on Yad2 with optional filters."""
     global _current_scraper, _last_search_results
@@ -129,18 +129,18 @@ async def search_real_estate(
 @mcp.tool()
 async def build_search_url(
     ctx: Context,
-    maxPrice: Optional[int] = None,
-    minPrice: Optional[int] = None,
-    topArea: Optional[int] = None,
-    area: Optional[int] = None,
-    city: Optional[int] = None,
-    neighborhood: Optional[int] = None,
+    maxPrice: Optional[int | str] = None,
+    minPrice: Optional[int | str] = None,
+    topArea: Optional[int | str] = None,
+    area: Optional[int | str] = None,
+    city: Optional[int | str] = None,
+    neighborhood: Optional[int | str] = None,
     property: Optional[str] = None,
     rooms: Optional[str] = None,
-    parking: Optional[int] = None,
-    elevator: Optional[int] = None,
-    balcony: Optional[int] = None,
-    renovated: Optional[int] = None,
+    parking: Optional[int | str] = None,
+    elevator: Optional[int | str] = None,
+    balcony: Optional[int | str] = None,
+    renovated: Optional[int | str] = None,
 ):
     """Build a Yad2 search URL for the given parameters (no scraping)."""
     params = {

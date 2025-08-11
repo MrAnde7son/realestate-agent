@@ -12,6 +12,7 @@ from .constants import (
     get_tags_by_category,
     search_tags,
 )
+from .decisive import fetch_decisive_appraisals
 
 # Create an MCP server
 mcp = FastMCP("DataGovIL", dependencies=["requests"])
@@ -139,6 +140,16 @@ async def tag_suggestions(ctx: Context, theme: str):
     """Return tag suggestions for a given theme."""
     await ctx.info(f"Fetching tag suggestions for theme: {theme}")
     return get_tag_suggestions(theme)
+
+
+@mcp.tool()
+async def decisive_appraisal(ctx: Context, block: str = "", plot: str = "", max_pages: int = 1):
+    """Fetch decisive appraisal decisions from gov.il."""
+    try:
+        await ctx.info("Fetching decisive appraisal decisions...")
+    except Exception:
+        pass
+    return fetch_decisive_appraisals(block, plot, max_pages=max_pages)
 
 
 @mcp.tool()

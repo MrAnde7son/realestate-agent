@@ -58,10 +58,18 @@ realestate-agent/
 
 ### 1. Installation
 
+Ensure you have Python 3.10 or later installed. Creating an isolated
+virtual environment is recommended so that dependencies do not conflict
+with other projects.
+
 ```bash
 # Clone the repository
 git clone <your-repo-url>
 cd realestate-agent
+
+# (Optional) create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -253,6 +261,7 @@ The MCP server provides seamless integration with LLMs.
 ### Usage with LLM
 
 1. Start the MCP server: `python -m yad2.mcp.server`
+   - To launch all available servers together (Yad2, GIS, gov), run `./run_all.sh`
 2. Configure your LLM to connect to the server
 3. Use natural language queries:
    - "Find 4-room apartments in Tel Aviv under 8 million NIS with parking"

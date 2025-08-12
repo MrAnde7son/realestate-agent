@@ -1,1 +1,1 @@
- 
+# MCP server for GIS functionality 

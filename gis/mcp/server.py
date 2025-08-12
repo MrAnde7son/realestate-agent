@@ -160,38 +160,50 @@ async def get_building_privilege_page(
     y: float,
     save_dir: Optional[str] = "privilege_pages"
 ):
-    """Download and parse the building privilege ("zchuyot") page for a location."""
+    """Download and parse the building privilege ("zchuyot") page for a location. Automatically detects content type and extracts parcels from HTML pages."""
     gs = _get_client()
     await ctx.info(f"Downloading building privilege page for point ({x},{y})")
     
-    privilege_path = gs.get_building_privilege_page(x, y, save_dir=save_dir)
-    data: Optional[Dict[str, Any]] = None
-
+    result = gs.get_building_privilege_page(x, y, save_dir=save_dir)
     
-    if not privilege_path:
+    if not result:
         await ctx.warning("Failed to download building privilege page - gush/helka values not found")
         return {
             "success": False,
             "file_path": None,
-            "data": None,
+            "content_type": None,
+            "parcels": [],
+            "pdf_data": None,
             "message": "Could not download building privilege page - gush/helka values not found",
         }
     
-    if privilege_path.lower().endswith(".pdf"):
+    file_path = result["file_path"]
+    content_type = result["content_type"]
+    parcels = result.get("parcels", [])
+    gush = result.get("gush")
+    helka = result.get("helka")
+    
+    msg = result.get("message", "Building privilege page downloaded")
+    await ctx.info(f"{msg} to: {file_path}")
+    
+    # If it's a PDF and user wants to parse it, do so
+    pdf_data = None
+    if content_type == "pdf":
         try:
-            data = parse_zchuyot(privilege_path)
-            await ctx.info("Privilege page parsed successfully")
+            pdf_data = parse_zchuyot(file_path)
+            await ctx.info("PDF privilege page parsed successfully")
+            msg += " and parsed"
         except Exception as e:  
-            await ctx.warning(f"Failed to parse privilege page: {e}")
-
-    msg = "Building privilege page downloaded"
-    if data:
-        msg += " and parsed"
-    await ctx.info(f"{msg} to: {privilege_path}")
+            await ctx.warning(f"Failed to parse PDF privilege page: {e}")
+    
     return {
         "success": True,
-        "file_path": privilege_path,
-        "data": data,
+        "file_path": file_path,
+        "content_type": content_type,
+        "gush": gush,
+        "helka": helka,
+        "parcels": parcels,
+        "pdf_data": pdf_data,
         "message": msg,
     }
 

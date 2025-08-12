@@ -4,4 +4,5 @@
 Yad2 Scraper Examples
 
 Example scripts and configurations for the Yad2 scraper.
-""" 
+"""
+# Examples for Yad2 functionality 

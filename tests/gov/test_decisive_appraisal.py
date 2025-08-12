@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 from unittest import mock
 from pathlib import Path
 

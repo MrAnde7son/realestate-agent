@@ -126,8 +126,13 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         
         assert result is not None
-        assert "privilege_gush_6638_helka_572.pdf" in result
-        assert result.startswith(str(save_dir))
+        assert isinstance(result, dict), "Result should be a dictionary"
+        assert result["file_path"] is not None
+        assert "privilege_gush_6638_helka_572.pdf" in result["file_path"]
+        assert result["file_path"].startswith(str(save_dir))
+        assert result["content_type"] == "pdf"
+        assert result["gush"] == "6638"
+        assert result["helka"] == "572"
         
         # Check file was created
         pdf_path = save_dir / "privilege_gush_6638_helka_572.pdf"
@@ -163,7 +168,13 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         
         assert result is not None
-        assert "privilege_gush_1234_helka_56.html" in result
+        assert isinstance(result, dict), "Result should be a dictionary"
+        assert result["file_path"] is not None
+        assert "privilege_gush_1234_helka_56.html" in result["file_path"]
+        assert result["content_type"] == "html"
+        assert result["gush"] == "1234"
+        assert result["helka"] == "56"
+        assert isinstance(result["parcels"], list), "Parcels should be a list for HTML content"
         
         # Check HTML file was created
         html_path = save_dir / "privilege_gush_1234_helka_56.html"
@@ -300,7 +311,9 @@ def test_get_building_privilege_page_custom_save_dir(monkeypatch, tmp_path):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(custom_dir))
         
         assert result is not None
-        assert str(custom_dir) in result
+        assert isinstance(result, dict), "Result should be a dictionary"
+        assert result["file_path"] is not None
+        assert str(custom_dir) in result["file_path"]
         assert custom_dir.exists()
         
         pdf_path = custom_dir / "privilege_gush_6638_helka_572.pdf"
@@ -333,9 +346,11 @@ def test_get_building_privilege_page_no_save_dir(monkeypatch, tmp_path):
         # but verify the behavior when save_dir is provided
         result = gs.get_building_privilege_page(178000, 665000, save_dir="")
         
-        # Should still return a path even when save_dir is empty string
+        # Should still return a dictionary with file path even when save_dir is empty string
         assert result is not None
-        assert "privilege_gush_6638_helka_572.pdf" in result
+        assert isinstance(result, dict), "Result should be a dictionary"
+        assert result["file_path"] is not None
+        assert "privilege_gush_6638_helka_572.pdf" in result["file_path"]
 
 
 def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
@@ -369,8 +384,13 @@ def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
         result = gs.get_building_privilege_page(178000, 665000, save_dir=str(save_dir))
         
         assert result is not None
-        assert "privilege_gush_6638_helka_572.pdf" in result
-        assert result.startswith(str(save_dir))
+        assert isinstance(result, dict), "Result should be a dictionary"
+        assert result["file_path"] is not None
+        assert "privilege_gush_6638_helka_572.pdf" in result["file_path"]
+        assert result["file_path"].startswith(str(save_dir))
+        assert result["content_type"] == "pdf"
+        assert result["gush"] == "6638"
+        assert result["helka"] == "572"
         
         # Check file was created with the real PDF content
         downloaded_pdf_path = save_dir / "privilege_gush_6638_helka_572.pdf"

@@ -155,18 +155,19 @@ class Yad2ParameterReference:
             'type': 'string',
             'options': {
                 1: 'Apartment',
-                2: 'House/Villa',
-                5: 'Duplex',
-                6: 'Plot/Land',
+                3: 'Apartment with Garden',
+                5: 'Villa',
+                6: 'Penthouse',
                 15: 'Building',
-                33: 'Penthouse',
-                39: 'Studio',
+                33: 'Land',
                 31: 'Loft',
                 32: 'Triplex',
                 34: 'Garden Apartment',
                 35: 'Rooftop',
                 36: 'Unit',
-                37: 'Mini Penthouse'
+                37: 'Mini Penthouse',
+                39: 'House'
+
             }
         },
         'topArea': {

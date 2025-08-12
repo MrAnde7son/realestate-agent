@@ -6,7 +6,6 @@ from gis.parse_zchuyot import parse_html_privilege_page, parse_zchuyot
 
 def test_parse_html_privilege_page():
     """Test parsing HTML privilege page with multiple parcels."""
-    from gis.parse_zchuyot import parse_html_privilege_page
     
     # Sample HTML content similar to the one provided
     html_content = """

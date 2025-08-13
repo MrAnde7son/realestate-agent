@@ -31,3 +31,14 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["yad2", "gov", "gis", "utils"]
+
+[tool.coverage.report]
+omit = [
+    "yad2/cli/*",
+    "yad2/examples/*",
+    "yad2/mcp/*",
+    "yad2/tests/*"
+]

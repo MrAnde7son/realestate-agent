@@ -22,6 +22,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from dateutil import parser as dateparser
 import pdfplumber
+from bs4 import BeautifulSoup
+import csv
 
 # Optional OCR
 try:
@@ -306,6 +308,170 @@ def parse_policy(block: str) -> List[Dict[str, Any]]:
     return out
 
 
+def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
+    """
+    Parse HTML privilege page and extract all parcels from the dropdown menu.
+    
+    Args:
+        html_content: HTML content of the privilege page
+        
+    Returns:
+        List of dictionaries containing parcel information
+    """
+    parcels = []
+
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        opts_pattern = r"is_opts\s*=\s*'([^']+)'"
+        opts_match = re.search(opts_pattern, html_content)
+
+        if opts_match:
+            opts_html = opts_match.group(1).replace('`', '"')
+            opts_soup = BeautifulSoup(opts_html, 'html.parser')
+            
+            for option in opts_soup.find_all('option'):
+                value = option.get('value', '')
+                text = option.get_text(strip=True)
+                
+                if value and text:
+                    # Parse the value string to extract parameters
+                    # Format: gush=6632&helka=3200&status=0&street=4844&house=0&chasum=0&
+                    params = {}
+                    for param in value.split('&'):
+                        if '=' in param:
+                            key, val = param.split('=', 1)
+                            params[key] = val
+                    
+                    # Extract parcel details from text
+                    # Format: מגרש: 3200 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: אזור תעסוקה שטח: 12826.81 מ``ר)
+                    parcel_info = {
+                        'gush': params.get('gush'),
+                        'helka': params.get('helka'),
+                        'status': params.get('status'),
+                        'street': params.get('street'),
+                        'house': params.get('house'),
+                        'chasum': params.get('chasum'),
+                        'raw_text': text,
+                        'parcel_number': None,
+                        'parcel_status': None,
+                        'street_name': None,
+                        'house_number': None,
+                        'land_use': None,
+                        'area': None
+                    }
+                    
+                    # Parse the Hebrew text to extract structured information
+                    # Extract parcel number (e.g., "3200")
+                    parcel_num_match = re.search(r'מגרש:\s*(\d+)', text)
+                    if parcel_num_match:
+                        parcel_info['parcel_number'] = parcel_num_match.group(1)
+                    
+                    # Extract status (e.g., "מוסדר")
+                    status_match = re.search(r'(\w+)\s*-\s*', text)
+                    if status_match:
+                        parcel_info['parcel_status'] = status_match.group(1)
+                    
+                    # Extract street name (after the dash)
+                    street_match = re.search(r'-\s*([^(]+?)\s*\(', text)
+                    if street_match:
+                        parcel_info['street_name'] = street_match.group(1).strip()
+                    
+                    # Extract house number if present
+                    house_match = re.search(r'מס.?\s*(\d+)', text)
+                    if house_match:
+                        parcel_info['house_number'] = house_match.group(1)
+                    
+                    # Extract land use and area from parentheses
+                    details_match = re.search(r'\(([^)]+)\)', text)
+                    if details_match:
+                        details = details_match.group(1)
+                        
+                        # Extract land use
+                        land_use_match = re.search(r'יעוד קרקע:\s*([^\n]+)', details)
+                        if land_use_match:
+                            land_use = land_use_match.group(1).split('שטח')[0].strip()
+                            parcel_info['land_use'] = land_use
+
+                        # Extract area
+                        area_match = re.search(r'שטח:\s*([\d,\.]+)', details)
+                        if area_match:
+                            parcel_info['area'] = area_match.group(1).strip()
+                    
+                    parcels.append(parcel_info)
+        
+        # If no JavaScript parsing worked, try to find options directly in HTML
+        if not parcels:
+            options = soup.find_all('option')
+            for option in options:
+                value = option.get('value', '')
+                text = option.get_text(strip=True)
+                
+                if value and text and 'gush=' in value:
+                    # Parse the value string
+                    params = {}
+                    for param in value.split('&'):
+                        if '=' in param:
+                            key, val = param.split('=', 1)
+                            params[key] = val
+                    
+                    parcel_info = {
+                        'gush': params.get('gush'),
+                        'helka': params.get('helka'),
+                        'status': params.get('status'),
+                        'street': params.get('street'),
+                        'house': params.get('house'),
+                        'chasum': params.get('chasum'),
+                        'raw_text': text,
+                        'parcel_number': None,
+                        'parcel_status': None,
+                        'street_name': None,
+                        'house_number': None,
+                        'land_use': None,
+                        'area': None
+                    }
+                    
+                    # Try to parse the text content
+                    # Extract parcel number
+                    parcel_num_match = re.search(r'מגרש:\s*(\d+)', text)
+                    if parcel_num_match:
+                        parcel_info['parcel_number'] = parcel_num_match.group(1)
+                    
+                    # Extract other details similar to above
+                    status_match = re.search(r'(\w+)\s*-\s*', text)
+                    if status_match:
+                        parcel_info['parcel_status'] = status_match.group(1)
+                    
+                    street_match = re.search(r'-\s*([^(]+?)\s*\(', text)
+                    if street_match:
+                        parcel_info['street_name'] = street_match.group(1).strip()
+                    
+                    house_match = re.search(r'מס`\s*(\d+)', text)
+                    if house_match:
+                        parcel_info['house_number'] = house_match.group(1)
+                    
+                    details_match = re.search(r'\(([^)]+)\)', text)
+                    if details_match:
+                        details = details_match.group(1)
+                        
+                        land_use_match = re.search(r'יעוד קרקע:\s*([^\n]+)', details)
+                        if land_use_match:
+                            land_use = land_use_match.group(1).split('שטח')[0].strip()
+                            parcel_info['land_use'] = land_use
+
+                        area_match = re.search(r'שטח:\s*([\d,\.]+)', details)
+                        if area_match:
+                            parcel_info['area'] = area_match.group(1).strip()
+                    
+                    parcels.append(parcel_info)
+        
+        return parcels
+        
+    except Exception as e:
+        # Log error and return empty list
+        print(f"Error parsing HTML privilege page: {e}")
+        return []
+
+
 # ---------- main parse ----------
 def parse_zchuyot(pdf_path: str) -> Dict[str, Any]:
     text = extract_text(pdf_path)
@@ -381,8 +547,6 @@ def parse_zchuyot(pdf_path: str) -> Dict[str, Any]:
 
 # ---------- CLI ----------
 def dump_csv(path: str, rows: List[Dict[str, Any]], fields: List[str]):
-    import csv
-
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()

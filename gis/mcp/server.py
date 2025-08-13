@@ -8,18 +8,14 @@ Exposes TelAvivGS functions for address geocoding, permits, and nearby layers.
 
 from fastmcp import FastMCP, Context
 from typing import Optional, Iterable, Dict, Any
+import os
+import sys
 
-# Support running via module and direct execution
-try:
-    from gis.gis_client import TelAvivGS
-    from gis.parse_zchuyot import parse_zchuyot
-except ModuleNotFoundError:
-    import os, sys
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-    from gis.gis_client import TelAvivGS
-    from gis.parse_zchuyot import parse_zchuyot
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from gis.gis_client import TelAvivGS
 
 # Create an MCP server
 mcp = FastMCP(
@@ -160,40 +156,28 @@ async def get_building_privilege_page(
     y: float,
     save_dir: Optional[str] = "privilege_pages"
 ):
-    """Download and parse the building privilege ("zchuyot") page for a location."""
+    """Download the building privilege ("zchuyot") page for a location."""
     gs = _get_client()
     await ctx.info(f"Downloading building privilege page for point ({x},{y})")
-    
-    privilege_path = gs.get_building_privilege_page(x, y, save_dir=save_dir)
-    data: Optional[Dict[str, Any]] = None
 
-    
-    if not privilege_path:
+    result = gs.get_building_privilege_page(x, y, save_dir=save_dir)
+
+    if not result:
         await ctx.warning("Failed to download building privilege page - gush/helka values not found")
         return {
             "success": False,
             "file_path": None,
-            "data": None,
+            "content_type": None,
+            "parcels": [],
+            "pdf_data": None,
             "message": "Could not download building privilege page - gush/helka values not found",
         }
-    
-    if privilege_path.lower().endswith(".pdf"):
-        try:
-            data = parse_zchuyot(privilege_path)
-            await ctx.info("Privilege page parsed successfully")
-        except Exception as e:  
-            await ctx.warning(f"Failed to parse privilege page: {e}")
 
-    msg = "Building privilege page downloaded"
-    if data:
-        msg += " and parsed"
-    await ctx.info(f"{msg} to: {privilege_path}")
-    return {
-        "success": True,
-        "file_path": privilege_path,
-        "data": data,
-        "message": msg,
-    }
+    msg = result.get("message", "Building privilege page downloaded")
+    await ctx.info(f"{msg} to: {result.get('file_path')}")
+
+    result["success"] = True
+    return result
 
 
 if __name__ == "__main__":

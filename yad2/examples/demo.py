@@ -8,18 +8,16 @@ with dynamic parameters and MCP server capabilities.
 """
 
 import json
+import os
+import sys
 
-# Support both package execution (python -m) and direct script execution
-try:
-    from yad2.core import Yad2SearchParameters, Yad2ParameterReference
-    from yad2.scrapers import Yad2Scraper
-except ModuleNotFoundError:
-    import os, sys
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-    from yad2.core import Yad2SearchParameters, Yad2ParameterReference
-    from yad2.scrapers import Yad2Scraper
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from yad2.core import Yad2SearchParameters, Yad2ParameterReference
+from yad2.scrapers import Yad2Scraper
+from urllib.parse import urlparse, parse_qs, unquote
 
 def demo_original_url_extraction():
     """Demo: Extract parameters from your original URL."""
@@ -34,12 +32,6 @@ def demo_original_url_extraction():
     print()
     
     # Extract parameters
-    try:
-        from urllib.parse import urlparse, parse_qs, unquote
-    except ImportError:
-        from urlparse import urlparse, parse_qs
-        from urllib import unquote
-    
     parsed_url = urlparse(original_url)
     query_params = parse_qs(parsed_url.query)
     

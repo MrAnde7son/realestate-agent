@@ -13,13 +13,18 @@ Usage (example):
 """
 
 from __future__ import annotations
+import argparse
 import json
+import os
 import re
 import time
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+
 import requests
-import os
+from bs4 import BeautifulSoup
+
+from .parse_zchuyot import parse_zchuyot, parse_html_privilege_page
 
 class ArcGISError(RuntimeError):
     pass
@@ -56,9 +61,8 @@ class TelAvivGS:
             try:
                 return r.json()
             except Exception as e:
-                import json as _json
                 try:
-                    return _json.loads(text)
+                    return json.loads(text)
                 except Exception:
                     raise ArcGISError(f"JSON parse error: {e}; body[:200]={text[:200]}")
         raise ArcGISError(f"Non-JSON response ({r.status_code}, {ct}); body[:200]={text[:200]}")
@@ -205,10 +209,11 @@ class TelAvivGS:
     def get_shelters(self, x: float, y: float, radius: int = 200) -> List[Dict[str, Any]]:
         return self._intersects_point(self.L_SHELTERS, x, y, radius)
 
-    def get_building_privilege_page(self, x: float, y: float, save_dir: Optional[str] = "privilege_pages") -> Optional[str]:
+    def get_building_privilege_page(self, x: float, y: float, save_dir: Optional[str] = "privilege_pages") -> Optional[Dict[str, Any]]:
         """
-        Downloads building privilege page for a given location by extracting gush and helka values.
-        Returns the path to the downloaded file, or None if not found.
+        Downloads building privilege page for a given location and automatically detects content type.
+        For HTML pages, extracts all parcels and downloads any linked PDF files for parsing.
+        For PDF pages, downloads and parses the file directly.
         
         Args:
             x: X coordinate in EPSG:2039
@@ -216,7 +221,7 @@ class TelAvivGS:
             save_dir: Directory to save the privilege page (default: "privilege_pages")
             
         Returns:
-            Path to downloaded file, or None if gush/helka not found
+            Dictionary with file_path, content_type, and parsed data, or None if failed
         """
         self._logger.info("Getting building privilege page", extra={"x": x, "y": y})
         
@@ -252,8 +257,27 @@ class TelAvivGS:
             r = requests.get(privilege_url, headers=self.HDRS, timeout=30, allow_redirects=True)
             r.raise_for_status()
             
+            # Detect content type
             content_type = r.headers.get("Content-Type", "").lower()
-            ext = ".pdf" if "pdf" in content_type else ".html"
+            is_pdf = "pdf" in content_type
+            is_html = "html" in content_type or "text" in content_type
+            
+            # Determine file extension
+            if is_pdf:
+                ext = ".pdf"
+                content_type_detected = "pdf"
+            elif is_html:
+                ext = ".html"
+                content_type_detected = "html"
+            else:
+                # Fallback: check content for PDF magic bytes
+                if r.content.startswith(b'%PDF'):
+                    ext = ".pdf"
+                    content_type_detected = "pdf"
+                else:
+                    ext = ".html"
+                    content_type_detected = "html"
+            
             filename = f"privilege_gush_{gush}_helka_{helka}{ext}"
             dest_path = os.path.join(save_dir, filename)
 
@@ -261,8 +285,63 @@ class TelAvivGS:
             with open(dest_path, "wb") as fh:
                 fh.write(r.content)
                 
-            self._logger.info("Privilege page downloaded successfully", extra={"path": dest_path})
-            return dest_path
+            self._logger.info("Privilege page downloaded successfully", extra={"path": dest_path, "type": content_type_detected})
+            
+            # Initialize result structure
+            result = {
+                "file_path": dest_path,
+                "content_type": content_type_detected,
+                "gush": gush,
+                "helka": helka,
+                "parcels": [],
+                "pdf_data": [],
+                "message": f"Building privilege page downloaded ({content_type_detected})"
+            }
+
+            # Handle HTML content - extract parcels and linked PDFs
+            if content_type_detected == "html":
+                html_content = r.content.decode('utf-8', errors='ignore')
+                try:
+                    parsed_parcels = parse_html_privilege_page(html_content)
+                    result["parcels"] = parsed_parcels
+                    result["message"] += f" with {len(parsed_parcels)} parcels"
+                    self._logger.info(f"Parsed {len(parsed_parcels)} parcels from HTML", extra={"parcel_count": len(parsed_parcels)})
+                except Exception as e:
+                    self._logger.warning(f"Failed to parse HTML parcels: {e}")
+                    result["message"] += " (parcel parsing failed)"
+
+                soup = BeautifulSoup(html_content, 'html.parser')
+                pdf_links = [
+                    self.normalize_doc_url(a['href'])
+                    for a in soup.find_all('a', href=True)
+                    if a['href'].lower().endswith('.pdf')
+                ]
+                for idx, pdf_url in enumerate(pdf_links, 1):
+                    try:
+                        pdf_resp = requests.get(pdf_url, headers=self.HDRS, timeout=30, allow_redirects=True)
+                        pdf_resp.raise_for_status()
+                        base_name = os.path.basename(pdf_url.split('?')[0]) or f"linked_{idx}.pdf"
+                        safe_name = self.safe_filename(base_name)
+                        if not safe_name.lower().endswith('.pdf'):
+                            safe_name += '.pdf'
+                        pdf_path = os.path.join(save_dir, safe_name)
+                        with open(pdf_path, 'wb') as fh:
+                            fh.write(pdf_resp.content)
+                        parsed_pdf = parse_zchuyot(pdf_path)
+                        result["pdf_data"].append({"file_path": pdf_path, "data": parsed_pdf})
+                    except Exception as e:
+                        self._logger.warning(f"Failed to download/parse linked PDF {pdf_url}: {e}")
+
+            # Handle PDF content - parse directly
+            elif content_type_detected == "pdf":
+                try:
+                    parsed_pdf = parse_zchuyot(dest_path)
+                    result["pdf_data"].append({"file_path": dest_path, "data": parsed_pdf})
+                    result["message"] += " and parsed"
+                except Exception as e:
+                    self._logger.warning(f"Failed to parse PDF privilege page: {e}")
+
+            return result
             
         except requests.RequestException as e:
             self._logger.error("Failed to download privilege page", extra={"url": privilege_url, "error": str(e)})
@@ -303,7 +382,6 @@ class TelAvivGS:
         return re.sub(r'[\\/*?:"<>|]', "_", s)
 
 if __name__ == "__main__":
-    import argparse
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
     ap = argparse.ArgumentParser()
     ap.add_argument("--street", required=True)

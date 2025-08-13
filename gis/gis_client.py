@@ -24,7 +24,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import requests
 from bs4 import BeautifulSoup
 
-from parse_zchuyot import parse_zchuyot, parse_html_privilege_page
+from .parse_zchuyot import parse_zchuyot, parse_html_privilege_page
 
 class ArcGISError(RuntimeError):
     pass

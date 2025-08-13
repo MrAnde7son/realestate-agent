@@ -148,8 +148,12 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
     blocks_payload = {"features": [{"attributes": {"gush": "1234"}}]}
     parcels_payload = {"features": [{"attributes": {"helka": "56"}}]}
     
-    # Mock HTML response
-    html_content = b"<html><body>Privilege page content</body></html>"
+    # Mock HTML response with linked PDF
+    sample_pdf_path = "tests/samples/202581210827_zchuyot.pdf"
+    with open(sample_pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+    pdf_url = "https://example.com/rights.pdf"
+    html_content = f"<html><body><a href=\"{pdf_url}\">PDF</a></body></html>".encode()
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
@@ -161,6 +165,12 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
             r.status_code = 200
             r._content = html_content
             r.headers["Content-Type"] = "text/html"
+            return r
+        elif url == pdf_url:
+            r = requests.Response()
+            r.status_code = 200
+            r._content = pdf_bytes
+            r.headers["Content-Type"] = "application/pdf"
             return r
         raise AssertionError(f"Unexpected URL: {url}")
     
@@ -175,6 +185,13 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
         assert result["gush"] == "1234"
         assert result["helka"] == "56"
         assert isinstance(result["parcels"], list), "Parcels should be a list for HTML content"
+
+        # Ensure linked PDF was downloaded and parsed
+        assert isinstance(result["pdf_data"], list)
+        assert len(result["pdf_data"]) == 1
+        linked_pdf = result["pdf_data"][0]
+        assert os.path.exists(linked_pdf["file_path"])
+        assert isinstance(linked_pdf["data"], dict)
         
         # Check HTML file was created
         html_path = save_dir / "privilege_gush_1234_helka_56.html"
@@ -396,6 +413,8 @@ def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
         downloaded_pdf_path = save_dir / "privilege_gush_6638_helka_572.pdf"
         assert downloaded_pdf_path.exists()
         assert downloaded_pdf_path.read_bytes() == real_pdf_content
-        
-        # Verify the file is actually a valid PDF by checking its header
-        assert downloaded_pdf_path.read_bytes().startswith(b"%PDF") 
+
+        # Verify parsed PDF data is returned
+        assert isinstance(result["pdf_data"], list)
+        assert len(result["pdf_data"]) == 1
+        assert isinstance(result["pdf_data"][0]["data"], dict)

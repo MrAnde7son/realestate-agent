@@ -147,9 +147,6 @@ def test_parse_zchuyot_pdf():
 
 def test_parse_zchuyot_pdf_content_validation():
     """Test specific content validation from the uploaded PDF."""
-    import os
-    from gis.parse_zchuyot import parse_zchuyot
-    
     pdf_path = "tests/samples/202581210827_zchuyot.pdf"
     
     if not os.path.exists(pdf_path):
@@ -219,9 +216,6 @@ def test_parse_zchuyot_pdf_error_handling():
 
 def test_parse_zchuyot_pdf_plan_structure():
     """Test the structure of plans extracted from the PDF."""
-    import os
-    from gis.parse_zchuyot import parse_zchuyot
-    
     pdf_path = "tests/samples/202581210827_zchuyot.pdf"
     
     if not os.path.exists(pdf_path):
@@ -270,9 +264,6 @@ def test_parse_zchuyot_pdf_plan_structure():
 
 def test_parse_zchuyot_pdf_rights_and_policy():
     """Test the extraction of rights and policy information from the PDF."""
-    import os
-    from gis.parse_zchuyot import parse_zchuyot
-    
     pdf_path = "tests/samples/202581210827_zchuyot.pdf"
     
     if not os.path.exists(pdf_path):
@@ -310,6 +301,5 @@ def test_parse_zchuyot_pdf_rights_and_policy():
 
 if __name__ == "__main__":
     # Run tests
-    import pytest
     pytest.main([__file__, "-v"])
 

@@ -24,7 +24,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import requests
 from bs4 import BeautifulSoup
 
-from .parse_zchuyot import parse_zchuyot, parse_html_privilege_page
+from parse_zchuyot import parse_zchuyot, parse_html_privilege_page
 
 class ArcGISError(RuntimeError):
     pass
@@ -223,34 +223,38 @@ class TelAvivGS:
         Returns:
             Dictionary with file_path, content_type, and parsed data, or None if failed
         """
-        self._logger.info("Getting building privilege page", extra={"x": x, "y": y})
-        
-        # Get blocks (gush) and parcels (helka) for the location
-        blocks = self.get_blocks(x, y)
-        parcels = self.get_parcels(x, y)
-        
-        if not blocks or not parcels:
-            self._logger.warning("No blocks or parcels found for location", extra={"x": x, "y": y})
-            return None
-            
-        # Extract gush and helka values
-        gush = blocks[0].get("gush")
-        helka = parcels[0].get("helka")
-        
-        if not gush or not helka:
-            self._logger.warning("Missing gush or helka values", extra={"gush": gush, "helka": helka})
-            return None
-            
-        self._logger.info("Found gush and helka", extra={"gush": gush, "helka": helka})
-        
-        # Construct the privilege page URL
-        privilege_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?gush={gush}&helka={helka}&iriaMode=internet"
-        
-        # Create save directory if it doesn't exist
-        if save_dir:
-            os.makedirs(save_dir, exist_ok=True)
-        
         try:
+            self._logger.info("Getting building privilege page", extra={"x": x, "y": y})
+            
+            # Get blocks (gush) and parcels (helka) for the location
+            blocks = self.get_blocks(x, y)
+            parcels = self.get_parcels(x, y)
+            
+            if not blocks or not parcels:
+                self._logger.warning("No blocks or parcels found for location", extra={"x": x, "y": y})
+                return None
+                
+            # Extract gush and helka values
+            gush = blocks[0].get("ms_gush")
+            helka = parcels[0].get("ms_chelka")
+            
+            self._logger.info("Extracted values", extra={"gush": gush, "helka": helka, "blocks": blocks, "parcels": parcels})
+            
+            if not gush or not helka:
+                self._logger.warning("Missing gush or helka values", extra={"gush": gush, "helka": helka})
+                return None
+                
+            self._logger.info("Found gush and helka", extra={"gush": gush, "helka": helka})
+            
+            # Construct the privilege page URL
+            privilege_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?gush={gush}&helka={helka}&iriaMode=internet"
+            
+            self._logger.info("Constructed privilege URL", extra={"url": privilege_url, "gush": gush, "helka": helka})
+            
+            # Create save directory if it doesn't exist
+            if save_dir:
+                os.makedirs(save_dir, exist_ok=True)
+            
             self._logger.info(
                 "Downloading privilege page", extra={"url": privilege_url, "gush": gush, "helka": helka}
             )            
@@ -343,9 +347,44 @@ class TelAvivGS:
 
             return result
             
-        except requests.RequestException as e:
-            self._logger.error("Failed to download privilege page", extra={"url": privilege_url, "error": str(e)})
-            return None
+        except Exception as e:
+            self._logger.error(f"Unexpected error in get_building_privilege_page: {e}", exc_info=True)
+            return {"success": False, "error": str(e), "message": f"Unexpected error: {e}"}
+
+    def get_gush_helka_info(self, x: float, y: float) -> Dict[str, Any]:
+        """
+        Simple function to get gush and helka information without downloading the privilege page.
+        This helps debug issues with the main function.
+        """
+        try:
+            # Get blocks (gush) and parcels (helka) for the location
+            blocks = self.get_blocks(x, y)
+            parcels = self.get_parcels(x, y)
+            
+            if not blocks or not parcels:
+                return {"error": "No blocks or parcels found", "blocks": blocks, "parcels": parcels}
+                
+            # Extract gush and helka values
+            gush = blocks[0].get("ms_gush")
+            helka = parcels[0].get("ms_chelka")
+            
+            if not gush or not helka:
+                return {"error": "Missing gush or helka values", "gush": gush, "helka": helka}
+                
+            # Construct the privilege page URL
+            privilege_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?gush={gush}&helka={helka}&iriaMode=internet"
+            
+            return {
+                "success": True,
+                "gush": gush,
+                "helka": helka,
+                "url": privilege_url,
+                "blocks": blocks,
+                "parcels": parcels
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": str(e), "message": f"Error: {e}"}
 
     def _intersects_point(self, layer: str, x: float, y: float, radius: Optional[int] = None,
                           out_fields: str = "*") -> List[Dict[str, Any]]:

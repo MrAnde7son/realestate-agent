@@ -5,9 +5,7 @@ Test script for get_building_privilege_page function
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'gis'))
-
-from gis_client import TelAvivGS
+from gis.gis_client import TelAvivGS
 
 def test_privilege_page():
     """Test the get_building_privilege_page function"""

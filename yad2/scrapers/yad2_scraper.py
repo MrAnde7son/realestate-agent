@@ -11,10 +11,7 @@ import json
 import time
 from datetime import datetime
 from bs4 import BeautifulSoup
-try:
-    from urllib.parse import urljoin
-except ImportError:
-    from urlparse import urljoin
+from urllib.parse import urljoin
 
 from ..core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
 

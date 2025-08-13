@@ -22,6 +22,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from dateutil import parser as dateparser
 import pdfplumber
+from bs4 import BeautifulSoup
+import csv
 
 # Optional OCR
 try:
@@ -316,23 +318,15 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
     Returns:
         List of dictionaries containing parcel information
     """
-    import re
-    from bs4 import BeautifulSoup
-    
     parcels = []
-    
+
     try:
-        # Parse HTML content
         soup = BeautifulSoup(html_content, 'html.parser')
-        
-        # Find the dropdown with parcel options
-        # Look for the is_opts variable in the JavaScript
-        opts_pattern = r'is_opts\s*=\s*`([^`]+)`'
+        opts_pattern = r"is_opts\s*=\s*'([^']+)'"
         opts_match = re.search(opts_pattern, html_content)
-        
+
         if opts_match:
-            opts_html = opts_match.group(1)
-            # Parse the options HTML
+            opts_html = opts_match.group(1).replace('`', '"')
             opts_soup = BeautifulSoup(opts_html, 'html.parser')
             
             for option in opts_soup.find_all('option'):
@@ -383,7 +377,7 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
                         parcel_info['street_name'] = street_match.group(1).strip()
                     
                     # Extract house number if present
-                    house_match = re.search(r'מס`\s*(\d+)', text)
+                    house_match = re.search(r'מס.?\s*(\d+)', text)
                     if house_match:
                         parcel_info['house_number'] = house_match.group(1)
                     
@@ -393,12 +387,13 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
                         details = details_match.group(1)
                         
                         # Extract land use
-                        land_use_match = re.search(r'יעוד קרקע:\s*([^,]+)', details)
+                        land_use_match = re.search(r'יעוד קרקע:\s*([^\n]+)', details)
                         if land_use_match:
-                            parcel_info['land_use'] = land_use_match.group(1).strip()
-                        
+                            land_use = land_use_match.group(1).split('שטח')[0].strip()
+                            parcel_info['land_use'] = land_use
+
                         # Extract area
-                        area_match = re.search(r'שטח:\s*([^מ]+)\s*מ``ר', details)
+                        area_match = re.search(r'שטח:\s*([\d,\.]+)', details)
                         if area_match:
                             parcel_info['area'] = area_match.group(1).strip()
                     
@@ -458,11 +453,12 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
                     if details_match:
                         details = details_match.group(1)
                         
-                        land_use_match = re.search(r'יעוד קרקע:\s*([^,]+)', details)
+                        land_use_match = re.search(r'יעוד קרקע:\s*([^\n]+)', details)
                         if land_use_match:
-                            parcel_info['land_use'] = land_use_match.group(1).strip()
-                        
-                        area_match = re.search(r'שטח:\s*([^מ]+)\s*מ``ר', details)
+                            land_use = land_use_match.group(1).split('שטח')[0].strip()
+                            parcel_info['land_use'] = land_use
+
+                        area_match = re.search(r'שטח:\s*([\d,\.]+)', details)
                         if area_match:
                             parcel_info['area'] = area_match.group(1).strip()
                     
@@ -551,8 +547,6 @@ def parse_zchuyot(pdf_path: str) -> Dict[str, Any]:
 
 # ---------- CLI ----------
 def dump_csv(path: str, rows: List[Dict[str, Any]], fields: List[str]):
-    import csv
-
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()

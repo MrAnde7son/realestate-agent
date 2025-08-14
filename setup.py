@@ -13,6 +13,10 @@ setup(
         "pdfplumber",
         "fastmcp",
         "pytest",
+        "SQLAlchemy",
+        "psycopg2-binary",
+        "APScheduler",
+        "twilio",
     ],
     python_requires=">=3.8",
 )

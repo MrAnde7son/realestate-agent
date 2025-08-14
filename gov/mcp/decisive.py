@@ -17,64 +17,22 @@ HEADERS = {"User-Agent": USER_AGENT}
 
 
 def _extract_field(text: str, label: str) -> str:
-    # Simple and reliable field extraction
-    # Look for the label followed by colon or dash
-    if f"{label}:" in text:
-        # Find the start of the value (after the colon)
-        start = text.find(f"{label}:") + len(f"{label}:")
-        value = text[start:].strip()
-        
-        # Find the end of the value by looking for the next field label
-        # or common separators
-        end_positions = []
-        
-        # Look for next field labels
-        for next_label in ["שמאי:", "ועדה:"]:
-            pos = value.find(next_label)
-            if pos != -1:
-                end_positions.append(pos)
-        
-        # Look for separators
-        for sep in [" - ", " | ", ", "]:
-            pos = value.find(sep)
-            if pos != -1:
-                end_positions.append(pos)
-        
-        # Use the earliest end position
-        if end_positions:
-            end_pos = min(end_positions)
-            value = value[:end_pos].strip()
-        
-        return value
-    
-    elif f"{label}-" in text:
-        # Handle dash separator
-        start = text.find(f"{label}-") + len(f"{label}-")
-        value = text[start:].strip()
-        
-        # Find the end of the value
-        end_positions = []
-        
-        # Look for next field labels
-        for next_label in ["שמאי:", "ועדה:"]:
-            pos = value.find(next_label)
-            if pos != -1:
-                end_positions.append(pos)
-        
-        # Look for separators
-        for sep in [" - ", " | ", ", "]:
-            pos = value.find(sep)
-            if pos != -1:
-                end_positions.append(pos)
-        
-        # Use the earliest end position
-        if end_positions:
-            end_pos = min(end_positions)
-            value = value[:end_pos].strip()
-        
-        return value
-    
-    return ""
+    """Extract a field value following a label in a block of text."""
+    # Match patterns like "label: value" or "label - value" with optional spaces.
+    # Accept both the regular hyphen and the en dash (–) to support variations
+    # that appear in different data sources.
+    pattern = rf"{re.escape(label)}\s*[:\-–]\s*([^|,]*)"
+    match = re.search(pattern, text)
+    if not match:
+        return ""
+
+    value = match.group(1).strip()
+
+    # Trim at common separators if they appear inside the value
+    for sep in [" - ", " | ", ", ", " – "]:
+        if sep in value:
+            value = value.split(sep)[0].strip()
+    return value
 
 
 def _parse_items(html: str) -> List[Dict]:

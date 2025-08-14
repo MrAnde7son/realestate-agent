@@ -88,6 +88,32 @@ def test_extract_field_with_different_separators():
     assert appraiser == "גולדברג ארנון"
 
 
+def test_extract_field_with_dash_and_spaces():
+    """Field extraction when a dash with surrounding spaces is used"""
+    text = "תאריך - 20-07-2025 | שמאי - גולדברג ארנון | ועדה - אשדוד"
+
+    date = _extract_field(text, "תאריך")
+    appraiser = _extract_field(text, "שמאי")
+    committee = _extract_field(text, "ועדה")
+
+    assert date == "20-07-2025"
+    assert appraiser == "גולדברג ארנון"
+    assert committee == "אשדוד"
+
+
+def test_extract_field_with_en_dash():
+    """Field extraction when an en dash is used as a separator"""
+    text = "תאריך – 20-07-2025 | שמאי – גולדברג ארנון | ועדה – אשדוד"
+
+    date = _extract_field(text, "תאריך")
+    appraiser = _extract_field(text, "שמאי")
+    committee = _extract_field(text, "ועדה")
+
+    assert date == "20-07-2025"
+    assert appraiser == "גולדברג ארנון"
+    assert committee == "אשדוד"
+
+
 def test_extract_field_at_end():
     """Test field extraction when field is at the end of text"""
     text = "תאריך: 20-07-2025 | שמאי: גולדברג ארנון"

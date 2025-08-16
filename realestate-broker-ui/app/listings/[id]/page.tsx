@@ -20,7 +20,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
         .then(data => setListing(data.listing))
         .catch(err => console.error('Error loading listing:', err))
     })
-  }, [])
+  }, [params])
 
   if (!listing) {
     return (

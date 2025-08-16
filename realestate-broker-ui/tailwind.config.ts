@@ -64,8 +64,7 @@ const config: Config = {
         borderc: 'var(--border)',
         good: '#2ecc71',
         warn: '#f39c12', 
-        bad: '#e74c3c',
-        accent: '#7aa2f7'
+        bad: '#e74c3c'
       },
       keyframes: {
         "accordion-down": {

@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Listing } from '@/lib/types'
+import { Listing } from '@/lib/data'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -105,7 +105,7 @@ export default function ListingsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="font-mono">{fmtCurrency(listing.price)}</TableCell>
-                      <TableCell className="font-mono">{fmtNumber(listing.pricePerSqm)}</TableCell>
+                      <TableCell className="font-mono">{listing.pricePerSqm ? fmtNumber(listing.pricePerSqm) : '—'}</TableCell>
                       <TableCell>
                         <Badge variant={listing.deltaVsAreaPct && listing.deltaVsAreaPct >= 0 ? 'default' : 'destructive'}>
                           {listing.deltaVsAreaPct ? `${listing.deltaVsAreaPct > 0 ? '+' : ''}${listing.deltaVsAreaPct}%` : '—'}
@@ -114,7 +114,7 @@ export default function ListingsPage() {
                       <TableCell><Badge>P{listing.domPercentile || '—'}</Badge></TableCell>
                       <TableCell><Badge variant="secondary">{listing.competition1km || '—'}</Badge></TableCell>
                       <TableCell><Badge variant="outline">{listing.zoning || '—'}</Badge></TableCell>
-                      <TableCell><Badge>+{fmtNumber(listing.remainingRightsSqm)} מ״ר</Badge></TableCell>
+                      <TableCell><Badge>+{listing.remainingRightsSqm ? fmtNumber(listing.remainingRightsSqm) : '—'} מ״ר</Badge></TableCell>
                       <TableCell><Badge variant="secondary">{listing.program || '—'}</Badge></TableCell>
                       <TableCell><Badge>{listing.lastPermitQ || '—'}</Badge></TableCell>
                       <TableCell><Badge>{listing.noiseLevel}/5</Badge></TableCell>
@@ -139,7 +139,7 @@ export default function ListingsPage() {
                           <Badge variant="good">ללא</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="font-mono">{fmtCurrency(listing.modelPrice)}</TableCell>
+                      <TableCell className="font-mono">{listing.modelPrice ? fmtCurrency(listing.modelPrice) : '—'}</TableCell>
                       <TableCell>
                         <Badge variant={listing.priceGapPct && listing.priceGapPct > 0 ? 'warn' : 'good'}>
                           {listing.priceGapPct ? `${listing.priceGapPct > 0 ? '+' : ''}${listing.priceGapPct.toFixed(1)}%` : '—'}

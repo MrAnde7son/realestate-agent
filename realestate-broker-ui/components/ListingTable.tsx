@@ -1,14 +1,14 @@
 'use client'
 import * as React from 'react'
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { Listing } from '@/lib/types'
+import { Listing } from '@/lib/data'
 import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 function RiskCell({ flags }: { flags?: string[] }){ if(!flags || flags.length===0) return <Badge variant='good'>ללא</Badge>; return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'bad':f.includes('אנטנה')?'warn':'default'}>{f}</Badge>)}</div> }
 const columns: ColumnDef<Listing>[] = [
-  { header:'נכס', accessorKey:'address', cell: ({ row }) => (<div><div className="font-semibold"><Link href={`/listings/${row.original.id}`}>{row.original.address}</Link></div><div className="text-xs text-sub">{row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type==='house'?'בית':'דירה'} · {row.original.netSqm??'—'} מ"ר נטו</div></div>) },
+  { header:'נכס', accessorKey:'address', cell: ({ row }) => (<div><div className="font-semibold"><Link href={`/listings/${row.original.id}`}>{row.original.address}</Link></div><div className="text-xs text-sub">{row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type==='house'?'בית':'דירה'} · {row.original.netSqm??'—'} מ&quot;ר נטו</div></div>) },
   { header:'₪', accessorKey:'price', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'₪/מ"ר', accessorKey:'pricePerSqm', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
   { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', cell: info => <Badge variant={(info.getValue() as number)>=0?'default':'bad'}>{fmtPct(info.getValue() as number)}</Badge> },

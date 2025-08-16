@@ -1,0 +1,35 @@
+{
+  "description": "Example Yad2 search configuration - Tel Aviv apartments",
+  "search_parameters": {
+    "maxPrice": 8000000,
+    "minPrice": 3000000,
+    "property": "1,33",
+    "topArea": 2,
+    "area": 1,
+    "city": 5000,
+    "neighborhood": 203,
+    "rooms": "3-4",
+    "parking": 1,
+    "elevator": 1,
+    "balcony": 1,
+    "renovated": 1,
+    "order": "price_asc"
+  },
+  "notes": {
+    "property_types": {
+      "1": "Apartment",
+      "33": "Penthouse"
+    },
+    "location": {
+      "topArea": "2 = Center region",
+      "city": "5000 = Tel Aviv",
+      "neighborhood": "203 = specific neighborhood in Tel Aviv"
+    },
+    "features": {
+      "parking": "1 = requires 1 parking space",
+      "elevator": "1 = must have elevator",
+      "balcony": "1 = must have balcony",
+      "renovated": "1 = must be renovated"
+    }
+  }
+} 

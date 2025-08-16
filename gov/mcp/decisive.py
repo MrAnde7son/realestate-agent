@@ -17,109 +17,122 @@ HEADERS = {"User-Agent": USER_AGENT}
 
 
 def _extract_field(text: str, label: str) -> str:
-    # Simple and reliable field extraction
-    # Look for the label followed by colon or dash
-    if f"{label}:" in text:
-        # Find the start of the value (after the colon)
-        start = text.find(f"{label}:") + len(f"{label}:")
-        value = text[start:].strip()
-        
-        # Find the end of the value by looking for the next field label
-        # or common separators
-        end_positions = []
-        
-        # Look for next field labels
-        for next_label in ["שמאי:", "ועדה:"]:
-            pos = value.find(next_label)
-            if pos != -1:
-                end_positions.append(pos)
-        
-        # Look for separators
-        for sep in [" - ", " | ", ", "]:
-            pos = value.find(sep)
-            if pos != -1:
-                end_positions.append(pos)
-        
-        # Use the earliest end position
-        if end_positions:
-            end_pos = min(end_positions)
-            value = value[:end_pos].strip()
-        
-        return value
+    """Extract a field value following a label in a block of text."""
+    # Match patterns like "label: value" or "label - value" with optional spaces.
+    # Accept both the regular hyphen and the en dash (–) to support variations
+    # that appear in different data sources.
+    # Also support "מיום" pattern which is followed by just a space
+    if label == "מיום":
+        # Special pattern for "מיום" - can be followed by space only  
+        pattern = rf"{re.escape(label)}\s+(\d{{2}}\.\d{{2}}\.\d{{2,4}}|\d{{2}}/\d{{2}}/\d{{2,4}})"
+    else:
+        pattern = rf"{re.escape(label)}\s*[:\-–]\s*([^|,]*)"
     
-    elif f"{label}-" in text:
-        # Handle dash separator
-        start = text.find(f"{label}-") + len(f"{label}-")
-        value = text[start:].strip()
-        
-        # Find the end of the value
-        end_positions = []
-        
-        # Look for next field labels
-        for next_label in ["שמאי:", "ועדה:"]:
-            pos = value.find(next_label)
-            if pos != -1:
-                end_positions.append(pos)
-        
-        # Look for separators
-        for sep in [" - ", " | ", ", "]:
-            pos = value.find(sep)
-            if pos != -1:
-                end_positions.append(pos)
-        
-        # Use the earliest end position
-        if end_positions:
-            end_pos = min(end_positions)
-            value = value[:end_pos].strip()
-        
-        return value
-    
-    return ""
+    match = re.search(pattern, text)
+    if not match:
+        return ""
+
+    value = match.group(1).strip()
+
+    # Trim at common separators if they appear inside the value
+    for sep in [" - ", " | ", ", ", " – "]:
+        if sep in value:
+            value = value.split(sep)[0].strip()
+    return value
 
 
 def _parse_items(html: str) -> List[Dict]:
+    """Parse decisive appraisal items from HTML, supporting both old and new website structures."""
     soup = BeautifulSoup(html, "lxml")
     items = []
-    for card in soup.select(".collector-result-item"):
-        link_tag = card.find("a", href=True)
-        
-        # Extract title with proper separators
-        if link_tag:
+    
+    # Try the old structure first (.collector-result-item)
+    old_cards = soup.select(".collector-result-item")
+    if old_cards:
+        for card in old_cards:
+            link_tag = card.find("a", href=True)
+            
+            # Extract title with proper separators
+            if link_tag:
+                title = link_tag.get_text(strip=True)
+            else:
+                # If no link, manually construct title with separators
+                spans = card.find_all("span")
+                title_parts = []
+                for span in spans:
+                    title_parts.append(span.get_text(strip=True))
+                title = " | ".join(title_parts)
+            
+            pdf_url = urljoin(BASE_URL, link_tag["href"]) if link_tag else ""
+            
+            # Extract text with proper separators
+            if link_tag:
+                # If there's a link, use the existing approach
+                text = card.get_text(" | ", strip=True)
+            else:
+                # If no link, manually construct text with separators
+                spans = card.find_all("span")
+                text_parts = []
+                for span in spans:
+                    text_parts.append(span.get_text(strip=True))
+                text = " | ".join(text_parts)
+            
+            date = _extract_field(text, "תאריך")
+            appraiser = _extract_field(text, "שמאי")
+            committee = _extract_field(text, "ועדה")
+            items.append(
+                {
+                    "title": title,
+                    "date": date,
+                    "appraiser": appraiser,
+                    "committee": committee,
+                    "pdf_url": pdf_url,
+                }
+            )
+    
+    # If no results with old structure, try the new structure (ol.search_results li)
+    if not items:
+        new_cards = soup.select("ol.search_results li")
+        for li in new_cards:
+            # Extract title from h5 > a
+            h5 = li.find("h5")
+            if not h5:
+                continue
+                
+            link_tag = h5.find("a", href=True)
+            if not link_tag:
+                continue
+                
             title = link_tag.get_text(strip=True)
-        else:
-            # If no link, manually construct title with separators
-            spans = card.find_all("span")
-            title_parts = []
-            for span in spans:
-                title_parts.append(span.get_text(strip=True))
-            title = " | ".join(title_parts)
-        
-        pdf_url = urljoin(BASE_URL, link_tag["href"]) if link_tag else ""
-        
-        # Extract text with proper separators
-        if link_tag:
-            # If there's a link, use the existing approach
-            text = card.get_text(" | ", strip=True)
-        else:
-            # If no link, manually construct text with separators
-            spans = card.find_all("span")
-            text_parts = []
-            for span in spans:
-                text_parts.append(span.get_text(strip=True))
-            text = " | ".join(text_parts)
-        
-        date = _extract_field(text, "תאריך")
-        appraiser = _extract_field(text, "שמאי")
-        committee = _extract_field(text, "ועדה")
-        items.append(
-            {
+            relative_href = link_tag.get("href", "")
+            
+            # Build full URL
+            pdf_url = urljoin(BASE_URL, relative_href) if relative_href else ""
+            
+            # Extract details from p.body
+            body_p = li.find("p", class_="body")
+            details_text = body_p.get_text(" | ", strip=True) if body_p else ""
+            
+            # Extract specific fields using the existing _extract_field function
+            # Extract date from title - look for "מיום" pattern
+            date = _extract_field(title, "מיום")  # "from date" - extract from title
+            if not date:
+                # Fallback: try to extract date pattern directly from title
+                import re
+                date_match = re.search(r"\d{2}\.\d{2}\.\d{2,4}", title)
+                if date_match:
+                    date = date_match.group(0)
+            appraiser = _extract_field(details_text, "שמאי")
+            committee = _extract_field(details_text, "ועדה")
+            
+            items.append({
                 "title": title,
                 "date": date,
                 "appraiser": appraiser,
                 "committee": committee,
                 "pdf_url": pdf_url,
-            }
-        )
+            })
+    
     return items
 
 

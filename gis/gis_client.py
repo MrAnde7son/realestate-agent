@@ -19,10 +19,14 @@ import os
 import re
 import time
 import logging
+import math
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup
+from pyproj import Transformer
+from dateutil import parser as dtp
 
 from .parse_zchuyot import parse_zchuyot, parse_html_privilege_page
 
@@ -49,6 +53,9 @@ class TelAvivGS:
     L_SHELTERS       = "IView2/MapServer/592"         # מקלטים
 
     HDRS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)... Safari/537.36"}
+
+    CKAN = "https://data.gov.il/api/3/action"
+    _TRANS_2039_4326 = Transformer.from_crs(2039, 4326, always_xy=True)
 
     # Module logger
     _logger = logging.getLogger(__name__)
@@ -419,6 +426,7 @@ class TelAvivGS:
     @staticmethod
     def safe_filename(s: str) -> str:
         return re.sub(r'[\\/*?:"<>|]', "_", s)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")

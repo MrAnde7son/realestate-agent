@@ -1,6 +1,7 @@
 # server.py
 from fastmcp import FastMCP, Context
 import requests
+from typing import Any, Dict, Optional
 
 from .constants import (
     CKAN_BASE_URL,
@@ -13,6 +14,7 @@ from .constants import (
     search_tags,
 )
 from .decisive import fetch_decisive_appraisals
+from .transactions import RealEstateTransactions
 
 # Create an MCP server
 mcp = FastMCP("DataGovIL", dependencies=["requests"])
@@ -210,6 +212,86 @@ def fetch_data(dataset_name: str, limit: int = 100, offset: int = 0):
     if data.get("success"):
         return data["result"]["records"]
     raise Exception(data.get("error", "Unknown error occurred"))
+
+
+@mcp.tool()
+async def fetch_comparable_transactions(
+    ctx: Context,
+    x: float, 
+    y: float,
+    street: str,
+    house: int,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    target_area: Optional[float] = None,
+    limit: int = 2000,
+    top: int = 20,
+) -> Dict[str, Any]:
+    """Fetch comparable Tel-Aviv real-estate transactions from data.gov.il.
+
+    Locates the active real-estate transactions dataset on data.gov.il 
+    and returns basic statistics along with the top-N comparable transactions.
+    
+    Example:
+        # Fetch comparables for הגולן 1, תל אביב (Block 6638, Plot 96)
+        # First get coordinates using Tel Aviv GIS: x=184320.94, y=668548.65 (EPSG:2039)
+        
+        result = await fetch_comparable_transactions(
+            ctx=ctx,
+            x=184320.94, y=668548.65,
+            street="הגולן",
+            house=1,
+            date_from="2020-01-01",  # Optional: filter by date range
+            date_to="2025-12-31",
+            target_area=80.0,        # Optional: filter by similar area (±20%)
+            top=15                   # Top 15 closest comparables
+        )
+        
+        # Expected output for הגולן 1 area:
+        # Based on government data (Ministry of Housing public housing purchases):
+        # - Recent transactions (2023-2025): ₪2.1-2.6M for 3-4 room apartments
+        # - Price per sqm: ~₪27,000-33,000
+        # - Block 6638 has decisive appraiser decisions available
+    
+    Args:
+        x: X coordinate in EPSG:2039
+        y: Y coordinate in EPSG:2039
+        street: Street name for reference
+        house: House number for reference
+        date_from: Start date filter (YYYY-MM-DD), optional
+        date_to: End date filter (YYYY-MM-DD), optional  
+        target_area: Filter by apartment area ±20% tolerance, optional
+        limit: Max records to fetch from data.gov.il (default: 2000)
+        top: Number of top comparable transactions to return (default: 20)
+        
+    Returns:
+        Dict with 'stats' (median/avg prices) and 'comps' (comparable transactions)
+        
+    Raises:
+        RuntimeError: If no transaction dataset found on data.gov.il
+    """
+    await ctx.info(f"Fetching comparable transactions for {street} {house}")
+    
+    # Use the transactions module to handle all the business logic
+    transactions = RealEstateTransactions()
+    
+    try:
+        result = transactions.fetch_comparable_transactions(
+            x=x, y=y, street=street, house=house,
+            date_from=date_from, date_to=date_to, target_area=target_area,
+            limit=limit, top=top
+        )
+        
+        stats = result["stats"]
+        comps_count = len(result["comps"])
+        await ctx.info(f"Successfully found {comps_count} comparable transactions")
+        await ctx.info(f"Median price per sqm: ₪{stats.get('median_price_sqm', 0):,.0f}")
+        
+        return result
+        
+    except Exception as e:
+        await ctx.info(f"Error fetching transactions: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":

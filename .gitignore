@@ -14,8 +14,10 @@ dist/
 downloads/
 eggs/
 .eggs/
+# Python library directories (but allow realestate-broker-ui/lib)
 lib/
 lib64/
+!realestate-broker-ui/lib/
 parts/
 sdist/
 var/

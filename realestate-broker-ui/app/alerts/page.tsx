@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import { API_BASE } from '@/lib/config'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 
@@ -25,10 +26,15 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export default function AlertsPage(){
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({ 
-    resolver: zodResolver(schema), 
-    defaultValues: { rule_name:'', risk:'any', notify_email:true, notify_whatsapp:false, confidence_min:70 } 
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { rule_name:'', risk:'any', notify_email:true, notify_whatsapp:false, confidence_min:70 }
   })
+
+  const [rows, setRows] = React.useState<any[]>([])
+  React.useEffect(()=>{
+    fetch(`${API_BASE}/api/alerts/`).then(r=>r.json()).then(d=>setRows(d.rows || [])).catch(()=>{})
+  },[])
   
   async function onSubmit(values: FormData){
     const payload = { 
@@ -132,6 +138,41 @@ export default function AlertsPage(){
                 </Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Existing alerts table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>התראות קיימות</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {rows.length > 0 ? (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>ID</TH>
+                    <TH>עיר</TH>
+                    <TH>מחיר עד</TH>
+                    <TH>חדרים</TH>
+                    <TH>פעיל</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {rows.map(r => (
+                    <TR key={r.id}>
+                      <TD>{r.id}</TD>
+                      <TD>{r.criteria?.city || '—'}</TD>
+                      <TD>{r.criteria?.max_price ?? '—'}</TD>
+                      <TD>{r.criteria?.beds ? `${r.criteria.beds.min ?? '—'}-${r.criteria.beds.max ?? '—'}` : '—'}</TD>
+                      <TD>{r.active ? '✓' : '✗'}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            ) : (
+              <div className="text-sm text-muted-foreground">אין התראות</div>
+            )}
           </CardContent>
         </Card>
 

@@ -70,13 +70,13 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">Confidence</div>
+                <div className="text-sm text-muted-foreground">רמת ביטחון</div>
               <div className="text-2xl font-bold">{listing.confidencePct}%</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">Cap Rate</div>
+                <div className="text-sm text-muted-foreground">תשואת Cap</div>
               <div className="text-2xl font-bold">{listing.capRatePct?.toFixed(1)}%</div>
             </CardContent>
           </Card>
@@ -126,7 +126,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                     <span>{listing.beds || '—'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">זונינג:</span>
+                    <span className="text-muted-foreground">ייעוד:</span>
                     <span>{listing.zoning || '—'}</span>
                   </div>
                 </CardContent>
@@ -210,10 +210,10 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                   </div>
                   
                   <div className="text-center">
-                    <Badge variant={listing.greenWithin300m ? 'good' : 'bad'}>
-                      {listing.greenWithin300m ? 'כן' : 'לא'}
-                    </Badge>
-                    <div className="text-sm text-muted-foreground">ירוק ≤300מ׳</div>
+                      <Badge variant={listing.greenWithin300m ? 'good' : 'bad'}>
+                        {listing.greenWithin300m ? 'כן' : 'לא'}
+                      </Badge>
+                      <div className="text-sm text-muted-foreground">שטחי ציבור ≤300מ׳</div>
                   </div>
                   
                   <div className="text-center">

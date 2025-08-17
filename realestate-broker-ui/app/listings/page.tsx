@@ -70,19 +70,19 @@ export default function ListingsPage() {
                     <TableHead className="text-right">מחיר</TableHead>
                     <TableHead className="text-right">₪/מ״ר</TableHead>
                     <TableHead className="text-right">Δ איזור</TableHead>
-                    <TableHead className="text-right">DOM P</TableHead>
+                    <TableHead className="text-right">ימי שוק (אחוזון)</TableHead>
                     <TableHead className="text-right">תחרות</TableHead>
-                    <TableHead className="text-right">זונינג</TableHead>
+                    <TableHead className="text-right">ייעוד</TableHead>
                     <TableHead className="text-right">יתרת זכ׳</TableHead>
                     <TableHead className="text-right">תכנית</TableHead>
                     <TableHead className="text-right">היתר</TableHead>
                     <TableHead className="text-right">רעש</TableHead>
-                    <TableHead className="text-right">ירוק</TableHead>
+                    <TableHead className="text-right">שטחי ציבור</TableHead>
                     <TableHead className="text-right">סיכון</TableHead>
                     <TableHead className="text-right">מחיר מודל</TableHead>
                     <TableHead className="text-right">פער</TableHead>
-                    <TableHead className="text-right">Conf</TableHead>
-                    <TableHead className="text-right">Cap</TableHead>
+                    <TableHead className="text-right">רמת ביטחון</TableHead>
+                    <TableHead className="text-right">תשואת Cap</TableHead>
                     <TableHead className="text-right">פעולות</TableHead>
                   </TableRow>
                 </TableHeader>

@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Iterable, Optional
 
-from alerts import Notifier
+from orchestration.alerts import Notifier
 from db import Database, models
-from scheduler import create_scheduler
+from orchestration.scheduler import create_scheduler
 from yad2.scrapers.yad2_scraper import Yad2Scraper
 
 

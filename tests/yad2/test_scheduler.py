@@ -7,7 +7,7 @@ from datetime import datetime
 from yad2.core.models import RealEstateListing
 from db import SQLAlchemyDatabase, models
 from yad2 import scheduler as yad2_scheduler
-from alerts import Alert, Notifier
+from orchestration.alerts import Alert, Notifier
 
 def test_fetch_and_store(monkeypatch):
     """fetch_and_store should persist listings to the database."""

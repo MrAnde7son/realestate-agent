@@ -36,6 +36,9 @@ export interface Listing {
   modelPrice?: number
   confidencePct?: number
   capRatePct?: number
+  antennaDistanceM?: number
+  shelterDistanceM?: number
+  rentEstimate?: number
 }
 
 export const listings: Listing[] = [
@@ -75,7 +78,10 @@ export const listings: Listing[] = [
     schoolsWithin500m: true,
     modelPrice: 3000000,
     confidencePct: 85,
-    capRatePct: 3.2
+    capRatePct: 3.2,
+    antennaDistanceM: 150,
+    shelterDistanceM: 80,
+    rentEstimate: 9500
   },
   {
     id: "l2",
@@ -113,7 +119,10 @@ export const listings: Listing[] = [
     schoolsWithin500m: true,
     modelPrice: 3750000,
     confidencePct: 92,
-    capRatePct: 2.8
+    capRatePct: 2.8,
+    antennaDistanceM: 80,
+    shelterDistanceM: 120,
+    rentEstimate: 12000
   }
 ]
 

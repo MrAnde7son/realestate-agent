@@ -1,4 +1,5 @@
 import React from 'react'
+import Link from 'next/link'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,51 +21,55 @@ export default function HomePage() {
         <DashboardHeader heading="דשבורד נדל״ן" text="סקירה כללית של הפעילות והנתונים" />
         
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">נכסים פעילים</CardTitle>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4 text-muted-foreground"
-              >
-                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9,22 9,12 15,12 15,22" />
-              </svg>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{activeListingsCount}</div>
-              <p className="text-xs text-muted-foreground">מתוך {listings.length} נכסים כולל</p>
-            </CardContent>
-          </Card>
+          <Link href="/listings" className="block">
+            <Card className="cursor-pointer hover:bg-accent transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">נכסים פעילים</CardTitle>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  className="h-4 w-4 text-muted-foreground"
+                >
+                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline points="9,22 9,12 15,12 15,22" />
+                </svg>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{activeListingsCount}</div>
+                <p className="text-xs text-muted-foreground">מתוך {listings.length} נכסים כולל</p>
+              </CardContent>
+            </Card>
+          </Link>
           
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">התראות פעילות</CardTitle>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4 text-muted-foreground"
-              >
-                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-              </svg>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{activeAlertsCount}</div>
-              <p className="text-xs text-muted-foreground">דורש תשומת לב</p>
-            </CardContent>
-          </Card>
+          <Link href="/alerts" className="block">
+            <Card className="cursor-pointer hover:bg-accent transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">התראות פעילות</CardTitle>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  className="h-4 w-4 text-muted-foreground"
+                >
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{activeAlertsCount}</div>
+                <p className="text-xs text-muted-foreground">דורש תשומת לב</p>
+              </CardContent>
+            </Card>
+          </Link>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -155,16 +160,16 @@ export default function HomePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Button className="w-full" variant="outline" asChild>
-                <a href="/listings">צפה בכל הנכסים</a>
-              </Button>
-              <Button className="w-full" variant="outline" asChild>
-                <a href="/alerts">נהל התראות ({activeAlertsCount})</a>
-              </Button>
-              <Button className="w-full" variant="outline" asChild>
                 <a href="/mortgage/analyze">מחשבון משכנתא</a>
               </Button>
               <Button className="w-full" variant="outline">
                 הפק דוח שוק
+              </Button>
+              <Button className="w-full" variant="outline">
+                חפש נכסים דומים
+              </Button>
+              <Button className="w-full" variant="outline">
+                עדכן מחירים
               </Button>
             </CardContent>
           </Card>

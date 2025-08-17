@@ -12,20 +12,64 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
+            files=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
+            python=false
+            broker_ui=false
+            if echo "$files" | grep -E '^(gov|gis|yad2|tests)/'; then
+              python=true
+            fi
+            if echo "$files" | grep -E '^realestate-broker-ui/'; then
+              broker_ui=true
+            fi
+            echo "python=$python" >> "$GITHUB_OUTPUT"
+            echo "broker_ui=$broker_ui" >> "$GITHUB_OUTPUT"
+          else
+            echo "python=true" >> "$GITHUB_OUTPUT"
+            echo "broker_ui=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Python
+        if: steps.changes.outputs.python == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
+        if: steps.changes.outputs.python == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Run tests
+      - name: Run Python tests
+        if: steps.changes.outputs.python == 'true'
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest -q 
+          pytest -q
+
+      - name: Set up Node
+        if: steps.changes.outputs.broker_ui == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install UI dependencies
+        if: steps.changes.outputs.broker_ui == 'true'
+        working-directory: realestate-broker-ui
+        run: |
+          npm install
+
+      - name: Run UI tests
+        if: steps.changes.outputs.broker_ui == 'true'
+        working-directory: realestate-broker-ui
+        run: |
+          npm test --if-present

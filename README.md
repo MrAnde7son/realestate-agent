@@ -11,6 +11,8 @@ A comprehensive, organized real estate scraper for Real Estate data with MCP (Mo
 - 💾 **Data Export**: Save results to JSON with comprehensive metadata
 - 🌐 **Interactive CLI**: User-friendly interface for building searches
 - ⚡ **URL Builder**: Generate Yad2 URLs programmatically without scraping
+- 📣 **Alert Notifications**: Email or WhatsApp alerts when listings match criteria
+- 🖥️ **Broker Dashboard UI**: Next.js interface for managing listings, alerts, and mortgage analysis
 - 🏗️ **Organized Architecture**: Clean, modular codebase with proper separation of concerns
 
 ## 📁 Project Structure
@@ -102,7 +104,26 @@ Copy-Item -Force .\claude_config.json "$env:APPDATA\Claude\claude_desktop_config
 
 Then restart Claude Desktop.
 
-### 2. Usage
+### 2. Broker UI (optional)
+
+A web dashboard lives in `realestate-broker-ui/` for brokers to review listings, set up alerts, and run mortgage analysis.
+
+```bash
+# frontend
+cd realestate-broker-ui
+pnpm install
+cp .env.example .env.local
+pnpm dev
+
+# backend
+cd ../backend-django
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
+```
+
+### 3. Usage
 
 #### Run Demo (recommended)
 ```bash
@@ -145,6 +166,19 @@ listings = scraper.scrape_all_pages(max_pages=3)
 
 # Save results
 scraper.save_to_json("my_search.json")
+```
+
+#### Alerts (optional)
+
+Send email or WhatsApp alerts when a listing matches your criteria.
+
+```python
+from alerts import EmailAlert, Notifier
+
+alert = EmailAlert("user@example.com")
+notifier = Notifier({"city": 5000}, [alert])
+for listing in listings:
+    notifier.notify(listing)
 ```
 
 #### GIS (Tel Aviv) Usage

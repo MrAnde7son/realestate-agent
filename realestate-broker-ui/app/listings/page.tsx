@@ -1,18 +1,44 @@
 'use client'
 import React, { useState, useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import Link from 'next/link'
 import { Listing } from '@/lib/data'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetDescription } from '@/components/ui/sheet'
 import DashboardLayout from '@/components/layout/dashboard-layout'
-import { fmtCurrency, fmtNumber, cn } from '@/lib/utils'
+import { fmtCurrency, fmtNumber } from '@/lib/utils'
 
 export default function ListingsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false)
+
+  const newListingSchema = z.object({
+    address: z.string().min(1, 'חובה להזין כתובת'),
+    price: z.preprocess((v) => Number(v), z.number().gt(0, 'חובה להזין מחיר')), 
+    bedrooms: z.preprocess((v) => Number(v), z.number().int().gte(0, 'חובה להזין חדרים')),
+    bathrooms: z.preprocess((v) => Number(v), z.number().int().gte(0, 'חובה להזין מקלחות')),
+    area: z.preprocess((v) => Number(v), z.number().gt(0, 'חובה להזין שטח')),
+  })
+  type NewListing = z.infer<typeof newListingSchema>
+
+  const form = useForm<NewListing>({
+    resolver: zodResolver(newListingSchema),
+    defaultValues: {
+      address: '',
+      price: undefined,
+      bedrooms: undefined,
+      bathrooms: undefined,
+      area: undefined,
+    },
+  })
 
   useEffect(() => {
     fetch('/api/listings')
@@ -49,12 +75,90 @@ export default function ListingsPage() {
               {listings.length} נכסים עם נתוני שמאות ותכנון מלאים
             </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <Input placeholder="עיר" className="w-32" />
-            <Input placeholder="₪/מ״ר 45,000–80,000" className="w-40" />
-            <Button variant="default">שמור תצוגה</Button>
-          </div>
+        <div className="flex items-center space-x-2">
+          <Input placeholder="עיר" className="w-32" />
+          <Input placeholder="₪/מ״ר 45,000–80,000" className="w-40" />
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="default">הוסף נכס</Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>הוסף נכס</SheetTitle>
+                <SheetDescription>מלא את הפרטים של הנכס החדש.</SheetDescription>
+              </SheetHeader>
+              <form
+                onSubmit={form.handleSubmit(async (values) => {
+                  const res = await fetch('/api/listings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(values),
+                  })
+                  const data = await res.json()
+                  if (res.ok) {
+                    setListings((prev) => [...prev, data.listing])
+                    form.reset()
+                    setOpen(false)
+                  }
+                })}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="address">כתובת</Label>
+                  <Input id="address" {...form.register('address')} />
+                  {form.formState.errors.address && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.address.message}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">מחיר</Label>
+                    <Input id="price" type="number" {...form.register('price')} />
+                    {form.formState.errors.price && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.price.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="area">מ״ר</Label>
+                    <Input id="area" type="number" {...form.register('area')} />
+                    {form.formState.errors.area && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.area.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bedrooms">חדרים</Label>
+                    <Input id="bedrooms" type="number" {...form.register('bedrooms')} />
+                    {form.formState.errors.bedrooms && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.bedrooms.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bathrooms">מקלחות</Label>
+                    <Input id="bathrooms" type="number" {...form.register('bathrooms')} />
+                    {form.formState.errors.bathrooms && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.bathrooms.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <SheetFooter>
+                  <Button type="submit">שמור</Button>
+                </SheetFooter>
+              </form>
+            </SheetContent>
+          </Sheet>
+          <Button variant="default">שמור תצוגה</Button>
         </div>
+      </div>
 
         {/* Main Table */}
         <Card>

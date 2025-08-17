@@ -11,7 +11,7 @@ import * as Collapsible from "@radix-ui/react-collapsible"
 
 const navigation = [
   {
-    name: "דשבורד",
+    name: "בית",
     href: "/",
     icon: Home,
   },

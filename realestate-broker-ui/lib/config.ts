@@ -1,5 +1,5 @@
 export const siteConfig = {
-  name: "Real Estate Dashboard",
+  name: "Real Estate Home",
   description: "Professional real estate management platform",
   url: "https://realestate-agent.vercel.app",
   author: "Real Estate Agent",

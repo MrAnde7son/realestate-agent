@@ -76,7 +76,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
           </Card>
           <Card>
             <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">תשואת Cap</div>
+                <div className="text-sm text-muted-foreground">תשואה</div>
               <div className="text-2xl font-bold">{listing.capRatePct?.toFixed(1)}%</div>
             </CardContent>
           </Card>

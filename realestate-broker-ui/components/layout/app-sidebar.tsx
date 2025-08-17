@@ -31,6 +31,11 @@ const navigation = [
     icon: Calculator,
   },
   {
+    name: "מחשבון בנק ישראל",
+    href: "/mortgage/boi-calculator",
+    icon: BarChart3,
+  },
+  {
     name: "דוחות",
     href: "/reports",
     icon: BarChart3,

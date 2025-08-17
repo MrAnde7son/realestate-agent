@@ -95,18 +95,18 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs defaultValue="analysis" className="space-y-4">
           <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="overview">סקירה</TabsTrigger>
-            <TabsTrigger value="planning">תכנון וזכויות</TabsTrigger>
+            <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="permits">היתרים</TabsTrigger>
+            <TabsTrigger value="plans">תוכניות</TabsTrigger>
+            <TabsTrigger value="comps">עיסקאות השוואה</TabsTrigger>
+            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
-            <TabsTrigger value="comps">עסקאות דומות</TabsTrigger>
-            <TabsTrigger value="mortgage">משכנתא</TabsTrigger>
             <TabsTrigger value="docs">מסמכים</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="analysis" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -160,7 +160,21 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </div>
           </TabsContent>
 
-          <TabsContent value="planning" className="space-y-4">
+          <TabsContent value="permits">
+            <Card>
+              <CardHeader>
+                <CardTitle>היתרי בנייה</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <div className="text-2xl font-bold">{listing.lastPermitQ || 'לא זמין'}</div>
+                  <div className="text-muted-foreground">רבעון אחרון עם היתר</div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="plans" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>מידע תכנוני</CardTitle>
@@ -197,6 +211,32 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Card>
           </TabsContent>
 
+          <TabsContent value="comps">
+            <Card>
+                <CardHeader>
+                  <CardTitle>עיסקאות השוואה</CardTitle>
+                </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  נתוני עסקאות יתווספו בקרוב
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="appraisals">
+            <Card>
+              <CardHeader>
+                <CardTitle>שומות באיזור</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  נתוני שומות יתווספו בקרוב
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="environment" className="space-y-4">
             <Card>
               <CardHeader>
@@ -208,14 +248,14 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                     <div className="text-2xl font-bold">{listing.noiseLevel}/5</div>
                     <div className="text-sm text-muted-foreground">רמת רעש</div>
                   </div>
-                  
+
                   <div className="text-center">
                       <Badge variant={listing.greenWithin300m ? 'good' : 'bad'}>
                         {listing.greenWithin300m ? 'כן' : 'לא'}
                       </Badge>
                       <div className="text-sm text-muted-foreground">שטחי ציבור ≤300מ׳</div>
                   </div>
-                  
+
                   <div className="text-center">
                     <div className="text-2xl font-bold">{listing.antennaDistanceM}מ׳</div>
                     <div className="text-sm text-muted-foreground">מרחק מאנטנה</div>
@@ -227,8 +267,8 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                     <h3 className="font-medium mb-2">סיכונים</h3>
                     <div className="flex flex-wrap gap-2">
                       {listing.riskFlags.map((flag: string, i: number) => (
-                        <Badge 
-                          key={i} 
+                        <Badge
+                          key={i}
                           variant={flag.includes('שימור') ? 'bad' : 'warn'}
                         >
                           {flag}
@@ -237,50 +277,6 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="permits">
-            <Card>
-              <CardHeader>
-                <CardTitle>היתרי בנייה</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <div className="text-2xl font-bold">{listing.lastPermitQ || 'לא זמין'}</div>
-                  <div className="text-muted-foreground">רבעון אחרון עם היתר</div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="comps">
-            <Card>
-              <CardHeader>
-                <CardTitle>עסקאות דומות</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  נתוני עסקאות יתווספו בקרוב
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="mortgage">
-            <Card>
-              <CardHeader>
-                <CardTitle>חישוב משכנתא</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <Button asChild>
-                    <Link href="/mortgage/analyze">
-                      פתח אנליזת משכנתא מלאה
-                    </Link>
-                  </Button>
-    </div>
               </CardContent>
             </Card>
           </TabsContent>

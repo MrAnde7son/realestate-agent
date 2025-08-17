@@ -11,7 +11,7 @@ export default function Home() {
       <div className="p-6 space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">דשבורד ניהול נדל״ן</h1>
+          <h1 className="text-3xl font-bold">בית ניהול נדל״ן</h1>
           <p className="text-muted-foreground">ממשק תיווך מתקדם עם נתוני שמאות ותכנון</p>
         </div>
 

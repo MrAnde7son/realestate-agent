@@ -13,6 +13,8 @@ import { fmtCurrency, fmtNumber, cn } from '@/lib/utils'
 export default function ListingsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [newListing, setNewListing] = useState({ address: '', price: '', bedrooms: '', bathrooms: '', area: '' })
 
   useEffect(() => {
     fetch('/api/listings')
@@ -52,9 +54,72 @@ export default function ListingsPage() {
           <div className="flex items-center space-x-2">
             <Input placeholder="עיר" className="w-32" />
             <Input placeholder="₪/מ״ר 45,000–80,000" className="w-40" />
+            <Button variant="default" onClick={() => setShowForm(!showForm)}>
+              הוסף נכס
+            </Button>
             <Button variant="default">שמור תצוגה</Button>
           </div>
         </div>
+
+        {showForm && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              const res = await fetch('/api/listings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  address: newListing.address,
+                  price: Number(newListing.price),
+                  bedrooms: Number(newListing.bedrooms),
+                  bathrooms: Number(newListing.bathrooms),
+                  area: Number(newListing.area),
+                }),
+              })
+              const data = await res.json()
+              setListings((prev) => [...prev, data.listing])
+              setNewListing({ address: '', price: '', bedrooms: '', bathrooms: '', area: '' })
+              setShowForm(false)
+            }}
+            className="flex items-center space-x-2"
+          >
+            <Input
+              placeholder="כתובת"
+              value={newListing.address}
+              onChange={(e) => setNewListing({ ...newListing, address: e.target.value })}
+              className="w-40"
+            />
+            <Input
+              placeholder="מחיר"
+              type="number"
+              value={newListing.price}
+              onChange={(e) => setNewListing({ ...newListing, price: e.target.value })}
+              className="w-32"
+            />
+            <Input
+              placeholder="חדרים"
+              type="number"
+              value={newListing.bedrooms}
+              onChange={(e) => setNewListing({ ...newListing, bedrooms: e.target.value })}
+              className="w-20"
+            />
+            <Input
+              placeholder="מקלחות"
+              type="number"
+              value={newListing.bathrooms}
+              onChange={(e) => setNewListing({ ...newListing, bathrooms: e.target.value })}
+              className="w-20"
+            />
+            <Input
+              placeholder="מ״ר"
+              type="number"
+              value={newListing.area}
+              onChange={(e) => setNewListing({ ...newListing, area: e.target.value })}
+              className="w-24"
+            />
+            <Button type="submit">הוסף</Button>
+          </form>
+        )}
 
         {/* Main Table */}
         <Card>

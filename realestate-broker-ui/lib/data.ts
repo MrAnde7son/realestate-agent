@@ -251,3 +251,8 @@ export function getActiveAlertsCount(): number {
 export function getActiveListingsCount(): number {
   return listings.filter(listing => listing.status === "active").length
 }
+
+// Add a new listing to the in-memory store
+export function addListing(listing: Listing): void {
+  listings.push(listing)
+}

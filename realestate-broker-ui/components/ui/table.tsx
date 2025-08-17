@@ -119,8 +119,12 @@ export function TH({ children, className }: { children: React.ReactNode, classNa
   return <TableHead className={className}>{children}</TableHead>
 }
 
-export function TD({ children, className }: { children: React.ReactNode, className?: string }) {
-  return <TableCell className={className}>{children}</TableCell>
+export function TD({ children, className, ...props }: React.ComponentProps<'td'>) {
+  return (
+    <TableCell className={className} {...props}>
+      {children}
+    </TableCell>
+  )
 }
 
 export {

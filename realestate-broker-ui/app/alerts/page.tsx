@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import { API_BASE } from '@/lib/config'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 
@@ -25,10 +26,18 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export default function AlertsPage(){
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({ 
-    resolver: zodResolver(schema), 
-    defaultValues: { rule_name:'', risk:'any', notify_email:true, notify_whatsapp:false, confidence_min:70 } 
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { rule_name:'', risk:'any', notify_email:true, notify_whatsapp:false, confidence_min:70 }
   })
+  const [alerts, setAlerts] = React.useState<any[]>([])
+
+  React.useEffect(()=>{
+    fetch(`${API_BASE}/api/alerts/`)
+      .then(res=>res.json())
+      .then(data=>setAlerts(data.rows||[]))
+      .catch(()=>setAlerts([]))
+  },[])
   
   async function onSubmit(values: FormData){
     const payload = { 
@@ -132,6 +141,44 @@ export default function AlertsPage(){
                 </Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+        {/* Existing alerts */}
+        <Card>
+          <CardHeader>
+            <CardTitle>התראות קיימות</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <THead>
+                <TR>
+                  <TH>ID</TH>
+                  <TH>עיר</TH>
+                  <TH>מחיר מקס&#39;</TH>
+                  <TH>חדרים</TH>
+                  <TH>סיכון</TH>
+                  <TH>ערוצים</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {alerts.length === 0 ? (
+                  <TR>
+                    <TD colSpan={6} className="text-center text-muted-foreground">לא קיימות התראות</TD>
+                  </TR>
+                ) : (
+                  alerts.map(a => (
+                    <TR key={a.id}>
+                      <TD>{a.id}</TD>
+                      <TD>{a.criteria?.city || '—'}</TD>
+                      <TD>{a.criteria?.max_price ?? '—'}</TD>
+                      <TD>{a.criteria?.beds ? `${a.criteria.beds.min ?? ''}-${a.criteria.beds.max ?? ''}` : '—'}</TD>
+                      <TD>{a.criteria?.risk === 'none' ? 'ללא' : 'כל'}</TD>
+                      <TD>{(a.notify || []).join(', ') || '—'}</TD>
+                    </TR>
+                  ))
+                )}
+              </TBody>
+            </Table>
           </CardContent>
         </Card>
 

@@ -96,7 +96,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="analysis" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList>
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="permits">היתרים</TabsTrigger>
             <TabsTrigger value="plans">תוכניות</TabsTrigger>

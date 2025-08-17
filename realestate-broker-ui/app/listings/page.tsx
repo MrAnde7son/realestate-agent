@@ -82,7 +82,7 @@ export default function ListingsPage() {
                     <TableHead className="text-right">מחיר מודל</TableHead>
                     <TableHead className="text-right">פער</TableHead>
                     <TableHead className="text-right">רמת ביטחון</TableHead>
-                    <TableHead className="text-right">תשואת Cap</TableHead>
+                    <TableHead className="text-right">תשואה</TableHead>
                     <TableHead className="text-right">פעולות</TableHead>
                   </TableRow>
                 </TableHeader>

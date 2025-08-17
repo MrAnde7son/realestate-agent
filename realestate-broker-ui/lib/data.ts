@@ -167,3 +167,87 @@ export function rightsByListing(id: string) {
     lastUpdate: "2024-01-20"
   }
 }
+
+// Alerts/Notifications data
+export interface Alert {
+  id: string
+  type: 'price_drop' | 'new_listing' | 'market_change' | 'document_update' | 'permit_status'
+  title: string
+  message: string
+  listingId?: string
+  listingAddress?: string
+  priority: 'high' | 'medium' | 'low'
+  isRead: boolean
+  createdAt: string
+  actionUrl?: string
+}
+
+export const alerts: Alert[] = [
+  {
+    id: "alert1",
+    type: "price_drop",
+    title: "ירידת מחיר בנכס",
+    message: "הנכס ברחוב הרצל 123 ירד במחיר ב-50,000 ₪",
+    listingId: "l1",
+    listingAddress: "רחוב הרצל 123, תל אביב",
+    priority: "high",
+    isRead: false,
+    createdAt: "2024-01-15T10:30:00Z",
+    actionUrl: "/listings/l1"
+  },
+  {
+    id: "alert2", 
+    type: "new_listing",
+    title: "נכס חדש התווסף",
+    message: "נכס חדש במרכז תל אביב התאים לקריטריונים שלך - 3 חדרים, עד 3M ₪",
+    priority: "medium",
+    isRead: false,
+    createdAt: "2024-01-14T15:45:00Z"
+  },
+  {
+    id: "alert3",
+    type: "market_change", 
+    title: "שינוי בשוק הנדל״ן",
+    message: "עלייה של 2.3% במחירי הנדל״ן באזור מרכז תל אביב החודש",
+    priority: "medium",
+    isRead: false,
+    createdAt: "2024-01-13T09:00:00Z"
+  },
+  {
+    id: "alert4",
+    type: "document_update",
+    title: "עדכון מסמכים",
+    message: "תוכנית בנייה חדשה פורסמה לאזור רוטשילד - עלולה להשפיע על ערך הנכס",
+    listingId: "l2",
+    listingAddress: "שדרות רוטשילד 45, תל אביב", 
+    priority: "high",
+    isRead: true,
+    createdAt: "2024-01-12T14:20:00Z",
+    actionUrl: "/listings/l2"
+  },
+  {
+    id: "alert5",
+    type: "permit_status",
+    title: "עדכון היתר בנייה",
+    message: "היתר הבנייה עבור הנכס ברוטשילד אושר - ניתן להתחיל בעבודות",
+    listingId: "l2",
+    listingAddress: "שדרות רוטשילד 45, תל אביב",
+    priority: "low",
+    isRead: true,
+    createdAt: "2024-01-10T11:15:00Z",
+    actionUrl: "/listings/l2"
+  }
+]
+
+// Helper functions for alerts
+export function getActiveAlerts(): Alert[] {
+  return alerts.filter(alert => !alert.isRead)
+}
+
+export function getActiveAlertsCount(): number {
+  return getActiveAlerts().length
+}
+
+export function getActiveListingsCount(): number {
+  return listings.filter(listing => listing.status === "active").length
+}

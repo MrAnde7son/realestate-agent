@@ -95,7 +95,7 @@ export default function AppSidebar({ className }: AppSidebarProps) {
           <div className="space-y-3">
             <div className="rounded-lg bg-muted p-3">
               <div className="text-sm font-medium">נכסים פעילים</div>
-              <div className="text-2xl font-bold text-primary">5</div>
+              <div className="text-2xl font-bold text-primary">1</div>
             </div>
             <div className="rounded-lg bg-muted p-3">
               <div className="text-sm font-medium">התראות פעילות</div>

@@ -10,6 +10,7 @@ A comprehensive real estate intelligence platform with MCP (Model Context Protoc
 - 📊 **Advanced Analytics**: Price analysis, location breakdowns, property type distributions
 - 💾 **Data Export**: Save results to JSON with comprehensive metadata
 - 📣 **Alert Notifications**: Email or WhatsApp alerts when listings match criteria
+- 📄 **Property Documents**: Attach land registry extracts, condo plans, and area appraisals manually, while permits and rights documents are collected automatically. Documents can be uploaded directly from the listing page.
 
 ### 🏛️ Planning & Government Data (RAMI)
 - 📄 **Israeli Planning Documents**: Access land.gov.il TabaSearch API for planning data

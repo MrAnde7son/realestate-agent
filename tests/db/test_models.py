@@ -38,3 +38,27 @@ def test_listing_model_persists_multiple_sources(monkeypatch):
         assert counts["madlan"] == 1
         assert counts["onmap"] == 1
 
+
+def test_listing_documents_persist(monkeypatch):
+    db, models = _setup(monkeypatch)
+    docs = [
+        {"type": "tabu", "url": "http://example.com/tabu.pdf"},
+        {"type": "condo_plan", "url": "http://example.com/plan.pdf"},
+        {"type": "permit", "url": "http://example.com/permit.pdf"},
+        {"type": "rights", "url": "http://example.com/rights.pdf"},
+        {"type": "appraisal_decisive", "url": "http://example.com/decisive.pdf"},
+        {"type": "appraisal_rmi", "url": "http://example.com/rmi.pdf"},
+    ]
+    with db.get_session() as session:
+        listing = models.Listing(
+            source="yad2",
+            external_id="99",
+            title="Docs Test",
+            scraped_at=datetime.utcnow(),
+            documents=docs,
+        )
+        session.add(listing)
+        session.commit()
+        stored = session.query(models.Listing).first()
+        assert stored.documents == docs
+

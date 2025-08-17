@@ -18,7 +18,7 @@ const columns: ColumnDef<Listing>[] = [
   { header:'יתרת זכויות', accessorKey:'remainingRightsSqm', cell: info => <Badge>{`~+${fmtNumber(info.getValue() as number)} מ"ר`}</Badge> },
   { header:'תכנית', accessorKey:'program', cell: info => <Badge>{info.getValue() as string}</Badge> },
   { header:'היתר עדכני', accessorKey:'lastPermitQ', cell: info => <Badge>{info.getValue() as string}</Badge> },
-  { header:'קבצים', accessorKey:'docsCount', cell: info => <Badge>{fmtNumber(info.getValue() as number)}</Badge> },
+  { header:'קבצים', id:'docsCount', accessorFn: row => row.documents?.length ?? 0, cell: info => <Badge>{fmtNumber(info.getValue() as number)}</Badge> },
   { header:'רעש', accessorKey:'noiseLevel', cell: info => <Badge>{`${info.getValue()}/5`}</Badge> },
   { header:'אנטנה (מ")', accessorKey:'antennaDistanceM', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
   { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => <Badge variant={(info.getValue() as boolean)?'good':'bad'}>{(info.getValue() as boolean)?'כן':'לא'}</Badge> },

@@ -26,7 +26,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
     return (
       <DashboardLayout>
         <div className="p-6">
-          <div className="flex items-center space-x-2 mb-4">
+          <div className="flex items-center gap-2 mb-4">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/listings">
                 <ArrowLeft className="h-4 w-4" />
@@ -45,7 +45,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/listings">
                 <ArrowLeft className="h-4 w-4" />
@@ -179,7 +179,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span>ציון כללי:</span>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <div className="text-2xl font-bold">{Math.round((listing.confidencePct + (listing.capRatePct * 20) + (listing.priceGapPct < 0 ? 100 + listing.priceGapPct : 100 - listing.priceGapPct)) / 3)}</div>
                       <div className="text-sm text-muted-foreground">/100</div>
                     </div>

@@ -46,10 +46,10 @@ export default function AppSidebar({ className }: AppSidebarProps) {
   const pathname = usePathname()
 
   return (
-    <div className={cn("flex h-full w-64 flex-col bg-card border-r", className)}>
+    <div className={cn("flex h-full w-64 flex-col bg-card border-l", className)}>
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/" className="flex items-center space-x-2">
+        <Link href="/" className="flex items-center gap-2">
           <Building className="h-6 w-6 text-primary" />
           <span className="text-xl font-bold">Real Estate Pro</span>
         </Link>
@@ -73,7 +73,7 @@ export default function AppSidebar({ className }: AppSidebarProps) {
                     : "text-muted-foreground"
                 )}
               >
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center gap-3">
                   <Icon className="h-4 w-4" />
                   <span>{item.name}</span>
                 </div>
@@ -107,7 +107,7 @@ export default function AppSidebar({ className }: AppSidebarProps) {
 
       {/* Footer */}
       <div className="border-t p-4">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-primary" />
           <div className="flex-1">
             <div className="text-sm font-medium">משתמש דמו</div>

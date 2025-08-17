@@ -40,6 +40,15 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
     )
   }
 
+  const manualDocs =
+    listing.documents?.filter(
+      (d: any) => d.type === 'tabu' || d.type === 'condo_plan'
+    ) ?? []
+  const permitDocs =
+    listing.documents?.filter((d: any) => d.type === 'permit') ?? []
+  const rightsDocs =
+    listing.documents?.filter((d: any) => d.type === 'rights') ?? []
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -524,80 +533,81 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               <CardHeader>
                 <CardTitle>מסמכים</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <h3 className="font-medium mb-2">מסמכי תכנון</h3>
+              <CardContent className="space-y-6">
+                <div>
+                  <h3 className="font-medium mb-2">מסמכים ידניים</h3>
+                  {manualDocs.length ? (
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>תוכנית מפורטת</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>זכויות בנייה</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>תב״ע מקומית</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
+                      {manualDocs.map((doc: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-2 border rounded"
+                        >
+                          <span>{doc.name}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} download>
+                              הורד
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium mb-2">מסמכי רישוי</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>היתר בנייה</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>היתר אכלוס</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>תעודת גמר</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      לא הועלו מסמכים
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>מסמכים נוספים</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-2">
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <div>
-                          <div className="font-medium">הכרעת שמאי מייעץ</div>
-                          <div className="text-sm text-muted-foreground">PDF • 2.3 MB</div>
+                <div>
+                  <h3 className="font-medium mb-2">היתרים</h3>
+                  {permitDocs.length ? (
+                    <div className="space-y-2">
+                      {permitDocs.map((doc: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-2 border rounded"
+                        >
+                          <span>{doc.name}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} download>
+                              הורד
+                            </a>
+                          </Button>
                         </div>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <div>
-                          <div className="font-medium">דוח שומה</div>
-                          <div className="text-sm text-muted-foreground">PDF • 1.8 MB</div>
-                        </div>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <div>
-                          <div className="font-medium">סקר מודדים</div>
-                          <div className="text-sm text-muted-foreground">PDF • 4.1 MB</div>
-                        </div>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
+                      ))}
                     </div>
-                    <div className="pt-4 text-center">
-                      <div className="text-sm text-muted-foreground">
-                        סה״כ {(listing.docsCount || 6)} מסמכים זמינים
-                      </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">אין היתרים</div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">זכויות</h3>
+                  {rightsDocs.length ? (
+                    <div className="space-y-2">
+                      {rightsDocs.map((doc: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-2 border rounded"
+                        >
+                          <span>{doc.name}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} download>
+                              הורד
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">אין זכויות</div>
+                  )}
+                </div>
+
+                <div className="pt-4 text-center text-sm text-muted-foreground">
+                  סה״כ {listing.documents?.length || 0} מסמכים זמינים
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

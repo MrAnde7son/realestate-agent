@@ -128,6 +128,11 @@
     margin-right: 0;
     margin-left: 1rem;
   }
+
+  /* Ensure tabs display in RTL order */
+  html[dir="rtl"] .tabs-list {
+    flex-direction: row-reverse;
+  }
 }
 
 /* Custom utility classes */

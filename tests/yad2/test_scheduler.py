@@ -5,14 +5,14 @@
 from datetime import datetime
 
 from yad2.core.models import RealEstateListing
-
+from db import SQLAlchemyDatabase, models
+from yad2 import scheduler as yad2_scheduler
+from orchestration.alerts import Alert, Notifier
 
 def test_fetch_and_store(monkeypatch):
     """fetch_and_store should persist listings to the database."""
     monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
-    from db import SQLAlchemyDatabase, models
-    from yad2 import scheduler as yad2_scheduler
 
     db = SQLAlchemyDatabase()
     db.init_db()
@@ -43,10 +43,6 @@ def test_fetch_and_store(monkeypatch):
 def test_fetch_and_store_triggers_alert(monkeypatch):
     """fetch_and_store should trigger alerts for new matching listings."""
     monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
-
-    from db import SQLAlchemyDatabase, models
-    from yad2 import scheduler as yad2_scheduler
-    from alerts import Alert, Notifier
 
     db = SQLAlchemyDatabase()
     db.init_db()
@@ -86,9 +82,6 @@ def test_fetch_and_store_triggers_alert(monkeypatch):
 def test_start_yad2_scheduler(monkeypatch):
     """Scheduler should create a job for periodic fetching."""
     monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
-
-    from db import SQLAlchemyDatabase
-    from yad2 import scheduler as yad2_scheduler
 
     db = SQLAlchemyDatabase()
     db.init_db()

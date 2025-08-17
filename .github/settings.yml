@@ -5,4 +5,3 @@ branches:
         strict: true
         contexts:
           - CI / tests
-          - Block Direct Pushes / block-push

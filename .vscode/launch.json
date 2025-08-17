@@ -9,7 +9,6 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "args": ["--street", "הגולן", "--num", "1", "--radius", "2000"],
             "console": "integratedTerminal"
         }
     ]

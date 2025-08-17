@@ -56,10 +56,10 @@ jobs:
         if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
         run: |
-          npm install
+          pnpm install
 
       - name: Run UI tests
         if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
         run: |
-          npm test --if-present
+          pnpm test --if-present

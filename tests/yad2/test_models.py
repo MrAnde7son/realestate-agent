@@ -8,12 +8,14 @@ def test_real_estate_listing_to_dict_and_str():
     listing.price = 1200000
     listing.address = 'Main St, Tel Aviv'
     listing.rooms = 3
+    listing.documents = [{'type': 'tabu', 'url': 'http://example.com/tabu.pdf'}]
 
     data = listing.to_dict()
     assert data['title'] == 'Cozy Apartment'
     assert data['price'] == 1200000
     assert data['address'] == 'Main St, Tel Aviv'
     assert 'scraped_at' in data
+    assert data['documents'] == [{'type': 'tabu', 'url': 'http://example.com/tabu.pdf'}]
     # ensure scraped_at is isoformat
     datetime.fromisoformat(data['scraped_at'])
 

@@ -22,6 +22,7 @@ class RealEstateListing:
         self.property_type = None
         self.description = None
         self.images = []
+        self.documents = []
         self.contact_info = None
         self.features = {}
         self.url = None
@@ -42,6 +43,7 @@ class RealEstateListing:
             'property_type': self.property_type,
             'description': self.description,
             'images': self.images,
+            'documents': self.documents,
             'contact_info': self.contact_info,
             'features': self.features,
             'url': self.url,

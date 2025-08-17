@@ -22,7 +22,7 @@ export interface MortgageInput {
 }
 
 // Mock Bank of Israel current interest rate (in real implementation, this would be fetched from BOI API)
-const CURRENT_BOI_RATE = 4.75 // Current base rate as of latest update
+const CURRENT_BOI_RATE = 4.5 // Current base rate as of latest update
 
 // Three mortgage scenarios based on different banks and loan terms
 export const MORTGAGE_SCENARIOS: MortgageScenario[] = [

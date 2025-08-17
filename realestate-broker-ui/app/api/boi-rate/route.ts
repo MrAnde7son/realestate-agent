@@ -5,7 +5,7 @@ export async function GET() {
   try {
     // In a real implementation, this would scrape or call Bank of Israel API
     // For now, we'll return the current known rate
-    const currentRate = 4.75 // As of latest update
+    const currentRate = 4.5 // As of latest update
     
     return NextResponse.json({
       success: true,

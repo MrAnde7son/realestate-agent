@@ -26,14 +26,9 @@ const navigation = [
     icon: AlertCircle,
   },
   {
-    name: "משכנתא",
+    name: "מחשבון משכנתא",
     href: "/mortgage/analyze",
     icon: Calculator,
-  },
-  {
-    name: "מחשבון בנק ישראל",
-    href: "/mortgage/boi-calculator",
-    icon: BarChart3,
   },
   {
     name: "דוחות",

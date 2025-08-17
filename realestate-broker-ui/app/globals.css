@@ -88,6 +88,46 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  
+  /* RTL Support */
+  html[dir="rtl"] {
+    direction: rtl;
+  }
+  
+  html[dir="rtl"] * {
+    text-align: right;
+  }
+  
+  /* Fix for RTL spacing */
+  html[dir="rtl"] .space-x-2 > :not([hidden]) ~ :not([hidden]) {
+    margin-left: 0;
+    margin-right: 0.5rem;
+  }
+  
+  html[dir="rtl"] .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+    margin-left: 0;
+    margin-right: 1rem;
+  }
+  
+  html[dir="rtl"] .ml-2 {
+    margin-left: 0;
+    margin-right: 0.5rem;
+  }
+  
+  html[dir="rtl"] .mr-2 {
+    margin-right: 0;
+    margin-left: 0.5rem;
+  }
+  
+  html[dir="rtl"] .ml-4 {
+    margin-left: 0;
+    margin-right: 1rem;
+  }
+  
+  html[dir="rtl"] .mr-4 {
+    margin-right: 0;
+    margin-left: 1rem;
+  }
 }
 
 /* Custom utility classes */

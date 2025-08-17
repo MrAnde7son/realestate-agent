@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 
 export default function Map({ center=[34.7818,32.0853], zoom=12 }:{ center?: [number,number], zoom?: number }){
   const ref = useRef<HTMLDivElement>(null)

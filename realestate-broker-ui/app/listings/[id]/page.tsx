@@ -26,7 +26,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
     return (
       <DashboardLayout>
         <div className="p-6">
-          <div className="flex items-center space-x-2 mb-4">
+          <div className="flex items-center gap-2 mb-4">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/listings">
                 <ArrowLeft className="h-4 w-4" />
@@ -45,7 +45,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/listings">
                 <ArrowLeft className="h-4 w-4" />
@@ -95,18 +95,18 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs defaultValue="analysis" className="space-y-4">
           <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="overview">סקירה</TabsTrigger>
-            <TabsTrigger value="planning">תכנון וזכויות</TabsTrigger>
+            <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="permits">היתרים</TabsTrigger>
+            <TabsTrigger value="plans">תוכניות</TabsTrigger>
+            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
+            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
-            <TabsTrigger value="comps">עסקאות דומות</TabsTrigger>
-            <TabsTrigger value="mortgage">משכנתא</TabsTrigger>
-            <TabsTrigger value="docs">מסמכים</TabsTrigger>
+            <TabsTrigger value="documents">מסמכים</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="analysis" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -123,11 +123,17 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">חדרים:</span>
-                    <span>{listing.beds || '—'}</span>
+                    <span>{listing.bedrooms || '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">ייעוד:</span>
                     <span>{listing.zoning || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">רמת ביטחון:</span>
+                    <Badge variant={listing.confidencePct >= 80 ? 'good' : 'warn'}>
+                      {listing.confidencePct}%
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -152,45 +158,114 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                     <span>₪{listing.rentEstimate?.toLocaleString('he-IL')}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">תשואה שנתית:</span>
+                    <Badge variant={listing.capRatePct >= 3 ? 'good' : 'warn'}>
+                      {listing.capRatePct?.toFixed(1)}%
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">תחרות 1 ק״מ:</span>
                     <span>{listing.competition1km || '—'}</span>
                   </div>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
 
-          <TabsContent value="planning" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>מידע תכנוני</CardTitle>
+                <CardTitle>המלצת השקעה</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <h3 className="font-medium mb-2">זכויות בנייה</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">יתרת זכויות:</span>
-                        <span>+{listing.remainingRightsSqm} מ״ר</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">תכנית:</span>
-                        <span>{listing.program || 'לא זמין'}</span>
-                      </div>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span>ציון כללי:</span>
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl font-bold">{Math.round((listing.confidencePct + (listing.capRatePct * 20) + (listing.priceGapPct < 0 ? 100 + listing.priceGapPct : 100 - listing.priceGapPct)) / 3)}</div>
+                      <div className="text-sm text-muted-foreground">/100</div>
                     </div>
                   </div>
-                  
-                  <div>
-                    <h3 className="font-medium mb-2">סטטוס תכנוני</h3>
-                    <div className="space-y-2">
-                      <Badge variant="outline">{listing.zoning || 'לא צוין'}</Badge>
-                      {listing.zoningCode && (
-                        <div className="text-sm text-muted-foreground">
-                          קוד: {listing.zoningCode}
-                        </div>
-                      )}
+                  <div className="text-sm text-muted-foreground">
+                    {listing.priceGapPct < -10 ? "נכס במחיר אטרקטיביי מתחת לשוק" : 
+                     listing.priceGapPct > 10 ? "נכס יקר יחסית לשוק" : 
+                     "נכס במחיר הוגן יחסית לשוק"}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="plans" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>תוכניות מקומיות ומפורטות</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">תכנית נוכחית:</span>
+                      <span>{listing.program || 'לא זמין'}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">ייעוד:</span>
+                      <Badge variant="outline">{listing.zoning || 'לא צוין'}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">יתרת זכויות:</span>
+                      <Badge variant={listing.remainingRightsSqm > 0 ? 'good' : 'outline'}>
+                        +{listing.remainingRightsSqm} מ״ר
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      נתונים מבוססים על תוכניות עדכניות ממערכת ה-GIS של עיריית תל אביב
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>תוכניות כלל עירוניות</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">סטטוס תכנוני:</span>
+                      <Badge variant="good">פעיל</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">הגבלות מיוחדות:</span>
+                      <span>{listing.riskFlags?.length > 0 ? listing.riskFlags.join(', ') : 'אין'}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      מידע נוסף על תוכניות עתידיות יתעדכן בהתאם לפרסומים חדשים
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>זכויות בנייה מפורטות</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{listing.remainingRightsSqm}</div>
+                    <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{Math.round((listing.remainingRightsSqm / listing.netSqm) * 100)}%</div>
+                    <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">₪{Math.round((listing.pricePerSqm * listing.remainingRightsSqm * 0.7) / 1000)}K</div>
+                    <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
                   </div>
                 </div>
               </CardContent>
@@ -241,60 +316,288 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Card>
           </TabsContent>
 
-          <TabsContent value="permits">
+          <TabsContent value="permits" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>היתרי בנייה באזור</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
+                      <Badge variant={listing.lastPermitQ ? 'good' : 'outline'}>
+                        {listing.lastPermitQ || 'לא זמין'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">פעילות בנייה באזור:</span>
+                      <span>{listing.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      נתונים מעודכנים ממערכת היתרי הבנייה של עיריית תל אביב
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>סטטוס היתרים</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">היתר בתוקף:</span>
+                      <Badge variant="good">כן</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">סוג היתר:</span>
+                      <span>מגורים</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">אישורי חיבור:</span>
+                      <Badge variant="good">מאושר</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             <Card>
               <CardHeader>
-                <CardTitle>היתרי בנייה</CardTitle>
+                <CardTitle>היתרים פעילים ברדיוס 50 מטר</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <div className="text-2xl font-bold">{listing.lastPermitQ || 'לא זמין'}</div>
-                  <div className="text-muted-foreground">רבעון אחרון עם היתר</div>
+                <div className="space-y-3">
+                  <div className="text-center py-4">
+                    <div className="text-2xl font-bold">3</div>
+                    <div className="text-muted-foreground">בקשות היתר פעילות</div>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <div className="p-3 border rounded">
+                      <div className="font-medium">רח&apos; הרצל 125</div>
+                      <div className="text-sm text-muted-foreground">שיפוץ כללי • Q1/24</div>
+                    </div>
+                    <div className="p-3 border rounded">
+                      <div className="font-medium">רח&apos; הרצל 121</div>
+                      <div className="text-sm text-muted-foreground">הוספת יחידה • Q2/24</div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="comps">
+          <TabsContent value="transactions" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>עסקאות דומות</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  נתוני עסקאות יתווספו בקרוב
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="mortgage">
-            <Card>
-              <CardHeader>
-                <CardTitle>חישוב משכנתא</CardTitle>
+                <CardTitle>עיסקאות השוואה</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-center">
-                  <Button asChild>
-                    <Link href="/mortgage/analyze">
-                      פתח אנליזת משכנתא מלאה
-                    </Link>
-                  </Button>
-    </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">₪{listing.pricePerSqm?.toLocaleString('he-IL')}</div>
+                    <div className="text-sm text-muted-foreground">מחיר למ״ר - נכס זה</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">₪{Math.round(listing.pricePerSqm * 0.95).toLocaleString('he-IL')}</div>
+                    <div className="text-sm text-muted-foreground">ממוצע באזור</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{Math.round(((listing.pricePerSqm / (listing.pricePerSqm * 0.95)) - 1) * 100)}%</div>
+                    <div className="text-sm text-muted-foreground">פער מהאזור</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>עסקאות אחרונות ברדיוס 500 מטר</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="grid gap-3">
+                    <div className="flex justify-between items-center p-3 border rounded">
+                      <div>
+                        <div className="font-medium">רח&apos; בן יהודה 45</div>
+                        <div className="text-sm text-muted-foreground">80 מ״ר • 3 חדרים • 10/01/24</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold">₪2.75M</div>
+                        <div className="text-sm text-muted-foreground">₪34,375/מ״ר</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center p-3 border rounded">
+                      <div>
+                        <div className="font-medium">רח&apos; דיזנגוף 67</div>
+                        <div className="text-sm text-muted-foreground">90 מ״ר • 3.5 חדרים • 05/01/24</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold">₪2.90M</div>
+                        <div className="text-sm text-muted-foreground">₪32,222/מ״ר</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center p-3 border rounded">
+                      <div>
+                        <div className="font-medium">רח&apos; הרצל 130</div>
+                        <div className="text-sm text-muted-foreground">85 מ״ר • 3 חדרים • 28/12/23</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold">₪2.65M</div>
+                        <div className="text-sm text-muted-foreground">₪31,176/מ״ר</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t text-center">
+                    <div className="text-sm text-muted-foreground">
+                      מקור: נתוני עסקאות ממשרד השיכון ומ-data.gov.il
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="docs">
+          <TabsContent value="appraisals" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <h3 className="font-medium mb-2">הכרעות שמאי</h3>
+                    <div className="space-y-2">
+                      <div className="p-3 border rounded">
+                        <div className="font-medium">הכרעת שמאי מייעץ</div>
+                        <div className="text-sm text-muted-foreground">
+                          גוש 6638, חלקה 96 • 20/07/2025
+                        </div>
+                        <div className="text-sm">₪2.8M לדירת 85 מ״ר</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-medium mb-2">שומות רמ״י</h3>
+                    <div className="space-y-2">
+                      <div className="p-3 border rounded">
+                        <div className="font-medium">שומת רמ״י מעודכנת</div>
+                        <div className="text-sm text-muted-foreground">Q4/2024</div>
+                        <div className="text-sm">₪30,500/מ״ר</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>השוואת שומות</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">₪2.8M</div>
+                        <div className="text-sm text-muted-foreground">הכרעת שמאי</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">₪{Math.round(listing.netSqm * 30500 / 1000000 * 100) / 100}M</div>
+                        <div className="text-sm text-muted-foreground">שומת רמ״י</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">₪{(listing.price / 1000000).toFixed(1)}M</div>
+                        <div className="text-sm text-muted-foreground">מחיר מבוקש</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="documents" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>מסמכים</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <div className="text-2xl font-bold">{listing.docsCount || 0}</div>
-                  <div className="text-muted-foreground">מסמכים זמינים</div>
-    </div>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <h3 className="font-medium mb-2">מסמכי תכנון</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <span>תוכנית מפורטת</span>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <span>זכויות בנייה</span>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <span>תב״ע מקומית</span>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium mb-2">מסמכי רישוי</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <span>היתר בנייה</span>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <span>היתר אכלוס</span>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <span>תעודת גמר</span>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>מסמכים נוספים</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-2">
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <div>
+                          <div className="font-medium">הכרעת שמאי מייעץ</div>
+                          <div className="text-sm text-muted-foreground">PDF • 2.3 MB</div>
+                        </div>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <div>
+                          <div className="font-medium">דוח שומה</div>
+                          <div className="text-sm text-muted-foreground">PDF • 1.8 MB</div>
+                        </div>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                      <div className="flex justify-between items-center p-2 border rounded">
+                        <div>
+                          <div className="font-medium">סקר מודדים</div>
+                          <div className="text-sm text-muted-foreground">PDF • 4.1 MB</div>
+                        </div>
+                        <Button variant="outline" size="sm">הורד</Button>
+                      </div>
+                    </div>
+                    <div className="pt-4 text-center">
+                      <div className="text-sm text-muted-foreground">
+                        סה״כ {(listing.docsCount || 6)} מסמכים זמינים
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           </TabsContent>

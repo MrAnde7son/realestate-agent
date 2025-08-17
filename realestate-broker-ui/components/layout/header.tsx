@@ -23,7 +23,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
+          <SheetContent side="right" className="p-0 w-64">
             <AppSidebar />
           </SheetContent>
         </Sheet>
@@ -40,7 +40,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         </Button>
       </div>
 
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center gap-4">
         <div className="text-sm text-muted-foreground">
           ברוך הבא למערכת ניהול נדל״ן מתקדמת
         </div>

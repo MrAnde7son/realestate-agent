@@ -66,7 +66,7 @@ jobs:
         if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
         run: |
-          pnpm install
+          npm install
 
       - name: Lint UI
         if: steps.changes.outputs.broker_ui == 'true'
@@ -78,10 +78,10 @@ jobs:
         if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
         run: |
-          pnpm test --if-present
+          npm test --if-present
 
       - name: Build UI
         if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
         run: |
-          pnpm run build
+          npm run build

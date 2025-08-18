@@ -33,8 +33,7 @@ const navigation = [
   {
     name: "דוחות",
     href: "/reports",
-    icon: BarChart3,
-    badge: "בקרוב"
+    icon: BarChart3
   }
 ]
 
@@ -77,11 +76,6 @@ export default function AppSidebar({ className }: AppSidebarProps) {
                   <Icon className="h-4 w-4" />
                   <span>{item.name}</span>
                 </div>
-                {item.badge && (
-                  <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
-                    {item.badge}
-                  </span>
-                )}
               </Link>
             )
           })}

@@ -5,8 +5,10 @@ Test script for get_building_privilege_page function
 
 import sys
 import os
+import pytest
 from gis.gis_client import TelAvivGS
 
+@pytest.mark.skip("Requires live GIS service")
 def test_privilege_page():
     """Test the get_building_privilege_page function"""
     print("Testing get_building_privilege_page function...")
@@ -52,6 +54,7 @@ def test_privilege_page():
         import traceback
         traceback.print_exc()
 
+@pytest.mark.skip("Requires live GIS service")
 def test_gush_helka_extraction():
     """Test the gush and helka extraction specifically"""
     print("\n=== Testing Gush and Helka Extraction ===")

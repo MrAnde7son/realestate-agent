@@ -1,200 +1,234 @@
 # Real Estate Agent
 
-A comprehensive real estate intelligence platform with MCP (Model Context Protocol) server integration for seamless LLM use. Includes Israeli real estate scraping, planning document access (RAMI), and Tel Aviv GIS integration.
+A comprehensive real estate intelligence platform designed for brokers, appraisers, and real estate professionals in Israel. Features advanced MCP (Model Context Protocol) server integration for seamless LLM use, Israeli real estate scraping (Yad2), planning document access (RAMI), Tel Aviv GIS integration, and professional broker tools.
 
-## 🎯 Features
+## 🎯 Core Features
 
-### 🏠 Real Estate Intelligence
-- 🏠 **Dynamic Parameter Support**: Search any area with customizable filters (price, location, property type, features)
-- 🔍 **Flexible Search**: Support for all known Yad2 parameters (topArea, city, neighborhood, property types, etc.)
-- 📊 **Advanced Analytics**: Price analysis, location breakdowns, property type distributions
-- 💾 **Data Export**: Save results to JSON with comprehensive metadata
-- 📣 **Alert Notifications**: Email or WhatsApp alerts when listings match criteria
-- 📄 **Property Documents**: Attach land registry extracts, condo plans, and area appraisals manually, while permits and rights documents are collected automatically. Documents can be uploaded directly from the listing page.
+### 🏠 Real Estate Intelligence & Scraping
+- **🔍 Advanced Search**: Comprehensive Yad2 scraping with 58+ search parameters
+- **📊 Market Analytics**: Price analysis, location breakdowns, property type distributions
+- **💾 Data Export**: Save results to JSON with comprehensive metadata
+- **📈 Trend Analysis**: Historical price tracking and market insights
+- **🎯 Smart Filtering**: Location, price range, property features, and amenities
+- **📄 Property Documents**: Attach land registry extracts, condo plans, and area appraisals manually, while permits and rights documents are collected automatically
+
+### 🖥️ Professional Broker Dashboard
+- **📋 Listing Management**: Modern Next.js interface for property portfolio management
+- **🚨 Real-time Alerts**: Email and WhatsApp notifications with Celery task scheduling
+- **💰 Mortgage Calculator**: Advanced affordability analysis and Bank of Israel rate integration
+- **📊 Visual Analytics**: Interactive charts and market insights with Recharts
+- **🗺️ Map Integration**: Mapbox GL integration for property visualization
+- **📱 Responsive Design**: Mobile-friendly interface with dark/light theme support
 
 ### 🏛️ Planning & Government Data (RAMI)
-- 📄 **Israeli Planning Documents**: Access land.gov.il TabaSearch API for planning data
-- 🗂️ **Document Downloads**: Automatic download of regulations (תקנון), blueprints (תשריט), appendices (נספח), and archives (ממ"ג)
-- 🔍 **Smart Search**: Search by plan number, city, gush/chelka, or multiple criteria
-- 🇮🇱 **Tel Aviv Optimized**: Pre-configured searches for Tel Aviv metropolitan area
+- **📄 Israeli Planning Documents**: Direct access to land.gov.il TabaSearch API
+- **🗂️ Document Downloads**: Automatic download of regulations (תקנון), blueprints (תשריט), appendices (נספח), and archives (ממ"ג)
+- **🔍 Smart Search**: Search by plan number, city, gush/chelka, or multiple criteria
+- **🇮🇱 Tel Aviv Optimized**: Pre-configured searches for Tel Aviv metropolitan area
 
 ### 🗺️ GIS & Location Intelligence
-- 📍 **Address Geocoding**: Convert addresses to coordinates (EPSG:2039)
-- 🏗️ **Building Permits**: Find nearby construction permits with PDF downloads
-- 🌍 **Spatial Analysis**: Land use, zoning, parcels, and neighborhood data
-- 🔒 **Safety Data**: Dangerous buildings, preservation status, noise levels
+- **📍 Address Geocoding**: Convert addresses to coordinates (EPSG:2039)
+- **🏗️ Building Permits**: Find nearby construction permits with PDF downloads
+- **🌍 Spatial Analysis**: Land use, zoning, parcels, and neighborhood data
+- **🔒 Safety Data**: Dangerous buildings, preservation status, noise levels
+- **📋 Building Rights**: Access building privilege (זכויות בנייה) information
 
-### 🤖 LLM Integration
-- 🤖 **Multiple MCP Servers**: Yad2, RAMI, GIS, and gov.il data access
-- 🌐 **Natural Language Queries**: Ask questions in plain language
-- ⚡ **URL Builder**: Generate search URLs programmatically without scraping
-- 🔧 **Development Tools**: Robust testing and debugging capabilities
+### 🤖 AI & LLM Integration
+- **🤖 Multiple MCP Servers**: 4 specialized servers (Yad2, RAMI, GIS, gov.il) with 25+ tools
+- **🌐 Natural Language Queries**: Ask questions in plain language
+- **⚡ URL Builder**: Generate search URLs programmatically without scraping
+- **🔧 Development Tools**: Robust testing and debugging capabilities
+- **📚 Comprehensive Documentation**: Parameter references and examples
 
-### 💻 User Interfaces
-- 🌐 **Interactive CLI**: User-friendly interface for building searches
-- 🖥️ **Broker Dashboard UI**: Next.js interface for managing listings, alerts, and mortgage analysis
-- 🏗️ **Organized Architecture**: Clean, modular codebase with proper separation of concerns
-
-## 📁 Project Structure
+## 📁 Project Architecture
 
 ```
 realestate-agent/
-├── yad2/                          # Real estate scraping package
-│   ├── core/                      # Core functionality
-│   │   ├── __init__.py
-│   │   ├── parameters.py          # Search parameters & validation
-│   │   ├── models.py              # Data models (RealEstateListing)
-│   │   └── utils.py               # Utility functions
-│   ├── scrapers/                  # Web scrapers
-│   │   ├── __init__.py
-│   │   └── yad2_scraper.py        # Main Yad2 scraper
-│   ├── mcp/                       # MCP server for LLM integration
-│   │   ├── __init__.py
-│   │   └── server.py              # FastMCP server implementation
-│   ├── cli/                       # Command-line helpers
-│   │   ├── __init__.py
-│   │   └── interactive.py         # Interactive CLI utilities
-│   └── examples/                  # Example scripts & configs
-│       ├── __init__.py
-│       ├── demo.py                # Demonstration script
-│       └── search_config.json     # Example configuration
-├── rami/                          # Israeli planning documents (RAMI)
-│   ├── __init__.py
-│   ├── rami_client.py             # RAMI TabaSearch API client
-│   └── mcp/                       # MCP server for planning data
-│       ├── __init__.py
-│       └── server.py              # FastMCP server implementation
-├── gis/                           # GIS utilities (Tel Aviv ArcGIS)
-│   ├── __init__.py
-│   ├── gis_client.py              # Tel Aviv GIS client and mini CLI
-│   ├── parse_zchuyot.py           # Building privilege parser
-│   └── mcp/                       # MCP server for GIS data
-│       ├── __init__.py
-│       └── server.py              # FastMCP server implementation
-├── gov/                           # Government data utilities
-│   └── mcp/                       # MCP server for gov.il data
-│       ├── __init__.py
-│       ├── constants.py
-│       ├── decisive.py            # Decisive appraisal data
-│       └── server.py              # FastMCP server implementation
-├── tests/                         # Comprehensive test suite
-│   ├── __init__.py
-│   ├── test_utils.py              # Robust import utilities
-│   ├── conftest.py                # Pytest configuration
-│   ├── robust_imports_template.py # Template for new test files
-│   ├── yad2/                      # Yad2 tests
-│   ├── rami/                      # RAMI tests
-│   ├── gis/                       # GIS tests
-│   └── gov/                       # Government data tests
-├── db/                            # Database models
-│   ├── __init__.py
-│   ├── database.py
-│   └── models.py
-├── utils/                         # Utility scripts
-│   ├── madlan_scraper.py
-│   └── yad2_scraper.py
-├── realestate-broker-ui/          # Next.js broker dashboard
-├── backend-django/                # Django backend
-├── .vscode/                       # VSCode configuration
-│   └── launch.json                # Debugger configuration
-├── requirements.txt               # Dependencies
-├── pyproject.toml                 # Project configuration
-├── run_all.sh                     # Start all MCP servers
-├── LICENSE                        # License
-└── README.md                      # This file
+├── 🏠 CORE SCRAPING & MCP SERVICES
+│   ├── yad2/                      # Real estate scraping & MCP server
+│   │   ├── core/                  # Core functionality
+│   │   │   ├── parameters.py      # Search parameters & validation (58+ params)
+│   │   │   ├── models.py          # Data models (RealEstateListing)
+│   │   │   └── utils.py           # Utility functions
+│   │   ├── scrapers/              # Web scrapers
+│   │   │   └── yad2_scraper.py    # Main Yad2 scraper with rate limiting
+│   │   ├── mcp/server.py          # MCP server for LLM integration
+│   │   ├── cli/interactive.py     # Interactive CLI utilities
+│   │   └── examples/demo.py       # Demonstration script
+│   ├── rami/                      # Israeli planning documents
+│   │   ├── rami_client.py         # RAMI TabaSearch API client
+│   │   └── mcp/server.py          # Planning documents MCP server
+│   ├── gis/                       # Tel Aviv GIS integration
+│   │   ├── gis_client.py          # Tel Aviv ArcGIS client & CLI
+│   │   ├── parse_zchuyot.py       # Building privilege parser
+│   │   └── mcp/server.py          # GIS data MCP server
+│   └── gov/                       # Government data services
+│       └── mcp/                   # Gov.il data MCP server
+│           ├── server.py          # Government datasets & comparables
+│           ├── decisive.py        # Decisive appraisal data
+│           └── transactions.py    # Real estate transaction data
+├── 🖥️ PROFESSIONAL UI & BACKEND
+│   ├── realestate-broker-ui/      # Next.js 15 Professional Dashboard
+│   │   ├── app/                   # App Router (Next.js 15)
+│   │   │   ├── listings/          # Property listings management
+│   │   │   ├── alerts/            # Alert configuration
+│   │   │   ├── mortgage/          # Mortgage calculator & analysis
+│   │   │   └── api/               # API routes
+│   │   ├── components/            # Reusable UI components
+│   │   │   ├── layout/            # Layout components (sidebar, header)
+│   │   │   ├── ui/                # Shadcn/ui components
+│   │   │   ├── ListingTable.tsx   # Advanced listings table
+│   │   │   └── Map.tsx            # Mapbox GL map integration
+│   │   ├── lib/                   # Utilities & configuration
+│   │   │   ├── data.ts            # Data interfaces & types
+│   │   │   ├── mortgage.ts        # Mortgage calculation logic
+│   │   │   └── config.ts          # App configuration
+│   │   └── types/                 # TypeScript definitions
+│   └── backend-django/            # Django Backend API
+│       ├── broker_backend/        # Django project configuration
+│       │   ├── settings.py        # Django settings with Celery
+│       │   ├── celery.py          # Celery configuration
+│       │   └── urls.py            # URL routing
+│       └── core/                  # Core Django app
+│           ├── models.py          # Database models
+│           ├── views.py           # API views
+│           ├── tasks.py           # Celery tasks for alerts
+│           └── urls.py            # API endpoints
+├── 🧪 TESTING & UTILITIES
+│   ├── tests/                     # Comprehensive test suite
+│   │   ├── yad2/                  # Real estate scraping tests
+│   │   ├── rami/                  # Planning documents tests
+│   │   ├── gis/                   # GIS integration tests
+│   │   ├── gov/                   # Government data tests
+│   │   └── core/                  # Integration tests
+│   ├── db/                        # Database utilities
+│   ├── utils/                     # Utility scripts
+│   └── orchestration/             # Alert scheduling & management
+├── 📋 CONFIGURATION & DEPLOYMENT
+│   ├── claude_config.json         # Claude Desktop MCP configuration
+│   ├── requirements.txt           # Python dependencies
+│   ├── pyproject.toml            # Project configuration
+│   ├── run_all.sh                # Start all MCP servers
+│   └── PRD.md                    # Product Requirements Document (Hebrew)
 ```
 
 ## 🚀 Quick Start
 
-### 1. Installation
+### 📋 Prerequisites
+- **Python 3.10+** (recommended: 3.11 or 3.12)
+- **Node.js 18+** (for the broker UI)
+- **pnpm** (for package management)
+- **Redis** (for Django backend alerts, optional)
 
-Ensure you have Python 3.10 or later installed. Creating an isolated
-virtual environment is recommended so that dependencies do not conflict
-with other projects.
+### 1️⃣ Core Installation
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/your-username/realestate-agent.git
 cd realestate-agent
 
-# (Optional) create and activate a virtual environment
+# Create and activate virtual environment (recommended)
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 ```
 
-### 1.5 Claude Desktop (MCP) setup (optional)
+### 2️⃣ Professional Broker Dashboard (Recommended)
 
-Copy the provided `claude_config.json` to Claude's config location (rename to `claude_desktop_config.json`). Adjust the `command` and `PYTHONPATH` if your Python path differs.
-
-- macOS:
+The modern Next.js dashboard provides a complete broker workflow with alerts, mortgage analysis, and property management.
 
 ```bash
-mkdir -p "${HOME}/Library/Application Support/Claude"
-cp claude_config.json "${HOME}/Library/Application Support/Claude/claude_desktop_config.json"
-```
-
-- Linux:
-
-```bash
-mkdir -p "${HOME}/.config/Claude"
-cp claude_config.json "${HOME}/.config/Claude/claude_desktop_config.json"
-```
-
-- Windows (PowerShell):
-
-```powershell
-New-Item -ItemType Directory -Force "$env:APPDATA\Claude" | Out-Null
-Copy-Item -Force .\claude_config.json "$env:APPDATA\Claude\claude_desktop_config.json"
-```
-
-Then restart Claude Desktop.
-
-### 2. Broker UI (optional)
-
-A web dashboard lives in `realestate-broker-ui/` for brokers to review listings, set up alerts, and run mortgage analysis.
-
-```bash
-# frontend
+# 🖥️ Frontend Setup
 cd realestate-broker-ui
 pnpm install
 cp .env.example .env.local
-pnpm dev
+# Edit .env.local with your configuration
+pnpm dev  # Starts on http://localhost:3000
 
-# backend
+# 🔧 Backend Setup (in a new terminal)
 cd ../backend-django
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8000  # API on http://localhost:8000
 ```
 
-### 3. Usage
+#### 🚨 Enable Real-time Alerts (Optional)
+For email/WhatsApp notifications, set up Redis and Celery:
 
-#### Run Demo (recommended)
 ```bash
+# Terminal 1: Redis server
+redis-server
+
+# Terminal 2: Celery worker
+cd backend-django
+CELERY_BROKER_URL=redis://localhost:6379/0 celery -A broker_backend worker -l info
+
+# Terminal 3: Celery beat scheduler
+CELERY_BROKER_URL=redis://localhost:6379/0 celery -A broker_backend beat -l info
+```
+
+Add environment variables to `backend-django/.env`:
+```env
+SENDGRID_API_KEY=your_sendgrid_key
+EMAIL_FROM=alerts@yourcompany.com
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
+```
+
+### 3️⃣ MCP Servers for LLM Integration
+
+Set up Claude Desktop or other LLM tools to use natural language queries:
+
+```bash
+# Copy MCP configuration
+# macOS:
+mkdir -p "${HOME}/Library/Application Support/Claude"
+cp claude_config.json "${HOME}/Library/Application Support/Claude/claude_desktop_config.json"
+
+# Linux:
+mkdir -p "${HOME}/.config/Claude"
+cp claude_config.json "${HOME}/.config/Claude/claude_desktop_config.json"
+
+# Windows (PowerShell):
+New-Item -ItemType Directory -Force "$env:APPDATA\Claude" | Out-Null
+Copy-Item -Force .\claude_config.json "$env:APPDATA\Claude\claude_desktop_config.json"
+```
+
+**Start All MCP Servers:**
+```bash
+./run_all.sh
+```
+
+**Individual Servers:**
+```bash
+python -m yad2.mcp.server      # Real estate scraping (port 8001)
+python -m rami.mcp.server      # Planning documents (port 8002)
+python -m gis.mcp.server       # Tel Aviv GIS (port 8003)
+python -m gov.mcp.server       # Government data (port 8004)
+```
+
+### 4️⃣ Quick Examples
+
+#### 🔍 Search Real Estate (CLI)
+```bash
+# Interactive demo
 python -m yad2.examples.demo
-```
 
-#### Interactive CLI
-```bash
+# Interactive CLI
 python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"
 ```
 
-#### Run Tests
-```bash
-python -m yad2.tests.test_core
-```
+#### 🤖 Natural Language Queries (with Claude/LLM)
+After setting up MCP servers, you can ask:
+- *"Find 4-room apartments in Tel Aviv under 8 million NIS with parking"*
+- *"Get planning documents for Gush 6638 Chelka 96"*
+- *"Find building permits near Dizengoff 50"*
+- *"Analyze comparable transactions in Ramat Aviv"*
 
-#### Start MCP Server
-```bash
-python -m yad2.mcp.server
-```
-
-#### Programmatic Usage
-
+#### 💻 Programmatic Usage
 ```python
 from yad2 import Yad2Scraper, Yad2SearchParameters
 
@@ -208,25 +242,25 @@ params = Yad2SearchParameters(
     parking=1
 )
 
-# Create scraper and search
+# Search and save results
 scraper = Yad2Scraper(params)
 listings = scraper.scrape_all_pages(max_pages=3)
+scraper.save_to_json("tel_aviv_search.json")
 
-# Save results
-scraper.save_to_json("my_search.json")
+print(f"Found {len(listings)} listings")
 ```
 
-#### Alerts (optional)
+### 5️⃣ Testing
 
-Send email or WhatsApp alerts when a listing matches your criteria.
+```bash
+# Run all tests
+pytest
 
-```python
-from alerts import EmailAlert, Notifier
-
-alert = EmailAlert("user@example.com")
-notifier = Notifier({"city": 5000}, [alert])
-for listing in listings:
-    notifier.notify(listing)
+# Run specific module tests
+python -m yad2.tests.test_core
+python tests/rami/test_rami_client.py
+python tests/gis/test_gis_client.py
+python tests/gov/test_decisive_appraisal.py
 ```
 
 #### RAMI (Planning Documents) Usage
@@ -395,67 +429,75 @@ print(summary)
 
 ## 🤖 MCP Servers for LLM Integration
 
-Multiple specialized MCP servers provide comprehensive real estate intelligence through LLM integration.
+The platform provides **4 specialized MCP servers** with **25+ tools** for comprehensive real estate intelligence through natural language queries.
 
-### 🏠 Yad2 Real Estate Server
+### 🏠 Yad2 Real Estate Server (`python -m yad2.mcp.server`)
 
-**Available Tools:**
-1. `search_real_estate` — Search listings with natural language
-2. `get_search_parameters_reference` — Get parameter documentation
-3. `analyze_search_results` — Analyze price trends, locations, property types
-4. `save_search_results` — Save results to JSON file
-5. `build_search_url` — Generate Yad2 URLs without scraping
+**Core Tools:**
+- **`search_real_estate`** — Search with natural language (supports all 58+ Yad2 parameters)
+- **`get_search_parameters_reference`** — Complete parameter documentation
+- **`analyze_search_results`** — Price trends, location analysis, property distributions
+- **`save_search_results`** — Export to JSON with metadata
+- **`build_search_url`** — Generate URLs without scraping
 
-**Start:** `python -m yad2.mcp.server`
+**Example Queries:**
+- *"Find 4-room apartments in Tel Aviv under 8M NIS with parking and elevator"*
+- *"Search penthouses in Jerusalem with balcony, renovated, price range 5-15M"*
 
-### 🏛️ RAMI Planning Documents Server
+### 🏛️ RAMI Planning Documents Server (`python -m rami.mcp.server`)
 
-**Available Tools:**
-1. `search_plans` — General search for planning documents
-2. `search_tel_aviv_plans` — Pre-configured Tel Aviv area search
-3. `download_plan_documents` — Download documents for specific plan
-4. `download_multiple_plans_documents` — Bulk document downloads
-5. `get_document_types_info` — Information about available document types
-
-**Start:** `python -m rami.mcp.server`
+**Document Tools:**
+- **`search_plans`** — General planning document search
+- **`search_tel_aviv_plans`** — Pre-configured Tel Aviv searches
+- **`download_plan_documents`** — Download specific plan documents
+- **`download_multiple_plans_documents`** — Bulk downloads
+- **`get_document_types_info`** — Available document types reference
 
 **Document Types:**
-- **takanon** (תקנון): Planning regulations (PDF)
-- **tasrit** (תשריט): Blueprints and drawings (PDF)
-- **nispach** (נספח): Supporting appendices (PDF)
-- **mmg** (ממ"ג): Digital planning archives (ZIP)
+- **תקנון (takanon)** — Planning regulations (PDF)
+- **תשריט (tasrit)** — Blueprints and drawings (PDF)  
+- **נספח (nispach)** — Supporting appendices (PDF)
+- **ממ"ג (mmg)** — Digital planning archives (ZIP)
 
-### 🗺️ Tel Aviv GIS Server
+**Example Queries:**
+- *"Find planning documents for Gush 6638 Chelka 96"*
+- *"Download blueprints for plan תמ״א 38 in Tel Aviv"*
 
-**Available Tools:**
-1. `geocode_address` — Convert addresses to coordinates
-2. `get_building_permits` — Find nearby construction permits
-3. `get_land_use_main` — Get main land use categories
-4. `get_land_use_detailed` — Get detailed land use data
-5. `get_plans_local` — Get local planning data
-6. `get_plans_citywide` — Get city-wide planning data
-7. `get_parcels` — Get parcel information
-8. `get_blocks` — Get block information
-9. `get_dangerous_buildings` — Find dangerous buildings nearby
-10. `get_preservation` — Find preserved buildings
-11. `get_noise_levels` — Get noise level data
-12. `get_cell_antennas` — Find cellular antennas
-13. `get_green_areas` — Find parks and green spaces
-14. `get_shelters` — Find bomb shelters
-15. `get_building_privilege_page` — Download building privilege pages
+### 🗺️ Tel Aviv GIS Server (`python -m gis.mcp.server`)
 
-**Start:** `python -m gis.mcp.server`
+**Spatial Analysis Tools:**
+- **`geocode_address`** — Address to coordinates (EPSG:2039)
+- **`get_building_permits`** — Nearby construction permits + PDF downloads
+- **`get_land_use_main/detailed`** — Land use and zoning data
+- **`get_plans_local/citywide`** — Planning data at different scales
+- **`get_parcels/blocks`** — Property boundaries and block info
+- **`get_dangerous_buildings`** — Safety hazard locations
+- **`get_preservation`** — Heritage-listed buildings
+- **`get_noise_levels`** — Environmental noise data
+- **`get_cell_antennas`** — Cellular infrastructure
+- **`get_green_areas`** — Parks and green spaces
+- **`get_shelters`** — Bomb shelter locations
+- **`get_building_privilege_page`** — Building rights (זכויות בנייה)
 
-### 📊 Government Data Server
+**Example Queries:**
+- *"Get coordinates for Rothschild 1 Tel Aviv"*
+- *"Find building permits within 50m of Dizengoff 50"*
+- *"What's the land use classification for coordinates 184320, 668548?"*
 
-**Available Tools:**
-1. `status_show` — Get CKAN version and extensions
-2. `package_search` — Search government datasets
-3. `package_show` — Get specific dataset details
-4. `fetch_comparable_transactions` — Get comparable real estate transactions
-5. `decisive_appraisal` — Get decisive appraisal decisions
+### 📊 Government Data Server (`python -m gov.mcp.server`)
 
-**Start:** `python -m gov.mcp.server`
+**Data Access Tools:**
+- **`package_search/show`** — Search government datasets (data.gov.il)
+- **`fetch_comparable_transactions`** — Real estate transaction comparables
+- **`decisive_appraisal`** — Decisive appraisal decisions
+- **`datastore_search`** — Query structured government data
+- **`license_list`** — Available data licenses
+- **`organization_list/show`** — Government organizations and their data
+
+**Example Queries:**
+- *"Find comparable real estate transactions near my address"*
+- *"Get decisive appraisal decisions for block 6638 plot 96"*
+- *"Search government datasets about housing prices"*
 
 ### 🚀 Usage with LLM
 

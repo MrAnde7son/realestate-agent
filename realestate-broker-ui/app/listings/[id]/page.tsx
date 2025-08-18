@@ -16,6 +16,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [syncMessage, setSyncMessage] = useState<string>('')
 
   useEffect(() => {
     params.then(({ id }) => {
@@ -28,6 +29,42 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
         .finally(() => setLoading(false))
     })
   }, [params])
+
+  const handleSyncData = async () => {
+    if (!id || !listing?.address) return
+    setSyncing(true)
+    setSyncMessage('מסנכרן נתונים...')
+    
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: listing.address })
+      })
+      
+      if (res.ok) {
+        const result = await res.json()
+        setSyncMessage(`נמצאו ${result.rows?.length || 0} נכסים חדשים`)
+        // Optionally refresh the listing data
+        const listingRes = await fetch(`/api/listings/${id}`)
+        if (listingRes.ok) {
+          const data = await listingRes.json()
+          setListing(data.listing)
+        }
+        // Clear message after 5 seconds
+        setTimeout(() => setSyncMessage(''), 5000)
+      } else {
+        setSyncMessage('שגיאה בסנכרון הנתונים')
+        setTimeout(() => setSyncMessage(''), 5000)
+      }
+    } catch (err) {
+      console.error('Sync failed:', err)
+      setSyncMessage('שגיאה בסנכרון הנתונים')
+      setTimeout(() => setSyncMessage(''), 5000)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   if (loading || !listing) {
     return (
@@ -60,29 +97,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
   const rmiDocs =
     listing.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
 
-  const handleSyncData = async () => {
-    if (!id || !listing?.address) return
-    setSyncing(true)
-    try {
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: listing.address })
-      })
-      if (res.ok) {
-        // Optionally refresh the listing data
-        const listingRes = await fetch(`/api/listings/${id}`)
-        if (listingRes.ok) {
-          const data = await listingRes.json()
-          setListing(data.listing)
-        }
-      }
-    } catch (err) {
-      console.error('Sync failed:', err)
-    } finally {
-      setSyncing(false)
-    }
-  }
+
 
   const handleGenerateReport = async () => {
     if (!id) return
@@ -185,6 +200,9 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                 )}
               </Button>
             </div>
+            {syncMessage && (
+              <div className="text-sm text-muted-foreground">{syncMessage}</div>
+            )}
           </div>
         </div>
 

@@ -76,8 +76,6 @@ export default function ListingsPage() {
             </p>
           </div>
         <div className="flex items-center space-x-2">
-          <Input placeholder="עיר" className="w-32" />
-          <Input placeholder="₪/מ״ר 45,000–80,000" className="w-40" />
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="default">הוסף נכס</Button>
@@ -89,6 +87,12 @@ export default function ListingsPage() {
               </SheetHeader>
               <form
                 onSubmit={form.handleSubmit(async (values) => {
+                  // Trigger backend sync for this address
+                  await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: values.address }),
+                  })
                   const res = await fetch('/api/listings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -156,7 +160,6 @@ export default function ListingsPage() {
               </form>
             </SheetContent>
           </Sheet>
-          <Button variant="default">שמור תצוגה</Button>
         </div>
       </div>
 
@@ -271,13 +274,6 @@ export default function ListingsPage() {
           <p className="text-sm text-muted-foreground">
             מציג {listings.length} נכסים עם נתוני שמאות מלאים
           </p>
-          {listings.length > 0 && (
-            <Button variant="outline" asChild>
-              <Link href={`/listings/${listings[0].id}`}>
-                פתח דף פרטי נכס לדוגמה →
-              </Link>
-            </Button>
-          )}
         </div>
       </div>
     </DashboardLayout>

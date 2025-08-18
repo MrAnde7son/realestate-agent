@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  # Redis for Celery and Django
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL for Django (optional, can use SQLite)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: realestate_broker
+      POSTGRES_USER: broker_user
+      POSTGRES_PASSWORD: broker_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U broker_user -d realestate_broker"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Django Backend
+  django:
+    build:
+      context: ./backend-django
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgresql://broker_user:broker_pass@postgres:5432/realestate_broker
+      - DJANGO_SETTINGS_MODULE=broker_backend.settings
+    volumes:
+      - ./backend-django:/app
+      - django_static:/app/static
+      - django_media:/app/media
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate &&
+              python manage.py collectstatic --noinput &&
+              python manage.py runserver 0.0.0.0:8000"
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend-django
+      dockerfile: Dockerfile
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgresql://broker_user:broker_pass@postgres:5432/realestate_broker
+    volumes:
+      - ./backend-django:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: celery -A broker_backend worker -l info
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: ./backend-django
+      dockerfile: Dockerfile
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgresql://broker_user:broker_pass@postgres:5432/realestate_broker
+    volumes:
+      - ./backend-django:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: celery -A broker_backend beat -l info
+
+  # Yad2 MCP Server
+  yad2-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    ports:
+      - "8001:8001"
+    environment:
+      - MCP_PORT=8001
+      - PYTHONPATH=/app
+    volumes:
+      - ./yad2:/app/yad2
+      - ./requirements.txt:/app/requirements.txt
+    restart: unless-stopped
+    command: python -m yad2.mcp.server
+
+  # RAMI MCP Server
+  rami-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    ports:
+      - "8002:8002"
+    environment:
+      - MCP_PORT=8002
+      - PYTHONPATH=/app
+    volumes:
+      - ./rami:/app/rami
+      - ./requirements.txt:/app/requirements.txt
+    restart: unless-stopped
+    command: python -m rami.mcp.server
+
+  # GIS MCP Server
+  gis-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    ports:
+      - "8003:8003"
+    environment:
+      - MCP_PORT=8003
+      - PYTHONPATH=/app
+    volumes:
+      - ./gis:/app/gis
+      - ./requirements.txt:/app/requirements.txt
+    restart: unless-stopped
+    command: python -m gis.mcp.server
+
+  # Government Data MCP Server
+  gov-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    ports:
+      - "8004:8004"
+    environment:
+      - MCP_PORT=8004
+      - PYTHONPATH=/app
+    volumes:
+      - ./gov:/app/gov
+      - ./requirements.txt:/app/requirements.txt
+    restart: unless-stopped
+    command: python -m gov.mcp.server
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./realestate-broker-ui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_MCP_YAD2_URL=http://localhost:8001
+      - NEXT_PUBLIC_MCP_RAMI_URL=http://localhost:8002
+      - NEXT_PUBLIC_MCP_GIS_URL=http://localhost:8003
+      - NEXT_PUBLIC_MCP_GOV_URL=http://localhost:8004
+    volumes:
+      - ./realestate-broker-ui:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - django
+    restart: unless-stopped
+    command: npm run dev
+
+volumes:
+  redis_data:
+  postgres_data:
+  django_static:
+  django_media:
+
+networks:
+  default:
+    name: realestate_network

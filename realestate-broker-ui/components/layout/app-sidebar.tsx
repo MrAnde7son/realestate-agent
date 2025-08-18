@@ -51,7 +51,7 @@ export default function AppSidebar({ className }: AppSidebarProps) {
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/" className="flex items-center gap-2">
           <Building className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">Real Estate Pro</span>
+          <span className="text-xl font-bold">נדל״נר</span>
         </Link>
       </div>
 

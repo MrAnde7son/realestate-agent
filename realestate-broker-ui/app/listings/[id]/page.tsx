@@ -6,24 +6,30 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import DashboardLayout from '@/components/layout/dashboard-layout'
-import { ArrowLeft } from 'lucide-react'
+import { PageLoader } from '@/components/ui/page-loader'
+import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
 
 export default function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
   const [listing, setListing] = useState<any>(null)
   const [id, setId] = useState<string>('')
   const [uploading, setUploading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [generatingReport, setGeneratingReport] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     params.then(({ id }) => {
       setId(id)
+      setLoading(true)
       fetch(`/api/listings/${id}`)
         .then(res => res.json())
         .then(data => setListing(data.listing))
         .catch(err => console.error('Error loading listing:', err))
+        .finally(() => setLoading(false))
     })
   }, [params])
 
-  if (!listing) {
+  if (loading || !listing) {
     return (
       <DashboardLayout>
         <div className="p-6">
@@ -35,7 +41,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               </Link>
             </Button>
           </div>
-          <div>טוען נתוני נכס...</div>
+          <PageLoader message="טוען נתוני נכס..." showLogo={false} />
         </div>
       </DashboardLayout>
     )
@@ -53,6 +59,46 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
     listing.documents?.filter((d: any) => d.type === 'appraisal_decisive') ?? []
   const rmiDocs =
     listing.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
+
+  const handleSyncData = async () => {
+    if (!id || !listing?.address) return
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: listing.address })
+      })
+      if (res.ok) {
+        // Optionally refresh the listing data
+        const listingRes = await fetch(`/api/listings/${id}`)
+        if (listingRes.ok) {
+          const data = await listingRes.json()
+          setListing(data.listing)
+        }
+      }
+    } catch (err) {
+      console.error('Sync failed:', err)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const handleGenerateReport = async () => {
+    if (!id) return
+    setGeneratingReport(true)
+    try {
+      await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id })
+      })
+    } catch (err) {
+      console.error('Report generation failed:', err)
+    } finally {
+      setGeneratingReport(false)
+    }
+  }
 
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -102,18 +148,43 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
           <div className="text-right space-y-2">
             <div className="text-3xl font-bold">₪{listing.price?.toLocaleString('he-IL')}</div>
             <div className="text-muted-foreground">₪{listing.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
-            <Button
-              size="sm"
-              onClick={async () => {
-                await fetch('/api/reports', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ listingId: id })
-                })
-              }}
-            >
-              צור דוח
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm" 
+                variant="outline"
+                onClick={handleSyncData}
+                disabled={syncing}
+              >
+                {syncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    מסנכרן נתונים...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    סנכרן נתונים
+                  </>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleGenerateReport}
+                disabled={generatingReport}
+              >
+                {generatingReport ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    יוצר דוח...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4" />
+                    צור דוח
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -595,7 +666,14 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                     <option value="rights">זכויות</option>
                   </select>
                   <Button type="submit" size="sm" disabled={uploading}>
-                    {uploading ? 'מעלה...' : 'העלה'}
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        מעלה...
+                      </>
+                    ) : (
+                      'העלה'
+                    )}
                   </Button>
                 </form>
 

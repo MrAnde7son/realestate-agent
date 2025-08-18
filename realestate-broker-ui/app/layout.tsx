@@ -3,8 +3,8 @@ import { ReactNode } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
 
 export const metadata = { 
-  title: 'Real Estate Broker Pro', 
-  description: 'Professional real estate management platform with advanced analytics' 
+  title: 'נדל״נר', 
+  description: 'נדל״ן חכם לשמאים, מתווכים ומשקיעים' 
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

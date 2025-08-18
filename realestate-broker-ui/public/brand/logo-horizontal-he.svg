@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="900" height="240.0">
+  <defs>
+    <style>
+      .icon-stroke { fill: none; stroke: #12b3a6; stroke-width: 20; stroke-linecap: round; stroke-linejoin: round; }
+      .brand-text { font-family: 'Heebo','Rubik','Assistant','Arimo','Arial',sans-serif; font-weight: 700; font-size: 180px; fill: #0f172a; }
+    </style>
+  </defs>
+  <g transform="translate(20,20)">
+    <path d="M40 0 H200 a40 40 0 0 1 40 40 V200 a40 40 0 0 1 -40 40 H40 a40 40 0 0 1 -40 -40 V40 a40 40 0 0 1 40 -40 Z" class="icon-stroke"/>
+    <path d="M75 135 L120 80 L165 135" class="icon-stroke"/>
+    <path d="M95 120 L120 98 L145 120" class="icon-stroke"/>
+    <path d="M95 175 L145 175" class="icon-stroke"/>
+  </g>
+  <text x="1160" y="200" text-anchor="end" direction="rtl" class="brand-text">נדל״נר</text>
+</svg>

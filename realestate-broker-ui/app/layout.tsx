@@ -10,6 +10,12 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
+      <head>
+        <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700&display=swap" rel="stylesheet" />
+        <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+        <link rel="alternate icon" href="/brand/favicon-32.png" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/brand/favicon-192.png" />
+      </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider
           attribute="class"

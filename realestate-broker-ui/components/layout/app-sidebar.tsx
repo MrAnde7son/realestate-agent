@@ -7,6 +7,7 @@ import { ChevronDown, Home, Building, AlertCircle, Calculator, FileText, BarChar
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import Logo from "@/components/Logo"
 import * as Collapsible from "@radix-ui/react-collapsible"
 
 const navigation = [
@@ -48,9 +49,9 @@ export default function AppSidebar({ className }: AppSidebarProps) {
     <div className={cn("flex h-full w-64 flex-col bg-card border-l", className)}>
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <Building className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">נדל״נר</span>
+        <Link href="/" className="flex items-center gap-3">
+          <Logo variant="symbol" size={28} color="var(--brand-teal)" />
+          <span className="text-xl font-bold text-brand-slate">נדל״נר</span>
         </Link>
       </div>
 

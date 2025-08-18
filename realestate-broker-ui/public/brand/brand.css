@@ -1,0 +1,12 @@
+:root {
+  --brand-teal: #12b3a6;
+  --brand-slate: #0f172a;
+  --brand-ink: #1f2937;
+  --brand-blue: #2563eb;
+  --brand-green: #16a34a;
+  --brand-gray: #6b7280;
+  --brand-white: #ffffff;
+  --brand-black: #000000;
+}
+.logo { color: var(--brand-teal); }
+.logo--dark { color: var(--brand-slate); }

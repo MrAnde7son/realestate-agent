@@ -209,32 +209,87 @@ def pull_rami_valuations(params: Dict[str, Any] | None = None) -> None:
 
 
 def sync_address_sources(street: str, house_number: int) -> List[Dict[str, Any]]:
-    """Collect data from all external sources for a specific address."""
+    """Collect data from all external sources for a specific address.
+    
+    Args:
+        street: Street name in Hebrew
+        house_number: House number as integer
+        
+    Returns:
+        List of listings found for the address
+        
+    Raises:
+        ValueError: If street or house_number are invalid
+    """
+    if not street or not street.strip():
+        raise ValueError("Street name is required")
+    
+    if not isinstance(house_number, int) or house_number <= 0:
+        raise ValueError("House number must be a positive integer")
+    
+    street = street.strip()
+    log.info("Starting address sync for %s %d", street, house_number)
+    
     gs = TelAvivGS()
     try:
         x, y = gs.get_address_coordinates(street, house_number)
-    except Exception as e:  # pragma: no cover - network errors
-        log.exception("Geocode failed: %s", e)
+        log.info("Geocoded %s %d to coordinates (%.2f, %.2f)", street, house_number, x, y)
+    except Exception as e:
+        log.exception("Geocode failed for %s %d: %s", street, house_number, e)
         return []
 
-    listings = pull_new_listings(address_filter=f"{street} {house_number}")
-    pull_gis_permits(x, y)
-    pull_gis_rights(x, y)
+    # Collect listings with address filter
+    listings = []
+    try:
+        listings = pull_new_listings(address_filter=f"{street} {house_number}")
+        log.info("Found %d listings for %s %d", len(listings), street, house_number)
+    except Exception as e:
+        log.exception("Listing pull failed for %s %d: %s", street, house_number, e)
+    
+    # Pull GIS data with error handling
+    try:
+        pull_gis_permits(x, y)
+        log.info("Successfully pulled GIS permits for coordinates (%.2f, %.2f)", x, y)
+    except Exception as e:
+        log.exception("GIS permits pull failed: %s", e)
+    
+    try:
+        pull_gis_rights(x, y)
+        log.info("Successfully pulled GIS rights for coordinates (%.2f, %.2f)", x, y)
+    except Exception as e:
+        log.exception("GIS rights pull failed: %s", e)
 
+    # Get parcel data for decisive appraisals and RAMI
     block = plot = None
     try:
         parcels = gs.get_parcels(x, y)
         if parcels:
             p = parcels[0]
-            block = str(p.get("GUSH") or p.get("gush") or p.get("ms_gush"))
-            plot = str(p.get("HELKA") or p.get("helka") or p.get("ms_chelka"))
-    except Exception as e:  # pragma: no cover - network errors
-        log.warning("Parcel lookup failed: %s", e)
+            block = str(p.get("GUSH") or p.get("gush") or p.get("ms_gush") or "")
+            plot = str(p.get("HELKA") or p.get("helka") or p.get("ms_chelka") or "")
+            log.info("Found parcel data: block=%s, plot=%s", block, plot)
+        else:
+            log.warning("No parcels found for coordinates (%.2f, %.2f)", x, y)
+    except Exception as e:
+        log.exception("Parcel lookup failed for coordinates (%.2f, %.2f): %s", x, y, e)
 
-    if block and plot:
-        pull_decisive_appraisals(block, plot)
-        pull_rami_valuations({"gush": block, "chelka": plot, "city": 5000})
+    # Pull parcel-dependent data if we have block and plot
+    if block and plot and block != "" and plot != "":
+        try:
+            pull_decisive_appraisals(block, plot)
+            log.info("Successfully pulled decisive appraisals for block=%s, plot=%s", block, plot)
+        except Exception as e:
+            log.exception("Decisive appraisals pull failed for block=%s, plot=%s: %s", block, plot, e)
+        
+        try:
+            pull_rami_valuations({"gush": block, "chelka": plot, "city": 5000})
+            log.info("Successfully pulled RAMI valuations for block=%s, plot=%s", block, plot)
+        except Exception as e:
+            log.exception("RAMI valuations pull failed for block=%s, plot=%s: %s", block, plot, e)
+    else:
+        log.warning("Skipping parcel-dependent data pulls due to missing block/plot info")
 
+    log.info("Address sync completed for %s %d, found %d listings", street, house_number, len(listings))
     return listings
 
 

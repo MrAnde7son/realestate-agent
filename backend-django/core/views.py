@@ -33,25 +33,72 @@ def alerts(request):
 
 @csrf_exempt
 def sync_address(request):
-    """Fetch external data for a given address and store it."""
+    """Fetch external data for a given address and store it.
+    
+    Expected JSON payload:
+    - street: str - Street name in Hebrew
+    - house_number: int - House number
+    OR
+    - address: str - Full address string to parse
+    
+    Returns:
+    - 200: {"rows": [...]} - List of found listings
+    - 400: Error message for invalid input
+    - 500: Error message for server errors
+    """
     if request.method != 'POST':
-        return HttpResponseBadRequest('POST required')
+        return HttpResponseBadRequest('POST method required')
+    
+    # Parse JSON with error handling
     data = parse_json(request)
     if not data:
-        return HttpResponseBadRequest('Invalid JSON')
-    street = data.get('street')
+        return HttpResponseBadRequest('Invalid JSON in request body')
+    
+    # Extract street and number from data
+    street = data.get('street', '').strip() if data.get('street') else None
     number = data.get('house_number')
+    
+    # If no direct street/number, try to parse from address field
     if not street or number is None:
         addr = (data.get('address') or '').strip()
-        m = re.match(r'^(.+?)\s+(\d+)', addr)
-        if m:
-            street, number = m.group(1), m.group(2)
+        if not addr:
+            return HttpResponseBadRequest('Either (street, house_number) or address is required')
+        
+        match = re.match(r'^(.+?)\s+(\d+)', addr)
+        if match:
+            street, number = match.group(1).strip(), match.group(2)
+        else:
+            return HttpResponseBadRequest('Could not parse address. Expected format: "Street Name Number"')
+    
+    # Validate and convert number
+    if not street:
+        return HttpResponseBadRequest('Street name is required')
+    
     try:
         number = int(number)
+        if number <= 0:
+            return HttpResponseBadRequest('House number must be a positive integer')
     except (TypeError, ValueError):
-        return HttpResponseBadRequest('street and house_number required')
-    listings = sync_address_sources(street, number)
-    return JsonResponse({'rows': listings})
+        return HttpResponseBadRequest('House number must be a valid integer')
+    
+    # Execute sync with comprehensive error handling
+    try:
+        listings = sync_address_sources(street, number)
+        return JsonResponse({
+            'rows': listings,
+            'message': f'Successfully synced data for {street} {number}',
+            'address': f'{street} {number}'
+        })
+    except ValueError as e:
+        return HttpResponseBadRequest(f'Validation error: {str(e)}')
+    except Exception as e:
+        # Log the full error for debugging
+        import logging
+        logging.exception("Unexpected error in sync_address: %s", e)
+        return JsonResponse(
+            {'error': 'Internal server error occurred during address sync'}, 
+            status=500
+        )
 
 
 def listings(request):

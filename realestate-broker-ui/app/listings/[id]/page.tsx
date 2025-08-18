@@ -11,6 +11,8 @@ import { ArrowLeft } from 'lucide-react'
 export default function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
   const [listing, setListing] = useState<any>(null)
   const [id, setId] = useState<string>('')
+  const [issyncing, setIsSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string>('')
 
   useEffect(() => {
     params.then(({ id }) => {
@@ -21,6 +23,39 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
         .catch(err => console.error('Error loading listing:', err))
     })
   }, [params])
+
+  const handleSyncData = async () => {
+    if (!listing?.address) return
+
+    setIsSyncing(true)
+    setSyncMessage('מסנכרן נתונים...')
+
+    try {
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: listing.address })
+      })
+
+      const result = await response.json()
+      
+      if (response.ok) {
+        setSyncMessage(`נמצאו ${result.rows?.length || 0} נכסים חדשים`)
+        // Refresh the listing data
+        setTimeout(() => {
+          window.location.reload()
+        }, 2000)
+      } else {
+        setSyncMessage('שגיאה בסנכרון הנתונים')
+      }
+    } catch (error) {
+      console.error('Sync error:', error)
+      setSyncMessage('שגיאה בסנכרון הנתונים')
+    } finally {
+      setIsSyncing(false)
+      setTimeout(() => setSyncMessage(''), 5000)
+    }
+  }
 
   if (!listing) {
     return (
@@ -60,9 +95,24 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold">₪{listing.price?.toLocaleString('he-IL')}</div>
-            <div className="text-muted-foreground">₪{listing.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
+          <div className="text-right space-y-2">
+            <div>
+              <div className="text-3xl font-bold">₪{listing.price?.toLocaleString('he-IL')}</div>
+              <div className="text-muted-foreground">₪{listing.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleSyncData} 
+                disabled={issyncing}
+                size="sm"
+                variant="outline"
+              >
+                {issyncing ? 'מסנכרן...' : 'סנכרן נתונים'}
+              </Button>
+            </div>
+            {syncMessage && (
+              <div className="text-sm text-muted-foreground">{syncMessage}</div>
+            )}
           </div>
         </div>
 

@@ -32,7 +32,7 @@ class SQLAlchemyDatabase(Database):
     def __init__(self, url: Optional[str] = None) -> None:
         self.url = url or os.getenv(
             "DATABASE_URL",
-            "postgresql+psycopg2://postgres:postgres@localhost:5432/realestate",
+            "sqlite:///./db.sqlite3",
         )
         self.engine = create_engine(self.url, future=True)
         self.SessionLocal = sessionmaker(

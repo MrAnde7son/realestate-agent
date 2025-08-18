@@ -18,7 +18,7 @@ export default function HomePage() {
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader heading="דשבורד נדל״ן" text="סקירה כללית של הפעילות והנתונים" />
+        <DashboardHeader heading="בית" text="סקירה כללית של הפעילות והנתונים" />
         
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Link href="/listings" className="block">

@@ -72,7 +72,7 @@ jobs:
         if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
         run: |
-          pnpm run lint --if-present
+          npm run lint --if-present
 
       - name: Run UI tests
         if: steps.changes.outputs.broker_ui == 'true'

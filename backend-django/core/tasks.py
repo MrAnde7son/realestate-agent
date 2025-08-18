@@ -8,39 +8,195 @@ from django.utils import timezone
 from .models import Alert
 import requests
 
+# Yad2 scraper + database imports
+from yad2 import Yad2Scraper, Yad2SearchParameters
+from db.database import SQLAlchemyDatabase
+from db.models import (
+    Listing,
+    BuildingPermit,
+    BuildingRights,
+    DecisiveAppraisal,
+    RamiValuation,
+)
+from gis.gis_client import TelAvivGS
+from gov.mcp.decisive import fetch_decisive_appraisals
+from rami.rami_client import RamiClient
+
 log = logging.getLogger(__name__)
 
-# --- Stub data source (replace with your Yad2 puller) ---
+# --- Yad2 ingestion ---
 def pull_new_listings() -> List[Dict[str, Any]]:
-    """Return newly pulled listings since last run.
-    Replace this with your Yad2 ingestion output (e.g., rows inserted in the last N minutes).
-    Minimal fields expected by the matcher are included below.
+    """Pull new listings from Yad2 and persist them.
+
+    This function scrapes Yad2 using the configurable :class:`Yad2Scraper`.
+    Retrieved listings are saved into the shared PostgreSQL database using the
+    :class:`SQLAlchemyDatabase` helper and the :class:`Listing` ORM model.
+    A simplified representation of each listing is returned for the alert
+    matching logic.
     """
-    # Demo listings (simulate two new items)
-    return [
-        {
-            'id': 'demo-1',
-            'address': 'הגולן 3',
-            'city': 'תל אביב-יפו',
-            'rooms': 4,
-            'price': 7900000,
-            'confidence': 76,
-            'riskFlags': [],
-            'remaining_rights': 22,
-            'link': 'https://example.com/listings/demo-1'
-        },
-        {
-            'id': 'demo-2',
-            'address': 'הרב לוי 12',
-            'city': 'בת-ים',
-            'rooms': 3,
-            'price': 2350000,
-            'confidence': 62,
-            'riskFlags': ['רעש'],
-            'remaining_rights': 0,
-            'link': 'https://example.com/listings/demo-2'
-        }
-    ]
+
+    search_params = Yad2SearchParameters(
+        city=5000,  # Tel Aviv (example)
+        area=1,
+        topArea=2,
+        property="5,33,39",
+        maxPrice=10500000,
+    )
+    scraper = Yad2Scraper(search_params=search_params)
+
+    try:
+        scraped = scraper.scrape_all_pages(max_pages=1)
+    except Exception as e:  # pragma: no cover - network errors
+        log.exception("Yad2 scrape failed: %s", e)
+        return []
+
+    db = SQLAlchemyDatabase()
+    db.init_db()
+
+    results: List[Dict[str, Any]] = []
+    with db.get_session() as session:
+        for listing in scraped:
+            data = listing.to_dict()
+            db_listing = Listing(
+                source="yad2",
+                external_id=data.get("listing_id"),
+                title=data.get("title"),
+                price=data.get("price"),
+                address=data.get("address"),
+                rooms=data.get("rooms"),
+                floor=data.get("floor"),
+                size=data.get("size"),
+                property_type=data.get("property_type"),
+                description=data.get("description"),
+                images=data.get("images"),
+                contact_info=data.get("contact_info"),
+                features=data.get("features"),
+                url=data.get("url"),
+                date_posted=data.get("date_posted"),
+            )
+            session.merge(db_listing)
+
+            results.append(
+                {
+                    "id": data.get("listing_id"),
+                    "address": data.get("address"),
+                    "city": data.get("address"),
+                    "rooms": data.get("rooms"),
+                    "price": data.get("price"),
+                    "confidence": 0,
+                    "riskFlags": [],
+                    "remaining_rights": 0,
+                    "link": data.get("url"),
+                }
+            )
+        session.commit()
+
+    return results
+
+
+def pull_gis_permits(x: float = 178000, y: float = 665000) -> None:
+    """Fetch building permits from municipal GIS and store them."""
+    gs = TelAvivGS()
+    db = SQLAlchemyDatabase()
+    db.init_db()
+    try:
+        permits = gs.get_building_permits(x, y, radius=30, download_pdfs=False)
+    except Exception as e:  # pragma: no cover - network errors
+        log.exception("GIS permits fetch failed: %s", e)
+        return
+    with db.get_session() as session:
+        for p in permits:
+            session.merge(
+                BuildingPermit(
+                    permission_num=p.get("permission_num"),
+                    request_num=p.get("request_num"),
+                    url=p.get("url_hadmaya"),
+                    data=p,
+                )
+            )
+        session.commit()
+
+
+def pull_gis_rights(x: float = 178000, y: float = 665000) -> None:
+    """Fetch building rights/privilege page from GIS and store it."""
+    gs = TelAvivGS()
+    db = SQLAlchemyDatabase()
+    db.init_db()
+    try:
+        rights = gs.get_building_privilege_page(x, y, save_dir="privilege_pages")
+    except Exception as e:  # pragma: no cover - network errors
+        log.exception("GIS rights fetch failed: %s", e)
+        return
+    if not rights:
+        return
+    with db.get_session() as session:
+        session.merge(
+            BuildingRights(
+                gush=rights.get("gush"),
+                helka=rights.get("helka"),
+                file_path=rights.get("file_path"),
+                content_type=rights.get("content_type"),
+                data=rights,
+            )
+        )
+        session.commit()
+
+
+def pull_decisive_appraisals(block: str = "6638", plot: str = "572") -> None:
+    """Fetch decisive appraisal decisions and store them."""
+    try:
+        items = fetch_decisive_appraisals(block=block, plot=plot, max_pages=1)
+    except Exception as e:  # pragma: no cover - network errors
+        log.exception("Decisive appraisal fetch failed: %s", e)
+        return
+    db = SQLAlchemyDatabase()
+    db.init_db()
+    with db.get_session() as session:
+        for item in items:
+            session.merge(
+                DecisiveAppraisal(
+                    title=item.get("title"),
+                    date=item.get("date"),
+                    appraiser=item.get("appraiser"),
+                    committee=item.get("committee"),
+                    pdf_url=item.get("pdf_url"),
+                    data=item,
+                )
+            )
+        session.commit()
+
+
+def pull_rami_valuations(params: Dict[str, Any] | None = None) -> None:
+    """Fetch valuation/plan data from RAMI and store it."""
+    client = RamiClient()
+    search_params = params or {"PlanName": "", "CityName": "תל אביב יפו"}
+    try:
+        df = client.fetch_plans(search_params)
+    except Exception as e:  # pragma: no cover - network errors
+        log.exception("RAMI fetch failed: %s", e)
+        return
+    db = SQLAlchemyDatabase()
+    db.init_db()
+    with db.get_session() as session:
+        for _, row in df.iterrows():
+            session.merge(
+                RamiValuation(
+                    plan_number=str(row.get("planNumber") or row.get("PLAN_NUMBER")),
+                    name=row.get("planName") or row.get("PLAN_NAME"),
+                    data=row.to_dict(),
+                )
+            )
+        session.commit()
+
+
+def sync_external_sources() -> List[Dict[str, Any]]:
+    """Synchronize all external data sources and return listings."""
+    listings = pull_new_listings()
+    pull_gis_permits()
+    pull_gis_rights()
+    pull_decisive_appraisals()
+    pull_rami_valuations()
+    return listings
 
 def matches(criteria: Dict[str, Any], listing: Dict[str, Any]) -> bool:
     c = criteria or {}
@@ -142,7 +298,7 @@ def evaluate_alerts():
     if not alerts.exists():
         log.info('No active alerts; skipping evaluation.')
         return {'processed': 0, 'matches': 0}
-    listings = pull_new_listings()
+    listings = sync_external_sources()
     processed = 0
     matched = 0
     for listing in listings:

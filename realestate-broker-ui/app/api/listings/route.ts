@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server'
 import { listings, addListing } from '@/lib/data'
 import type { Listing } from '@/lib/data'
 import { z } from 'zod'
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
+
 export async function GET(req: Request){
   const url = new URL(req.url)
-  const page = Number(url.searchParams.get('page') ?? 1)
-  const pageSize = Number(url.searchParams.get('pageSize') ?? 50)
-  const start = (page - 1) * pageSize
-  const rows = listings.slice(start, start + pageSize)
-  return NextResponse.json({ rows, total: listings.length, page, pageSize })
+  const query = url.search
+  const resp = await fetch(`${BACKEND_URL}/api/listings/${query}`, { cache: 'no-store' })
+  const data = await resp.json()
+  return NextResponse.json(data)
 }
 
 const newListingSchema = z.object({

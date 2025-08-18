@@ -33,8 +33,7 @@ const navigation = [
   {
     name: "דוחות",
     href: "/reports",
-    icon: BarChart3,
-    badge: "בקרוב"
+    icon: BarChart3
   }
 ]
 

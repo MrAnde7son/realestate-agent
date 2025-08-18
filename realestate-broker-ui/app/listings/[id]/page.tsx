@@ -99,9 +99,21 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               </p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-right space-y-2">
             <div className="text-3xl font-bold">₪{listing.price?.toLocaleString('he-IL')}</div>
             <div className="text-muted-foreground">₪{listing.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
+            <Button
+              size="sm"
+              onClick={async () => {
+                await fetch('/api/reports', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ listingId: id })
+                })
+              }}
+            >
+              צור דוח
+            </Button>
           </div>
         </div>
 

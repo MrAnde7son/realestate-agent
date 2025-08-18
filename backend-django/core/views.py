@@ -1,8 +1,18 @@
-import json, statistics
+import json, statistics, re
 from datetime import datetime
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from .models import Alert
+
+from db.database import SQLAlchemyDatabase
+from db.models import (
+    Listing,
+    BuildingPermit,
+    BuildingRights,
+    DecisiveAppraisal,
+    RamiValuation,
+)
+from .tasks import sync_address_sources
 
 def parse_json(request):
     try: return json.loads(request.body.decode('utf-8'))
@@ -19,6 +29,139 @@ def alerts(request):
         rows = list(Alert.objects.values('id','user_id','criteria','notify','active','created_at').order_by('-id'))
         return JsonResponse({'rows': rows})
     return HttpResponseBadRequest('Unsupported method')
+
+
+@csrf_exempt
+def sync_address(request):
+    """Fetch external data for a given address and store it."""
+    if request.method != 'POST':
+        return HttpResponseBadRequest('POST required')
+    data = parse_json(request)
+    if not data:
+        return HttpResponseBadRequest('Invalid JSON')
+    street = data.get('street')
+    number = data.get('house_number')
+    if not street or number is None:
+        addr = (data.get('address') or '').strip()
+        m = re.match(r'^(.+?)\s+(\d+)', addr)
+        if m:
+            street, number = m.group(1), m.group(2)
+    try:
+        number = int(number)
+    except (TypeError, ValueError):
+        return HttpResponseBadRequest('street and house_number required')
+    listings = sync_address_sources(street, number)
+    return JsonResponse({'rows': listings})
+
+
+def listings(request):
+    """Return all listings from the SQL database."""
+    db = SQLAlchemyDatabase()
+    with db.get_session() as session:
+        rows = session.query(Listing).order_by(Listing.id.desc()).all()
+        data = [
+            {
+                'id': l.id,
+                'source': l.source,
+                'external_id': l.external_id,
+                'title': l.title,
+                'price': l.price,
+                'address': l.address,
+                'rooms': l.rooms,
+                'floor': l.floor,
+                'size': l.size,
+                'property_type': l.property_type,
+                'description': l.description,
+                'images': l.images,
+                'contact_info': l.contact_info,
+                'features': l.features,
+                'url': l.url,
+                'date_posted': l.date_posted,
+                'scraped_at': l.scraped_at.isoformat() if l.scraped_at else None,
+            }
+            for l in rows
+        ]
+    return JsonResponse({'rows': data})
+
+
+def building_permits(request):
+    """Return stored building permits."""
+    db = SQLAlchemyDatabase()
+    with db.get_session() as session:
+        rows = session.query(BuildingPermit).order_by(BuildingPermit.id.desc()).all()
+        data = [
+            {
+                'id': p.id,
+                'permission_num': p.permission_num,
+                'request_num': p.request_num,
+                'url': p.url,
+                'gush': p.gush,
+                'helka': p.helka,
+                'data': p.data,
+                'scraped_at': p.scraped_at.isoformat() if p.scraped_at else None,
+            }
+            for p in rows
+        ]
+    return JsonResponse({'rows': data})
+
+
+def building_rights(request):
+    """Return stored building rights pages."""
+    db = SQLAlchemyDatabase()
+    with db.get_session() as session:
+        rows = session.query(BuildingRights).order_by(BuildingRights.id.desc()).all()
+        data = [
+            {
+                'id': r.id,
+                'gush': r.gush,
+                'helka': r.helka,
+                'file_path': r.file_path,
+                'content_type': r.content_type,
+                'data': r.data,
+                'scraped_at': r.scraped_at.isoformat() if r.scraped_at else None,
+            }
+            for r in rows
+        ]
+    return JsonResponse({'rows': data})
+
+
+def decisive_appraisals(request):
+    """Return decisive appraisal decisions."""
+    db = SQLAlchemyDatabase()
+    with db.get_session() as session:
+        rows = session.query(DecisiveAppraisal).order_by(DecisiveAppraisal.id.desc()).all()
+        data = [
+            {
+                'id': d.id,
+                'title': d.title,
+                'date': d.date,
+                'appraiser': d.appraiser,
+                'committee': d.committee,
+                'pdf_url': d.pdf_url,
+                'data': d.data,
+                'scraped_at': d.scraped_at.isoformat() if d.scraped_at else None,
+            }
+            for d in rows
+        ]
+    return JsonResponse({'rows': data})
+
+
+def rami_valuations(request):
+    """Return RAMI valuation/plan records."""
+    db = SQLAlchemyDatabase()
+    with db.get_session() as session:
+        rows = session.query(RamiValuation).order_by(RamiValuation.id.desc()).all()
+        data = [
+            {
+                'id': r.id,
+                'plan_number': r.plan_number,
+                'name': r.name,
+                'data': r.data,
+                'scraped_at': r.scraped_at.isoformat() if r.scraped_at else None,
+            }
+            for r in rows
+        ]
+    return JsonResponse({'rows': data})
 
 def _group_by_month(transactions):
     months = {}

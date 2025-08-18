@@ -21,8 +21,8 @@ CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_UR
 CELERY_TIMEZONE = TIME_ZONE
 from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
-    'evaluate-alerts-every-5-min': {
+    'evaluate-alerts-hourly': {
         'task': 'core.tasks.evaluate_alerts',
-        'schedule': 300.0,  # every 5 minutes
+        'schedule': 3600.0,  # every hour
     },
 }

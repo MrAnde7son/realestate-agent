@@ -89,6 +89,12 @@ export default function ListingsPage() {
               </SheetHeader>
               <form
                 onSubmit={form.handleSubmit(async (values) => {
+                  // Trigger backend sync for this address
+                  await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: values.address }),
+                  })
                   const res = await fetch('/api/listings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

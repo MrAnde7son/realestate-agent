@@ -6,58 +6,67 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import DashboardLayout from '@/components/layout/dashboard-layout'
-import { ArrowLeft } from 'lucide-react'
+import { PageLoader } from '@/components/ui/page-loader'
+import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
 
 export default function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
   const [listing, setListing] = useState<any>(null)
   const [id, setId] = useState<string>('')
-  const [issyncing, setIsSyncing] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [generatingReport, setGeneratingReport] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState<string>('')
 
   useEffect(() => {
     params.then(({ id }) => {
       setId(id)
+      setLoading(true)
       fetch(`/api/listings/${id}`)
         .then(res => res.json())
         .then(data => setListing(data.listing))
         .catch(err => console.error('Error loading listing:', err))
+        .finally(() => setLoading(false))
     })
   }, [params])
 
   const handleSyncData = async () => {
-    if (!listing?.address) return
-
-    setIsSyncing(true)
+    if (!id || !listing?.address) return
+    setSyncing(true)
     setSyncMessage('מסנכרן נתונים...')
-
+    
     try {
-      const response = await fetch('/api/sync', {
+      const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: listing.address })
       })
-
-      const result = await response.json()
       
-      if (response.ok) {
+      if (res.ok) {
+        const result = await res.json()
         setSyncMessage(`נמצאו ${result.rows?.length || 0} נכסים חדשים`)
-        // Refresh the listing data
-        setTimeout(() => {
-          window.location.reload()
-        }, 2000)
+        // Optionally refresh the listing data
+        const listingRes = await fetch(`/api/listings/${id}`)
+        if (listingRes.ok) {
+          const data = await listingRes.json()
+          setListing(data.listing)
+        }
+        // Clear message after 5 seconds
+        setTimeout(() => setSyncMessage(''), 5000)
       } else {
         setSyncMessage('שגיאה בסנכרון הנתונים')
+        setTimeout(() => setSyncMessage(''), 5000)
       }
-    } catch (error) {
-      console.error('Sync error:', error)
+    } catch (err) {
+      console.error('Sync failed:', err)
       setSyncMessage('שגיאה בסנכרון הנתונים')
-    } finally {
-      setIsSyncing(false)
       setTimeout(() => setSyncMessage(''), 5000)
+    } finally {
+      setSyncing(false)
     }
   }
 
-  if (!listing) {
+  if (loading || !listing) {
     return (
       <DashboardLayout>
         <div className="p-6">
@@ -69,10 +78,66 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               </Link>
             </Button>
           </div>
-          <div>טוען נתוני נכס...</div>
+          <PageLoader message="טוען נתוני נכס..." showLogo={false} />
         </div>
       </DashboardLayout>
     )
+  }
+
+  const manualDocs =
+    listing.documents?.filter(
+      (d: any) => d.type === 'tabu' || d.type === 'condo_plan'
+    ) ?? []
+  const permitDocs =
+    listing.documents?.filter((d: any) => d.type === 'permit') ?? []
+  const rightsDocs =
+    listing.documents?.filter((d: any) => d.type === 'rights') ?? []
+  const decisiveDocs =
+    listing.documents?.filter((d: any) => d.type === 'appraisal_decisive') ?? []
+  const rmiDocs =
+    listing.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
+
+
+
+  const handleGenerateReport = async () => {
+    if (!id) return
+    setGeneratingReport(true)
+    try {
+      await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: id })
+      })
+    } catch (err) {
+      console.error('Report generation failed:', err)
+    } finally {
+      setGeneratingReport(false)
+    }
+  }
+
+  const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!id) return
+    const formData = new FormData(e.currentTarget)
+    setUploading(true)
+    try {
+      const res = await fetch(`/api/listings/${id}/documents`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (res.ok) {
+        const { doc } = await res.json()
+        setListing((prev: any) => ({
+          ...prev,
+          documents: [...(prev.documents || []), doc],
+        }))
+        e.currentTarget.reset()
+      }
+    } catch (err) {
+      console.error('Upload failed:', err)
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -96,18 +161,43 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </div>
           </div>
           <div className="text-right space-y-2">
-            <div>
-              <div className="text-3xl font-bold">₪{listing.price?.toLocaleString('he-IL')}</div>
-              <div className="text-muted-foreground">₪{listing.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
-            </div>
+            <div className="text-3xl font-bold">₪{listing.price?.toLocaleString('he-IL')}</div>
+            <div className="text-muted-foreground">₪{listing.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
             <div className="flex gap-2">
-              <Button 
-                onClick={handleSyncData} 
-                disabled={issyncing}
-                size="sm"
+              <Button
+                size="sm" 
                 variant="outline"
+                onClick={handleSyncData}
+                disabled={syncing}
               >
-                {issyncing ? 'מסנכרן...' : 'סנכרן נתונים'}
+                {syncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    מסנכרן נתונים...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    סנכרן נתונים
+                  </>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleGenerateReport}
+                disabled={generatingReport}
+              >
+                {generatingReport ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    יוצר דוח...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4" />
+                    צור דוח
+                  </>
+                )}
               </Button>
             </div>
             {syncMessage && (
@@ -574,80 +664,157 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               <CardHeader>
                 <CardTitle>מסמכים</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <h3 className="font-medium mb-2">מסמכי תכנון</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>תוכנית מפורטת</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>זכויות בנייה</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>תב״ע מקומית</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                    </div>
-                  </div>
+              <CardContent className="space-y-6">
+                <form
+                  onSubmit={handleUpload}
+                  className="flex flex-col md:flex-row gap-2"
+                  encType="multipart/form-data"
+                >
+                  <input type="file" name="file" required className="flex-1" />
+                  <select
+                    name="type"
+                    className="border rounded p-2"
+                    defaultValue="tabu"
+                  >
+                    <option value="tabu">נסח טאבו</option>
+                    <option value="condo_plan">תשריט בית משותף</option>
+                    <option value="appraisal_decisive">שומת מכרעת</option>
+                    <option value="appraisal_rmi">שומת רמ״י</option>
+                    <option value="permit">היתר</option>
+                    <option value="rights">זכויות</option>
+                  </select>
+                  <Button type="submit" size="sm" disabled={uploading}>
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        מעלה...
+                      </>
+                    ) : (
+                      'העלה'
+                    )}
+                  </Button>
+                </form>
 
-                  <div>
-                    <h3 className="font-medium mb-2">מסמכי רישוי</h3>
+                <div>
+                  <h3 className="font-medium mb-2">מסמכים ידניים</h3>
+                  {manualDocs.length ? (
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>היתר בנייה</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>היתר אכלוס</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <span>תעודת גמר</span>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
+                      {manualDocs.map((doc: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-2 border rounded"
+                        >
+                          <span>{doc.name}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} download>
+                              הורד
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      לא הועלו מסמכים
+                    </div>
+                  )}
                 </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>מסמכים נוספים</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-2">
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <div>
-                          <div className="font-medium">הכרעת שמאי מייעץ</div>
-                          <div className="text-sm text-muted-foreground">PDF • 2.3 MB</div>
+                <div>
+                  <h3 className="font-medium mb-2">היתרים</h3>
+                  {permitDocs.length ? (
+                    <div className="space-y-2">
+                      {permitDocs.map((doc: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-2 border rounded"
+                        >
+                          <span>{doc.name}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} download>
+                              הורד
+                            </a>
+                          </Button>
                         </div>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <div>
-                          <div className="font-medium">דוח שומה</div>
-                          <div className="text-sm text-muted-foreground">PDF • 1.8 MB</div>
-                        </div>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-2 border rounded">
-                        <div>
-                          <div className="font-medium">סקר מודדים</div>
-                          <div className="text-sm text-muted-foreground">PDF • 4.1 MB</div>
-                        </div>
-                        <Button variant="outline" size="sm">הורד</Button>
-                      </div>
+                      ))}
                     </div>
-                    <div className="pt-4 text-center">
-                      <div className="text-sm text-muted-foreground">
-                        סה״כ {(listing.docsCount || 6)} מסמכים זמינים
-                      </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">אין היתרים</div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">זכויות</h3>
+                  {rightsDocs.length ? (
+                    <div className="space-y-2">
+                      {rightsDocs.map((doc: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-2 border rounded"
+                        >
+                          <span>{doc.name}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} download>
+                              הורד
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">אין זכויות</div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">שומות מכריעות</h3>
+                  {decisiveDocs.length ? (
+                    <div className="space-y-2">
+                      {decisiveDocs.map((doc: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-2 border rounded"
+                        >
+                          <span>{doc.name}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} download>
+                              הורד
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">אין שומות</div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">שומות רמ״י</h3>
+                  {rmiDocs.length ? (
+                    <div className="space-y-2">
+                      {rmiDocs.map((doc: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-2 border rounded"
+                        >
+                          <span>{doc.name}</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} download>
+                              הורד
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">אין שומות</div>
+                  )}
+                </div>
+
+                <div className="pt-4 text-center text-sm text-muted-foreground">
+                  סה״כ {listing.documents?.length || 0} מסמכים זמינים
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

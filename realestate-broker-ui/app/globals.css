@@ -6,6 +6,16 @@
   :root {
     --radius: 0.625rem;
     
+    /* Nadlanar Brand Colors */
+    --brand-teal: #12b3a6;
+    --brand-slate: #0f172a;
+    --brand-ink: #1f2937;
+    --brand-blue: #2563eb;
+    --brand-green: #16a34a;
+    --brand-gray: #6b7280;
+    --brand-white: #ffffff;
+    --brand-black: #000000;
+    
     /* Light mode (default) */
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
@@ -139,6 +149,27 @@
 .text-sub {
   color: hsl(var(--muted-foreground));
 }
+
+/* Brand Color Utilities */
+.text-brand-teal { color: var(--brand-teal); }
+.text-brand-slate { color: var(--brand-slate); }
+.text-brand-ink { color: var(--brand-ink); }
+.text-brand-blue { color: var(--brand-blue); }
+.text-brand-green { color: var(--brand-green); }
+.text-brand-gray { color: var(--brand-gray); }
+
+.bg-brand-teal { background-color: var(--brand-teal); }
+.bg-brand-slate { background-color: var(--brand-slate); }
+.bg-brand-ink { background-color: var(--brand-ink); }
+.bg-brand-blue { background-color: var(--brand-blue); }
+.bg-brand-green { background-color: var(--brand-green); }
+.bg-brand-gray { background-color: var(--brand-gray); }
+
+.border-brand-teal { border-color: var(--brand-teal); }
+.border-brand-slate { border-color: var(--brand-slate); }
+
+.logo { color: var(--brand-teal); }
+.logo--dark { color: var(--brand-slate); }
 ::view-transition-old(root) {
   /* Ensure the outgoing view (old theme) is beneath */
   z-index: 0;

@@ -5,6 +5,7 @@ import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import Logo from "@/components/Logo"
 import AppSidebar from "./app-sidebar"
 
 interface HeaderProps {
@@ -41,8 +42,11 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="text-sm text-muted-foreground">
-          ברוך הבא למערכת ניהול נדל״ן מתקדמת
+        <div className="flex items-center gap-3">
+          <Logo variant="horizontal" size={32} color="var(--brand-teal)" />
+          <div className="hidden md:block text-sm text-muted-foreground">
+            נדל״ן חכם לשמאים, מתווכים ומשקיעים
+          </div>
         </div>
         <ThemeToggle />
       </div>

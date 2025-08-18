@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { calculateAllScenarios, calculateLTV, calculateAffordability, type MortgageInput, type MortgageCalculation } from '@/lib/mortgage'
+import { Loader2, Calculator } from 'lucide-react'
 
 export default function MortgageAnalyzePage() {
   const [input, setInput] = useState<MortgageInput>({
@@ -20,6 +22,8 @@ export default function MortgageAnalyzePage() {
   const [calculations, setCalculations] = useState<MortgageCalculation[]>([])
   const [boiRate, setBOIRate] = useState<number>(4.5)
   const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [loadingBoiRate, setLoadingBoiRate] = useState<boolean>(true)
+  const [calculating, setCalculating] = useState<boolean>(false)
 
   useEffect(() => {
     // Fetch current BOI rate on component mount
@@ -30,6 +34,7 @@ export default function MortgageAnalyzePage() {
   }, [input])
 
   const fetchBOIRate = async () => {
+    setLoadingBoiRate(true)
     try {
       const response = await fetch('/api/boi-rate')
       const data = await response.json()
@@ -39,12 +44,18 @@ export default function MortgageAnalyzePage() {
       }
     } catch (error) {
       console.error('Error fetching BOI rate:', error)
+    } finally {
+      setLoadingBoiRate(false)
     }
   }
 
-  const calculateMortgage = () => {
+  const calculateMortgage = async () => {
+    setCalculating(true)
+    // Add small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 500))
     const results = calculateAllScenarios(input)
     setCalculations(results)
+    setCalculating(false)
   }
 
   const ltv = calculateLTV(input.loanAmount, input.propertyValue)
@@ -66,10 +77,18 @@ export default function MortgageAnalyzePage() {
           <CardContent className="flex items-center justify-between p-4">
             <div>
               <div className="text-sm text-muted-foreground">ריבית בנק ישראל נוכחית</div>
-              <div className="text-2xl font-bold">{boiRate}%</div>
+              {loadingBoiRate ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{boiRate}%</div>
+              )}
             </div>
             <div className="text-left">
-              <Badge variant="outline">עדכון אחרון: {new Date(lastUpdated).toLocaleDateString('he-IL')}</Badge>
+              {loadingBoiRate ? (
+                <Skeleton className="h-6 w-40" />
+              ) : (
+                <Badge variant="outline">עדכון אחרון: {new Date(lastUpdated).toLocaleDateString('he-IL')}</Badge>
+              )}
               <div className="text-xs text-muted-foreground mt-1">
                 <a href="https://www.boi.org.il/" target="_blank" rel="noopener noreferrer" className="underline">
                   מקור: בנק ישראל
@@ -135,9 +154,19 @@ export default function MortgageAnalyzePage() {
               <Button 
                 className="w-full" 
                 onClick={calculateMortgage}
-                disabled={!input.loanAmount || !input.propertyValue || !input.loanTermYears}
+                disabled={!input.loanAmount || !input.propertyValue || !input.loanTermYears || calculating}
               >
-                חשב תרחישי משכנתא
+                {calculating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    מחשב תרחישים...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="h-4 w-4" />
+                    חשב תרחישי משכנתא
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>

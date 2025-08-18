@@ -39,6 +39,7 @@ export interface Listing {
   antennaDistanceM?: number
   shelterDistanceM?: number
   rentEstimate?: number
+  documents?: { name: string; url: string; type?: string }[]
 }
 
 export const listings: Listing[] = [
@@ -59,6 +60,14 @@ export const listings: Listing[] = [
       phone: "050-1234567",
       email: "yossi@example.com"
     },
+    documents: [
+      { name: "נסח טאבו", url: "/docs/l1/tabu.pdf", type: "tabu" },
+      { name: "תשריט בית משותף", url: "/docs/l1/condo-plan.pdf", type: "condo_plan" },
+      { name: "היתר בנייה", url: "/docs/l1/permit.pdf", type: "permit" },
+      { name: "זכויות בנייה", url: "/docs/l1/rights.pdf", type: "rights" },
+      { name: "שומת מכרעת", url: "/docs/l1/decisive-appraisal.pdf", type: "appraisal_decisive" },
+      { name: "שומת רמ״י", url: "/docs/l1/rmi-appraisal.pdf", type: "appraisal_rmi" }
+    ],
     city: "תל אביב",
     neighborhood: "מרכז העיר",
     netSqm: 85,
@@ -100,6 +109,11 @@ export const listings: Listing[] = [
       phone: "052-7654321",
       email: "dana@example.com"
     },
+    documents: [
+      { name: "נסח טאבו", url: "/docs/l2/tabu.pdf", type: "tabu" },
+      { name: "היתר בנייה", url: "/docs/l2/permit.pdf", type: "permit" },
+      { name: "שומת רמ״י", url: "/docs/l2/rmi-appraisal.pdf", type: "appraisal_rmi" }
+    ],
     city: "תל אביב",
     neighborhood: "רוטשילד",
     netSqm: 120,

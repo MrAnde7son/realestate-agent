@@ -10,6 +10,7 @@ A comprehensive real estate intelligence platform designed for brokers, appraise
 - **💾 Data Export**: Save results to JSON with comprehensive metadata
 - **📈 Trend Analysis**: Historical price tracking and market insights
 - **🎯 Smart Filtering**: Location, price range, property features, and amenities
+- **📄 Property Documents**: Attach land registry extracts, condo plans, and area appraisals manually, while permits and rights documents are collected automatically
 
 ### 🖥️ Professional Broker Dashboard
 - **📋 Listing Management**: Modern Next.js interface for property portfolio management

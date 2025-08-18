@@ -28,6 +28,7 @@ class Listing(Base):
     property_type = Column(String)
     description = Column(String)
     images = Column(JSON)
+    documents = Column(JSON)
     contact_info = Column(JSON)
     features = Column(JSON)
     url = Column(String)

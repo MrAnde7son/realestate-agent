@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="logo-symbol" viewBox="0 0 256 256">
+    <g fill="none" stroke="#12b3a6" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 H216 a32 32 0 0 1 32 32 V216 a32 32 0 0 1 -32 32 H40 a32 32 0 0 1 -32 -32 V40 a32 32 0 0 1 32 -32 Z"/>
+      <path d="M60 128 L128 74 L196 128"/>
+      <path d="M104 136 L128 114 L152 136"/>
+      <path d="M96 176 L160 176"/>
+    </g>
+  </symbol>
+</svg>

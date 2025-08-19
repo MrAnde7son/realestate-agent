@@ -8,6 +8,7 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.pagesizes import A4
+from sqlalchemy import func
 
 from .models import Alert
 
@@ -166,6 +167,34 @@ def listings(request):
             for l in rows
         ]
     return JsonResponse({'rows': data})
+
+
+def property_type_distribution(request):
+    """Return count of listings per property type."""
+    db = SQLAlchemyDatabase()
+    with db.get_session() as session:
+        rows = (
+            session.query(Listing.property_type, func.count(Listing.id))
+            .group_by(Listing.property_type)
+            .all()
+        )
+        data = [
+            {"property_type": pt or "Unknown", "count": count} for pt, count in rows
+        ]
+    return JsonResponse({"rows": data})
+
+
+def market_activity_by_area(request):
+    """Return number of listings per area parsed from address."""
+    db = SQLAlchemyDatabase()
+    with db.get_session() as session:
+        rows = session.query(Listing.address).all()
+        counts = {}
+        for (addr,) in rows:
+            area = (addr or "Unknown").split(",")[-1].strip()
+            counts[area] = counts.get(area, 0) + 1
+        data = [{"area": area, "count": count} for area, count in counts.items()]
+    return JsonResponse({"rows": data})
 
 
 def building_permits(request):

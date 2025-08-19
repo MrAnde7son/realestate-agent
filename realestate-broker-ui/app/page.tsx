@@ -8,12 +8,39 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { getActiveAlertsCount, getActiveListingsCount, listings } from '@/lib/data'
 
-export default function HomePage() {
+interface PropertyTypeRow {
+  property_type: string
+  count: number
+}
+
+interface MarketActivityRow {
+  area: string
+  count: number
+}
+
+export default async function HomePage() {
   const activeAlertsCount = getActiveAlertsCount()
   const activeListingsCount = getActiveListingsCount()
   const totalPrice = listings.reduce((sum, listing) => sum + listing.price, 0)
   const averagePrice = totalPrice / listings.length
   const averageCapRate = listings.reduce((sum, listing) => sum + (listing.capRatePct || 0), 0) / listings.length
+
+  const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
+  let propertyTypes: PropertyTypeRow[] = []
+  let marketActivity: MarketActivityRow[] = []
+  try {
+    const [ptRes, maRes] = await Promise.all([
+      fetch(`${BACKEND_URL}/api/analytics/property-types/`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`${BACKEND_URL}/api/analytics/market-activity/`, { cache: 'no-store' }).then((r) => r.json()),
+    ])
+    propertyTypes = ptRes.rows || []
+    marketActivity = maRes.rows || []
+  } catch (e) {
+    console.error('Failed to load analytics data', e)
+  }
+
+  const totalTypes = propertyTypes.reduce((sum, r) => sum + r.count, 0)
+  const maxArea = marketActivity.reduce((max, r) => Math.max(max, r.count), 0)
 
   return (
     <DashboardLayout>
@@ -157,76 +184,60 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          {/* Property Type Distribution - Simple CSS Pie Chart */}
           <Card className="col-span-3">
             <CardHeader>
               <CardTitle>התפלגות סוגי נכסים</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 flex items-center justify-center">
-                <div className="relative w-32 h-32">
-                  {/* Simple pie chart using CSS */}
-                  <div className="absolute inset-0 rounded-full border-8 border-primary/20"></div>
-                  <div className="absolute inset-0 rounded-full border-8 border-blue-500/20" style={{ clipPath: 'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%)' }}></div>
-                  <div className="absolute inset-0 rounded-full border-8 border-green-500/20" style={{ clipPath: 'polygon(50% 50%, 0% 0%, 50% 0%)' }}></div>
-                  <div className="absolute inset-0 rounded-full border-8 border-yellow-500/20" style={{ clipPath: 'polygon(50% 50%, 0% 0%, 0% 100%, 50% 100%)' }}></div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-primary/20 rounded"></div>
-                  <span>דירות (65%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500/20 rounded"></div>
-                  <span>בתים (20%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500/20 rounded"></div>
-                  <span>דופלקס (10%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-yellow-500/20 rounded"></div>
-                  <span>נטהאוס (5%)</span>
-                </div>
-              </div>
+              {propertyTypes.length === 0 && (
+                <p className="text-sm text-muted-foreground">אין נתונים</p>
+              )}
+              {propertyTypes.map((pt) => {
+                const pct = totalTypes ? Math.round((pt.count / totalTypes) * 100) : 0
+                return (
+                  <div key={pt.property_type} className="space-y-1 mb-2">
+                    <div className="flex justify-between text-sm">
+                      <span>{pt.property_type}</span>
+                      <span>{pt.count}</span>
+                    </div>
+                    <div className="h-2 bg-primary/20 rounded">
+                      <div className="h-full bg-primary rounded" style={{ width: `${pct}%` }}></div>
+                    </div>
+                  </div>
+                )
+              })}
             </CardContent>
           </Card>
         </div>
 
         {/* Additional Charts */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          {/* Market Activity Chart - Simple CSS Bar Chart */}
           <Card className="col-span-4">
             <CardHeader>
               <CardTitle>פעילות שוק לפי אזור</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 flex items-end justify-between gap-4 p-4">
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '90%' }}></div>
-                  <span className="text-xs mt-2">תל אביב</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '46%' }}></div>
-                  <span className="text-xs mt-2">רמת גן</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '36%' }}></div>
-                  <span className="text-xs mt-2">גבעתיים</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '64%' }}></div>
-                  <span className="text-xs mt-2">הרצליה</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '56%' }}></div>
-                  <span className="text-xs mt-2">רעננה</span>
-                </div>
-              </div>
-              <div className="text-center text-sm text-muted-foreground mt-4">
-                נכסים למכירה לפי אזור
-              </div>
+              {marketActivity.length === 0 && (
+                <p className="text-sm text-muted-foreground">אין נתונים</p>
+              )}
+              {marketActivity.length > 0 && (
+                <>
+                  <div className="h-64 flex items-end justify-between gap-4 p-4">
+                    {marketActivity.map((ma) => {
+                      const h = maxArea ? (ma.count / maxArea) * 100 : 0
+                      return (
+                        <div key={ma.area} className="flex-1 flex flex-col items-center">
+                          <div className="w-full bg-primary/20 rounded-t" style={{ height: `${h}%` }}></div>
+                          <span className="text-xs mt-2">{ma.area}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="text-center text-sm text-muted-foreground mt-4">
+                    נכסים למכירה לפי אזור
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -299,13 +310,16 @@ export default function HomePage() {
             </CardContent>
           </Card>
           
-          <Card className="col-span-3">
+            <Card className="col-span-3">
             <CardHeader>
               <CardTitle>פעולות מהירות</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button className="w-full" variant="outline" asChild>
                 <a href="/mortgage/analyze">מחשבון משכנתא</a>
+              </Button>
+              <Button className="w-full" variant="outline" asChild>
+                <a href="/analytics">אנליטיקה</a>
               </Button>
               <Button className="w-full" variant="outline">
                 הפק דוח שוק

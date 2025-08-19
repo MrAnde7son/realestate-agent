@@ -111,18 +111,18 @@ export function GlobalSearch() {
             {searchItems.map((item) => (
               <CommandItem
                 key={item.href}
-                onClick={() => {
-                  setOpen(false)
-                  router.push(item.href)
-                }}
-                className="cursor-pointer"
+                onSelect={() => runCommand(() => router.push(item.href))}
+                className="group hover:bg-accent/80"
               >
-                <span className="mr-2 text-lg">{item.icon}</span>
-                <div>
-                  <div className="font-medium">{item.title}</div>
-                  <div className="text-sm text-muted-foreground">
+                <span className="mr-3 text-xl group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
+                <div className="flex-1">
+                  <div className="font-semibold text-foreground group-hover:text-primary transition-colors duration-200">{item.title}</div>
+                  <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-200">
                     {item.description}
                   </div>
+                </div>
+                <div className="text-xs text-muted-foreground group-hover:text-foreground transition-colors duration-200 opacity-60 group-hover:opacity-100">
+                  Enter
                 </div>
               </CommandItem>
             ))}

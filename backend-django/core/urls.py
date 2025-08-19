@@ -10,4 +10,5 @@ urlpatterns = [
     path('building-rights/', views.building_rights, name='building_rights'),
     path('decisive-appraisals/', views.decisive_appraisals, name='decisive_appraisals'),
     path('rami-valuations/', views.rami_valuations, name='rami_valuations'),
+    path('tabu/', views.tabu, name='tabu'),
 ]

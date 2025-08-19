@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import Logo from "@/components/Logo"
 import AppSidebar from "./app-sidebar"
+import { GlobalSearch } from "./global-search"
 
 interface HeaderProps {
   onToggleSidebar?: () => void
@@ -39,12 +40,15 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           <Menu className="h-5 w-5" />
           <span className="sr-only">Toggle sidebar</span>
         </Button>
+
+        {/* Global Search */}
+        <GlobalSearch />
       </div>
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
           <Logo variant="horizontal" size={32} color="var(--brand-teal)" />
-          <div className="hidden md:block text-sm text-muted-foreground">
+          <div className="hidden xl:block text-sm text-muted-foreground">
             נדל״ן חכם לשמאים, מתווכים ומשקיעים
           </div>
         </div>

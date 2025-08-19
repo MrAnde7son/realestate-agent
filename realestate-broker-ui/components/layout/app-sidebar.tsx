@@ -134,7 +134,6 @@ export default function AppSidebar({ className, isCollapsed = false }: AppSideba
                     )}
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/avatars/01.png" alt="@user" />
                       <AvatarFallback>משתמש</AvatarFallback>
                     </Avatar>
                     {!isCollapsed && (

@@ -5,6 +5,9 @@ from pathlib import Path
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.pagesizes import A4
 
 from .models import Alert
 
@@ -25,6 +28,13 @@ REPORTS_DIR = os.environ.get(
     str((BASE_DIR.parent / 'realestate-broker-ui' / 'public' / 'reports').resolve())
 )
 REPORTS = []
+
+FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+if os.path.exists(FONT_PATH):
+    pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
+    REPORT_FONT = "DejaVu"
+else:
+    REPORT_FONT = "Helvetica"
 
 def parse_json(request):
     try: return json.loads(request.body.decode('utf-8'))
@@ -259,10 +269,10 @@ def reports(request):
     os.makedirs(REPORTS_DIR, exist_ok=True)
     file_path = os.path.join(REPORTS_DIR, filename)
 
-    c = canvas.Canvas(file_path)
-    c.setFont("Helvetica-Bold", 20)
+    c = canvas.Canvas(file_path, pagesize=A4)
+    c.setFont(REPORT_FONT, 20)
     c.drawCentredString(300, 760, 'דו"ח נכס')
-    c.setFont("Helvetica", 12)
+    c.setFont(REPORT_FONT, 12)
     y = 720
     c.drawString(50, y, f"כתובת: {listing['address'] or ''}")
     y -= 20

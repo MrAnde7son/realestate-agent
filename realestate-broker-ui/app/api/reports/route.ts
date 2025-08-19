@@ -13,7 +13,8 @@ export async function GET(req: Request) {
       const res = await fetch(`${BACKEND_URL}/api/reports`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        return NextResponse.json(data);
+        const backendReports = data.reports || [];
+        return NextResponse.json({ reports: [...backendReports, ...reports] });
       }
     } catch (err) {
       console.error('Backend reports fetch failed:', err);
@@ -55,6 +56,12 @@ export async function POST(req: Request) {
   const doc = new PDFDocument();
   const stream = fs.createWriteStream(filePath);
   doc.pipe(stream);
+
+  const fontPath = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+  if (fs.existsSync(fontPath)) {
+    doc.font(fontPath);
+  }
+
   doc.fontSize(20).text('דו"ח נכס', { align: 'center' });
   doc.moveDown();
   doc.fontSize(12).text(`כתובת: ${listing.address}`);

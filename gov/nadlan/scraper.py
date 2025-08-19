@@ -224,6 +224,20 @@ class NadlanDealsScraper:
                 # Process the results
                 results = []
                 
+                # Process NEIGHBORHOOD results (most important for our use case)
+                if 'res' in data and 'NEIGHBORHOOD' in data['res']:
+                    for item in data['res']['NEIGHBORHOOD']:
+                        # Try to extract neighborhood information
+                        neighborhood_id = self._extract_neighborhood_id_from_poi(item)
+                        if neighborhood_id:
+                            results.append({
+                                'type': 'neighborhood',
+                                'key': item['Key'],
+                                'value': item['Value'],
+                                'neighborhood_id': neighborhood_id,
+                                'rank': item.get('Rank', 0)
+                            })
+                
                 # Process POI_MID_POINT results (neighborhoods, points of interest)
                 if 'res' in data and 'POI_MID_POINT' in data['res']:
                     for item in data['res']['POI_MID_POINT'][:limit//2]:
@@ -238,19 +252,85 @@ class NadlanDealsScraper:
                                 'rank': item.get('Rank', 0)
                             })
                 
-                # Process TRANS_NAME results (street names)
-                if 'res' in data and 'TRANS_NAME' in data['res']:
-                    for item in data['res']['TRANS_NAME'][:limit//2]:
-                        # For street names, we'll need to map to neighborhoods
-                        # This is a simplified approach - in practice you might want
-                        # to use a more sophisticated mapping
+                # Process STREET results (street names)
+                if 'res' in data and 'STREET' in data['res']:
+                    for item in data['res']['STREET'][:limit//2]:
+                        # Try to extract neighborhood information from street name
+                        neighborhood_id = self._extract_neighborhood_id_from_poi(item)
                         results.append({
                             'type': 'street',
                             'key': item['Key'],
                             'value': item['Value'],
-                            'neighborhood_id': None,  # Will need additional lookup
+                            'neighborhood_id': neighborhood_id,
                             'rank': item.get('Rank', 0)
                         })
+
+                # Process TRANS_NAME results (street names)
+                if 'res' in data and 'TRANS_NAME' in data['res']:
+                    for item in data['res']['TRANS_NAME'][:limit//2]:
+                        # Try to extract neighborhood information from street name
+                        neighborhood_id = self._extract_neighborhood_id_from_poi(item)
+                        results.append({
+                            'type': 'street',
+                            'key': item['Key'],
+                            'value': item['Value'],
+                            'neighborhood_id': neighborhood_id,
+                            'rank': item.get('Rank', 0)
+                        })
+
+                # Process SETTLEMENT results (cities, towns)
+                if 'res' in data and 'SETTLEMENT' in data['res']:
+                    for item in data['res']['SETTLEMENT'][:limit//2]:
+                        # Try to extract neighborhood information from settlement name
+                        neighborhood_id = self._extract_neighborhood_id_from_poi(item)
+                        results.append({
+                            'type': 'settlement',
+                            'key': item['Key'],
+                            'value': item['Value'],
+                            'neighborhood_id': neighborhood_id,
+                            'rank': item.get('Rank', 0)
+                        })
+
+                # Process BUILDING results (buildings, addresses)
+                if 'res' in data and 'BUILDING' in data['res']:
+                    for item in data['res']['BUILDING'][:limit//2]:
+                        # Try to extract neighborhood information from building address
+                        neighborhood_id = self._extract_neighborhood_id_from_poi(item)
+                        results.append({
+                            'type': 'building',
+                            'key': item['Key'],
+                            'value': item['Value'],
+                            'neighborhood_id': neighborhood_id,
+                            'rank': item.get('Rank', 0)
+                        })
+
+                # Process ADDRESS results (specific addresses)
+                if 'res' in data and 'ADDRESS' in data['res']:
+                    for item in data['res']['ADDRESS'][:limit//2]:
+                        # Try to extract neighborhood information from address
+                        neighborhood_id = self._extract_neighborhood_id_from_poi(item)
+                        results.append({
+                            'type': 'address',
+                            'key': item['Key'],
+                            'value': item['Value'],
+                            'neighborhood_id': neighborhood_id,
+                            'rank': item.get('Rank', 0)
+                        })
+
+                # Process any other result types that might exist
+                for key in data.get('res', {}).keys():
+                    if key not in ['NEIGHBORHOOD', 'POI_MID_POINT', 'STREET', 'TRANS_NAME', 'SETTLEMENT', 'BUILDING', 'ADDRESS']:
+                        if key in data['res']:
+                            for item in data['res'][key][:limit//4]:  # Limit other types to avoid overwhelming results
+                                # Try to extract neighborhood information
+                                neighborhood_id = self._extract_neighborhood_id_from_poi(item)
+                                results.append({
+                                    'type': key.lower(),
+                                    'key': item['Key'],
+                                    'value': item['Value'],
+                                    'neighborhood_id': neighborhood_id,
+                                    'rank': item.get('Rank', 0)
+                                })
                 
                 # Sort by rank and return top results
                 results.sort(key=lambda x: x.get('rank', 0))
@@ -270,6 +350,8 @@ class NadlanDealsScraper:
         # Known neighborhood mappings (can be expanded)
         known_mappings = {
             'רמת החייל': '65210036',
+            'רמת החיל': '65210036',  # Alternative spelling for רמת החייל
+            'החיל תל אביב-יפו': '65210036',  # Street in רמת החייל
             'רמת אביב': '65210001',
             'נווה צדק': '65210002',
             'פלורנטין': '65210003',
@@ -282,10 +364,34 @@ class NadlanDealsScraper:
             'קריית הלאום': '65210010',
         }
         
+        # City/Settlement mappings (when searching for entire cities)
+        city_mappings = {
+            'תל אביב': '5000',  # תל אביב-יפו settlement ID
+            'תל אביב-יפו': '5000',
+            'ירושלים': '3000',
+            'חיפה': '4000',
+            'באר שבע': '6000',
+            'ראשון לציון': '8300',
+            'פתח תקווה': '7900',
+            'חולון': '6600',
+            'רמת גן': '5200',
+            'גבעתיים': '5300',
+            'קריית אונו': '5400',
+            'רמת השרון': '5500',
+            'הוד השרון': '5600',
+            'כפר סבא': '5700',
+            'רעננה': '8700',
+        }
+        
         # Check if the POI contains any known neighborhood names
         for neighborhood_name, neighborhood_id in known_mappings.items():
             if neighborhood_name in value:
                 return neighborhood_id
+        
+        # Check if the POI contains any known city names
+        for city_name, city_id in city_mappings.items():
+            if city_name in value:
+                return city_id
         
         # If no direct match, return None (will need additional lookup)
         return None

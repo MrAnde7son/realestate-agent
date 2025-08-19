@@ -24,6 +24,26 @@ describe('reports API', () => {
     expect(reports.length).toBe(initial);
   });
 
+  it('validates listingId', async () => {
+    const req = new Request('http://localhost/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for unknown listing', async () => {
+    const req = new Request('http://localhost/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listingId: 'missing' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(404);
+  });
+
   it('lists reports', async () => {
     const res = await GET(new Request('http://localhost/api/reports'));
     const data = await res.json();

@@ -3,12 +3,14 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChevronDown, Home, Building, AlertCircle, Calculator, FileText, BarChart3 } from "lucide-react"
+import { ChevronDown, Home, Building, AlertCircle, Calculator, FileText, BarChart3, CreditCard } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import Logo from "@/components/Logo"
 import * as Collapsible from "@radix-ui/react-collapsible"
+import { useSession } from "next-auth/react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navigation = [
   {
@@ -35,6 +37,11 @@ const navigation = [
     name: "דוחות",
     href: "/reports",
     icon: BarChart3
+  },
+  {
+    name: "חיוב",
+    href: "/billing",
+    icon: CreditCard
   }
 ]
 
@@ -44,6 +51,7 @@ interface AppSidebarProps {
 
 export default function AppSidebar({ className }: AppSidebarProps) {
   const pathname = usePathname()
+  const { data: session } = useSession()
 
   return (
     <div className={cn("flex h-full w-64 flex-col bg-card border-l", className)}>
@@ -102,13 +110,22 @@ export default function AppSidebar({ className }: AppSidebarProps) {
 
       {/* Footer */}
       <div className="border-t p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-primary" />
-          <div className="flex-1">
-            <div className="text-sm font-medium">משתמש דמו</div>
-            <div className="text-xs text-muted-foreground">demo@example.com</div>
+        {session?.user ? (
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={session.user.image ?? ''} alt={session.user.name ?? ''} />
+              <AvatarFallback>{session.user.name?.[0] ?? 'U'}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <div className="text-sm font-medium">{session.user.name}</div>
+              <div className="text-xs text-muted-foreground">{session.user.email}</div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <Button asChild variant="outline" className="w-full">
+            <Link href="/login">התחבר</Link>
+          </Button>
+        )}
       </div>
     </div>
   )

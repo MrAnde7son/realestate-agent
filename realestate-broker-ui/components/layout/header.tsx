@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import Logo from "@/components/Logo"
 import AppSidebar from "./app-sidebar"
+import UserNav from "./user-nav"
 
 interface HeaderProps {
   onToggleSidebar?: () => void
@@ -49,6 +50,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           </div>
         </div>
         <ThemeToggle />
+        <UserNav />
       </div>
     </header>
   )

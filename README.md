@@ -763,7 +763,7 @@ If MCP servers won't start:
 
 ## 📄 License
 
-MIT License - see LICENSE file for details.
+GNU General Public License v3.0 or later (GPLv3) - see LICENSE file for details.
 
 ## ⚠️ Disclaimer
 

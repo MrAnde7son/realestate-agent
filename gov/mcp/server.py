@@ -3,7 +3,7 @@ from fastmcp import FastMCP, Context
 import requests
 from typing import Any, Dict, Optional
 
-from .constants import (
+from ..constants import (
     CKAN_BASE_URL,
     USER_AGENT,
     DEFAULT_TIMEOUT,
@@ -13,8 +13,8 @@ from .constants import (
     get_tags_by_category,
     search_tags,
 )
-from .decisive import fetch_decisive_appraisals
-from .transactions import RealEstateTransactions
+from ..decisive import fetch_decisive_appraisals
+from ..nadlan_deals_scraper import NadlanDealsScraper
 
 # Create an MCP server
 mcp = FastMCP("DataGovIL", dependencies=["requests"])
@@ -104,8 +104,7 @@ async def tag_list(ctx: Context):
 async def tag_show(ctx: Context, id: str):
     """Get details for a specific tag."""
     await ctx.info(f"Fetching details for tag: {id}")
-    params = {"id": id}
-    return _request("get", "tag_show", params=params)
+    return _request("get", "tag_show", params={"id": id})
 
 
 @mcp.tool()
@@ -215,83 +214,144 @@ def fetch_data(dataset_name: str, limit: int = 100, offset: int = 0):
 
 
 @mcp.tool()
-async def fetch_comparable_transactions(
+async def fetch_nadlan_transactions(
     ctx: Context,
-    x: float, 
-    y: float,
-    street: str,
-    house: int,
+    query_type: str = "address",
+    address: Optional[str] = None,
+    neighborhood_id: Optional[str] = None,
+    x: Optional[float] = None,
+    y: Optional[float] = None,
+    street: Optional[str] = None,
+    house: Optional[int] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     target_area: Optional[float] = None,
-    limit: int = 2000,
     top: int = 20,
+    timeout: float = 10.0,
 ) -> Dict[str, Any]:
-    """Fetch comparable Tel-Aviv real-estate transactions from data.gov.il.
+    """Fetch real estate transactions from nadlan.gov.il.
 
-    Locates the active real-estate transactions dataset on data.gov.il 
-    and returns basic statistics along with the top-N comparable transactions.
+    This unified tool can fetch transactions by address, neighborhood ID, or coordinates,
+    and optionally analyze them for comparable transactions with statistical analysis.
     
-    Example:
-        # Fetch comparables for הגולן 1, תל אביב (Block 6638, Plot 96)
-        # First get coordinates using Tel Aviv GIS: x=184320.94, y=668548.65 (EPSG:2039)
+    Examples:
         
-        result = await fetch_comparable_transactions(
+        # Fetch deals by address
+        result = await fetch_nadlan_transactions(
             ctx=ctx,
-            x=184320.94, y=668548.65,
-            street="הגולן",
-            house=1,
-            date_from="2020-01-01",  # Optional: filter by date range
-            date_to="2025-12-31",
-            target_area=80.0,        # Optional: filter by similar area (±20%)
-            top=15                   # Top 15 closest comparables
+            query_type="address",
+            address="שכונת רמת החייל, תל אביב"
         )
         
-        # Expected output for הגולן 1 area:
-        # Based on government data (Ministry of Housing public housing purchases):
-        # - Recent transactions (2023-2025): ₪2.1-2.6M for 3-4 room apartments
-        # - Price per sqm: ~₪27,000-33,000
-        # - Block 6638 has decisive appraiser decisions available
+        # Fetch deals by neighborhood ID
+        result = await fetch_nadlan_transactions(
+            ctx=ctx,
+            query_type="neighborhood",
+            neighborhood_id="65210036"
+        )
+        
+        # Fetch comparable transactions with analysis
+        result = await fetch_nadlan_transactions(
+            ctx=ctx,
+            query_type="comparable",
+            x=184320.94, y=668548.65,  # EPSG:2039 coordinates
+            street="הגולן", house=1,
+            date_from="2020-01-01",
+            date_to="2025-12-31",
+            target_area=80.0,
+            top=15
+        )
     
     Args:
-        x: X coordinate in EPSG:2039
-        y: Y coordinate in EPSG:2039
-        street: Street name for reference
-        house: House number for reference
+        query_type: Type of query - "address", "neighborhood", or "comparable"
+        address: Free-text address or neighborhood name (for address queries)
+        neighborhood_id: Numeric neighborhood ID from nadlan.gov.il (for neighborhood queries)
+        x: X coordinate in EPSG:2039 (for comparable queries)
+        y: Y coordinate in EPSG:2039 (for comparable queries)
+        street: Street name for reference (for comparable queries)
+        house: House number for reference (for comparable queries)
         date_from: Start date filter (YYYY-MM-DD), optional
-        date_to: End date filter (YYYY-MM-DD), optional  
+        date_to: End date filter (YYYY-MM-DD), optional
         target_area: Filter by apartment area ±20% tolerance, optional
-        limit: Max records to fetch from data.gov.il (default: 2000)
-        top: Number of top comparable transactions to return (default: 20)
+        top: Number of top transactions to return (default: 20)
+        timeout: Request timeout in seconds (default: 10.0)
         
     Returns:
-        Dict with 'stats' (median/avg prices) and 'comps' (comparable transactions)
+        Dict with transaction data and optional statistics
         
     Raises:
-        RuntimeError: If no transaction dataset found on data.gov.il
+        RuntimeError: If the query fails or no data is found
     """
-    await ctx.info(f"Fetching comparable transactions for {street} {house}")
-    
-    # Use the transactions module to handle all the business logic
-    transactions = RealEstateTransactions()
+    await ctx.info(f"Fetching nadlan transactions with query type: {query_type}")
     
     try:
-        result = transactions.fetch_comparable_transactions(
-            x=x, y=y, street=street, house=house,
-            date_from=date_from, date_to=date_to, target_area=target_area,
-            limit=limit, top=top
-        )
-        
-        stats = result["stats"]
-        comps_count = len(result["comps"])
-        await ctx.info(f"Successfully found {comps_count} comparable transactions")
-        await ctx.info(f"Median price per sqm: ₪{stats.get('median_price_sqm', 0):,.0f}")
-        
-        return result
-        
+        with NadlanDealsScraper(timeout=timeout) as scraper:
+            if query_type == "address":
+                if not address:
+                    raise ValueError("Address is required for address queries")
+                
+                deals = scraper.get_deals_by_address(address)
+                deals_data = [deal.to_dict() for deal in deals]
+                
+                await ctx.info(f"Successfully found {len(deals)} deals for address: {address}")
+                return {
+                    "query_type": "address",
+                    "address": address,
+                    "deals_count": len(deals),
+                    "deals": deals_data
+                }
+                
+            elif query_type == "neighborhood":
+                if not neighborhood_id:
+                    raise ValueError("Neighborhood ID is required for neighborhood queries")
+                
+                deals = scraper.get_deals_by_neighborhood_id(neighborhood_id)
+                deals_data = [deal.to_dict() for deal in deals]
+                
+                await ctx.info(f"Successfully found {len(deals)} deals for neighborhood ID: {neighborhood_id}")
+                return {
+                    "query_type": "neighborhood",
+                    "neighborhood_id": neighborhood_id,
+                    "deals_count": len(deals),
+                    "deals": deals_data
+                }
+                
+            elif query_type == "comparable":
+                if not all([x, y, street, house]):
+                    raise ValueError("Coordinates (x, y), street, and house are required for comparable queries")
+                
+                result = scraper.fetch_comparable_transactions(
+                    x=x, y=y, street=street, house=house,
+                    date_from=date_from, date_to=date_to,
+                    target_area=target_area, top=top
+                )
+                
+                stats = result["stats"]
+                comps_count = len(result["comps"])
+                await ctx.info(f"Successfully found {comps_count} comparable transactions")
+                
+                if stats.get("median_price_sqm"):
+                    await ctx.info(f"Median price per sqm: ₪{stats.get('median_price_sqm', 0):,.0f}")
+                
+                return {
+                    "query_type": "comparable",
+                    "coordinates": {"x": x, "y": y},
+                    "location": {"street": street, "house": house},
+                    "filters": {
+                        "date_from": date_from,
+                        "date_to": date_to,
+                        "target_area": target_area
+                    },
+                    "stats": stats,
+                    "comparable_transactions": result["comps"]
+                }
+                
+            else:
+                raise ValueError(f"Invalid query_type: {query_type}. Must be 'address', 'neighborhood', or 'comparable'")
+                
     except Exception as e:
         await ctx.info(f"Error fetching transactions: {str(e)}")
-        raise
+        raise RuntimeError(f"Failed to fetch nadlan transactions: {e}")
 
 
 if __name__ == "__main__":

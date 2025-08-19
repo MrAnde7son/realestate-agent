@@ -7,7 +7,7 @@ import requests
 from fastmcp import FastMCP, Context
 
 from gov.mcp import server
-from gov.mcp.decisive import fetch_decisive_appraisals, _parse_items, _extract_field
+from gov.decisive import fetch_decisive_appraisals, _parse_items, _extract_field
 
 
 def _make_response(text: str = "", status: int = 200):

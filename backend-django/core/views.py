@@ -27,7 +27,22 @@ REPORTS_DIR = os.environ.get(
     'REPORTS_DIR',
     str((BASE_DIR.parent / 'realestate-broker-ui' / 'public' / 'reports').resolve())
 )
-REPORTS = []
+# Persist reports metadata in a JSON file so they survive server restarts
+REPORTS_META = Path(REPORTS_DIR) / 'reports.json'
+
+
+def _load_reports():
+    try:
+        with open(REPORTS_META, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _save_reports(reports):
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    with open(REPORTS_META, 'w', encoding='utf-8') as f:
+        json.dump(reports, f, ensure_ascii=False)
 
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 if os.path.exists(FONT_PATH):
@@ -236,8 +251,10 @@ def rami_valuations(request):
 @csrf_exempt
 def reports(request):
     """Create a PDF report for a listing or list existing reports."""
+    reports_list = _load_reports()
+
     if request.method == 'GET':
-        return JsonResponse({'reports': REPORTS})
+        return JsonResponse({'reports': reports_list})
 
     if request.method != 'POST':
         return HttpResponseBadRequest('POST required')
@@ -264,7 +281,7 @@ def reports(request):
     if not listing:
         return JsonResponse({'error': 'Listing not found'}, status=404)
 
-    report_id = f"r{len(REPORTS) + 1}"
+    report_id = f"r{len(reports_list) + 1}"
     filename = f"{report_id}.pdf"
     os.makedirs(REPORTS_DIR, exist_ok=True)
     file_path = os.path.join(REPORTS_DIR, filename)
@@ -293,7 +310,8 @@ def reports(request):
         'filename': filename,
         'createdAt': datetime.utcnow().isoformat(),
     }
-    REPORTS.append(report)
+    reports_list.append(report)
+    _save_reports(reports_list)
     return JsonResponse({'report': report}, status=201)
 
 def _group_by_month(transactions):

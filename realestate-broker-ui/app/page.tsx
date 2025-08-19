@@ -117,6 +117,151 @@ export default function HomePage() {
           </Card>
         </div>
 
+        {/* Simple Charts Section - Using CSS instead of Recharts for now */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          {/* Price Trend Chart - Simple CSS Bar Chart */}
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>מגמת מחירים - 6 חודשים אחרונים</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 flex items-end justify-between gap-2 p-4">
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '60%' }}></div>
+                  <span className="text-xs mt-2">ינו</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '70%' }}></div>
+                  <span className="text-xs mt-2">פבר</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '65%' }}></div>
+                  <span className="text-xs mt-2">מרץ</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '80%' }}></div>
+                  <span className="text-xs mt-2">אפר</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '90%' }}></div>
+                  <span className="text-xs mt-2">מאי</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '85%' }}></div>
+                  <span className="text-xs mt-2">יוני</span>
+                </div>
+              </div>
+              <div className="text-center text-sm text-muted-foreground mt-4">
+                מחיר ממוצע: 2.1M - 2.6M ₪
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Property Type Distribution - Simple CSS Pie Chart */}
+          <Card className="col-span-3">
+            <CardHeader>
+              <CardTitle>התפלגות סוגי נכסים</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 flex items-center justify-center">
+                <div className="relative w-32 h-32">
+                  {/* Simple pie chart using CSS */}
+                  <div className="absolute inset-0 rounded-full border-8 border-primary/20"></div>
+                  <div className="absolute inset-0 rounded-full border-8 border-blue-500/20" style={{ clipPath: 'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%)' }}></div>
+                  <div className="absolute inset-0 rounded-full border-8 border-green-500/20" style={{ clipPath: 'polygon(50% 50%, 0% 0%, 50% 0%)' }}></div>
+                  <div className="absolute inset-0 rounded-full border-8 border-yellow-500/20" style={{ clipPath: 'polygon(50% 50%, 0% 0%, 0% 100%, 50% 100%)' }}></div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-primary/20 rounded"></div>
+                  <span>דירות (65%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-blue-500/20 rounded"></div>
+                  <span>בתים (20%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500/20 rounded"></div>
+                  <span>דופלקס (10%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-yellow-500/20 rounded"></div>
+                  <span>נטהאוס (5%)</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Additional Charts */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          {/* Market Activity Chart - Simple CSS Bar Chart */}
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>פעילות שוק לפי אזור</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 flex items-end justify-between gap-4 p-4">
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '90%' }}></div>
+                  <span className="text-xs mt-2">תל אביב</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '46%' }}></div>
+                  <span className="text-xs mt-2">רמת גן</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '36%' }}></div>
+                  <span className="text-xs mt-2">גבעתיים</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '64%' }}></div>
+                  <span className="text-xs mt-2">הרצליה</span>
+                </div>
+                <div className="flex-1 flex flex-col items-center">
+                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '56%' }}></div>
+                  <span className="text-xs mt-2">רעננה</span>
+                </div>
+              </div>
+              <div className="text-center text-sm text-muted-foreground mt-4">
+                נכסים למכירה לפי אזור
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ROI Trend Chart - Simple CSS Line Chart */}
+          <Card className="col-span-3">
+            <CardHeader>
+              <CardTitle>מגמת ROI</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 flex items-center justify-center">
+                <div className="w-full h-32 relative">
+                  {/* Simple line chart using CSS */}
+                  <svg className="w-full h-full" viewBox="0 0 100 40">
+                    <polyline
+                      points="10,30 20,28 30,32 40,26 50,22 60,25"
+                      fill="none"
+                      stroke="#16a34a"
+                      strokeWidth="2"
+                    />
+                    <circle cx="10" cy="30" r="2" fill="#16a34a" />
+                    <circle cx="20" cy="28" r="2" fill="#16a34a" />
+                    <circle cx="30" cy="32" r="2" fill="#16a34a" />
+                    <circle cx="40" cy="26" r="2" fill="#16a34a" />
+                    <circle cx="50" cy="22" r="2" fill="#16a34a" />
+                    <circle cx="60" cy="25" r="2" fill="#16a34a" />
+                  </svg>
+                </div>
+              </div>
+              <div className="text-center text-sm text-muted-foreground mt-4">
+                ROI ממוצע: 4.2% - 5.1%
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4">
             <CardHeader>

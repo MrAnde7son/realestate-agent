@@ -14,12 +14,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <div className={cn(
-        "hidden md:flex transition-all duration-300 ease-in-out",
-        sidebarOpen ? "w-64" : "w-0"
-      )}>
-        <AppSidebar />
+      {/* Sidebar - Always visible, sticky */}
+      <div className="flex-shrink-0">
+        <AppSidebar isCollapsed={!sidebarOpen} />
       </div>
 
       {/* Main Content */}

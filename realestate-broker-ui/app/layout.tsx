@@ -1,14 +1,6 @@
 import './globals.css'
 import { ReactNode } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
-import { Heebo } from 'next/font/google'
-
-const heebo = Heebo({ 
-  subsets: ['hebrew'],
-  weight: ['500', '700'],
-  display: 'swap',
-  variable: '--font-heebo'
-})
 
 export const metadata = { 
   title: 'נדל״נר', 
@@ -17,7 +9,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="he" dir="rtl" suppressHydrationWarning className={heebo.variable}>
+    <html lang="he" dir="rtl" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/brand/favicon-32.png" sizes="32x32" />

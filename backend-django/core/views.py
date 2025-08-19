@@ -13,6 +13,7 @@ from db.models import (
     RamiValuation,
 )
 from .tasks import sync_address_sources
+from utils.tabu_parser import parse_tabu_pdf, search_rows
 
 def parse_json(request):
     try: return json.loads(request.body.decode('utf-8'))
@@ -259,3 +260,18 @@ def mortgage_analyze(request):
         'recommendation': { 'recommended_monthly_payment': round(recommended_payment), 'max_loan_from_payment': round(max_loan_from_payment), 'max_loan_by_ltv': round(max_loan_by_ltv), 'approved_loan_ceiling': round(approved_loan_ceiling), 'cash_gap_for_purchase': round(cash_gap) },
         'notes': ['אינפורמטיבי בלבד', f'LTV 70%, ריבית {annual_rate_pct}%, תקופה {term_years}y']
     })
+
+
+@csrf_exempt
+def tabu(request):
+    """Parse an uploaded Tabu PDF and return its data as a searchable table."""
+    if request.method != 'POST':
+        return HttpResponseBadRequest('POST required')
+    file = request.FILES.get('file')
+    if not file:
+        return HttpResponseBadRequest('file required')
+    rows = parse_tabu_pdf(file)
+    query = request.GET.get('q') or ''
+    if query:
+        rows = search_rows(rows, query)
+    return JsonResponse({'rows': rows})

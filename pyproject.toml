@@ -20,6 +20,9 @@ dependencies = [
     "SQLAlchemy",
     "psycopg2-binary",
     "APScheduler",
+    "celery",
+    "django",
+    "django-cors-headers",
     "twilio",
 ]
 

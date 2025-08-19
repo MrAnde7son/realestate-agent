@@ -6,12 +6,12 @@ import pytest
 import responses
 from unittest.mock import Mock, patch, MagicMock
 
-from gov.nadlan_deals_scraper import (
+from gov.nadlan import (
     NadlanDealsScraper,
-    DealRecord,
+    Deal as DealRecord,  # Alias for compatibility
     NadlanAPIError,
-    NadlanScrapingError
 )
+from gov.nadlan.scraper import NadlanScrapingError
 
 
 class TestDealRecord:
@@ -471,7 +471,7 @@ class TestLegacyFunctions:
     @responses.activate
     def test_legacy_get_deals_by_address(self):
         """Test legacy get_deals_by_address function."""
-        from gov.nadlan_deals_scraper import get_deals_by_address
+        from gov.nadlan.scraper import get_deals_by_address
         
         # Mock API responses
         query_response = {"PageNo": 0, "Query": "שכונת רמת החייל"}

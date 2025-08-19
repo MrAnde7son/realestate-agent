@@ -75,6 +75,8 @@ from __future__ import annotations
 import json
 import logging
 import math
+import base64
+import gzip
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 from datetime import datetime
@@ -254,6 +256,15 @@ class NadlanDealsScraper:
             raise NadlanAPIError(
                 f"GetDataByQuery returned status {resp.status_code}: {resp.text[:200]!r}"
             )
+        
+        # Check if the response is HTML instead of JSON
+        content_type = resp.headers.get('content-type', '').lower()
+        if 'html' in content_type or resp.text.strip().startswith('<!doctype'):
+            raise NadlanAPIError(
+                f"The nadlan.gov.il API endpoint is currently returning HTML instead of JSON. "
+                f"This suggests the API has changed or is temporarily unavailable. "
+                f"Response preview: {resp.text[:200]!r}"
+            )
             
         try:
             data = resp.json()
@@ -302,6 +313,15 @@ class NadlanDealsScraper:
         if resp.status_code != 200:
             raise NadlanAPIError(
                 f"GetAssestAndDeals returned status {resp.status_code}: {resp.text[:200]!r}"
+            )
+        
+        # Check if the response is HTML instead of JSON
+        content_type = resp.headers.get('content-type', '').lower()
+        if 'html' in content_type or resp.text.strip().startswith('<!doctype'):
+            raise NadlanAPIError(
+                f"The nadlan.gov.il API endpoint is currently returning HTML instead of JSON. "
+                f"This suggests the API has changed or is temporarily unavailable. "
+                f"Response preview: {resp.text[:200]!r}"
             )
             
         try:
@@ -695,6 +715,227 @@ class NadlanDealsScraper:
             raise RuntimeError(f"Failed to fetch transactions for neighborhood {neighborhood_id}: {e}")
         except Exception as e:
             raise RuntimeError(f"Unexpected error fetching transactions: {e}")
+
+    def get_neighborhood_id_from_govmap(self, query: str) -> Optional[str]:
+        """Get neighborhood ID from govmap auto-complete API.
+        
+        Args:
+            query: Search query (e.g., "רמת החייל")
+            
+        Returns:
+            Neighborhood ID if found, None otherwise
+        """
+        govmap_url = "https://es.govmap.gov.il/TldSearch/api/AutoComplete"
+        params = {
+            "query": query,
+            "ids": "276267023",  # This seems to be a fixed parameter
+            "gid": "govmap"
+        }
+        
+        try:
+            resp = self.session.get(govmap_url, params=params, timeout=self.timeout)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            # Look for neighborhood matches
+            if "res" in data and "NEIGHBORHOOD" in data["res"]:
+                neighborhoods = data["res"]["NEIGHBORHOOD"]
+                for neighborhood in neighborhoods:
+                    if "רמת החייל" in neighborhood.get("Value", ""):
+                        return neighborhood.get("Key")
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Failed to get neighborhood ID from govmap: {e}")
+            return None
+
+    def get_deals_from_neighborhood_page(self, neighborhood_id: str) -> List[DealRecord]:
+        """Get deals from the neighborhood page view.
+        
+        Args:
+            neighborhood_id: The neighborhood ID from govmap
+            
+        Returns:
+            List of DealRecord objects
+        """
+        url = f"https://www.nadlan.gov.il/?view=neighborhood&id={neighborhood_id}&page=deals"
+        
+        try:
+            resp = self.session.get(url, timeout=self.timeout)
+            resp.raise_for_status()
+            
+            # Parse the HTML to extract deal information
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            
+            # Look for deal data in the page
+            # This will need to be customized based on the actual page structure
+            deals = []
+            
+            # Try to find deal information in the page
+            # The exact selectors will depend on how the page is structured
+            deal_elements = soup.find_all('div', class_='deal-item')  # Adjust selector as needed
+            
+            for element in deal_elements:
+                try:
+                    # Extract deal information from HTML elements
+                    # This is a placeholder - actual implementation depends on page structure
+                    deal = DealRecord(
+                        asset_address=element.get_text().strip(),
+                        deal_date=None,  # Extract from page
+                        price=None,      # Extract from page
+                        rooms=None,      # Extract from page
+                        floor=None,      # Extract from page
+                        asset_type=None, # Extract from page
+                        building_year=None, # Extract from page
+                        total_area=None, # Extract from page
+                        raw_data={"source": "neighborhood_page", "url": url}
+                    )
+                    deals.append(deal)
+                except Exception as e:
+                    logger.warning(f"Failed to parse deal element: {e}")
+                    continue
+            
+            return deals
+            
+        except Exception as e:
+            logger.error(f"Failed to get deals from neighborhood page: {e}")
+            return []
+
+    def _decompress_base64_gzip(self, encoded_data: str) -> Dict[str, Any]:
+        """Decode base64-encoded gzipped data.
+        
+        This method replicates the JavaScript decompressBase64Gzip function
+        used by the React app.
+        
+        Args:
+            encoded_data: Base64-encoded gzipped string
+            
+        Returns:
+            Decoded JSON data
+        """
+        try:
+            # Decode base64
+            compressed_data = base64.b64decode(encoded_data)
+            
+            # Decompress gzip
+            decompressed_data = gzip.decompress(compressed_data)
+            
+            # Parse JSON
+            return json.loads(decompressed_data.decode('utf-8'))
+            
+        except Exception as e:
+            logger.error(f"Failed to decompress base64-gzipped data: {e}")
+            raise NadlanAPIError(f"Failed to decompress response data: {e}")
+
+    def get_deals_from_aws_api(self, neighborhood_id: str = None, base_id: str = None, base_name: str = None) -> List[DealRecord]:
+        """Get deals from the working AWS API endpoint.
+        
+        This method uses the actual API that the React app uses:
+        https://x4006fhmy5.execute-api.il-central-1.amazonaws.com/api/deal
+        
+        Args:
+            neighborhood_id: Optional neighborhood ID
+            base_id: Optional base ID
+            base_name: Optional base name
+            
+        Returns:
+            List of DealRecord objects
+        """
+        api_url = "https://x4006fhmy5.execute-api.il-central-1.amazonaws.com/api/deal"
+        
+        # Build the request payload based on what the React app sends
+        payload = {
+            "fetch_number": 1,
+            "type_order": "dealDate_down"
+        }
+        
+        if neighborhood_id:
+            payload["neighborhood_id"] = neighborhood_id
+        if base_id:
+            payload["base_id"] = base_id
+        if base_name:
+            payload["base_name"] = base_name
+            
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": self.user_agent,
+            "Accept": "application/json",
+            "Origin": "https://www.nadlan.gov.il",
+            "Referer": "https://www.nadlan.gov.il/"
+        }
+        
+        try:
+            resp = self.session.post(api_url, json=payload, headers=headers, timeout=self.timeout)
+            resp.raise_for_status()
+            
+            # The response is base64-encoded and gzipped
+            encoded_data = resp.text.strip('"')  # Remove quotes if present
+            
+            # Decompress the data
+            data = self._decompress_base64_gzip(encoded_data)
+            
+            # Check if we got a successful response
+            if data.get("statusCode") == 403:
+                raise NadlanAPIError("API access denied - may require authentication")
+                
+            if "data" not in data or "items" not in data["data"]:
+                raise NadlanAPIError(f"Unexpected API response format: {list(data.keys())}")
+                
+            deals = []
+            for item in data["data"]["items"]:
+                try:
+                    deal = DealRecord(
+                        asset_address=item.get("address", ""),
+                        deal_date=item.get("dealDate"),
+                        price=item.get("dealAmount"),
+                        rooms=item.get("rooms"),
+                        floor=item.get("floor"),
+                        asset_type=item.get("assetType"),
+                        building_year=item.get("yearBuilt"),
+                        total_area=item.get("area"),
+                        raw_data={"source": "aws_api", "api_url": api_url, "original_data": item}
+                    )
+                    deals.append(deal)
+                except Exception as e:
+                    logger.warning(f"Failed to parse deal item: {e}")
+                    continue
+                    
+            return deals
+            
+        except Exception as e:
+            logger.error(f"Failed to get deals from AWS API: {e}")
+            raise NadlanAPIError(f"Failed to get deals from AWS API: {e}")
+
+    def get_deals_by_address_new_api(self, query: str) -> List[DealRecord]:
+        """Get deals using the new AWS API endpoint.
+        
+        This method tries to find the neighborhood ID and then uses the working API.
+        
+        Args:
+            query: Free-text address or neighborhood name
+            
+        Returns:
+            List of DealRecord objects
+        """
+        # For now, let's try with some common neighborhood IDs for רמת החייל
+        # Based on the govmap data you found earlier
+        neighborhood_ids = ["65767022", "65867952"]  # רמת החייל variants
+        
+        for neighborhood_id in neighborhood_ids:
+            try:
+                logger.info(f"Trying neighborhood ID: {neighborhood_id}")
+                deals = self.get_deals_from_aws_api(neighborhood_id=neighborhood_id)
+                if deals:
+                    logger.info(f"Found {len(deals)} deals for neighborhood {neighborhood_id}")
+                    return deals
+            except Exception as e:
+                logger.warning(f"Failed with neighborhood ID {neighborhood_id}: {e}")
+                continue
+                
+        # If no deals found, return empty list
+        logger.warning(f"No deals found for query: {query}")
+        return []
 
 
 # Convenience functions for backwards compatibility

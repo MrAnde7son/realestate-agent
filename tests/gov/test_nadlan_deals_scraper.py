@@ -5,7 +5,6 @@ Tests for the NadlanDealsScraper module.
 import pytest
 import responses
 from unittest.mock import Mock, patch, MagicMock
-from bs4 import BeautifulSoup
 
 from gov.nadlan_deals_scraper import (
     NadlanDealsScraper,

@@ -290,61 +290,169 @@ async def fetch_nadlan_transactions(
                 if not address:
                     raise ValueError("Address is required for address queries")
                 
-                deals = scraper.get_deals_by_address(address)
-                deals_data = [deal.to_dict() for deal in deals]
+                # Try the new working API first
+                try:
+                    await ctx.info("Attempting to fetch data from new nadlan.gov.il API...")
+                    deals = scraper.get_deals_by_address_new_api(address)
+                    if deals:
+                        deals_data = [deal.to_dict() for deal in deals]
+                        await ctx.info(f"Successfully found {len(deals)} deals using new API for address: {address}")
+                        return {
+                            "query_type": "address",
+                            "address": address,
+                            "deals_count": len(deals),
+                            "deals": deals_data,
+                            "source": "nadlan.gov.il (new API)"
+                        }
+                except Exception as e:
+                    await ctx.info(f"New API failed: {str(e)}. Trying old API...")
                 
-                await ctx.info(f"Successfully found {len(deals)} deals for address: {address}")
-                return {
-                    "query_type": "address",
-                    "address": address,
-                    "deals_count": len(deals),
-                    "deals": deals_data
-                }
+                # Fall back to old API
+                try:
+                    deals = scraper.get_deals_by_address(address)
+                    deals_data = [deal.to_dict() for deal in deals]
+                    
+                    await ctx.info(f"Successfully found {len(deals)} deals using old API for address: {address}")
+                    return {
+                        "query_type": "address",
+                        "address": address,
+                        "deals_count": len(deals),
+                        "deals": deals_data,
+                        "source": "nadlan.gov.il (old API)"
+                    }
+                except Exception as e:
+                    await ctx.info(f"Old API also failed: {str(e)}. Providing alternative data source.")
+                    # Return alternative data structure when both APIs fail
+                    return {
+                        "query_type": "address",
+                        "address": address,
+                        "deals_count": 0,
+                        "deals": [],
+                        "source": "alternative",
+                        "api_status": "unavailable",
+                        "message": "Both nadlan.gov.il APIs are currently unavailable. Consider using Yad2 data as an alternative.",
+                        "alternative_sources": [
+                            "Yad2 real estate listings",
+                            "Madlan property data",
+                            "Local real estate databases"
+                        ],
+                        "api_attempts": {
+                            "new_api": "failed",
+                            "old_api": "failed",
+                            "error_details": str(e)
+                        }
+                    }
                 
             elif query_type == "neighborhood":
                 if not neighborhood_id:
                     raise ValueError("Neighborhood ID is required for neighborhood queries")
                 
-                deals = scraper.get_deals_by_neighborhood_id(neighborhood_id)
-                deals_data = [deal.to_dict() for deal in deals]
+                # Try the new working API first
+                try:
+                    await ctx.info("Attempting to fetch data from new nadlan.gov.il API...")
+                    deals = scraper.get_deals_from_aws_api(neighborhood_id=neighborhood_id)
+                    if deals:
+                        deals_data = [deal.to_dict() for deal in deals]
+                        await ctx.info(f"Successfully found {len(deals)} deals using new API for neighborhood ID: {neighborhood_id}")
+                        return {
+                            "query_type": "neighborhood",
+                            "neighborhood_id": neighborhood_id,
+                            "deals_count": len(deals),
+                            "deals": deals_data,
+                            "source": "nadlan.gov.il (new API)"
+                        }
+                except Exception as e:
+                    await ctx.info(f"New API failed: {str(e)}. Trying old API...")
                 
-                await ctx.info(f"Successfully found {len(deals)} deals for neighborhood ID: {neighborhood_id}")
-                return {
-                    "query_type": "neighborhood",
-                    "neighborhood_id": neighborhood_id,
-                    "deals_count": len(deals),
-                    "deals": deals_data
-                }
+                # Fall back to old API
+                try:
+                    deals = scraper.get_deals_by_neighborhood_id(neighborhood_id)
+                    deals_data = [deal.to_dict() for deal in deals]
+                    
+                    await ctx.info(f"Successfully found {len(deals)} deals using old API for neighborhood ID: {neighborhood_id}")
+                    return {
+                        "query_type": "neighborhood",
+                        "neighborhood_id": neighborhood_id,
+                        "deals_count": len(deals),
+                        "deals": deals_data,
+                        "source": "nadlan.gov.il (old API)"
+                    }
+                except Exception as e:
+                    await ctx.info(f"Old API also failed: {str(e)}. Providing alternative data source.")
+                    return {
+                        "query_type": "neighborhood",
+                        "neighborhood_id": neighborhood_id,
+                        "deals_count": 0,
+                        "deals": [],
+                        "source": "alternative",
+                        "api_status": "unavailable",
+                        "message": "Both nadlan.gov.il APIs are currently unavailable. Consider using Yad2 data as an alternative.",
+                        "alternative_sources": [
+                            "Yad2 real estate listings",
+                            "Madlan property data",
+                            "Local real estate databases"
+                        ],
+                        "api_attempts": {
+                            "new_api": "failed",
+                            "old_api": "failed",
+                            "error_details": str(e)
+                        }
+                    }
                 
             elif query_type == "comparable":
                 if not all([x, y, street, house]):
                     raise ValueError("Coordinates (x, y), street, and house are required for comparable queries")
                 
-                result = scraper.fetch_comparable_transactions(
-                    x=x, y=y, street=street, house=house,
-                    date_from=date_from, date_to=date_to,
-                    target_area=target_area, top=top
-                )
-                
-                stats = result["stats"]
-                comps_count = len(result["comps"])
-                await ctx.info(f"Successfully found {comps_count} comparable transactions")
-                
-                if stats.get("median_price_sqm"):
-                    await ctx.info(f"Median price per sqm: ₪{stats.get('median_price_sqm', 0):,.0f}")
-                
-                return {
-                    "query_type": "comparable",
-                    "coordinates": {"x": x, "y": y},
-                    "location": {"street": street, "house": house},
-                    "filters": {
-                        "date_from": date_from,
-                        "date_to": date_to,
-                        "target_area": target_area
-                    },
-                    "stats": stats,
-                    "comparable_transactions": result["comps"]
-                }
+                # For comparable transactions, we'll need to use the old API or implement a new approach
+                try:
+                    result = scraper.fetch_comparable_transactions(
+                        x=x, y=y, street=street, house=house,
+                        date_from=date_from, date_to=date_to,
+                        target_area=target_area, top=top
+                    )
+                    
+                    stats = result["stats"]
+                    comps_count = len(result["comps"])
+                    await ctx.info(f"Successfully found {comps_count} comparable transactions")
+                    
+                    if stats.get("median_price_sqm"):
+                        await ctx.info(f"Median price per sqm: ₪{stats.get('median_price_sqm', 0):,.0f}")
+                    
+                    return {
+                        "query_type": "comparable",
+                        "coordinates": {"x": x, "y": y},
+                        "location": {"street": street, "house": house},
+                        "filters": {
+                            "date_from": date_from,
+                            "date_to": date_to,
+                            "target_area": target_area
+                        },
+                        "stats": stats,
+                        "comparable_transactions": result["comps"],
+                        "source": "nadlan.gov.il"
+                    }
+                except Exception as e:
+                    await ctx.info(f"Comparable transactions API failed: {str(e)}. Providing alternative data source.")
+                    return {
+                        "query_type": "comparable",
+                        "coordinates": {"x": x, "y": y},
+                        "location": {"street": street, "house": house},
+                        "filters": {
+                            "date_from": date_from,
+                            "date_to": date_to,
+                            "target_area": target_area
+                        },
+                        "stats": {},
+                        "comparable_transactions": [],
+                        "source": "alternative",
+                        "api_status": "unavailable",
+                        "message": "The nadlan.gov.il API is currently unavailable for comparable transactions. Consider using Yad2 data as an alternative.",
+                        "alternative_sources": [
+                            "Yad2 real estate listings",
+                            "Madlan property data",
+                            "Local real estate databases"
+                        ]
+                    }
                 
             else:
                 raise ValueError(f"Invalid query_type: {query_type}. Must be 'address', 'neighborhood', or 'comparable'")

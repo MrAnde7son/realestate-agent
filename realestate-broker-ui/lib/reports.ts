@@ -8,10 +8,10 @@ export interface Report {
 
 export const reports: Report[] = [
   {
-    id: 'r2',
-    listingId: 'l2',
-    address: 'שדרות רוטשילד 45, תל אביב',
-    filename: 'r2.pdf',
-    createdAt: '2024-01-20T08:00:00.000Z',
+    id: 'r1',
+    listingId: 'l1',
+    address: 'רחוב הרצל 123, תל אביב',
+    filename: 'r1.pdf',
+    createdAt: '2024-01-15T08:00:00.000Z',
   },
 ];

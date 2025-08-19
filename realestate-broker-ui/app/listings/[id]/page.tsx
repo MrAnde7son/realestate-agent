@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
   const [generatingReport, setGeneratingReport] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState<string>('')
+  const router = useRouter()
 
   useEffect(() => {
     params.then(({ id }) => {
@@ -103,11 +105,14 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
     if (!id) return
     setGeneratingReport(true)
     try {
-      await fetch('/api/reports', {
+      const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ listingId: id })
       })
+      if (res.ok) {
+        router.push('/reports')
+      }
     } catch (err) {
       console.error('Report generation failed:', err)
     } finally {

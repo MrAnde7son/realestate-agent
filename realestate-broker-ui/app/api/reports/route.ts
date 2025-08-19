@@ -5,12 +5,43 @@ import path from 'path';
 import { reports, type Report } from '@/lib/reports';
 import { listings } from '@/lib/data';
 
+const BACKEND_URL = process.env.BACKEND_URL;
+
 export async function GET(req: Request) {
+  if (BACKEND_URL) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/reports`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const backendReports = data.reports || [];
+        return NextResponse.json({ reports: [...backendReports, ...reports] });
+      }
+    } catch (err) {
+      console.error('Backend reports fetch failed:', err);
+    }
+  }
   return NextResponse.json({ reports });
 }
 
 export async function POST(req: Request) {
   const { listingId } = await req.json();
+
+  if (BACKEND_URL) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return NextResponse.json(data, { status: res.status });
+      }
+    } catch (err) {
+      console.error('Backend report creation failed:', err);
+    }
+  }
+
   const listing = listings.find(l => l.id === listingId);
   if (!listing) {
     return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
@@ -25,6 +56,12 @@ export async function POST(req: Request) {
   const doc = new PDFDocument();
   const stream = fs.createWriteStream(filePath);
   doc.pipe(stream);
+
+  const fontPath = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+  if (fs.existsSync(fontPath)) {
+    doc.font(fontPath);
+  }
+
   doc.fontSize(20).text('דו"ח נכס', { align: 'center' });
   doc.moveDown();
   doc.fontSize(12).text(`כתובת: ${listing.address}`);

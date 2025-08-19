@@ -6,4 +6,7 @@ export const siteConfig = {
   version: "1.0.0",
 }
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api"
+const apiRoot = process.env.NEXT_PUBLIC_API_URL || ''
+export const API_BASE = apiRoot.endsWith('/api')
+  ? apiRoot
+  : `${apiRoot.replace(/\/$/, '')}/api`

@@ -3,3 +3,4 @@ django-cors-headers>=4.4.0
 celery>=5.3.6
 redis>=5.0.4
 requests>=2.32.3
+reportlab>=3.6.12

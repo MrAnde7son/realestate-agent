@@ -1,7 +1,11 @@
-import json, statistics, re
+import json, statistics, re, os
 from datetime import datetime
+from pathlib import Path
+
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
+from reportlab.pdfgen import canvas
+
 from .models import Alert
 
 from db.database import SQLAlchemyDatabase
@@ -14,6 +18,13 @@ from db.models import (
 )
 from .tasks import sync_address_sources
 from utils.tabu_parser import parse_tabu_pdf, search_rows
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+REPORTS_DIR = os.environ.get(
+    'REPORTS_DIR',
+    str((BASE_DIR.parent / 'realestate-broker-ui' / 'public' / 'reports').resolve())
+)
+REPORTS = []
 
 def parse_json(request):
     try: return json.loads(request.body.decode('utf-8'))
@@ -210,6 +221,70 @@ def rami_valuations(request):
             for r in rows
         ]
     return JsonResponse({'rows': data})
+
+
+@csrf_exempt
+def reports(request):
+    """Create a PDF report for a listing or list existing reports."""
+    if request.method == 'GET':
+        return JsonResponse({'reports': REPORTS})
+
+    if request.method != 'POST':
+        return HttpResponseBadRequest('POST required')
+
+    data = parse_json(request)
+    if not data or not data.get('listingId'):
+        return HttpResponseBadRequest('listingId required')
+
+    listing_id = data['listingId']
+    db = SQLAlchemyDatabase()
+    with db.get_session() as session:
+        l = session.get(Listing, int(listing_id))
+        listing = (
+            {
+                'address': l.address,
+                'price': l.price,
+                'rooms': l.rooms,
+                'size': l.size,
+            }
+            if l
+            else None
+        )
+
+    if not listing:
+        return JsonResponse({'error': 'Listing not found'}, status=404)
+
+    report_id = f"r{len(REPORTS) + 1}"
+    filename = f"{report_id}.pdf"
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    file_path = os.path.join(REPORTS_DIR, filename)
+
+    c = canvas.Canvas(file_path)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawCentredString(300, 760, 'דו"ח נכס')
+    c.setFont("Helvetica", 12)
+    y = 720
+    c.drawString(50, y, f"כתובת: {listing['address'] or ''}")
+    y -= 20
+    if listing.get('price') is not None:
+        c.drawString(50, y, f"מחיר: ₪{int(listing['price'])}")
+        y -= 20
+    if listing.get('rooms') is not None:
+        c.drawString(50, y, f"חדרים: {listing['rooms']}")
+        y -= 20
+    if listing.get('size') is not None:
+        c.drawString(50, y, f"מ""ר: {listing['size']}")
+    c.save()
+
+    report = {
+        'id': report_id,
+        'listingId': str(listing_id),
+        'address': listing['address'],
+        'filename': filename,
+        'createdAt': datetime.utcnow().isoformat(),
+    }
+    REPORTS.append(report)
+    return JsonResponse({'report': report}, status=201)
 
 def _group_by_month(transactions):
     months = {}

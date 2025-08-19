@@ -79,9 +79,3 @@ jobs:
         working-directory: realestate-broker-ui
         run: |
           npm test --if-present
-
-      - name: Build UI
-        if: steps.changes.outputs.broker_ui == 'true'
-        working-directory: realestate-broker-ui
-        run: |
-          npm run build

@@ -308,13 +308,10 @@ export default function HomePage() {
                 <a href="/mortgage/analyze">מחשבון משכנתא</a>
               </Button>
               <Button className="w-full" variant="outline">
-                הפק דוח שוק
+                הפק דוח נכס
               </Button>
               <Button className="w-full" variant="outline">
-                חפש נכסים דומים
-              </Button>
-              <Button className="w-full" variant="outline">
-                עדכן מחירים
+                חפש נכסים
               </Button>
             </CardContent>
           </Card>

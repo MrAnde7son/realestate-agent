@@ -19,9 +19,6 @@ export default function Logo({ variant='symbol', size=48, color='#12b3a6', title
           <path d="M95 120 L120 98 L145 120" />
           <path d="M95 175 L145 175" />
         </g>
-        <text x="1160" y="200" textAnchor="end" direction="rtl" fontFamily="Heebo,Rubik,Assistant,Arimo,Arial,sans-serif" fontWeight="700" fontSize="180" fill="#0f172a">
-          נדל״נר
-        </text>
       </svg>
     );
   }

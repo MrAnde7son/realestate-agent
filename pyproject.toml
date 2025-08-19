@@ -20,6 +20,7 @@ dependencies = [
     "SQLAlchemy",
     "psycopg2-binary",
     "APScheduler",
+    "celery",
     "twilio",
 ]
 

@@ -16,6 +16,7 @@ setup(
         "SQLAlchemy",
         "psycopg2-binary",
         "APScheduler",
+        "celery",
         "twilio",
     ],
     python_requires=">=3.8",

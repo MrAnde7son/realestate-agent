@@ -10,7 +10,7 @@ from pathlib import Path
 # Add the parent directory to the path so we can import the decisive module
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from gov.mcp.decisive import _extract_field, _parse_items
+from gov.decisive import _extract_field, _parse_items
 
 
 def demo_decisive_appraisal_parsing():

@@ -20,7 +20,7 @@ from db.models import (
     RamiValuation,
 )
 from gis.gis_client import TelAvivGS
-from gov.mcp.decisive import fetch_decisive_appraisals
+from gov.decisive import fetch_decisive_appraisals
 from rami.rami_client import RamiClient
 
 log = logging.getLogger(__name__)

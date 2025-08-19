@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
 sys.path.insert(0, os.path.abspath('backend-django'))
 import django

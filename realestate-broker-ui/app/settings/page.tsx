@@ -1,22 +1,46 @@
-import React from 'react'
+"use client"
+
+import React, { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Globe, Bell, Shield, Palette, Database, Zap } from 'lucide-react'
+import { Globe, Bell, Shield, Database, Zap } from 'lucide-react'
+import { fetchSettings, updateSettings } from '@/lib/api'
 
 export default function SettingsPage() {
+  const [settings, setSettings] = useState({
+    language: 'he',
+    timezone: 'asia-jerusalem',
+    currency: 'ils',
+    dateFormat: 'dd-mm-yyyy',
+    email_notifications: true,
+  })
+
+  useEffect(() => {
+    fetchSettings()
+      .then((data) => setSettings((s) => ({ ...s, ...data })))
+      .catch(() => {})
+  }, [])
+
+  const save = async () => {
+    try {
+      await updateSettings(settings)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader 
-          heading="הגדרות מערכת" 
-          text="התאם את המערכת לצרכים שלך" 
+        <DashboardHeader
+          heading="הגדרות מערכת"
+          text="התאם את המערכת לצרכים שלך"
         />
         
         <div className="grid gap-6 lg:grid-cols-3">
@@ -37,7 +61,7 @@ export default function SettingsPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="language">שפה</Label>
-                    <Select defaultValue="he">
+                    <Select value={settings.language} onValueChange={(v) => setSettings({ ...settings, language: v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="בחר שפה" />
                       </SelectTrigger>
@@ -50,7 +74,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="timezone">אזור זמן</Label>
-                    <Select defaultValue="asia-jerusalem">
+                    <Select value={settings.timezone} onValueChange={(v) => setSettings({ ...settings, timezone: v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="בחר אזור זמן" />
                       </SelectTrigger>
@@ -63,7 +87,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="currency">מטבע</Label>
-                    <Select defaultValue="ils">
+                    <Select value={settings.currency} onValueChange={(v) => setSettings({ ...settings, currency: v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="בחר מטבע" />
                       </SelectTrigger>
@@ -76,7 +100,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="dateFormat">פורמט תאריך</Label>
-                    <Select defaultValue="dd-mm-yyyy">
+                    <Select value={settings.dateFormat} onValueChange={(v) => setSettings({ ...settings, dateFormat: v })}>
                       <SelectTrigger>
                         <SelectValue placeholder="בחר פורמט תאריך" />
                       </SelectTrigger>
@@ -110,7 +134,10 @@ export default function SettingsPage() {
                       קבל התראות על שינויים במחירים ועדכונים
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={settings.email_notifications}
+                    onCheckedChange={(v) => setSettings({ ...settings, email_notifications: v })}
+                  />
                 </div>
                 
                 <Separator />
@@ -329,7 +356,7 @@ export default function SettingsPage() {
 
         {/* Save Button */}
         <div className="flex justify-end mt-6">
-          <Button size="lg">שמור הגדרות</Button>
+          <Button size="lg" onClick={save}>שמור הגדרות</Button>
         </div>
       </DashboardShell>
     </DashboardLayout>

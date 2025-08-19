@@ -1,4 +1,6 @@
-import React from 'react'
+"use client"
+
+import React, { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,15 +9,34 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, Mail, Phone, MapPin, Building, Shield, Key, Star } from 'lucide-react'
+import { User, Building, Shield, Key, Star } from 'lucide-react'
+import { fetchProfile, updateProfile } from '@/lib/api'
 
 export default function ProfilePage() {
+  const [profile, setProfile] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+  })
+
+  useEffect(() => {
+    fetchProfile().then((data) => setProfile(data)).catch(() => {})
+  }, [])
+
+  const save = async () => {
+    try {
+      await updateProfile(profile)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader 
-          heading="פרופיל אישי" 
-          text="נהל את המידע האישי והגדרות החשבון שלך" 
+        <DashboardHeader
+          heading="פרופיל אישי"
+          text="נהל את המידע האישי והגדרות החשבון שלך"
         />
         
         <div className="grid gap-6 lg:grid-cols-3">
@@ -45,15 +66,28 @@ export default function ProfilePage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">שם פרטי</Label>
-                    <Input id="firstName" defaultValue="משתמש" />
+                    <Input
+                      id="firstName"
+                      value={profile.first_name}
+                      onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">שם משפחה</Label>
-                    <Input id="lastName" defaultValue="דמו" />
+                    <Input
+                      id="lastName"
+                      value={profile.last_name}
+                      onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">דוא״ל</Label>
-                    <Input id="email" type="email" defaultValue="demo@example.com" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={profile.email}
+                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">טלפון</Label>
@@ -75,7 +109,7 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="flex gap-2">
-                  <Button>שמור שינויים</Button>
+                  <Button onClick={save}>שמור שינויים</Button>
                   <Button variant="outline">בטל</Button>
                 </div>
               </CardContent>

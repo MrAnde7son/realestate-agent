@@ -4,7 +4,7 @@ import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-s
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Check, Crown, Star } from 'lucide-react'
+import { Check, Star, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const plans = [
@@ -33,14 +33,14 @@ const plans = [
   {
     name: "חבילה בסיסית",
     description: "למשתמשים מתקדמים",
-    price: "99 ₪",
+    price: "149 ₪",
     priceDescription: "לחודש",
     features: [
       "עד 25 נכסים במעקב",
       "התראות מתקדמות",
       "מחשבון משכנתא מתקדם",
       "דוחות מפורטים",
-      "ייצוא נתונים ל-Excel",
+      "ייצוא נתונים ל-Exceבגl",
       "תמיכה טלפונית",
       "ניתוח שוק בסיסי"
     ],
@@ -49,7 +49,7 @@ const plans = [
       "ללא אינטגרציה עם מערכות חיצוניות"
     ],
     popular: true,
-    icon: Crown,
+    icon: Zap,
     buttonText: "בחר חבילה",
     buttonVariant: "default" as const
   },
@@ -73,7 +73,7 @@ const plans = [
     ],
     limitations: [],
     popular: false,
-    icon: Crown,
+    icon: Zap,
     buttonText: "בחר חבילה",
     buttonVariant: "default" as const
   }

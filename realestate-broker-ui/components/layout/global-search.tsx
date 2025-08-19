@@ -111,7 +111,11 @@ export function GlobalSearch() {
             {searchItems.map((item) => (
               <CommandItem
                 key={item.href}
-                onSelect={() => runCommand(() => router.push(item.href))}
+                onClick={() => {
+                  setOpen(false)
+                  router.push(item.href)
+                }}
+                className="cursor-pointer"
               >
                 <span className="mr-2 text-lg">{item.icon}</span>
                 <div>

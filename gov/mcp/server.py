@@ -1,4 +1,5 @@
 # server.py
+import asyncio
 from fastmcp import FastMCP, Context
 from typing import Any, Dict, Optional
 from ..decisive import fetch_decisive_appraisals
@@ -62,7 +63,7 @@ async def fetch_nadlan_transactions(
         if address:
             # Use address search (automatically finds neighborhood ID)
             await ctx.info(f"Searching for address: {address}")
-            deals = scraper.get_deals_by_address(address)
+            deals = await asyncio.to_thread(scraper.get_deals_by_address, address)
             
             # Apply limit
             if limit > 0:
@@ -82,7 +83,7 @@ async def fetch_nadlan_transactions(
         elif neighborhood_id:
             # Use neighborhood ID directly
             await ctx.info(f"Fetching deals for neighborhood ID: {neighborhood_id}")
-            deals = scraper.get_deals_by_neighborhood_id(neighborhood_id)
+            deals = await asyncio.to_thread(scraper.get_deals_by_neighborhood_id, neighborhood_id)
             
             # Apply limit
             if limit > 0:

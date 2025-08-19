@@ -8,108 +8,107 @@ from unittest.mock import Mock, patch, MagicMock
 
 from gov.nadlan import (
     NadlanDealsScraper,
-    Deal as DealRecord,  # Alias for compatibility
+    Deal,
     NadlanAPIError,
 )
-from gov.nadlan.scraper import NadlanScrapingError
 
 
 class TestDealRecord:
-    """Test the DealRecord dataclass."""
+    """Test the Deal dataclass."""
     
     def test_deal_record_creation(self):
-        """Test creating a DealRecord with all fields."""
-        deal = DealRecord(
-            asset_address="רחוב הרצל 1, תל אביב",
+        """Test creating a Deal with all fields."""
+        deal = Deal(
+            address="רחוב הרצל 1, תל אביב",
             deal_date="2024-01-15",
-            price=1500000.0,
+            deal_amount=1500000.0,
             rooms="3",
             floor="2",
             asset_type="דירה",
-            building_year="1990",
-            total_area=80.0
+            year_built="1990",
+            area=80.0
         )
         
-        assert deal.asset_address == "רחוב הרצל 1, תל אביב"
-        assert deal.price == 1500000.0
-        assert deal.total_area == 80.0
+        assert deal.address == "רחוב הרצל 1, תל אביב"
+        assert deal.deal_amount == 1500000.0
+        assert deal.area == 80.0
     
-    def test_from_dict(self):
-        """Test creating DealRecord from dictionary."""
+    def test_from_item(self):
+        """Test creating Deal from dictionary."""
         data = {
-            "AssetAddress": "רחוב הרצל 1, תל אביב",
-            "DealDate": "2024-01-15",
-            "Price": "1,500,000",
-            "Rooms": "3",
-            "Floor": "2",
-            "AssetType": "דירה",
-            "BuildingYear": "1990",
-            "TotalArea": "80 מ²"
+            "address": "רחוב הרצל 1, תל אביב",
+            "dealDate": "2024-01-15",
+            "dealAmount": "1,500,000",
+            "rooms": "3",
+            "floor": "2",
+            "assetType": "דירה",
+            "yearBuilt": "1990",
+            "area": "80"
         }
         
-        deal = DealRecord.from_dict(data)
-        assert deal.asset_address == "רחוב הרצל 1, תל אביב"
-        assert deal.price == 1500000.0
-        assert deal.total_area == 80.0
-        assert deal.raw_data == data
+        deal = Deal.from_item(data)
+        assert deal.address == "רחוב הרצל 1, תל אביב"
+        assert deal.deal_amount == 1500000.0
+        assert deal.area == 80.0
+        assert deal.raw == data
     
     def test_parse_price(self):
         """Test price parsing from various formats."""
         # Test with commas
-        deal = DealRecord.from_dict({"Price": "1,500,000"})
-        assert deal.price == 1500000.0
+        deal = Deal.from_item({"dealAmount": "1,500,000"})
+        assert deal.deal_amount == 1500000.0
         
         # Test with shekel symbol
-        deal = DealRecord.from_dict({"Price": "₪1,500,000"})
-        assert deal.price == 1500000.0
+        deal = Deal.from_item({"dealAmount": "₪1,500,000"})
+        assert deal.deal_amount == 1500000.0
         
         # Test with spaces
-        deal = DealRecord.from_dict({"Price": "1 500 000"})
-        assert deal.price == 1500000.0
+        deal = Deal.from_item({"dealAmount": "1 500 000"})
+        assert deal.deal_amount == 1500000.0
         
         # Test with None
-        deal = DealRecord.from_dict({"Price": None})
-        assert deal.price is None
+        deal = Deal.from_item({"dealAmount": None})
+        assert deal.deal_amount is None
         
         # Test with invalid value
-        deal = DealRecord.from_dict({"Price": "invalid"})
-        assert deal.price is None
+        deal = Deal.from_item({"dealAmount": "invalid"})
+        assert deal.deal_amount is None
     
     def test_parse_area(self):
         """Test area parsing from various formats."""
         # Test with Hebrew square meter symbol
-        deal = DealRecord.from_dict({"TotalArea": "80 מ²"})
-        assert deal.total_area == 80.0
+        deal = Deal.from_item({"area": "80 מ²"})
+        assert deal.area == 80.0
         
         # Test with commas (should be converted to decimal point)
-        deal = DealRecord.from_dict({"TotalArea": "80,5"})
-        assert deal.total_area == 80.5
+        deal = Deal.from_item({"area": "80,5"})
+        assert deal.area == 80.5
         
         # Test with decimal point
-        deal = DealRecord.from_dict({"TotalArea": "80.5"})
-        assert deal.total_area == 80.5
+        deal = Deal.from_item({"area": "80.5"})
+        assert deal.area == 80.5
         
         # Test with None
-        deal = DealRecord.from_dict({"TotalArea": None})
-        assert deal.total_area is None
+        deal = Deal.from_item({"area": None})
+        assert deal.area is None
         
         # Test with invalid value
-        deal = DealRecord.from_dict({"TotalArea": "invalid"})
-        assert deal.total_area is None
+        deal = Deal.from_item({"area": "invalid"})
+        assert deal.area is None
     
     def test_to_dict(self):
-        """Test converting DealRecord back to dictionary."""
-        deal = DealRecord(
-            asset_address="רחוב הרצל 1, תל אביב",
-            price=1500000.0,
+        """Test converting Deal back to dictionary."""
+        deal = Deal(
+            address="רחוב הרצל 1, תל אביב",
+            deal_amount=1500000.0,
             rooms="3"
         )
         
         result = deal.to_dict()
-        assert result["asset_address"] == "רחוב הרצל 1, תל אביב"
-        assert result["price"] == 1500000.0
+        assert result["address"] == "רחוב הרצל 1, תל אביב"
+        assert result["deal_amount"] == 1500000.0
         assert result["rooms"] == "3"
-        assert result["raw_data"] is None
+        assert result["raw"] is None
 
 
 class TestNadlanDealsScraper:
@@ -119,388 +118,169 @@ class TestNadlanDealsScraper:
         """Set up test fixtures."""
         self.scraper = NadlanDealsScraper(timeout=5.0)
     
-    def teardown_method(self):
-        """Clean up after tests."""
-        self.scraper.session.close()
-    
     def test_init(self):
         """Test scraper initialization."""
         assert self.scraper.timeout == 5.0
-        assert self.scraper.user_agent == "NadlanDealsScraper/1.0"
-        assert "User-Agent" in self.scraper.session.headers
-        assert "Accept" in self.scraper.session.headers
+        assert self.scraper.headless is True
     
     def test_context_manager(self):
         """Test context manager functionality."""
         with NadlanDealsScraper() as scraper:
-            assert scraper.session is not None
-        # Session should be closed after context exit
+            assert scraper is not None
+        # Context manager should work without errors
     
-    @responses.activate
-    def test_get_data_by_query_success(self):
-        """Test successful query to GetDataByQuery endpoint."""
-        mock_response = {
-            "PageNo": 0,
-            "Query": "שכונת רמת החייל",
-            "Results": []
-        }
-        
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetDataByQuery",
-            json=mock_response,
-            status=200
-        )
-        
-        result = self.scraper.get_data_by_query("שכונת רמת החייל")
-        assert result == mock_response
-    
-    @responses.activate
-    def test_get_data_by_query_http_error(self):
-        """Test handling of HTTP errors in GetDataByQuery."""
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetDataByQuery",
-            status=500,
-            body="Internal Server Error"
-        )
-        
-        with pytest.raises(NadlanAPIError, match="GetDataByQuery returned status 500"):
-            self.scraper.get_data_by_query("שכונת רמת החייל")
-    
-    @responses.activate
-    def test_get_data_by_query_connection_error(self):
-        """Test handling of connection errors in GetDataByQuery."""
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetDataByQuery",
-            body=Exception("Connection failed")
-        )
-        
-        with pytest.raises(NadlanAPIError, match="Failed to connect"):
-            self.scraper.get_data_by_query("שכונת רמת החייל")
-    
-    @responses.activate
-    def test_get_assets_and_deals_success(self):
-        """Test successful POST to GetAssestAndDeals endpoint."""
-        mock_response = {
-            "AssetsAndDeals": [
-                {"AssetAddress": "רחוב הרצל 1", "Price": "1500000"}
-            ]
-        }
-        
-        responses.add(
-            responses.POST,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetAssestAndDeals",
-            json=mock_response,
-            status=200
-        )
-        
-        payload = {"PageNo": 0, "Query": "test"}
-        result = self.scraper.get_assets_and_deals(payload)
-        
-        assert result == mock_response
-        # Check that PageNo was set to 1
-        assert payload["PageNo"] == 1
-    
-    @responses.activate
-    def test_get_assets_and_deals_with_existing_pageno(self):
-        """Test that existing PageNo is preserved."""
-        mock_response = {"Results": []}
-        
-        responses.add(
-            responses.POST,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetAssestAndDeals",
-            json=mock_response,
-            status=200
-        )
-        
-        payload = {"PageNo": 5, "Query": "test"}
-        self.scraper.get_assets_and_deals(payload)
-        
-        # PageNo should remain 5
-        assert payload["PageNo"] == 5
-    
-    @responses.activate
-    def test_get_deals_by_address_success(self):
-        """Test successful retrieval of deals by address."""
-        # Mock the first API call
-        query_response = {"PageNo": 0, "Query": "שכונת רמת החייל"}
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetDataByQuery",
-            json=query_response,
-            status=200
-        )
-        
-        # Mock the second API call
-        deals_response = {
-            "AssetsAndDeals": [
-                {
-                    "AssetAddress": "רחוב הרצל 1",
-                    "DealDate": "2024-01-15",
-                    "Price": "1,500,000",
-                    "Rooms": "3"
-                }
-            ]
-        }
-        responses.add(
-            responses.POST,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetAssestAndDeals",
-            json=deals_response,
-            status=200
-        )
-        
-        deals = self.scraper.get_deals_by_address("שכונת רמת החייל")
-        
-        assert len(deals) == 1
-        assert isinstance(deals[0], DealRecord)
-        assert deals[0].asset_address == "רחוב הרצל 1"
-        assert deals[0].price == 1500000.0
-    
-    @responses.activate
-    def test_get_deals_by_address_no_deals_found(self):
-        """Test handling when no deals are found in response."""
-        query_response = {"PageNo": 0, "Query": "שכונת רמת החייל"}
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetDataByQuery",
-            json=query_response,
-            status=200
-        )
-        
-        deals_response = {"NoDeals": True}
-        responses.add(
-            responses.POST,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetAssestAndDeals",
-            json=deals_response,
-            status=200
-        )
-        
-        with pytest.raises(NadlanAPIError, match="Could not locate deals list"):
-            self.scraper.get_deals_by_address("שכונת רמת החייל")
-    
-    @responses.activate
-    def test_get_deals_by_neighborhood_id_success(self):
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_get_deals_by_neighborhood_id_success(self, mock_asyncio_run):
         """Test successful retrieval of deals by neighborhood ID."""
-        # Mock the neighborhood page lookup
-        neighborhood_html = """
-        <html>
-            <head>
-                <title>שכונת רמת החייל, תל אביב - יפו - nadlan.gov.il</title>
-            </head>
-        </html>
-        """
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/?view=neighborhood&id=12345",
-            body=neighborhood_html,
-            status=200
-        )
-        
-        # Mock the subsequent API calls
-        query_response = {"PageNo": 0, "Query": "שכונת רמת החייל, תל אביב - יפו"}
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetDataByQuery",
-            json=query_response,
-            status=200
-        )
-        
-        deals_response = {
-            "AssetsAndDeals": [
-                {
-                    "AssetAddress": "רחוב הרצל 1",
-                    "DealDate": "2024-01-15",
-                    "Price": "1,500,000",
-                    "Rooms": "3"
-                }
-            ]
-        }
-        responses.add(
-            responses.POST,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetAssestAndDeals",
-            json=deals_response,
-            status=200
-        )
+        # Mock the async result
+        mock_deals = [
+            Deal(address="רחוב הרצל 1", deal_amount=1500000.0)
+        ]
+        mock_asyncio_run.return_value = mock_deals
         
         deals = self.scraper.get_deals_by_neighborhood_id("12345")
+        
         assert len(deals) == 1
-        assert deals[0].asset_address == "רחוב הרצל 1"
-        assert deals[0].price == 1500000.0
+        assert deals[0].address == "רחוב הרצל 1"
+        assert deals[0].deal_amount == 1500000.0
+        mock_asyncio_run.assert_called_once()
     
-    @responses.activate
-    def test_get_deals_by_neighborhood_id_title_parsing(self):
-        """Test parsing of neighborhood name from page title."""
-        # Test with different title formats
-        test_cases = [
-            ("שכונת רמת החייל, תל אביב - יפו - nadlan.gov.il", "שכונת רמת החייל, תל אביב - יפו"),
-            ("שכונת גבעת מרדכי, ירושלים", "שכונת גבעת מרדכי, ירושלים"),
-            ("שכונה - תל אביב", "שכונה"),
-        ]
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_get_deals_by_neighborhood_id_failure(self, mock_asyncio_run):
+        """Test handling of failures in get_deals_by_neighborhood_id."""
+        mock_asyncio_run.side_effect = Exception("Test error")
         
-        for title, expected in test_cases:
-            neighborhood_html = f'<html><head><title>{title}</title></head></html>'
-            
-            responses.add(
-                responses.GET,
-                "https://www.nadlan.gov.il/?view=neighborhood&id=12345",
-                body=neighborhood_html,
-                status=200
-            )
-            
-            # Mock the subsequent API calls
-            query_response = {"PageNo": 0, "Query": expected}
-            responses.add(
-                responses.GET,
-                "https://www.nadlan.gov.il/Nadlan.REST/Main/GetDataByQuery",
-                json=query_response,
-                status=200
-            )
-            
-            deals_response = {
-                "AssetsAndDeals": [
-                    {
-                        "AssetAddress": "רחוב הרצל 1",
-                        "Price": "1,500,000"
-                    }
-                ]
-            }
-            responses.add(
-                responses.POST,
-                "https://www.nadlan.gov.il/Nadlan.REST/Main/GetAssestAndDeals",
-                json=deals_response,
-                status=200
-            )
-            
-            deals = self.scraper.get_deals_by_neighborhood_id("12345")
-            assert len(deals) == 1
-            assert deals[0].asset_address == "רחוב הרצל 1"
-    
-    @responses.activate
-    def test_get_deals_by_neighborhood_id_no_title(self):
-        """Test handling when page has no title."""
-        neighborhood_html = "<html><head></head></html>"
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/?view=neighborhood&id=12345",
-            body=neighborhood_html,
-            status=200
-        )
-        
-        with pytest.raises(NadlanAPIError, match="Could not determine neighbourhood name"):
+        with pytest.raises(NadlanAPIError, match="Failed to fetch deals for neighborhood 12345"):
             self.scraper.get_deals_by_neighborhood_id("12345")
     
-    def test_scrape_deals_from_page(self):
-        """Test HTML scraping functionality."""
-        html_content = """
-        <table>
-            <thead>
-                <tr>
-                    <th>כתובת</th>
-                    <th>מחיר</th>
-                    <th>חדרים</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>רחוב הרצל 1</td>
-                    <td>1,500,000</td>
-                    <td>3</td>
-                </tr>
-                <tr>
-                    <td>רחוב הרצל 2</td>
-                    <td>1,600,000</td>
-                    <td>4</td>
-                </tr>
-            </tbody>
-        </table>
-        """
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_search_address_success(self, mock_asyncio_run):
+        """Test successful address search."""
+        mock_results = [
+            {"type": "neighborhood", "value": "רמת החייל", "neighborhood_id": "65210036"}
+        ]
+        mock_asyncio_run.return_value = mock_results
         
-        deals = self.scraper.scrape_deals_from_page(html_content)
+        results = self.scraper.search_address("רמת החייל")
         
-        assert len(deals) == 2
-        assert deals[0].asset_address == "רחוב הרצל 1"
-        assert deals[0].price == 1500000.0
-        assert deals[0].rooms == "3"
-        assert deals[1].asset_address == "רחוב הרצל 2"
-        assert deals[1].price == 1600000.0
-        assert deals[1].rooms == "4"
+        assert len(results) == 1
+        assert results[0]["value"] == "רמת החייל"
+        assert results[0]["neighborhood_id"] == "65210036"
     
-    def test_scrape_deals_from_page_no_table(self):
-        """Test scraping when no table is found."""
-        html_content = "<html><body><p>No table here</p></body></html>"
-        deals = self.scraper.scrape_deals_from_page(html_content)
-        assert deals == []
-    
-    def test_scrape_deals_from_page_mismatched_cells(self):
-        """Test scraping when row has different number of cells than headers."""
-        html_content = """
-        <table>
-            <thead>
-                <tr>
-                    <th>כתובת</th>
-                    <th>מחיר</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>רחוב הרצל 1</td>
-                    <td>1,500,000</td>
-                    <td>Extra cell</td>
-                </tr>
-            </tbody>
-        </table>
-        """
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_search_address_failure(self, mock_asyncio_run):
+        """Test handling of failures in address search."""
+        mock_asyncio_run.side_effect = Exception("Test error")
         
-        deals = self.scraper.scrape_deals_from_page(html_content)
-        assert deals == []
+        with pytest.raises(NadlanAPIError, match="Failed to search for address 'רמת החייל'"):
+            self.scraper.search_address("רמת החייל")
     
-    def test_get_deals_with_fallback_api_failure(self):
-        """Test fallback mechanism when API fails."""
-        with patch.object(self.scraper, 'get_deals_by_address') as mock_get:
-            mock_get.side_effect = NadlanAPIError("API failed")
-            
-            with pytest.raises(NadlanAPIError, match="API failed and HTML scraping not implemented"):
-                self.scraper.get_deals_with_fallback("test query")
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_get_deals_by_address_success(self, mock_asyncio_run):
+        """Test successful retrieval of deals by address."""
+        # Mock the search results
+        search_results = [
+            {"type": "neighborhood", "value": "רמת החייל", "neighborhood_id": "65210036"}
+        ]
+        
+        # Mock the deals
+        mock_deals = [
+            Deal(address="רחוב הרצל 1", deal_amount=1500000.0)
+        ]
+        
+        # First call returns search results, second call returns deals
+        mock_asyncio_run.side_effect = [search_results, mock_deals]
+        
+        deals = self.scraper.get_deals_by_address("רמת החייל")
+        
+        assert len(deals) == 1
+        assert deals[0].address == "רחוב הרצל 1"
+        assert deals[0].deal_amount == 1500000.0
+    
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_get_deals_by_address_no_search_results(self, mock_asyncio_run):
+        """Test handling when no addresses are found."""
+        mock_asyncio_run.return_value = []
+        
+        with pytest.raises(NadlanAPIError, match="No addresses found for query: רמת החייל"):
+            self.scraper.get_deals_by_address("רמת החייל")
+    
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_get_deals_by_address_no_neighborhood_id(self, mock_asyncio_run):
+        """Test handling when neighborhood ID cannot be determined."""
+        search_results = [
+            {"type": "neighborhood", "value": "רמת החייל", "neighborhood_id": None}
+        ]
+        mock_asyncio_run.return_value = search_results
+        
+        with pytest.raises(NadlanAPIError, match="Could not determine neighborhood ID for: רמת החייל"):
+            self.scraper.get_deals_by_address("רמת החייל")
+    
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_get_neighborhood_info_success(self, mock_asyncio_run):
+        """Test successful retrieval of neighborhood info."""
+        mock_info = {
+            "neigh_id": "65210036",
+            "neigh_name": "רמת החייל",
+            "setl_id": "5000",
+            "setl_name": "תל אביב-יפו"
+        }
+        mock_asyncio_run.return_value = mock_info
+        
+        info = self.scraper.get_neighborhood_info("65210036")
+        
+        assert info["neigh_id"] == "65210036"
+        assert info["neigh_name"] == "רמת החייל"
+        assert info["setl_id"] == "5000"
+        assert info["setl_name"] == "תל אביב-יפו"
+    
+    @patch('gov.nadlan.scraper.asyncio.run')
+    def test_get_neighborhood_info_failure(self, mock_asyncio_run):
+        """Test handling of failures in get_neighborhood_info."""
+        mock_asyncio_run.side_effect = Exception("Test error")
+        
+        with pytest.raises(NadlanAPIError, match="Failed to fetch neighborhood info for 65210036"):
+            self.scraper.get_neighborhood_info("65210036")
+    
+    def test_extract_neighborhood_id_from_poi(self):
+        """Test extraction of neighborhood ID from POI data."""
+        # Test known neighborhood mapping
+        poi_item = {"Value": "רמת החייל"}
+        result = self.scraper._extract_neighborhood_id_from_poi(poi_item)
+        assert result == "65210036"
+        
+        # Test known city mapping
+        poi_item = {"Value": "תל אביב"}
+        result = self.scraper._extract_neighborhood_id_from_poi(poi_item)
+        assert result == "5000"
+        
+        # Test unknown value
+        poi_item = {"Value": "Unknown Location"}
+        result = self.scraper._extract_neighborhood_id_from_poi(poi_item)
+        assert result is None
 
 
 class TestLegacyFunctions:
     """Test legacy function compatibility."""
     
-    @responses.activate
-    def test_legacy_get_deals_by_address(self):
-        """Test legacy get_deals_by_address function."""
-        from gov.nadlan.scraper import get_deals_by_address
+    @patch('gov.nadlan.scraper.NadlanDealsScraper')
+    def test_legacy_get_deals_by_neighborhood_id(self, mock_scraper_class):
+        """Test legacy get_deals_by_neighborhood_id function."""
+        from gov.nadlan.scraper import get_deals_by_neighborhood_id
         
-        # Mock API responses
-        query_response = {"PageNo": 0, "Query": "שכונת רמת החייל"}
-        responses.add(
-            responses.GET,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetDataByQuery",
-            json=query_response,
-            status=200
-        )
+        # Mock the scraper instance
+        mock_scraper = Mock()
+        mock_deals = [
+            Deal(address="רחוב הרצל 1", deal_amount=1500000.0)
+        ]
+        mock_scraper.get_deals_by_neighborhood_id.return_value = mock_deals
+        mock_scraper_class.return_value.__enter__.return_value = mock_scraper
         
-        deals_response = {
-            "AssetsAndDeals": [
-                {
-                    "AssetAddress": "רחוב הרצל 1",
-                    "Price": "1,500,000"
-                }
-            ]
-        }
-        responses.add(
-            responses.POST,
-            "https://www.nadlan.gov.il/Nadlan.REST/Main/GetAssestAndDeals",
-            json=deals_response,
-            status=200
-        )
+        deals = get_deals_by_neighborhood_id("12345")
         
-        deals = get_deals_by_address("שכונת רמת החייל")
         assert len(deals) == 1
-        assert deals[0]["asset_address"] == "רחוב הרצל 1"
-        assert deals[0]["price"] == 1500000.0
+        assert deals[0]["address"] == "רחוב הרצל 1"
+        assert deals[0]["deal_amount"] == 1500000.0
 
 
 if __name__ == "__main__":

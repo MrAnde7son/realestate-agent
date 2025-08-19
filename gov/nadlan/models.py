@@ -24,7 +24,47 @@ class Deal:
         if x is None:
             return None
         try:
-            return float(str(x).replace(",", "").replace("₪", "").strip())
+            # Convert to string and clean up
+            s = str(x).strip()
+            # Remove currency symbols and commas
+            s = s.replace("₪", "").replace(",", "").replace(" ", "")
+            # Handle Hebrew square meter symbol
+            s = s.replace("מ²", "").replace("מ'", "")
+            # Try to convert to float
+            if s:
+                return float(s)
+            return None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _parse_number(x):
+        """Parse number with proper handling of European decimal notation."""
+        if x is None:
+            return None
+        try:
+            # Convert to string and clean up
+            s = str(x).strip()
+            # Remove currency symbols
+            s = s.replace("₪", "")
+            # Handle Hebrew square meter symbol
+            s = s.replace("מ²", "").replace("מ'", "")
+            
+            # Handle European decimal notation (comma as decimal separator)
+            if "," in s and "." in s:
+                # If both comma and dot exist, comma is likely thousands separator
+                s = s.replace(",", "")
+            elif "," in s and s.count(",") == 1:
+                # Single comma, likely decimal separator
+                s = s.replace(",", ".")
+            
+            # Remove spaces
+            s = s.replace(" ", "")
+            
+            # Try to convert to float
+            if s:
+                return float(s)
+            return None
         except Exception:
             return None
 
@@ -68,7 +108,7 @@ class Deal:
             floor=(str(d.get("floor") or d.get("Floor") or "") or None),
             asset_type=d.get("assetType") or d.get("AssetType"),
             year_built=(str(d.get("yearBuilt") or d.get("BuildingYear") or "") or None),
-            area=cls._num(d.get("area") or d.get("TotalArea")),
+            area=cls._parse_number(d.get("area") or d.get("TotalArea")),
             # Parcel information
             parcel_gush=gush,
             parcel_helka=helka,

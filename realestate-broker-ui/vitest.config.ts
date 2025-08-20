@@ -18,6 +18,5 @@ export default defineConfig({
   define: {
     // Mock Next.js specific globals
     'process.env.NODE_ENV': '"test"',
-    '__vite_ssr_exportName__': 'undefined',
   },
 })

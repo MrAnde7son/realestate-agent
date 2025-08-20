@@ -1,14 +1,6 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
-// Declare the global type to avoid TypeScript errors
-declare global {
-  var __vite_ssr_exportName__: any
-}
-
-// Mock Next.js specific globals
-globalThis.__vite_ssr_exportName__ = undefined
-
 // Mock Next.js navigation
 vi.mock('next/navigation', () => ({
   useRouter: () => ({

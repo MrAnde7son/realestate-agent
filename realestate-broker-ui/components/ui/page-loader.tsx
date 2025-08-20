@@ -6,12 +6,17 @@ interface PageLoaderProps {
   showLogo?: boolean
 }
 
-export function PageLoader() {
+export function PageLoader({ message = "טוען...", showLogo = false }: PageLoaderProps) {
   return (
     <div className="flex h-screen items-center justify-center">
       <div className="flex flex-col items-center space-y-4">
+        {showLogo && (
+          <div className="w-12 h-12 bg-brand-teal rounded-full flex items-center justify-center mb-4">
+            <span className="text-white font-bold text-lg">נ</span>
+          </div>
+        )}
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">טוען...</p>
+        <p className="text-sm text-muted-foreground">{message}</p>
       </div>
     </div>
   )

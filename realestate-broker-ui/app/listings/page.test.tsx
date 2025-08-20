@@ -1,6 +1,6 @@
 /* eslint-env jest */
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ListingsPage from './page';
 import type { Listing } from '@/lib/data';
@@ -28,7 +28,7 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
 }));
 
 describe('ListingsPage', () => {
-  it('loads and displays listings from the API', async () => {
+  it('loads and filters listings from the API', async () => {
     const sampleListings: Listing[] = [
       {
         id: '1',
@@ -46,20 +46,47 @@ describe('ListingsPage', () => {
         city: 'תל אביב',
         netSqm: 80,
       },
-    ];
+      {
+        id: '2',
+        address: 'Another St 5',
+        price: 2000000,
+        bedrooms: 4,
+        bathrooms: 3,
+        area: 120,
+        type: 'בית',
+        status: 'active',
+        images: [],
+        description: '',
+        features: [],
+        contactInfo: { agent: '', phone: '', email: '' },
+        city: 'חיפה',
+        netSqm: 120,
+      },
+    ]
 
     const fetchMock = vi.fn().mockResolvedValue({
       json: () => Promise.resolve({ rows: sampleListings }),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    })
+    vi.stubGlobal('fetch', fetchMock)
 
     render(
       <AuthProvider>
         <ListingsPage />
       </AuthProvider>
-    );
+    )
 
-    expect(await screen.findByText('Demo St 1')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/listings');
-  });
+    // wait for data load
+    expect(await screen.findByText('Demo St 1')).toBeInTheDocument()
+    expect(screen.getByText('Another St 5')).toBeInTheDocument()
+
+    const searchInput = screen.getByPlaceholderText('חיפוש')
+    fireEvent.change(searchInput, { target: { value: 'חיפה' } })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Demo St 1')).not.toBeInTheDocument()
+      expect(screen.getByText('Another St 5')).toBeInTheDocument()
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/listings')
+  })
 });

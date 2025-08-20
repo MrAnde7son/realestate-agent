@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetDescription } from '@/components/ui/sheet'
@@ -54,6 +55,40 @@ export default function ListingsPage() {
         setLoading(false)
       })
   }, [])
+
+  const [search, setSearch] = useState('')
+  const [city, setCity] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+
+  const cityOptions = React.useMemo(
+    () => Array.from(new Set(listings.map(l => l.city).filter(Boolean))) as string[],
+    [listings]
+  )
+  const typeOptions = React.useMemo(
+    () => Array.from(new Set(listings.map(l => l.type).filter(Boolean))) as string[],
+    [listings]
+  )
+
+  const filteredListings = React.useMemo(
+    () =>
+      listings.filter(l => {
+        if (
+          search &&
+          !`${l.address} ${l.city ?? ''} ${l.neighborhood ?? ''}`
+            .toLowerCase()
+            .includes(search.toLowerCase())
+        )
+          return false
+        if (city && l.city !== city) return false
+        if (typeFilter && l.type !== typeFilter) return false
+        if (priceMin && l.price < Number(priceMin)) return false
+        if (priceMax && l.price > Number(priceMax)) return false
+        return true
+      }),
+    [listings, search, city, typeFilter, priceMin, priceMax]
+  )
 
   if (loading) {
     return (
@@ -210,7 +245,71 @@ export default function ListingsPage() {
             </Button>
           )}
         </div>
-      </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-end gap-4">
+          <Input
+            placeholder="חיפוש"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-40 sm:w-64"
+          />
+          <Select value={city} onValueChange={setCity}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="עיר" />
+            </SelectTrigger>
+            <SelectContent>
+              {cityOptions.map(c => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="סוג" />
+            </SelectTrigger>
+            <SelectContent>
+              {typeOptions.map(t => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              placeholder="מינ ₪"
+              value={priceMin}
+              onChange={e => setPriceMin(e.target.value)}
+              className="w-24"
+            />
+            <Input
+              type="number"
+              placeholder="מקס ₪"
+              value={priceMax}
+              onChange={e => setPriceMax(e.target.value)}
+              className="w-24"
+            />
+          </div>
+          {(search || city || typeFilter || priceMin || priceMax) && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSearch('')
+                setCity('')
+                setTypeFilter('')
+                setPriceMin('')
+                setPriceMax('')
+              }}
+            >
+              נקה
+            </Button>
+          )}
+        </div>
 
         {/* Main Table */}
         <Card>
@@ -243,7 +342,7 @@ export default function ListingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {listings.map((listing) => (
+                  {filteredListings.map((listing) => (
                     <TableRow 
                       key={listing.id} 
                       className="hover:bg-muted/50 cursor-pointer group clickable-row"
@@ -320,7 +419,7 @@ export default function ListingsPage() {
         {/* Footer */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            מציג {listings.length} נכסים עם נתוני שמאות מלאים
+            מציג {filteredListings.length} מתוך {listings.length} נכסים עם נתוני שמאות מלאים
           </p>
         </div>
       </div>

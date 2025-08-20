@@ -120,7 +120,7 @@ export default function HomePage() {
         {/* Simple Charts Section - Using CSS instead of Recharts for now */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           {/* Price Trend Chart - Simple CSS Bar Chart */}
-          <Card className="col-span-4">
+          <Card className="md:col-span-2 lg:col-span-4">
             <CardHeader>
               <CardTitle>מגמת מחירים - 6 חודשים אחרונים</CardTitle>
             </CardHeader>
@@ -158,7 +158,7 @@ export default function HomePage() {
           </Card>
 
           {/* Property Type Distribution - Simple CSS Pie Chart */}
-          <Card className="col-span-3">
+          <Card className="md:col-span-2 lg:col-span-3">
             <CardHeader>
               <CardTitle>התפלגות סוגי נכסים</CardTitle>
             </CardHeader>
@@ -197,7 +197,7 @@ export default function HomePage() {
         {/* Additional Charts */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           {/* Market Activity Chart - Simple CSS Bar Chart */}
-          <Card className="col-span-4">
+          <Card className="md:col-span-2 lg:col-span-4">
             <CardHeader>
               <CardTitle>פעילות שוק לפי אזור</CardTitle>
             </CardHeader>
@@ -231,7 +231,7 @@ export default function HomePage() {
           </Card>
 
           {/* ROI Trend Chart - Simple CSS Line Chart */}
-          <Card className="col-span-3">
+          <Card className="md:col-span-2 lg:col-span-3">
             <CardHeader>
               <CardTitle>מגמת ROI</CardTitle>
             </CardHeader>
@@ -263,43 +263,45 @@ export default function HomePage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4">
+          <Card className="md:col-span-2 lg:col-span-4">
             <CardHeader>
               <CardTitle>נכסים במעקב</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>כתובת</TableHead>
-                    <TableHead>מחיר</TableHead>
-                    <TableHead>סטטוס</TableHead>
-                    <TableHead>תאריך</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {listings.map((listing) => (
-                    <TableRow key={listing.id}>
-                      <TableCell>{listing.address}</TableCell>
-                      <TableCell>{(listing.price / 1000000).toFixed(2)}M ₪</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          listing.status === 'active' ? 'secondary' : 
-                          listing.status === 'pending' ? 'outline' : 'default'
-                        }>
-                          {listing.status === 'active' ? 'פעיל' : 
-                           listing.status === 'pending' ? 'ממתין' : 'נמכר'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date().toLocaleDateString('he-IL')}</TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>כתובת</TableHead>
+                      <TableHead>מחיר</TableHead>
+                      <TableHead>סטטוס</TableHead>
+                      <TableHead>תאריך</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {listings.map((listing) => (
+                      <TableRow key={listing.id}>
+                        <TableCell>{listing.address}</TableCell>
+                        <TableCell>{(listing.price / 1000000).toFixed(2)}M ₪</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            listing.status === 'active' ? 'secondary' :
+                            listing.status === 'pending' ? 'outline' : 'default'
+                          }>
+                            {listing.status === 'active' ? 'פעיל' :
+                             listing.status === 'pending' ? 'ממתין' : 'נמכר'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date().toLocaleDateString('he-IL')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
           
-          <Card className="col-span-3">
+          <Card className="md:col-span-2 lg:col-span-3">
             <CardHeader>
               <CardTitle>פעולות מהירות</CardTitle>
             </CardHeader>

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetDescription } from '@/components/ui/sheet'
 import DashboardLayout from '@/components/layout/dashboard-layout'
+import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 
 export default function ListingsPage() {
@@ -56,29 +57,23 @@ export default function ListingsPage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <h1 className="text-3xl font-bold">רשימת נכסים</h1>
-          <p className="text-muted-foreground">טוען נתונים...</p>
-        </div>
+        <DashboardShell>
+          <DashboardHeader heading="רשימת נכסים" text="טוען נתונים..." />
+        </DashboardShell>
       </DashboardLayout>
     )
   }
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">רשימת נכסים</h1>
-            <p className="text-muted-foreground">
-              {listings.length} נכסים עם נתוני שמאות ותכנון מלאים
-            </p>
-          </div>
-        <div className="flex items-center space-x-2">
+      <DashboardShell>
+        <DashboardHeader
+          heading="רשימת נכסים"
+          text={`${listings.length} נכסים עם נתוני שמאות ותכנון מלאים`}
+        >
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="default">הוסף נכס</Button>
+              <Button className="w-full sm:w-auto" variant="default">הוסף נכס</Button>
             </SheetTrigger>
             <SheetContent>
               <SheetHeader>
@@ -116,7 +111,7 @@ export default function ListingsPage() {
                     </p>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="price">מחיר</Label>
                     <Input id="price" type="number" {...form.register('price')} />
@@ -160,8 +155,7 @@ export default function ListingsPage() {
               </form>
             </SheetContent>
           </Sheet>
-        </div>
-      </div>
+        </DashboardHeader>
 
         {/* Main Table */}
         <Card>
@@ -275,7 +269,7 @@ export default function ListingsPage() {
             מציג {listings.length} נכסים עם נתוני שמאות מלאים
           </p>
         </div>
-      </div>
+      </DashboardShell>
     </DashboardLayout>
   )
 }

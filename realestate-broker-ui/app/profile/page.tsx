@@ -1,4 +1,9 @@
-import React from 'react'
+'use client'
+
+import React, { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,9 +12,94 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, Mail, Phone, MapPin, Building, Shield, Key, Star } from 'lucide-react'
+import { User, Mail, Phone, MapPin, Building, Shield, Key, Star, Save, Edit } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
+import { ProfileUpdateData } from '@/lib/auth'
+
+const profileSchema = z.object({
+  first_name: z.string().min(2, 'שם פרטי חייב להכיל לפחות 2 תווים'),
+  last_name: z.string().min(2, 'שם משפחה חייב להכיל לפחות 2 תווים'),
+  company: z.string().optional(),
+  role: z.string().optional(),
+})
+
+type ProfileFormData = z.infer<typeof profileSchema>
 
 export default function ProfilePage() {
+  const { user, updateProfile } = useAuth()
+  const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const form = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      first_name: user?.first_name || '',
+      last_name: user?.last_name || '',
+      company: user?.company || '',
+      role: user?.role || '',
+    },
+  })
+
+  // Update form values when user changes
+  React.useEffect(() => {
+    if (user) {
+      form.reset({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        company: user.company || '',
+        role: user.role || '',
+      })
+    }
+  }, [user, form])
+
+  const onSubmit = async (data: ProfileFormData) => {
+    try {
+      setIsLoading(true)
+      setError('')
+      setSuccess('')
+      
+      await updateProfile(data)
+      setSuccess('הפרופיל עודכן בהצלחה!')
+      setIsEditing(false)
+    } catch (err: any) {
+      setError(err.message || 'שגיאה בעדכון הפרופיל')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEdit = () => {
+    setIsEditing(true)
+    setError('')
+    setSuccess('')
+  }
+
+  const handleCancel = () => {
+    setIsEditing(false)
+    form.reset()
+    setError('')
+    setSuccess('')
+  }
+
+  const getUserInitials = () => {
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name[0]}${user.last_name[0]}`
+    }
+    if (user?.username) {
+      return user.username.substring(0, 2).toUpperCase()
+    }
+    if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase()
+    }
+    return 'משתמש'
+  }
+
+  if (!user) {
+    return null
+  }
+
   return (
     <DashboardLayout>
       <DashboardShell>
@@ -19,174 +109,200 @@ export default function ProfilePage() {
         />
         
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-          {/* Profile Information */}
-          <div className="lg:col-span-2 space-y-6">
+          {/* Profile Overview */}
+          <div className="lg:col-span-1">
             <Card>
-              <CardHeader>
-                <CardTitle>מידע אישי</CardTitle>
-                <CardDescription>
-                  עדכן את הפרטים האישיים שלך
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src="/avatars/01.png" alt="User" />
-                    <AvatarFallback className="text-lg">משתמש</AvatarFallback>
+              <CardHeader className="text-center">
+                <div className="flex justify-center mb-4">
+                  <Avatar className="h-24 w-24">
+                    <AvatarFallback className="text-2xl">{getUserInitials()}</AvatarFallback>
                   </Avatar>
-                  <div className="space-y-2">
-                    <Button variant="outline">שנה תמונה</Button>
-                    <p className="text-sm text-muted-foreground">
-                      JPG, PNG או GIF עד 2MB
-                    </p>
-                  </div>
                 </div>
-                
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">שם פרטי</Label>
-                    <Input id="firstName" defaultValue="משתמש" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">שם משפחה</Label>
-                    <Input id="lastName" defaultValue="דמו" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">דוא״ל</Label>
-                    <Input id="email" type="email" defaultValue="demo@example.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">טלפון</Label>
-                    <Input id="phone" defaultValue="050-123-4567" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">חברה</Label>
-                    <Input id="company" defaultValue="נדל״ן דמו בע״מ" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="position">תפקיד</Label>
-                    <Input id="position" defaultValue="מתווך נדל״ן" />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="address">כתובת</Label>
-                  <Input id="address" defaultValue="רחוב הרצל 123, תל אביב" />
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button>שמור שינויים</Button>
-                  <Button variant="outline">בטל</Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>הגדרות התראות</CardTitle>
+                <CardTitle className="text-xl">
+                  {user.first_name && user.last_name 
+                    ? `${user.first_name} ${user.last_name}`
+                    : user.username || user.email
+                  }
+                </CardTitle>
                 <CardDescription>
-                  הגדר איך תרצה לקבל התראות
+                  {user.role || 'משתמש'}
+                  {user.company && ` • ${user.company}`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות בדוא״ל</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות על שינויים במחירים ועדכונים
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    הפעל
-                  </Button>
+                <div className="flex items-center gap-3 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span>{user.email}</span>
                 </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות בווטסאפ</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות מיידיות בווטסאפ
-                    </p>
+                {user.company && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Building className="h-4 w-4 text-muted-foreground" />
+                    <span>{user.company}</span>
                   </div>
-                  <Button variant="outline" size="sm">
-                    הפעל
-                  </Button>
+                )}
+                <div className="flex items-center gap-3 text-sm">
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <span className={user.is_verified ? 'text-green-600' : 'text-orange-600'}>
+                    {user.is_verified ? 'מאומת' : 'לא מאומת'}
+                  </span>
                 </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות דחופות</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות על עסקאות דחופות
-                    </p>
+                {user.created_at && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Star className="h-4 w-4 text-muted-foreground" />
+                    <span>חבר מאז {new Date(user.created_at).toLocaleDateString('he-IL')}</span>
                   </div>
-                  <Button variant="outline" size="sm">
-                    הפעל
-                  </Button>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
+          {/* Profile Form */}
+          <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>סטטוס חשבון</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>פרטים אישיים</CardTitle>
+                    <CardDescription>
+                      עדכן את המידע האישי שלך
+                    </CardDescription>
+                  </div>
+                  {!isEditing && (
+                    <Button onClick={handleEdit} variant="outline" size="sm">
+                      <Edit className="h-4 w-4 ml-2" />
+                      ערוך
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                  <span className="text-sm font-medium">פעיל</span>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  החשבון שלך פעיל ופועל כרגיל
-                </div>
-                <Button variant="outline" size="sm" className="w-full">
-                  צפה בפרטי החשבון
-                </Button>
+              <CardContent>
+                {error && (
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg mb-4">
+                    {error}
+                  </div>
+                )}
+                
+                {success && (
+                  <div className="bg-green-100 text-green-800 text-sm p-3 rounded-lg mb-4">
+                    {success}
+                  </div>
+                )}
+
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="first_name">שם פרטי</Label>
+                      <Input
+                        id="first_name"
+                        {...form.register('first_name')}
+                        disabled={!isEditing}
+                      />
+                      {form.formState.errors.first_name && (
+                        <p className="text-sm text-destructive">
+                          {form.formState.errors.first_name.message}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="last_name">שם משפחה</Label>
+                      <Input
+                        id="last_name"
+                        {...form.register('last_name')}
+                        disabled={!isEditing}
+                      />
+                      {form.formState.errors.last_name && (
+                        <p className="text-sm text-destructive">
+                          {form.formState.errors.last_name.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="company">חברה</Label>
+                      <Input
+                        id="company"
+                        {...form.register('company')}
+                        disabled={!isEditing}
+                        placeholder="שם החברה (אופציונלי)"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="role">תפקיד</Label>
+                      <Input
+                        id="role"
+                        {...form.register('role')}
+                        disabled={!isEditing}
+                        placeholder="תפקיד (אופציונלי)"
+                      />
+                    </div>
+                  </div>
+
+                  {isEditing && (
+                    <div className="flex gap-3 pt-4">
+                      <Button type="submit" disabled={isLoading}>
+                        {isLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                            שומר...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 ml-2" />
+                            שמור שינויים
+                          </>
+                        )}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={handleCancel}>
+                        ביטול
+                      </Button>
+                    </div>
+                  )}
+                </form>
               </CardContent>
             </Card>
 
-            <Card>
+            {/* Account Security */}
+            <Card className="mt-6">
               <CardHeader>
-                <CardTitle>חבילה נוכחית</CardTitle>
+                <CardTitle>אבטחה וחשבון</CardTitle>
+                <CardDescription>
+                  הגדרות אבטחה וניהול חשבון
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Star className="h-4 w-4 text-yellow-500" />
-                  <span className="text-sm font-medium">חבילה: Basic</span>
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Key className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium">סיסמה</div>
+                      <div className="text-sm text-muted-foreground">
+                        עדכן את הסיסמה שלך
+                      </div>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" disabled>
+                    שנה סיסמה
+                  </Button>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  עד 25 נכסים במעקב
-                </div>
-                <Button variant="outline" size="sm" className="w-full">
-                  שדרג חבילה
-                </Button>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>פעולות מהירות</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Shield className="h-4 w-4 ml-2" />
-                  שנה סיסמה
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Key className="h-4 w-4 ml-2" />
-                  מפתחות API
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Building className="h-4 w-4 ml-2" />
-                  הגדרות חברה
-                </Button>
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Shield className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium">אימות דו-שלבי</div>
+                      <div className="text-sm text-muted-foreground">
+                        הוסף שכבת אבטחה נוספת
+                      </div>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" disabled>
+                    הפעל
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>

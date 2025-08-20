@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import Logo from "@/components/Logo"
 import * as Collapsible from "@radix-ui/react-collapsible"
+import { useAuth } from "@/lib/auth-context"
 
 const navigation = [
   {
@@ -48,8 +49,6 @@ const navigation = [
   }
 ]
 
-
-
 interface AppSidebarProps {
   className?: string
   isCollapsed?: boolean
@@ -57,6 +56,35 @@ interface AppSidebarProps {
 
 export default function AppSidebar({ className, isCollapsed = false }: AppSidebarProps) {
   const pathname = usePathname()
+  const { user, logout } = useAuth()
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
+
+  const getUserDisplayName = () => {
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name} ${user.last_name}`
+    }
+    return user?.username || user?.email || 'משתמש'
+  }
+
+  const getUserInitials = () => {
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name[0]}${user.last_name[0]}`
+    }
+    if (user?.username) {
+      return user.username.substring(0, 2).toUpperCase()
+    }
+    if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase()
+    }
+    return 'משתמש'
+  }
 
   return (
     <div className={cn(
@@ -101,93 +129,82 @@ export default function AppSidebar({ className, isCollapsed = false }: AppSideba
             )
           })}
         </nav>
-
-                      <Separator className="my-6" />
-
-              {/* Stats Section */}
-              {!isCollapsed && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">סטטיסטיקות</h3>
-                  <div className="space-y-3">
-                    <div className="rounded-lg bg-muted p-3">
-                      <div className="text-sm font-medium">נכסים פעילים</div>
-                      <div className="text-2xl font-bold text-primary">1</div>
-                    </div>
-                    <div className="rounded-lg bg-muted p-3">
-                      <div className="text-sm font-medium">התראות פעילות</div>
-                      <div className="text-2xl font-bold text-orange-500">3</div>
-                    </div>
-                  </div>
-                </div>
-              )}
       </div>
 
-                  {/* Footer with User Menu */}
-            <div className="border-t p-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "w-full justify-start gap-3 px-2 py-2 h-auto",
-                      isCollapsed ? "px-2" : "px-3"
-                    )}
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>משתמש</AvatarFallback>
-                    </Avatar>
-                    {!isCollapsed && (
-                      <div className="flex-1 text-right">
-                        <div className="text-sm font-medium">משתמש דמו</div>
-                        <div className="text-xs text-muted-foreground">demo@example.com</div>
-                      </div>
-                    )}
-                    {!isCollapsed && <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  className="w-56" 
-                  align={isCollapsed ? "center" : "end"} 
-                  side={isCollapsed ? "right" : "top"}
-                  forceMount
-                >
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">משתמש דמו</p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        demo@example.com
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile" className="flex items-center">
-                        <User className="ml-2 h-4 w-4" />
-                        <span>פרופיל</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/billing" className="flex items-center">
-                        <CreditCard className="ml-2 h-4 w-4" />
-                        <span>חבילות ותשלומים</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="flex items-center">
-                        <Settings className="ml-2 h-4 w-4" />
-                        <span>הגדרות</span>
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-red-600 focus:text-red-600">
-                    <LogOut className="ml-2 h-4 w-4" />
-                    <span>התנתק</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+      {/* Footer with User Menu - Moved to bottom of sidebar */}
+      <div className="border-t p-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-3 px-2 py-2 h-auto",
+                isCollapsed ? "px-2" : "px-3"
+              )}
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarFallback>{getUserInitials()}</AvatarFallback>
+              </Avatar>
+              {!isCollapsed && (
+                <div className="flex-1 text-right">
+                  <div className="text-sm font-medium">{getUserDisplayName()}</div>
+                  <div className="text-xs text-muted-foreground">{user?.email || 'demo@example.com'}</div>
+                </div>
+              )}
+              {!isCollapsed && <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent 
+            className="w-56" 
+            align={isCollapsed ? "center" : "end"} 
+            side={isCollapsed ? "right" : "top"}
+            forceMount
+          >
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{getUserDisplayName()}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {user?.email || 'demo@example.com'}
+                </p>
+                {user?.company && (
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user.company}
+                  </p>
+                )}
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="flex items-center">
+                  <User className="ml-2 h-4 w-4" />
+                  <span>פרופיל</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/billing" className="flex items-center">
+                  <CreditCard className="ml-2 h-4 w-4" />
+                  <span>חבילות ותשלומים</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="flex items-center">
+                  <Settings className="ml-2 h-4 w-4" />
+                  <span>הגדרות</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="text-red-600 focus:text-red-600"
+              onClick={handleLogout}
+            >
+              <LogOut className="ml-2 h-4 w-4" />
+              <span>התנתק</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   )
 }

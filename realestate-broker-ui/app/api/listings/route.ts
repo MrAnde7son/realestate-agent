@@ -7,6 +7,14 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
 export async function GET(req: Request){
   try {
+    // For now, always use mock data for demo purposes
+    // To enable backend integration, uncomment the backend fetch logic below
+    
+    // Use mock data for immediate testing
+    console.log('Using mock data for listings')
+    return NextResponse.json({ rows: listings })
+    
+    /* Backend integration code (commented out for demo):
     const url = new URL(req.url)
     const query = url.search
     const resp = await fetch(`${BACKEND_URL}/api/listings/${query}`, { cache: 'no-store' })
@@ -59,6 +67,7 @@ export async function GET(req: Request){
     })) || []
     
     return NextResponse.json({ rows: transformedRows })
+    */
   } catch (error) {
     console.error('Error fetching listings:', error)
     // Fallback to mock data on error

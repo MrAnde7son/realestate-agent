@@ -14,18 +14,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetDescription } from '@/components/ui/sheet'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
 
 export default function ListingsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
+  const { isAuthenticated } = useAuth()
+  const router = useRouter()
+
+  const handleProtectedAction = (action: string) => {
+    if (!isAuthenticated) {
+      router.push('/auth?redirect=' + encodeURIComponent(window.location.pathname))
+    }
+  }
 
   const newListingSchema = z.object({
     address: z.string().min(1, 'חובה להזין כתובת'),
-    price: z.preprocess((v) => Number(v), z.number().gt(0, 'חובה להזין מחיר')), 
-    bedrooms: z.preprocess((v) => Number(v), z.number().int().gte(0, 'חובה להזין חדרים')),
-    bathrooms: z.preprocess((v) => Number(v), z.number().int().gte(0, 'חובה להזין מקלחות')),
-    area: z.preprocess((v) => Number(v), z.number().gt(0, 'חובה להזין שטח')),
   })
   type NewListing = z.infer<typeof newListingSchema>
 
@@ -33,10 +39,6 @@ export default function ListingsPage() {
     resolver: zodResolver(newListingSchema),
     defaultValues: {
       address: '',
-      price: undefined,
-      bedrooms: undefined,
-      bathrooms: undefined,
-      area: undefined,
     },
   })
 
@@ -67,6 +69,23 @@ export default function ListingsPage() {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
+        {/* Login Prompt for Guests */}
+        {!isAuthenticated && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-blue-900">התחבר כדי להוסיף נכסים חדשים</h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  צור חשבון או התחבר כדי להוסיף נכסים חדשים למערכת
+                </p>
+              </div>
+              <Button onClick={() => router.push('/auth')} className="bg-blue-600 hover:bg-blue-700">
+                התחבר עכשיו
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -76,90 +95,120 @@ export default function ListingsPage() {
             </p>
           </div>
         <div className="flex items-center space-x-2">
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="default">הוסף נכס</Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>הוסף נכס</SheetTitle>
-                <SheetDescription>מלא את הפרטים של הנכס החדש.</SheetDescription>
-              </SheetHeader>
-              <form
-                onSubmit={form.handleSubmit(async (values) => {
-                  // Trigger backend sync for this address
-                  await fetch('/api/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ address: values.address }),
-                  })
-                  const res = await fetch('/api/listings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(values),
-                  })
-                  const data = await res.json()
-                  if (res.ok) {
-                    setListings((prev) => [...prev, data.listing])
-                    form.reset()
-                    setOpen(false)
-                  }
-                })}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="address">כתובת</Label>
-                  <Input id="address" {...form.register('address')} />
-                  {form.formState.errors.address && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.address.message}
-                    </p>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+          {isAuthenticated ? (
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger asChild>
+                <Button variant="default">הוסף נכס</Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>הוסף נכס חדש</SheetTitle>
+                  <SheetDescription>
+                    הזן כתובת והמערכת תאסוף אוטומטית מידע מיד 2, GIS, רמ״י וממשלה
+                  </SheetDescription>
+                </SheetHeader>
+                <form
+                  onSubmit={form.handleSubmit(async (values) => {
+                    try {
+                      // Show loading state
+                      const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+                      if (submitButton) {
+                        submitButton.disabled = true
+                        submitButton.innerHTML = '<div class="flex items-center gap-2"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>אוסף מידע...</div>'
+                      }
+
+                      // Trigger backend sync for this address
+                      const syncResponse = await fetch('/api/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ address: values.address }),
+                      })
+                      
+                      if (!syncResponse.ok) {
+                        throw new Error('שגיאה באיסוף המידע מהמערכות החיצוניות')
+                      }
+
+                      const syncData = await syncResponse.json()
+                      console.log('Collected data:', syncData)
+
+                      // Create listing with collected data
+                      const res = await fetch('/api/listings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          address: values.address,
+                          ...syncData // Include all collected data
+                        }),
+                      })
+                      
+                      const data = await res.json()
+                      if (res.ok) {
+                        setListings((prev) => [...prev, data.listing])
+                        form.reset()
+                        setOpen(false)
+                      } else {
+                        throw new Error(data.error || 'שגיאה ביצירת הנכס')
+                      }
+                    } catch (error) {
+                      console.error('Error adding listing:', error)
+                      alert(`שגיאה: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`)
+                    } finally {
+                      // Reset button state
+                      const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+                      if (submitButton) {
+                        submitButton.disabled = false
+                        submitButton.innerHTML = 'שמור'
+                      }
+                    }
+                  })}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
-                    <Label htmlFor="price">מחיר</Label>
-                    <Input id="price" type="number" {...form.register('price')} />
-                    {form.formState.errors.price && (
+                    <Label htmlFor="address">כתובת הנכס</Label>
+                    <Input 
+                      id="address" 
+                      placeholder="לדוגמה: הגולן 1, תל אביב"
+                      {...form.register('address')} 
+                    />
+                    {form.formState.errors.address && (
                       <p className="text-sm text-destructive">
-                        {form.formState.errors.price.message}
+                        {form.formState.errors.address.message}
                       </p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="area">מ״ר</Label>
-                    <Input id="area" type="number" {...form.register('area')} />
-                    {form.formState.errors.area && (
-                      <p className="text-sm text-destructive">
-                        {form.formState.errors.area.message}
-                      </p>
-                    )}
+
+                  {/* Info about automatic data collection */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                        <span className="text-blue-600 text-xs">ℹ</span>
+                      </div>
+                      <div className="text-sm text-blue-800">
+                        <p className="font-medium mb-1">המערכת תאסוף אוטומטית:</p>
+                        <ul className="space-y-1 text-xs">
+                          <li>• <strong>יד 2:</strong> מחיר, שטח, חדרים ומקלחות</li>
+                          <li>• <strong>GIS:</strong> מידע תכנוני וזכויות בנייה</li>
+                          <li>• <strong>רמ״י:</strong> שומות ומסמכים רשמיים</li>
+                          <li>• <strong>ממשלה:</strong> היתרי בנייה, עיסקאות השוואה ותוכניות</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bedrooms">חדרים</Label>
-                    <Input id="bedrooms" type="number" {...form.register('bedrooms')} />
-                    {form.formState.errors.bedrooms && (
-                      <p className="text-sm text-destructive">
-                        {form.formState.errors.bedrooms.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bathrooms">מקלחות</Label>
-                    <Input id="bathrooms" type="number" {...form.register('bathrooms')} />
-                    {form.formState.errors.bathrooms && (
-                      <p className="text-sm text-destructive">
-                        {form.formState.errors.bathrooms.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <SheetFooter>
-                  <Button type="submit">שמור</Button>
-                </SheetFooter>
-              </form>
-            </SheetContent>
-          </Sheet>
+                  <SheetFooter>
+                    <Button type="submit">שמור</Button>
+                  </SheetFooter>
+                </form>
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <Button 
+              variant="outline" 
+              onClick={() => handleProtectedAction('add-listing')}
+              className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+            >
+              התחבר להוספת נכס
+            </Button>
+          )}
         </div>
       </div>
 

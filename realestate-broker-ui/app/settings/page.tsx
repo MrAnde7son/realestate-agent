@@ -19,9 +19,9 @@ export default function SettingsPage() {
           text="התאם את המערכת לצרכים שלך" 
         />
         
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-3">
           {/* Main Settings */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="md:col-span-2 space-y-6">
             {/* General Settings */}
             <Card>
               <CardHeader>
@@ -103,38 +103,38 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">התראות בדוא״ל</p>
                     <p className="text-sm text-muted-foreground">
                       קבל התראות על שינויים במחירים ועדכונים
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked className="self-start sm:self-auto" />
                 </div>
                 
                 <Separator />
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">התראות בווטסאפ</p>
                     <p className="text-sm text-muted-foreground">
                       קבל התראות מיידיות בווטסאפ
                     </p>
                   </div>
-                  <Switch />
+                  <Switch className="self-start sm:self-auto" />
                 </div>
                 
                 <Separator />
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">התראות דחופות</p>
                     <p className="text-sm text-muted-foreground">
                       קבל התראות על עסקאות דחופות
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked className="self-start sm:self-auto" />
                 </div>
                 
                 <Separator />
@@ -168,26 +168,26 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">אימות דו-שלבי</p>
                     <p className="text-sm text-muted-foreground">
                       הוסף שכבת אבטחה נוספת לחשבון שלך
                     </p>
                   </div>
-                  <Switch />
+                  <Switch className="self-start sm:self-auto" />
                 </div>
                 
                 <Separator />
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">התראות כניסה</p>
                     <p className="text-sm text-muted-foreground">
                       קבל התראה בכל כניסה לחשבון
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked className="self-start sm:self-auto" />
                 </div>
                 
                 <Separator />
@@ -221,26 +221,26 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">גיבוי אוטומטי</p>
                     <p className="text-sm text-muted-foreground">
                       גבה את הנתונים שלך אוטומטית
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked className="self-start sm:self-auto" />
                 </div>
                 
                 <Separator />
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">סנכרון בין מכשירים</p>
                     <p className="text-sm text-muted-foreground">
                       סנכרן נתונים בין כל המכשירים שלך
                     </p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked className="self-start sm:self-auto" />
                 </div>
                 
                 <Separator />
@@ -329,7 +329,7 @@ export default function SettingsPage() {
 
         {/* Save Button */}
         <div className="flex justify-end mt-6">
-          <Button size="lg">שמור הגדרות</Button>
+          <Button size="lg" className="w-full sm:w-auto">שמור הגדרות</Button>
         </div>
       </DashboardShell>
     </DashboardLayout>

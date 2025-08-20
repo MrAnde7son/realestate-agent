@@ -55,14 +55,14 @@ export function useDashboardData() {
         let propertyTypes: Array<{ type: string; count: number; percentage: number }> = []
         let topAreas: Array<{ area: string; listings: number; avgPrice: number; trend: number }> = []
         let totalPropertyValue = 0
-        let totalMonthlyRent = 0
+        let propertyReturns: number[] = []
 
         if (listingsRes.status === 'fulfilled' && listingsRes.value.ok) {
           const listingsData = await listingsRes.value.json()
           const listings = listingsData.rows || []
           totalListings = listings.length
 
-          // Analyze property types and calculate returns
+          // Analyze property types and calculate individual returns
           const typeCounts: Record<string, number> = {}
           const areaData: Record<string, { count: number; totalPrice: number; totalRent: number }> = {}
 
@@ -71,12 +71,17 @@ export function useDashboardData() {
             const type = listing.property_type || 'לא ידוע'
             typeCounts[type] = (typeCounts[type] || 0) + 1
 
-            // Calculate property values and rents
+            // Calculate individual property return
             const price = listing.price || 0
             const rent = listing.monthly_rent || listing.rent || 0
             
+            if (price > 0 && rent > 0) {
+              // Annual return for this property = (Monthly Rent * 12) / Property Price * 100
+              const annualReturn = (rent * 12 / price) * 100
+              propertyReturns.push(annualReturn)
+            }
+            
             totalPropertyValue += price
-            totalMonthlyRent += rent
 
             // Analyze areas
             const area = listing.city || 'לא ידוע'
@@ -106,12 +111,11 @@ export function useDashboardData() {
             .slice(0, 4)
         }
 
-        // Calculate average return based on property values and rents
+        // Calculate average return as the mean of individual property returns
         let averageReturn = 0
-        if (totalPropertyValue > 0 && totalMonthlyRent > 0) {
-          // Annual return = (Monthly Rent * 12) / Property Value * 100
-          const annualRent = totalMonthlyRent * 12
-          averageReturn = Math.round((annualRent / totalPropertyValue) * 100 * 100) / 100 // Round to 2 decimal places
+        if (propertyReturns.length > 0) {
+          const sumReturns = propertyReturns.reduce((sum, ret) => sum + ret, 0)
+          averageReturn = Math.round((sumReturns / propertyReturns.length) * 100) / 100 // Round to 2 decimal places
         } else {
           // Fallback to a reasonable default if no data
           averageReturn = 5.5

@@ -220,8 +220,8 @@ export default function HomePage() {
                    {dashboardData.averageReturn}%
                  </div>
                  <p className="text-xs text-muted-foreground">
-                   תשואה שנתית ממוצעת
-                 </p>
+                     ממוצע תשואות נכסים
+                   </p>
                </CardContent>
              </Card>
           </div>

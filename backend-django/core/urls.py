@@ -2,6 +2,15 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Authentication endpoints
+    path('auth/login/', views.auth_login, name='auth_login'),
+    path('auth/register/', views.auth_register, name='auth_register'),
+    path('auth/logout/', views.auth_logout, name='auth_logout'),
+    path('auth/profile/', views.auth_profile, name='auth_profile'),
+    path('auth/profile/update/', views.auth_update_profile, name='auth_update_profile'),
+    path('auth/refresh/', views.auth_refresh, name='auth_refresh'),
+    
+    # Existing endpoints
     path('alerts/', views.alerts, name='alerts'),
     path('mortgage/analyze/', views.mortgage_analyze, name='mortgage_analyze'),
     path('sync-address/', views.sync_address, name='sync_address'),

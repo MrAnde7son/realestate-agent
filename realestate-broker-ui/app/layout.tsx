@@ -1,10 +1,12 @@
-import './globals.css'
+import type { Metadata } from 'next'
 import { ReactNode } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
+import { AuthProvider } from '@/lib/auth-context'
+import './globals.css'
 
-export const metadata = { 
-  title: 'נדל״נר', 
-  description: 'נדל״ן חכם לשמאים, מתווכים ומשקיעים' 
+export const metadata: Metadata = { 
+  title: 'נדל״נר - נדל״ן חכם לשמאים, מתווכים ומשקיעים',
+  description: 'פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -23,7 +25,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

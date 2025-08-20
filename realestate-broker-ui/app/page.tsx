@@ -1,322 +1,222 @@
 import React from 'react'
-import Link from 'next/link'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { getActiveAlertsCount, getActiveListingsCount, listings } from '@/lib/data'
+import { Building, AlertCircle, Calculator, BarChart3, TrendingUp, Users, MapPin, Clock } from 'lucide-react'
+import Link from 'next/link'
+import { ProtectedRoute } from '@/components/auth/protected-route'
 
 export default function HomePage() {
-  const activeAlertsCount = getActiveAlertsCount()
-  const activeListingsCount = getActiveListingsCount()
-  const totalPrice = listings.reduce((sum, listing) => sum + listing.price, 0)
-  const averagePrice = totalPrice / listings.length
-  const averageCapRate = listings.reduce((sum, listing) => sum + (listing.capRatePct || 0), 0) / listings.length
-
   return (
-    <DashboardLayout>
-      <DashboardShell>
-        <DashboardHeader heading="בית" text="סקירה כללית של הפעילות והנתונים" />
-        
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Link href="/listings" className="block">
-            <Card className="cursor-pointer hover:bg-accent transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">נכסים פעילים</CardTitle>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  className="h-4 w-4 text-muted-foreground"
-                >
-                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  <polyline points="9,22 9,12 15,12 15,22" />
-                </svg>
+    <ProtectedRoute>
+      <DashboardLayout>
+        <DashboardShell>
+          <DashboardHeader 
+            heading="ברוכים הבאים לנדל״נר" 
+            text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא" 
+          />
+          
+          {/* Welcome Section */}
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>סקירה כללית</CardTitle>
+                  <CardDescription>
+                    התחל לחקור את הפלטפורמה שלנו
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-muted-foreground">
+                    נדל״נר היא פלטפורמה חכמה המחברת בין שמאים, מתווכים ומשקיעים. 
+                    השתמש בכלים המתקדמים שלנו לניהול נכסים, מעקב אחר שוק הנדל״ן וחישובי משכנתא.
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                      <Building className="h-5 w-5 text-primary" />
+                      <div>
+                        <div className="font-medium">נכסים במעקב</div>
+                        <div className="text-sm text-muted-foreground">0 נכסים</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                      <AlertCircle className="h-5 w-5 text-orange-500" />
+                      <div>
+                        <div className="font-medium">התראות פעילות</div>
+                        <div className="text-sm text-muted-foreground">0 התראות</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>פעולות מהירות</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button asChild className="w-full justify-start">
+                    <Link href="/listings">
+                      <Building className="h-4 w-4 ml-2" />
+                      הוסף נכס חדש
+                    </Link>
+                  </Button>
+                  
+                  <Button asChild variant="outline" className="w-full justify-start">
+                    <Link href="/alerts">
+                      <AlertCircle className="h-4 w-4 ml-2" />
+                      צור התראה חדשה
+                    </Link>
+                  </Button>
+                  
+                  <Button asChild variant="outline" className="w-full justify-start">
+                    <Link href="/mortgage/analyze">
+                      <Calculator className="h-4 w-4 ml-2" />
+                      מחשבון משכנתא
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>סטטיסטיקות</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-green-500" />
+                      <span className="text-sm">נכסים במעקב</span>
+                    </div>
+                    <span className="font-medium">0</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm">לקוחות פעילים</span>
+                    </div>
+                    <span className="font-medium">0</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm">אזורים במעקב</span>
+                    </div>
+                    <span className="font-medium">0</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Building className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <CardTitle className="text-lg">ניהול נכסים</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activeListingsCount}</div>
-                <p className="text-xs text-muted-foreground">מתוך {listings.length} נכסים כולל</p>
+                <CardDescription>
+                  נהל את הנכסים שלך, עקוב אחר מחירים וקבל עדכונים בזמן אמת על שינויים בשוק.
+                </CardDescription>
               </CardContent>
             </Card>
-          </Link>
-          
-          <Link href="/alerts" className="block">
-            <Card className="cursor-pointer hover:bg-accent transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">התראות פעילות</CardTitle>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  className="h-4 w-4 text-muted-foreground"
-                >
-                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                </svg>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <CardTitle className="text-lg">התראות חכמות</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activeAlertsCount}</div>
-                <p className="text-xs text-muted-foreground">דורש תשומת לב</p>
+                <CardDescription>
+                  הגדר התראות מותאמות אישית וקבל התראות על הזדמנויות בשוק הנדל״ן.
+                </CardDescription>
               </CardContent>
             </Card>
-          </Link>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">ממוצע מחיר</CardTitle>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4 text-muted-foreground"
-              >
-                <rect width="20" height="14" x="2" y="5" rx="2" />
-                <path d="M2 10h20" />
-              </svg>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{(averagePrice / 1000000).toFixed(1)}M ₪</div>
-              <p className="text-xs text-muted-foreground">מבוסס על {listings.length} נכסים</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">ROI ממוצע</CardTitle>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4 text-muted-foreground"
-              >
-                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" />
-              </svg>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{averageCapRate.toFixed(1)}%</div>
-              <p className="text-xs text-muted-foreground">מבוסס על ניתוח השוק</p>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Simple Charts Section - Using CSS instead of Recharts for now */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          {/* Price Trend Chart - Simple CSS Bar Chart */}
-          <Card className="col-span-4">
-            <CardHeader>
-              <CardTitle>מגמת מחירים - 6 חודשים אחרונים</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-end justify-between gap-2 p-4">
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '60%' }}></div>
-                  <span className="text-xs mt-2">ינו</span>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Calculator className="h-5 w-5 text-green-600" />
+                  </div>
+                  <CardTitle className="text-lg">מחשבוני משכנתא</CardTitle>
                 </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '70%' }}></div>
-                  <span className="text-xs mt-2">פבר</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '65%' }}></div>
-                  <span className="text-xs mt-2">מרץ</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '80%' }}></div>
-                  <span className="text-xs mt-2">אפר</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '90%' }}></div>
-                  <span className="text-xs mt-2">מאי</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '85%' }}></div>
-                  <span className="text-xs mt-2">יוני</span>
-                </div>
-              </div>
-              <div className="text-center text-sm text-muted-foreground mt-4">
-                מחיר ממוצע: 2.1M - 2.6M ₪
-              </div>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  חשב משכנתאות, בדוק זכאות וקבל המלצות מותאמות אישית למצב הכלכלי שלך.
+                </CardDescription>
+              </CardContent>
+            </Card>
 
-          {/* Property Type Distribution - Simple CSS Pie Chart */}
-          <Card className="col-span-3">
-            <CardHeader>
-              <CardTitle>התפלגות סוגי נכסים</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-center justify-center">
-                <div className="relative w-32 h-32">
-                  {/* Simple pie chart using CSS */}
-                  <div className="absolute inset-0 rounded-full border-8 border-primary/20"></div>
-                  <div className="absolute inset-0 rounded-full border-8 border-blue-500/20" style={{ clipPath: 'polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 50% 100%)' }}></div>
-                  <div className="absolute inset-0 rounded-full border-8 border-green-500/20" style={{ clipPath: 'polygon(50% 50%, 0% 0%, 50% 0%)' }}></div>
-                  <div className="absolute inset-0 rounded-full border-8 border-yellow-500/20" style={{ clipPath: 'polygon(50% 50%, 0% 0%, 0% 100%, 50% 100%)' }}></div>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <BarChart3 className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <CardTitle className="text-lg">דוחות מתקדמים</CardTitle>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-primary/20 rounded"></div>
-                  <span>דירות (65%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500/20 rounded"></div>
-                  <span>בתים (20%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500/20 rounded"></div>
-                  <span>דופלקס (10%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-yellow-500/20 rounded"></div>
-                  <span>נטהאוס (5%)</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  צור דוחות מפורטים על נכסים, עסקאות וניתוחי שוק עם כלים מתקדמים.
+                </CardDescription>
+              </CardContent>
+            </Card>
 
-        {/* Additional Charts */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          {/* Market Activity Chart - Simple CSS Bar Chart */}
-          <Card className="col-span-4">
-            <CardHeader>
-              <CardTitle>פעילות שוק לפי אזור</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-end justify-between gap-4 p-4">
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '90%' }}></div>
-                  <span className="text-xs mt-2">תל אביב</span>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <Clock className="h-5 w-5 text-red-600" />
+                  </div>
+                  <CardTitle className="text-lg">עדכונים בזמן אמת</CardTitle>
                 </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '46%' }}></div>
-                  <span className="text-xs mt-2">רמת גן</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '36%' }}></div>
-                  <span className="text-xs mt-2">גבעתיים</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '64%' }}></div>
-                  <span className="text-xs mt-2">הרצליה</span>
-                </div>
-                <div className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary/20 rounded-t" style={{ height: '56%' }}></div>
-                  <span className="text-xs mt-2">רעננה</span>
-                </div>
-              </div>
-              <div className="text-center text-sm text-muted-foreground mt-4">
-                נכסים למכירה לפי אזור
-              </div>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  קבל עדכונים מיידיים על שינויים במחירים, עסקאות חדשות והזדמנויות בשוק.
+                </CardDescription>
+              </CardContent>
+            </Card>
 
-          {/* ROI Trend Chart - Simple CSS Line Chart */}
-          <Card className="col-span-3">
-            <CardHeader>
-              <CardTitle>מגמת ROI</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-center justify-center">
-                <div className="w-full h-32 relative">
-                  {/* Simple line chart using CSS */}
-                  <svg className="w-full h-full" viewBox="0 0 100 40">
-                    <polyline
-                      points="10,30 20,28 30,32 40,26 50,22 60,25"
-                      fill="none"
-                      stroke="#16a34a"
-                      strokeWidth="2"
-                    />
-                    <circle cx="10" cy="30" r="2" fill="#16a34a" />
-                    <circle cx="20" cy="28" r="2" fill="#16a34a" />
-                    <circle cx="30" cy="32" r="2" fill="#16a34a" />
-                    <circle cx="40" cy="26" r="2" fill="#16a34a" />
-                    <circle cx="50" cy="22" r="2" fill="#16a34a" />
-                    <circle cx="60" cy="25" r="2" fill="#16a34a" />
-                  </svg>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <Users className="h-5 w-5 text-yellow-600" />
+                  </div>
+                  <CardTitle className="text-lg">קהילה מקצועית</CardTitle>
                 </div>
-              </div>
-              <div className="text-center text-sm text-muted-foreground mt-4">
-                ROI ממוצע: 4.2% - 5.1%
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4">
-            <CardHeader>
-              <CardTitle>נכסים במעקב</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>כתובת</TableHead>
-                    <TableHead>מחיר</TableHead>
-                    <TableHead>סטטוס</TableHead>
-                    <TableHead>תאריך</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {listings.map((listing) => (
-                    <TableRow key={listing.id}>
-                      <TableCell>{listing.address}</TableCell>
-                      <TableCell>{(listing.price / 1000000).toFixed(2)}M ₪</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          listing.status === 'active' ? 'secondary' : 
-                          listing.status === 'pending' ? 'outline' : 'default'
-                        }>
-                          {listing.status === 'active' ? 'פעיל' : 
-                           listing.status === 'pending' ? 'ממתין' : 'נמכר'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date().toLocaleDateString('he-IL')}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-          
-          <Card className="col-span-3">
-            <CardHeader>
-              <CardTitle>פעולות מהירות</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full" variant="outline" asChild>
-                <a href="/mortgage/analyze">מחשבון משכנתא</a>
-              </Button>
-              <Button className="w-full" variant="outline">
-                הפק דוח נכס
-              </Button>
-              <Button className="w-full" variant="outline">
-                חפש נכסים
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardShell>
-    </DashboardLayout>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  התחבר עם אנשי מקצוע אחרים בתחום הנדל״ן ושתף ידע וניסיון.
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </div>
+        </DashboardShell>
+      </DashboardLayout>
+    </ProtectedRoute>
   )
 }

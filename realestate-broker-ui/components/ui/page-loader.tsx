@@ -1,23 +1,11 @@
-import * as React from "react"
 import { Loader2 } from "lucide-react"
-import Logo from "@/components/Logo"
-import { cn } from "@/lib/utils"
 
-interface PageLoaderProps {
-  message?: string
-  showLogo?: boolean
-  className?: string
-}
-
-export function PageLoader({ message = "טוען...", showLogo = true, className }: PageLoaderProps) {
+export function PageLoader() {
   return (
-    <div className={cn("flex h-[50vh] w-full flex-col items-center justify-center space-y-4", className)}>
-      {showLogo && (
-        <Logo variant="symbol" size={48} color="var(--brand-teal)" />
-      )}
-      <div className="flex items-center space-x-2 space-x-reverse">
-        <Loader2 className="h-6 w-6 animate-spin text-brand-teal" />
-        <span className="text-muted-foreground">{message}</span>
+    <div className="flex h-screen items-center justify-center">
+      <div className="flex flex-col items-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">טוען...</p>
       </div>
     </div>
   )

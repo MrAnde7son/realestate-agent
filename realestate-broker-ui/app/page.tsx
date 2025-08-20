@@ -109,6 +109,8 @@ export default function HomePage() {
           
           {/* KPI Cards */}
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+          <Link href="/listings" className="block">
+
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">סה&quot;כ נכסים</CardTitle>
@@ -121,6 +123,9 @@ export default function HomePage() {
                 </p>
               </CardContent>
             </Card>
+            </Link>
+
+            <Link href="/alerts" className="block">
 
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -134,6 +139,7 @@ export default function HomePage() {
                 </p>
               </CardContent>
             </Card>
+            </Link>
 
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

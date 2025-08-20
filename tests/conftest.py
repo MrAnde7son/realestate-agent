@@ -6,9 +6,9 @@ to manually modify sys.path in each test file.
 """
 
 import sys
-from pathlib import Path
+import os
 
 # Add project root to Python path so all tests can import project modules
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)

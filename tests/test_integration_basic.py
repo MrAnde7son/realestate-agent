@@ -6,7 +6,6 @@ Basic integration test for the address sync functionality.
 
 import sys
 import os
-import json
 
 # Add project root to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../'))

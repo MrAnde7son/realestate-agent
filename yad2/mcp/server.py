@@ -1,10 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Yad2 FastMCP Server
+Yad2 FastMCP Server - Cleaned Up Version
 
 FastMCP-based Model Context Protocol server for real estate search integration with LLMs.
-Aligned in structure with the gov.il FastMCP server.
+Streamlined to include only essential tools for real estate search and property type conversion.
+
+Available Tools:
+
+CORE SEARCH FUNCTIONALITY:
+- search_real_estate: Search for real estate listings with filters
+- build_search_url: Build search URLs with parameters
+- get_search_parameters_reference: Get reference of all search parameters
+
+PROPERTY TYPE UTILITIES:
+- get_all_property_types: Get all property type codes with names
+- hebrew_to_property_code: Convert Hebrew property type names to Yad2 codes
+- validate_property_type_code: Validate property type codes
+
+LOCATION SERVICES:
+- search_locations: Search locations using autocomplete API
+
+Usage Examples:
+1. Get all property types: get_all_property_types()
+2. Convert Hebrew to code: hebrew_to_property_code(hebrew_name="בית פרטי")
+3. Search locations: search_locations(search_text="רמת החייל")
+4. Search real estate: search_real_estate(property="5", city="5000", neighborhood="203")
 """
 
 from fastmcp import FastMCP, Context
@@ -45,7 +66,18 @@ async def search_real_estate(
     renovated: Optional[int | str] = None,
     max_pages: int | str = 3,
 ):
-    """Search for real estate listings on Yad2 with optional filters."""
+    """Search for real estate listings on Yad2 with optional filters.
+    
+    The 'property' parameter accepts both Yad2 codes (e.g., "5") and Hebrew names (e.g., "בית פרטי").
+    Hebrew names are automatically converted to their corresponding Yad2 codes.
+    
+    Common property types:
+    - "בית פרטי" or "5" = House (Private house)
+    - "בית דו משפחתי" or "39" = Two-family house
+    - "דירה" or "1" = Apartment
+    - "וילה" or "5" = Villa
+    - "נטהאוס" or "6" = Penthouse
+    """
     global _current_scraper, _last_search_results
 
     params = {
@@ -66,6 +98,29 @@ async def search_real_estate(
         ).items()
         if v is not None
     }
+
+    # Convert Hebrew property type names to codes if needed
+    if 'property' in params and params['property']:
+        from ..utils.property_types import PropertyTypeUtils
+        property_value = params['property']
+        
+        # If it's a string (Hebrew name), try to convert to code
+        if isinstance(property_value, str) and not property_value.isdigit():
+            # Try exact match first
+            code = PropertyTypeUtils.hebrew_name_to_code(property_value)
+            if code is not None:
+                params['property'] = str(code)
+                await ctx.info(f"Converted property type '{property_value}' to code: {code}")
+            else:
+                # Try partial match
+                matching_codes = PropertyTypeUtils.search_hebrew_name_to_code(property_value)
+                if matching_codes:
+                    # Use the first match
+                    code, hebrew_name = matching_codes[0]
+                    params['property'] = str(code)
+                    await ctx.info(f"Converted property type '{property_value}' to code: {code} (matched: {hebrew_name})")
+                else:
+                    await ctx.warning(f"Could not convert property type '{property_value}' to code. Using as-is.")
 
     search_params = Yad2SearchParameters()
     for key, value in params.items():
@@ -138,7 +193,17 @@ async def build_search_url(
     balcony: Optional[int | str] = None,
     renovated: Optional[int | str] = None,
 ):
-    """Build a Yad2 search URL for the given parameters (no scraping)."""
+    """Build a Yad2 search URL for the given parameters (no scraping).
+    
+    The 'property' parameter accepts both Yad2 codes (e.g., "5") and Hebrew names (e.g., "בית פרטי").
+    Hebrew names are automatically converted to their corresponding Yad2 codes.
+    
+    Common property types:
+    - "בית פרטי" or "5" = House (Private house)
+    - "בית דו משפחתי" or "39" = Two-family house
+    - "דירה" or "1" = Apartment
+    - "נטהאוס" or "6" = Penthouse
+    """
     params = {
         k: v
         for k, v in dict(
@@ -157,6 +222,25 @@ async def build_search_url(
         ).items()
         if v is not None
     }
+
+    # Convert Hebrew property type names to codes if needed
+    if 'property' in params and params['property']:
+        from ..utils.property_types import PropertyTypeUtils
+        property_value = params['property']
+        
+        # If it's a string (Hebrew name), try to convert to code
+        if isinstance(property_value, str) and not property_value.isdigit():
+            # Try exact match first
+            code = PropertyTypeUtils.hebrew_name_to_code(property_value)
+            if code is not None:
+                params['property'] = str(code)
+            else:
+                # Try partial match
+                matching_codes = PropertyTypeUtils.search_hebrew_name_to_code(property_value)
+                if matching_codes:
+                    # Use the first match
+                    code, hebrew_name = matching_codes[0]
+                    params['property'] = str(code)
 
     search_params = Yad2SearchParameters()
     for key, value in params.items():
@@ -191,7 +275,7 @@ async def get_search_parameters_reference(ctx: Context):
     ref = Yad2ParameterReference()
     params = ref.list_all_parameters()
 
-    # Organize into categories similar to the legacy server
+    # Organize into categories
     categories = {
         "Price Parameters": ["maxPrice", "minPrice"],
         "Location Parameters": ["topArea", "area", "city", "neighborhood"],
@@ -212,91 +296,46 @@ async def get_search_parameters_reference(ctx: Context):
     return result
 
 
-@mcp.tool()
-async def analyze_search_results(ctx: Context, analysis_type: str = "summary"):
-    """Analyze the last search results. Run search_real_estate first."""
-    if not _last_search_results:
-        return {"success": False, "message": "No search results available. Run search_real_estate first."}
 
-    if analysis_type == "summary":
-        total = len(_last_search_results)
-        with_price = len([l for l in _last_search_results if l.price])
-        with_address = len([l for l in _last_search_results if l.address])
-        with_rooms = len([l for l in _last_search_results if l.rooms])
-        with_size = len([l for l in _last_search_results if l.size])
+@mcp.tool()
+async def get_all_property_types(ctx: Context):
+    """Get all available property type codes with Hebrew and English names."""
+    scraper = Yad2Scraper()
+    try:
+        property_types = scraper.get_property_types()
+        
+        # Add English translations for each
+        enhanced_types = {}
+        for code, hebrew_name in property_types.items():
+            from ..utils.property_types import PropertyTypeUtils
+            english_name = PropertyTypeUtils.translate_to_english(hebrew_name)
+            enhanced_types[code] = {
+                "hebrew": hebrew_name,
+                "english": english_name,
+                "code": code
+            }
+        
         return {
             "success": True,
-            "total": total,
-            "with_price": with_price,
-            "with_address": with_address,
-            "with_rooms": with_rooms,
-            "with_size": with_size,
+            "total_types": len(enhanced_types),
+            "property_types": enhanced_types
         }
-
-    if analysis_type == "price_analysis":
-        stats = DataUtils.calculate_price_stats(_last_search_results)
-        if not stats:
-            return {"success": False, "message": "No price data available."}
-
-        prices = [l.price for l in _last_search_results if l.price and isinstance(l.price, (int, float))]
-        ranges = [
-            (0, 3_000_000, "Under 3M NIS"),
-            (3_000_000, 5_000_000, "3M - 5M NIS"),
-            (5_000_000, 8_000_000, "5M - 8M NIS"),
-            (8_000_000, 12_000_000, "8M - 12M NIS"),
-            (12_000_000, float("inf"), "Over 12M NIS"),
-        ]
-        distribution = []
-        for min_p, max_p, label in ranges:
-            count_in_range = len([p for p in prices if min_p <= p < max_p])
-            if count_in_range > 0:
-                distribution.append({
-                    "label": label,
-                    "count": count_in_range,
-                    "percentage": count_in_range / len(prices) * 100,
-                })
-        return {"success": True, "stats": stats, "distribution": distribution}
-
-    if analysis_type == "location_breakdown":
-        groups = DataUtils.group_by_location(_last_search_results)
-        if not groups:
-            return {"success": False, "message": "No address data available."}
-        breakdown = {loc: len(listings) for loc, listings in groups.items()}
-        total_with_address = sum(breakdown.values())
-        top = sorted(breakdown.items(), key=lambda x: x[1], reverse=True)[:10]
-        top_formatted = [
-            {"location": loc, "count": count, "percentage": count / total_with_address * 100}
-            for loc, count in top
-        ]
-        return {"success": True, "total_with_address": total_with_address, "top_locations": top_formatted}
-
-    if analysis_type == "property_types":
-        room_counts = {}
-        sizes = []
-        for l in _last_search_results:
-            if l.rooms:
-                key = str(l.rooms)
-                room_counts[key] = room_counts.get(key, 0) + 1
-            if l.size and isinstance(l.size, (int, float)):
-                sizes.append(l.size)
-        result = {"room_distribution": room_counts}
-        if sizes:
-            result["size_average"] = sum(sizes) / len(sizes)
-            result["size_min"] = min(sizes)
-            result["size_max"] = max(sizes)
-        return {"success": True, **result}
-
-    return {"success": False, "message": f"Unknown analysis_type: {analysis_type}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
-async def save_search_results(ctx: Context, filename: Optional[str] = None):
-    """Save the last search results to a JSON file."""
-    if _current_scraper is None or not _last_search_results:
-        return {"success": False, "message": "No search results available to save."}
+async def search_locations(ctx: Context, search_text: str):
+    """Search for locations using Yad2's address autocomplete API."""
+    scraper = Yad2Scraper()
     try:
-        saved_file = _current_scraper.save_to_json(filename)
-        return {"success": True, "file": saved_file}
+        location_data = scraper.fetch_location_data(search_text)
+        
+        return {
+            "success": True,
+            "search_text": search_text,
+            "locations": location_data
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 

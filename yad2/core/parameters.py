@@ -153,18 +153,23 @@ class Yad2ParameterReference:
             'options': {
                 1: 'Apartment',
                 3: 'Apartment with Garden',
-                5: 'Villa',
                 6: 'Penthouse',
-                15: 'Building',
+                7: 'Duplex',
+                25: 'Hotel',
+                49: 'Basement',
+                51: 'Triplex',
+                11: 'Sub-apartment',
+                4: 'Studio',
+                5: 'Cottage',
+                39: 'Two-family house',
+                32: 'Agricultural farm',
+                52: 'farm',
                 33: 'Land',
-                31: 'Loft',
-                32: 'Triplex',
-                34: 'Garden Apartment',
-                35: 'Rooftop',
-                36: 'Unit',
-                37: 'Mini Penthouse',
-                39: 'House'
-
+                61: 'Safe house',
+                44: 'Building',
+                45: 'Garage',
+                30: 'Parking',
+                50: 'Future apartment',
             }
         },
         'topArea': {

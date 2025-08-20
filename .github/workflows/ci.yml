@@ -142,7 +142,7 @@ jobs:
         if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
         run: |
-          npm ci
+          npm install
 
       - name: Lint UI
         if: steps.changes.outputs.broker_ui == 'true'

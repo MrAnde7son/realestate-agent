@@ -11,6 +11,12 @@ cd backend-django
 pip install -r requirements.txt
 cd ..
 
+# Install database module
+echo "🗄️  Installing Database Module..."
+cd db
+pip install -r requirements.txt
+cd ..
+
 # Install government modules
 echo "🏛️  Installing Government Data Modules..."
 cd gov

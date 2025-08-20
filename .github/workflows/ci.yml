@@ -53,6 +53,15 @@ jobs:
       - name: Install Module Dependencies
         if: steps.changes.outputs.python == 'true'
         run: |
+          # Install SQLAlchemy and other core database dependencies
+          pip install sqlalchemy
+          
+          # Install database module
+          if [ -f "db/requirements.txt" ]; then
+            echo "Installing database module..."
+            pip install -r db/requirements.txt
+          fi
+          
           # Install government data modules
           if [ -f "gov/requirements.txt" ]; then
             echo "Installing government data modules..."
@@ -82,6 +91,9 @@ jobs:
             echo "Installing global dependencies..."
             pip install -r requirements.txt
           fi
+          
+          # Install additional test dependencies that might be missing
+          pip install responses pytest-mock pytest-asyncio
 
       - name: Run Python Tests
         if: steps.changes.outputs.python == 'true'
@@ -91,27 +103,27 @@ jobs:
           # Run tests for each module if it exists
           if [ -d "tests" ]; then
             echo "Running main test suite..."
-            pytest tests/ -q
+            pytest tests/ -q --tb=short
           fi
           
           if [ -d "gov" ]; then
             echo "Running government module tests..."
-            pytest gov/ -q || echo "No tests found in gov module"
+            pytest gov/ -q --tb=short || echo "No tests found in gov module"
           fi
           
           if [ -d "gis" ]; then
             echo "Running GIS module tests..."
-            pytest gis/ -q || echo "No tests found in GIS module"
+            pytest gis/ -q --tb=short || echo "No tests found in GIS module"
           fi
           
           if [ -d "yad2" ]; then
             echo "Running Yad2 module tests..."
-            pytest yad2/ -q || echo "No tests found in Yad2 module"
+            pytest yad2/ -q --tb=short || echo "No tests found in Yad2 module"
           fi
           
           if [ -d "rami" ]; then
             echo "Running RAMI module tests..."
-            pytest rami/ -q || echo "No tests found in RAMI module"
+            pytest rami/ -q --tb=short || echo "No tests found in RAMI module"
           fi
 
       - name: Set up Node

@@ -4,6 +4,9 @@
 # Core Backend
 -r backend-django/requirements.txt
 
+# Database Module
+-r db/requirements.txt
+
 # Government Data Modules
 -r gov/requirements.txt
 

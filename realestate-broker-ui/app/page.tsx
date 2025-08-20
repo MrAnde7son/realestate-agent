@@ -164,7 +164,7 @@ export default function HomePage() {
                     {fmtNumber(dashboardData.totalListings)}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    +{Math.floor(Math.random() * 5) + 1} מהחודש שעבר
+                    נכסים במערכת
                   </p>
                 </CardContent>
               </Card>
@@ -183,7 +183,7 @@ export default function HomePage() {
                     {fmtNumber(dashboardData.activeAlerts)}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {Math.floor(Math.random() * 3) + 1} התראות חדשות היום
+                    התראות פעילות במערכת
                   </p>
                 </CardContent>
               </Card>
@@ -220,7 +220,7 @@ export default function HomePage() {
                    {dashboardData.averageReturn}%
                  </div>
                  <p className="text-xs text-muted-foreground">
-                   {Math.floor(Math.random() * 3) + 1}% מהחודש שעבר
+                   תשואה שנתית ממוצעת
                  </p>
                </CardContent>
              </Card>

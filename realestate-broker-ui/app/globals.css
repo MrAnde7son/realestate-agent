@@ -155,6 +155,41 @@
     .card {
       margin-bottom: 1rem;
     }
+    
+    /* Ensure mobile sidebar works properly */
+    [data-radix-dialog-content] {
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Mobile sidebar specific styles */
+    .mobile-sidebar {
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure sheet content is properly sized on mobile */
+    .sheet-content {
+      width: 100vw;
+      max-width: 320px;
+    }
+    
+    /* Mobile sidebar touch improvements */
+    .mobile-sidebar-nav {
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure proper mobile sheet behavior */
+    [data-radix-dialog-overlay] {
+      touch-action: none;
+    }
+    
+    /* Mobile navigation item improvements */
+    .mobile-nav-item {
+      min-height: 48px;
+      touch-action: manipulation;
+    }
   }
   
   /* RTL Support */

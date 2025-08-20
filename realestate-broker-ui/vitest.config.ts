@@ -7,10 +7,20 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    testTimeout: 10000,
+    hookTimeout: 10000,
   },
   resolve: {
     alias: {
       '@': resolve(__dirname, './'),
     },
+  },
+  define: {
+    // Mock Next.js specific globals
+    'process.env.NODE_ENV': '"test"',
+    '__vite_ssr_exportName__': 'undefined',
+  },
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
   },
 })

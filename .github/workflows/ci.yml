@@ -143,6 +143,8 @@ jobs:
         working-directory: realestate-broker-ui
         run: |
           npm install
+          # Install missing test dependencies
+          npm install --save-dev @testing-library/dom
 
       - name: Lint UI
         if: steps.changes.outputs.broker_ui == 'true'

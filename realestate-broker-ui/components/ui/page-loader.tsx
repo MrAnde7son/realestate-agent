@@ -1,4 +1,10 @@
 import { Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+interface PageLoaderProps {
+  message?: string
+  showLogo?: boolean
+}
 
 export function PageLoader() {
   return (
@@ -16,7 +22,9 @@ export function FullPageLoader({ message = "טוען...", showLogo = true }: Pag
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="flex flex-col items-center justify-center space-y-4 rounded-lg bg-card p-8 shadow-lg">
         {showLogo && (
-          <Logo variant="symbol" size={48} color="var(--brand-teal)" />
+          <div className="w-12 h-12 bg-brand-teal rounded-full flex items-center justify-center">
+            <span className="text-white font-bold text-lg">נ</span>
+          </div>
         )}
         <div className="flex items-center space-x-2 space-x-reverse">
           <Loader2 className="h-8 w-8 animate-spin text-brand-teal" />

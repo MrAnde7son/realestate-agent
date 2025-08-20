@@ -32,10 +32,6 @@ export default function ListingsPage() {
 
   const newListingSchema = z.object({
     address: z.string().min(1, 'חובה להזין כתובת'),
-    price: z.preprocess((v) => Number(v), z.number().gt(0, 'חובה להזין מחיר')), 
-    bedrooms: z.preprocess((v) => Number(v), z.number().int().gte(0, 'חובה להזין חדרים')),
-    bathrooms: z.preprocess((v) => Number(v), z.number().int().gte(0, 'חובה להזין מקלחות')),
-    area: z.preprocess((v) => Number(v), z.number().gt(0, 'חובה להזין שטח')),
   })
   type NewListing = z.infer<typeof newListingSchema>
 
@@ -43,10 +39,6 @@ export default function ListingsPage() {
     resolver: zodResolver(newListingSchema),
     defaultValues: {
       address: '',
-      price: undefined,
-      bedrooms: undefined,
-      bathrooms: undefined,
-      area: undefined,
     },
   })
 
@@ -110,76 +102,96 @@ export default function ListingsPage() {
               </SheetTrigger>
               <SheetContent>
                 <SheetHeader>
-                  <SheetTitle>הוסף נכס</SheetTitle>
-                  <SheetDescription>מלא את הפרטים של הנכס החדש.</SheetDescription>
+                  <SheetTitle>הוסף נכס חדש</SheetTitle>
+                  <SheetDescription>
+                    הזן כתובת והמערכת תאסוף אוטומטית מידע מיד 2, GIS, רמ״י וממשלה
+                  </SheetDescription>
                 </SheetHeader>
                 <form
                   onSubmit={form.handleSubmit(async (values) => {
-                    // Trigger backend sync for this address
-                    await fetch('/api/sync', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ address: values.address }),
-                    })
-                    const res = await fetch('/api/listings', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(values),
-                    })
-                    const data = await res.json()
-                    if (res.ok) {
-                      setListings((prev) => [...prev, data.listing])
-                      form.reset()
-                      setOpen(false)
+                    try {
+                      // Show loading state
+                      const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+                      if (submitButton) {
+                        submitButton.disabled = true
+                        submitButton.innerHTML = '<div class="flex items-center gap-2"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>אוסף מידע...</div>'
+                      }
+
+                      // Trigger backend sync for this address
+                      const syncResponse = await fetch('/api/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ address: values.address }),
+                      })
+                      
+                      if (!syncResponse.ok) {
+                        throw new Error('שגיאה באיסוף המידע מהמערכות החיצוניות')
+                      }
+
+                      const syncData = await syncResponse.json()
+                      console.log('Collected data:', syncData)
+
+                      // Create listing with collected data
+                      const res = await fetch('/api/listings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          address: values.address,
+                          ...syncData // Include all collected data
+                        }),
+                      })
+                      
+                      const data = await res.json()
+                      if (res.ok) {
+                        setListings((prev) => [...prev, data.listing])
+                        form.reset()
+                        setOpen(false)
+                      } else {
+                        throw new Error(data.error || 'שגיאה ביצירת הנכס')
+                      }
+                    } catch (error) {
+                      console.error('Error adding listing:', error)
+                      alert(`שגיאה: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`)
+                    } finally {
+                      // Reset button state
+                      const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
+                      if (submitButton) {
+                        submitButton.disabled = false
+                        submitButton.innerHTML = 'שמור'
+                      }
                     }
                   })}
                   className="space-y-4"
                 >
                   <div className="space-y-2">
-                    <Label htmlFor="address">כתובת</Label>
-                    <Input id="address" {...form.register('address')} />
+                    <Label htmlFor="address">כתובת הנכס</Label>
+                    <Input 
+                      id="address" 
+                      placeholder="לדוגמה: הגולן 1, תל אביב"
+                      {...form.register('address')} 
+                    />
                     {form.formState.errors.address && (
                       <p className="text-sm text-destructive">
                         {form.formState.errors.address.message}
                       </p>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="price">מחיר</Label>
-                      <Input id="price" type="number" {...form.register('price')} />
-                      {form.formState.errors.price && (
-                        <p className="text-sm text-destructive">
-                          {form.formState.errors.price.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="area">מ״ר</Label>
-                      <Input id="area" type="number" {...form.register('area')} />
-                      {form.formState.errors.area && (
-                        <p className="text-sm text-destructive">
-                          {form.formState.errors.area.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="bedrooms">חדרים</Label>
-                      <Input id="bedrooms" type="number" {...form.register('bedrooms')} />
-                      {form.formState.errors.bedrooms && (
-                        <p className="text-sm text-destructive">
-                          {form.formState.errors.bedrooms.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="bathrooms">מקלחות</Label>
-                      <Input id="bathrooms" type="number" {...form.register('bathrooms')} />
-                      {form.formState.errors.bathrooms && (
-                        <p className="text-sm text-destructive">
-                          {form.formState.errors.bathrooms.message}
-                        </p>
-                      )}
+
+                  {/* Info about automatic data collection */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                        <span className="text-blue-600 text-xs">ℹ</span>
+                      </div>
+                      <div className="text-sm text-blue-800">
+                        <p className="font-medium mb-1">המערכת תאסוף אוטומטית:</p>
+                        <ul className="space-y-1 text-xs">
+                          <li>• <strong>יד 2:</strong> מחיר, שטח, חדרים ומקלחות</li>
+                          <li>• <strong>GIS:</strong> מידע תכנוני וזכויות בנייה</li>
+                          <li>• <strong>רמ״י:</strong> שומות ומסמכים רשמיים</li>
+                          <li>• <strong>ממשלה:</strong> היתרי בנייה, עיסקאות השוואה ותוכניות</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
                   <SheetFooter>

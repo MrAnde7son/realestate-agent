@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import Logo from "@/components/Logo"
 import AppSidebar from "./app-sidebar"
@@ -29,6 +29,7 @@ const mobileNavigation = [
   { name: "דוחות", href: "/reports", icon: BarChart3 },
   { name: "פרופיל", href: "/profile", icon: User },
   { name: "חבילות ותשלומים", href: "/billing", icon: CreditCard },
+  { name: "הגדרות", href: "/settings", icon: Settings },
 ]
 
 export default function Header({ onToggleSidebar }: HeaderProps) {
@@ -86,6 +87,10 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-80 p-0">
+            {/* Accessibility titles - hidden visually but available to screen readers */}
+            <SheetTitle className="sr-only">תפריט ניווט</SheetTitle>
+            <SheetDescription className="sr-only">תפריט ניווט ראשי לאפליקציה</SheetDescription>
+            
             <div className="flex h-full flex-col">
               {/* Mobile Header */}
               <div className="flex h-16 items-center border-b px-6">

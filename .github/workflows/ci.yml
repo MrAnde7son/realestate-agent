@@ -62,6 +62,12 @@ jobs:
             pip install -r db/requirements.txt
           fi
           
+          # Install orchestration module
+          if [ -f "orchestration/requirements.txt" ]; then
+            echo "Installing orchestration module..."
+            pip install -r orchestration/requirements.txt
+          fi
+          
           # Install government data modules
           if [ -f "gov/requirements.txt" ]; then
             echo "Installing government data modules..."

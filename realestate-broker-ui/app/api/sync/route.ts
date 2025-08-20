@@ -58,31 +58,76 @@ export async function POST(req: Request){
     
     // Try backend first
     try {
+      console.log('Attempting to sync with backend:', `${BACKEND_URL}/api/sync-address/`)
+      
       const resp = await fetch(`${BACKEND_URL}/api/sync-address/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ address }),
       })
       
       if (resp.ok) {
         const data = await resp.json()
         console.log('Backend sync successful:', data)
         return NextResponse.json(data)
+      } else {
+        // Backend returned an error status
+        const errorText = await resp.text()
+        console.log('Backend sync failed with status:', resp.status, 'Error:', errorText)
+        
+        // Return empty data instead of mock data
+        return NextResponse.json({
+          success: false,
+          message: 'אין מידע זמין עבור הנכס כרגע',
+          data: {
+            price: 0,
+            bedrooms: 0,
+            bathrooms: 0,
+            area: 0,
+            type: 'לא ידוע',
+            zoning: '',
+            buildingRights: '',
+            landUse: '',
+            appraisalValue: 0,
+            lastAppraisalDate: '',
+            buildingPermits: [],
+            lastPermitDate: '',
+            pricePerSqm: 0,
+            rentEstimate: 0,
+            collectedAt: new Date().toISOString(),
+            sources: []
+          },
+          sources: []
+        })
       }
     } catch (backendError) {
-      console.log('Backend unavailable, using mock data collection')
+      console.log('Backend connection failed:', backendError)
+      
+      // Return empty data instead of mock data
+      return NextResponse.json({
+        success: false,
+        message: 'אין מידע זמין עבור הנכס כרגע',
+        data: {
+          price: 0,
+          bedrooms: 0,
+          bathrooms: 0,
+          area: 0,
+          type: 'לא ידוע',
+          zoning: '',
+          buildingRights: '',
+          landUse: '',
+          appraisalValue: 0,
+          lastAppraisalDate: '',
+          buildingPermits: [],
+          lastPermitDate: '',
+          pricePerSqm: 0,
+          rentEstimate: 0,
+          collectedAt: new Date().toISOString(),
+          sources: []
+        },
+        sources: []
+      })
     }
-    
-    // Fallback to mock data collection
-    console.log('Using mock data collection for:', address)
-    const collectedData = await collectDataFromSources(address)
-    
-    return NextResponse.json({
-      success: true,
-      message: 'מידע נאסף בהצלחה ממקורות שונים',
-      data: collectedData,
-      sources: collectedData.sources
-    })
     
   } catch (error) {
     console.error('Sync error:', error)

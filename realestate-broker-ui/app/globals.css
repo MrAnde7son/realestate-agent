@@ -9,6 +9,8 @@
     /* Nadlanar Brand Colors */
     --brand-teal: #12b3a6;
     --brand-slate: #0f172a;
+    --brand-slate-light: #0f172a;
+    --brand-slate-dark: #f8fafc;
     --brand-ink: #1f2937;
     --brand-blue: #2563eb;
     --brand-green: #16a34a;
@@ -87,16 +89,187 @@
     --sub: #a6aab5;
     --chip: #1f2330;
     --border: #262a35;
+    
+    /* Brand colors for dark mode */
+    --brand-slate: #f8fafc;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+    /* Ensure proper touch behavior on mobile */
+    touch-action: pan-y;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Ensure proper mobile scrolling */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    /* Prevent mobile zoom issues */
+    touch-action: pan-y;
+  }
+  
+  /* Mobile-specific scrolling improvements */
+  @media (max-width: 768px) {
+    html, body {
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    /* Ensure main content can scroll on mobile */
+    main {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+    }
+    
+    /* Ensure the main content wrapper is properly sized */
+    main > div {
+      min-height: 100%;
+      width: 100%;
+    }
+    
+    /* Fix for mobile grid layouts */
+    .grid {
+      grid-template-columns: 1fr;
+    }
+    
+    /* Ensure proper touch scrolling on mobile */
+    .overflow-y-auto {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    
+    /* Prevent horizontal scrolling on mobile */
+    .overflow-x-hidden {
+      overflow-x: hidden;
+    }
+    
+    /* Ensure proper mobile spacing */
+    .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 1rem;
+    }
+    
+    .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 1.5rem;
+    }
+    
+    /* Fix mobile card layouts */
+    .card {
+      margin-bottom: 1rem;
+    }
+    
+    /* Ensure mobile sidebar works properly */
+    [data-radix-dialog-content] {
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Mobile sidebar specific styles */
+    .mobile-sidebar {
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure sheet content is properly sized on mobile */
+    .sheet-content {
+      width: 100vw;
+      max-width: 320px;
+    }
+    
+    /* Mobile sidebar touch improvements */
+    .mobile-sidebar-nav {
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure proper mobile sheet behavior */
+    [data-radix-dialog-overlay] {
+      touch-action: none;
+    }
+    
+    /* Mobile navigation item improvements */
+    .mobile-nav-item {
+      min-height: 48px;
+      touch-action: manipulation;
+    }
+    
+    /* Table horizontal scrolling improvements */
+    .overflow-x-auto {
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: hsl(var(--muted)) transparent;
+      /* Ensure proper scrolling on all devices */
+      overscroll-behavior-x: contain;
+      /* Force horizontal scroll when content overflows */
+      overflow-x: scroll !important;
+    }
+    
+    /* Ensure table has minimum width for scrolling */
+    .min-w-full {
+      min-width: max-content !important;
+      width: max-content !important;
+    }
+    
+    /* Table specific scrolling improvements */
+    table {
+      min-width: max-content;
+      width: max-content;
+    }
+    
+    /* Ensure table cells maintain their width */
+    th, td {
+      white-space: nowrap;
+      min-width: fit-content;
+    }
+    
+    .overflow-x-auto::-webkit-scrollbar {
+      height: 8px;
+    }
+    
+    .overflow-x-auto::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    .overflow-x-auto::-webkit-scrollbar-thumb {
+      background-color: hsl(var(--muted));
+      border-radius: 4px;
+    }
+    
+    .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+      background-color: hsl(var(--muted-foreground));
+    }
+    
+    /* Ensure table cells don't wrap unnecessarily */
+    .whitespace-nowrap {
+      white-space: nowrap;
+    }
+    
+    /* Table container improvements */
+    .table-container {
+      position: relative;
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    
+    /* Ensure table has minimum width for proper scrolling */
+    .table-scroll {
+      min-width: max-content;
+    }
+    
+    /* Force table to have minimum width for scrolling */
+    .min-w-full {
+      min-width: max-content !important;
+    }
+    
+    /* Ensure table cells don't shrink */
+    .table-cell-nowrap {
+      white-space: nowrap;
+      min-width: fit-content;
+    }
   }
   
   /* RTL Support */
@@ -153,10 +326,44 @@
 /* Brand Color Utilities */
 .text-brand-teal { color: var(--brand-teal); }
 .text-brand-slate { color: var(--brand-slate); }
+.text-brand-slate-light { color: var(--brand-slate-light); }
+.text-brand-slate-dark { color: var(--brand-slate-dark); }
 .text-brand-ink { color: var(--brand-ink); }
 .text-brand-blue { color: var(--brand-blue); }
 .text-brand-green { color: var(--brand-green); }
 .text-brand-gray { color: var(--brand-gray); }
+
+/* Logo title that adapts to theme */
+.text-logo-title { 
+  color: hsl(var(--foreground));
+  transition: color 0.2s ease-in-out;
+  font-weight: 700;
+}
+
+/* Clickable table row styles */
+.clickable-row {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.clickable-row:hover {
+  background-color: hsl(var(--muted) / 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.clickable-row:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Prevent text selection on clickable rows */
+.clickable-row {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
 
 .bg-brand-teal { background-color: var(--brand-teal); }
 .bg-brand-slate { background-color: var(--brand-slate); }

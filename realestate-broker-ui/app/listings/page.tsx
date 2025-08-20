@@ -168,43 +168,42 @@ export default function ListingsPage() {
           <CardHeader>
             <CardTitle>נכסים זמינים</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
+          <CardContent className="p-0">
+            <div className="w-full overflow-x-auto">
+              <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">נכס</TableHead>
-                    <TableHead className="text-right">מחיר</TableHead>
-                    <TableHead className="text-right">₪/מ״ר</TableHead>
-                    <TableHead className="text-right">Δ איזור</TableHead>
-                    <TableHead className="text-right">ימי שוק (אחוזון)</TableHead>
-                    <TableHead className="text-right">תחרות</TableHead>
-                    <TableHead className="text-right">ייעוד</TableHead>
-                    <TableHead className="text-right">יתרת זכ׳</TableHead>
-                    <TableHead className="text-right">תכנית</TableHead>
-                    <TableHead className="text-right">היתר</TableHead>
-                    <TableHead className="text-right">רעש</TableHead>
-                    <TableHead className="text-right">שטחי ציבור</TableHead>
-                    <TableHead className="text-right">סיכון</TableHead>
-                    <TableHead className="text-right">מחיר מודל</TableHead>
-                    <TableHead className="text-right">פער</TableHead>
-                    <TableHead className="text-right">רמת ביטחון</TableHead>
-                    <TableHead className="text-right">תשואה</TableHead>
-                    <TableHead className="text-right">פעולות</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">נכס</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">מחיר</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">₪/מ״ר</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Δ איזור</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">ימי שוק (אחוזון)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">תחרות</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">ייעוד</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">יתרת זכ׳</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">תכנית</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">היתר</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">רעש</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">שטחי ציבור</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">סיכון</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">מחיר מודל</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">פער</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">רמת ביטחון</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">תשואה</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">פעולות</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {listings.map((listing) => (
-                    <TableRow key={listing.id} className="hover:bg-muted/50">
+                    <TableRow 
+                      key={listing.id} 
+                      className="hover:bg-muted/50 cursor-pointer group clickable-row"
+                      onClick={() => window.open(`/listings/${listing.id}`, '_self')}
+                    >
                       <TableCell>
                         <div>
-                          <div className="font-semibold">
-                            <Link 
-                              href={`/listings/${listing.id}`}
-                              className="hover:text-primary transition-colors"
-                            >
-                              {listing.address}
-                            </Link>
+                          <div className="font-semibold group-hover:text-primary transition-colors">
+                            {listing.address}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {listing.city}{listing.neighborhood ? ` · ${listing.neighborhood}` : ''} · {listing.type === 'house' ? 'בית' : 'דירה'} · {listing.netSqm} מ״ר
@@ -254,7 +253,7 @@ export default function ListingsPage() {
                       </TableCell>
                       <TableCell><Badge>{listing.confidencePct}%</Badge></TableCell>
                       <TableCell><Badge>{listing.capRatePct?.toFixed(1)}%</Badge></TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/listings/${listing.id}`}>
                             צפה

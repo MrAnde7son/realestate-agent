@@ -88,7 +88,7 @@ export default function BillingPage() {
           text="בחר את החבילה המתאימה לצרכים שלך" 
         />
         
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => {
             const Icon = plan.icon
             return (
@@ -195,11 +195,11 @@ export default function BillingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4">
-                <Button variant="outline">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button variant="outline" className="w-full sm:w-auto">
                   צור קשר עם התמיכה
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" className="w-full sm:w-auto">
                   הזמן שיחת ייעוץ
                 </Button>
               </div>

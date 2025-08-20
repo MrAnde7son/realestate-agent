@@ -41,7 +41,7 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
-  const { login, register, isLoading } = useAuth()
+  const { login, register, googleLogin, isLoading } = useAuth()
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -186,7 +186,13 @@ export default function AuthPage() {
 
               <Separator />
 
-              <Button variant="outline" className="w-full" size="lg" disabled>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                size="lg" 
+                onClick={() => googleLogin()}
+                disabled={isLoading}
+              >
                 <Building className="h-4 w-4 ml-2" />
                 התחבר עם Google
               </Button>

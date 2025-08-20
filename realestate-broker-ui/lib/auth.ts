@@ -135,6 +135,14 @@ class AuthAPI {
     })
   }
 
+  async googleLogin(): Promise<{ auth_url: string }> {
+    return this.request<{ auth_url: string }>('/auth/google/login/')
+  }
+
+  async googleCallback(code: string): Promise<AuthResponse> {
+    return this.request<AuthResponse>(`/auth/google/callback/?code=${code}`)
+  }
+
   // Token management
   setTokens(accessToken: string, refreshToken: string): void {
     if (typeof window !== 'undefined') {

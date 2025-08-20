@@ -369,6 +369,159 @@ def auth_refresh(request):
         )
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def auth_google_login(request):
+    """Initiate Google OAuth login flow."""
+    try:
+        from django.conf import settings
+        
+        # Generate Google OAuth URL
+        params = {
+            'client_id': settings.GOOGLE_CLIENT_ID,
+            'redirect_uri': settings.GOOGLE_REDIRECT_URI,
+            'response_type': 'code',
+            'scope': 'openid email profile',
+            'access_type': 'offline',
+            'prompt': 'consent'
+        }
+        
+        # Build the authorization URL
+        auth_url = f"{settings.GOOGLE_AUTH_URL}?"
+        auth_url += "&".join([f"{k}={v}" for k, v in params.items()])
+        
+        return Response({
+            'auth_url': auth_url
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def auth_google_callback(request):
+    """Handle Google OAuth callback and authenticate user."""
+    try:
+        from django.conf import settings
+        import requests
+        from django.contrib.auth import get_user_model
+        from django.contrib.auth.hashers import make_password
+        
+        # Get authorization code from query parameters
+        code = request.GET.get('code')
+        if not code:
+            return Response(
+                {'error': 'Authorization code not provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Exchange code for access token
+        token_data = {
+            'client_id': settings.GOOGLE_CLIENT_ID,
+            'client_secret': settings.GOOGLE_CLIENT_SECRET,
+            'code': code,
+            'grant_type': 'authorization_code',
+            'redirect_uri': settings.GOOGLE_REDIRECT_URI
+        }
+        
+        token_response = requests.post(settings.GOOGLE_TOKEN_URL, data=token_data)
+        if not token_response.ok:
+            return Response(
+                {'error': 'Failed to exchange code for token'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        token_info = token_response.json()
+        access_token = token_info.get('access_token')
+        
+        # Get user info from Google
+        user_info_response = requests.get(
+            settings.GOOGLE_USER_INFO_URL,
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        
+        if not user_info_response.ok:
+            return Response(
+                {'error': 'Failed to get user info from Google'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user_info = user_info_response.json()
+        google_id = user_info.get('id')
+        email = user_info.get('email')
+        first_name = user_info.get('given_name', '')
+        last_name = user_info.get('family_name', '')
+        
+        if not email:
+            return Response(
+                {'error': 'Email not provided by Google'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user exists, create if not
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Create new user
+            username = email.split('@')[0]  # Use email prefix as username
+            # Ensure username is unique
+            base_username = username
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
+            
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=make_password(None),  # No password for OAuth users
+                first_name=first_name,
+                last_name=last_name,
+                is_verified=True  # Google users are verified
+            )
+        
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        
+        # Redirect to frontend with tokens
+        frontend_url = settings.FRONTEND_URL
+        tokens = {
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'company': getattr(user, 'company', ''),
+                'role': getattr(user, 'role', ''),
+                'is_verified': getattr(user, 'is_verified', False),
+            }
+        }
+        
+        # Encode tokens in URL parameters
+        import urllib.parse
+        encoded_tokens = urllib.parse.urlencode(tokens)
+        redirect_url = f"{frontend_url}/auth/google-callback?{encoded_tokens}"
+        
+        return Response({
+            'redirect_url': redirect_url,
+            'tokens': tokens
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 def _load_reports():
     try:
         with open(REPORTS_META, 'r', encoding='utf-8') as f:

@@ -13,6 +13,7 @@ interface AuthContextType {
   logout: () => Promise<void>
   updateProfile: (data: ProfileUpdateData) => Promise<void>
   refreshUser: () => Promise<void>
+  googleLogin: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -110,6 +111,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const googleLogin = async () => {
+    try {
+      console.log('🔐 Starting Google OAuth login...')
+      setIsLoading(true)
+      
+      // Get Google OAuth URL from backend
+      const response = await authAPI.googleLogin()
+      console.log('✅ Google OAuth URL received:', response.auth_url)
+      
+      // Redirect to Google OAuth
+      window.location.href = response.auth_url
+      
+    } catch (error) {
+      console.error('❌ Google OAuth failed:', error)
+      setIsLoading(false)
+      throw error
+    }
+  }
+
   // Initialize auth state on mount
   useEffect(() => {
     refreshUser()
@@ -124,6 +144,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     updateProfile,
     refreshUser,
+    googleLogin,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

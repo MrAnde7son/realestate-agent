@@ -3,19 +3,11 @@ import type { NextRequest } from 'next/server'
 
 // Routes that require authentication
 const protectedRoutes = [
-  '/',
-  '/listings',
   '/alerts',
   '/mortgage',
   '/reports',
   '/profile',
-  '/billing',
   '/settings'
-]
-
-// Routes that are public
-const publicRoutes = [
-  '/auth'
 ]
 
 export function middleware(request: NextRequest) {
@@ -26,10 +18,8 @@ export function middleware(request: NextRequest) {
     pathname === route || pathname.startsWith(route + '/')
   )
   
-  // Check if the route is public
-  const isPublicRoute = publicRoutes.some(route => 
-    pathname === route || pathname.startsWith(route + '/')
-  )
+  // Check if the route is the auth page
+  const isAuthRoute = pathname === '/auth' || pathname.startsWith('/auth/')
   
   // Get the token from cookies or headers
   const token = request.cookies.get('access_token')?.value || 
@@ -40,8 +30,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth', request.url))
   }
   
-  // If it's a public route (like auth) and user has token, redirect to home
-  if (isPublicRoute && token) {
+  // If it's the auth page and user has token, redirect to home
+  if (isAuthRoute && token) {
     return NextResponse.redirect(new URL('/', request.url))
   }
   

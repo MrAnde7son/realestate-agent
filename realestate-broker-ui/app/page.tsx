@@ -38,6 +38,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/lib/auth-context";
 import { fmtCurrency, fmtNumber } from "@/lib/utils";
 import { useDashboardData } from "@/lib/dashboard";
+import { useRouter } from "next/navigation";
 
 // Chart components
 import {
@@ -58,96 +59,113 @@ import {
 } from "recharts";
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { data: dashboardData, loading, error } = useDashboardData();
+  const router = useRouter();
+
+  const handleProtectedAction = (action: string) => {
+    if (!isAuthenticated) {
+      router.push('/auth?redirect=' + encodeURIComponent(window.location.pathname));
+    }
+  };
 
   if (loading) {
     return (
-      <ProtectedRoute>
-        <DashboardLayout>
-          <DashboardShell>
-            <DashboardHeader
-              heading="ברוכים הבאים לנדל״נר"
-              text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
-            />
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-              {[...Array(4)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-4 w-4" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-16 mb-2" />
-                    <Skeleton className="h-4 w-24" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </DashboardShell>
-        </DashboardLayout>
-      </ProtectedRoute>
+      <DashboardLayout>
+        <DashboardShell>
+          <DashboardHeader
+            heading="ברוכים הבאים לנדל״נר"
+            text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
+          />
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-4" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DashboardShell>
+      </DashboardLayout>
     );
   }
 
   if (!dashboardData) {
     return (
-      <ProtectedRoute>
-        <DashboardLayout>
-          <DashboardShell>
-            <DashboardHeader
-              heading="ברוכים הבאים לנדל״נר"
-              text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
-            />
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                לא ניתן לטעון נתוני לוח הבקרה
-              </p>
-            </div>
-          </DashboardShell>
-        </DashboardLayout>
-      </ProtectedRoute>
+      <DashboardLayout>
+        <DashboardShell>
+          <DashboardHeader
+            heading="ברוכים הבאים לנדל״נר"
+            text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
+          />
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              לא ניתן לטעון נתוני לוח הבקרה
+            </p>
+          </div>
+        </DashboardShell>
+      </DashboardLayout>
     );
   }
 
   if (error) {
     return (
-      <ProtectedRoute>
-        <DashboardLayout>
-          <DashboardShell>
-            <DashboardHeader
-              heading="ברוכים הבאים לנדל״נר"
-              text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
-            />
-            <div className="text-center py-12">
-              <div className="bg-destructive/10 text-destructive p-4 rounded-lg max-w-md mx-auto">
-                <p className="font-medium mb-2">שגיאה בטעינת נתונים</p>
-                <p className="text-sm">{error}</p>
-                <Button
-                  onClick={() => window.location.reload()}
-                  variant="outline"
-                  className="mt-4"
-                >
-                  נסה שוב
-                </Button>
-              </div>
+      <DashboardLayout>
+        <DashboardShell>
+          <DashboardHeader
+            heading="ברוכים הבאים לנדל״נר"
+            text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
+          />
+          <div className="text-center py-12">
+            <div className="bg-destructive/10 text-destructive p-4 rounded-lg max-w-md mx-auto">
+              <p className="font-medium mb-2">שגיאה בטעינת נתונים</p>
+              <p className="text-sm">{error}</p>
+              <Button
+                onClick={() => window.location.reload()}
+                variant="outline"
+                className="mt-4"
+              >
+                נסה שוב
+              </Button>
             </div>
-          </DashboardShell>
-        </DashboardLayout>
-      </ProtectedRoute>
+          </div>
+        </DashboardShell>
+      </DashboardLayout>
     );
   }
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
   return (
-    <ProtectedRoute>
-      <DashboardLayout>
-        <DashboardShell>
-          <DashboardHeader
-            heading={`ברוכים הבאים, ${user?.first_name || "משתמש"}!`}
-            text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
-          />
+    <DashboardLayout>
+      <DashboardShell>
+        <DashboardHeader
+          heading={isAuthenticated ? `ברוכים הבאים, ${user?.first_name || "משתמש"}!` : "ברוכים הבאים לנדל״נר"}
+          text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
+        />
+
+        {/* Login Prompt for Guests */}
+        {!isAuthenticated && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-blue-900">התחבר כדי לגשת לכל התכונות</h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  צור חשבון או התחבר כדי ליצור דוחות, לנתח משכנתאות ולנהל התראות
+                </p>
+              </div>
+              <Button onClick={() => router.push('/auth')} className="bg-blue-600 hover:bg-blue-700">
+                התחבר עכשיו
+              </Button>
+            </div>
+          </div>
+        )}
 
           {/* KPI Cards */}
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
@@ -185,6 +203,11 @@ export default function HomePage() {
                   <p className="text-xs text-muted-foreground">
                     התראות פעילות במערכת
                   </p>
+                  {!isAuthenticated && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      התחבר לניהול התראות
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </Link>
@@ -204,6 +227,11 @@ export default function HomePage() {
                   <p className="text-xs text-muted-foreground">
                     סה&quot;כ דוחות במערכת
                   </p>
+                  {!isAuthenticated && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      התחבר לצפייה בדוחות
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </Link>
@@ -442,12 +470,19 @@ export default function HomePage() {
                 <CardDescription>
                   הוסף נכס חדש למאגר שלך עם כל הפרטים והתמונות
                 </CardDescription>
-                <Button asChild className="w-full mt-4">
-                  <Link href="/listings">
+                {isAuthenticated ? (
+                  <Button asChild className="w-full mt-4">
+                    <Link href="/listings">
+                      <Building className="h-4 w-4 ml-2" />
+                      הוסף נכס
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button onClick={() => handleProtectedAction('add-listing')} className="w-full mt-4">
                     <Building className="h-4 w-4 ml-2" />
-                    הוסף נכס
-                  </Link>
-                </Button>
+                    התחבר להוספת נכס
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
@@ -464,12 +499,19 @@ export default function HomePage() {
                 <CardDescription>
                   הגדר התראה מותאמת אישית וקבל התראות על הזדמנויות בשוק
                 </CardDescription>
-                <Button asChild variant="outline" className="w-full mt-4">
-                  <Link href="/alerts">
+                {isAuthenticated ? (
+                  <Button asChild variant="outline" className="w-full mt-4">
+                    <Link href="/alerts">
+                      <AlertCircle className="h-4 w-4 ml-2" />
+                      צור התראה
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button onClick={() => handleProtectedAction('create-alert')} variant="outline" className="w-full mt-4">
                     <AlertCircle className="h-4 w-4 ml-2" />
-                    צור התראה
-                  </Link>
-                </Button>
+                    התחבר ליצירת התראה
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
@@ -486,17 +528,23 @@ export default function HomePage() {
                 <CardDescription>
                   חשב משכנתאות ובדוק זכאות עם נתוני בנק ישראל בזמן אמת
                 </CardDescription>
-                <Button asChild variant="outline" className="w-full mt-4">
-                  <Link href="/mortgage/analyze">
+                {isAuthenticated ? (
+                  <Button asChild variant="outline" className="w-full mt-4">
+                    <Link href="/mortgage/analyze">
+                      <Calculator className="h-4 w-4 ml-2" />
+                      חשב משכנתא
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button onClick={() => handleProtectedAction('mortgage-calculator')} variant="outline" className="w-full mt-4">
                     <Calculator className="h-4 w-4 ml-2" />
-                    חשב משכנתא
-                  </Link>
-                </Button>
+                    התחבר למחשבון
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
         </DashboardShell>
       </DashboardLayout>
-    </ProtectedRoute>
-  );
-}
+    );
+  }

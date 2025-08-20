@@ -1,4 +1,4 @@
-from yad2.core.utils import URLUtils, DataUtils, ValidationUtils
+from yad2.core.utils import URLUtils, DataUtils
 from yad2.core.models import RealEstateListing
 
 
@@ -59,13 +59,3 @@ def test_datautils_group_and_filter():
     # Ensure listings with too many rooms are excluded
     limited_rooms = DataUtils.filter_by_criteria(listings, max_rooms=3)
     assert [l.rooms for l in limited_rooms] == [2, 3]
-
-
-def test_validationutils():
-    assert ValidationUtils.validate_city_id(5000) is True
-    assert ValidationUtils.validate_city_id(1234) is False
-    assert ValidationUtils.validate_property_type(1) is True
-    assert ValidationUtils.validate_property_type(99) is False
-    assert ValidationUtils.validate_price_range(100, 200) is True
-    assert ValidationUtils.validate_price_range(200, 100) is False
-    assert ValidationUtils.validate_price_range(None, 200) is True

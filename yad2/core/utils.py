@@ -123,27 +123,4 @@ class DataUtils:
             
             filtered.append(listing)
         
-        return filtered
-
-
-class ValidationUtils:
-    """Utilities for data validation."""
-    
-    @staticmethod
-    def validate_city_id(city_id):
-        """Validate city ID."""
-        valid_cities = {5000, 6200, 6300, 6100, 8600, 7400}  # Common cities
-        return city_id in valid_cities
-    
-    @staticmethod
-    def validate_property_type(property_type):
-        """Validate property type ID."""
-        valid_types = {1, 2, 5, 6, 15, 31, 32, 33, 34, 35, 36, 37, 39}
-        return property_type in valid_types
-    
-    @staticmethod
-    def validate_price_range(min_price, max_price):
-        """Validate price range."""
-        if min_price and max_price:
-            return min_price < max_price
-        return True 
+        return filtered 

@@ -1,7 +1,13 @@
 import '@testing-library/jest-dom'
+import { vi } from 'vitest'
+
+// Declare the global type to avoid TypeScript errors
+declare global {
+  var __vite_ssr_exportName__: any
+}
 
 // Mock Next.js specific globals
-global.__vite_ssr_exportName__ = undefined
+globalThis.__vite_ssr_exportName__ = undefined
 
 // Mock Next.js navigation
 vi.mock('next/navigation', () => ({
@@ -16,9 +22,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }))
 
-// Mock Next.js link
+// Mock Next.js link - simplified to avoid JSX issues
 vi.mock('next/link', () => ({
-  default: ({ children, href, ...props }: any) => {
-    return <a href={href} {...props}>{children}</a>
-  },
+  default: vi.fn(),
 }))

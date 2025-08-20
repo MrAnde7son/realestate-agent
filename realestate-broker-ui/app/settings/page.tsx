@@ -103,7 +103,7 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">התראות בדוא״ל</p>
                     <p className="text-sm text-muted-foreground">
@@ -115,7 +115,7 @@ export default function SettingsPage() {
                 
                 <Separator />
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">התראות בווטסאפ</p>
                     <p className="text-sm text-muted-foreground">
@@ -127,7 +127,7 @@ export default function SettingsPage() {
                 
                 <Separator />
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">התראות דחופות</p>
                     <p className="text-sm text-muted-foreground">
@@ -168,7 +168,7 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">אימות דו-שלבי</p>
                     <p className="text-sm text-muted-foreground">
@@ -180,7 +180,7 @@ export default function SettingsPage() {
                 
                 <Separator />
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">התראות כניסה</p>
                     <p className="text-sm text-muted-foreground">
@@ -221,7 +221,7 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">גיבוי אוטומטי</p>
                     <p className="text-sm text-muted-foreground">
@@ -233,7 +233,7 @@ export default function SettingsPage() {
                 
                 <Separator />
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <p className="font-medium">סנכרון בין מכשירים</p>
                     <p className="text-sm text-muted-foreground">
@@ -328,7 +328,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Save Button */}
-        <div className="flex justify-end mt-6">
+        <div className="flex justify-center sm:justify-end mt-6">
           <Button size="lg">שמור הגדרות</Button>
         </div>
       </DashboardShell>

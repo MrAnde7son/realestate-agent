@@ -203,6 +203,26 @@
       scrollbar-color: hsl(var(--muted)) transparent;
       /* Ensure proper scrolling on all devices */
       overscroll-behavior-x: contain;
+      /* Force horizontal scroll when content overflows */
+      overflow-x: scroll !important;
+    }
+    
+    /* Ensure table has minimum width for scrolling */
+    .min-w-full {
+      min-width: max-content !important;
+      width: max-content !important;
+    }
+    
+    /* Table specific scrolling improvements */
+    table {
+      min-width: max-content;
+      width: max-content;
+    }
+    
+    /* Ensure table cells maintain their width */
+    th, td {
+      white-space: nowrap;
+      min-width: fit-content;
     }
     
     .overflow-x-auto::-webkit-scrollbar {
@@ -238,6 +258,17 @@
     /* Ensure table has minimum width for proper scrolling */
     .table-scroll {
       min-width: max-content;
+    }
+    
+    /* Force table to have minimum width for scrolling */
+    .min-w-full {
+      min-width: max-content !important;
+    }
+    
+    /* Ensure table cells don't shrink */
+    .table-cell-nowrap {
+      white-space: nowrap;
+      min-width: fit-content;
     }
   }
   

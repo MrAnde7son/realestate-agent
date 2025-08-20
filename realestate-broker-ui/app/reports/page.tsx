@@ -100,18 +100,16 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="w-full overflow-x-auto">
-              <div className="min-w-full inline-block align-middle">
-                <div className="overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-right whitespace-nowrap">נכס</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">סוג דוח</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">סטטוס</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">נוצר ב</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">פעולות</TableHead>
-                      </TableRow>
-                    </TableHeader>
+              <Table className="min-w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right whitespace-nowrap">נכס</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">סוג דוח</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">סטטוס</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">נוצר ב</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">פעולות</TableHead>
+                  </TableRow>
+                </TableHeader>
                     <TableBody>
                       {displayReports.length === 0 ? (
                         <TableRow>
@@ -188,18 +186,16 @@ export default function ReportsPage() {
                     </TableBody>
                   </Table>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            מציג {reports.length} דוחות עם נתונים מלאים
-          </p>
-        </div>
-      </DashboardShell>
-    </DashboardLayout>
+            {/* Footer */}
+            <div className="flex items-center justify-between mt-6">
+              <p className="text-sm text-muted-foreground">
+                מציג {displayReports.length} דוחות עם נתונים מלאים
+              </p>
+            </div>
+          </DashboardShell>
+        </DashboardLayout>
   )
 }

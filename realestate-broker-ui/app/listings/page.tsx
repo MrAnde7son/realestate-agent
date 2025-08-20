@@ -170,105 +170,101 @@ export default function ListingsPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="w-full overflow-x-auto">
-              <div className="min-w-full inline-block align-middle">
-                <div className="overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-right whitespace-nowrap">נכס</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">מחיר</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">₪/מ״ר</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">Δ איזור</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">ימי שוק (אחוזון)</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">תחרות</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">ייעוד</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">יתרת זכ׳</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">תכנית</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">היתר</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">רעש</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">שטחי ציבור</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">סיכון</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">מחיר מודל</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">פער</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">רמת ביטחון</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">תשואה</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">פעולות</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {listings.map((listing) => (
-                        <TableRow key={listing.id} className="hover:bg-muted/50">
-                          <TableCell>
-                            <div>
-                              <div className="font-semibold">
-                                <Link 
-                                  href={`/listings/${listing.id}`}
-                                  className="hover:text-primary transition-colors"
-                                >
-                                  {listing.address}
-                                </Link>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {listing.city}{listing.neighborhood ? ` · ${listing.neighborhood}` : ''} · {listing.type === 'house' ? 'בית' : 'דירה'} · {listing.netSqm} מ״ר
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono">{fmtCurrency(listing.price)}</TableCell>
-                          <TableCell className="font-mono">{listing.pricePerSqm ? fmtNumber(listing.pricePerSqm) : '—'}</TableCell>
-                          <TableCell>
-                            <Badge variant={listing.deltaVsAreaPct && listing.deltaVsAreaPct >= 0 ? 'default' : 'destructive'}>
-                              {listing.deltaVsAreaPct ? `${listing.deltaVsAreaPct > 0 ? '+' : ''}${listing.deltaVsAreaPct}%` : '—'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell><Badge>P{listing.domPercentile || '—'}</Badge></TableCell>
-                          <TableCell><Badge variant="secondary">{listing.competition1km || '—'}</Badge></TableCell>
-                          <TableCell><Badge variant="outline">{listing.zoning || '—'}</Badge></TableCell>
-                          <TableCell><Badge>+{listing.remainingRightsSqm ? fmtNumber(listing.remainingRightsSqm) : '—'} מ״ר</Badge></TableCell>
-                          <TableCell><Badge variant="secondary">{listing.program || '—'}</Badge></TableCell>
-                          <TableCell><Badge>{listing.lastPermitQ || '—'}</Badge></TableCell>
-                          <TableCell><Badge>{listing.noiseLevel}/5</Badge></TableCell>
-                          <TableCell>
-                            <Badge variant={listing.greenWithin300m ? 'good' : 'bad'}>
-                              {listing.greenWithin300m ? 'כן' : 'לא'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {listing.riskFlags && listing.riskFlags.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {listing.riskFlags.map((flag, i) => (
-                                  <Badge 
-                                    key={i} 
-                                    variant={flag.includes('שימור') ? 'bad' : flag.includes('אנטנה') ? 'warn' : 'default'}
-                                  >
-                                    {flag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <Badge variant="good">ללא</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-mono">{listing.modelPrice ? fmtCurrency(listing.modelPrice) : '—'}</TableCell>
-                          <TableCell>
-                            <Badge variant={listing.priceGapPct && listing.priceGapPct > 0 ? 'warn' : 'good'}>
-                              {listing.priceGapPct ? `${listing.priceGapPct > 0 ? '+' : ''}${listing.priceGapPct.toFixed(1)}%` : '—'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell><Badge>{listing.confidencePct}%</Badge></TableCell>
-                          <TableCell><Badge>{listing.capRatePct?.toFixed(1)}%</Badge></TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/listings/${listing.id}`}>
-                                צפה
-                              </Link>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
+              <Table className="min-w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right whitespace-nowrap">נכס</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">מחיר</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">₪/מ״ר</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Δ איזור</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">ימי שוק (אחוזון)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">תחרות</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">ייעוד</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">יתרת זכ׳</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">תכנית</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">היתר</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">רעש</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">שטחי ציבור</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">סיכון</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">מחיר מודל</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">פער</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">רמת ביטחון</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">תשואה</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">פעולות</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {listings.map((listing) => (
+                    <TableRow key={listing.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <div>
+                          <div className="font-semibold">
+                            <Link 
+                              href={`/listings/${listing.id}`}
+                              className="hover:text-primary transition-colors"
+                            >
+                              {listing.address}
+                            </Link>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {listing.city}{listing.neighborhood ? ` · ${listing.neighborhood}` : ''} · {listing.type === 'house' ? 'בית' : 'דירה'} · {listing.netSqm} מ״ר
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono">{fmtCurrency(listing.price)}</TableCell>
+                      <TableCell className="font-mono">{listing.pricePerSqm ? fmtNumber(listing.pricePerSqm) : '—'}</TableCell>
+                      <TableCell>
+                        <Badge variant={listing.deltaVsAreaPct && listing.deltaVsAreaPct >= 0 ? 'default' : 'destructive'}>
+                          {listing.deltaVsAreaPct ? `${listing.deltaVsAreaPct > 0 ? '+' : ''}${listing.deltaVsAreaPct}%` : '—'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell><Badge>P{listing.domPercentile || '—'}</Badge></TableCell>
+                      <TableCell><Badge variant="secondary">{listing.competition1km || '—'}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{listing.zoning || '—'}</Badge></TableCell>
+                      <TableCell><Badge>+{listing.remainingRightsSqm ? fmtNumber(listing.remainingRightsSqm) : '—'} מ״ר</Badge></TableCell>
+                      <TableCell><Badge variant="secondary">{listing.program || '—'}</Badge></TableCell>
+                      <TableCell><Badge>{listing.lastPermitQ || '—'}</Badge></TableCell>
+                      <TableCell><Badge>{listing.noiseLevel}/5</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant={listing.greenWithin300m ? 'good' : 'bad'}>
+                          {listing.greenWithin300m ? 'כן' : 'לא'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {listing.riskFlags && listing.riskFlags.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {listing.riskFlags.map((flag, i) => (
+                              <Badge 
+                                key={i} 
+                                variant={flag.includes('שימור') ? 'bad' : flag.includes('אנטנה') ? 'warn' : 'default'}
+                              >
+                                {flag}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <Badge variant="good">ללא</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono">{listing.modelPrice ? fmtCurrency(listing.modelPrice) : '—'}</TableCell>
+                      <TableCell>
+                        <Badge variant={listing.priceGapPct && listing.priceGapPct > 0 ? 'warn' : 'good'}>
+                          {listing.priceGapPct ? `${listing.priceGapPct > 0 ? '+' : ''}${listing.priceGapPct.toFixed(1)}%` : '—'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell><Badge>{listing.confidencePct}%</Badge></TableCell>
+                      <TableCell><Badge>{listing.capRatePct?.toFixed(1)}%</Badge></TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/listings/${listing.id}`}>
+                            צפה
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

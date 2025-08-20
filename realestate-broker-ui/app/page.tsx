@@ -189,40 +189,41 @@ export default function HomePage() {
               </Card>
             </Link>
 
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  לקוחות פעילים
-                </CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {fmtNumber(dashboardData.totalClients)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  +{Math.floor(Math.random() * 3) + 1} השבוע
-                </p>
-              </CardContent>
-            </Card>
+            <Link href="/reports" className="block">
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    דוחות
+                  </CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {fmtNumber(dashboardData.totalReports)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    סה&quot;כ דוחות במערכת
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
 
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  הכנסה חודשית
-                </CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {fmtCurrency(dashboardData.monthlyRevenue)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {dashboardData.marketTrend === "up" ? "+" : ""}
-                  {Math.floor(Math.random() * 15) + 5}% מהחודש שעבר
-                </p>
-              </CardContent>
-            </Card>
+                   ממוצע תשואה
+                 </CardTitle>
+                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
+               </CardHeader>
+               <CardContent>
+                 <div className="text-2xl font-bold">
+                   {dashboardData.averageReturn}%
+                 </div>
+                 <p className="text-xs text-muted-foreground">
+                   {Math.floor(Math.random() * 3) + 1}% מהחודש שעבר
+                 </p>
+               </CardContent>
+             </Card>
           </div>
 
           {/* Charts Section */}

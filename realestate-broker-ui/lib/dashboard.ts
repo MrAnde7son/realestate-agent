@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react'
 export interface DashboardData {
   totalListings: number
   activeAlerts: number
-  totalClients: number
-  monthlyRevenue: number
+  totalReports: number
+  averageReturn: number
   marketTrend: 'up' | 'down' | 'stable'
   recentActivity: Array<{
     id: string
@@ -104,6 +104,14 @@ export function useDashboardData() {
           activeAlerts = alerts.filter((alert: any) => alert.active).length
         }
 
+        // Process reports data
+        let totalReports = 0
+        if (reportsRes.status === 'fulfilled' && reportsRes.value.ok) {
+          const reportsData = await reportsRes.value.json()
+          const reports = reportsData.rows || reportsData.reports || []
+          totalReports = reports.length
+        }
+
         // Generate mock market data (replace with real API data)
         const months = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני']
         const marketData = months.map((month, index) => ({
@@ -146,8 +154,8 @@ export function useDashboardData() {
         const dashboardData: DashboardData = {
           totalListings,
           activeAlerts,
-          totalClients: Math.floor(Math.random() * 30) + 15, // Mock data
-          monthlyRevenue: Math.floor(Math.random() * 200000) + 100000, // Mock data
+          totalReports,
+          averageReturn: Math.floor(Math.random() * 8) + 4, // 4-12% return range
           marketTrend: 'up',
           recentActivity,
           marketData,

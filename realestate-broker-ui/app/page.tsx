@@ -20,7 +20,7 @@ export default function HomePage() {
       <DashboardShell>
         <DashboardHeader heading="בית" text="סקירה כללית של הפעילות והנתונים" />
         
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Link href="/listings" className="block">
             <Card className="cursor-pointer hover:bg-accent transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -118,9 +118,9 @@ export default function HomePage() {
         </div>
 
         {/* Simple Charts Section - Using CSS instead of Recharts for now */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
           {/* Price Trend Chart - Simple CSS Bar Chart */}
-          <Card className="col-span-4">
+          <Card className="col-span-full lg:col-span-4">
             <CardHeader>
               <CardTitle>מגמת מחירים - 6 חודשים אחרונים</CardTitle>
             </CardHeader>
@@ -158,7 +158,7 @@ export default function HomePage() {
           </Card>
 
           {/* Property Type Distribution - Simple CSS Pie Chart */}
-          <Card className="col-span-3">
+          <Card className="col-span-full lg:col-span-3">
             <CardHeader>
               <CardTitle>התפלגות סוגי נכסים</CardTitle>
             </CardHeader>
@@ -195,9 +195,9 @@ export default function HomePage() {
         </div>
 
         {/* Additional Charts */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
           {/* Market Activity Chart - Simple CSS Bar Chart */}
-          <Card className="col-span-4">
+          <Card className="col-span-full lg:col-span-4">
             <CardHeader>
               <CardTitle>פעילות שוק לפי אזור</CardTitle>
             </CardHeader>
@@ -231,7 +231,7 @@ export default function HomePage() {
           </Card>
 
           {/* ROI Trend Chart - Simple CSS Line Chart */}
-          <Card className="col-span-3">
+          <Card className="col-span-full lg:col-span-3">
             <CardHeader>
               <CardTitle>מגמת ROI</CardTitle>
             </CardHeader>
@@ -263,7 +263,7 @@ export default function HomePage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4">
+          <Card className="col-span-full lg:col-span-4">
             <CardHeader>
               <CardTitle>נכסים במעקב</CardTitle>
             </CardHeader>
@@ -299,7 +299,7 @@ export default function HomePage() {
             </CardContent>
           </Card>
           
-          <Card className="col-span-3">
+          <Card className="col-span-full lg:col-span-3">
             <CardHeader>
               <CardTitle>פעולות מהירות</CardTitle>
             </CardHeader>

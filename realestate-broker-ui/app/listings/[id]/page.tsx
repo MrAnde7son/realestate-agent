@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import DashboardLayout from '@/components/layout/dashboard-layout'
+import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
 
@@ -71,7 +72,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
   if (loading || !listing) {
     return (
       <DashboardLayout>
-        <div className="p-6">
+        <DashboardShell>
           <div className="flex items-center gap-2 mb-4">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/listings">
@@ -81,7 +82,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Button>
           </div>
           <PageLoader message="טוען נתוני נכס..." showLogo={false} />
-        </div>
+        </DashboardShell>
       </DashboardLayout>
     )
   }
@@ -147,30 +148,27 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/listings">
-                <ArrowLeft className="h-4 w-4" />
-                חזרה לרשימה
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">{listing.address}</h1>
-              <p className="text-muted-foreground">
-                {listing.city}{listing.neighborhood ? ` · ${listing.neighborhood}` : ''} · 
-                {listing.type === 'house' ? ' בית' : ' דירה'} · {listing.netSqm} מ״ר נטו
-              </p>
-            </div>
-          </div>
+      <DashboardShell className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/listings">
+              <ArrowLeft className="h-4 w-4" />
+              חזרה לרשימה
+            </Link>
+          </Button>
+        </div>
+        <DashboardHeader
+          heading={listing.address}
+          text={`${listing.city}${listing.neighborhood ? ` · ${listing.neighborhood}` : ''} · ${
+            listing.type === 'house' ? ' בית' : ' דירה'
+          } · ${listing.netSqm} מ״ר נטו`}
+        >
           <div className="text-right space-y-2">
             <div className="text-3xl font-bold">₪{listing.price?.toLocaleString('he-IL')}</div>
             <div className="text-muted-foreground">₪{listing.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
             <div className="flex gap-2">
               <Button
-                size="sm" 
+                size="sm"
                 variant="outline"
                 onClick={handleSyncData}
                 disabled={syncing}
@@ -209,10 +207,10 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               <div className="text-sm text-muted-foreground">{syncMessage}</div>
             )}
           </div>
-        </div>
+        </DashboardHeader>
 
         {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-4">
           <Card>
             <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">רמת ביטחון</div>
@@ -240,19 +238,19 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="analysis" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
-            <TabsTrigger value="permits">היתרים</TabsTrigger>
-            <TabsTrigger value="plans">תוכניות</TabsTrigger>
-            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
-            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
-            <TabsTrigger value="environment">סביבה</TabsTrigger>
-            <TabsTrigger value="documents">מסמכים</TabsTrigger>
+        <Tabs defaultValue="analysis" className="space-y-6">
+          <TabsList className="justify-start overflow-x-auto">
+            <TabsTrigger className="flex-none" value="analysis">ניתוח כללי</TabsTrigger>
+            <TabsTrigger className="flex-none" value="permits">היתרים</TabsTrigger>
+            <TabsTrigger className="flex-none" value="plans">תוכניות</TabsTrigger>
+            <TabsTrigger className="flex-none" value="transactions">עיסקאות השוואה</TabsTrigger>
+            <TabsTrigger className="flex-none" value="appraisals">שומות באיזור</TabsTrigger>
+            <TabsTrigger className="flex-none" value="environment">סביבה</TabsTrigger>
+            <TabsTrigger className="flex-none" value="documents">מסמכים</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="analysis" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+          <TabsContent value="analysis" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>פרטי הנכס</CardTitle>
@@ -322,7 +320,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <span>ציון כללי:</span>
                     <div className="flex items-center gap-2">
                       <div className="text-2xl font-bold">{Math.round((listing.confidencePct + (listing.capRatePct * 20) + (listing.priceGapPct < 0 ? 100 + listing.priceGapPct : 100 - listing.priceGapPct)) / 3)}</div>
@@ -339,8 +337,8 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Card>
           </TabsContent>
 
-          <TabsContent value="plans" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+          <TabsContent value="plans" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>תוכניות מקומיות ומפורטות</CardTitle>
@@ -399,7 +397,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                 <CardTitle>זכויות בנייה מפורטות</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-6 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold">{listing.remainingRightsSqm}</div>
                     <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
@@ -417,13 +415,13 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Card>
           </TabsContent>
 
-          <TabsContent value="environment" className="space-y-4">
+          <TabsContent value="environment" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>מידע סביבתי</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-6 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold">{listing.noiseLevel}/5</div>
                     <div className="text-sm text-muted-foreground">רמת רעש</div>
@@ -461,8 +459,8 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Card>
           </TabsContent>
 
-          <TabsContent value="permits" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+          <TabsContent value="permits" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>היתרי בנייה באזור</CardTitle>
@@ -536,13 +534,13 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Card>
           </TabsContent>
 
-          <TabsContent value="transactions" className="space-y-4">
+          <TabsContent value="transactions" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>עיסקאות השוואה</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-6 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold">₪{listing.pricePerSqm?.toLocaleString('he-IL')}</div>
                     <div className="text-sm text-muted-foreground">מחיר למ״ר - נכס זה</div>
@@ -607,13 +605,13 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Card>
           </TabsContent>
 
-          <TabsContent value="appraisals" className="space-y-4">
+          <TabsContent value="appraisals" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-6 md:grid-cols-2">
                   <div>
                     <h3 className="font-medium mb-2">הכרעות שמאי</h3>
                     <div className="space-y-2">
@@ -644,7 +642,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                     <CardTitle>השוואת שומות</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-6 md:grid-cols-3">
                       <div className="text-center">
                         <div className="text-2xl font-bold">₪2.8M</div>
                         <div className="text-sm text-muted-foreground">הכרעת שמאי</div>
@@ -664,7 +662,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
             </Card>
           </TabsContent>
 
-          <TabsContent value="documents" className="space-y-4">
+          <TabsContent value="documents" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>מסמכים</CardTitle>
@@ -823,8 +821,8 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               </CardContent>
             </Card>
           </TabsContent>
-    </Tabs>
-      </div>
+        </Tabs>
+      </DashboardShell>
     </DashboardLayout>
   )
 }

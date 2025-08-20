@@ -20,7 +20,4 @@ export default defineConfig({
     'process.env.NODE_ENV': '"test"',
     '__vite_ssr_exportName__': 'undefined',
   },
-  testEnvironmentOptions: {
-    customExportConditions: ['node', 'node-addons'],
-  },
 })

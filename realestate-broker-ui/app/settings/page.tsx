@@ -19,7 +19,7 @@ export default function SettingsPage() {
           text="התאם את המערכת לצרכים שלך" 
         />
         
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
           {/* Main Settings */}
           <div className="lg:col-span-2 space-y-6">
             {/* General Settings */}
@@ -34,7 +34,7 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="language">שפה</Label>
                     <Select defaultValue="he">

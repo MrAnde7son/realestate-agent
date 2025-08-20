@@ -18,7 +18,7 @@ export default function ProfilePage() {
           text="נהל את המידע האישי והגדרות החשבון שלך" 
         />
         
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
           {/* Profile Information */}
           <div className="lg:col-span-2 space-y-6">
             <Card>
@@ -29,20 +29,20 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   <Avatar className="h-20 w-20">
                     <AvatarImage src="/avatars/01.png" alt="User" />
                     <AvatarFallback className="text-lg">משתמש</AvatarFallback>
                   </Avatar>
-                  <div>
+                  <div className="space-y-2">
                     <Button variant="outline">שנה תמונה</Button>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground">
                       JPG, PNG או GIF עד 2MB
                     </p>
                   </div>
                 </div>
                 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">שם פרטי</Label>
                     <Input id="firstName" defaultValue="משתמש" />

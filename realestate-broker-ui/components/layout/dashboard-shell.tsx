@@ -9,7 +9,7 @@ export function DashboardShell({
   ...props
 }: DashboardShellProps) {
   return (
-    <div className={cn("flex-1 space-y-4 p-4 md:p-8 pt-6", className)} {...props}>
+    <div className={cn("flex-1 space-y-4 p-4 md:p-8 pt-6 pb-20 md:pb-8 min-h-full", className)} {...props}>
       {children}
     </div>
   )
@@ -29,8 +29,8 @@ export function DashboardHeader({
   return (
     <div className="flex items-center justify-between px-2">
       <div className="grid gap-1">
-        <h1 className="font-bold text-3xl md:text-4xl">{heading}</h1>
-        {text && <p className="text-lg text-muted-foreground">{text}</p>}
+        <h1 className="font-bold text-2xl md:text-3xl lg:text-4xl">{heading}</h1>
+        {text && <p className="text-base md:text-lg text-muted-foreground">{text}</p>}
       </div>
       {children}
     </div>

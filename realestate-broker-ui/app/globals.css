@@ -93,10 +93,68 @@
 @layer base {
   * {
     @apply border-border;
+    /* Ensure proper touch behavior on mobile */
+    touch-action: pan-y;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Ensure proper mobile scrolling */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    /* Prevent mobile zoom issues */
+    touch-action: pan-y;
+  }
+  
+  /* Mobile-specific scrolling improvements */
+  @media (max-width: 768px) {
+    html, body {
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    /* Ensure main content can scroll on mobile */
+    main {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+    }
+    
+    /* Ensure the main content wrapper is properly sized */
+    main > div {
+      min-height: 100%;
+      width: 100%;
+    }
+    
+    /* Fix for mobile grid layouts */
+    .grid {
+      grid-template-columns: 1fr;
+    }
+    
+    /* Ensure proper touch scrolling on mobile */
+    .overflow-y-auto {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    
+    /* Prevent horizontal scrolling on mobile */
+    .overflow-x-hidden {
+      overflow-x: hidden;
+    }
+    
+    /* Ensure proper mobile spacing */
+    .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 1rem;
+    }
+    
+    .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 1.5rem;
+    }
+    
+    /* Fix mobile card layouts */
+    .card {
+      margin-bottom: 1rem;
+    }
   }
   
   /* RTL Support */

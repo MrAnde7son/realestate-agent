@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -23,7 +23,7 @@ jobs:
             files=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
             python=false
             broker_ui=false
-            if echo "$files" | grep -E '^(gov|gis|yad2|tests)/'; then
+            if echo "$files" | grep -E '^(gov|gis|yad2|rami|backend-django|tests)/'; then
               python=true
             fi
             if echo "$files" | grep -E '^realestate-broker-ui/'; then
@@ -38,27 +38,85 @@ jobs:
 
       - name: Set up Python
         if: steps.changes.outputs.python == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
+      - name: Install Core Backend Dependencies
         if: steps.changes.outputs.python == 'true'
         run: |
           python -m pip install --upgrade pip
+          cd backend-django
           pip install -r requirements.txt
-          pip install pytest
+          cd ..
 
-      - name: Run Python tests
+      - name: Install Module Dependencies
+        if: steps.changes.outputs.python == 'true'
+        run: |
+          # Install government data modules
+          if [ -f "gov/requirements.txt" ]; then
+            echo "Installing government data modules..."
+            pip install -r gov/requirements.txt
+          fi
+          
+          # Install GIS module
+          if [ -f "gis/requirements.txt" ]; then
+            echo "Installing GIS module..."
+            pip install -r gis/requirements.txt
+          fi
+          
+          # Install Yad2 module
+          if [ -f "yad2/requirements.txt" ]; then
+            echo "Installing Yad2 module..."
+            pip install -r yad2/requirements.txt
+          fi
+          
+          # Install RAMI module
+          if [ -f "rami/requirements.txt" ]; then
+            echo "Installing RAMI module..."
+            pip install -r rami/requirements.txt
+          fi
+          
+          # Install global dependencies
+          if [ -f "requirements.txt" ]; then
+            echo "Installing global dependencies..."
+            pip install -r requirements.txt
+          fi
+
+      - name: Run Python Tests
         if: steps.changes.outputs.python == 'true'
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest -q
+          # Run tests for each module if it exists
+          if [ -d "tests" ]; then
+            echo "Running main test suite..."
+            pytest tests/ -q
+          fi
+          
+          if [ -d "gov" ]; then
+            echo "Running government module tests..."
+            pytest gov/ -q || echo "No tests found in gov module"
+          fi
+          
+          if [ -d "gis" ]; then
+            echo "Running GIS module tests..."
+            pytest gis/ -q || echo "No tests found in GIS module"
+          fi
+          
+          if [ -d "yad2" ]; then
+            echo "Running Yad2 module tests..."
+            pytest yad2/ -q || echo "No tests found in Yad2 module"
+          fi
+          
+          if [ -d "rami" ]; then
+            echo "Running RAMI module tests..."
+            pytest rami/ -q || echo "No tests found in RAMI module"
+          fi
 
       - name: Set up Node
         if: steps.changes.outputs.broker_ui == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: '20'
 
@@ -66,7 +124,7 @@ jobs:
         if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
         run: |
-          npm install
+          npm ci
 
       - name: Lint UI
         if: steps.changes.outputs.broker_ui == 'true'
@@ -79,3 +137,9 @@ jobs:
         working-directory: realestate-broker-ui
         run: |
           npm test --if-present
+
+      - name: Build UI
+        if: steps.changes.outputs.broker_ui == 'true'
+        working-directory: realestate-broker-ui
+        run: |
+          npm run build

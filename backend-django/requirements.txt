@@ -1,10 +1,39 @@
+# Core Django Backend Requirements
+# ================================
+
+# Django Framework
 Django>=3.2.0,<4.3.0
 djangorestframework>=3.12.0
 djangorestframework-simplejwt>=5.0.0
 django-cors-headers>=3.10.0
-requests>=2.25.0
+
+# Environment & Configuration
 python-decouple>=3.6
-# Celery (optional)
+python-dotenv>=0.19.0
+
+# HTTP Requests (for external APIs)
+requests>=2.25.0
+
+# Database
+# SQLite is included with Django by default
+# For production, uncomment one of these:
+# psycopg2-binary>=2.9.0  # PostgreSQL
+# mysqlclient>=2.0.0      # MySQL
+
+# Development & Testing
+# Uncomment for development:
+# django-debug-toolbar>=3.2.0
+# pytest-django>=4.4.0
+
+# Production (uncomment as needed)
+# gunicorn>=20.1.0
+# whitenoise>=6.0.0
+# django-storages>=1.11.0
+
+# Optional: Background Tasks (uncomment if needed)
 # celery>=5.2.0
 # redis>=4.0.0
+
+# Optional: PDF Generation (uncomment if needed)
 # reportlab>=3.6.0
+# PyPDF2>=2.0.0

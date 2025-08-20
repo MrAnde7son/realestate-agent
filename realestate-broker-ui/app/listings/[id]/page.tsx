@@ -147,10 +147,10 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/listings">
                 <ArrowLeft className="h-4 w-4" />
@@ -241,14 +241,14 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="analysis" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
-            <TabsTrigger value="permits">היתרים</TabsTrigger>
-            <TabsTrigger value="plans">תוכניות</TabsTrigger>
-            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
-            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
-            <TabsTrigger value="environment">סביבה</TabsTrigger>
-            <TabsTrigger value="documents">מסמכים</TabsTrigger>
+          <TabsList className="justify-start overflow-x-auto">
+            <TabsTrigger className="flex-none" value="analysis">ניתוח כללי</TabsTrigger>
+            <TabsTrigger className="flex-none" value="permits">היתרים</TabsTrigger>
+            <TabsTrigger className="flex-none" value="plans">תוכניות</TabsTrigger>
+            <TabsTrigger className="flex-none" value="transactions">עיסקאות השוואה</TabsTrigger>
+            <TabsTrigger className="flex-none" value="appraisals">שומות באיזור</TabsTrigger>
+            <TabsTrigger className="flex-none" value="environment">סביבה</TabsTrigger>
+            <TabsTrigger className="flex-none" value="documents">מסמכים</TabsTrigger>
           </TabsList>
 
           <TabsContent value="analysis" className="space-y-4">
@@ -322,7 +322,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <span>ציון כללי:</span>
                     <div className="flex items-center gap-2">
                       <div className="text-2xl font-bold">{Math.round((listing.confidencePct + (listing.capRatePct * 20) + (listing.priceGapPct < 0 ? 100 + listing.priceGapPct : 100 - listing.priceGapPct)) / 3)}</div>

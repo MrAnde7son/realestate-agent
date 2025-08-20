@@ -8,17 +8,23 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 import Logo from "@/components/Logo"
 import AppSidebar from "./app-sidebar"
 import { GlobalSearch } from "./global-search"
+import { usePathname } from "next/navigation"
 
 interface HeaderProps {
   onToggleSidebar?: () => void
 }
 
 export default function Header({ onToggleSidebar }: HeaderProps) {
+  const [open, setOpen] = React.useState(false)
+  const pathname = usePathname()
+
+  React.useEffect(() => setOpen(false), [pathname])
+
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-6">
+    <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-background px-6">
       <div className="flex items-center space-x-4">
         {/* Mobile menu trigger */}
-        <Sheet>
+        <Sheet key={pathname} open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="md:hidden">
               <Menu className="h-5 w-5" />
@@ -31,9 +37,9 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         </Sheet>
 
         {/* Desktop sidebar toggle */}
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="hidden md:flex"
           onClick={onToggleSidebar}
         >

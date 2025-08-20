@@ -25,7 +25,13 @@ describe('ReportsPage', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<ReportsPage />);
-    expect(await screen.findByText('Demo St 1')).toBeInTheDocument();
+    
+    // Wait for the report address to appear in the main link
+    const reportLink = await screen.findByRole('link', { name: 'Demo St 1' });
+    expect(reportLink).toBeInTheDocument();
+    expect(reportLink).toHaveAttribute('href', '/listings/l1');
+    
+    // Verify the API was called
     expect(fetchMock).toHaveBeenCalledWith('/api/reports');
   });
 });

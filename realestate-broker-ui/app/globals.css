@@ -195,6 +195,50 @@
       min-height: 48px;
       touch-action: manipulation;
     }
+    
+    /* Table horizontal scrolling improvements */
+    .overflow-x-auto {
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: hsl(var(--muted)) transparent;
+      /* Ensure proper scrolling on all devices */
+      overscroll-behavior-x: contain;
+    }
+    
+    .overflow-x-auto::-webkit-scrollbar {
+      height: 8px;
+    }
+    
+    .overflow-x-auto::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    .overflow-x-auto::-webkit-scrollbar-thumb {
+      background-color: hsl(var(--muted));
+      border-radius: 4px;
+    }
+    
+    .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+      background-color: hsl(var(--muted-foreground));
+    }
+    
+    /* Ensure table cells don't wrap unnecessarily */
+    .whitespace-nowrap {
+      white-space: nowrap;
+    }
+    
+    /* Table container improvements */
+    .table-container {
+      position: relative;
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    
+    /* Ensure table has minimum width for proper scrolling */
+    .table-scroll {
+      min-width: max-content;
+    }
   }
   
   /* RTL Support */

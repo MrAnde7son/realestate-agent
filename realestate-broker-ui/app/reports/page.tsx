@@ -98,93 +98,97 @@ export default function ReportsPage() {
               דוחות נכסים
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-xl border border-[var(--border)] bg-[linear-gradient(180deg,var(--panel),var(--card))] overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">נכס</TableHead>
-                    <TableHead className="text-right">סוג דוח</TableHead>
-                    <TableHead className="text-right">סטטוס</TableHead>
-                    <TableHead className="text-right">נוצר ב</TableHead>
-                    <TableHead className="text-right">פעולות</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayReports.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        <div className="flex flex-col items-center gap-2">
-                          <FileText className="h-8 w-8 opacity-50" />
-                          <p>אין דוחות זמינים</p>
-                          <p className="text-sm">דוחות יופיעו כאן לאחר שייווצרו</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    displayReports.map(report => (
-                      <TableRow key={report.id} className="hover:bg-muted/50">
-                        <TableCell>
-                          <div>
-                            <div className="font-semibold">
-                              <Link 
-                                href={`/listings/${report.listingId}`}
-                                className="hover:text-primary transition-colors"
-                              >
-                                {report.address}
-                              </Link>
-                            </div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {report.address}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {report.type || 'דוח כללי'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="good">
-                            {report.status || 'הושלם'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">
-                              {new Date(report.createdAt).toLocaleDateString('he-IL', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2 justify-end">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/reports/${report.filename}`} target="_blank">
-                                <Eye className="h-4 w-4 ml-2" />
-                                תצוגה
-                              </Link>
-                            </Button>
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={`/reports/${report.filename}`} download>
-                                <Download className="h-4 w-4 ml-2" />
-                                הורדה
-                              </a>
-                            </Button>
-                          </div>
-                        </TableCell>
+          <CardContent className="p-0">
+            <div className="w-full overflow-x-auto">
+              <div className="min-w-full inline-block align-middle">
+                <div className="overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right whitespace-nowrap">נכס</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">סוג דוח</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">סטטוס</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">נוצר ב</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">פעולות</TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {displayReports.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            <div className="flex flex-col items-center gap-2">
+                              <FileText className="h-8 w-8 opacity-50" />
+                              <p>אין דוחות זמינים</p>
+                              <p className="text-sm">דוחות יופיעו כאן לאחר שייווצרו</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        displayReports.map(report => (
+                          <TableRow key={report.id} className="hover:bg-muted/50">
+                            <TableCell>
+                              <div>
+                                <div className="font-semibold">
+                                  <Link 
+                                    href={`/listings/${report.listingId}`}
+                                    className="hover:text-primary transition-colors"
+                                  >
+                                    {report.address}
+                                  </Link>
+                                </div>
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  <span>פרטי הנכס</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {report.type || 'דוח כללי'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="good">
+                                {report.status || 'הושלם'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm">
+                                  {new Date(report.createdAt).toLocaleDateString('he-IL', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2 justify-end">
+                                <Button variant="ghost" size="sm" asChild>
+                                  <Link href={`/reports/${report.filename}`} target="_blank">
+                                    <Eye className="h-4 w-4 ml-2" />
+                                    תצוגה
+                                  </Link>
+                                </Button>
+                                <Button variant="outline" size="sm" asChild>
+                                  <a href={`/reports/${report.filename}`} download>
+                                    <Download className="h-4 w-4 ml-2" />
+                                    הורדה
+                                  </a>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

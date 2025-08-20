@@ -62,5 +62,16 @@
     "tailwindcss": "^3.4.4",
     "typescript": "5.7.2",
     "vitest": "^2.1.4"
+  },
+  "resolutions": {
+    "vite": "^7.0.0"
+  },
+  "overrides": {
+    "vite": "^7.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "vite": "^7.0.0"
+    }
   }
 }

@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Globe, Bell, Shield, Palette, Database, Zap } from 'lucide-react'
+import OptionRow from '@/components/option-row'
 
 export default function SettingsPage() {
   return (
@@ -103,39 +104,27 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות בדוא״ל</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות על שינויים במחירים ועדכונים
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                
+                <OptionRow
+                  title="התראות בדוא״ל"
+                  description="קבל התראות על שינויים במחירים ועדכונים"
+                  action={<Switch defaultChecked />}
+                />
+
                 <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות בווטסאפ</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות מיידיות בווטסאפ
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-                
+
+                <OptionRow
+                  title="התראות בווטסאפ"
+                  description="קבל התראות מיידיות בווטסאפ"
+                  action={<Switch />}
+                />
+
                 <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות דחופות</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות על עסקאות דחופות
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
+
+                <OptionRow
+                  title="התראות דחופות"
+                  description="קבל התראות על עסקאות דחופות"
+                  action={<Switch defaultChecked />}
+                />
                 
                 <Separator />
                 
@@ -168,27 +157,19 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">אימות דו-שלבי</p>
-                    <p className="text-sm text-muted-foreground">
-                      הוסף שכבת אבטחה נוספת לחשבון שלך
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-                
+                <OptionRow
+                  title="אימות דו-שלבי"
+                  description="הוסף שכבת אבטחה נוספת לחשבון שלך"
+                  action={<Switch />}
+                />
+
                 <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות כניסה</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראה בכל כניסה לחשבון
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
+
+                <OptionRow
+                  title="התראות כניסה"
+                  description="קבל התראה בכל כניסה לחשבון"
+                  action={<Switch defaultChecked />}
+                />
                 
                 <Separator />
                 
@@ -221,27 +202,19 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">גיבוי אוטומטי</p>
-                    <p className="text-sm text-muted-foreground">
-                      גבה את הנתונים שלך אוטומטית
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                
+                <OptionRow
+                  title="גיבוי אוטומטי"
+                  description="גבה את הנתונים שלך אוטומטית"
+                  action={<Switch defaultChecked />}
+                />
+
                 <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">סנכרון בין מכשירים</p>
-                    <p className="text-sm text-muted-foreground">
-                      סנכרן נתונים בין כל המכשירים שלך
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
+
+                <OptionRow
+                  title="סנכרון בין מכשירים"
+                  description="סנכרן נתונים בין כל המכשירים שלך"
+                  action={<Switch defaultChecked />}
+                />
                 
                 <Separator />
                 
@@ -328,7 +301,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Save Button */}
-        <div className="flex justify-end mt-6">
+        <div className="flex justify-center sm:justify-end mt-6">
           <Button size="lg">שמור הגדרות</Button>
         </div>
       </DashboardShell>

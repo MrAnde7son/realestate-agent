@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { User, Mail, Phone, MapPin, Building, Shield, Key, Star } from 'lucide-react'
+import OptionRow from '@/components/option-row'
 
 export default function ProfilePage() {
   return (
@@ -29,12 +30,12 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-center gap-4">
                   <Avatar className="h-20 w-20">
                     <AvatarImage src="/avatars/01.png" alt="User" />
                     <AvatarFallback className="text-lg">משתמש</AvatarFallback>
                   </Avatar>
-                  <div>
+                  <div className="text-center sm:text-left">
                     <Button variant="outline">שנה תמונה</Button>
                     <p className="text-sm text-muted-foreground mt-1">
                       JPG, PNG או GIF עד 2MB
@@ -74,7 +75,7 @@ export default function ProfilePage() {
                   <Input id="address" defaultValue="רחוב הרצל 123, תל אביב" />
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button>שמור שינויים</Button>
                   <Button variant="outline">בטל</Button>
                 </div>
@@ -89,45 +90,27 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות בדוא״ל</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות על שינויים במחירים ועדכונים
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    הפעל
-                  </Button>
-                </div>
-                
+                <OptionRow
+                  title="התראות בדוא״ל"
+                  description="קבל התראות על שינויים במחירים ועדכונים"
+                  action={<Button variant="outline" size="sm">הפעל</Button>}
+                />
+
                 <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות בווטסאפ</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות מיידיות בווטסאפ
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    הפעל
-                  </Button>
-                </div>
-                
+
+                <OptionRow
+                  title="התראות בווטסאפ"
+                  description="קבל התראות מיידיות בווטסאפ"
+                  action={<Button variant="outline" size="sm">הפעל</Button>}
+                />
+
                 <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות דחופות</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות על עסקאות דחופות
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    הפעל
-                  </Button>
-                </div>
+
+                <OptionRow
+                  title="התראות דחופות"
+                  description="קבל התראות על עסקאות דחופות"
+                  action={<Button variant="outline" size="sm">הפעל</Button>}
+                />
               </CardContent>
             </Card>
           </div>

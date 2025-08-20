@@ -69,7 +69,7 @@ export default function AppSidebar({ className, isCollapsed = false }: AppSideba
         <Link href="/" className="flex items-center gap-3">
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
           {!isCollapsed && (
-            <span className="text-xl font-bold text-brand-slate">נדל״נר</span>
+            <span className="text-xl font-bold text-logo-title">נדל״נר</span>
           )}
         </Link>
       </div>

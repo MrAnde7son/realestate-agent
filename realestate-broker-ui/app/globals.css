@@ -9,6 +9,8 @@
     /* Nadlanar Brand Colors */
     --brand-teal: #12b3a6;
     --brand-slate: #0f172a;
+    --brand-slate-light: #0f172a;
+    --brand-slate-dark: #f8fafc;
     --brand-ink: #1f2937;
     --brand-blue: #2563eb;
     --brand-green: #16a34a;
@@ -87,6 +89,9 @@
     --sub: #a6aab5;
     --chip: #1f2330;
     --border: #262a35;
+    
+    /* Brand colors for dark mode */
+    --brand-slate: #f8fafc;
   }
 }
 
@@ -246,10 +251,19 @@
 /* Brand Color Utilities */
 .text-brand-teal { color: var(--brand-teal); }
 .text-brand-slate { color: var(--brand-slate); }
+.text-brand-slate-light { color: var(--brand-slate-light); }
+.text-brand-slate-dark { color: var(--brand-slate-dark); }
 .text-brand-ink { color: var(--brand-ink); }
 .text-brand-blue { color: var(--brand-blue); }
 .text-brand-green { color: var(--brand-green); }
 .text-brand-gray { color: var(--brand-gray); }
+
+/* Logo title that adapts to theme */
+.text-logo-title { 
+  color: hsl(var(--foreground));
+  transition: color 0.2s ease-in-out;
+  font-weight: 700;
+}
 
 .bg-brand-teal { background-color: var(--brand-teal); }
 .bg-brand-slate { background-color: var(--brand-slate); }

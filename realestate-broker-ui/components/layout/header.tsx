@@ -58,7 +58,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               <div className="flex h-16 items-center border-b px-6">
                 <Link href="/" className="flex items-center gap-3" onClick={() => setMobileSidebarOpen(false)}>
                   <Logo variant="symbol" size={28} color="var(--brand-teal)" />
-                  <span className="text-xl font-bold text-brand-slate">נדל״נר</span>
+                  <span className="text-xl font-bold text-logo-title">נדל״נר</span>
                 </Link>
               </div>
 
@@ -130,7 +130,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
           <Logo variant="horizontal" size={32} color="var(--brand-teal)" />
-          <div className="hidden xl:block text-sm text-muted-foreground">
+          <div className="hidden xl:block text-sm text-logo-title">
             נדל״ן חכם לשמאים, מתווכים ומשקיעים
           </div>
         </div>

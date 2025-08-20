@@ -340,6 +340,31 @@
   font-weight: 700;
 }
 
+/* Clickable table row styles */
+.clickable-row {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.clickable-row:hover {
+  background-color: hsl(var(--muted) / 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.clickable-row:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Prevent text selection on clickable rows */
+.clickable-row {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
 .bg-brand-teal { background-color: var(--brand-teal); }
 .bg-brand-slate { background-color: var(--brand-slate); }
 .bg-brand-ink { background-color: var(--brand-ink); }

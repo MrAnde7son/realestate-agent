@@ -195,16 +195,15 @@ export default function ListingsPage() {
                 </TableHeader>
                 <TableBody>
                   {listings.map((listing) => (
-                    <TableRow key={listing.id} className="hover:bg-muted/50">
+                    <TableRow 
+                      key={listing.id} 
+                      className="hover:bg-muted/50 cursor-pointer group clickable-row"
+                      onClick={() => window.open(`/listings/${listing.id}`, '_self')}
+                    >
                       <TableCell>
                         <div>
-                          <div className="font-semibold">
-                            <Link 
-                              href={`/listings/${listing.id}`}
-                              className="hover:text-primary transition-colors"
-                            >
-                              {listing.address}
-                            </Link>
+                          <div className="font-semibold group-hover:text-primary transition-colors">
+                            {listing.address}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {listing.city}{listing.neighborhood ? ` · ${listing.neighborhood}` : ''} · {listing.type === 'house' ? 'בית' : 'דירה'} · {listing.netSqm} מ״ר
@@ -254,7 +253,7 @@ export default function ListingsPage() {
                       </TableCell>
                       <TableCell><Badge>{listing.confidencePct}%</Badge></TableCell>
                       <TableCell><Badge>{listing.capRatePct?.toFixed(1)}%</Badge></TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/listings/${listing.id}`}>
                             צפה

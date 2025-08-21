@@ -1,0 +1,9 @@
+services:
+  - type: static
+    name: realestate-broker-ui
+    rootDir: realestate-broker-ui
+    buildCommand: npm run build
+    publishPath: out
+    envVars:
+      - key: BACKEND_URL
+        value: https://your-backend-service.onrender.com

@@ -24,6 +24,15 @@ export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get('access_token')?.value
   const refreshToken = request.cookies.get('refresh_token')?.value
   
+  // Debug logging
+  console.log(`🔍 Middleware: ${pathname}`, {
+    isProtectedRoute,
+    isAuthRoute,
+    hasAccessToken: !!accessToken,
+    hasRefreshToken: !!refreshToken,
+    cookies: request.cookies.getAll().map(c => c.name)
+  })
+  
   // Check if we have a valid token (either access or refresh token)
   const hasValidToken = accessToken || refreshToken
   

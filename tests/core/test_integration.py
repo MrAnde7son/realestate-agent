@@ -13,55 +13,8 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
 
-# Try to import the modules, create mocks if they're not available
-try:
-    from backend_django.core.tasks import sync_address_sources
-    BACKEND_DJANGO_AVAILABLE = True
-    print("✅ backend_django.core.tasks imported successfully")
-except ImportError as e:
-    print(f"⚠️  backend_django.core.tasks not available, creating mocks: {e}")
-    
-    # Create mock implementations for testing
-    def mock_sync_address_sources(street: str, house_number: int):
-        """Mock implementation of sync_address_sources for testing."""
-        return [
-            {
-                "id": "mock_123",
-                "address": f"{street} {house_number}",
-                "city": "תל אביב",
-                "rooms": 3,
-                "price": 2500000,
-                "confidence": 85,
-                "riskFlags": [],
-                "remaining_rights": 45,
-                "link": "http://example.com/mock"
-            }
-        ]
-    
-    # Inject the mock into the global namespace
-    sync_address_sources = mock_sync_address_sources
-    BACKEND_DJANGO_AVAILABLE = True
-    print("✅ Created mock sync_address_sources")
-
-try:
-    from backend_django.core.views import sync_address
-    BACKEND_DJANGO_VIEWS_AVAILABLE = True
-    print("✅ backend_django.core.views imported successfully")
-except ImportError:
-    print("⚠️  backend_django.core.views not available, creating mocks")
-    
-    # Create mock view function
-    def mock_sync_address(request):
-        """Mock implementation of sync_address view for testing."""
-        from unittest.mock import Mock
-        response = Mock()
-        response.status_code = 200
-        response.content = b'{"rows": [{"id": "mock", "address": "test"}]}'
-        return response
-    
-    sync_address = mock_sync_address
-    BACKEND_DJANGO_VIEWS_AVAILABLE = True
-    print("✅ Created mock sync_address view")
+from backend_django.core.tasks import sync_address_sources
+from backend_django.core.views import sync_address
 
 
 class TestAddressSyncIntegration:

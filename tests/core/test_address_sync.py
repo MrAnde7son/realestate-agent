@@ -11,21 +11,15 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
 
-# Try to import the modules, create mocks if they're not available
-try:
-    from backend_django.core.tasks import (
-        sync_address_sources,
-        pull_new_listings,
-        pull_gis_permits,
-        pull_gis_rights,
-        pull_decisive_appraisals,
-        pull_rami_valuations,
-        _parse_street_number,
-    )
-    BACKEND_DJANGO_AVAILABLE = True
-    print("✅ backend_django.core.tasks imported successfully")
-except ImportError as e:
-    print(f"⚠️  backend_django.core.tasks not available, creating mocks: {e}")
+from backend_django.core.tasks import (
+    sync_address_sources,
+    pull_new_listings,
+    pull_gis_permits,
+    pull_gis_rights,
+    pull_decisive_appraisals,
+    pull_rami_valuations,
+    _parse_street_number,
+)
     
     # Create mock implementations for testing
     def mock_parse_street_number(address: str):
@@ -126,7 +120,6 @@ except ImportError as e:
     pull_gis_rights = mock_pull_gis_rights
     pull_decisive_appraisals = mock_pull_decisive_appraisals
     pull_rami_valuations = mock_pull_rami_valuations
-    BACKEND_DJANGO_AVAILABLE = True
     print("✅ Created mock implementations for all backend_django functions")
 
 

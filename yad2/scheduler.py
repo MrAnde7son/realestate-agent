@@ -24,9 +24,8 @@ try:
         django.setup()
     
     from core.models import Asset
-    DJANGO_AVAILABLE = True
 except Exception as e:
-    DJANGO_AVAILABLE = False
+    print(f"Failed to import Django models: {e}")
     # Create a dummy Asset class for when Django is not available
     class Asset:
         def __init__(self, **kwargs):
@@ -39,9 +38,6 @@ def _store_listings(
     notifier: Optional[Notifier] = None,
 ) -> None:
     """Persist listings to the database and trigger alerts if needed."""
-    if not DJANGO_AVAILABLE:
-        # Skip if Django is not available
-        return
     
     try:
         # Use Django ORM to store listings
@@ -98,9 +94,6 @@ def fetch_and_store(
     notifier: Optional[Notifier] = None,
 ) -> None:
     """Fetch listings from Yad2 and store them in the database."""
-    if not DJANGO_AVAILABLE:
-        print("Django not available, skipping Yad2 data storage")
-        return
     
     try:
         scraper = Yad2Scraper()

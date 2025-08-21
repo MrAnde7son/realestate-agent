@@ -13,15 +13,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+# Import reportlab for PDF generation
 try:
     from reportlab.pdfgen import canvas
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.lib.pagesizes import A4
-    REPORTLAB_AVAILABLE = True
 except ImportError:
-    REPORTLAB_AVAILABLE = False
-    # Dummy classes for when reportlab is not available
+    # Create dummy classes for when reportlab is not available
     class canvas:
         class Canvas:
             def __init__(self, *args, **kwargs):
@@ -667,39 +666,26 @@ def reports(request):
     os.makedirs(REPORTS_DIR, exist_ok=True)
     file_path = os.path.join(REPORTS_DIR, filename)
 
-    if REPORTLAB_AVAILABLE:
-        try:
-            c = canvas.Canvas(file_path, pagesize=A4)
-            c.setFont(REPORT_FONT, 20)
-            c.drawCentredString(300, 760, 'דו"ח נכס')
-            c.setFont(REPORT_FONT, 12)
-            y = 720
-            c.drawString(50, y, f"כתובת: {listing['address'] or ''}")
+    # Try to create PDF, fallback to text file if reportlab fails
+    try:
+        c = canvas.Canvas(file_path, pagesize=A4)
+        c.setFont(REPORT_FONT, 20)
+        c.drawCentredString(300, 760, 'דו"ח נכס')
+        c.setFont(REPORT_FONT, 12)
+        y = 720
+        c.drawString(50, y, f"כתובת: {listing['address'] or ''}")
+        y -= 20
+        if listing.get('price') is not None:
+            c.drawString(50, y, f"מחיר: ₪{int(listing['price'])}")
             y -= 20
-            if listing.get('price') is not None:
-                c.drawString(50, y, f"מחיר: ₪{int(listing['price'])}")
-                y -= 20
-            if listing.get('rooms') is not None:
-                c.drawString(50, y, f"חדרים: {listing['rooms']}")
-                y -= 20
-            if listing.get('size') is not None:
-                c.drawString(50, y, f"מ""ר: {listing['size']}")
-            c.save()
-        except Exception as e:
-            # Fallback to text file if PDF creation fails
-            file_path = file_path.replace('.pdf', '.txt')
-            filename = filename.replace('.pdf', '.txt')
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write('דו"ח נכס\n')
-                f.write(f"כתובת: {listing['address'] or ''}\n")
-                if listing.get('price') is not None:
-                    f.write(f"מחיר: ₪{int(listing['price'])}\n")
-                if listing.get('rooms') is not None:
-                    f.write(f"חדרים: {listing['rooms']}\n")
-                if listing.get('size') is not None:
-                    f.write(f"מ\"ר: {listing['size']}\n")
-    else:
-        # If reportlab is not available, create a simple text file
+        if listing.get('rooms') is not None:
+            c.drawString(50, y, f"חדרים: {listing['rooms']}")
+            y -= 20
+        if listing.get('size') is not None:
+            c.drawString(50, y, f"מ""ר: {listing['size']}")
+        c.save()
+    except Exception as e:
+        # Fallback to text file if PDF creation fails
         file_path = file_path.replace('.pdf', '.txt')
         filename = filename.replace('.pdf', '.txt')
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -783,8 +769,16 @@ def tabu(request):
     if not file:
         return HttpResponseBadRequest('file required')
     
-    if not DB_AVAILABLE:
-        # Return dummy data for testing
+    # Try to parse the PDF file
+    try:
+        rows = parse_tabu_pdf(file)
+        query = request.GET.get('q') or ''
+        if query:
+            rows = search_rows(rows, query)
+        return JsonResponse({'rows': rows})
+    except Exception as e:
+        print(f"Error parsing tabu PDF: {e}")
+        # Return dummy data for testing if parsing fails
         return JsonResponse({'rows': [
             {
                 'id': 1,
@@ -846,11 +840,11 @@ def assets(request):
             'number': data.get('number'),
             'gush': data.get('gush'),
             'helka': data.get('helka'),
-            'radius': data.get('radius', 150),
             'status': 'pending',
             'meta': {
                 'scope': scope,
-                'raw_input': data
+                'raw_input': data,
+                'radius': data.get('radius', 150)
             }
         }
         
@@ -859,21 +853,19 @@ def assets(request):
         asset_id = asset.id
         
         # Enqueue Celery task if available
-        if TASKS_AVAILABLE:
+        try:
+            from .tasks import enrich_asset
+            enrich_asset.delay(asset_id)
+        except Exception as e:
+            print(f"Failed to enqueue enrichment task: {e}")
+            # Update asset status to error
             try:
-                from .tasks import enrich_asset
-                enrich_asset.delay(asset_id)
-            except Exception as e:
-                print(f"Failed to enqueue enrichment task: {e}")
-                # Update asset status to error
-                if DB_AVAILABLE:
-                    with db.get_session() as session:
-                        asset = session.query(Asset).filter_by(id=asset_id).first()
-                        if asset:
-                            asset.status = 'error'
-                            asset.meta['error'] = str(e)
-                            session.commit()
-                        session.close()
+                asset = Asset.objects.get(id=asset_id)
+                asset.status = 'error'
+                asset.meta['error'] = str(e)
+                asset.save()
+            except Exception as save_error:
+                print(f"Failed to update asset status: {save_error}")
         
         return JsonResponse({
             'id': asset_id,

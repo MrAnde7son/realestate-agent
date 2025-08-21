@@ -57,17 +57,51 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'broker_backend.wsgi.application'
-DATABASES = { 
-    'default': { 
-        'ENGINE': 'django.db.backends.sqlite3', 
-        'NAME': BASE_DIR / 'db.sqlite3' 
-    } 
-}
+# Database
+# https://docs.djangoproject.com/en/3.2/ref/settings/#databases
+
+# Use SQLite for development, PostgreSQL for production
+if os.getenv('USE_POSTGRES', 'false').lower() == 'true':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'realestate'),
+            'USER': os.getenv('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+            'HOST': os.getenv('POSTGRES_HOST', 'postgres'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 LANGUAGE_CODE = 'he'
 TIME_ZONE = 'Asia/Jerusalem'
 USE_I18N = True
 USE_TZ = True
+
+# Celery Configuration
+# Only enable Celery when Redis is available
+if os.getenv('USE_CELERY', 'false').lower() == 'true':
+    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
+    CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
+    CELERY_TIMEZONE = TIME_ZONE
+    CELERY_ACCEPT_CONTENT = ['json']
+    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_TASK_TRACK_STARTED = True
+    CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+    CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+    CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+else:
+    # Disable Celery for development
+    CELERY_BROKER_URL = None
+    CELERY_RESULT_BACKEND = None
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
@@ -120,11 +154,6 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
-
-# Celery (Redis broker by default) - Commented out for basic setup
-# CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-# CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
-# CELERY_TIMEZONE = TIME_ZONE
 
 # from celery.schedules import crontab
 # CELERY_BEAT_SCHEDULE = {

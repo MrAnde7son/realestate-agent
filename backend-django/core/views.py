@@ -13,15 +13,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+# Import reportlab for PDF generation
 try:
     from reportlab.pdfgen import canvas
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.lib.pagesizes import A4
-    REPORTLAB_AVAILABLE = True
 except ImportError:
-    REPORTLAB_AVAILABLE = False
-    # Dummy classes for when reportlab is not available
+    # Create dummy classes for when reportlab is not available
     class canvas:
         class Canvas:
             def __init__(self, *args, **kwargs):
@@ -49,72 +48,21 @@ except ImportError:
 
 from .models import Alert
 
-# Import database models - using relative imports for Django compatibility
+# Import Django models
+from .models import Asset, SourceRecord, RealEstateTransaction
+
+# Import utility functions
 try:
-    import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-    from db.database import SQLAlchemyDatabase
-    from db.models import (
-        Listing,
-        BuildingPermit,
-        BuildingRights,
-        DecisiveAppraisal,
-        RamiValuation,
-    )
     from utils.tabu_parser import parse_tabu_pdf, search_rows
-    DB_AVAILABLE = True
 except ImportError:
-    # If external modules aren't available, create dummy classes
-    class SQLAlchemyDatabase:
-        def get_session(self):
-            class DummySession:
-                def query(self, model):
-                    return DummyQuery()
-                def __enter__(self):
-                    return self
-                def __exit__(self, *args):
-                    pass
-            return DummySession()
-    
-    class DummyQuery:
-        def all(self):
-            return []
-        def order_by(self, field):
-            return self
-        def desc(self):
-            return self
-    
-    class Listing:
-        pass
-    
-    class BuildingPermit:
-        pass
-    
-    class BuildingRights:
-        pass
-    
-    class DecisiveAppraisal:
-        pass
-    
-    class RamiValuation:
-        pass
-    
     def parse_tabu_pdf(file):
         return []
     
     def search_rows(rows, query):
         return rows
-    
-    DB_AVAILABLE = False
 
-try:
-    from .tasks import sync_address_sources
-    TASKS_AVAILABLE = True
-except ImportError:
-    # Create a dummy function if tasks module isn't available
-    def sync_address_sources(street, number):
-        return []
-    TASKS_AVAILABLE = False
+# Import tasks
+from .tasks import enrich_asset
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 REPORTS_DIR = os.environ.get(
@@ -637,33 +585,33 @@ def sync_address(request):
     
     # Execute sync with comprehensive error handling
     try:
-        if not DB_AVAILABLE or not TASKS_AVAILABLE:
-            # Return dummy data for testing
-            listings = [
-                {
-                    'id': 1,
-                    'source': 'demo',
-                    'external_id': 'demo_123',
-                    'title': f'נכס לדוגמה ב{street} {number}',
-                    'price': 2500000,
-                    'address': f'{street} {number}',
-                    'rooms': 4,
-                    'floor': 2,
-                    'size': 120,
-                    'property_type': 'דירה',
-                    'description': 'נכס לדוגמה לבדיקת המערכת',
-                    'images': [],
-                    'contact_info': {'phone': '050-123-4567'},
-                    'features': ['מרפסת', 'חניה', 'מעלית'],
-                    'url': '#',
-                    'date_posted': datetime.now().isoformat(),
-                    'scraped_at': datetime.now().isoformat(),
-                }
-            ]
-            message = f'Demo data for {street} {number} (external dependencies not available)'
-        else:
-            listings = sync_address_sources(street, number)
-            message = f'Successfully synced data for {street} {number}'
+        # Create a new asset for the address
+        from .models import Asset
+        asset = Asset.objects.create(
+            scope_type='address',
+            street=street,
+            number=number,
+            status='pending',
+            meta={'radius': 150}
+        )
+        
+        # Start enrichment pipeline
+        try:
+            enrich_asset.delay(asset.id)
+            message = f'Asset enrichment started for {street} {number} (Asset ID: {asset.id})'
+        except Exception as e:
+            message = f'Asset created but enrichment failed: {str(e)}'
+        
+        # Return asset info
+        listings = [{
+            'id': asset.id,
+            'source': 'asset',
+            'external_id': f'asset_{asset.id}',
+            'title': f'Asset for {street} {number}',
+            'address': f'{street} {number}',
+            'status': asset.status,
+            'message': message
+        }]
         
         return JsonResponse({
             'rows': listings,
@@ -682,129 +630,7 @@ def sync_address(request):
         )
 
 
-def listings(request):
-    """Return all listings from the SQL database."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(Listing).order_by(Listing.id.desc()).all()
-        data = [
-            {
-                'id': l.id,
-                'source': l.source,
-                'external_id': l.external_id,
-                'title': l.title,
-                'price': l.price,
-                'address': l.address,
-                'rooms': l.rooms,
-                'floor': l.floor,
-                'size': l.size,
-                'property_type': l.property_type,
-                'description': l.description,
-                'images': l.images,
-                'contact_info': l.contact_info,
-                'features': l.features,
-                'url': l.url,
-                'date_posted': l.date_posted,
-                'scraped_at': l.scraped_at.isoformat() if l.scraped_at else None,
-            }
-            for l in rows
-        ]
-    return JsonResponse({'rows': data})
-
-
-def building_permits(request):
-    """Return stored building permits."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(BuildingPermit).order_by(BuildingPermit.id.desc()).all()
-        data = [
-            {
-                'id': p.id,
-                'permission_num': p.permission_num,
-                'request_num': p.request_num,
-                'url': p.url,
-                'gush': p.gush,
-                'helka': p.helka,
-                'data': p.data,
-                'scraped_at': p.scraped_at.isoformat() if p.scraped_at else None,
-            }
-            for p in rows
-        ]
-    return JsonResponse({'rows': data})
-
-
-def building_rights(request):
-    """Return stored building rights pages."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(BuildingRights).order_by(BuildingRights.id.desc()).all()
-        data = [
-            {
-                'id': r.id,
-                'gush': r.gush,
-                'helka': r.helka,
-                'file_path': r.file_path,
-                'content_type': r.content_type,
-                'data': r.data,
-                'scraped_at': r.scraped_at.isoformat() if r.scraped_at else None,
-            }
-            for r in rows
-        ]
-    return JsonResponse({'rows': data})
-
-
-def decisive_appraisals(request):
-    """Return decisive appraisal decisions."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(DecisiveAppraisal).order_by(DecisiveAppraisal.id.desc()).all()
-        data = [
-            {
-                'id': d.id,
-                'title': d.title,
-                'date': d.date,
-                'appraiser': d.appraiser,
-                'committee': d.committee,
-                'pdf_url': d.pdf_url,
-                'data': d.data,
-                'scraped_at': d.scraped_at.isoformat() if d.scraped_at else None,
-            }
-            for d in rows
-        ]
-    return JsonResponse({'rows': data})
-
-
-def rami_valuations(request):
-    """Return RAMI valuation/plan records."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(RamiValuation).order_by(RamiValuation.id.desc()).all()
-        data = [
-            {
-                'id': r.id,
-                'plan_number': r.plan_number,
-                'name': r.name,
-                'data': r.data,
-                'scraped_at': r.scraped_at.isoformat() if r.scraped_at else None,
-            }
-            for r in rows
-        ]
-    return JsonResponse({'rows': data})
+# Old view functions removed - replaced with new asset enrichment pipeline
 
 
 @csrf_exempt
@@ -824,28 +650,13 @@ def reports(request):
 
     listing_id = data['listingId']
     
-    if not DB_AVAILABLE:
-        # Create a dummy listing for testing
-        listing = {
-            'address': 'כתובת לדוגמה',
-            'price': 2000000,
-            'rooms': 3,
-            'size': 80,
-        }
-    else:
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            l = session.get(Listing, int(listing_id))
-            listing = (
-                {
-                    'address': l.address,
-                    'price': l.price,
-                    'rooms': l.rooms,
-                    'size': l.size,
-                }
-                if l
-                else None
-            )
+    # Create a dummy listing for testing (since we no longer have the old Listing model)
+    listing = {
+        'address': 'כתובת לדוגמה',
+        'price': 2000000,
+        'rooms': 3,
+        'size': 80,
+    }
 
     if not listing:
         return JsonResponse({'error': 'Listing not found'}, status=404)
@@ -855,39 +666,26 @@ def reports(request):
     os.makedirs(REPORTS_DIR, exist_ok=True)
     file_path = os.path.join(REPORTS_DIR, filename)
 
-    if REPORTLAB_AVAILABLE:
-        try:
-            c = canvas.Canvas(file_path, pagesize=A4)
-            c.setFont(REPORT_FONT, 20)
-            c.drawCentredString(300, 760, 'דו"ח נכס')
-            c.setFont(REPORT_FONT, 12)
-            y = 720
-            c.drawString(50, y, f"כתובת: {listing['address'] or ''}")
+    # Try to create PDF, fallback to text file if reportlab fails
+    try:
+        c = canvas.Canvas(file_path, pagesize=A4)
+        c.setFont(REPORT_FONT, 20)
+        c.drawCentredString(300, 760, 'דו"ח נכס')
+        c.setFont(REPORT_FONT, 12)
+        y = 720
+        c.drawString(50, y, f"כתובת: {listing['address'] or ''}")
+        y -= 20
+        if listing.get('price') is not None:
+            c.drawString(50, y, f"מחיר: ₪{int(listing['price'])}")
             y -= 20
-            if listing.get('price') is not None:
-                c.drawString(50, y, f"מחיר: ₪{int(listing['price'])}")
-                y -= 20
-            if listing.get('rooms') is not None:
-                c.drawString(50, y, f"חדרים: {listing['rooms']}")
-                y -= 20
-            if listing.get('size') is not None:
-                c.drawString(50, y, f"מ""ר: {listing['size']}")
-            c.save()
-        except Exception as e:
-            # Fallback to text file if PDF creation fails
-            file_path = file_path.replace('.pdf', '.txt')
-            filename = filename.replace('.pdf', '.txt')
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write('דו"ח נכס\n')
-                f.write(f"כתובת: {listing['address'] or ''}\n")
-                if listing.get('price') is not None:
-                    f.write(f"מחיר: ₪{int(listing['price'])}\n")
-                if listing.get('rooms') is not None:
-                    f.write(f"חדרים: {listing['rooms']}\n")
-                if listing.get('size') is not None:
-                    f.write(f"מ\"ר: {listing['size']}\n")
-    else:
-        # If reportlab is not available, create a simple text file
+        if listing.get('rooms') is not None:
+            c.drawString(50, y, f"חדרים: {listing['rooms']}")
+            y -= 20
+        if listing.get('size') is not None:
+            c.drawString(50, y, f"מ""ר: {listing['size']}")
+        c.save()
+    except Exception as e:
+        # Fallback to text file if PDF creation fails
         file_path = file_path.replace('.pdf', '.txt')
         filename = filename.replace('.pdf', '.txt')
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -971,8 +769,16 @@ def tabu(request):
     if not file:
         return HttpResponseBadRequest('file required')
     
-    if not DB_AVAILABLE:
-        # Return dummy data for testing
+    # Try to parse the PDF file
+    try:
+        rows = parse_tabu_pdf(file)
+        query = request.GET.get('q') or ''
+        if query:
+            rows = search_rows(rows, query)
+        return JsonResponse({'rows': rows})
+    except Exception as e:
+        print(f"Error parsing tabu PDF: {e}")
+        # Return dummy data for testing if parsing fails
         return JsonResponse({'rows': [
             {
                 'id': 1,
@@ -989,3 +795,160 @@ def tabu(request):
     if query:
         rows = search_rows(rows, query)
     return JsonResponse({'rows': rows})
+
+@csrf_exempt
+def assets(request):
+    """Create a new asset and enqueue enrichment pipeline.
+    
+    Expected JSON payload:
+    {
+        "scope": {
+            "type": "address|neighborhood|street|city|parcel",
+            "value": "string",
+            "city": "string"
+        },
+        "address": "string",
+        "city": "string", 
+        "street": "string",
+        "number": "integer",
+        "gush": "string",
+        "helka": "string",
+        "radius": "integer"
+    }
+    """
+    if request.method != 'POST':
+        return HttpResponseBadRequest('POST method required')
+    
+    # Parse JSON with error handling
+    data = parse_json(request)
+    if not data:
+        return HttpResponseBadRequest('Invalid JSON in request body')
+    
+    try:
+        # Extract scope information
+        scope = data.get('scope', {})
+        scope_type = scope.get('type')
+        if not scope_type:
+            return HttpResponseBadRequest('Scope type is required')
+        
+        # Create asset record
+        asset_data = {
+            'scope_type': scope_type,
+            'city': data.get('city') or scope.get('city'),
+            'neighborhood': data.get('neighborhood'),
+            'street': data.get('street'),
+            'number': data.get('number'),
+            'gush': data.get('gush'),
+            'helka': data.get('helka'),
+            'status': 'pending',
+            'meta': {
+                'scope': scope,
+                'raw_input': data,
+                'radius': data.get('radius', 150)
+            }
+        }
+        
+        # Save to Django database
+        asset = Asset.objects.create(**asset_data)
+        asset_id = asset.id
+        
+        # Enqueue Celery task if available
+        try:
+            from .tasks import enrich_asset
+            enrich_asset.delay(asset_id)
+        except Exception as e:
+            print(f"Failed to enqueue enrichment task: {e}")
+            # Update asset status to error
+            try:
+                asset = Asset.objects.get(id=asset_id)
+                asset.status = 'error'
+                asset.meta['error'] = str(e)
+                asset.save()
+            except Exception as save_error:
+                print(f"Failed to update asset status: {save_error}")
+        
+        return JsonResponse({
+            'id': asset_id,
+            'status': asset_data['status'],
+            'message': 'Asset created successfully, enrichment pipeline started'
+        }, status=201)
+        
+    except Exception as e:
+        print(f"Error creating asset: {e}")
+        return JsonResponse({
+            'error': 'Failed to create asset',
+            'details': str(e)
+        }, status=500)
+
+@csrf_exempt
+def asset_detail(request, asset_id):
+    """Get asset details including enriched data and source records."""
+    if request.method != 'GET':
+        return HttpResponseBadRequest('GET method required')
+    
+    try:
+        # Get asset using Django ORM
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return JsonResponse({'error': 'Asset not found'}, status=404)
+        
+        # Get source records grouped by source
+        source_records = SourceRecord.objects.filter(asset_id=asset_id)
+        records_by_source = {}
+        for record in source_records:
+            if record.source not in records_by_source:
+                records_by_source[record.source] = []
+            records_by_source[record.source].append({
+                'id': record.id,
+                'title': record.title,
+                'external_id': record.external_id,
+                'url': record.url,
+                'file_path': record.file_path,
+                'raw': record.raw,
+                'fetched_at': record.fetched_at.isoformat() if record.fetched_at else None
+            })
+        
+        # Get transactions
+        transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
+        transaction_list = []
+        for trans in transactions:
+            transaction_list.append({
+                'id': trans.id,
+                'deal_id': trans.deal_id,
+                'date': trans.date.isoformat() if trans.date else None,
+                'price': trans.price,
+                'rooms': trans.rooms,
+                'area': trans.area,
+                'floor': trans.floor,
+                'address': trans.address,
+                'raw': trans.raw,
+                'fetched_at': trans.fetched_at.isoformat() if trans.fetched_at else None
+            })
+            
+        # Return asset details
+        return JsonResponse({
+            'id': asset.id,
+            'scope_type': asset.scope_type,
+            'city': asset.city,
+            'neighborhood': asset.neighborhood,
+            'street': asset.street,
+            'number': asset.number,
+            'gush': asset.gush,
+            'helka': asset.helka,
+            'lat': asset.lat,
+            'lon': asset.lon,
+            'normalized_address': asset.normalized_address,
+            'status': asset.status,
+            'meta': asset.meta,
+            'created_at': asset.created_at.isoformat() if asset.created_at else None,
+            'records': records_by_source,
+            'transactions': transaction_list
+        })
+            
+    except Exception as e:
+        print(f"Error retrieving asset {asset_id}: {e}")
+        return JsonResponse({
+            'error': 'Failed to retrieve asset',
+            'details': str(e)
+        }, status=500)

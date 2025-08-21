@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from sqlalchemy import JSON, Column, DateTime, Float, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Column, DateTime, Float, Integer, String, UniqueConstraint, Text, ForeignKey, Index
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from .database import Base
 
@@ -102,3 +105,86 @@ class RamiValuation(Base):
     name = Column(String)
     data = Column(JSON)
     scraped_at = Column(DateTime, default=datetime.utcnow)
+
+# New models for asset enrichment pipeline
+class Asset(Base):
+    __tablename__ = 'assets'
+    
+    id = Column(Integer, primary_key=True)
+    scope_type = Column(String(50), nullable=False)  # 'address', 'neighborhood', 'street', 'city', 'parcel'
+    city = Column(String(100))
+    neighborhood = Column(String(100))
+    street = Column(String(200))
+    number = Column(Integer)
+    gush = Column(String(20))
+    helka = Column(String(20))
+    lat = Column(Float)
+    lon = Column(Float)
+    normalized_address = Column(String(500))
+    status = Column(String(20), default='pending')  # 'pending', 'enriching', 'ready', 'error'
+    meta = Column(JSON, default={})
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    source_records = relationship("SourceRecord", back_populates="asset")
+    transactions = relationship("RealEstateTransaction", back_populates="asset")
+    
+    # Indexes for performance
+    __table_args__ = (
+        Index('idx_asset_scope_type', 'scope_type'),
+        Index('idx_asset_city', 'city'),
+        Index('idx_asset_neighborhood', 'neighborhood'),
+        Index('idx_asset_street', 'street'),
+        Index('idx_asset_gush', 'gush'),
+        Index('idx_asset_helka', 'helka'),
+        Index('idx_asset_normalized_address', 'normalized_address'),
+        Index('idx_asset_status', 'status'),
+    )
+
+class SourceRecord(Base):
+    __tablename__ = 'source_records'
+    
+    id = Column(Integer, primary_key=True)
+    asset_id = Column(Integer, ForeignKey('assets.id'), nullable=False)
+    source = Column(String(50), nullable=False)  # 'yad2', 'nadlan', 'gis_permit', 'gis_rights', 'rami_plan', 'tabu'
+    external_id = Column(String(100))
+    title = Column(String(500))
+    url = Column(String(500))
+    file_path = Column(String(500))
+    raw = Column(JSON)
+    fetched_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    asset = relationship("Asset", back_populates="source_records")
+    
+    # Indexes and constraints
+    __table_args__ = (
+        Index('idx_source_record_asset_id', 'asset_id'),
+        Index('idx_source_record_source', 'source'),
+        Index('idx_source_record_external_id', 'external_id'),
+        UniqueConstraint('source', 'external_id', name='uq_source_external_id'),
+    )
+
+class RealEstateTransaction(Base):
+    __tablename__ = 'real_estate_transactions'
+    
+    id = Column(Integer, primary_key=True)
+    asset_id = Column(Integer, ForeignKey('assets.id'), nullable=False)
+    deal_id = Column(String(100))
+    date = Column(DateTime)
+    price = Column(Integer)
+    rooms = Column(Integer)
+    area = Column(Float)
+    floor = Column(Integer)
+    address = Column(String(200))
+    raw = Column(JSON)
+    fetched_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    asset = relationship("Asset", back_populates="transactions")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_transaction_asset_id', 'asset_id'),
+        Index('idx_transaction_deal_id', 'deal_id'),
+    )

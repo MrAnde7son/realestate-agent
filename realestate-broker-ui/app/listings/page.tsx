@@ -32,16 +32,99 @@ export default function ListingsPage() {
   }
 
   const newListingSchema = z.object({
-    address: z.string().min(1, 'חובה להזין כתובת'),
+    scopeType: z.enum(['address', 'neighborhood', 'street', 'city', 'parcel']),
+    // Common fields
+    city: z.string().min(1, 'עיר נדרשת'),
+    radius: z.number().min(50).max(1000).default(150),
+    // Address-specific fields
+    address: z.string().optional(),
+    street: z.string().optional(),
+    number: z.number().optional(),
+    // Neighborhood-specific fields
+    neighborhood: z.string().optional(),
+    // Parcel-specific fields
+    gush: z.string().optional(),
+    helka: z.string().optional(),
+  }).refine((data) => {
+    // Validate required fields based on scope type
+    if (data.scopeType === 'address') {
+      return data.address && data.address.length > 0
+    }
+    if (data.scopeType === 'neighborhood') {
+      return data.neighborhood && data.neighborhood.length > 0
+    }
+    if (data.scopeType === 'street') {
+      return data.street && data.street.length > 0
+    }
+    if (data.scopeType === 'parcel') {
+      return data.gush && data.helka
+    }
+    if (data.scopeType === 'city') {
+      return data.city && data.city.length > 0
+    }
+    return true
+  }, {
+    message: 'Please fill in all required fields for the selected scope type'
   })
+
   type NewListing = z.infer<typeof newListingSchema>
 
   const form = useForm<NewListing>({
     resolver: zodResolver(newListingSchema),
     defaultValues: {
+      scopeType: 'address',
+      city: 'תל אביב',
+      radius: 150,
       address: '',
+      street: '',
+      number: undefined,
+      neighborhood: '',
+      gush: '',
+      helka: '',
     },
   })
+
+  const [assetId, setAssetId] = useState<number | null>(null)
+  const [assetStatus, setAssetStatus] = useState<string>('')
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+
+  // Poll asset status when assetId is set
+  useEffect(() => {
+    if (assetId && assetStatus !== 'ready' && assetStatus !== 'error') {
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch(`/api/assets/${assetId}`)
+          if (response.ok) {
+            const data = await response.json()
+            setAssetStatus(data.status)
+            
+            if (data.status === 'ready' || data.status === 'error') {
+              clearInterval(interval)
+              setPollingInterval(null)
+            }
+          }
+        } catch (error) {
+          console.error('Error polling asset status:', error)
+        }
+      }, 3000)
+      
+      setPollingInterval(interval)
+      
+      return () => {
+        clearInterval(interval)
+        setPollingInterval(null)
+      }
+    }
+  }, [assetId, assetStatus])
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
+      }
+    }
+  }, [pollingInterval])
 
   useEffect(() => {
     fetch('/api/listings')
@@ -139,7 +222,7 @@ export default function ListingsPage() {
                 <SheetHeader>
                   <SheetTitle>הוסף נכס חדש</SheetTitle>
                   <SheetDescription>
-                    הזן כתובת והמערכת תאסוף אוטומטית מידע מיד 2, GIS, רמ״י וממשלה
+                    בחר סוג היקף והמערכת תאסוף אוטומטית מידע מיד 2, GIS, רמ״י וממשלה
                   </SheetDescription>
                 </SheetHeader>
                 <form
@@ -149,43 +232,49 @@ export default function ListingsPage() {
                       const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement
                       if (submitButton) {
                         submitButton.disabled = true
-                        submitButton.innerHTML = '<div class="flex items-center gap-2"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>אוסף מידע...</div>'
+                        submitButton.innerHTML = '<div class="flex items-center gap-2"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>יוצר נכס...</div>'
                       }
 
-                      // Trigger backend sync for this address
-                      const syncResponse = await fetch('/api/sync', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ address: values.address }),
-                      })
-                      
-                      if (!syncResponse.ok) {
-                        throw new Error('שגיאה באיסוף המידע מהמערכות החיצוניות')
+                      // Build payload based on scope type
+                      const payload = {
+                        scope: {
+                          type: values.scopeType,
+                          value: values.scopeType === 'address' ? values.address : 
+                                 values.scopeType === 'neighborhood' ? values.neighborhood :
+                                 values.scopeType === 'street' ? values.street :
+                                 values.scopeType === 'parcel' ? `${values.gush}/${values.helka}` : values.city,
+                          city: values.city
+                        },
+                        city: values.city,
+                        radius: values.radius,
+                        ...(values.address && { address: values.address }),
+                        ...(values.street && { street: values.street }),
+                        ...(values.number && { number: values.number }),
+                        ...(values.neighborhood && { neighborhood: values.neighborhood }),
+                        ...(values.gush && { gush: values.gush }),
+                        ...(values.helka && { helka: values.helka }),
                       }
 
-                      const syncData = await syncResponse.json()
-                      console.log('Collected data:', syncData)
-
-                      // Create listing with collected data
-                      const res = await fetch('/api/listings', {
+                      // Create asset using new API
+                      const response = await fetch('/api/assets', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          address: values.address,
-                          ...syncData // Include all collected data
-                        }),
+                        body: JSON.stringify(payload),
                       })
                       
-                      const data = await res.json()
-                      if (res.ok) {
-                        setListings((prev) => [...prev, data.listing])
+                      if (response.ok) {
+                        const result = await response.json()
+                        setAssetId(result.id)
+                        setAssetStatus(result.status)
+                        alert('נכס נוצר בהצלחה! תהליך העשרת המידע התחיל.')
                         form.reset()
                         setOpen(false)
                       } else {
-                        throw new Error(data.error || 'שגיאה ביצירת הנכס')
+                        const errorData = await response.json()
+                        throw new Error(errorData.error || 'שגיאה ביצירת הנכס')
                       }
                     } catch (error) {
-                      console.error('Error adding listing:', error)
+                      console.error('Error creating asset:', error)
                       alert(`שגיאה: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`)
                     } finally {
                       // Reset button state
@@ -198,19 +287,123 @@ export default function ListingsPage() {
                   })}
                   className="space-y-4"
                 >
+                  {/* Scope Type Selection */}
                   <div className="space-y-2">
-                    <Label htmlFor="address">כתובת הנכס</Label>
-                    <Input 
-                      id="address" 
-                      placeholder="לדוגמה: הגולן 1, תל אביב"
-                      {...form.register('address')} 
-                    />
-                    {form.formState.errors.address && (
-                      <p className="text-sm text-destructive">
-                        {form.formState.errors.address.message}
-                      </p>
-                    )}
+                    <Label htmlFor="scopeType">סוג היקף</Label>
+                    <select
+                      id="scopeType"
+                      {...form.register('scopeType')}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="address">כתובת ספציפית</option>
+                      <option value="neighborhood">שכונה</option>
+                      <option value="street">רחוב</option>
+                      <option value="city">עיר</option>
+                      <option value="parcel">גוש/חלקה</option>
+                    </select>
                   </div>
+
+                  {/* Common Fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">עיר</Label>
+                      <Input 
+                        id="city" 
+                        placeholder="תל אביב"
+                        {...form.register('city')} 
+                      />
+                      {form.formState.errors.city && (
+                        <p className="text-sm text-destructive">
+                          {form.formState.errors.city.message}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="radius">רדיוס (מטרים)</Label>
+                      <Input 
+                        id="radius" 
+                        type="number"
+                        min="50"
+                        max="1000"
+                        placeholder="150"
+                        {...form.register('radius', { valueAsNumber: true })} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* Address-specific fields */}
+                  {form.watch('scopeType') === 'address' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="address">כתובת הנכס</Label>
+                      <Input 
+                        id="address" 
+                        placeholder="לדוגמה: הגולן 1, תל אביב"
+                        {...form.register('address')} 
+                      />
+                      {form.formState.errors.address && (
+                        <p className="text-sm text-destructive">
+                          {form.formState.errors.address.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Neighborhood-specific fields */}
+                  {form.watch('scopeType') === 'neighborhood' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="neighborhood">שם השכונה</Label>
+                      <Input 
+                        id="neighborhood" 
+                        placeholder="לדוגמה: רמת החייל"
+                        {...form.register('neighborhood')} 
+                      />
+                    </div>
+                  )}
+
+                  {/* Street-specific fields */}
+                  {form.watch('scopeType') === 'street' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="street">שם הרחוב</Label>
+                        <Input 
+                          id="street" 
+                          placeholder="לדוגמה: הגולן"
+                          {...form.register('street')} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="number">מספר בית</Label>
+                        <Input 
+                          id="number" 
+                          type="number"
+                          placeholder="1"
+                          {...form.register('number', { valueAsNumber: true })} 
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Parcel-specific fields */}
+                  {form.watch('scopeType') === 'parcel' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="gush">מספר גוש</Label>
+                        <Input 
+                          id="gush" 
+                          placeholder="לדוגמה: 6638"
+                          {...form.register('gush')} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="helka">מספר חלקה</Label>
+                        <Input 
+                          id="helka" 
+                          placeholder="לדוגמה: 96"
+                          {...form.register('helka')} 
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Info about automatic data collection */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

@@ -8,12 +8,13 @@ from contextlib import contextmanager
 from typing import Iterator, Optional
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import Session, declarative_base, sessionmaker, scoped_session
+from sqlalchemy.pool import StaticPool
 
 Base = declarative_base()
 
 
-class Database(ABC):
+class Database:
     """Abstract database interface for dependency injection."""
 
     @abstractmethod
@@ -29,28 +30,62 @@ class Database(ABC):
 class SQLAlchemyDatabase(Database):
     """SQLAlchemy-backed database implementation."""
 
-    def __init__(self, url: Optional[str] = None) -> None:
-        self.url = url or os.getenv(
+    def __init__(self, database_url=None):
+        self.database_url = database_url or os.getenv(
             "DATABASE_URL",
-            "sqlite:///./db.sqlite3",
+            "sqlite:///./realestate.db",
         )
-        self.engine = create_engine(self.url, future=True)
-        self.SessionLocal = sessionmaker(
-            bind=self.engine, autoflush=False, autocommit=False
-        )
-
-    def init_db(self) -> None:
-        # Import models within the function to avoid circular imports during
-        # initialization.
-        import db.models  # noqa: F401
-
-        Base.metadata.create_all(bind=self.engine)
-
-    @contextmanager
-    def get_session(self) -> Iterator[Session]:
-        session = self.SessionLocal()
+        self.engine = None
+        self.SessionLocal = None
+        
+    def init_db(self):
+        """Initialize database connection and create tables."""
         try:
-            yield session
-        finally:
-            session.close()
+            # Create engine with appropriate configuration
+            if self.database_url.startswith('sqlite'):
+                # SQLite configuration
+                self.engine = create_engine(
+                    self.database_url,
+                    connect_args={"check_same_thread": False},
+                    poolclass=StaticPool
+                )
+            else:
+                # PostgreSQL configuration
+                self.engine = create_engine(
+                    self.database_url,
+                    pool_pre_ping=True,
+                    pool_recycle=300
+                )
+            
+            # Create session factory
+            self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+            
+            print(f"Database initialized successfully: {self.database_url}")
+            return True
+            
+        except Exception as e:
+            print(f"Failed to initialize database: {e}")
+            return False
+    
+    def get_session(self):
+        """Get a database session."""
+        if not self.SessionLocal:
+            self.init_db()
+        return self.SessionLocal()
+    
+    def create_tables(self):
+        """Create all tables defined in models."""
+        try:
+            from .models import Base
+            Base.metadata.create_all(bind=self.engine)
+            print("All tables created successfully")
+            return True
+        except Exception as e:
+            print(f"Failed to create tables: {e}")
+            return False
+    
+    def close(self):
+        """Close database connection."""
+        if self.engine:
+            self.engine.dispose()
 

@@ -60,6 +60,9 @@ try:
         BuildingRights,
         DecisiveAppraisal,
         RamiValuation,
+        Asset,
+        SourceRecord,
+        RealEstateTransaction,
     )
     from utils.tabu_parser import parse_tabu_pdf, search_rows
     DB_AVAILABLE = True
@@ -97,6 +100,15 @@ except ImportError:
         pass
     
     class RamiValuation:
+        pass
+    
+    class Asset:
+        pass
+    
+    class SourceRecord:
+        pass
+    
+    class RealEstateTransaction:
         pass
     
     def parse_tabu_pdf(file):
@@ -989,3 +1001,186 @@ def tabu(request):
     if query:
         rows = search_rows(rows, query)
     return JsonResponse({'rows': rows})
+
+@csrf_exempt
+def assets(request):
+    """Create a new asset and enqueue enrichment pipeline.
+    
+    Expected JSON payload:
+    {
+        "scope": {
+            "type": "address|neighborhood|street|city|parcel",
+            "value": "string",
+            "city": "string"
+        },
+        "address": "string",
+        "city": "string", 
+        "street": "string",
+        "number": "integer",
+        "gush": "string",
+        "helka": "string",
+        "radius": "integer"
+    }
+    """
+    if request.method != 'POST':
+        return HttpResponseBadRequest('POST method required')
+    
+    # Parse JSON with error handling
+    data = parse_json(request)
+    if not data:
+        return HttpResponseBadRequest('Invalid JSON in request body')
+    
+    try:
+        # Extract scope information
+        scope = data.get('scope', {})
+        scope_type = scope.get('type')
+        if not scope_type:
+            return HttpResponseBadRequest('Scope type is required')
+        
+        # Create asset record
+        asset_data = {
+            'scope_type': scope_type,
+            'city': data.get('city') or scope.get('city'),
+            'neighborhood': data.get('neighborhood'),
+            'street': data.get('street'),
+            'number': data.get('number'),
+            'gush': data.get('gush'),
+            'helka': data.get('helka'),
+            'radius': data.get('radius', 150),
+            'status': 'pending',
+            'meta': {
+                'scope': scope,
+                'raw_input': data
+            }
+        }
+        
+        # Save to database if available
+        if DB_AVAILABLE:
+            from db.models import Asset
+            from db.database import SQLAlchemyDatabase
+            
+            db = SQLAlchemyDatabase()
+            with db.get_session() as session:
+                asset = Asset(**asset_data)
+                session.add(asset)
+                session.commit()
+                asset_id = asset.id
+                session.close()
+        else:
+            # Fallback for when DB is not available
+            asset_id = 1
+            asset_data['id'] = asset_id
+        
+        # Enqueue Celery task if available
+        if TASKS_AVAILABLE:
+            try:
+                from .tasks import enrich_asset
+                enrich_asset.delay(asset_id)
+            except Exception as e:
+                print(f"Failed to enqueue enrichment task: {e}")
+                # Update asset status to error
+                if DB_AVAILABLE:
+                    with db.get_session() as session:
+                        asset = session.query(Asset).filter_by(id=asset_id).first()
+                        if asset:
+                            asset.status = 'error'
+                            asset.meta['error'] = str(e)
+                            session.commit()
+                        session.close()
+        
+        return JsonResponse({
+            'id': asset_id,
+            'status': asset_data['status'],
+            'message': 'Asset created successfully, enrichment pipeline started'
+        }, status=201)
+        
+    except Exception as e:
+        print(f"Error creating asset: {e}")
+        return JsonResponse({
+            'error': 'Failed to create asset',
+            'details': str(e)
+        }, status=500)
+
+@csrf_exempt
+def asset_detail(request, asset_id):
+    """Get asset details including enriched data and source records."""
+    if request.method != 'GET':
+        return HttpResponseBadRequest('GET method required')
+    
+    try:
+        if not DB_AVAILABLE:
+            return JsonResponse({
+                'error': 'Database not available',
+                'message': 'External database not available'
+            }, status=503)
+        
+        from db.models import Asset, SourceRecord, RealEstateTransaction
+        from db.database import SQLAlchemyDatabase
+        
+        db = SQLAlchemyDatabase()
+        with db.get_session() as session:
+            # Get asset
+            asset = session.query(Asset).filter_by(id=asset_id).first()
+            if not asset:
+                return JsonResponse({'error': 'Asset not found'}, status=404)
+            
+            # Get source records grouped by source
+            source_records = session.query(SourceRecord).filter_by(asset_id=asset_id).all()
+            records_by_source = {}
+            for record in source_records:
+                if record.source not in records_by_source:
+                    records_by_source[record.source] = []
+                records_by_source[record.source].append({
+                    'id': record.id,
+                    'title': record.title,
+                    'external_id': record.external_id,
+                    'url': record.url,
+                    'file_path': record.file_path,
+                    'raw': record.raw,
+                    'fetched_at': record.fetched_at.isoformat() if record.fetched_at else None
+                })
+            
+            # Get transactions
+            transactions = session.query(RealEstateTransaction).filter_by(asset_id=asset_id).all()
+            transaction_list = []
+            for trans in transactions:
+                transaction_list.append({
+                    'id': trans.id,
+                    'deal_id': trans.deal_id,
+                    'date': trans.date.isoformat() if trans.date else None,
+                    'price': trans.price,
+                    'rooms': trans.rooms,
+                    'area': trans.area,
+                    'floor': trans.floor,
+                    'address': trans.address,
+                    'raw': trans.raw,
+                    'fetched_at': trans.fetched_at.isoformat() if trans.fetched_at else None
+                })
+            
+            session.close()
+            
+            return JsonResponse({
+                'id': asset.id,
+                'scope_type': asset.scope_type,
+                'city': asset.city,
+                'neighborhood': asset.neighborhood,
+                'street': asset.street,
+                'number': asset.number,
+                'gush': asset.gush,
+                'helka': asset.helka,
+                'lat': asset.lat,
+                'lon': asset.lon,
+                'normalized_address': asset.normalized_address,
+                'status': asset.status,
+                'meta': asset.meta,
+                'created_at': asset.created_at.isoformat() if asset.created_at else None,
+                'records': records_by_source,
+                'transactions': transaction_list
+            })
+            
+    except Exception as e:
+        print(f"Error retrieving asset {asset_id}: {e}")
+        return JsonResponse({
+            'error': 'Failed to retrieve asset',
+            'details': str(e)
+        }, status=500)

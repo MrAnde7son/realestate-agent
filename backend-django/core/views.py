@@ -798,9 +798,12 @@ def tabu(request):
 
 @csrf_exempt
 def assets(request):
-    """Create a new asset and enqueue enrichment pipeline.
+    """Handle assets - GET (list all) or POST (create new).
     
-    Expected JSON payload:
+    GET: Returns all assets in listing format
+    POST: Creates a new asset and enqueues enrichment pipeline
+    
+    Expected JSON payload for POST:
     {
         "scope": {
             "type": "address|neighborhood|street|city|parcel",
@@ -816,6 +819,10 @@ def assets(request):
         "radius": "integer"
     }
     """
+    if request.method == 'GET':
+        # Return all assets in listing format
+        return _get_assets_list()
+    
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
     
@@ -880,11 +887,8 @@ def assets(request):
             'details': str(e)
         }, status=500)
 
-@csrf_exempt
-def listings(request):
-    """Get all assets as listings for the frontend."""
-    if request.method != 'GET':
-        return JsonResponse({'error': 'GET method required'}, status=405)
+def _get_assets_list():
+    """Helper function to get all assets in listing format."""
     
     try:
         # Get all assets
@@ -896,61 +900,67 @@ def listings(request):
             # Get source records for this asset
             source_records = SourceRecord.objects.filter(asset_id=asset.id)
             
-            # Find Yad2 listings if available
-            yad2_records = [r for r in source_records if r.source == 'yad2']
+            # Get all source records for this asset
+            all_sources = list(set([r.source for r in source_records]))
             
-            if yad2_records:
-                # Use Yad2 data for the listing
-                for record in yad2_records:
-                    raw_data = record.raw or {}
-                    listing = {
-                        'id': f'asset_{asset.id}_{record.id}',
-                        'external_id': record.external_id,
-                        'address': asset.normalized_address or f"{asset.street or ''} {asset.number or ''}".strip(),
-                        'price': raw_data.get('price', 0),
-                        'bedrooms': raw_data.get('rooms', 0),
-                        'bathrooms': 1,  # Default
-                        'area': raw_data.get('size', 0),
-                        'type': raw_data.get('property_type', 'דירה'),
-                        'status': 'active',
-                        'images': raw_data.get('images', []),
-                        'description': raw_data.get('description', ''),
-                        'features': raw_data.get('features', []),
-                        'contactInfo': {
-                            'agent': raw_data.get('agent_name', ''),
-                            'phone': raw_data.get('agent_phone', ''),
-                            'email': raw_data.get('agent_email', '')
-                        },
-                        'city': asset.city or '',
-                        'neighborhood': asset.neighborhood or '',
-                        'netSqm': raw_data.get('size', 0),
-                        'pricePerSqm': round(raw_data.get('price', 0) / raw_data.get('size', 0)) if raw_data.get('price', 0) and raw_data.get('size', 0) else 0,
-                        'deltaVsAreaPct': 0,
-                        'domPercentile': 50,
-                        'competition1km': 'בינוני',
-                        'zoning': 'מגורים א\'',
-                        'riskFlags': [],
-                        'priceGapPct': 0,
-                        'expectedPriceRange': '',
-                        'remainingRightsSqm': 0,
-                        'program': '',
-                        'lastPermitQ': '',
-                        'noiseLevel': 2,
-                        'greenWithin300m': True,
-                        'schoolsWithin500m': True,
-                        'modelPrice': raw_data.get('price', 0),
-                        'confidencePct': 75,
-                        'capRatePct': 3.0,
-                        'antennaDistanceM': 150,
-                        'shelterDistanceM': 100,
-                        'rentEstimate': round(raw_data.get('price', 0) * 0.004) if raw_data.get('price', 0) else 0,
-                        'asset_id': asset.id,
-                        'asset_status': asset.status,
-                        'source': 'yad2'
-                    }
-                    listings.append(listing)
+            if all_sources:
+                # Create listings for each source
+                for source in all_sources:
+                    source_records_for_source = [r for r in source_records if r.source == source]
+                    
+                    for record in source_records_for_source:
+                        raw_data = record.raw or {}
+                        
+                        # Base listing data
+                        listing = {
+                            'id': f'asset_{asset.id}_{record.id}',
+                            'external_id': record.external_id,
+                            'address': asset.normalized_address or f"{asset.street or ''} {asset.number or ''}".strip(),
+                            'price': raw_data.get('price', 0),
+                            'bedrooms': raw_data.get('rooms', 0),
+                            'bathrooms': 1,  # Default
+                            'area': raw_data.get('size', 0),
+                            'type': raw_data.get('property_type', 'דירה'),
+                            'status': 'active',
+                            'images': raw_data.get('images', []),
+                            'description': raw_data.get('description', ''),
+                            'features': raw_data.get('features', []),
+                            'contactInfo': {
+                                'agent': raw_data.get('agent_name', ''),
+                                'phone': raw_data.get('agent_phone', ''),
+                                'email': raw_data.get('agent_email', '')
+                            },
+                            'city': asset.city or '',
+                            'neighborhood': asset.neighborhood or '',
+                            'netSqm': raw_data.get('size', 0),
+                            'pricePerSqm': round(raw_data.get('price', 0) / raw_data.get('size', 0)) if raw_data.get('price', 0) and raw_data.get('size', 0) else 0,
+                            'deltaVsAreaPct': 0,
+                            'domPercentile': 50,
+                            'competition1km': 'בינוני',
+                            'zoning': 'מגורים א\'',
+                            'riskFlags': [],
+                            'priceGapPct': 0,
+                            'expectedPriceRange': '',
+                            'remainingRightsSqm': 0,
+                            'program': '',
+                            'lastPermitQ': '',
+                            'noiseLevel': 2,
+                            'greenWithin300m': True,
+                            'schoolsWithin500m': True,
+                            'modelPrice': raw_data.get('price', 0),
+                            'confidencePct': 75,
+                            'capRatePct': 3.0,
+                            'antennaDistanceM': 150,
+                            'shelterDistanceM': 100,
+                            'rentEstimate': round(raw_data.get('price', 0) * 0.004) if raw_data.get('price', 0) else 0,
+                            'asset_id': asset.id,
+                            'asset_status': asset.status,
+                            'sources': all_sources,
+                            'primary_source': source
+                        }
+                        listings.append(listing)
             else:
-                # Create a basic listing from asset data
+                # Create a basic listing from asset data when no sources yet
                 listing = {
                     'id': f'asset_{asset.id}',
                     'external_id': f'asset_{asset.id}',
@@ -960,7 +970,7 @@ def listings(request):
                     'bathrooms': 1,
                     'area': 0,
                     'type': 'דירה',
-                    'status': asset.status == 'ready' ? 'active' : 'pending',
+                    'status': 'active' if asset.status == 'ready' else 'pending',
                     'images': [],
                     'description': f'נכס {asset.scope_type} - {asset.city or ""}',
                     'features': [],
@@ -990,7 +1000,8 @@ def listings(request):
                     'rentEstimate': 0,
                     'asset_id': asset.id,
                     'asset_status': asset.status,
-                    'source': 'asset'
+                    'sources': [],
+                    'primary_source': 'asset'
                 }
                 listings.append(listing)
         

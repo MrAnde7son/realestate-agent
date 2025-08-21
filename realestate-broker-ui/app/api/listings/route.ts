@@ -7,21 +7,14 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
 export async function GET(req: Request){
   try {
-    // For now, always use mock data for demo purposes
-    // To enable backend integration, uncomment the backend fetch logic below
-    
-    // Use mock data for immediate testing
-    console.log('Using mock data for listings')
-    return NextResponse.json({ rows: listings })
-    
-    /* Backend integration code (commented out for demo):
     const url = new URL(req.url)
     const query = url.search
-    const resp = await fetch(`${BACKEND_URL}/api/listings/${query}`, { cache: 'no-store' })
+    const resp = await fetch(`${BACKEND_URL}/api/assets/${query}`, { cache: 'no-store' })
     
     if (!resp.ok) {
       console.error('Backend API error:', resp.status, resp.statusText)
       // Fallback to mock data if backend is unavailable
+      console.log('Falling back to mock data for listings')
       return NextResponse.json({ rows: listings })
     }
     
@@ -32,42 +25,45 @@ export async function GET(req: Request){
       id: listing.id?.toString() || listing.external_id,
       address: listing.address,
       price: listing.price,
-      bedrooms: listing.rooms || 0,
-      bathrooms: 1, // Default since not in backend
-      area: listing.size || 0,
-      type: listing.property_type || 'דירה',
-      status: 'active' as const,
+      bedrooms: listing.bedrooms || 0,
+      bathrooms: listing.bathrooms || 1, // Default since not in backend
+      area: listing.area,
+      type: listing.type || 'דירה',
+      status: listing.status || 'active',
       images: listing.images || [],
       description: listing.description || '',
       features: listing.features || [],
-      contactInfo: listing.contact_info || { agent: '', phone: '', email: '' },
-      city: listing.address?.split(',')[1]?.trim() || 'תל אביב',
-      neighborhood: '',
-      netSqm: listing.size || 0,
-      pricePerSqm: listing.price && listing.size ? Math.round(listing.price / listing.size) : 0,
-      deltaVsAreaPct: 0, // Calculate if needed
-      domPercentile: 50, // Default
-      competition1km: 'בינוני',
-      zoning: 'מגורים א\'',
-      riskFlags: [],
-      priceGapPct: 0,
-      expectedPriceRange: '',
-      remainingRightsSqm: 0,
-      program: '',
-      lastPermitQ: '',
-      noiseLevel: 2,
-      greenWithin300m: true,
-      schoolsWithin500m: true,
-      modelPrice: listing.price,
-      confidencePct: 75, // Default
-      capRatePct: 3.0,
-      antennaDistanceM: 150,
-      shelterDistanceM: 100,
-      rentEstimate: listing.price ? Math.round(listing.price * 0.004) : 0 // 0.4% monthly
+      contactInfo: listing.contactInfo || { agent: '', phone: '', email: '' },
+      city: listing.city || 'תל אביב',
+      neighborhood: listing.neighborhood || '',
+      netSqm: listing.netSqm || 0,
+      pricePerSqm: listing.pricePerSqm || 0,
+      deltaVsAreaPct: listing.deltaVsAreaPct || 0, // Calculate if needed
+      domPercentile: listing.domPercentile || 50, // Default
+      competition1km: listing.competition1km || 'בינוני',
+      zoning: listing.zoning || 'מגורים א\'',
+      riskFlags: listing.riskFlags || [],
+      priceGapPct: listing.priceGapPct || 0,
+      expectedPriceRange: listing.expectedPriceRange || '',
+      remainingRightsSqm: listing.remainingRightsSqm || 0,
+      program: listing.program || '',
+      lastPermitQ: listing.lastPermitQ || '',
+      noiseLevel: listing.noiseLevel || 2,
+      greenWithin300m: listing.greenWithin300m || true,
+      schoolsWithin500m: listing.schoolsWithin500m || true,
+      modelPrice: listing.modelPrice || listing.price || 0,
+      confidencePct: listing.confidencePct || 75, // Default
+      capRatePct: listing.capRatePct || 3.0,
+      antennaDistanceM: listing.antennaDistanceM || 150,
+      shelterDistanceM: listing.shelterDistanceM || 100,
+      rentEstimate: listing.rentEstimate || (listing.price ? Math.round(listing.price * 0.004) : 0), // 0.4% monthly
+      asset_id: listing.asset_id,
+      asset_status: listing.asset_status,
+      sources: listing.sources,
+      primary_source: listing.primary_source
     })) || []
     
     return NextResponse.json({ rows: transformedRows })
-    */
   } catch (error) {
     console.error('Error fetching listings:', error)
     // Fallback to mock data on error

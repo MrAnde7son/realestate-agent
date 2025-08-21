@@ -40,6 +40,11 @@ export interface Listing {
   shelterDistanceM?: number
   rentEstimate?: number
   documents?: { name: string; url: string; type?: string }[]
+  // Asset enrichment fields
+  asset_id?: number
+  asset_status?: string
+  sources?: string[]
+  primary_source?: string
 }
 
 export const listings: Listing[] = [

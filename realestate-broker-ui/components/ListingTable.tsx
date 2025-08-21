@@ -24,6 +24,13 @@ const columns: ColumnDef<Listing>[] = [
   { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => <Badge variant={(info.getValue() as boolean)?'good':'bad'}>{(info.getValue() as boolean)?'כן':'לא'}</Badge> },
   { header:'מקלט (מ")', accessorKey:'shelterDistanceM', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
   { header:'סיכון', accessorKey:'riskFlags', cell: info => <RiskCell flags={info.getValue() as string[]}/> },
+  { header:'סטטוס נכס', accessorKey:'asset_status', cell: info => {
+    const status = info.getValue() as string
+    if (!status) return <Badge variant="default">—</Badge>
+    const variant = status === 'ready' ? 'good' : status === 'error' ? 'bad' : 'warn'
+    const label = status === 'ready' ? 'מוכן' : status === 'error' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
+    return <Badge variant={variant}>{label}</Badge>
+  }},
   { header:'מחיר מודל', accessorKey:'modelPrice', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => <Badge variant={(info.getValue() as number)>0?'warn':'good'}>{fmtPct(info.getValue() as number)}</Badge> },
   { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => <Badge>{`${info.getValue()}%`}</Badge> },
@@ -31,9 +38,12 @@ const columns: ColumnDef<Listing>[] = [
   { header:'תשואת Cap', accessorKey:'capRatePct', cell: info => <Badge>{`${(info.getValue() as number)?.toFixed(1)}%`}</Badge> },
   { header:'—', id:'actions', cell: ({ row }) => (<div className="flex gap-2"><Link className="underline" href={`/listings/${row.original.id}`}>👁️</Link><a className="underline" href="/alerts">🔔</a></div>) }
 ]
-export default function ListingTable(){
-  const [data, setData] = React.useState<Listing[]>([])
-  React.useEffect(()=>{ fetch('/api/listings').then(r=>r.json()).then(res=>setData(res.rows)) },[])
+interface ListingTableProps {
+  data?: Listing[]
+  loading?: boolean
+}
+
+export default function ListingTable({ data = [], loading = false }: ListingTableProps){
   const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() })
   return (<div className="rounded-xl border border-[var(--border)] bg-[linear-gradient(180deg,var(--panel),var(--card))] overflow-x-auto">
     <Table>

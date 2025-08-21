@@ -150,9 +150,24 @@ class AuthAPI {
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
       
-      // Also set cookies for middleware
-      document.cookie = `access_token=${accessToken}; path=/; max-age=3600; SameSite=Lax`
-      document.cookie = `refresh_token=${refreshToken}; path=/; max-age=86400; SameSite=Lax`
+      // Also set cookies for middleware with proper settings
+      const cookieOptions = [
+        `path=/`,
+        `max-age=3600`,
+        `SameSite=Lax`,
+        `secure=${window.location.protocol === 'https:'}`,
+        `domain=${window.location.hostname}`
+      ].join('; ')
+      
+      document.cookie = `access_token=${accessToken}; ${cookieOptions}`
+      document.cookie = `refresh_token=${refreshToken}; ${cookieOptions.replace('max-age=3600', 'max-age=86400')}`
+      
+      console.log('🍪 Cookies set:', {
+        access_token: accessToken ? 'set' : 'not set',
+        refresh_token: refreshToken ? 'set' : 'not set',
+        domain: window.location.hostname,
+        secure: window.location.protocol === 'https:'
+      })
     }
   }
 

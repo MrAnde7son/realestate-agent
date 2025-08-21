@@ -22,7 +22,7 @@ from backend_django.core.tasks import (
 )
     
     # Create mock implementations for testing
-    def mock_parse_street_number(address: str):
+def mock_parse_street_number(address: str):
         """Mock implementation of _parse_street_number for testing."""
         import re
         if not address or not address.strip():

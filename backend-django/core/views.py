@@ -926,24 +926,25 @@ def asset_detail(request, asset_id):
                 'fetched_at': trans.fetched_at.isoformat() if trans.fetched_at else None
             })
             
-            return JsonResponse({
-                'id': asset.id,
-                'scope_type': asset.scope_type,
-                'city': asset.city,
-                'neighborhood': asset.neighborhood,
-                'street': asset.street,
-                'number': asset.number,
-                'gush': asset.gush,
-                'helka': asset.helka,
-                'lat': asset.lat,
-                'lon': asset.lon,
-                'normalized_address': asset.normalized_address,
-                'status': asset.status,
-                'meta': asset.meta,
-                'created_at': asset.created_at.isoformat() if asset.created_at else None,
-                'records': records_by_source,
-                'transactions': transaction_list
-            })
+        # Return asset details
+        return JsonResponse({
+            'id': asset.id,
+            'scope_type': asset.scope_type,
+            'city': asset.city,
+            'neighborhood': asset.neighborhood,
+            'street': asset.street,
+            'number': asset.number,
+            'gush': asset.gush,
+            'helka': asset.helka,
+            'lat': asset.lat,
+            'lon': asset.lon,
+            'normalized_address': asset.normalized_address,
+            'status': asset.status,
+            'meta': asset.meta,
+            'created_at': asset.created_at.isoformat() if asset.created_at else None,
+            'records': records_by_source,
+            'transactions': transaction_list
+        })
             
     except Exception as e:
         print(f"Error retrieving asset {asset_id}: {e}")

@@ -6,6 +6,6 @@ services:
     publishPath: out
     envVars:
       - key: BACKEND_URL
-        value: https://https://backend-django-2cpe.onrender.com
+        value: https://backend-django-2cpe.onrender.com
       - key: NEXT_STATIC_EXPORT
         value: "true"

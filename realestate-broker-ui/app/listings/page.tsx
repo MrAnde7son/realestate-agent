@@ -550,7 +550,7 @@ export default function ListingsPage() {
                     <TableRow 
                       key={listing.id} 
                       className="hover:bg-muted/50 cursor-pointer group clickable-row"
-                      onClick={() => window.open(`/listings/${listing.id}`, '_self')}
+                      onClick={() => window.open(`/assets/${listing.asset_id}`, '_self')}
                     >
                       <TableCell>
                         <div>
@@ -676,7 +676,7 @@ export default function ListingsPage() {
                       <TableCell><Badge>{listing.capRatePct?.toFixed(1)}%</Badge></TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/listings/${listing.id}`}>
+                          <Link href={`/assets/${listing.asset_id}`}>
                             צפה
                           </Link>
                         </Button>

@@ -2,6 +2,33 @@ import { NextResponse } from 'next/server'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
+export async function GET(req: Request) {
+  try {
+    const url = new URL(req.url)
+    const query = url.search
+    const backendUrl = `${BACKEND_URL}/api/assets/${query}`
+    console.log('Frontend calling backend:', backendUrl)
+    
+    const resp = await fetch(backendUrl, { cache: 'no-store' })
+    
+    if (!resp.ok) {
+      console.error('Backend API error:', resp.status, resp.statusText)
+      console.error('Backend URL called:', backendUrl)
+      return NextResponse.json({ error: 'Failed to fetch assets' }, { status: resp.status })
+    }
+    
+    const data = await resp.json()
+    return NextResponse.json(data)
+    
+  } catch (error) {
+    console.error('Error fetching assets:', error)
+    return NextResponse.json({ 
+      error: 'Failed to fetch assets',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()

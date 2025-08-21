@@ -77,10 +77,18 @@ export async function GET(req: Request){
 
 const newListingSchema = z.object({
   address: z.string().min(1, 'address required'),
-  price: z.number().gt(0, 'price required'),
-  bedrooms: z.number().int().gte(0, 'bedrooms required'),
-  bathrooms: z.number().int().gte(0, 'bathrooms required'),
-  area: z.number().gt(0, 'area required'),
+  // Optional fields that will be populated from external sources
+  price: z.number().optional(),
+  bedrooms: z.number().int().gte(0).optional(),
+  bathrooms: z.number().int().gte(0).optional(),
+  area: z.number().gt(0).optional(),
+  // Additional fields from sync
+  city: z.string().optional(),
+  neighborhood: z.string().optional(),
+  type: z.string().optional(),
+  description: z.string().optional(),
+  features: z.array(z.string()).optional(),
+  images: z.array(z.string()).optional(),
 })
 
 export async function POST(req: Request) {
@@ -89,45 +97,49 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ errors: parsed.error.flatten() }, { status: 400 })
   }
+  
   const id = `l${listings.length + 1}`
   const data = parsed.data
+  
+  // Create listing with available data, using defaults for missing fields
   const listing: Listing = {
     id,
     address: data.address,
-    price: data.price,
-    bedrooms: data.bedrooms,
-    bathrooms: data.bathrooms,
-    area: data.area,
-    type: 'דירה',
+    price: data.price || 0, // Will be populated from sync
+    bedrooms: data.bedrooms || 0, // Will be populated from sync
+    bathrooms: data.bathrooms || 0, // Will be populated from sync
+    area: data.area || 0, // Will be populated from sync
+    type: data.type || 'דירה',
     status: 'active',
-    images: [],
-    description: '',
-    features: [],
+    images: data.images || [],
+    description: data.description || '',
+    features: data.features || [],
     contactInfo: { agent: '', phone: '', email: '' },
-    city: json.city,
-    neighborhood: json.neighborhood,
-    netSqm: json.netSqm,
-    pricePerSqm: json.pricePerSqm,
-    deltaVsAreaPct: json.deltaVsAreaPct,
-    domPercentile: json.domPercentile,
-    competition1km: json.competition1km,
-    zoning: json.zoning,
-    riskFlags: json.riskFlags,
-    priceGapPct: json.priceGapPct,
-    expectedPriceRange: json.expectedPriceRange,
-    remainingRightsSqm: json.remainingRightsSqm,
-    program: json.program,
-    lastPermitQ: json.lastPermitQ,
-    noiseLevel: json.noiseLevel,
-    greenWithin300m: json.greenWithin300m,
-    schoolsWithin500m: json.schoolsWithin500m,
-    modelPrice: json.modelPrice,
-    confidencePct: json.confidencePct,
-    capRatePct: json.capRatePct,
-    antennaDistanceM: json.antennaDistanceM,
-    shelterDistanceM: json.shelterDistanceM,
-    rentEstimate: json.rentEstimate,
+    city: data.city || data.address?.split(',')[1]?.trim() || 'תל אביב',
+    neighborhood: data.neighborhood || '',
+    netSqm: data.area || 0,
+    pricePerSqm: data.price && data.area ? Math.round(data.price / data.area) : 0,
+    deltaVsAreaPct: 0,
+    domPercentile: 50,
+    competition1km: 'בינוני',
+    zoning: 'מגורים א\'',
+    riskFlags: [],
+    priceGapPct: 0,
+    expectedPriceRange: '',
+    remainingRightsSqm: 0,
+    program: '',
+    lastPermitQ: '',
+    noiseLevel: 2,
+    greenWithin300m: true,
+    schoolsWithin500m: true,
+    modelPrice: data.price || 0,
+    confidencePct: 75,
+    capRatePct: 3.0,
+    antennaDistanceM: 150,
+    shelterDistanceM: 100,
+    rentEstimate: data.price ? Math.round(data.price * 0.004) : 0
   }
+  
   addListing(listing)
   return NextResponse.json({ listing }, { status: 201 })
 }

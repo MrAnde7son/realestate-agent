@@ -1,24 +1,49 @@
-requests==2.32.4
-beautifulsoup4==4.13.4
-lxml==6.0.0
-mcp==1.12.4
-pandas==2.3.1
-fastmcp==2.11.2
-cattrs>=25.1.1
-pdfplumber>=0.10.3
-python-dateutil>=2.8.2
-pyproj>=3.6.1
-pytest==7.2.1
-SQLAlchemy>=2.0.0
-psycopg2-binary>=2.9.0
-APScheduler>=3.10.4
-twilio>=8.0.0
-django>=4.0.0
+# Real Estate Agent - Complete Project Requirements
+# ================================================
+
+# Core Backend
+-r backend-django/requirements.txt
+
+# Database Module
+-r db/requirements.txt
+
+# Orchestration Module
+-r orchestration/requirements.txt
+
+# Government Data Modules
+-r gov/requirements.txt
+
+# GIS Module
+-r gis/requirements.txt
+
+# Yad2 Real Estate Module
+-r yad2/requirements.txt
+
+# RAMI Module
+-r rami/requirements.txt
+
+# Additional Global Dependencies
+# =============================
+
+# Development Tools
+black>=21.0.0
+flake8>=3.9.0
+mypy>=0.910
+
+# Documentation
+sphinx>=4.0.0
+sphinx-rtd-theme>=0.5.0
+
+# Monitoring & Logging
+sentry-sdk>=1.0.0
+structlog>=21.1.0
+
+# Performance
+uvloop>=0.14.0
+orjson>=3.6.0
+
+# Security
+cryptography>=3.4.0
+passlib>=1.7.0
+
 djangorestframework>=3.15.0
-django-cors-headers>=4.7.0
-pydantic>=2.0.0
-celery>=5.3.0
-reportlab>=3.6.12
-responses>=0.24.0
-playwright>=1.44.0
-python-decouple>=3.6

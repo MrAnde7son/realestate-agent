@@ -766,14 +766,11 @@ def finalize(context):
 def _get_asset(asset_id):
     """Get asset from database."""
     try:
-        from db.models import Asset
-        from db.database import SQLAlchemyDatabase
-        
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            asset = session.query(Asset).filter_by(id=asset_id).first()
-            session.close()
-            return asset
+        from .models import Asset
+        return Asset.objects.get(id=asset_id)
+    except Asset.DoesNotExist:
+        logger.error(f"Asset {asset_id} not found")
+        return None
     except Exception as e:
         logger.error(f"Failed to get asset {asset_id}: {e}")
         return None
@@ -781,66 +778,50 @@ def _get_asset(asset_id):
 def _update_asset_status(asset_id, status, meta_update):
     """Update asset status and meta."""
     try:
-        from db.models import Asset
-        from db.database import SQLAlchemyDatabase
-        
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            asset = session.query(Asset).filter_by(id=asset_id).first()
-            if asset:
-                asset.status = status
-                if meta_update:
-                    asset.meta.update(meta_update)
-                session.commit()
-            session.close()
+        from .models import Asset
+        asset = Asset.objects.get(id=asset_id)
+        asset.status = status
+        if meta_update:
+            asset.meta.update(meta_update)
+        asset.save()
+    except Asset.DoesNotExist:
+        logger.error(f"Asset {asset_id} not found for status update")
     except Exception as e:
         logger.error(f"Failed to update asset {asset_id} status: {e}")
 
 def _update_asset_location(asset_id, lat, lon, gush, helka):
     """Update asset location data."""
     try:
-        from db.models import Asset
-        from db.database import SQLAlchemyDatabase
-        
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            asset = session.query(Asset).filter_by(id=asset_id).first()
-            if asset:
-                asset.lat = lat
-                asset.lon = lon
-                if gush:
-                    asset.gush = gush
-                if helka:
-                    asset.helka = helka
-                session.commit()
-            session.close()
+        from .models import Asset
+        asset = Asset.objects.get(id=asset_id)
+        asset.lat = lat
+        asset.lon = lon
+        if gush:
+            asset.gush = gush
+        if helka:
+            asset.helka = helka
+        asset.save()
+    except Asset.DoesNotExist:
+        logger.error(f"Asset {asset_id} not found for location update")
     except Exception as e:
         logger.error(f"Failed to update asset {asset_id} location: {e}")
 
 def _save_yad2_records(asset_id, results):
     """Save Yad2 records to database."""
     try:
-        from db.models import SourceRecord
-        from db.database import SQLAlchemyDatabase
-        
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            saved_count = 0
-            for result in results:
-                record = SourceRecord(
-                    asset_id=asset_id,
-                    source='yad2',
-                    external_id=str(result.get('id', '')),
-                    title=result.get('title', ''),
-                    url=result.get('url', ''),
-                    raw=result
-                )
-                session.add(record)
-                saved_count += 1
-            
-            session.commit()
-            session.close()
-            return saved_count
+        from .models import SourceRecord
+        saved_count = 0
+        for result in results:
+            SourceRecord.objects.create(
+                asset_id=asset_id,
+                source='yad2',
+                external_id=str(result.get('id', '')),
+                title=result.get('title', ''),
+                url=result.get('url', ''),
+                raw=result
+            )
+            saved_count += 1
+        return saved_count
     except Exception as e:
         logger.error(f"Failed to save Yad2 records for asset {asset_id}: {e}")
         return 0
@@ -848,42 +829,33 @@ def _save_yad2_records(asset_id, results):
 def _save_nadlan_transactions(asset_id, deals):
     """Save Nadlan transactions to database."""
     try:
-        from db.models import RealEstateTransaction, SourceRecord
-        from db.database import SQLAlchemyDatabase
-        
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            saved_count = 0
-            for deal in deals:
-                # Save transaction
-                transaction = RealEstateTransaction(
-                    asset_id=asset_id,
-                    deal_id=deal.get('deal_id', ''),
-                    date=deal.get('date'),
-                    price=deal.get('price'),
-                    rooms=deal.get('rooms'),
-                    area=deal.get('area'),
-                    floor=deal.get('floor'),
-                    address=deal.get('address', ''),
-                    raw=deal
-                )
-                session.add(transaction)
-                
-                # Save source record
-                record = SourceRecord(
-                    asset_id=asset_id,
-                    source='nadlan',
-                    external_id=deal.get('deal_id', ''),
-                    title=f"Transaction {deal.get('deal_id', '')}",
-                    raw=deal
-                )
-                session.add(record)
-                
-                saved_count += 1
+        from .models import RealEstateTransaction, SourceRecord
+        saved_count = 0
+        for deal in deals:
+            # Save transaction
+            RealEstateTransaction.objects.create(
+                asset_id=asset_id,
+                deal_id=deal.get('deal_id', ''),
+                date=deal.get('date'),
+                price=deal.get('price'),
+                rooms=deal.get('rooms'),
+                area=deal.get('area'),
+                floor=deal.get('floor'),
+                address=deal.get('address', ''),
+                raw=deal
+            )
             
-            session.commit()
-            session.close()
-            return saved_count
+            # Save source record
+            SourceRecord.objects.create(
+                asset_id=asset_id,
+                source='nadlan',
+                external_id=deal.get('deal_id', ''),
+                title=f"Transaction {deal.get('deal_id', '')}",
+                raw=deal
+            )
+            
+            saved_count += 1
+        return saved_count
     except Exception as e:
         logger.error(f"Failed to save Nadlan transactions for asset {asset_id}: {e}")
         return 0
@@ -891,28 +863,20 @@ def _save_nadlan_transactions(asset_id, deals):
 def _save_gis_records(asset_id, source_type, records):
     """Save GIS records to database."""
     try:
-        from db.models import SourceRecord
-        from db.database import SQLAlchemyDatabase
-        
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            saved_count = 0
-            for record in records:
-                source_record = SourceRecord(
-                    asset_id=asset_id,
-                    source=source_type,
-                    external_id=str(record.get('id', '')),
-                    title=record.get('title', ''),
-                    url=record.get('url', ''),
-                    file_path=record.get('file_path', ''),
-                    raw=record
-                )
-                session.add(source_record)
-                saved_count += 1
-            
-            session.commit()
-            session.close()
-            return saved_count
+        from .models import SourceRecord
+        saved_count = 0
+        for record in records:
+            SourceRecord.objects.create(
+                asset_id=asset_id,
+                source=source_type,
+                external_id=str(record.get('id', '')),
+                title=record.get('title', ''),
+                url=record.get('url', ''),
+                file_path=record.get('file_path', ''),
+                raw=record
+            )
+            saved_count += 1
+        return saved_count
     except Exception as e:
         logger.error(f"Failed to save GIS records for asset {asset_id}: {e}")
         return 0
@@ -920,28 +884,20 @@ def _save_gis_records(asset_id, source_type, records):
 def _save_rami_records(asset_id, plans):
     """Save RAMI records to database."""
     try:
-        from db.models import SourceRecord
-        from db.database import SQLAlchemyDatabase
-        
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            saved_count = 0
-            for plan in plans:
-                record = SourceRecord(
-                    asset_id=asset_id,
-                    source='rami_plan',
-                    external_id=str(plan.get('id', '')),
-                    title=plan.get('title', ''),
-                    url=plan.get('url', ''),
-                    file_path=plan.get('file_path', ''),
-                    raw=plan
-                )
-                session.add(record)
-                saved_count += 1
-            
-            session.commit()
-            session.close()
-            return saved_count
+        from .models import SourceRecord
+        saved_count = 0
+        for plan in plans:
+            SourceRecord.objects.create(
+                asset_id=asset_id,
+                source='rami_plan',
+                external_id=str(plan.get('id', '')),
+                title=plan.get('title', ''),
+                url=plan.get('url', ''),
+                file_path=plan.get('file_path', ''),
+                raw=plan
+            )
+            saved_count += 1
+        return saved_count
     except Exception as e:
         logger.error(f"Failed to save RAMI records for asset {asset_id}: {e}")
         return 0

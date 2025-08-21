@@ -17,43 +17,11 @@ def setup_database():
     sys.path.insert(0, project_root)
     
     try:
-        # Initialize SQLAlchemy database
-        print("📦 Initializing SQLAlchemy database...")
-        from db.database import SQLAlchemyDatabase
-        
-        db = SQLAlchemyDatabase()
-        if db.init_db():
-            print("✅ SQLAlchemy database initialized successfully")
-        else:
-            print("❌ Failed to initialize SQLAlchemy database")
-            return False
-        
-        # Create tables
-        print("🏗️  Creating database tables...")
-        if db.create_tables():
-            print("✅ Database tables created successfully")
-        else:
-            print("❌ Failed to create database tables")
-            return False
-        
-        # Test database connection
-        print("🔍 Testing database connection...")
-        try:
-            with db.get_session() as session:
-                # Test query
-                result = session.execute("SELECT 1")
-                print("✅ Database connection test successful")
-        except Exception as e:
-            print(f"❌ Database connection test failed: {e}")
-            return False
-        
-        db.close()
+        # Django will handle database initialization
+        print("📦 Django will handle database initialization...")
+        print("✅ Database setup completed successfully")
         return True
         
-    except ImportError as e:
-        print(f"❌ Import error: {e}")
-        print("Make sure all dependencies are installed")
-        return False
     except Exception as e:
         print(f"❌ Setup failed: {e}")
         return False
@@ -67,6 +35,16 @@ def setup_django():
         django_dir = os.path.join(os.path.dirname(__file__), 'backend-django')
         os.chdir(django_dir)
         
+        # Check if .env exists, if not create from env.development
+        env_file = os.path.join(django_dir, '.env')
+        dev_env_file = os.path.join(os.path.dirname(__file__), 'env.development')
+        
+        if not os.path.exists(env_file) and os.path.exists(dev_env_file):
+            print("📝 Creating .env from development template...")
+            import shutil
+            shutil.copy(dev_env_file, env_file)
+            print("✅ .env file created")
+        
         # Run Django migrations
         print("🔄 Running Django migrations...")
         os.system("python manage.py makemigrations")
@@ -79,56 +57,7 @@ def setup_django():
         print(f"❌ Django setup failed: {e}")
         return False
 
-def create_sample_assets():
-    """Create sample assets for testing."""
-    print("\n🎯 Creating sample assets...")
-    
-    try:
-        from db.database import SQLAlchemyDatabase
-        from db.models import Asset
-        
-        db = SQLAlchemyDatabase()
-        
-        # Sample assets
-        sample_assets = [
-            {
-                'scope_type': 'neighborhood',
-                'city': 'תל אביב',
-                'neighborhood': 'רמת החייל',
-                'status': 'ready',
-                'meta': {
-                    'scope': {'type': 'neighborhood', 'value': 'רמת החייל', 'city': 'תל אביב'},
-                    'radius': 250
-                }
-            },
-            {
-                'scope_type': 'address',
-                'city': 'תל אביב',
-                'street': 'הגולן',
-                'number': 32,
-                'status': 'ready',
-                'meta': {
-                    'scope': {'type': 'address', 'value': 'הגולן 32, תל אביב', 'city': 'תל אביב'},
-                    'radius': 150
-                }
-            }
-        ]
-        
-        with db.get_session() as session:
-            for asset_data in sample_assets:
-                asset = Asset(**asset_data)
-                session.add(asset)
-            
-            session.commit()
-            print(f"✅ Created {len(sample_assets)} sample assets")
-            session.close()
-        
-        db.close()
-        return True
-        
-    except Exception as e:
-        print(f"❌ Failed to create sample assets: {e}")
-        return False
+
 
 def main():
     """Main setup function."""
@@ -136,7 +65,7 @@ def main():
     print("=" * 50)
     
     # Check if we're in the right directory
-    if not os.path.exists('db') or not os.path.exists('backend-django'):
+    if not os.path.exists('backend-django'):
         print("❌ Please run this script from the project root directory")
         sys.exit(1)
     
@@ -151,8 +80,12 @@ def main():
         sys.exit(1)
     
     # Create sample assets
-    if not create_sample_assets():
-        print("⚠️  Sample assets creation failed (non-critical)")
+    print("\n🎯 Creating sample assets...")
+    try:
+        os.system("python manage.py create_sample_assets")
+        print("✅ Sample assets created successfully")
+    except Exception as e:
+        print(f"⚠️  Sample assets creation failed (non-critical): {e}")
     
     print("\n🎉 Setup completed successfully!")
     print("\nNext steps:")

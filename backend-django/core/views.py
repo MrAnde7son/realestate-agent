@@ -49,55 +49,21 @@ except ImportError:
 
 from .models import Alert
 
-# Import database models - using relative imports for Django compatibility
+# Import Django models
+from .models import Asset, SourceRecord, RealEstateTransaction
+
+# Import utility functions if available
 try:
-    import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-    from db.database import SQLAlchemyDatabase
-    from db.models import (
-        Listing,
-        BuildingPermit,
-        BuildingRights,
-        DecisiveAppraisal,
-        RamiValuation,
-        Asset,
-        SourceRecord,
-        RealEstateTransaction,
-    )
     from utils.tabu_parser import parse_tabu_pdf, search_rows
-    DB_AVAILABLE = True
+    UTILS_AVAILABLE = True
 except ImportError:
-    # If external modules aren't available, create dummy classes
-    class SQLAlchemyDatabase:
-        def get_session(self):
-            class DummySession:
-                def query(self, model):
-                    return DummyQuery()
-                def __enter__(self):
-                    return self
-                def __exit__(self, *args):
-                    pass
-            return DummySession()
+    UTILS_AVAILABLE = False
     
-    class DummyQuery:
-        def all(self):
-            return []
-        def order_by(self, field):
-            return self
-        def desc(self):
-            return self
+    def parse_tabu_pdf(file):
+        return []
     
-    class Listing:
-        pass
-    
-    class BuildingPermit:
-        pass
-    
-    class BuildingRights:
-        pass
-    
-    class DecisiveAppraisal:
-        pass
+    def search_rows(rows, query):
+        return []
     
     class RamiValuation:
         pass
@@ -1054,22 +1020,9 @@ def assets(request):
             }
         }
         
-        # Save to database if available
-        if DB_AVAILABLE:
-            from db.models import Asset
-            from db.database import SQLAlchemyDatabase
-            
-            db = SQLAlchemyDatabase()
-            with db.get_session() as session:
-                asset = Asset(**asset_data)
-                session.add(asset)
-                session.commit()
-                asset_id = asset.id
-                session.close()
-        else:
-            # Fallback for when DB is not available
-            asset_id = 1
-            asset_data['id'] = asset_id
+        # Save to Django database
+        asset = Asset.objects.create(**asset_data)
+        asset_id = asset.id
         
         # Enqueue Celery task if available
         if TASKS_AVAILABLE:
@@ -1108,56 +1061,44 @@ def asset_detail(request, asset_id):
         return HttpResponseBadRequest('GET method required')
     
     try:
-        if not DB_AVAILABLE:
-            return JsonResponse({
-                'error': 'Database not available',
-                'message': 'External database not available'
-            }, status=503)
+        # Get asset using Django ORM
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return JsonResponse({'error': 'Asset not found'}, status=404)
         
-        from db.models import Asset, SourceRecord, RealEstateTransaction
-        from db.database import SQLAlchemyDatabase
+        # Get source records grouped by source
+        source_records = SourceRecord.objects.filter(asset_id=asset_id)
+        records_by_source = {}
+        for record in source_records:
+            if record.source not in records_by_source:
+                records_by_source[record.source] = []
+            records_by_source[record.source].append({
+                'id': record.id,
+                'title': record.title,
+                'external_id': record.external_id,
+                'url': record.url,
+                'file_path': record.file_path,
+                'raw': record.raw,
+                'fetched_at': record.fetched_at.isoformat() if record.fetched_at else None
+            })
         
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            # Get asset
-            asset = session.query(Asset).filter_by(id=asset_id).first()
-            if not asset:
-                return JsonResponse({'error': 'Asset not found'}, status=404)
-            
-            # Get source records grouped by source
-            source_records = session.query(SourceRecord).filter_by(asset_id=asset_id).all()
-            records_by_source = {}
-            for record in source_records:
-                if record.source not in records_by_source:
-                    records_by_source[record.source] = []
-                records_by_source[record.source].append({
-                    'id': record.id,
-                    'title': record.title,
-                    'external_id': record.external_id,
-                    'url': record.url,
-                    'file_path': record.file_path,
-                    'raw': record.raw,
-                    'fetched_at': record.fetched_at.isoformat() if record.fetched_at else None
-                })
-            
-            # Get transactions
-            transactions = session.query(RealEstateTransaction).filter_by(asset_id=asset_id).all()
-            transaction_list = []
-            for trans in transactions:
-                transaction_list.append({
-                    'id': trans.id,
-                    'deal_id': trans.deal_id,
-                    'date': trans.date.isoformat() if trans.date else None,
-                    'price': trans.price,
-                    'rooms': trans.rooms,
-                    'area': trans.area,
-                    'floor': trans.floor,
-                    'address': trans.address,
-                    'raw': trans.raw,
-                    'fetched_at': trans.fetched_at.isoformat() if trans.fetched_at else None
-                })
-            
-            session.close()
+        # Get transactions
+        transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
+        transaction_list = []
+        for trans in transactions:
+            transaction_list.append({
+                'id': trans.id,
+                'deal_id': trans.deal_id,
+                'date': trans.date.isoformat() if trans.date else None,
+                'price': trans.price,
+                'rooms': trans.rooms,
+                'area': trans.area,
+                'floor': trans.floor,
+                'address': trans.address,
+                'raw': trans.raw,
+                'fetched_at': trans.fetched_at.isoformat() if trans.fetched_at else None
+            })
             
             return JsonResponse({
                 'id': asset.id,

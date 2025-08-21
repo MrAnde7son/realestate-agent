@@ -10,7 +10,7 @@ urlpatterns = [
     path('rami-valuations/', views.rami_valuations, name='rami_valuations'),
     path('mortgage-analyze/', views.mortgage_analyze, name='mortgage_analyze'),
     path('sync-address/', views.sync_address, name='sync_address'),
-    path('tabu/', views.tabu_view, name='tabu_view'),
+    path('tabu/', views.tabu, name='tabu'),
     path('reports/', views.reports, name='reports'),
     path('alerts/', views.alerts, name='alerts'),
     

@@ -199,9 +199,14 @@ class AuthAPI {
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       
-      // Also clear cookies
-      document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      // Also clear cookies with proper domain and path
+      const domain = window.location.hostname
+      const secure = window.location.protocol === 'https:'
+      
+      document.cookie = `access_token=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${secure ? 'secure;' : ''}`
+      document.cookie = `refresh_token=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${secure ? 'secure;' : ''}`
+      
+      console.log('🧹 Tokens cleared from localStorage and cookies')
     }
   }
 

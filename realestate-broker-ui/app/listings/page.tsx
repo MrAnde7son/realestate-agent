@@ -111,7 +111,7 @@ export default function ListingsPage() {
     if (assetId && assetStatus !== 'ready' && assetStatus !== 'error') {
       const interval = setInterval(async () => {
         try {
-          const response = await fetch(`/api/assets/${assetId}`)
+          const response = await fetch(`/api/listings/${assetId}`)
           if (response.ok) {
             const data = await response.json()
             setAssetStatus(data.status)
@@ -550,7 +550,7 @@ export default function ListingsPage() {
                     <TableRow 
                       key={listing.id} 
                       className="hover:bg-muted/50 cursor-pointer group clickable-row"
-                      onClick={() => window.open(`/assets/${listing.asset_id}`, '_self')}
+                      onClick={() => window.open(`/listings/${listing.asset_id}`, '_self')}
                     >
                       <TableCell>
                         <div>
@@ -676,7 +676,7 @@ export default function ListingsPage() {
                       <TableCell><Badge>{listing.capRatePct?.toFixed(1)}%</Badge></TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/assets/${listing.asset_id}`}>
+                          <Link href={`/listings/${listing.asset_id}`}>
                             צפה
                           </Link>
                         </Button>

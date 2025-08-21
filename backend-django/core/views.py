@@ -52,47 +52,18 @@ from .models import Alert
 # Import Django models
 from .models import Asset, SourceRecord, RealEstateTransaction
 
-# Import utility functions if available
+# Import utility functions
 try:
     from utils.tabu_parser import parse_tabu_pdf, search_rows
-    UTILS_AVAILABLE = True
 except ImportError:
-    UTILS_AVAILABLE = False
-    
-    def parse_tabu_pdf(file):
-        return []
-    
-    def search_rows(rows, query):
-        return []
-    
-    class RamiValuation:
-        pass
-    
-    class Asset:
-        pass
-    
-    class SourceRecord:
-        pass
-    
-    class RealEstateTransaction:
-        pass
-    
     def parse_tabu_pdf(file):
         return []
     
     def search_rows(rows, query):
         return rows
-    
-    DB_AVAILABLE = False
 
-try:
-    from .tasks import sync_address_sources
-    TASKS_AVAILABLE = True
-except ImportError:
-    # Create a dummy function if tasks module isn't available
-    def sync_address_sources(street, number):
-        return []
-    TASKS_AVAILABLE = False
+# Import tasks
+from .tasks import enrich_asset
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 REPORTS_DIR = os.environ.get(
@@ -615,33 +586,33 @@ def sync_address(request):
     
     # Execute sync with comprehensive error handling
     try:
-        if not DB_AVAILABLE or not TASKS_AVAILABLE:
-            # Return dummy data for testing
-            listings = [
-                {
-                    'id': 1,
-                    'source': 'demo',
-                    'external_id': 'demo_123',
-                    'title': f'נכס לדוגמה ב{street} {number}',
-                    'price': 2500000,
-                    'address': f'{street} {number}',
-                    'rooms': 4,
-                    'floor': 2,
-                    'size': 120,
-                    'property_type': 'דירה',
-                    'description': 'נכס לדוגמה לבדיקת המערכת',
-                    'images': [],
-                    'contact_info': {'phone': '050-123-4567'},
-                    'features': ['מרפסת', 'חניה', 'מעלית'],
-                    'url': '#',
-                    'date_posted': datetime.now().isoformat(),
-                    'scraped_at': datetime.now().isoformat(),
-                }
-            ]
-            message = f'Demo data for {street} {number} (external dependencies not available)'
-        else:
-            listings = sync_address_sources(street, number)
-            message = f'Successfully synced data for {street} {number}'
+        # Create a new asset for the address
+        from .models import Asset
+        asset = Asset.objects.create(
+            scope_type='address',
+            street=street,
+            number=number,
+            status='pending',
+            meta={'radius': 150}
+        )
+        
+        # Start enrichment pipeline
+        try:
+            enrich_asset.delay(asset.id)
+            message = f'Asset enrichment started for {street} {number} (Asset ID: {asset.id})'
+        except Exception as e:
+            message = f'Asset created but enrichment failed: {str(e)}'
+        
+        # Return asset info
+        listings = [{
+            'id': asset.id,
+            'source': 'asset',
+            'external_id': f'asset_{asset.id}',
+            'title': f'Asset for {street} {number}',
+            'address': f'{street} {number}',
+            'status': asset.status,
+            'message': message
+        }]
         
         return JsonResponse({
             'rows': listings,
@@ -660,129 +631,7 @@ def sync_address(request):
         )
 
 
-def listings(request):
-    """Return all listings from the SQL database."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(Listing).order_by(Listing.id.desc()).all()
-        data = [
-            {
-                'id': l.id,
-                'source': l.source,
-                'external_id': l.external_id,
-                'title': l.title,
-                'price': l.price,
-                'address': l.address,
-                'rooms': l.rooms,
-                'floor': l.floor,
-                'size': l.size,
-                'property_type': l.property_type,
-                'description': l.description,
-                'images': l.images,
-                'contact_info': l.contact_info,
-                'features': l.features,
-                'url': l.url,
-                'date_posted': l.date_posted,
-                'scraped_at': l.scraped_at.isoformat() if l.scraped_at else None,
-            }
-            for l in rows
-        ]
-    return JsonResponse({'rows': data})
-
-
-def building_permits(request):
-    """Return stored building permits."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(BuildingPermit).order_by(BuildingPermit.id.desc()).all()
-        data = [
-            {
-                'id': p.id,
-                'permission_num': p.permission_num,
-                'request_num': p.request_num,
-                'url': p.url,
-                'gush': p.gush,
-                'helka': p.helka,
-                'data': p.data,
-                'scraped_at': p.scraped_at.isoformat() if p.scraped_at else None,
-            }
-            for p in rows
-        ]
-    return JsonResponse({'rows': data})
-
-
-def building_rights(request):
-    """Return stored building rights pages."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(BuildingRights).order_by(BuildingRights.id.desc()).all()
-        data = [
-            {
-                'id': r.id,
-                'gush': r.gush,
-                'helka': r.helka,
-                'file_path': r.file_path,
-                'content_type': r.content_type,
-                'data': r.data,
-                'scraped_at': r.scraped_at.isoformat() if r.scraped_at else None,
-            }
-            for r in rows
-        ]
-    return JsonResponse({'rows': data})
-
-
-def decisive_appraisals(request):
-    """Return decisive appraisal decisions."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(DecisiveAppraisal).order_by(DecisiveAppraisal.id.desc()).all()
-        data = [
-            {
-                'id': d.id,
-                'title': d.title,
-                'date': d.date,
-                'appraiser': d.appraiser,
-                'committee': d.committee,
-                'pdf_url': d.pdf_url,
-                'data': d.data,
-                'scraped_at': d.scraped_at.isoformat() if d.scraped_at else None,
-            }
-            for d in rows
-        ]
-    return JsonResponse({'rows': data})
-
-
-def rami_valuations(request):
-    """Return RAMI valuation/plan records."""
-    if not DB_AVAILABLE:
-        return JsonResponse({'rows': [], 'message': 'External database not available'})
-    
-    db = SQLAlchemyDatabase()
-    with db.get_session() as session:
-        rows = session.query(RamiValuation).order_by(RamiValuation.id.desc()).all()
-        data = [
-            {
-                'id': r.id,
-                'plan_number': r.plan_number,
-                'name': r.name,
-                'data': r.data,
-                'scraped_at': r.scraped_at.isoformat() if r.scraped_at else None,
-            }
-            for r in rows
-        ]
-    return JsonResponse({'rows': data})
+# Old view functions removed - replaced with new asset enrichment pipeline
 
 
 @csrf_exempt
@@ -802,28 +651,13 @@ def reports(request):
 
     listing_id = data['listingId']
     
-    if not DB_AVAILABLE:
-        # Create a dummy listing for testing
-        listing = {
-            'address': 'כתובת לדוגמה',
-            'price': 2000000,
-            'rooms': 3,
-            'size': 80,
-        }
-    else:
-        db = SQLAlchemyDatabase()
-        with db.get_session() as session:
-            l = session.get(Listing, int(listing_id))
-            listing = (
-                {
-                    'address': l.address,
-                    'price': l.price,
-                    'rooms': l.rooms,
-                    'size': l.size,
-                }
-                if l
-                else None
-            )
+    # Create a dummy listing for testing (since we no longer have the old Listing model)
+    listing = {
+        'address': 'כתובת לדוגמה',
+        'price': 2000000,
+        'rooms': 3,
+        'size': 80,
+    }
 
     if not listing:
         return JsonResponse({'error': 'Listing not found'}, status=404)

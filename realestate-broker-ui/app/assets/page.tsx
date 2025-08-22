@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Asset } from '@/lib/data'
 import AssetsTable from '@/components/AssetsTable'
 import DashboardLayout from '@/components/layout/dashboard-layout'
+import { useRouter } from 'next/navigation'
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([])
@@ -27,6 +28,13 @@ export default function AssetsPage() {
   const [priceMin, setPriceMin] = useState<number>()
   const [priceMax, setPriceMax] = useState<number>()
   const { isAuthenticated } = useAuth()
+  const router = useRouter()
+
+  const handleProtectedAction = () => {
+    if (!isAuthenticated) {
+      router.push('/auth?redirect=' + encodeURIComponent('/assets'))
+    }
+  }
 
   // Function to fetch assets
   const fetchAssets = async () => {
@@ -171,29 +179,30 @@ export default function AssetsPage() {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button 
-              onClick={fetchAssets} 
-              variant="outline" 
+            <Button
+              onClick={fetchAssets}
+              variant="outline"
               disabled={loading}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               רענן
             </Button>
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  הוסף נכס חדש
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>הוסף נכס חדש</SheetTitle>
-                  <SheetDescription>
-                    הזן פרטי הנכס כדי להתחיל תהליך העשרת מידע
-                  </SheetDescription>
-                </SheetHeader>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
+            {isAuthenticated ? (
+              <Sheet open={open} onOpenChange={setOpen}>
+                <SheetTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    הוסף נכס חדש
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>הוסף נכס חדש</SheetTitle>
+                    <SheetDescription>
+                      הזן פרטי הנכס כדי להתחיל תהליך העשרת מידע
+                    </SheetDescription>
+                  </SheetHeader>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
                   <div className="space-y-2">
                     <Label htmlFor="scopeType">סוג חיפוש</Label>
                     <Select onValueChange={(value) => form.setValue('scopeType', value as any)}>
@@ -289,6 +298,12 @@ export default function AssetsPage() {
                 </form>
               </SheetContent>
             </Sheet>
+          ) : (
+            <Button onClick={handleProtectedAction}>
+              <Plus className="h-4 w-4 mr-2" />
+              התחבר להוספת נכס
+            </Button>
+          )}
           </div>
         </div>
 

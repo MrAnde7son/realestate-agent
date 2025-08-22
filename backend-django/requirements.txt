@@ -14,6 +14,9 @@ python-dotenv>=0.19.0
 # HTTP Requests (for external APIs)
 requests>=2.25.0
 
+# LLM Integration
+openai>=1.0.0
+
 # Database
 # PostgreSQL (optional - only needed when USE_POSTGRES=true)
 psycopg2-binary>=2.9.0  # Uncomment for PostgreSQL support

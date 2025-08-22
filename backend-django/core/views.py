@@ -48,6 +48,8 @@ except ImportError:
 
 from .models import Alert
 
+from openai import OpenAI
+
 # Import Django models
 from .models import Asset, SourceRecord, RealEstateTransaction
 
@@ -1086,3 +1088,59 @@ def asset_detail(request, asset_id):
             'error': 'Failed to retrieve asset',
             'details': str(e)
         }, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def asset_share_message(request, asset_id):
+    """Generate a marketing message for an asset using LLM."""
+    try:
+        asset = Asset.objects.get(id=asset_id)
+    except Asset.DoesNotExist:
+        return Response({'error': 'Asset not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Read language from request, default to Hebrew
+    try:
+        data = json.loads(request.body.decode('utf-8')) if request.body else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    language_code = data.get('language', 'he').lower()
+    supported = {
+        'he': 'Hebrew',
+        'en': 'English',
+        'ru': 'Russian',
+        'fr': 'French',
+        'es': 'Spanish',
+        'ar': 'Arabic',
+    }
+    language = supported.get(language_code, 'Hebrew')
+
+    # Build prompt from asset details
+    address_parts = [
+        asset.street or '',
+        str(asset.number or ''),
+        asset.city or '',
+        asset.neighborhood or ''
+    ]
+    address = ' '.join([p for p in address_parts if p]).strip()
+    prompt = (
+        f"Create an engaging {language} marketing message for social media and messaging apps "
+        f"about a property for sale located at {address}. Include key details like property type, "
+        f"size and any selling points from this data: {json.dumps(asset.meta, ensure_ascii=False)}"
+    )
+
+    try:
+        client = OpenAI()
+        completion = client.chat.completions.create(
+            model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
+            messages=[
+                {"role": "system", "content": f"You write short real estate marketing messages in {language}."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        message = completion.choices[0].message.content.strip()
+    except Exception as e:
+        return Response({'error': 'Failed to generate message', 'details': str(e)}, status=500)
+
+    return Response({'message': message})

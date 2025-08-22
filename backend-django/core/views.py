@@ -798,7 +798,8 @@ def tabu(request):
         rows = search_rows(rows, query)
     return JsonResponse({'rows': rows})
 
-@csrf_exempt
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
 def assets(request):
     """Handle assets - GET (list all) or POST (create new).
     
@@ -827,6 +828,9 @@ def assets(request):
     
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
+
+    if not request.user or not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
     
     # Parse JSON with error handling
     data = parse_json(request)

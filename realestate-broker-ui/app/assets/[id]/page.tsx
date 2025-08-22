@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
@@ -17,6 +18,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [generatingReport, setGeneratingReport] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState<string>('')
+  const [creatingMessage, setCreatingMessage] = useState(false)
+  const [shareMessage, setShareMessage] = useState<string | null>(null)
+  const [language, setLanguage] = useState('he')
   const router = useRouter()
   const { id } = params
 
@@ -115,6 +119,27 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     }
   }
 
+  const handleCreateMessage = async () => {
+    if (!id) return
+    setCreatingMessage(true)
+    setShareMessage(null)
+    try {
+      const res = await fetch(`/api/assets/${id}/share-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setShareMessage(data.message)
+      }
+    } catch (err) {
+      console.error('Message generation failed:', err)
+    } finally {
+      setCreatingMessage(false)
+    }
+  }
+
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!id) return
@@ -163,9 +188,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <div className="text-right space-y-2">
             <div className="text-3xl font-bold">₪{asset.price?.toLocaleString('he-IL')}</div>
             <div className="text-muted-foreground">₪{asset.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Button
-                size="sm" 
+                size="sm"
                 variant="outline"
                 onClick={handleSyncData}
                 disabled={syncing}
@@ -182,6 +207,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </>
                 )}
               </Button>
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="שפה" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="he">עברית</SelectItem>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="ru">Русский</SelectItem>
+                  <SelectItem value="fr">Français</SelectItem>
+                  <SelectItem value="es">Español</SelectItem>
+                  <SelectItem value="ar">العربية</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 size="sm"
                 onClick={handleGenerateReport}
@@ -199,9 +237,40 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </>
                 )}
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCreateMessage}
+                disabled={creatingMessage}
+              >
+                {creatingMessage ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    יוצר הודעה...
+                  </>
+                ) : (
+                  'צור הודעת פרסום'
+                )}
+              </Button>
             </div>
             {syncMessage && (
               <div className="text-sm text-muted-foreground">{syncMessage}</div>
+            )}
+            {shareMessage && (
+              <div className="space-y-2">
+                <textarea
+                  className="w-full border rounded p-2 text-sm"
+                  rows={4}
+                  readOnly
+                  value={shareMessage}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => navigator.clipboard.writeText(shareMessage)}
+                >
+                  העתק הודעה
+                </Button>
+              </div>
             )}
           </div>
         </div>

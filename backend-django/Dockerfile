@@ -25,5 +25,5 @@ USER app
 # Expose port
 EXPOSE 8000
 
-# Default command
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run migrations and start the application
+CMD ["bash", "-c", "python manage.py migrate --noinput && gunicorn broker_backend.wsgi:application"]

@@ -32,5 +32,7 @@
 
 הכל דרך וואטסאפ
 
+איסוף תוכניות
+https://mavat.iplan.gov.il/SV3?searchEntity=0&searchType=0&entityType=0&searchMethod=2
 
 

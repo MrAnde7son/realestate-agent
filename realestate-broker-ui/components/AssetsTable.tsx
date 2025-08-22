@@ -7,9 +7,27 @@ import { Badge } from '@/components/ui/badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-function RiskCell({ flags }: { flags?: string[] }){ if(!flags || flags.length===0) return <Badge variant='good'>ללא</Badge>; return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'bad':f.includes('אנטנה')?'warn':'default'}>{f}</Badge>)}</div> }
+
+function RiskCell({ flags }: { flags?: string[] }){ 
+  if(!flags || flags.length===0) return <Badge variant='good'>ללא</Badge>; 
+  return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'bad':f.includes('אנטנה')?'warn':'default'}>{f}</Badge>)}</div> 
+}
+
 const columns: ColumnDef<Asset>[] = [
-  { header:'נכס', accessorKey:'address', cell: ({ row }) => (<div><div className="font-semibold"><Link href={`/assets/${row.original.asset_id || row.original.id}`}>{row.original.address}</Link></div><div className="text-xs text-sub">{row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type==='house'?'בית':'דירה'} · {row.original.netSqm??'—'} מ&quot;ר נטו</div></div>) },
+  { 
+    header:'נכס', 
+    accessorKey:'address', 
+    cell: ({ row }) => (
+      <div>
+        <div className="font-semibold">
+          <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
+        </div>
+        <div className="text-xs text-sub">
+          {row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type==='house'?'בית':'דירה'} · {row.original.netSqm??'—'} מ&quot;ר נטו
+        </div>
+      </div>
+    ) 
+  },
   { header:'₪', accessorKey:'price', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'₪/מ"ר', accessorKey:'pricePerSqm', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
   { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', cell: info => <Badge variant={(info.getValue() as number)>=0?'default':'bad'}>{fmtPct(info.getValue() as number)}</Badge> },
@@ -37,8 +55,14 @@ const columns: ColumnDef<Asset>[] = [
   { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => <Badge>{`${info.getValue()}%`}</Badge> },
   { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'תשואה', accessorKey:'capRatePct', cell: info => <Badge>{`${(info.getValue() as number)?.toFixed(1)}%`}</Badge> },
-  { header:'—', id:'actions', cell: ({ row }) => (<div className="flex gap-2"><Link className="underline" href={`/assets/${row.original.asset_id || row.original.id}`}>👁️</Link><a className="underline" href="/alerts">🔔</a></div>) }
+  { header:'—', id:'actions', cell: ({ row }) => (
+    <div className="flex gap-2">
+      <Link className="underline" href={`/assets/${row.original.id}`}>👁️</Link>
+      <a className="underline" href="/alerts">🔔</a>
+    </div>
+  ) }
 ]
+
 interface AssetsTableProps {
   data?: Asset[]
   loading?: boolean
@@ -49,14 +73,33 @@ export default function AssetsTable({ data = [], loading = false }: AssetsTableP
   const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() })
   
   const handleRowClick = (asset: Asset) => {
-    const assetId = asset.asset_id || asset.id
-    router.push(`/assets/${assetId}`)
+    router.push(`/assets/${asset.id}`)
   }
   
-  return (<div className="rounded-xl border border-[var(--border)] bg-[linear-gradient(180deg,var(--panel),var(--card))] overflow-x-auto">
-    <Table>
-      <THead><TR>{table.getFlatHeaders().map((h,idx)=>(<TH key={h.id} className={idx===0?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>{flexRender(h.column.columnDef.header, h.getContext())}</TH>))}</TR></THead>
-      <TBody>{table.getRowModel().rows.map(row=>(<TR key={row.id} className="cursor-pointer hover:bg-blue-50/50 hover:shadow-sm transition-all duration-200 !hover:bg-blue-50" onClick={() => handleRowClick(row.original)}>{row.getVisibleCells().map((cell,idx)=>(<TD key={cell.id} className={idx===0?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TD>))}</TR>))}</TBody>
-    </Table>
-  </div>)
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[linear-gradient(180deg,var(--panel),var(--card))] overflow-x-auto">
+      <Table>
+        <THead>
+          <TR>
+            {table.getFlatHeaders().map((h,idx)=>(
+              <TH key={h.id} className={idx===0?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
+                {flexRender(h.column.columnDef.header, h.getContext())}
+              </TH>
+            ))}
+          </TR>
+        </THead>
+        <TBody>
+          {table.getRowModel().rows.map(row=>(
+            <TR key={row.id} className="cursor-pointer hover:bg-blue-50/50 hover:shadow-sm transition-all duration-200 !hover:bg-blue-50" onClick={() => handleRowClick(row.original)}>
+              {row.getVisibleCells().map((cell,idx)=>(
+                <TD key={cell.id} className={idx===0?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TD>
+              ))}
+            </TR>
+          ))}
+        </TBody>
+      </Table>
+    </div>
+  )
 }

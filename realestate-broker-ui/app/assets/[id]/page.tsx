@@ -10,27 +10,24 @@ import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
 
-export default function AssetDetail({ params }: { params: Promise<{ id: string }> }) {
+export default function AssetDetail({ params }: { params: { id: string } }) {
   const [asset, setAsset] = useState<any>(null)
-  const [id, setId] = useState<string>('')
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState<string>('')
   const router = useRouter()
+  const { id } = params
 
   useEffect(() => {
-    params.then(({ id }) => {
-      setId(id)
-      setLoading(true)
-      fetch(`/api/assets/${id}`)
-        .then(res => res.json())
-        .then(data => setAsset(data.asset || data))
-        .catch(err => console.error('Error loading asset:', err))
-        .finally(() => setLoading(false))
-    })
-  }, [params])
+    setLoading(true)
+    fetch(`/api/assets/${id}`)
+      .then(res => res.json())
+      .then(data => setAsset(data.asset || data))
+      .catch(err => console.error('Error loading asset:', err))
+      .finally(() => setLoading(false))
+  }, [id])
 
   const handleSyncData = async () => {
     if (!id || !asset?.address) return

@@ -3,9 +3,9 @@ import { appraisalByAsset } from '@/lib/data'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params
+  const { id } = params
 
   try {
     // Try to fetch from backend first

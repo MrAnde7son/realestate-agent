@@ -9,7 +9,7 @@ Streamlined to include only essential tools for real estate search and property 
 Available Tools:
 
 CORE SEARCH FUNCTIONALITY:
-- search_real_estate: Search for real estate listings with filters
+- search_real_estate: Search for real estate assets with filters
 - build_search_url: Build search URLs with parameters
 - get_search_parameters_reference: Get reference of all search parameters
 
@@ -66,7 +66,7 @@ async def search_real_estate(
     renovated: Optional[int | str] = None,
     max_pages: int | str = 3,
 ):
-    """Search for real estate listings on Yad2 with optional filters.
+    """Search for real estate assets on Yad2 with optional filters.
     
     The 'property' parameter accepts both Yad2 codes (e.g., "5") and Hebrew names (e.g., "בית פרטי").
     Hebrew names are automatically converted to their corresponding Yad2 codes.
@@ -139,21 +139,21 @@ async def search_real_estate(
     summary = _current_scraper.get_search_summary()
 
     await ctx.info(f"Scraping up to {max_pages} page(s)...")
-    listings = _current_scraper.scrape_all_pages(max_pages=max_pages, delay=1)
-    _last_search_results = listings
+    assets = _current_scraper.scrape_all_pages(max_pages=max_pages, delay=1)
+    _last_search_results = assets
 
-    if not listings:
+    if not assets:
         return {
             "success": False,
-            "message": "No listings found for the specified criteria.",
+            "message": "No assets found for the specified criteria.",
             "search_url": summary["search_url"],
             "parameters": summary.get("parameters"),
             "parameter_descriptions": summary.get("parameter_descriptions"),
         }
 
-    # Format listings for output (limit to first 10 for brevity)
+    # Format assets for output (limit to first 10 for brevity)
     formatted = []
-    for l in listings[:10]:
+    for l in assets[:10]:
         formatted.append({
             "title": l.title,
             "price": l.price,
@@ -164,15 +164,15 @@ async def search_real_estate(
             "url": l.url,
         })
 
-    price_stats = DataUtils.calculate_price_stats(listings)
+    price_stats = DataUtils.calculate_price_stats(assets)
 
     return {
         "success": True,
-        "total_listings": len(listings),
+        "total_assets": len(assets),
         "search_url": summary["search_url"],
         "parameters": summary.get("parameters"),
         "parameter_descriptions": summary.get("parameter_descriptions"),
-        "listings_preview": formatted,
+        "assets_preview": formatted,
         "price_stats": price_stats,
     }
 

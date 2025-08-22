@@ -10,30 +10,27 @@ import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
 
-export default function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
-  const [listing, setListing] = useState<any>(null)
-  const [id, setId] = useState<string>('')
+export default function AssetDetail({ params }: { params: { id: string } }) {
+  const [asset, setAsset] = useState<any>(null)
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState<string>('')
   const router = useRouter()
+  const { id } = params
 
   useEffect(() => {
-    params.then(({ id }) => {
-      setId(id)
-      setLoading(true)
-      fetch(`/api/listings/${id}`)
-        .then(res => res.json())
-        .then(data => setListing(data.listing))
-        .catch(err => console.error('Error loading listing:', err))
-        .finally(() => setLoading(false))
-    })
-  }, [params])
+    setLoading(true)
+    fetch(`/api/assets/${id}`)
+      .then(res => res.json())
+      .then(data => setAsset(data.asset || data))
+      .catch(err => console.error('Error loading asset:', err))
+      .finally(() => setLoading(false))
+  }, [id])
 
   const handleSyncData = async () => {
-    if (!id || !listing?.address) return
+    if (!id || !asset?.address) return
     setSyncing(true)
     setSyncMessage('מסנכרן נתונים...')
     
@@ -41,17 +38,17 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: listing.address })
+        body: JSON.stringify({ address: asset.address })
       })
       
       if (res.ok) {
         const result = await res.json()
         setSyncMessage(`נמצאו ${result.rows?.length || 0} נכסים חדשים`)
-        // Optionally refresh the listing data
-        const listingRes = await fetch(`/api/listings/${id}`)
-        if (listingRes.ok) {
-          const data = await listingRes.json()
-          setListing(data.listing)
+        // Optionally refresh the asset data
+        const assetRes = await fetch(`/api/assets/${id}`)
+        if (assetRes.ok) {
+          const data = await assetRes.json()
+          setAsset(data.asset || data)
         }
         // Clear message after 5 seconds
         setTimeout(() => setSyncMessage(''), 5000)
@@ -68,13 +65,13 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
     }
   }
 
-  if (loading || !listing) {
+  if (loading || !asset) {
     return (
       <DashboardLayout>
         <div className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/listings">
+              <Link href="/assets">
                 <ArrowLeft className="h-4 w-4" />
                 חזרה לרשימה
               </Link>
@@ -87,19 +84,17 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
   }
 
   const manualDocs =
-    listing.documents?.filter(
+    asset.documents?.filter(
       (d: any) => d.type === 'tabu' || d.type === 'condo_plan'
     ) ?? []
   const permitDocs =
-    listing.documents?.filter((d: any) => d.type === 'permit') ?? []
+    asset.documents?.filter((d: any) => d.type === 'permit') ?? []
   const rightsDocs =
-    listing.documents?.filter((d: any) => d.type === 'rights') ?? []
+    asset.documents?.filter((d: any) => d.type === 'rights') ?? []
   const decisiveDocs =
-    listing.documents?.filter((d: any) => d.type === 'appraisal_decisive') ?? []
+    asset.documents?.filter((d: any) => d.type === 'appraisal_decisive') ?? []
   const rmiDocs =
-    listing.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
-
-
+    asset.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
 
   const handleGenerateReport = async () => {
     if (!id) return
@@ -108,7 +103,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId: id })
+        body: JSON.stringify({ assetId: id })
       })
       if (res.ok) {
         router.push('/reports')
@@ -126,13 +121,13 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
     const formData = new FormData(e.currentTarget)
     setUploading(true)
     try {
-      const res = await fetch(`/api/listings/${id}/documents`, {
+      const res = await fetch(`/api/assets/${id}/documents`, {
         method: 'POST',
         body: formData,
       })
       if (res.ok) {
         const { doc } = await res.json()
-        setListing((prev: any) => ({
+        setAsset((prev: any) => ({
           ...prev,
           documents: [...(prev.documents || []), doc],
         }))
@@ -152,22 +147,22 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/listings">
+              <Link href="/assets">
                 <ArrowLeft className="h-4 w-4" />
                 חזרה לרשימה
               </Link>
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">{listing.address}</h1>
+              <h1 className="text-3xl font-bold">{asset.address}</h1>
               <p className="text-muted-foreground">
-                {listing.city}{listing.neighborhood ? ` · ${listing.neighborhood}` : ''} · 
-                {listing.type === 'house' ? ' בית' : ' דירה'} · {listing.netSqm} מ״ר נטו
+                {asset.city}{asset.neighborhood ? ` · ${asset.neighborhood}` : ''} · 
+                {asset.type === 'house' ? ' בית' : ' דירה'} · {asset.netSqm} מ״ר נטו
               </p>
             </div>
           </div>
           <div className="text-right space-y-2">
-            <div className="text-3xl font-bold">₪{listing.price?.toLocaleString('he-IL')}</div>
-            <div className="text-muted-foreground">₪{listing.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
+            <div className="text-3xl font-bold">₪{asset.price?.toLocaleString('he-IL')}</div>
+            <div className="text-muted-foreground">₪{asset.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
             <div className="flex gap-2">
               <Button
                 size="sm" 
@@ -216,25 +211,25 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
           <Card>
             <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">רמת ביטחון</div>
-              <div className="text-2xl font-bold">{listing.confidencePct}%</div>
+              <div className="text-2xl font-bold">{asset.confidencePct}%</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">תשואה</div>
-              <div className="text-2xl font-bold">{listing.capRatePct?.toFixed(1)}%</div>
+              <div className="text-2xl font-bold">{asset.capRatePct?.toFixed(1)}%</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">יתרת זכויות</div>
-              <div className="text-2xl font-bold">+{listing.remainingRightsSqm}</div>
+              <div className="text-2xl font-bold">+{asset.remainingRightsSqm}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">רמת רעש</div>
-              <div className="text-2xl font-bold">{listing.noiseLevel}/5</div>
+              <div className="text-2xl font-bold">{asset.noiseLevel}/5</div>
             </CardContent>
           </Card>
         </div>
@@ -260,24 +255,24 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                 <CardContent className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">סוג:</span>
-                    <span>{listing.type === 'house' ? 'בית' : 'דירה'}</span>
+                    <span>{asset.type === 'house' ? 'בית' : 'דירה'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">מ״ר נטו:</span>
-                    <span>{listing.netSqm}</span>
+                    <span>{asset.netSqm}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">חדרים:</span>
-                    <span>{listing.bedrooms || '—'}</span>
+                    <span>{asset.bedrooms || '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">ייעוד:</span>
-                    <span>{listing.zoning || '—'}</span>
+                    <span>{asset.zoning || '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">רמת ביטחון:</span>
-                    <Badge variant={listing.confidencePct >= 80 ? 'good' : 'warn'}>
-                      {listing.confidencePct}%
+                    <Badge variant={asset.confidencePct >= 80 ? 'good' : 'warn'}>
+                      {asset.confidencePct}%
                     </Badge>
                   </div>
                 </CardContent>
@@ -290,27 +285,27 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                 <CardContent className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">מחיר מודל:</span>
-                    <span>₪{listing.modelPrice?.toLocaleString('he-IL')}</span>
+                    <span>₪{asset.modelPrice?.toLocaleString('he-IL')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">פער למחיר:</span>
-                    <Badge variant={listing.priceGapPct > 0 ? 'warn' : 'good'}>
-                      {listing.priceGapPct?.toFixed(1)}%
+                    <Badge variant={asset.priceGapPct > 0 ? 'warn' : 'good'}>
+                      {asset.priceGapPct?.toFixed(1)}%
                     </Badge>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">הערכת שכירות:</span>
-                    <span>₪{listing.rentEstimate?.toLocaleString('he-IL')}</span>
+                    <span>₪{asset.rentEstimate?.toLocaleString('he-IL')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">תשואה שנתית:</span>
-                    <Badge variant={listing.capRatePct >= 3 ? 'good' : 'warn'}>
-                      {listing.capRatePct?.toFixed(1)}%
+                    <Badge variant={asset.capRatePct >= 3 ? 'good' : 'warn'}>
+                      {asset.capRatePct?.toFixed(1)}%
                     </Badge>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">תחרות 1 ק״מ:</span>
-                    <span>{listing.competition1km || '—'}</span>
+                    <span>{asset.competition1km || '—'}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -325,13 +320,13 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                   <div className="flex items-center justify-between">
                     <span>ציון כללי:</span>
                     <div className="flex items-center gap-2">
-                      <div className="text-2xl font-bold">{Math.round((listing.confidencePct + (listing.capRatePct * 20) + (listing.priceGapPct < 0 ? 100 + listing.priceGapPct : 100 - listing.priceGapPct)) / 3)}</div>
+                      <div className="text-2xl font-bold">{Math.round((asset.confidencePct + (asset.capRatePct * 20) + (asset.priceGapPct < 0 ? 100 + asset.priceGapPct : 100 - asset.priceGapPct)) / 3)}</div>
                       <div className="text-sm text-muted-foreground">/100</div>
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {listing.priceGapPct < -10 ? "נכס במחיר אטרקטיביי מתחת לשוק" : 
-                     listing.priceGapPct > 10 ? "נכס יקר יחסית לשוק" : 
+                    {asset.priceGapPct < -10 ? "נכס במחיר אטרקטיביי מתחת לשוק" : 
+                     asset.priceGapPct > 10 ? "נכס יקר יחסית לשוק" : 
                      "נכס במחיר הוגן יחסית לשוק"}
                   </div>
                 </div>
@@ -349,16 +344,16 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">תכנית נוכחית:</span>
-                      <span>{listing.program || 'לא זמין'}</span>
+                      <span>{asset.program || 'לא זמין'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">ייעוד:</span>
-                      <Badge variant="outline">{listing.zoning || 'לא צוין'}</Badge>
+                      <Badge variant="outline">{asset.zoning || 'לא צוין'}</Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">יתרת זכויות:</span>
-                      <Badge variant={listing.remainingRightsSqm > 0 ? 'good' : 'outline'}>
-                        +{listing.remainingRightsSqm} מ״ר
+                      <Badge variant={asset.remainingRightsSqm > 0 ? 'good' : 'outline'}>
+                        +{asset.remainingRightsSqm} מ״ר
                       </Badge>
                     </div>
                   </div>
@@ -382,7 +377,7 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">הגבלות מיוחדות:</span>
-                      <span>{listing.riskFlags?.length > 0 ? listing.riskFlags.join(', ') : 'אין'}</span>
+                      <span>{asset.riskFlags?.length > 0 ? asset.riskFlags.join(', ') : 'אין'}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t">
@@ -401,15 +396,15 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{listing.remainingRightsSqm}</div>
+                    <div className="text-2xl font-bold">{asset.remainingRightsSqm}</div>
                     <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{Math.round((listing.remainingRightsSqm / listing.netSqm) * 100)}%</div>
+                    <div className="text-2xl font-bold">{Math.round((asset.remainingRightsSqm / asset.netSqm) * 100)}%</div>
                     <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">₪{Math.round((listing.pricePerSqm * listing.remainingRightsSqm * 0.7) / 1000)}K</div>
+                    <div className="text-2xl font-bold">₪{Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K</div>
                     <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
                   </div>
                 </div>
@@ -425,28 +420,28 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{listing.noiseLevel}/5</div>
+                    <div className="text-2xl font-bold">{asset.noiseLevel}/5</div>
                     <div className="text-sm text-muted-foreground">רמת רעש</div>
                   </div>
                   
                   <div className="text-center">
-                      <Badge variant={listing.greenWithin300m ? 'good' : 'bad'}>
-                        {listing.greenWithin300m ? 'כן' : 'לא'}
+                      <Badge variant={asset.greenWithin300m ? 'good' : 'bad'}>
+                        {asset.greenWithin300m ? 'כן' : 'לא'}
                       </Badge>
                       <div className="text-sm text-muted-foreground">שטחי ציבור ≤300מ׳</div>
                   </div>
                   
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{listing.antennaDistanceM}מ׳</div>
+                    <div className="text-2xl font-bold">{asset.antennaDistanceM}מ׳</div>
                     <div className="text-sm text-muted-foreground">מרחק מאנטנה</div>
                   </div>
                 </div>
 
-                {listing.riskFlags && listing.riskFlags.length > 0 && (
+                {asset.riskFlags && asset.riskFlags.length > 0 && (
                   <div>
                     <h3 className="font-medium mb-2">סיכונים</h3>
                     <div className="flex flex-wrap gap-2">
-                      {listing.riskFlags.map((flag: string, i: number) => (
+                      {asset.riskFlags.map((flag: string, i: number) => (
                         <Badge 
                           key={i} 
                           variant={flag.includes('שימור') ? 'bad' : 'warn'}
@@ -471,13 +466,13 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
-                      <Badge variant={listing.lastPermitQ ? 'good' : 'outline'}>
-                        {listing.lastPermitQ || 'לא זמין'}
+                      <Badge variant={asset.lastPermitQ ? 'good' : 'outline'}>
+                        {asset.lastPermitQ || 'לא זמין'}
                       </Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">פעילות בנייה באזור:</span>
-                      <span>{listing.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
+                      <span>{asset.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t">
@@ -544,15 +539,15 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">₪{listing.pricePerSqm?.toLocaleString('he-IL')}</div>
+                    <div className="text-2xl font-bold">₪{asset.pricePerSqm?.toLocaleString('he-IL')}</div>
                     <div className="text-sm text-muted-foreground">מחיר למ״ר - נכס זה</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">₪{Math.round(listing.pricePerSqm * 0.95).toLocaleString('he-IL')}</div>
+                    <div className="text-2xl font-bold">₪{Math.round(asset.pricePerSqm * 0.95).toLocaleString('he-IL')}</div>
                     <div className="text-sm text-muted-foreground">ממוצע באזור</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{Math.round(((listing.pricePerSqm / (listing.pricePerSqm * 0.95)) - 1) * 100)}%</div>
+                    <div className="text-2xl font-bold">{Math.round(((asset.pricePerSqm / (asset.pricePerSqm * 0.95)) - 1) * 100)}%</div>
                     <div className="text-sm text-muted-foreground">פער מהאזור</div>
                   </div>
                 </div>
@@ -650,11 +645,11 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                         <div className="text-sm text-muted-foreground">הכרעת שמאי</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold">₪{Math.round(listing.netSqm * 30500 / 1000000 * 100) / 100}M</div>
+                        <div className="text-2xl font-bold">₪{Math.round(asset.netSqm * 30500 / 1000000 * 100) / 100}M</div>
                         <div className="text-sm text-muted-foreground">שומת רמ״י</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold">₪{(listing.price / 1000000).toFixed(1)}M</div>
+                        <div className="text-2xl font-bold">₪{(asset.price / 1000000).toFixed(1)}M</div>
                         <div className="text-sm text-muted-foreground">מחיר מבוקש</div>
                       </div>
                     </div>
@@ -818,12 +813,12 @@ export default function ListingDetail({ params }: { params: Promise<{ id: string
                 </div>
 
                 <div className="pt-4 text-center text-sm text-muted-foreground">
-                  סה״כ {listing.documents?.length || 0} מסמכים זמינים
+                  סה״כ {asset.documents?.length || 0} מסמכים זמינים
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-    </Tabs>
+        </Tabs>
       </div>
     </DashboardLayout>
   )

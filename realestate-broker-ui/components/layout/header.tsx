@@ -23,7 +23,7 @@ interface HeaderProps {
 // Mobile navigation items
 const mobileNavigation = [
   { name: "בית", href: "/", icon: Home },
-  { name: "נכסים", href: "/listings", icon: Building },
+  { name: "נכסים", href: "/assets", icon: Building },
   { name: "התראות", href: "/alerts", icon: AlertCircle },
   { name: "מחשבון משכנתא", href: "/mortgage/analyze", icon: Calculator },
   { name: "דוחות", href: "/reports", icon: BarChart3 },

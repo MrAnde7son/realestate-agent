@@ -13,7 +13,7 @@ export function Navbar() {
         
         <div className="flex items-center space-x-4">
           <Link 
-            href="/listings" 
+            href="/assets" 
             className={cn(
               "text-sm font-medium transition-colors hover:text-primary",
               "text-muted-foreground"

@@ -13,7 +13,7 @@ A comprehensive real estate intelligence platform designed for brokers, appraise
 - **📄 Property Documents**: Attach land registry extracts, condo plans, and area appraisals manually, while permits and rights documents are collected automatically
 
 ### 🖥️ Professional Broker Dashboard
-- **📋 Listing Management**: Modern Next.js interface for property portfolio management
+- **📋 Asset Management**: Modern Next.js interface for property portfolio management
 - **🚨 Real-time Alerts**: Email and WhatsApp notifications with Celery task scheduling
 - **💰 Mortgage Calculator**: Advanced affordability analysis and Bank of Israel rate integration
 - **📊 Visual Analytics**: Interactive charts and market insights with Recharts
@@ -48,7 +48,7 @@ realestate-agent/
 │   ├── yad2/                      # Real estate scraping & MCP server
 │   │   ├── core/                  # Core functionality
 │   │   │   ├── parameters.py      # Search parameters & validation (58+ params)
-│   │   │   ├── models.py          # Data models (RealEstateListing)
+│   │   │   ├── models.py          # Data models (RealEstateAsset)
 │   │   │   └── utils.py           # Utility functions
 │   │   ├── scrapers/              # Web scrapers
 │   │   │   └── yad2_scraper.py    # Main Yad2 scraper with rate limiting
@@ -70,14 +70,14 @@ realestate-agent/
 ├── 🖥️ PROFESSIONAL UI & BACKEND
 │   ├── realestate-broker-ui/      # Next.js 15 Professional Dashboard
 │   │   ├── app/                   # App Router (Next.js 15)
-│   │   │   ├── listings/          # Property listings management
+│   │   │   ├── assets/          # Property assets management
 │   │   │   ├── alerts/            # Alert configuration
 │   │   │   ├── mortgage/          # Mortgage calculator & analysis
 │   │   │   └── api/               # API routes
 │   │   ├── components/            # Reusable UI components
 │   │   │   ├── layout/            # Layout components (sidebar, header)
 │   │   │   ├── ui/                # Shadcn/ui components
-│   │   │   ├── ListingTable.tsx   # Advanced listings table
+│   │   │   ├── AssetsTable.tsx   # Advanced assets table
 │   │   │   └── Map.tsx            # Mapbox GL map integration
 │   │   ├── lib/                   # Utilities & configuration
 │   │   │   ├── data.ts            # Data interfaces & types
@@ -244,10 +244,10 @@ params = Yad2SearchParameters(
 
 # Search and save results
 scraper = Yad2Scraper(params)
-listings = scraper.scrape_all_pages(max_pages=3)
+assets = scraper.scrape_all_pages(max_pages=3)
 scraper.save_to_json("tel_aviv_search.json")
 
-print(f"Found {len(listings)} listings")
+print(f"Found {len(assets)} assets")
 ```
 
 ### 5️⃣ Testing
@@ -399,7 +399,7 @@ params = Yad2SearchParameters(
 )
 
 scraper = Yad2Scraper(params)
-listings = scraper.scrape_all_pages(max_pages=2)
+assets = scraper.scrape_all_pages(max_pages=2)
 ```
 
 ### Example 2: Jerusalem Family Homes
@@ -652,7 +652,7 @@ from rami.rami_client import RamiClient
 
 Results are saved in JSON format with:
 - Search metadata (parameters, URL, timestamp)
-- Individual listing details (price, address, features, images)
+- Individual asset details (price, address, features, images)
 - Search summary and statistics
 
 Example output:
@@ -664,8 +664,8 @@ Example output:
     "parameter_descriptions": {"...": {"value": "...", "description": "..."}}
   },
   "scrape_time": "2024-01-15T10:30:00",
-  "total_listings": 25,
-  "listings": [
+  "total_assets": 25,
+  "assets": [
     {"title": "...", "price": 1234567, "address": "..."}
   ]
 }
@@ -714,7 +714,7 @@ The codebase is organized into logical modules:
 1. **Import errors**: Ensure you ran `pip install -r requirements.txt` and `cd realestate-agent`
 2. **Module not found errors in tests**: Use the robust import template provided in the Testing section
 3. **Debugger import issues**: Ensure `.vscode/launch.json` has `"cwd": "${workspaceFolder}"`
-4. **No listings found**: Check if parameters are too restrictive
+4. **No assets found**: Check if parameters are too restrictive
 5. **Rate limiting**: Increase delay between requests
 6. **Parsing errors**: Yad2 may have changed their HTML structure
 7. **PDF download failures**: Check network connection and RAMI API status

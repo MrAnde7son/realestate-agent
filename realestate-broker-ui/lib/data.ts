@@ -1,4 +1,4 @@
-export interface Listing {
+export interface Asset {
   id: string
   address: string
   price: number
@@ -40,9 +40,14 @@ export interface Listing {
   shelterDistanceM?: number
   rentEstimate?: number
   documents?: { name: string; url: string; type?: string }[]
+  // Asset enrichment fields
+  asset_id?: number
+  asset_status?: string
+  sources?: string[]
+  primary_source?: string
 }
 
-export const listings: Listing[] = [
+export const assets: Asset[] = [
   {
     id: "l1",
     address: "רחוב הרצל 123, תל אביב",
@@ -141,9 +146,9 @@ export const listings: Listing[] = [
 ]
 
 // Mock data functions for API routes
-export function appraisalByListing(id: string) {
+export function appraisalByAsset(id: string) {
   return {
-    listingId: id,
+    assetId: id,
     marketValue: 2850000,
     appraisedValue: 2800000,
     date: "2024-01-15",
@@ -152,7 +157,7 @@ export function appraisalByListing(id: string) {
   }
 }
 
-export function compsByListing(id: string) {
+export function compsByAsset(id: string) {
   return [
     {
       address: "רחוב בן יהודה 45, תל אביב",
@@ -171,9 +176,9 @@ export function compsByListing(id: string) {
   ]
 }
 
-export function rightsByListing(id: string) {
+export function rightsByAsset(id: string) {
   return {
-    listingId: id,
+    assetId: id,
     buildingRights: "זכויות בנייה: 4 קומות + גג",
     landUse: "מגורים א'",
     restrictions: ["איסור שינוי יעוד", "חובת שמירה על חזית היסטורית"],
@@ -185,11 +190,11 @@ export function rightsByListing(id: string) {
 // Alerts/Notifications data
 export interface Alert {
   id: string
-  type: 'price_drop' | 'new_listing' | 'market_change' | 'document_update' | 'permit_status'
+  type: 'price_drop' | 'new_asset' | 'market_change' | 'document_update' | 'permit_status'
   title: string
   message: string
-  listingId?: string
-  listingAddress?: string
+      assetId?: string
+    assetAddress?: string
   priority: 'high' | 'medium' | 'low'
   isRead: boolean
   createdAt: string
@@ -202,16 +207,16 @@ export const alerts: Alert[] = [
     type: "price_drop",
     title: "ירידת מחיר בנכס",
     message: "הנכס ברחוב הרצל 123 ירד במחיר ב-50,000 ₪",
-    listingId: "l1",
-    listingAddress: "רחוב הרצל 123, תל אביב",
+    assetId: "l1",
+    assetAddress: "רחוב הרצל 123, תל אביב",
     priority: "high",
     isRead: false,
     createdAt: "2024-01-15T10:30:00Z",
-    actionUrl: "/listings/l1"
+    actionUrl: "/assets/l1"
   },
   {
     id: "alert2", 
-    type: "new_listing",
+    type: "new_asset",
     title: "נכס חדש התווסף",
     message: "נכס חדש במרכז תל אביב התאים לקריטריונים שלך - 3 חדרים, עד 3M ₪",
     priority: "medium",
@@ -232,24 +237,24 @@ export const alerts: Alert[] = [
     type: "document_update",
     title: "עדכון מסמכים",
     message: "תוכנית בנייה חדשה פורסמה לאזור רוטשילד - עלולה להשפיע על ערך הנכס",
-    listingId: "l2",
-    listingAddress: "שדרות רוטשילד 45, תל אביב", 
+    assetId: "l2",
+    assetAddress: "שדרות רוטשילד 45, תל אביב", 
     priority: "high",
     isRead: true,
     createdAt: "2024-01-12T14:20:00Z",
-    actionUrl: "/listings/l2"
+    actionUrl: "/assets/l2"
   },
   {
     id: "alert5",
     type: "permit_status",
     title: "עדכון היתר בנייה",
     message: "היתר הבנייה עבור הנכס ברוטשילד אושר - ניתן להתחיל בעבודות",
-    listingId: "l2",
-    listingAddress: "שדרות רוטשילד 45, תל אביב",
+    assetId: "l2",
+    assetAddress: "שדרות רוטשילד 45, תל אביב",
     priority: "low",
     isRead: true,
     createdAt: "2024-01-10T11:15:00Z",
-    actionUrl: "/listings/l2"
+    actionUrl: "/assets/l2"
   }
 ]
 
@@ -262,11 +267,11 @@ export function getActiveAlertsCount(): number {
   return getActiveAlerts().length
 }
 
-export function getActiveListingsCount(): number {
-  return listings.filter(listing => listing.status === "active").length
+export function getActiveAssetsCount(): number {
+  return assets.filter(asset => asset.status === "active").length
 }
 
-// Add a new listing to the in-memory store
-export function addListing(listing: Listing): void {
-  listings.push(listing)
+// Add a new asset to the in-memory store
+export function addAsset(asset: Asset): void {
+  assets.push(asset)
 }

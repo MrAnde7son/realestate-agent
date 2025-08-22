@@ -29,7 +29,7 @@ const navigation = [
   },
   {
     name: "נכסים",
-    href: "/listings",
+    href: "/assets",
     icon: Building,
   },
   {

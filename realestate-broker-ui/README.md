@@ -5,11 +5,11 @@ A modern, professional Next.js 15 dashboard for real estate brokers and agents. 
 ## 🚀 Features
 
 ### 🏠 Property Management
-- **Advanced Listings Table**: Sortable, filterable property listings with pagination
+- **Advanced assets Table**: Sortable, filterable property assets with pagination
 - **Property Details**: Comprehensive property information with tabbed interface
 - **Visual Analytics**: Interactive charts and market insights using Recharts
 - **Property Images**: Gallery view with property photos
-- **Quick Actions**: Save, share, and manage property listings
+- **Quick Actions**: Save, share, and manage property assets
 
 ### 🗺️ Interactive Mapping
 - **Mapbox Integration**: High-quality maps with property pins
@@ -39,7 +39,7 @@ A modern, professional Next.js 15 dashboard for real estate brokers and agents. 
 
 ### 📊 Analytics Dashboard
 - **Market Insights**: Price trends and market analysis
-- **Performance Metrics**: Track listing views and engagement
+- **Performance Metrics**: Track asset views and engagement
 - **Revenue Analytics**: Commission tracking and financial insights
 - **Custom Reports**: Generate detailed market reports
 
@@ -149,13 +149,13 @@ python manage.py runserver 0.0.0.0:8000
 - Recent activity feed
 - Key performance metrics
 
-#### `/listings` - Property Listings
+#### `/assets` - Property assets
 - **Features**: Advanced table with sorting, filtering, pagination
 - **Actions**: View details, save favorites, export data
 - **Filters**: Price range, location, property type, features
 - **View Options**: Table, grid, map views
 
-#### `/listings/[id]` - Property Details
+#### `/assets/[id]` - Property Details
 - **Overview Tab**: Basic property information and photos
 - **Appraisal Tab**: Comparable properties and valuation analysis
 - **Rights Tab**: Building rights and zoning information
@@ -195,7 +195,7 @@ Built on Shadcn/ui for consistency and accessibility:
 - Feedback: alerts, progress indicators
 
 #### Feature Components
-- **`ListingTable.tsx`**: Advanced property listings table
+- **`AssetsTable.tsx`**: Advanced property assets table
 - **`Map.tsx`**: Mapbox integration with property pins
 - **Theme components**: Dark/light mode support
 
@@ -234,7 +234,7 @@ pnpm test:coverage
 - **E2E Tests**: Full user workflows (planned)
 
 ### Example Test Files
-- `app/listings/page.test.tsx` - Listings page functionality
+- `app/assets/page.test.tsx` - assets page functionality
 - `app/alerts/page.test.tsx` - Alert system testing
 - `components/Map.test.tsx` - Map component testing
 
@@ -265,14 +265,14 @@ Mobile-first approach with breakpoints:
 
 ### Endpoint Usage
 
-#### Property Listings
+#### Property assets
 ```typescript
-// Fetch listings with filters
-const response = await fetch(`${API_BASE}/api/listings/?city=5000&max_price=8000000`);
-const listings = await response.json();
+// Fetch assets with filters
+const response = await fetch(`${API_BASE}/api/assets/?city=5000&max_price=8000000`);
+const assets = await response.json();
 
 // Get property details
-const property = await fetch(`${API_BASE}/api/listings/${id}/`);
+const property = await fetch(`${API_BASE}/api/assets/${id}/`);
 ```
 
 #### Alert Management

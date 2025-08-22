@@ -347,11 +347,11 @@ class InteractiveCLI:
                 
                 print("\n🚀 Starting scraper...")
                 scraper = Yad2Scraper(params)
-                listings = scraper.scrape_all_pages(max_pages=max_pages, delay=2)
+                assets = scraper.scrape_all_pages(max_pages=max_pages, delay=2)
                 
-                if listings:
+                if assets:
                     print("\n✅ Scraping completed!")
-                    print("Found {} listings".format(len(listings)))
+                    print("Found {} assets".format(len(assets)))
                     
                     # Save option
                     save = input("\nSave results to file? (y/n): ").strip().lower()
@@ -359,7 +359,7 @@ class InteractiveCLI:
                         filename = scraper.save_to_json()
                         print("Results saved to: {}".format(filename))
                 else:
-                    print("\n❌ No listings found.")
+                    print("\n❌ No assets found.")
                 
             except ValueError:
                 print("❌ Invalid number of pages.")

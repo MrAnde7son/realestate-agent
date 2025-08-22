@@ -12,7 +12,7 @@ import Link from 'next/link'
 
 type Report = {
   id: string
-  listingId: string
+          assetId: string
   address: string
   filename: string
   createdAt: string
@@ -45,7 +45,7 @@ export default function ReportsPage() {
   const sampleReports: Report[] = [
     {
       id: '1',
-      listingId: '1',
+              assetId: '1',
       address: 'רחוב הרצל 123, תל אביב',
       filename: 'report_1.pdf',
       createdAt: new Date().toISOString(),
@@ -54,7 +54,7 @@ export default function ReportsPage() {
     },
     {
       id: '2',
-      listingId: '2',
+              assetId: '2',
       address: 'רחוב דיזנגוף 45, תל אביב',
       filename: 'report_2.pdf',
       createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
@@ -128,7 +128,7 @@ export default function ReportsPage() {
                               <div>
                                 <div className="font-semibold">
                                   <Link 
-                                    href={`/listings/${report.listingId}`}
+                                    href={`/assets/${report.assetId}`}
                                     className="hover:text-primary transition-colors"
                                   >
                                     {report.address}

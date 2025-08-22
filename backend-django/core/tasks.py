@@ -152,17 +152,27 @@ def pull_yad2(context):
             return {'source': 'yad2', 'count': 0, 'error': 'Missing coordinates'}
         
         try:
-            from yad2.core.utils import search_real_estate
+            from yad2.scrapers.yad2_scraper import Yad2Scraper
+            from yad2.core.parameters import Yad2SearchParameters
             
-            # Search Yad2 around the location
-            search_params = {
-                'lat': lat,
-                'lon': lon,
-                'radius': radius,
-                'max_pages': 3
-            }
+            # Get asset from database to access city information
+            asset = _get_asset(asset_id)
+            if not asset:
+                logger.warning(f"Asset {asset_id} not found, using default city")
+                city = 'תל אביב'
+            else:
+                city = getattr(asset, 'city', 'תל אביב') or 'תל אביב'
             
-            results = search_real_estate(**search_params)
+            # Since Yad2 doesn't support coordinate-based search directly,
+            # we'll search by city and property type instead
+            search_params = Yad2SearchParameters(
+                property='1',  # Apartment
+                city=city,
+                max_pages=3
+            )
+            
+            scraper = Yad2Scraper(search_params)
+            results = scraper.scrape_all_pages(max_pages=3, delay=1)
             
             # Save results to database
             saved_count = _save_yad2_records(asset_id, results)
@@ -241,12 +251,12 @@ def pull_gis(context):
             # Get building permits
             permits = gis_client.get_building_permits(lat, lon, radius)
             
-            # Get building rights
-            rights = gis_client.get_building_rights(lat, lon, radius)
+            # Get building privilege page (contains rights information)
+            rights = gis_client.get_building_privilege_page(lat, lon)
             
             # Save to database
             saved_permits = _save_gis_records(asset_id, 'gis_permit', permits)
-            saved_rights = _save_gis_records(asset_id, 'gis_rights', rights)
+            saved_rights = _save_gis_records(asset_id, 'gis_rights', [rights] if rights else [])
             
             total_count = saved_permits + saved_rights
             

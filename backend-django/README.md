@@ -216,10 +216,10 @@ Get current Bank of Israel interest rate.
 }
 ```
 
-### 🏠 Listings API
+### 🏠 assets API
 
-#### `GET /api/listings/`
-List property listings with filtering and pagination.
+#### `GET /api/assets/`
+List property assets with filtering and pagination.
 
 **Parameters:**
 - `city` - City code (e.g., 5000 for Tel Aviv)
@@ -228,13 +228,13 @@ List property listings with filtering and pagination.
 - `rooms` - Number of rooms
 - `page` - Page number for pagination
 
-#### `GET /api/listings/{id}/`
-Get detailed information for a specific listing.
+#### `GET /api/assets/{id}/`
+Get detailed information for a specific asset.
 
-#### `GET /api/listings/{id}/appraisal/`
+#### `GET /api/assets/{id}/appraisal/`
 Get appraisal analysis for a property (comparable transactions, market analysis).
 
-#### `GET /api/listings/{id}/rights/`
+#### `GET /api/assets/{id}/rights/`
 Get building rights information for a property.
 
 ### 🔄 Sync API
@@ -296,8 +296,8 @@ celery -A broker_backend flower
 The alert evaluation task (`core.tasks.evaluate_alerts`) runs every **5 minutes** via Celery Beat.
 
 ### Alert Processing Flow
-1. **Fetch New Listings**: Query latest properties from Yad2 integration
-2. **Match Criteria**: Compare new listings against active alert rules
+1. **Fetch New assets**: Query latest properties from Yad2 integration
+2. **Match Criteria**: Compare new assets against active alert rules
 3. **Send Notifications**: Dispatch email/WhatsApp messages for matches
 4. **Log Activity**: Track notification history and delivery status
 

@@ -42,7 +42,7 @@ class Yad2Scraper:
         else:
             self.search_params = Yad2SearchParameters()
         
-        self.listings = []
+        self.assets = []
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         
@@ -73,7 +73,7 @@ class Yad2Scraper:
             return None
         return self.get_property_types().get(int(code))
     
-    def fetch_location_data(self, search_text):
+    def fetch_location_data(self, search_text: str) -> dict:
         """Fetch location data from Yad2 address autocomplete API."""
         try:
             url = f"{self.api_base_url}/address-autocomplete/realestate/v2"
@@ -175,7 +175,7 @@ class Yad2Scraper:
             return None
     
     def scrape_page(self, page=1):
-        """Scrape a single page of listings."""
+        """Scrape a single page of assets."""
         url = self.build_search_url(page)
         print(f"Scraping page {page} from: {url}")
         
@@ -187,35 +187,35 @@ class Yad2Scraper:
         # Use the working selector
         items = soup.select("a.item-layout_itemLink__CZZ7w")
         if not items:
-            print(f"No listings found on page {page}")
+            print(f"No assets found on page {page}")
             return []
         
-        print(f"Found {len(items)} listings")
+        print(f"Found {len(items)} assets")
         
-        listings = []
+        assets = []
         for item in items:
             card = item.find_parent("div", class_="card_cardBox__KLi9I")
             if card:
                 listing = self.extract_listing_info(card)
                 if listing and listing.title:
-                    listings.append(listing)
+                    assets.append(listing)
         
-        return listings
+        return assets
     
     def scrape_all_pages(self, max_pages=10, delay=2):
-        """Scrape multiple pages of listings."""
-        all_listings = []
+        """Scrape multiple pages of assets."""
+        all_assets = []
         
         for page in range(1, max_pages + 1):
             try:
-                listings = self.scrape_page(page)
+                assets = self.scrape_page(page)
                 
-                if not listings:
-                    print(f"No more listings found on page {page}")
+                if not assets:
+                    print(f"No more assets found on page {page}")
                     break
                 
-                all_listings.extend(listings)
-                print(f"Page {page}: Found {len(listings)} listings (Total: {len(all_listings)})")
+                all_assets.extend(assets)
+                print(f"Page {page}: Found {len(assets)} assets (Total: {len(all_assets)})")
                 
                 if page < max_pages:
                     time.sleep(delay)
@@ -227,8 +227,8 @@ class Yad2Scraper:
                 print(f"Error scraping page {page}: {e}")
                 continue
         
-        self.listings = all_listings
-        return all_listings
+        self.assets = all_assets
+        return all_assets
     
     def get_search_summary(self):
         """Get a summary of the current search parameters."""
@@ -265,22 +265,22 @@ class Yad2Scraper:
         return summary
     
     def save_to_json(self, filename=None):
-        """Save listings to JSON file."""
+        """Save assets to JSON file."""
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"yad2_listings_{timestamp}.json"
+            filename = f"yad2_assets_{timestamp}.json"
         
         data = {
             'search_summary': self.get_search_summary(),
             'scrape_time': datetime.now().isoformat(),
-            'total_listings': len(self.listings),
-            'listings': [listing.to_dict() for listing in self.listings]
+            'total_assets': len(self.assets),
+            'assets': [listing.to_dict() for listing in self.assets]
         }
         
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         
-        print(f"Saved {len(self.listings)} listings to {filename}")
+        print(f"Saved {len(self.assets)} assets to {filename}")
         return filename
     
     @classmethod

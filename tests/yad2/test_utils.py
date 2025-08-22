@@ -33,8 +33,8 @@ def test_urlutils_extract_listing_id():
 
 
 def test_datautils_calculate_price_stats():
-    listings = [make_listing(price=p) for p in (100, 200, 300)]
-    stats = DataUtils.calculate_price_stats(listings)
+    assets = [make_listing(price=p) for p in (100, 200, 300)]
+    stats = DataUtils.calculate_price_stats(assets)
     assert stats['count'] == 3
     assert stats['average'] == 200
     assert stats['median'] == 200
@@ -44,18 +44,18 @@ def test_datautils_calculate_price_stats():
 
 
 def test_datautils_group_and_filter():
-    listings = [
+    assets = [
         make_listing(price=100, rooms=2, address='Street A, Tel Aviv'),
         make_listing(price=200, rooms=3, address='Street B, Haifa'),
         make_listing(price=300, rooms=4, address='Street C, Tel Aviv'),
     ]
-    groups = DataUtils.group_by_location(listings)
+    groups = DataUtils.group_by_location(assets)
     assert set(groups.keys()) == {'Tel Aviv', 'Haifa'}
     assert len(groups['Tel Aviv']) == 2
-    filtered = DataUtils.filter_by_criteria(listings, min_price=150, max_price=250)
+    filtered = DataUtils.filter_by_criteria(assets, min_price=150, max_price=250)
     assert len(filtered) == 1 and filtered[0].price == 200
-    room_filtered = DataUtils.filter_by_criteria(listings, min_rooms=3, max_rooms=4)
+    room_filtered = DataUtils.filter_by_criteria(assets, min_rooms=3, max_rooms=4)
     assert [l.rooms for l in room_filtered] == [3, 4]
-    # Ensure listings with too many rooms are excluded
-    limited_rooms = DataUtils.filter_by_criteria(listings, max_rooms=3)
+    # Ensure assets with too many rooms are excluded
+    limited_rooms = DataUtils.filter_by_criteria(assets, max_rooms=3)
     assert [l.rooms for l in limited_rooms] == [2, 3]

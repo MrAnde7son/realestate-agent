@@ -13,6 +13,8 @@ urlpatterns = [
     path('assets/', views.assets, name='assets'),
     path('assets/<int:asset_id>/', views.asset_detail, name='asset_detail'),
     
+
+    
     # Authentication endpoints
     path('auth/login/', views.auth_login, name='auth_login'),
     path('auth/register/', views.auth_register, name='auth_register'),

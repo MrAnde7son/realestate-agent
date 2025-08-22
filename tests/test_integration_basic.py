@@ -33,7 +33,7 @@ def test_database_models():
         try:
             with db.get_session() as session:
                 count = session.query(Listing).count()
-                print(f"   ✅ Database session works: {count} listings in DB")
+                print(f"   ✅ Database session works: {count} assets in DB")
         except Exception as e:
             print(f"   ⚠️  Database query error: {e}")
         

@@ -544,17 +544,17 @@ def sync_address(request):
     - address: str - Full address string to parse
     
     Returns:
-    - 200: {"rows": [...]} - List of found listings
+    - 200: {"rows": [...]} - List of found assets
     - 400: Error message for invalid input
     - 500: Error message for server errors
     """
     if request.method != 'POST':
-        return HttpResponseBadRequest('POST method required')
+        return JsonResponse({'error': 'POST method required'}, status=405)
     
     # Parse JSON with error handling
     data = parse_json(request)
     if not data:
-        return HttpResponseBadRequest('Invalid JSON in request body')
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
     
     # Extract street and number from data
     street = data.get('street', '').strip() if data.get('street') else None
@@ -564,24 +564,24 @@ def sync_address(request):
     if not street or number is None:
         addr = (data.get('address') or '').strip()
         if not addr:
-            return HttpResponseBadRequest('Either (street, house_number) or address is required')
+            return JsonResponse({'error': 'Either (street, house_number) or address is required'}, status=400)
         
         match = re.match(r'^(.+?)\s+(\d+)', addr)
         if match:
             street, number = match.group(1).strip(), match.group(2)
         else:
-            return HttpResponseBadRequest('Could not parse address. Expected format: "Street Name Number"')
+            return JsonResponse({'error': 'Could not parse address. Expected format: "Street Name Number"'}, status=400)
     
     # Validate and convert number
     if not street:
-        return HttpResponseBadRequest('Street name is required')
+        return JsonResponse({'error': 'Street name is required'}, status=400)
     
     try:
         number = int(number)
         if number <= 0:
-            return HttpResponseBadRequest('House number must be a positive integer')
+            return JsonResponse({'error': 'House number must be a positive integer'}, status=400)
     except (TypeError, ValueError):
-        return HttpResponseBadRequest('House number must be a valid integer')
+        return JsonResponse({'error': 'House number must be a valid integer'}, status=400)
     
     # Execute sync with comprehensive error handling
     try:
@@ -603,7 +603,7 @@ def sync_address(request):
             message = f'Asset created but enrichment failed: {str(e)}'
         
         # Return asset info
-        listings = [{
+        assets = [{
             'id': asset.id,
             'source': 'asset',
             'external_id': f'asset_{asset.id}',
@@ -614,12 +614,12 @@ def sync_address(request):
         }]
         
         return JsonResponse({
-            'rows': listings,
+            'rows': assets,
             'message': message,
             'address': f'{street} {number}'
         })
     except ValueError as e:
-        return HttpResponseBadRequest(f'Validation error: {str(e)}')
+        return JsonResponse({'error': f'Validation error: {str(e)}'}, status=400)
     except Exception as e:
         # Log the full error for debugging
         import logging
@@ -642,11 +642,11 @@ def reports(request):
         return JsonResponse({'reports': reports_list})
 
     if request.method != 'POST':
-        return HttpResponseBadRequest('POST required')
+        return JsonResponse({'error': 'POST required'}, status=405)
 
     data = parse_json(request)
     if not data or not data.get('listingId'):
-        return HttpResponseBadRequest('listingId required')
+        return JsonResponse({'error': 'listingId required'}, status=400)
 
     listing_id = data['listingId']
     
@@ -734,9 +734,9 @@ def _annuity_max_loan(payment, annual_rate_pct, term_years):
 
 @csrf_exempt
 def mortgage_analyze(request):
-    if request.method != 'POST': return HttpResponseBadRequest('POST required')
+    if request.method != 'POST': return JsonResponse({'error': 'POST required'}, status=405)
     data = parse_json(request)
-    if not data: return HttpResponseBadRequest('Invalid JSON')
+    if not data: return JsonResponse({'error': 'Invalid JSON'}, status=400)
     price = float(data.get('property_price') or 0); savings = float(data.get('savings_total') or 0)
     annual_rate_pct = float(data.get('annual_rate_pct') or 4.5); term_years = int(data.get('term_years') or 25)
     transactions = data.get('transactions') or []
@@ -764,10 +764,10 @@ def mortgage_analyze(request):
 def tabu(request):
     """Parse an uploaded Tabu PDF and return its data as a searchable table."""
     if request.method != 'POST':
-        return HttpResponseBadRequest('POST required')
+        return JsonResponse({'error': 'POST required'}, status=405)
     file = request.FILES.get('file')
     if not file:
-        return HttpResponseBadRequest('file required')
+        return JsonResponse({'error': 'file required'}, status=400)
     
     # Try to parse the PDF file
     try:
@@ -798,9 +798,12 @@ def tabu(request):
 
 @csrf_exempt
 def assets(request):
-    """Create a new asset and enqueue enrichment pipeline.
+    """Handle assets - GET (list all) or POST (create new).
     
-    Expected JSON payload:
+    GET: Returns all assets in listing format
+    POST: Creates a new asset and enqueues enrichment pipeline
+    
+    Expected JSON payload for POST:
     {
         "scope": {
             "type": "address|neighborhood|street|city|parcel",
@@ -816,20 +819,24 @@ def assets(request):
         "radius": "integer"
     }
     """
+    if request.method == 'GET':
+        # Return all assets in listing format
+        return _get_assets_list()
+    
     if request.method != 'POST':
-        return HttpResponseBadRequest('POST method required')
+        return JsonResponse({'error': 'POST method required'}, status=405)
     
     # Parse JSON with error handling
     data = parse_json(request)
     if not data:
-        return HttpResponseBadRequest('Invalid JSON in request body')
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
     
     try:
         # Extract scope information
         scope = data.get('scope', {})
         scope_type = scope.get('type')
         if not scope_type:
-            return HttpResponseBadRequest('Scope type is required')
+            return JsonResponse({'error': 'Scope type is required'}, status=400)
         
         # Create asset record
         asset_data = {
@@ -880,11 +887,138 @@ def assets(request):
             'details': str(e)
         }, status=500)
 
+def _get_assets_list():
+    """Helper function to get all assets in listing format."""
+    
+    try:
+        # Get all assets
+        assets = Asset.objects.all().order_by('-created_at')
+        
+        # Transform assets to listing format
+        assets = []
+        for asset in assets:
+            # Get source records for this asset
+            source_records = SourceRecord.objects.filter(asset_id=asset.id)
+            
+            # Get all source records for this asset
+            all_sources = list(set([r.source for r in source_records]))
+            
+            if all_sources:
+                # Create assets for each source
+                for source in all_sources:
+                    source_records_for_source = [r for r in source_records if r.source == source]
+                    
+                    for record in source_records_for_source:
+                        raw_data = record.raw or {}
+                        
+                        # Base listing data
+                        listing = {
+                            'id': f'asset_{asset.id}_{record.id}',
+                            'external_id': record.external_id,
+                            'address': asset.normalized_address or f"{asset.street or ''} {asset.number or ''}".strip(),
+                            'price': raw_data.get('price', 0),
+                            'bedrooms': raw_data.get('rooms', 0),
+                            'bathrooms': 1,  # Default
+                            'area': raw_data.get('size', 0),
+                            'type': raw_data.get('property_type', 'דירה'),
+                            'status': 'active',
+                            'images': raw_data.get('images', []),
+                            'description': raw_data.get('description', ''),
+                            'features': raw_data.get('features', []),
+                            'contactInfo': {
+                                'agent': raw_data.get('agent_name', ''),
+                                'phone': raw_data.get('agent_phone', ''),
+                                'email': raw_data.get('agent_email', '')
+                            },
+                            'city': asset.city or '',
+                            'neighborhood': asset.neighborhood or '',
+                            'netSqm': raw_data.get('size', 0),
+                            'pricePerSqm': round(raw_data.get('price', 0) / raw_data.get('size', 0)) if raw_data.get('price', 0) and raw_data.get('size', 0) else 0,
+                            'deltaVsAreaPct': 0,
+                            'domPercentile': 50,
+                            'competition1km': 'בינוני',
+                            'zoning': 'מגורים א\'',
+                            'riskFlags': [],
+                            'priceGapPct': 0,
+                            'expectedPriceRange': '',
+                            'remainingRightsSqm': 0,
+                            'program': '',
+                            'lastPermitQ': '',
+                            'noiseLevel': 2,
+                            'greenWithin300m': True,
+                            'schoolsWithin500m': True,
+                            'modelPrice': raw_data.get('price', 0),
+                            'confidencePct': 75,
+                            'capRatePct': 3.0,
+                            'antennaDistanceM': 150,
+                            'shelterDistanceM': 100,
+                            'rentEstimate': round(raw_data.get('price', 0) * 0.004) if raw_data.get('price', 0) else 0,
+                            'asset_id': asset.id,
+                            'asset_status': asset.status,
+                            'sources': all_sources,
+                            'primary_source': source
+                        }
+                        assets.append(listing)
+            else:
+                # Create a basic listing from asset data when no sources yet
+                listing = {
+                    'id': f'asset_{asset.id}',
+                    'external_id': f'asset_{asset.id}',
+                    'address': asset.normalized_address or f"{asset.street or ''} {asset.number or ''}".strip(),
+                    'price': 0,  # Will be populated when enrichment completes
+                    'bedrooms': 0,
+                    'bathrooms': 1,
+                    'area': 0,
+                    'type': 'דירה',
+                    'status': 'active' if asset.status == 'ready' else 'pending',
+                    'images': [],
+                    'description': f'נכס {asset.scope_type} - {asset.city or ""}',
+                    'features': [],
+                    'contactInfo': { 'agent': '', 'phone': '', 'email': '' },
+                    'city': asset.city or '',
+                    'neighborhood': asset.neighborhood or '',
+                    'netSqm': 0,
+                    'pricePerSqm': 0,
+                    'deltaVsAreaPct': 0,
+                    'domPercentile': 50,
+                    'competition1km': 'בינוני',
+                    'zoning': 'מגורים א\'',
+                    'riskFlags': [],
+                    'priceGapPct': 0,
+                    'expectedPriceRange': '',
+                    'remainingRightsSqm': 0,
+                    'program': '',
+                    'lastPermitQ': '',
+                    'noiseLevel': 2,
+                    'greenWithin300m': True,
+                    'schoolsWithin500m': True,
+                    'modelPrice': 0,
+                    'confidencePct': 75,
+                    'capRatePct': 3.0,
+                    'antennaDistanceM': 150,
+                    'shelterDistanceM': 100,
+                    'rentEstimate': 0,
+                    'asset_id': asset.id,
+                    'asset_status': asset.status,
+                    'sources': [],
+                    'primary_source': 'asset'
+                }
+                assets.append(listing)
+        
+        return JsonResponse({'rows': assets})
+        
+    except Exception as e:
+        print(f"Error fetching assets: {e}")
+        return JsonResponse({
+            'error': 'Failed to fetch assets',
+            'details': str(e)
+        }, status=500)
+
 @csrf_exempt
 def asset_detail(request, asset_id):
     """Get asset details including enriched data and source records."""
     if request.method != 'GET':
-        return HttpResponseBadRequest('GET method required')
+        return JsonResponse({'error': 'GET method required'}, status=405)
     
     try:
         # Get asset using Django ORM

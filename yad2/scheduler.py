@@ -33,15 +33,15 @@ except Exception as e:
                 setattr(self, key, value)
 
 
-def _store_listings(
-    listings: Iterable[object],
+def _store_assets(
+    assets: Iterable[object],
     notifier: Optional[Notifier] = None,
 ) -> None:
-    """Persist listings to the database and trigger alerts if needed."""
+    """Persist assets to the database and trigger alerts if needed."""
     
     try:
-        # Use Django ORM to store listings
-        for item in listings:
+        # Use Django ORM to store assets
+        for item in assets:
             scraped_at = item.scraped_at
             if isinstance(scraped_at, str):
                 try:
@@ -87,18 +87,18 @@ def _store_listings(
                 if notifier:
                     notifier.notify(asset)
     except Exception as e:
-        print(f"Error storing listings: {e}")
+        print(f"Error storing assets: {e}")
 
 
 def fetch_and_store(
     notifier: Optional[Notifier] = None,
 ) -> None:
-    """Fetch listings from Yad2 and store them in the database."""
+    """Fetch assets from Yad2 and store them in the database."""
     
     try:
         scraper = Yad2Scraper()
-        listings = scraper.scrape_page()
-        _store_listings(listings, notifier=notifier)
+        assets = scraper.scrape_page()
+        _store_assets(assets, notifier=notifier)
     except Exception as e:
         print(f"Error fetching Yad2 data: {e}")
 

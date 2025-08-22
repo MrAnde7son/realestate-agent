@@ -116,7 +116,7 @@ class AuthAPI {
   }
 
   async updateProfile(data: ProfileUpdateData): Promise<{ user: User }> {
-    return this.request<{ user: User }>('/auth/profile/update/', {
+    return this.request<{ user: User }>('/auth/update-profile/', {
       method: 'PUT',
       body: JSON.stringify(data),
     })

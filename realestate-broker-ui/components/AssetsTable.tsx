@@ -36,7 +36,7 @@ const columns: ColumnDef<Asset>[] = [
   { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => <Badge variant={(info.getValue() as number)>0?'warn':'good'}>{fmtPct(info.getValue() as number)}</Badge> },
   { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => <Badge>{`${info.getValue()}%`}</Badge> },
   { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
-  { header:'תשואת Cap', accessorKey:'capRatePct', cell: info => <Badge>{`${(info.getValue() as number)?.toFixed(1)}%`}</Badge> },
+  { header:'תשואה', accessorKey:'capRatePct', cell: info => <Badge>{`${(info.getValue() as number)?.toFixed(1)}%`}</Badge> },
   { header:'—', id:'actions', cell: ({ row }) => (<div className="flex gap-2"><Link className="underline" href={`/assets/${row.original.asset_id || row.original.id}`}>👁️</Link><a className="underline" href="/alerts">🔔</a></div>) }
 ]
 interface AssetsTableProps {

@@ -1,0 +1,15 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"  # every 15 minutes
+  workflow_dispatch: # allow manual run too
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Curl UI Service
+        run: curl -s https://realestate-broker-ui.onrender.com > /dev/null
+      - name: Curl Backend Service
+        run: curl -s https://backend-django-2cpe.onrender.com > /dev/null

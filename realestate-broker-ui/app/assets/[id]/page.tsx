@@ -292,7 +292,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">יתרת זכויות</div>
-              <div className="text-2xl font-bold">+{asset.remainingRightsSqm}</div>
+              <div className="text-2xl font-bold">+{asset.remainingRightsSqm} מ״ר</div>
             </CardContent>
           </Card>
           <Card>
@@ -813,7 +813,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </div>
 
                 <div>
-                  <h3 className="font-medium mb-2">זכויות</h3>
+                  <h3 className="font-medium mb-2">תוכניות</h3>
                   {rightsDocs.length ? (
                     <div className="space-y-2">
                       {rightsDocs.map((doc: any, idx: number) => (

@@ -151,7 +151,10 @@ pnpm dev  # Starts on http://localhost:3000
 cd ../backend-django
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python manage.py migrate
+python setup_auth.py  # Runs migrations and creates demo/admin users
+# Default credentials:
+#   admin@example.com / admin123
+#   demo@example.com  / demo123
 python manage.py runserver 0.0.0.0:8000  # API on http://localhost:8000
 ```
 

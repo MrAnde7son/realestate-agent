@@ -20,10 +20,9 @@ if [ ! -f ".env" ]; then
     echo "✅ .env file created"
 fi
 
-# Run migrations
-echo "🔄 Running Django migrations..."
-python manage.py makemigrations
-python manage.py migrate
+# Initialize database and create default users
+echo "🔄 Initializing database and creating default users..."
+python setup_auth.py
 
 # Create sample assets
 echo "🎯 Creating sample assets..."

@@ -153,14 +153,14 @@ class AuthAPI {
       // Also set cookies for middleware with proper settings
       const cookieOptions = [
         `path=/`,
-        `max-age=3600`,
+        `max-age=43200`,
         `SameSite=Lax`,
         `secure=${window.location.protocol === 'https:'}`,
         `domain=${window.location.hostname}`
       ].join('; ')
-      
+
       document.cookie = `access_token=${accessToken}; ${cookieOptions}`
-      document.cookie = `refresh_token=${refreshToken}; ${cookieOptions.replace('max-age=3600', 'max-age=86400')}`
+      document.cookie = `refresh_token=${refreshToken}; ${cookieOptions.replace('max-age=43200', 'max-age=604800')}`
       
       console.log('🍪 Cookies set:', {
         access_token: accessToken ? 'set' : 'not set',

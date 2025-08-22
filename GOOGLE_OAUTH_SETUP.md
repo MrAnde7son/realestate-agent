@@ -78,7 +78,7 @@ Create a `.env.local` file in the `realestate-broker-ui` directory:
 
 ```env
 # API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:8000
+BACKEND_URL=http://localhost:8000
 
 # Feature Flags
 NEXT_PUBLIC_ENABLE_ANALYTICS=true

@@ -4,6 +4,9 @@ const nextConfig = {
   experimental: {
     serverActions: { allowedOrigins: ['*'] },
   },
+  env: {
+    BACKEND_URL: process.env.BACKEND_URL,
+  },
 }
 
 export default nextConfig

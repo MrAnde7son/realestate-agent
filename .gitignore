@@ -215,6 +215,7 @@ yarn-debug.log*
 yarn-error.log*
 yarn.lock
 pnpm-lock.yaml
+package-lock.json
 
 # Next.js build files
 .next/

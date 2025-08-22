@@ -7,12 +7,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+User = get_user_model()
 # Import reportlab for PDF generation
 try:
     from reportlab.pdfgen import canvas
@@ -413,7 +414,6 @@ def auth_google_callback(request):
             )
         
         # Check if user exists, create if not
-        User = get_user_model()
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:

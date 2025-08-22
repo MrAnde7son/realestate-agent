@@ -17,6 +17,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [generatingReport, setGeneratingReport] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState<string>('')
+  const [creatingMessage, setCreatingMessage] = useState(false)
+  const [shareMessage, setShareMessage] = useState<string | null>(null)
   const router = useRouter()
   const { id } = params
 
@@ -115,6 +117,25 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     }
   }
 
+  const handleCreateMessage = async () => {
+    if (!id) return
+    setCreatingMessage(true)
+    setShareMessage(null)
+    try {
+      const res = await fetch(`/api/assets/${id}/share-message`, {
+        method: 'POST'
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setShareMessage(data.message)
+      }
+    } catch (err) {
+      console.error('Message generation failed:', err)
+    } finally {
+      setCreatingMessage(false)
+    }
+  }
+
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!id) return
@@ -199,9 +220,40 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </>
                 )}
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCreateMessage}
+                disabled={creatingMessage}
+              >
+                {creatingMessage ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    יוצר הודעה...
+                  </>
+                ) : (
+                  'צור הודעת פרסום'
+                )}
+              </Button>
             </div>
             {syncMessage && (
               <div className="text-sm text-muted-foreground">{syncMessage}</div>
+            )}
+            {shareMessage && (
+              <div className="space-y-2">
+                <textarea
+                  className="w-full border rounded p-2 text-sm"
+                  rows={4}
+                  readOnly
+                  value={shareMessage}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => navigator.clipboard.writeText(shareMessage)}
+                >
+                  העתק הודעה
+                </Button>
+              </div>
             )}
           </div>
         </div>

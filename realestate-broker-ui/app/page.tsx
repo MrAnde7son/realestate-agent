@@ -478,7 +478,7 @@ export default function HomePage() {
                     </Link>
                   </Button>
                 ) : (
-                  <Button onClick={() => handleProtectedAction('add-asset')} className="w-full mt-4">
+                  <Button onClick={() => handleProtectedAction('assets')} className="w-full mt-4">
                     <Building className="h-4 w-4 ml-2" />
                     התחבר להוספת נכס
                   </Button>

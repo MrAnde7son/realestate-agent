@@ -39,9 +39,10 @@ const mockUseAuth = {
 describe('AssetsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockUseAuth.isAuthenticated = true
     ;(useRouter as any).mockReturnValue(mockUseRouter)
     ;(useAuth as any).mockReturnValue(mockUseAuth)
-    
+
     // Default successful fetch mock
     ;(global.fetch as any).mockResolvedValue({
       ok: true,
@@ -140,6 +141,21 @@ describe('AssetsPage', () => {
 
     // Check if form is opened
     expect(screen.getByText('הזן פרטי הנכס כדי להתחיל תהליך העשרת מידע')).toBeInTheDocument()
+  })
+
+  it('redirects to auth when unauthenticated user tries to add asset', async () => {
+    mockUseAuth.isAuthenticated = false
+
+    await act(async () => {
+      render(<AssetsPage />)
+    })
+
+    const addButton = screen.getByText('התחבר להוספת נכס')
+    fireEvent.click(addButton)
+
+    expect(mockPush).toHaveBeenCalledWith('/auth?redirect=' + encodeURIComponent('/assets'))
+
+    mockUseAuth.isAuthenticated = true
   })
 
   it('submits new asset form successfully', async () => {

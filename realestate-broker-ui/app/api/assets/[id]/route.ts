@@ -73,6 +73,6 @@ export async function GET(
 
   // Fallback to mock data
   const asset = assets.find(l => l.id === id)
-  if(!asset) return new NextResponse('Not found', { status: 404 })
+  if(!asset) return new NextResponse('Not found', { status: 404, statusText: 'Not Found' })
   return NextResponse.json({ asset })
 }

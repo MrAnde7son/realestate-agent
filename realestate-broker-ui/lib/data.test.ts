@@ -70,12 +70,12 @@ describe('Data Module', () => {
       
       expect(result).toHaveProperty('assetId', 'l1')
       expect(result).toHaveProperty('marketValue')
-      expect(result).toHaveProperty('rentEstimate')
-      expect(result).toHaveProperty('capRate')
-      expect(result).toHaveProperty('roi')
-      expect(result).toHaveProperty('pricePerSqm')
-      expect(result).toHaveProperty('comparables')
-      expect(Array.isArray(result.comparables)).toBe(true)
+      expect(result).toHaveProperty('appraisedValue')
+      expect(result).toHaveProperty('date')
+      expect(result).toHaveProperty('appraiser')
+      expect(result).toHaveProperty('notes')
+      expect(typeof result.marketValue).toBe('number')
+      expect(typeof result.appraisedValue).toBe('number')
     })
 
     it('returns default data for unknown asset ID', () => {
@@ -86,22 +86,15 @@ describe('Data Module', () => {
       expect(typeof result.marketValue).toBe('number')
     })
 
-    it('has valid comparable properties', () => {
+    it('has valid structure with expected fields', () => {
       const result = appraisalByAsset('l1')
       
-      result.comparables.forEach(comp => {
-        expect(comp).toHaveProperty('address')
-        expect(comp).toHaveProperty('price')
-        expect(comp).toHaveProperty('pricePerSqm')
-        expect(comp).toHaveProperty('size')
-        expect(comp).toHaveProperty('distance')
-        expect(comp).toHaveProperty('similarity')
-        expect(typeof comp.price).toBe('number')
-        expect(typeof comp.pricePerSqm).toBe('number')
-        expect(typeof comp.size).toBe('number')
-        expect(typeof comp.distance).toBe('number')
-        expect(typeof comp.similarity).toBe('number')
-      })
+      expect(result.assetId).toBe('l1')
+      expect(result.marketValue).toBe(2850000)
+      expect(result.appraisedValue).toBe(2800000)
+      expect(typeof result.date).toBe('string')
+      expect(typeof result.appraiser).toBe('string')
+      expect(typeof result.notes).toBe('string')
     })
   })
 
@@ -109,36 +102,31 @@ describe('Data Module', () => {
     it('returns comparison data for valid asset ID', () => {
       const result = compsByAsset('l1')
       
-      expect(result).toHaveProperty('assetId', 'l1')
-      expect(result).toHaveProperty('similarProperties')
-      expect(Array.isArray(result.similarProperties)).toBe(true)
-      expect(result.similarProperties.length).toBeGreaterThan(0)
+      expect(Array.isArray(result)).toBe(true)
+      expect(result.length).toBeGreaterThan(0)
     })
 
     it('returns default data for unknown asset ID', () => {
       const result = compsByAsset('unknown')
       
-      expect(result).toHaveProperty('assetId', 'unknown')
-      expect(result).toHaveProperty('similarProperties')
-      expect(Array.isArray(result.similarProperties)).toBe(true)
+      expect(Array.isArray(result)).toBe(true)
+      expect(result.length).toBeGreaterThan(0)
     })
 
-    it('has valid similar property structure', () => {
+    it('has valid comparable property structure', () => {
       const result = compsByAsset('l1')
       
-      result.similarProperties.forEach(prop => {
+      result.forEach(prop => {
         expect(prop).toHaveProperty('address')
         expect(prop).toHaveProperty('price')
-        expect(prop).toHaveProperty('pricePerSqm')
-        expect(prop).toHaveProperty('bedrooms')
         expect(prop).toHaveProperty('area')
-        expect(prop).toHaveProperty('yearBuilt')
-        expect(prop).toHaveProperty('condition')
-        expect(prop).toHaveProperty('lastSold')
+        expect(prop).toHaveProperty('pricePerSqm')
+        expect(prop).toHaveProperty('date')
         expect(typeof prop.price).toBe('number')
-        expect(typeof prop.pricePerSqm).toBe('number')
-        expect(typeof prop.bedrooms).toBe('number')
         expect(typeof prop.area).toBe('number')
+        expect(typeof prop.pricePerSqm).toBe('number')
+        expect(typeof prop.address).toBe('string')
+        expect(typeof prop.date).toBe('string')
       })
     })
   })
@@ -148,32 +136,32 @@ describe('Data Module', () => {
       const result = rightsByAsset('l1')
       
       expect(result).toHaveProperty('assetId', 'l1')
-      expect(result).toHaveProperty('currentRights')
-      expect(result).toHaveProperty('usedRights')
-      expect(result).toHaveProperty('remainingRights')
-      expect(result).toHaveProperty('buildingCoverage')
-      expect(result).toHaveProperty('maxHeight')
-      expect(result).toHaveProperty('setbacks')
-      expect(result).toHaveProperty('zoning')
+      expect(result).toHaveProperty('buildingRights')
+      expect(result).toHaveProperty('landUse')
+      expect(result).toHaveProperty('restrictions')
+      expect(result).toHaveProperty('permits')
+      expect(result).toHaveProperty('lastUpdate')
+      expect(Array.isArray(result.restrictions)).toBe(true)
+      expect(Array.isArray(result.permits)).toBe(true)
     })
 
     it('returns default data for unknown asset ID', () => {
       const result = rightsByAsset('unknown')
       
       expect(result).toHaveProperty('assetId', 'unknown')
-      expect(result).toHaveProperty('currentRights')
-      expect(typeof result.currentRights).toBe('number')
+      expect(result).toHaveProperty('buildingRights')
+      expect(typeof result.buildingRights).toBe('string')
     })
 
-    it('has valid setbacks structure', () => {
+    it('has valid structure with expected fields', () => {
       const result = rightsByAsset('l1')
       
-      expect(result.setbacks).toHaveProperty('front')
-      expect(result.setbacks).toHaveProperty('rear')
-      expect(result.setbacks).toHaveProperty('side')
-      expect(typeof result.setbacks.front).toBe('number')
-      expect(typeof result.setbacks.rear).toBe('number')
-      expect(typeof result.setbacks.side).toBe('number')
+      expect(result.assetId).toBe('l1')
+      expect(typeof result.buildingRights).toBe('string')
+      expect(typeof result.landUse).toBe('string')
+      expect(typeof result.lastUpdate).toBe('string')
+      expect(result.restrictions.length).toBeGreaterThan(0)
+      expect(result.permits.length).toBeGreaterThan(0)
     })
   })
 

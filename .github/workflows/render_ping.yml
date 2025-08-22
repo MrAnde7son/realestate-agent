@@ -2,14 +2,34 @@ name: Keep Render Alive
 
 on:
   schedule:
-    - cron: "*/15 * * * *"  # every 15 minutes
-  workflow_dispatch: # allow manual run too
+    - cron: "*/5 * * * *"         # every 5 minutes
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        url:
+          - https://backend-django-2cpe.onrender.com/healthz
+          - https://realestate-broker-ui.onrender.com/healthz
     steps:
-      - name: Curl UI Service
-        run: curl -s https://realestate-broker-ui.onrender.com > /dev/null
-      - name: Curl Backend Service
-        run: curl -s https://backend-django-2cpe.onrender.com > /dev/null
+      - name: Random jitter (0–90s) to avoid cron herd
+        run: sleep $((RANDOM % 90))
+
+      - name: Warm ${{ matrix.url }} (retry x3, follow redirects)
+        shell: bash
+        run: |
+          for i in 1 2 3; do
+            if curl -fsSL --max-time 20 \
+              -H "User-Agent: keepalive-gha" \
+              "${{ matrix.url }}"; then
+              echo "OK on try $i"
+              exit 0
+            fi
+            echo "Retry $i failed; sleeping..."
+            sleep 10
+          done
+          echo "All retries failed"
+          exit 1

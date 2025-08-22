@@ -96,7 +96,7 @@ Edit `.env.local` with your settings:
 
 ```env
 # API Configuration
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+BACKEND_URL=http://localhost:8000
 NEXT_PUBLIC_WS_URL=ws://localhost:8000
 
 # Mapbox Configuration
@@ -332,7 +332,7 @@ pnpm export
 
 **Production Settings:**
 ```env
-NEXT_PUBLIC_API_BASE_URL=https://api.yourbroker.com
+BACKEND_URL=https://api.yourbroker.com
 NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_production_token
 NEXT_PUBLIC_DEBUG=false
 NEXT_PUBLIC_ANALYTICS_ID=your_analytics_id
@@ -385,7 +385,7 @@ NEXT_PUBLIC_ANALYTICS_ID=your_analytics_id
 curl http://localhost:8000/api/health
 
 # Verify environment variables
-echo $NEXT_PUBLIC_API_BASE_URL
+echo $BACKEND_URL
 ```
 
 #### Build Errors

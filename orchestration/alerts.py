@@ -93,7 +93,7 @@ class WhatsAppAlert(Alert):
 
 
 class Notifier:
-    """Notify about listings using a set of alert channels."""
+    """Notify about assets using a set of alert channels."""
 
     def __init__(self, criteria: Dict[str, Any], alerts: List[Alert]) -> None:
         self.criteria = criteria

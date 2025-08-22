@@ -169,7 +169,7 @@ class Yad2SearchHelper:
             result = search_real_estate(**search_params)
             
             if result.get('success'):
-                logger.info(f"Search successful: {result.get('total_listings', 0)} listings found")
+                logger.info(f"Search successful: {result.get('total_assets', 0)} assets found")
             else:
                 logger.error("Search failed")
             

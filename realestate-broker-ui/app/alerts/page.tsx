@@ -13,7 +13,7 @@ const getAlertIcon = (type: Alert['type']) => {
   switch (type) {
     case 'price_drop':
       return <TrendingDown className="h-5 w-5 text-red-500" />
-    case 'new_listing':
+    case 'new_asset':
       return <Home className="h-5 w-5 text-blue-500" />
     case 'market_change':
       return <Bell className="h-5 w-5 text-orange-500" />
@@ -186,9 +186,9 @@ export default function AlertsPage() {
                         
                         <p className="text-sm text-muted-foreground mt-1">{alert.message}</p>
                         
-                        {alert.listingAddress && (
+                        {alert.assetAddress && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            📍 {alert.listingAddress}
+                            📍 {alert.assetAddress}
                           </p>
                         )}
                         

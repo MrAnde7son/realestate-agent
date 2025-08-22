@@ -63,9 +63,9 @@ class Yad2SearchParameters:
             'page': None,         # Page number
             'order': None,        # Sort order
             'dealType': None,     # Deal type (sale/rent)
-            'priceOnly': None,    # Show price only listings (1/0)
+            'priceOnly': None,    # Show price only assets (1/0)
             'saleType': None,     # Sale type
-            'exclusive': None,    # Exclusive listings only (1/0)
+            'exclusive': None,    # Exclusive assets only (1/0)
             'publishedDays': None, # Published within X days
             
             # Advanced filters

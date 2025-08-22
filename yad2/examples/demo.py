@@ -146,7 +146,7 @@ def demo_scraper_integration():
         print("  • {}: {} ({})".format(param, details['value'], details['description']))
     
     print("\nScraper is ready to search!")
-    print("To actually scrape: listings = scraper.scrape_all_pages(max_pages=2)")
+    print("To actually scrape: assets = scraper.scrape_all_pages(max_pages=2)")
 
 def demo_mcp_tools():
     """Demo: Show MCP server tool capabilities."""
@@ -160,7 +160,7 @@ def demo_mcp_tools():
     tools = [
         {
             "name": "search_real_estate",
-            "description": "Search Yad2 listings with any parameters",
+            "description": "Search Yad2 assets with any parameters",
             "example": "Find 4-room apartments in Tel Aviv under 8M NIS with parking"
         },
         {

@@ -169,7 +169,7 @@ export default function HomePage() {
 
           {/* KPI Cards */}
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-            <Link href="/listings" className="block">
+            <Link href="/assets" className="block">
               <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
@@ -179,7 +179,7 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {fmtNumber(dashboardData.totalListings)}
+                    {fmtNumber(dashboardData.totalassets)}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     נכסים במערכת
@@ -387,7 +387,7 @@ export default function HomePage() {
                       </Badge>
                     </div>
                     <div className="text-2xl font-bold">
-                      {fmtNumber(area.listings)}
+                      {fmtNumber(area.assets)}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {fmtCurrency(area.avgPrice)} ממוצע
@@ -416,7 +416,7 @@ export default function HomePage() {
                     <div className="flex items-center gap-3">
                       <div
                         className={`p-2 rounded-full ${
-                          activity.type === "listing"
+                          activity.type === "asset"
                             ? "bg-blue-100 text-blue-600"
                             : activity.type === "alert"
                             ? "bg-orange-100 text-orange-600"
@@ -425,7 +425,7 @@ export default function HomePage() {
                             : "bg-purple-100 text-purple-600"
                         }`}
                       >
-                        {activity.type === "listing" ? (
+                        {activity.type === "asset" ? (
                           <Building className="h-4 w-4" />
                         ) : activity.type === "alert" ? (
                           <AlertCircle className="h-4 w-4" />
@@ -472,13 +472,13 @@ export default function HomePage() {
                 </CardDescription>
                 {isAuthenticated ? (
                   <Button asChild className="w-full mt-4">
-                    <Link href="/listings">
+                    <Link href="/assets">
                       <Building className="h-4 w-4 ml-2" />
                       הוסף נכס
                     </Link>
                   </Button>
                 ) : (
-                  <Button onClick={() => handleProtectedAction('add-listing')} className="w-full mt-4">
+                  <Button onClick={() => handleProtectedAction('add-asset')} className="w-full mt-4">
                     <Building className="h-4 w-4 ml-2" />
                     התחבר להוספת נכס
                   </Button>

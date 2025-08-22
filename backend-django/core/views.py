@@ -544,7 +544,7 @@ def sync_address(request):
     - address: str - Full address string to parse
     
     Returns:
-    - 200: {"rows": [...]} - List of found listings
+    - 200: {"rows": [...]} - List of found assets
     - 400: Error message for invalid input
     - 500: Error message for server errors
     """
@@ -603,7 +603,7 @@ def sync_address(request):
             message = f'Asset created but enrichment failed: {str(e)}'
         
         # Return asset info
-        listings = [{
+        assets = [{
             'id': asset.id,
             'source': 'asset',
             'external_id': f'asset_{asset.id}',
@@ -614,7 +614,7 @@ def sync_address(request):
         }]
         
         return JsonResponse({
-            'rows': listings,
+            'rows': assets,
             'message': message,
             'address': f'{street} {number}'
         })
@@ -895,7 +895,7 @@ def _get_assets_list():
         assets = Asset.objects.all().order_by('-created_at')
         
         # Transform assets to listing format
-        listings = []
+        assets = []
         for asset in assets:
             # Get source records for this asset
             source_records = SourceRecord.objects.filter(asset_id=asset.id)
@@ -904,7 +904,7 @@ def _get_assets_list():
             all_sources = list(set([r.source for r in source_records]))
             
             if all_sources:
-                # Create listings for each source
+                # Create assets for each source
                 for source in all_sources:
                     source_records_for_source = [r for r in source_records if r.source == source]
                     
@@ -958,7 +958,7 @@ def _get_assets_list():
                             'sources': all_sources,
                             'primary_source': source
                         }
-                        listings.append(listing)
+                        assets.append(listing)
             else:
                 # Create a basic listing from asset data when no sources yet
                 listing = {
@@ -1003,14 +1003,14 @@ def _get_assets_list():
                     'sources': [],
                     'primary_source': 'asset'
                 }
-                listings.append(listing)
+                assets.append(listing)
         
-        return JsonResponse({'rows': listings})
+        return JsonResponse({'rows': assets})
         
     except Exception as e:
-        print(f"Error fetching listings: {e}")
+        print(f"Error fetching assets: {e}")
         return JsonResponse({
-            'error': 'Failed to fetch listings',
+            'error': 'Failed to fetch assets',
             'details': str(e)
         }, status=500)
 

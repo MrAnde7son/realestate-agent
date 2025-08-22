@@ -42,7 +42,7 @@ class MadlanConfig:
             "Sec-Fetch-Site": "none"
         }
         self.delay_between_pages = 8  # seconds
-        self.delay_between_listings = 2  # seconds
+        self.delay_between_assets = 2  # seconds
 
 
 class MadlanParser:
@@ -151,13 +151,13 @@ class MadlanParser:
 
 
 class MadlanScraper:
-    """Main scraper class for Madlan real estate listings"""
+    """Main scraper class for Madlan real estate assets"""
     
     def __init__(self, config: MadlanConfig):
         self.config = config
         self.session = requests.Session()
         self.parser = MadlanParser()
-        self.listings: List[MadlanListingData] = []
+        self.assets: List[MadlanListingData] = []
 
     def get_page_content(self, url: str) -> Optional[BeautifulSoup]:
         """Fetch and parse page content"""
@@ -201,7 +201,7 @@ class MadlanScraper:
         for selector in possible_selectors:
             cards = soup.select(selector)
             if cards and len(cards) > 0:  # Found cards
-                print(f"Found {len(cards)} listings using selector: {selector}")
+                print(f"Found {len(cards)} assets using selector: {selector}")
                 # Debug: print structure of first card if in debug mode
                 self._debug_card_structure(cards[0] if cards else None)
                 return cards
@@ -260,7 +260,7 @@ class MadlanScraper:
         if not soup:
             return {"description": "", "features": [], "additional_details": {}}
         
-        time.sleep(self.config.delay_between_listings)
+        time.sleep(self.config.delay_between_assets)
         return self.parser.extract_detailed_info(soup)
 
     def process_listing(self, card) -> Optional[MadlanListingData]:
@@ -296,8 +296,8 @@ class MadlanScraper:
             print(f"Error processing listing: {e}")
             return None
 
-    def scrape_listings(self) -> List[MadlanListingData]:
-        """Main method to scrape all listings"""
+    def scrape_assets(self) -> List[MadlanListingData]:
+        """Main method to scrape all assets"""
         page = 1
         
         while True:
@@ -317,22 +317,22 @@ class MadlanScraper:
             # Find listing cards
             cards = self.find_listing_cards(soup)
             if not cards:
-                print(f"No more listings found on page {page}")
+                print(f"No more assets found on page {page}")
                 break
             
-            print(f"Processing {len(cards)} listings from page {page}")
+            print(f"Processing {len(cards)} assets from page {page}")
             
             # Process each listing
             page_listing_count = 0
             for card in cards:
                 listing = self.process_listing(card)
                 if listing:
-                    self.listings.append(listing)
+                    self.assets.append(listing)
                     page_listing_count += 1
                     print(f"Processed listing: {listing.address}")
             
             if page_listing_count == 0:
-                print("No valid listings found on this page")
+                print("No valid assets found on this page")
                 break
             
             page += 1
@@ -343,13 +343,13 @@ class MadlanScraper:
                 print("Reached page limit (50)")
                 break
 
-        print(f"Total listings found: {len(self.listings)}")
-        return self.listings
+        print(f"Total assets found: {len(self.assets)}")
+        return self.assets
 
-    def save_to_csv(self, filename: str = "madlan_listings.csv"):
-        """Save listings to CSV file"""
-        if not self.listings:
-            print("No listings to save")
+    def save_to_csv(self, filename: str = "madlan_assets.csv"):
+        """Save assets to CSV file"""
+        if not self.assets:
+            print("No assets to save")
             return
 
         with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
@@ -360,7 +360,7 @@ class MadlanScraper:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             
-            for listing in self.listings:
+            for listing in self.assets:
                 # Convert features list to string
                 features_str = '; '.join(listing.features) if listing.features else ""
                 
@@ -377,17 +377,17 @@ class MadlanScraper:
                     'features': features_str
                 })
         
-        print(f"Saved {len(self.listings)} listings to {filename}")
+        print(f"Saved {len(self.assets)} assets to {filename}")
 
-    def save_detailed_csv(self, filename: str = "madlan_listings_detailed.csv"):
-        """Save listings with all additional details to CSV"""
-        if not self.listings:
-            print("No listings to save")
+    def save_detailed_csv(self, filename: str = "madlan_assets_detailed.csv"):
+        """Save assets with all additional details to CSV"""
+        if not self.assets:
+            print("No assets to save")
             return
 
         # Collect all possible detail keys
         all_detail_keys = set()
-        for listing in self.listings:
+        for listing in self.assets:
             all_detail_keys.update(listing.additional_details.keys())
 
         fieldnames = [
@@ -399,7 +399,7 @@ class MadlanScraper:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             
-            for listing in self.listings:
+            for listing in self.assets:
                 row_data = {
                     'price': listing.price,
                     'address': listing.address,
@@ -419,7 +419,7 @@ class MadlanScraper:
                 
                 writer.writerow(row_data)
         
-        print(f"Saved {len(self.listings)} detailed listings to {filename}")
+        print(f"Saved {len(self.assets)} detailed assets to {filename}")
 
 
 def main():
@@ -430,32 +430,32 @@ def main():
     scraper = MadlanScraper(config)
     
     try:
-        listings = scraper.scrape_listings()
-        if listings:
+        assets = scraper.scrape_assets()
+        if assets:
             scraper.save_to_csv()
             scraper.save_detailed_csv()
             print(f"\nScraping completed successfully!")
-            print(f"Found {len(listings)} listings")
+            print(f"Found {len(assets)} assets")
             print(f"Files saved:")
-            print("- madlan_listings.csv (basic info)")
-            print("- madlan_listings_detailed.csv (with all details)")
+            print("- madlan_assets.csv (basic info)")
+            print("- madlan_assets_detailed.csv (with all details)")
         else:
-            print("No listings were found. This might be due to:")
+            print("No assets were found. This might be due to:")
             print("1. Website structure changes")
             print("2. Anti-scraping measures")
             print("3. Network issues")
-            print("4. No listings available in the specified area")
+            print("4. No assets available in the specified area")
             
     except KeyboardInterrupt:
         print("\nScraping interrupted by user")
-        if scraper.listings:
+        if scraper.assets:
             scraper.save_to_csv()
-            print(f"Saved {len(scraper.listings)} listings before interruption")
+            print(f"Saved {len(scraper.assets)} assets before interruption")
     except Exception as e:
         print(f"An error occurred: {e}")
-        if scraper.listings:
+        if scraper.assets:
             scraper.save_to_csv()
-            print(f"Saved {len(scraper.listings)} listings before error")
+            print(f"Saved {len(scraper.assets)} assets before error")
 
 
 if __name__ == "__main__":

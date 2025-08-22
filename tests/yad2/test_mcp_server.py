@@ -156,13 +156,13 @@ class TestSearchFunctionality:
         )
         
         assert result["success"] is True
-        assert "total_listings" in result
-        assert "listings_preview" in result
+        assert "total_assets" in result
+        assert "assets_preview" in result
         assert "search_url" in result
         
         # Should have some results
-        assert result["total_listings"] >= 0
-        assert isinstance(result["listings_preview"], list)
+        assert result["total_assets"] >= 0
+        assert isinstance(result["assets_preview"], list)
 
 
 class TestIntegration:

@@ -3,7 +3,7 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
 import { reports, type Report } from '@/lib/reports';
-import { listings } from '@/lib/data';
+import { assets } from '@/lib/data';
 
 const BACKEND_URL = process.env.BACKEND_URL;
 
@@ -24,14 +24,14 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { listingId } = await req.json();
+  const { assetId } = await req.json();
 
   if (BACKEND_URL) {
     try {
       const res = await fetch(`${BACKEND_URL}/api/reports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId }),
+        body: JSON.stringify({ assetId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -42,10 +42,10 @@ export async function POST(req: Request) {
     }
   }
 
-  const listing = listings.find(l => l.id === listingId);
-  if (!listing) {
-    return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
-  }
+  const asset = assets.find(l => l.id === assetId);
+if (!asset) {
+  return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
+}
 
   const id = `r${reports.length + 1}`;
   const filename = `${id}.pdf`;
@@ -64,18 +64,18 @@ export async function POST(req: Request) {
 
   doc.fontSize(20).text('דו"ח נכס', { align: 'center' });
   doc.moveDown();
-  doc.fontSize(12).text(`כתובת: ${listing.address}`);
-  doc.text(`מחיר: ₪${listing.price.toLocaleString('he-IL')}`);
-  doc.text(`חדרים: ${listing.bedrooms}`);
-  doc.text(`מקלחות: ${listing.bathrooms}`);
-  doc.text(`מ"ר: ${listing.area}`);
+      doc.fontSize(12).text(`כתובת: ${asset.address}`);
+    doc.text(`מחיר: ₪${asset.price.toLocaleString('he-IL')}`);
+    doc.text(`חדרים: ${asset.bedrooms}`);
+    doc.text(`מקלחות: ${asset.bathrooms}`);
+    doc.text(`מ"ר: ${asset.area}`);
   doc.end();
   await new Promise<void>((resolve) => stream.on('finish', () => resolve()));
 
   const report: Report = {
     id,
-    listingId,
-    address: listing.address,
+            assetId,
+        address: asset.address,
     filename,
     createdAt: new Date().toISOString(),
   };

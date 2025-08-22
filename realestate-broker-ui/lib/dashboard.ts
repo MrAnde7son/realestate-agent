@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 
 export interface DashboardData {
-  totalListings: number
+  totalassets: number
   activeAlerts: number
   totalReports: number
   averageReturn: number
   marketTrend: 'up' | 'down' | 'stable'
   recentActivity: Array<{
     id: string
-    type: 'listing' | 'alert' | 'client' | 'transaction'
+    type: 'asset' | 'alert' | 'client' | 'transaction'
     title: string
     timestamp: string
     value?: number
@@ -26,7 +26,7 @@ export interface DashboardData {
   }>
   topAreas: Array<{
     area: string
-    listings: number
+    assets: number
     avgPrice: number
     trend: number
   }>
@@ -44,36 +44,36 @@ export function useDashboardData() {
         setError(null)
 
         // Fetch data from multiple API endpoints
-        const [listingsRes, alertsRes, reportsRes] = await Promise.allSettled([
-          fetch('/api/listings'),
+        const [assetsRes, alertsRes, reportsRes] = await Promise.allSettled([
+          fetch('/api/assets'),
           fetch('/api/alerts'),
           fetch('/api/reports')
         ])
 
-        // Process listings data
-        let totalListings = 0
+        // Process assets data
+        let totalassets = 0
         let propertyTypes: Array<{ type: string; count: number; percentage: number }> = []
-        let topAreas: Array<{ area: string; listings: number; avgPrice: number; trend: number }> = []
+        let topAreas: Array<{ area: string; assets: number; avgPrice: number; trend: number }> = []
         let totalPropertyValue = 0
         let propertyReturns: number[] = []
 
-        if (listingsRes.status === 'fulfilled' && listingsRes.value.ok) {
-          const listingsData = await listingsRes.value.json()
-          const listings = listingsData.rows || []
-          totalListings = listings.length
+        if (assetsRes.status === 'fulfilled' && assetsRes.value.ok) {
+          const assetsData = await assetsRes.value.json()
+          const assets = assetsData.rows || []
+          totalassets = assets.length
 
           // Analyze property types and calculate individual returns
           const typeCounts: Record<string, number> = {}
           const areaData: Record<string, { count: number; totalPrice: number; totalRent: number }> = {}
 
-          listings.forEach((listing: any) => {
+          assets.forEach((asset: any) => {
             // Count property types
-            const type = listing.property_type || 'לא ידוע'
+            const type = asset.property_type || 'לא ידוע'
             typeCounts[type] = (typeCounts[type] || 0) + 1
 
             // Calculate individual property return
-            const price = listing.price || 0
-            const rent = listing.monthly_rent || listing.rent || 0
+            const price = asset.price || 0
+            const rent = asset.monthly_rent || asset.rent || 0
             
             if (price > 0 && rent > 0) {
               // Annual return for this property = (Monthly Rent * 12) / Property Price * 100
@@ -84,7 +84,7 @@ export function useDashboardData() {
             totalPropertyValue += price
 
             // Analyze areas
-            const area = listing.city || 'לא ידוע'
+            const area = asset.city || 'לא ידוע'
             if (!areaData[area]) {
               areaData[area] = { count: 0, totalPrice: 0, totalRent: 0 }
             }
@@ -97,17 +97,17 @@ export function useDashboardData() {
           propertyTypes = Object.entries(typeCounts).map(([type, count]) => ({
             type,
             count,
-            percentage: Math.round((count / totalListings) * 100)
+            percentage: Math.round((count / totalassets) * 100)
           }))
 
           topAreas = Object.entries(areaData)
             .map(([area, data]) => ({
               area,
-              listings: data.count,
+              assets: data.count,
               avgPrice: Math.round(data.totalPrice / data.count),
               trend: Math.floor(Math.random() * 10) - 2 // Mock trend data
             }))
-            .sort((a, b) => b.listings - a.listings)
+            .sort((a, b) => b.assets - a.assets)
             .slice(0, 4)
         }
 
@@ -139,7 +139,7 @@ export function useDashboardData() {
 
         // Generate market data based on actual property data
         const months = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני']
-        const baseAvgPrice = totalPropertyValue > 0 ? totalPropertyValue / totalListings : 3000000
+        const baseAvgPrice = totalPropertyValue > 0 ? totalPropertyValue / totalassets : 3000000
         const marketData = months.map((month, index) => {
           const priceVariation = 1 + (index * 0.02) + (Math.random() * 0.1 - 0.05) // Gradual increase with some variation
           const avgPrice = Math.round(baseAvgPrice * priceVariation)
@@ -170,7 +170,7 @@ export function useDashboardData() {
         const recentActivity = [
           {
             id: '1',
-            type: 'listing' as const,
+            type: 'asset' as const,
             title: 'דירה חדשה נוספה - רחוב דיזנגוף 123',
             timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
             value: 2800000
@@ -197,7 +197,7 @@ export function useDashboardData() {
         ]
 
         const dashboardData: DashboardData = {
-          totalListings,
+          totalassets,
           activeAlerts,
           totalReports,
           averageReturn,

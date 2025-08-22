@@ -111,8 +111,8 @@ export function TBody({ children }: { children: React.ReactNode }) {
   return <TableBody>{children}</TableBody>
 }
 
-export function TR({ children }: { children: React.ReactNode }) {
-  return <TableRow>{children}</TableRow>
+export function TR({ children, className, ...props }: React.ComponentProps<'tr'>) {
+  return <TableRow className={className} {...props}>{children}</TableRow>
 }
 
 export function TH({ children, className }: { children: React.ReactNode, className?: string }) {

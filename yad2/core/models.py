@@ -3,14 +3,14 @@
 """
 Yad2 Data Models
 
-Data classes and models for real estate listings and related entities.
+Data classes and models for real estate assets and related entities.
 """
 
 from datetime import datetime
 
 
 class RealEstateListing:
-    """Data class for real estate listings."""
+    """Data class for real estate assets."""
     
     def __init__(self):
         self.title = None

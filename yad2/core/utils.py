@@ -71,9 +71,9 @@ class DataUtils:
     """Utilities for data processing and analysis."""
     
     @staticmethod
-    def calculate_price_stats(listings):
-        """Calculate price statistics from listings."""
-        prices = [l.price for l in listings if l.price and isinstance(l.price, (int, float))]
+    def calculate_price_stats(assets):
+        """Calculate price statistics from assets."""
+        prices = [l.price for l in assets if l.price and isinstance(l.price, (int, float))]
         
         if not prices:
             return None
@@ -87,11 +87,11 @@ class DataUtils:
         }
     
     @staticmethod
-    def group_by_location(listings):
-        """Group listings by location."""
+    def group_by_location(assets):
+        """Group assets by location."""
         location_groups = {}
         
-        for listing in listings:
+        for listing in assets:
             if listing.address:
                 # Extract city (simple heuristic - last part after comma)
                 parts = listing.address.split(',')
@@ -104,11 +104,11 @@ class DataUtils:
         return location_groups
     
     @staticmethod
-    def filter_by_criteria(listings, min_price=None, max_price=None, min_rooms=None, max_rooms=None):
-        """Filter listings by criteria."""
+    def filter_by_criteria(assets, min_price=None, max_price=None, min_rooms=None, max_rooms=None):
+        """Filter assets by criteria."""
         filtered = []
         
-        for listing in listings:
+        for listing in assets:
             # Price filter
             if min_price and listing.price and listing.price < min_price:
                 continue

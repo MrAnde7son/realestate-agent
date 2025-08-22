@@ -28,7 +28,17 @@ describe('/api/assets', () => {
 
   describe('POST', () => {
     it('adds a new asset', async () => {
-      const mockAsset = { address: 'New St 5', price: 500000, bedrooms: 3, bathrooms: 2, area: 80 }
+      const mockAsset = {
+        scope: {
+          type: 'address' as const,
+          value: 'New St 5',
+          city: 'תל אביב'
+        },
+        address: 'New St 5',
+        city: 'תל אביב',
+        street: 'New St',
+        number: 5
+      }
       const request = createMockRequest(mockAsset)
       
       const response = await POST(request)
@@ -36,14 +46,28 @@ describe('/api/assets', () => {
       
       expect(data.asset).toBeDefined()
       expect(data.asset.address).toBe('New St 5')
-      expect(data.asset.price).toBe(500000)
-      expect(data.asset.bedrooms).toBe(3)
-      expect(data.asset.bathrooms).toBe(2)
-      expect(data.asset.area).toBe(80)
+      expect(data.asset.city).toBe('תל אביב')
+      expect(data.asset.status).toBe('pending')
+      expect(data.asset.type).toBe('דירה')
     })
 
     it('validates required fields', async () => {
-      const invalidAsset = { address: '', price: -100 }
+      const invalidAsset = { 
+        address: '', 
+        city: '' 
+      }
+      const request = createMockRequest(invalidAsset)
+      
+      const response = await POST(request)
+      expect(response.status).toBe(400)
+    })
+
+    it('validates scope object', async () => {
+      const invalidAsset = {
+        address: 'Valid Address',
+        city: 'תל אביב'
+        // Missing scope object
+      }
       const request = createMockRequest(invalidAsset)
       
       const response = await POST(request)

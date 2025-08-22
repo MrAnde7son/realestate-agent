@@ -73,7 +73,7 @@ class Yad2Scraper:
             return None
         return self.get_property_types().get(int(code))
     
-    def fetch_location_data(self, search_text):
+    def fetch_location_data(self, search_text: str) -> dict:
         """Fetch location data from Yad2 address autocomplete API."""
         try:
             url = f"{self.api_base_url}/address-autocomplete/realestate/v2"

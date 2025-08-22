@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -798,13 +798,14 @@ def tabu(request):
         rows = search_rows(rows, query)
     return JsonResponse({'rows': rows})
 
-@csrf_exempt
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticatedOrReadOnly])
 def assets(request):
     """Handle assets - GET (list all) or POST (create new).
-    
+
     GET: Returns all assets in listing format
     POST: Creates a new asset and enqueues enrichment pipeline
-    
+
     Expected JSON payload for POST:
     {
         "scope": {
@@ -813,7 +814,7 @@ def assets(request):
             "city": "string"
         },
         "address": "string",
-        "city": "string", 
+        "city": "string",
         "street": "string",
         "number": "integer",
         "gush": "string",
@@ -824,7 +825,7 @@ def assets(request):
     if request.method == 'GET':
         # Return all assets in listing format
         return _get_assets_list()
-    
+
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
     

@@ -382,6 +382,30 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
             <Card>
               <CardHeader>
+                <CardTitle>ניתוח תכנוני ומשפטי</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">רמת ניצול זכויות:</span>
+                  <span>{asset.rightsUsagePct ? `${asset.rightsUsagePct}%` : '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">מגבלות משפטיות:</span>
+                  <span>{asset.legalRestrictions || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">פוטנציאל התחדשות:</span>
+                  <span>{asset.urbanRenewalPotential || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">היטל השבחה צפוי:</span>
+                  <span>{asset.bettermentLevy || '—'}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>המלצת השקעה</CardTitle>
               </CardHeader>
               <CardContent>
@@ -424,6 +448,26 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       <Badge variant={asset.remainingRightsSqm > 0 ? 'good' : 'outline'}>
                         +{asset.remainingRightsSqm} מ״ר
                       </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">זכויות בנייה עיקריות:</span>
+                      <span>{asset.mainRightsSqm ? `${asset.mainRightsSqm} מ״ר` : 'לא זמין'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">שטחי שירות:</span>
+                      <span>{asset.serviceRightsSqm ? `${asset.serviceRightsSqm} מ״ר` : 'לא זמין'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">זכויות משלימות:</span>
+                      <span>{asset.additionalPlanRights || 'אין'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">מגבלות/חובות ציבוריות:</span>
+                      <span>{asset.publicObligations || 'אין'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">סטטוס תוכנית:</span>
+                      <span>{asset.planStatus || 'לא ידוע'}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t">
@@ -523,10 +567,78 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 )}
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>סביבת הנכס</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">תחבורה ציבורית:</span>
+                  <span>{asset.publicTransport || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">שטחים פתוחים בקרבת מקום:</span>
+                  <span>{asset.openSpacesNearby || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">מבני ציבור:</span>
+                  <span>{asset.publicBuildings || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">מצב חניה:</span>
+                  <span>{asset.parking || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">פרויקטים סמוכים:</span>
+                  <span>{asset.nearbyProjects || '—'}</span>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="permits" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>פרטי היתר</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">תאריך היתר:</span>
+                    <span>{asset.permitDate || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">סטטוס:</span>
+                    <span>{asset.permitStatus || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">פירוט:</span>
+                    <span>{asset.permitDetails || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">שטח עיקרי:</span>
+                    <span>{asset.permitMainArea ? `${asset.permitMainArea} מ״ר` : '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">שטחי שירות:</span>
+                    <span>{asset.permitServiceArea ? `${asset.permitServiceArea} מ״ר` : '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">מבקש:</span>
+                    <span>{asset.permitApplicant || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">מסמך:</span>
+                    {asset.permitDocUrl ? (
+                      <a href={asset.permitDocUrl} target="_blank" className="text-blue-500 underline">צפה</a>
+                    ) : (
+                      <span>—</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>היתרי בנייה באזור</CardTitle>
@@ -562,7 +674,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       <span className="text-muted-foreground">היתר בתוקף:</span>
                       <Badge variant="good">כן</Badge>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify_between">
                       <span className="text-muted-foreground">סוג היתר:</span>
                       <span>מגורים</span>
                     </div>

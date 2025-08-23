@@ -45,6 +45,27 @@ export interface Asset {
   asset_status?: string
   sources?: string[]
   primary_source?: string
+  permitDate?: string
+  permitStatus?: string
+  permitDetails?: string
+  permitMainArea?: number
+  permitServiceArea?: number
+  permitApplicant?: string
+  permitDocUrl?: string
+  mainRightsSqm?: number
+  serviceRightsSqm?: number
+  additionalPlanRights?: string
+  planStatus?: string
+  publicObligations?: string
+  publicTransport?: string
+  openSpacesNearby?: string
+  publicBuildings?: string
+  parking?: string
+  nearbyProjects?: string
+  rightsUsagePct?: number
+  legalRestrictions?: string
+  urbanRenewalPotential?: string
+  bettermentLevy?: string
 }
 
 export const assets: Asset[] = [
@@ -95,7 +116,28 @@ export const assets: Asset[] = [
     capRatePct: 3.2,
     antennaDistanceM: 150,
     shelterDistanceM: 80,
-    rentEstimate: 9500
+    rentEstimate: 9500,
+    permitDate: '2024-01-15',
+    permitStatus: 'מאושר',
+    permitDetails: 'תוספת קומה',
+    permitMainArea: 120,
+    permitServiceArea: 30,
+    permitApplicant: 'בעלים',
+    permitDocUrl: '/docs/l1/permit.pdf',
+    mainRightsSqm: 150,
+    serviceRightsSqm: 40,
+    additionalPlanRights: 'תב"ע 1234',
+    planStatus: 'בתוקף',
+    publicObligations: 'הקצאת שטח ציבורי',
+    publicTransport: "5 דק' הליכה לרכבת הקלה",
+    openSpacesNearby: 'גן מאיר',
+    publicBuildings: 'בית ספר יסודי, גני ילדים',
+    parking: 'מצוקת חניה בינונית',
+    nearbyProjects: 'פרויקט תמ"א ברח\' הרצל 150',
+    rightsUsagePct: 70,
+    legalRestrictions: 'הערת אזהרה לטובת בנק',
+    urbanRenewalPotential: 'תמ"א 38/2',
+    bettermentLevy: 'היטל צפוי כ-50 אלף ₪'
   },
   {
     id: "l2",

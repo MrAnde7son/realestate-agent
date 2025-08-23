@@ -6,7 +6,7 @@ import './globals.css'
 
 export const metadata: Metadata = { 
   title: 'נדל״נר - נדל״ן חכם לשמאים, מתווכים ומשקיעים',
-  description: 'פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא',
+  description: 'פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -30,51 +30,30 @@ def setup_database():
         execute_from_command_line(['manage.py', 'makemigrations'])
         execute_from_command_line(['manage.py', 'migrate'])
         print("✓ Migrations completed successfully")
+        print("✓ Initial users created automatically by migration (if database was empty)")
     except Exception as e:
         print(f"⚠ Warning: Migration error (this may be normal): {e}")
     
-    # Create superuser if it doesn't exist
-    if not User.objects.filter(is_superuser=True).exists():
-        print("Creating superuser...")
-        try:
-            user = User.objects.create_superuser(
-                username='admin',
-                email='admin@example.com',
-                password='admin123',
-                first_name='מנהל',
-                last_name='מערכת',
-                company='נדל״נר',
-                role='מנהל מערכת'
-            )
-            print(f"✓ Superuser created: {user.email}")
-        except Exception as e:
-            print(f"✗ Error creating superuser: {e}")
-    
-    # Create test user if it doesn't exist
-    if not User.objects.filter(email='demo@example.com').exists():
-        print("Creating test user...")
-        try:
-            user = User.objects.create_user(
-                username='demo',
-                email='demo@example.com',
-                password='demo123',
-                first_name='משתמש',
-                last_name='דמו',
-                company='נדל״ן דמו בע״מ',
-                role='מתווך נדל״ן'
-            )
-            print(f"✓ Test user created: {user.email}")
-        except Exception as e:
-            print(f"✗ Error creating test user: {e}")
+    # Check if users exist
+    admin_exists = User.objects.filter(email='admin@example.com').exists()
+    demo_exists = User.objects.filter(email='demo@example.com').exists()
     
     print("\n" + "="*50)
     print("Database setup complete!")
     print("="*50)
-    print("\nTest accounts:")
-    print("Admin: admin@example.com / admin123")
-    print("Demo: demo@example.com / demo123")
-    print("\nNote: Some features may return dummy data if external")
-    print("dependencies are not available. This is normal for testing.")
+    print("\nUser status:")
+    print(f"Admin user: {'✓ Exists' if admin_exists else '✗ Missing'}")
+    print(f"Demo user: {'✓ Exists' if demo_exists else '✗ Missing'}")
+    
+    if admin_exists and demo_exists:
+        print("\nTest accounts:")
+        print("Admin: admin@example.com / admin123")
+        print("Demo: demo@example.com / demo123")
+    else:
+        print("\n⚠ Some users are missing. Check the migration output above.")
+    
+    print("\nNote: Users are now created automatically by migrations.")
+    print("This ensures they exist after every deployment without conflicts.")
     print("\nTo start the server:")
     print("python manage.py runserver")
 

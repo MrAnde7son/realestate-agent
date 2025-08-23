@@ -61,7 +61,28 @@ export async function GET(
           riskFlags: ['שימור מבנה'],
           // Model and estimates
           modelPrice: backendAsset.price || 3000000,
-          rentEstimate: backendAsset.price ? Math.round(backendAsset.price * 0.004) : 9500
+          rentEstimate: backendAsset.price ? Math.round(backendAsset.price * 0.004) : 9500,
+          permitDate: backendAsset.permit_date,
+          permitStatus: backendAsset.permit_status,
+          permitDetails: backendAsset.permit_details,
+          permitMainArea: backendAsset.permit_main_area,
+          permitServiceArea: backendAsset.permit_service_area,
+          permitApplicant: backendAsset.permit_applicant,
+          permitDocUrl: backendAsset.permit_doc_url,
+          mainRightsSqm: backendAsset.main_rights_sqm,
+          serviceRightsSqm: backendAsset.service_rights_sqm,
+          additionalPlanRights: backendAsset.additional_plan_rights,
+          planStatus: backendAsset.plan_status,
+          publicObligations: backendAsset.public_obligations,
+          publicTransport: backendAsset.public_transport,
+          openSpacesNearby: backendAsset.open_spaces_nearby,
+          publicBuildings: backendAsset.public_buildings,
+          parking: backendAsset.parking,
+          nearbyProjects: backendAsset.nearby_projects,
+          rightsUsagePct: backendAsset.rights_usage_pct,
+          legalRestrictions: backendAsset.legal_restrictions,
+          urbanRenewalPotential: backendAsset.urban_renewal_potential,
+          bettermentLevy: backendAsset.betterment_levy
         }
 
         return NextResponse.json({ asset })

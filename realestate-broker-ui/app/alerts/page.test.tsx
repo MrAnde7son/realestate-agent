@@ -46,12 +46,13 @@ describe('AlertsPage', () => {
     expect(screen.getByText('סטטיסטיקות מהירות')).toBeInTheDocument();
     expect(screen.getByText('סינון התראות')).toBeInTheDocument();
     
-    // Check alert type icons
-    expect(screen.getByText('ירידת מחיר')).toBeInTheDocument();
-    expect(screen.getByText('נכס חדש')).toBeInTheDocument();
-    expect(screen.getByText('שינוי בשוק')).toBeInTheDocument();
-    expect(screen.getByText('עדכון מסמכים')).toBeInTheDocument();
-    expect(screen.getByText('סטטוס היתרים')).toBeInTheDocument();
+    // Check alert type icons - use getAllByText since these appear in multiple places
+    // Check that the text exists at least once (more flexible assertion)
+    expect(screen.getAllByText('ירידת מחיר').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('נכס חדש').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('שינוי בשוק').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('עדכון מסמכים').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('סטטוס היתרים').length).toBeGreaterThan(0);
   });
 
   it('displays alert statistics correctly', async () => {
@@ -78,9 +79,11 @@ describe('AlertsPage', () => {
     
     // Check priority filters
     expect(screen.getByText('עדיפות')).toBeInTheDocument();
-    expect(screen.getByText('חשוב')).toBeInTheDocument();
-    expect(screen.getByText('בינוני')).toBeInTheDocument();
-    expect(screen.getByText('נמוך')).toBeInTheDocument();
+    // Use getAllByText since priority badges appear multiple times
+    // Check that the text exists at least once (more flexible assertion)
+    expect(screen.getAllByText('חשוב').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('בינוני').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('נמוך').length).toBeGreaterThan(0);
     
     // Check type filters
     expect(screen.getByText('סוג התראה')).toBeInTheDocument();
@@ -129,16 +132,23 @@ describe('AlertsPage', () => {
       'סטטיסטיקות מהירות',
       'סינון התראות',
       'עדיפות',
-      'סוג התראה',
-      'ירידת מחיר',
-      'נכס חדש',
-      'שינוי בשוק',
-      'עדכון מסמכים',
-      'סטטוס היתרים'
+      'סוג התראה'
     ];
     
     expectedTexts.forEach(text => {
       expect(screen.getByText(text)).toBeInTheDocument();
+    });
+    
+    // Check that alert type texts exist (they appear multiple times, so use getAllByText)
+    const alertTypes = ['ירידת מחיר', 'נכס חדש', 'שינוי בשוק', 'עדכון מסמכים', 'סטטוס היתרים'];
+    alertTypes.forEach(text => {
+      expect(screen.getAllByText(text).length).toBeGreaterThan(0);
+    });
+    
+    // Check that priority texts exist (they appear multiple times)
+    const priorities = ['חשוב', 'בינוני', 'נמוך'];
+    priorities.forEach(text => {
+      expect(screen.getAllByText(text).length).toBeGreaterThan(0);
     });
   });
 });

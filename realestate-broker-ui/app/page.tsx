@@ -75,7 +75,7 @@ export default function HomePage() {
         <DashboardShell>
           <DashboardHeader
             heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
           />
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
@@ -102,7 +102,7 @@ export default function HomePage() {
         <DashboardShell>
           <DashboardHeader
             heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
           />
           <div className="text-center py-12">
             <p className="text-muted-foreground">
@@ -120,7 +120,7 @@ export default function HomePage() {
         <DashboardShell>
           <DashboardHeader
             heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
           />
           <div className="text-center py-12">
             <div className="bg-destructive/10 text-destructive p-4 rounded-lg max-w-md mx-auto">
@@ -147,7 +147,7 @@ export default function HomePage() {
       <DashboardShell>
         <DashboardHeader
           heading={isAuthenticated ? `ברוכים הבאים, ${user?.first_name || "משתמש"}!` : "ברוכים הבאים לנדל״נר"}
-          text="פלטפורמה מתקדמת לניהול נכסים, התראות שוק ומחשבוני משכנתא"
+          text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
         />
 
         {/* Login Prompt for Guests */}

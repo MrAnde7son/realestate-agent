@@ -12,9 +12,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, Mail, Phone, MapPin, Building, Shield, Key, Star, Save, Edit } from 'lucide-react'
+import { User, Mail, Phone, MapPin, Building, Shield, Key, Star, Save, Edit, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
-import { ProfileUpdateData } from '@/lib/auth'
+import { ProfileUpdateData, ChangePasswordData } from '@/lib/auth'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
 const profileSchema = z.object({
   first_name: z.string().min(2, 'שם פרטי חייב להכיל לפחות 2 תווים'),
@@ -23,7 +24,17 @@ const profileSchema = z.object({
   role: z.string().optional(),
 })
 
+const changePasswordSchema = z.object({
+  current_password: z.string().min(1, 'סיסמה נוכחית נדרשת'),
+  new_password: z.string().min(8, 'סיסמה חדשה חייבת להכיל לפחות 8 תווים'),
+  confirm_password: z.string().min(1, 'אישור סיסמה נדרש'),
+}).refine((data) => data.new_password === data.confirm_password, {
+  message: "הסיסמאות אינן תואמות",
+  path: ["confirm_password"],
+})
+
 type ProfileFormData = z.infer<typeof profileSchema>
+type ChangePasswordFormData = z.infer<typeof changePasswordSchema>
 
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth()
@@ -31,6 +42,16 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  
+  // Change password state
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState('')
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  })
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -39,6 +60,15 @@ export default function ProfilePage() {
       last_name: user?.last_name || '',
       company: user?.company || '',
       role: user?.role || '',
+    },
+  })
+
+  const passwordForm = useForm<ChangePasswordFormData>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      current_password: '',
+      new_password: '',
+      confirm_password: '',
     },
   })
 
@@ -81,6 +111,46 @@ export default function ProfilePage() {
     form.reset()
     setError('')
     setSuccess('')
+  }
+
+  const handleChangePassword = async (data: ChangePasswordFormData) => {
+    try {
+      setIsChangingPassword(true)
+      setPasswordError('')
+      setPasswordSuccess('')
+      
+      const { authAPI } = await import('@/lib/auth')
+      await authAPI.changePassword({
+        current_password: data.current_password,
+        new_password: data.new_password,
+      })
+      
+      setPasswordSuccess('הסיסמה שונתה בהצלחה!')
+      passwordForm.reset()
+      
+      // Close modal after success
+      setTimeout(() => {
+        setPasswordSuccess('')
+      }, 3000)
+      
+    } catch (err: any) {
+      setPasswordError(err.message || 'שגיאה בשינוי הסיסמה')
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
+  const handleCancelPasswordChange = () => {
+    passwordForm.reset()
+    setPasswordError('')
+    setPasswordSuccess('')
+  }
+
+  const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }))
   }
 
   const getUserInitials = () => {
@@ -284,9 +354,148 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" disabled>
-                    שנה סיסמה
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        שנה סיסמה
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>שינוי סיסמה</DialogTitle>
+                        <DialogDescription>
+                          הזן את הסיסמה הנוכחית שלך ואת הסיסמה החדשה הרצויה
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={passwordForm.handleSubmit(handleChangePassword)} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="current_password">סיסמה נוכחית</Label>
+                          <div className="relative">
+                            <Input
+                              id="current_password"
+                              type={showPasswords.current ? "text" : "password"}
+                              {...passwordForm.register('current_password')}
+                              placeholder="הזן סיסמה נוכחית"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => togglePasswordVisibility('current')}
+                            >
+                              {showPasswords.current ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                          {passwordForm.formState.errors.current_password && (
+                            <p className="text-sm text-destructive">
+                              {passwordForm.formState.errors.current_password.message}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="new_password">סיסמה חדשה</Label>
+                          <div className="relative">
+                            <Input
+                              id="new_password"
+                              type={showPasswords.new ? "text" : "password"}
+                              {...passwordForm.register('new_password')}
+                              placeholder="הזן סיסמה חדשה (לפחות 8 תווים)"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => togglePasswordVisibility('new')}
+                            >
+                              {showPasswords.new ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                          {passwordForm.formState.errors.new_password && (
+                            <p className="text-sm text-destructive">
+                              {passwordForm.formState.errors.new_password.message}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="confirm_password">אישור סיסמה חדשה</Label>
+                          <div className="relative">
+                            <Input
+                              id="confirm_password"
+                              type={showPasswords.confirm ? "text" : "password"}
+                              {...passwordForm.register('confirm_password')}
+                              placeholder="הזן שוב את הסיסמה החדשה"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => togglePasswordVisibility('confirm')}
+                            >
+                              {showPasswords.confirm ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                          {passwordForm.formState.errors.confirm_password && (
+                            <p className="text-sm text-destructive">
+                              {passwordForm.formState.errors.confirm_password.message}
+                            </p>
+                          )}
+                        </div>
+
+                        {passwordError && (
+                          <p className="text-sm text-destructive">{passwordError}</p>
+                        )}
+
+                        {passwordSuccess && (
+                          <p className="text-sm text-green-600">{passwordSuccess}</p>
+                        )}
+
+                        <div className="flex gap-3 pt-4">
+                          <Button 
+                            type="submit" 
+                            disabled={isChangingPassword}
+                            className="flex-1"
+                          >
+                            {isChangingPassword ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                משנה סיסמה...
+                              </>
+                            ) : (
+                              <>
+                                <Key className="h-4 w-4 ml-2" />
+                                שנה סיסמה
+                              </>
+                            )}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={handleCancelPasswordChange}
+                            disabled={isChangingPassword}
+                          >
+                            ביטול
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                 </div>
 
                 <div className="flex items-center justify-between p-4 border rounded-lg">

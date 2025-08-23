@@ -22,6 +22,7 @@ urlpatterns = [
     path('auth/logout/', views.auth_logout, name='auth_logout'),
     path('auth/profile/', views.auth_profile, name='auth_profile'),
     path('auth/update-profile/', views.auth_update_profile, name='auth_update_profile'),
+    path('auth/change-password/', views.change_password, name='change_password'),
     path('auth/refresh/', views.auth_refresh, name='auth_refresh'),
     path('auth/google/login/', views.auth_google_login, name='auth_google_login'),
     path('auth/google/callback/', views.auth_google_callback, name='auth_google_callback'),

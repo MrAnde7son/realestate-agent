@@ -2,11 +2,9 @@ import json, statistics, re, os, urllib.parse
 from datetime import datetime
 from pathlib import Path
 
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_http_methods
+from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -30,12 +28,18 @@ from .models import Asset, SourceRecord, RealEstateTransaction
 
 # Import utility functions
 try:
+    # Try to import from utils - this will work if the module is available
     from utils.tabu_parser import parse_tabu_pdf, search_rows
 except ImportError:
+    # Fallback functions when utils module is not available
+    # This ensures the app can still run even if utils is missing
+    # Note: These functions return empty results, so tabu parsing will show dummy data
     def parse_tabu_pdf(file):
+        """Fallback function for parsing tabu PDFs when utils module is not available."""
         return []
     
     def search_rows(rows, query):
+        """Fallback function for searching rows when utils module is not available."""
         return rows
 
 # Import tasks
@@ -336,6 +340,9 @@ def auth_google_callback(request):
         import requests
         from django.contrib.auth import get_user_model
         from django.contrib.auth.hashers import make_password
+        from rest_framework_simplejwt.tokens import RefreshToken
+        
+        User = get_user_model()
         
         # Get authorization code from query parameters
         code = request.GET.get('code')
@@ -410,8 +417,9 @@ def auth_google_callback(request):
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         
-        # Redirect to frontend with tokens
-        frontend_url = settings.FRONTEND_URL
+        # Get frontend URL from settings with fallback
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        
         tokens = {
             'access_token': str(refresh.access_token),
             'refresh_token': str(refresh),
@@ -736,7 +744,11 @@ def mortgage_analyze(request):
 
 @csrf_exempt
 def tabu(request):
-    """Parse an uploaded Tabu PDF and return its data as a searchable table."""
+    """Parse an uploaded Tabu PDF and return its data as a searchable table.
+    
+    Note: If the utils module is not available, this will return dummy data
+    to ensure the app continues to function.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     file = request.FILES.get('file')
@@ -753,6 +765,7 @@ def tabu(request):
     except Exception as e:
         print(f"Error parsing tabu PDF: {e}")
         # Return dummy data for testing if parsing fails
+        # This also handles the case where utils module is not available
         return JsonResponse({'rows': [
             {
                 'id': 1,
@@ -763,12 +776,6 @@ def tabu(request):
                 'usage': 'מגורים'
             }
         ]})
-    
-    rows = parse_tabu_pdf(file)
-    query = request.GET.get('q') or ''
-    if query:
-        rows = search_rows(rows, query)
-    return JsonResponse({'rows': rows})
 
 @csrf_exempt
 def assets(request):
@@ -1116,3 +1123,58 @@ def asset_share_message(request, asset_id):
         return Response({'error': 'Failed to generate message', 'details': str(e)}, status=500)
 
     return Response({'message': message})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Change user password endpoint."""
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        if not current_password or not new_password:
+            return Response(
+                {'error': 'Current password and new password are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(new_password) < 8:
+            return Response(
+                {'error': 'New password must be at least 8 characters long'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify current password
+        user = request.user
+        if not user.check_password(current_password):
+            return Response(
+                {'error': 'Current password is incorrect'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if new password is different from current
+        if user.check_password(new_password):
+            return Response(
+                {'error': 'New password must be different from current password'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update password
+        user.set_password(new_password)
+        user.save()
+        
+        return Response({
+            'message': 'Password changed successfully'
+        })
+        
+    except json.JSONDecodeError:
+        return Response(
+            {'error': 'Invalid JSON'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

@@ -13,7 +13,7 @@ export default function GoogleCallbackPage() {
   const [error, setError] = useState<string>('')
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login } = useAuth()
+  const { refreshUser } = useAuth()
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -21,23 +21,19 @@ export default function GoogleCallbackPage() {
         // Get tokens from URL parameters
         const accessToken = searchParams.get('access_token')
         const refreshToken = searchParams.get('refresh_token')
-        const userData = searchParams.get('user')
 
-        if (!accessToken || !refreshToken || !userData) {
-          setError('Missing authentication data from Google')
+        if (!accessToken || !refreshToken) {
+          setError('Missing authentication tokens from Google')
           setStatus('error')
           return
         }
 
-        // Parse user data
-        const user = JSON.parse(decodeURIComponent(userData))
-        
-        // Store tokens and user data
+        // Store tokens
         const { authAPI } = await import('@/lib/auth')
         authAPI.setTokens(accessToken, refreshToken)
-        
-        // Update auth context
-        await login({ email: user.email, password: '' }) // Dummy login to update context
+
+        // Refresh user profile to update auth context
+        await refreshUser()
         
         setStatus('success')
         
@@ -54,7 +50,7 @@ export default function GoogleCallbackPage() {
     }
 
     handleCallback()
-  }, [searchParams, router, login])
+  }, [searchParams, router, refreshUser])
 
   if (status === 'loading') {
     return (

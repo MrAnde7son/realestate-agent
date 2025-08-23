@@ -2,11 +2,9 @@ import json, statistics, re, os, urllib.parse
 from datetime import datetime
 from pathlib import Path
 
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_http_methods
+from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -29,14 +27,7 @@ from django.urls import reverse
 from .models import Asset, SourceRecord, RealEstateTransaction
 
 # Import utility functions
-try:
-    from utils.tabu_parser import parse_tabu_pdf, search_rows
-except ImportError:
-    def parse_tabu_pdf(file):
-        return []
-    
-    def search_rows(rows, query):
-        return rows
+from utils.tabu_parser import parse_tabu_pdf, search_rows
 
 # Import tasks
 from .tasks import enrich_asset
@@ -336,6 +327,9 @@ def auth_google_callback(request):
         import requests
         from django.contrib.auth import get_user_model
         from django.contrib.auth.hashers import make_password
+        from rest_framework_simplejwt.tokens import RefreshToken
+        
+        User = get_user_model()
         
         # Get authorization code from query parameters
         code = request.GET.get('code')
@@ -410,8 +404,9 @@ def auth_google_callback(request):
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         
-        # Redirect to frontend with tokens
-        frontend_url = settings.FRONTEND_URL
+        # Get frontend URL from settings with fallback
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        
         tokens = {
             'access_token': str(refresh.access_token),
             'refresh_token': str(refresh),

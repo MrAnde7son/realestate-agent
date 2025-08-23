@@ -1,4 +1,4 @@
-import json, statistics, re, os
+import json, statistics, re, os, urllib.parse
 from datetime import datetime
 from pathlib import Path
 
@@ -22,6 +22,8 @@ from reportlab.lib.pagesizes import A4
 from .models import Alert
 
 from openai import OpenAI
+
+from django.urls import reverse
 
 # Import Django models
 from .models import Asset, SourceRecord, RealEstateTransaction
@@ -292,30 +294,31 @@ def auth_refresh(request):
         )
 
 
+def _callback_url(request) -> str:
+    """Build absolute callback URL for Google OAuth."""
+    return request.build_absolute_uri(reverse('auth_google_callback'))
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def auth_google_login(request):
     """Initiate Google OAuth login flow."""
     try:
         from django.conf import settings
-        
-        # Generate Google OAuth URL
+
+        redirect_uri = _callback_url(request)
         params = {
             'client_id': settings.GOOGLE_CLIENT_ID,
-            'redirect_uri': settings.GOOGLE_REDIRECT_URI,
+            'redirect_uri': redirect_uri,
             'response_type': 'code',
             'scope': 'openid email profile',
             'access_type': 'offline',
-            'prompt': 'consent'
+            'prompt': 'consent',
         }
-        
-        # Build the authorization URL
-        auth_url = f"{settings.GOOGLE_AUTH_URL}?"
-        auth_url += "&".join([f"{k}={v}" for k, v in params.items()])
-        
-        return Response({
-            'auth_url': auth_url
-        })
+
+        auth_url = f"{settings.GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
+
+        return Response({'auth_url': auth_url})
         
     except Exception as e:
         return Response(
@@ -338,27 +341,24 @@ def auth_google_callback(request):
         code = request.GET.get('code')
         if not code:
             return Response(
-                {'error': 'Authorization code not provided'}, 
+                {'error': 'Authorization code not provided'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Exchange code for access token
+
+        redirect_uri = _callback_url(request)
         token_data = {
             'client_id': settings.GOOGLE_CLIENT_ID,
             'client_secret': settings.GOOGLE_CLIENT_SECRET,
             'code': code,
             'grant_type': 'authorization_code',
-            'redirect_uri': settings.GOOGLE_REDIRECT_URI
+            'redirect_uri': redirect_uri,
         }
-        
-        token_response = requests.post(settings.GOOGLE_TOKEN_URL, data=token_data)
-        if not token_response.ok:
-            return Response(
-                {'error': 'Failed to exchange code for token'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+
+        token_response = requests.post(settings.GOOGLE_TOKEN_URL, data=token_data, timeout=10)
         token_info = token_response.json()
+        if token_response.status_code != 200:
+            return Response(token_info, status=status.HTTP_400_BAD_REQUEST)
+
         access_token = token_info.get('access_token')
         
         # Get user info from Google

@@ -67,11 +67,12 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 # Google OAuth Settings
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/google/callback/
 
 # Frontend URL
 FRONTEND_URL=http://localhost:3000
 ```
+
+> The backend builds the OAuth callback URL automatically, so no `GOOGLE_REDIRECT_URI` variable is required.
 
 ### 2.2 Frontend Environment Variables
 Create a `.env.local` file in the `realestate-broker-ui` directory:

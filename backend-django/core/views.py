@@ -14,38 +14,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 User = get_user_model()
-# Import reportlab for PDF generation
-try:
-    from reportlab.pdfgen import canvas
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.lib.pagesizes import A4
-except ImportError:
-    # Create dummy classes for when reportlab is not available
-    class canvas:
-        class Canvas:
-            def __init__(self, *args, **kwargs):
-                pass
-            def setFont(self, *args, **kwargs):
-                pass
-            def drawCentredString(self, *args, **kwargs):
-                pass
-            def drawString(self, *args, **kwargs):
-                pass
-            def save(self):
-                pass
-    
-    class pdfmetrics:
-        @staticmethod
-        def registerFont(*args, **kwargs):
-            pass
-    
-    class TTFont:
-        def __init__(self, *args, **kwargs):
-            pass
-    
-    class A4:
-        pass
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.pagesizes import A4
 
 from .models import Alert
 

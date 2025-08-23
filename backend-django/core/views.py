@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
+from django.shortcuts import redirect
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -439,11 +440,8 @@ def auth_google_callback(request):
         import urllib.parse
         encoded_tokens = urllib.parse.urlencode(tokens)
         redirect_url = f"{frontend_url}/auth/google-callback?{encoded_tokens}"
-        
-        return Response({
-            'redirect_url': redirect_url,
-            'tokens': tokens
-        })
+
+        return redirect(redirect_url)
         
     except Exception as e:
         return Response(

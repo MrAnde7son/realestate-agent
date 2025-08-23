@@ -8,8 +8,6 @@ import os
 import pytest
 from gis.gis_client import TelAvivGS
 
-pytestmark = pytest.mark.skip(reason="requires external Tel Aviv GIS service")
-
 
 def test_privilege_page():
     """Test the get_building_privilege_page function"""

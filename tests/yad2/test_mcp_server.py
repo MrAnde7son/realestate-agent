@@ -11,6 +11,8 @@ import asyncio
 import sys
 import os
 
+pytestmark = pytest.mark.skip(reason="requires access to Yad2 services")
+
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:

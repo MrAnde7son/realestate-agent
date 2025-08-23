@@ -43,36 +43,41 @@ def geocode_and_ids(asset_id):
         # Try to geocode using GIS client
         try:
             from gis.gis_client import TelAvivGS
-            
+
             gis_client = TelAvivGS()
-            
+
             # Determine what to geocode based on scope type
             if asset.scope_type == 'address' and asset.street and asset.number:
-                # Geocode by street and number
-                lat, lon = gis_client.geocode_address(asset.street, asset.number)
-                gush, helka = _extract_gush_helka_from_address(asset.street, asset.number)
-                
+                # Geocode by street and number and extract parcel info
+                lat, lon, gush, helka = _extract_gush_helka_from_address(
+                    gis_client, asset.street, asset.number
+                )
+                normalized_address = f"{asset.street} {asset.number}".strip()
+
             elif asset.scope_type == 'parcel' and asset.gush and asset.helka:
                 # Use existing gush/helka, need to get lat/lon
                 lat, lon = _get_lat_lon_from_gush_helka(asset.gush, asset.helka)
                 gush, helka = asset.gush, asset.helka
-                
+                normalized_address = asset.normalized_address
+
             elif asset.scope_type == 'neighborhood' and asset.neighborhood:
                 # Get center point of neighborhood
                 lat, lon = _get_neighborhood_center(asset.neighborhood, asset.city)
                 gush, helka = None, None
-                
+                normalized_address = asset.normalized_address
+
             else:
                 # Fallback geocoding
                 lat, lon = _fallback_geocoding(asset)
                 gush, helka = None, None
-            
+                normalized_address = asset.normalized_address
+
             # Update asset with geocoded data
-            _update_asset_location(asset_id, lat, lon, gush, helka)
-            
+            _update_asset_location(asset_id, lat, lon, gush, helka, normalized_address)
+
             # Get neighborhood ID if available
             neighborhood_id = _get_neighborhood_id(lat, lon, asset.neighborhood)
-            
+
             context = {
                 'asset_id': asset_id,
                 'lat': lat,
@@ -82,16 +87,16 @@ def geocode_and_ids(asset_id):
                 'neighborhood_id': neighborhood_id,
                 'radius': asset.meta.get('radius', 150)
             }
-            
+
             logger.info(f"Geocoding completed for asset {asset_id}: {context}")
             return context
-            
+
         except ImportError:
             logger.warning("GIS client not available, using fallback geocoding")
             # Fallback geocoding
             lat, lon = _fallback_geocoding(asset)
-            _update_asset_location(asset_id, lat, lon, None, None)
-            
+            _update_asset_location(asset_id, lat, lon, None, None, asset.normalized_address)
+
             context = {
                 'asset_id': asset_id,
                 'lat': lat,
@@ -115,13 +120,15 @@ def parallel_tasks(context):
         # Execute parallel tasks
         yad2_task = pull_yad2.delay(context)
         nadlan_task = pull_nadlan.delay(context)
+        decisive_task = pull_decisive.delay(context)
         gis_task = pull_gis.delay(context)
         rami_task = pull_rami.delay(context)
-        
+
         # Wait for all tasks to complete
         results = [
             yad2_task.get(),
             nadlan_task.get(),
+            decisive_task.get(),
             gis_task.get(),
             rami_task.get()
         ]
@@ -152,34 +159,44 @@ def pull_yad2(context):
             return {'source': 'yad2', 'count': 0, 'error': 'Missing coordinates'}
         
         try:
-            from yad2.scrapers.yad2_scraper import Yad2Scraper
-            from yad2.core.parameters import Yad2SearchParameters
-            
-            # Get asset from database to access city information
+            from yad2.search_helper import Yad2SearchHelper
+
+            # Get asset to retrieve location names
             asset = _get_asset(asset_id)
-            if not asset:
-                logger.warning(f"Asset {asset_id} not found, using default city")
-                city = 'תל אביב'
-            else:
-                city = getattr(asset, 'city', 'תל אביב') or 'תל אביב'
-            
-            # Since Yad2 doesn't support coordinate-based search directly,
-            # we'll search by city and property type instead
-            search_params = Yad2SearchParameters(
-                property='1',  # Apartment
-                city=city,
-                max_pages=3
+            city = getattr(asset, 'city', None) if asset else None
+            neighborhood = getattr(asset, 'neighborhood', None) if asset else None
+
+            # Use Yad2 autocomplete to resolve location codes
+            codes = Yad2SearchHelper.get_location_codes(city or '', neighborhood)
+            if not codes.get('city_id'):
+                logger.warning(f"Yad2 location codes not found for asset {asset_id}")
+                return {'source': 'yad2', 'count': 0, 'error': 'Location not found'}
+
+            # Search for listings near the asset
+            result = Yad2SearchHelper.search_real_estate_smart(
+                'דירה', city or '', neighborhood, max_pages=1
             )
-            
-            scraper = Yad2Scraper(search_params)
-            results = scraper.scrape_all_pages(max_pages=3, delay=1)
-            
-            # Save results to database
-            saved_count = _save_yad2_records(asset_id, results)
-            
-            logger.info(f"Yad2 data collected for asset {asset_id}: {saved_count} records")
+
+            listings = result.get('assets_preview', []) if result.get('success') else []
+
+            # Filter by distance if coordinates are available
+            filtered = []
+            for listing in listings:
+                coords = listing.get('coordinates')
+                if coords and coords.get('lat') and coords.get('lon'):
+                    dist = _distance_m(lat, lon, coords['lat'], coords['lon'])
+                    if dist <= radius:
+                        filtered.append(listing)
+                else:
+                    filtered.append(listing)
+
+            saved_count = _save_yad2_records(asset_id, filtered)
+
+            logger.info(
+                f"Yad2 data collected for asset {asset_id}: {saved_count} records"
+            )
             return {'source': 'yad2', 'count': saved_count}
-            
+
         except ImportError:
             logger.warning("Yad2 client not available")
             return {'source': 'yad2', 'count': 0, 'error': 'Client not available'}
@@ -308,6 +325,47 @@ def pull_rami(context):
         return {'source': 'rami', 'count': 0, 'error': str(e)}
 
 @shared_task
+def pull_decisive(context):
+    """Pull decisive appraisal decisions for the asset."""
+    try:
+        asset_id = context['asset_id']
+        gush = context.get('gush')
+        helka = context.get('helka')
+
+        logger.info(f"Pulling decisive data for asset {asset_id}")
+
+        if not gush or not helka:
+            logger.warning(
+                f"No gush/helka for asset {asset_id}, skipping decisive appraisals"
+            )
+            return {'source': 'gov_decisive', 'count': 0, 'error': 'No gush/helka'}
+
+        try:
+            from gov.decisive import fetch_decisive_appraisals
+
+            items = fetch_decisive_appraisals(block=gush, plot=helka, max_pages=2)
+            saved_count = _save_decisive_records(asset_id, items)
+
+            logger.info(
+                f"Decisive data collected for asset {asset_id}: {saved_count} records"
+            )
+            return {'source': 'gov_decisive', 'count': saved_count}
+
+        except ImportError:
+            logger.warning("Decisive client not available")
+            return {
+                'source': 'gov_decisive',
+                'count': 0,
+                'error': 'Client not available'
+            }
+
+    except Exception as e:
+        logger.error(
+            f"Decisive data collection failed for asset {context.get('asset_id')}: {e}"
+        )
+        return {'source': 'gov_decisive', 'count': 0, 'error': str(e)}
+
+@shared_task
 def finalize(context):
     """Finalize the asset enrichment process."""
     try:
@@ -355,7 +413,7 @@ def _update_asset_status(asset_id, status, meta_update):
     except Exception as e:
         logger.error(f"Failed to update asset {asset_id} status: {e}")
 
-def _update_asset_location(asset_id, lat, lon, gush, helka):
+def _update_asset_location(asset_id, lat, lon, gush, helka, normalized_address=None):
     """Update asset location data."""
     try:
         from .models import Asset
@@ -366,6 +424,8 @@ def _update_asset_location(asset_id, lat, lon, gush, helka):
             asset.gush = gush
         if helka:
             asset.helka = helka
+        if normalized_address:
+            asset.normalized_address = normalized_address
         asset.save()
     except Asset.DoesNotExist:
         logger.error(f"Asset {asset_id} not found for location update")
@@ -468,20 +528,76 @@ def _save_rami_records(asset_id, plans):
         logger.error(f"Failed to save RAMI records for asset {asset_id}: {e}")
         return 0
 
+def _save_decisive_records(asset_id, items):
+    """Save decisive appraisal records to database."""
+    try:
+        from .models import SourceRecord
+        saved_count = 0
+        for item in items:
+            SourceRecord.objects.create(
+                asset_id=asset_id,
+                source='gov_decisive',
+                external_id=str(item.get('pdf_url', '')),
+                title=item.get('title', ''),
+                url=item.get('pdf_url', ''),
+                raw=item,
+            )
+            saved_count += 1
+        return saved_count
+    except Exception as e:
+        logger.error(
+            f"Failed to save decisive records for asset {asset_id}: {e}"
+        )
+        return 0
+
 def _get_current_timestamp():
     """Get current timestamp string."""
     from datetime import datetime
     return datetime.now().isoformat()
 
 # Placeholder functions for geocoding fallbacks
-def _extract_gush_helka_from_address(street, number):
-    """Extract gush/helka from address (placeholder)."""
-    # This would integrate with actual GIS data
-    return None, None
+def _extract_gush_helka_from_address(gis_client, street, number):
+    """Geocode an address and extract gush/helka information."""
+    try:
+        x, y = gis_client.get_address_coordinates(street, number)
+        # Convert to WGS84
+        lon, lat = gis_client._TRANS_2039_4326.transform(x, y)
+
+        blocks = gis_client.get_blocks(x, y)
+        parcels = gis_client.get_parcels(x, y)
+
+        gush = blocks[0].get("ms_gush") if blocks else None
+        helka = parcels[0].get("ms_chelka") if parcels else None
+
+        return lat, lon, gush, helka
+    except Exception as e:
+        logger.error(f"Failed to extract gush/helka for {street} {number}: {e}")
+        return None, None, None, None
 
 def _get_lat_lon_from_gush_helka(gush, helka):
-    """Get lat/lon from gush/helka (placeholder)."""
-    # This would integrate with actual GIS data
+    """Get lat/lon from gush/helka using GIS service."""
+    try:
+        from gis.gis_client import TelAvivGS
+
+        gis_client = TelAvivGS()
+        where = f"ms_gush = {gush} AND ms_chelka = {helka}"
+        params = {
+            "f": "pjson",
+            "where": where,
+            "outFields": "ms_gush,ms_chelka",
+            "returnGeometry": "true",
+            "outSR": 2039,
+        }
+        data = gis_client._query(TelAvivGS.L_PARCELS, params)
+        features = data.get("features", [])
+        if features:
+            geom = features[0].get("geometry", {})
+            x, y = geom.get("x"), geom.get("y")
+            if x is not None and y is not None:
+                lon, lat = TelAvivGS._TRANS_2039_4326.transform(x, y)
+                return lat, lon
+    except Exception as e:
+        logger.error(f"Failed to get lat/lon for gush {gush} helka {helka}: {e}")
     return 32.0853, 34.7818  # Default Tel Aviv coordinates
 
 def _get_neighborhood_center(neighborhood, city):
@@ -505,3 +621,15 @@ def _fallback_geocoding(asset):
         return 32.7940, 34.9896
     else:
         return 32.0853, 34.7818  # Default to Tel Aviv
+
+def _distance_m(lat1, lon1, lat2, lon2):
+    """Calculate distance in meters between two lat/lon pairs."""
+    from math import radians, sin, cos, sqrt, atan2
+
+    R = 6371000  # Earth radius in meters
+    phi1, phi2 = radians(lat1), radians(lat2)
+    dphi = radians(lat2 - lat1)
+    dlambda = radians(lon2 - lon1)
+    a = sin(dphi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(dlambda / 2) ** 2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return R * c

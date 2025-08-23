@@ -27,6 +27,15 @@ from django.urls import reverse
 from .models import Asset, SourceRecord, RealEstateTransaction
 
 # Import utility functions
+import sys
+import os
+from pathlib import Path
+
+# Add project root to Python path for utils import
+current_file = Path(__file__).resolve()
+project_root = current_file.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 from utils.tabu_parser import parse_tabu_pdf, search_rows
 
 # Import tasks
@@ -1111,3 +1120,58 @@ def asset_share_message(request, asset_id):
         return Response({'error': 'Failed to generate message', 'details': str(e)}, status=500)
 
     return Response({'message': message})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Change user password endpoint."""
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+        
+        if not current_password or not new_password:
+            return Response(
+                {'error': 'Current password and new password are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(new_password) < 8:
+            return Response(
+                {'error': 'New password must be at least 8 characters long'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify current password
+        user = request.user
+        if not user.check_password(current_password):
+            return Response(
+                {'error': 'Current password is incorrect'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if new password is different from current
+        if user.check_password(new_password):
+            return Response(
+                {'error': 'New password must be different from current password'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update password
+        user.set_password(new_password)
+        user.save()
+        
+        return Response({
+            'message': 'Password changed successfully'
+        })
+        
+    except json.JSONDecodeError:
+        return Response(
+            {'error': 'Invalid JSON'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

@@ -38,6 +38,11 @@ export interface ProfileUpdateData {
   role?: string
 }
 
+export interface ChangePasswordData {
+  current_password: string
+  new_password: string
+}
+
 const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
 class AuthAPI {
@@ -141,6 +146,13 @@ class AuthAPI {
 
   async googleCallback(code: string): Promise<AuthResponse> {
     return this.request<AuthResponse>(`/auth/google/callback/?code=${code}`)
+  }
+
+  async changePassword(data: ChangePasswordData): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/change-password/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   }
 
   // Token management

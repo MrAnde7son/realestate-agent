@@ -3,7 +3,6 @@ import React, { useState } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer } from 'lucide-react'
@@ -68,22 +67,43 @@ export default function AlertsPage() {
   const [phone, setPhone] = useState('+972-50-123-4567')
   const [priceThreshold, setPriceThreshold] = useState(50000)
   const [alertsData, setAlertsData] = useState(alerts)
-  
+  const [selectedPriorities, setSelectedPriorities] = useState<Alert['priority'][]>([])
+  const [selectedTypes, setSelectedTypes] = useState<Alert['type'][]>([])
+
+  const togglePriority = (priority: Alert['priority']) => {
+    setSelectedPriorities(prev =>
+      prev.includes(priority) ? prev.filter(p => p !== priority) : [...prev, priority]
+    )
+  }
+
+  const toggleType = (type: Alert['type']) => {
+    setSelectedTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    )
+  }
+
   const markAsRead = (alertId: string) => {
-    setAlertsData(prev => 
-      prev.map(alert => 
+    setAlertsData(prev =>
+      prev.map(alert =>
         alert.id === alertId ? { ...alert, isRead: true } : alert
       )
     )
   }
 
   const markAllAsRead = () => {
-    setAlertsData(prev => 
+    setAlertsData(prev =>
       prev.map(alert => ({ ...alert, isRead: true }))
     )
   }
 
-  const unreadCount = alertsData.filter(alert => !alert.isRead).length
+  const filteredAlerts = alertsData.filter(alert => {
+    const priorityMatch =
+      selectedPriorities.length === 0 || selectedPriorities.includes(alert.priority)
+    const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(alert.type)
+    return priorityMatch && typeMatch
+  })
+
+  const unreadCount = filteredAlerts.filter(alert => !alert.isRead).length
   
   return (
     <DashboardLayout>
@@ -113,7 +133,7 @@ export default function AlertsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {alertsData.map((alert) => (
+                  {filteredAlerts.map((alert) => (
                     <div 
                       key={alert.id} 
                       className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 border rounded-lg transition-colors ${
@@ -188,7 +208,7 @@ export default function AlertsPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">סה״כ התראות</span>
-                  <span className="font-semibold">{alertsData.length}</span>
+                  <span className="font-semibold">{filteredAlerts.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">לא נקראו</span>
@@ -197,7 +217,7 @@ export default function AlertsPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">היום</span>
                   <span className="font-semibold">
-                    {alertsData.filter(alert => {
+                    {filteredAlerts.filter(alert => {
                       const alertDate = new Date(alert.createdAt)
                       const today = new Date()
                       return alertDate.toDateString() === today.toDateString()
@@ -217,25 +237,35 @@ export default function AlertsPage() {
                   <label className="text-sm font-medium">עדיפות</label>
                   <div className="flex flex-wrap gap-2">
                     {['high', 'medium', 'low'].map((priority) => (
-                      <Badge 
-                        key={priority} 
-                        variant="outline" 
+                      <Badge
+                        key={priority}
+                        variant={
+                          selectedPriorities.includes(priority as Alert['priority'])
+                            ? 'default'
+                            : 'outline'
+                        }
                         className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                        onClick={() => togglePriority(priority as Alert['priority'])}
                       >
                         {getPriorityText(priority as Alert['priority'])}
                       </Badge>
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">סוג התראה</label>
                   <div className="flex flex-wrap gap-2">
                     {['price_drop', 'new_asset', 'market_change', 'document_update', 'permit_status'].map((type) => (
-                      <Badge 
-                        key={type} 
-                        variant="outline" 
+                      <Badge
+                        key={type}
+                        variant={
+                          selectedTypes.includes(type as Alert['type'])
+                            ? 'default'
+                            : 'outline'
+                        }
                         className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                        onClick={() => toggleType(type as Alert['type'])}
                       >
                         {type === 'price_drop' && 'ירידת מחיר'}
                         {type === 'new_asset' && 'נכס חדש'}

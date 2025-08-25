@@ -3,8 +3,14 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Add the root project directory to Python path so Django can find orchestration module
+ROOT_PROJECT_DIR = BASE_DIR.parent
+if str(ROOT_PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_PROJECT_DIR))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-your-secret-key-here')
@@ -62,8 +68,14 @@ WSGI_APPLICATION = 'broker_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-# Use SQLite for development, PostgreSQL for production
-if os.getenv('USE_POSTGRES', 'false').lower() == 'true':
+# Use DATABASE_URL from environment (Render) or fallback to SQLite for development
+if os.getenv('DATABASE_URL'):
+    # Parse DATABASE_URL for production (Render)
+    DATABASES = {
+        'default': dj_database_url.parse(os.getenv('DATABASE_URL'))
+    }
+elif os.getenv('USE_POSTGRES', 'false').lower() == 'true':
+    # Fallback to individual PostgreSQL environment variables
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -75,6 +87,7 @@ if os.getenv('USE_POSTGRES', 'false').lower() == 'true':
         }
     }
 else:
+    # Default to SQLite for development
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

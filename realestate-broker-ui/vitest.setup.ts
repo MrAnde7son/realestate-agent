@@ -19,7 +19,7 @@ vi.mock('next/navigation', () => ({
 // Mock Next.js Link component
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: any) => {
-    // Return a simple div with the href as a data attribute for testing
-    return React.createElement('div', { 'data-href': href, ...props }, children)
+    // Return a proper anchor element with the correct role for accessibility testing
+    return React.createElement('a', { href, ...props }, children)
   },
 }))

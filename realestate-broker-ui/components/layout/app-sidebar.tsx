@@ -1,13 +1,25 @@
-'use client'
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { ChevronDown, Home, Building, AlertCircle, Calculator, FileText, BarChart3, User, CreditCard, Settings, LogOut } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import * as React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  ChevronDown,
+  Home,
+  Building,
+  AlertCircle,
+  Calculator,
+  FileText,
+  BarChart3,
+  User,
+  CreditCard,
+  Settings,
+  LogOut,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +28,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import Logo from "@/components/Logo"
-import * as Collapsible from "@radix-ui/react-collapsible"
-import { useAuth } from "@/lib/auth-context"
+} from "@/components/ui/dropdown-menu";
+import Logo from "@/components/Logo";
+import * as Collapsible from "@radix-ui/react-collapsible";
+import { useAuth } from "@/lib/auth-context";
 
 const navigation = [
   {
@@ -34,7 +46,7 @@ const navigation = [
   },
   {
     name: "התראות",
-    href: "/alerts", 
+    href: "/alerts",
     icon: AlertCircle,
   },
   {
@@ -45,53 +57,63 @@ const navigation = [
   {
     name: "דוחות",
     href: "/reports",
-    icon: BarChart3
-  }
-]
+    icon: BarChart3,
+  },
+];
 
 interface AppSidebarProps {
-  className?: string
-  isCollapsed?: boolean
+  className?: string;
+  isCollapsed?: boolean;
 }
 
-export default function AppSidebar({ className, isCollapsed = false }: AppSidebarProps) {
-  const pathname = usePathname()
-  const { user, logout } = useAuth()
+function isActive(href: string, path: string) {
+  if (href === "/") return path === "/";
+  return path === href || path.startsWith(href + "/");
+}
+
+export default function AppSidebar({
+  className,
+  isCollapsed = false,
+}: AppSidebarProps) {
+  const pathname = usePathname();
+  const { user, logout } = useAuth();
 
   const handleLogout = async () => {
     try {
-      await logout()
+      await logout();
     } catch (error) {
-      console.error('Logout failed:', error)
+      console.error("Logout failed:", error);
     }
-  }
+  };
 
   const getUserDisplayName = () => {
     if (user?.first_name && user?.last_name) {
-      return `${user.first_name} ${user.last_name}`
+      return `${user.first_name} ${user.last_name}`;
     }
-    return user?.username || user?.email || 'משתמש'
-  }
+    return user?.username || user?.email || "משתמש";
+  };
 
   const getUserInitials = () => {
     if (user?.first_name && user?.last_name) {
-      return `${user.first_name[0]}${user.last_name[0]}`
+      return `${user.first_name[0]}${user.last_name[0]}`;
     }
     if (user?.username) {
-      return user.username.substring(0, 2).toUpperCase()
+      return user.username.substring(0, 2).toUpperCase();
     }
     if (user?.email) {
-      return user.email.substring(0, 2).toUpperCase()
+      return user.email.substring(0, 2).toUpperCase();
     }
-    return 'משתמש'
-  }
+    return "משתמש";
+  };
 
   return (
-    <div className={cn(
-      "flex h-full flex-col bg-card border-l transition-all duration-300",
-      isCollapsed ? "w-16" : "w-64",
-      className
-    )}>
+    <div
+      className={cn(
+        "flex h-full flex-col bg-card border-l transition-all duration-300",
+        isCollapsed ? "w-16" : "w-64",
+        className
+      )}
+    >
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/" className="flex items-center gap-3">
@@ -106,27 +128,29 @@ export default function AppSidebar({ className, isCollapsed = false }: AppSideba
       <div className="flex-1 overflow-y-auto p-4">
         <nav className="space-y-2">
           {navigation.map((item) => {
-            const isActive = pathname === item.href
-            const Icon = item.icon
-            
+            const Icon = item.icon;
+
+            const active = isActive(item.href, pathname);
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                  isActive 
-                    ? "bg-accent text-accent-foreground" 
-                    : "text-muted-foreground"
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                  active
+                    ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)] font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                 )}
-                title={isCollapsed ? item.name : undefined}
               >
-                <div className="flex items-center gap-3">
-                  <Icon className="h-4 w-4" />
-                  {!isCollapsed && <span>{item.name}</span>}
-                </div>
+                <item.icon
+                  className={cn(
+                    "h-4 w-4",
+                    active && "text-[var(--brand-teal)]"
+                  )}
+                />
+                <span>{item.name}</span>
               </Link>
-            )
+            );
           })}
         </nav>
       </div>
@@ -147,24 +171,30 @@ export default function AppSidebar({ className, isCollapsed = false }: AppSideba
               </Avatar>
               {!isCollapsed && (
                 <div className="flex-1 text-right">
-                  <div className="text-sm font-medium">{getUserDisplayName()}</div>
-                  <div className="text-xs text-muted-foreground">{user?.email || 'demo@example.com'}</div>
+                  <div className="text-sm font-medium">
+                    {getUserDisplayName()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {user?.email || "demo@example.com"}
+                  </div>
                 </div>
               )}
               {!isCollapsed && <ChevronDown className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent 
-            className="w-56" 
-            align={isCollapsed ? "center" : "end"} 
+          <DropdownMenuContent
+            className="w-56"
+            align={isCollapsed ? "center" : "end"}
             side={isCollapsed ? "right" : "top"}
             forceMount
           >
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{getUserDisplayName()}</p>
+                <p className="text-sm font-medium leading-none">
+                  {getUserDisplayName()}
+                </p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email || 'demo@example.com'}
+                  {user?.email || "demo@example.com"}
                 </p>
                 {user?.company && (
                   <p className="text-xs leading-none text-muted-foreground">
@@ -195,7 +225,7 @@ export default function AppSidebar({ className, isCollapsed = false }: AppSideba
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               className="text-red-600 focus:text-red-600"
               onClick={handleLogout}
             >
@@ -206,5 +236,5 @@ export default function AppSidebar({ className, isCollapsed = false }: AppSideba
         </DropdownMenu>
       </div>
     </div>
-  )
+  );
 }

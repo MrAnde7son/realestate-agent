@@ -212,6 +212,14 @@ def auth_profile(request):
                 'role': getattr(user, 'role', ''),
                 'is_verified': getattr(user, 'is_verified', False),
                 'created_at': user.created_at.isoformat() if hasattr(user, 'created_at') else None,
+                'language': getattr(user, 'language', ''),
+                'timezone': getattr(user, 'timezone', ''),
+                'currency': getattr(user, 'currency', ''),
+                'date_format': getattr(user, 'date_format', ''),
+                'notify_email': getattr(user, 'notify_email', False),
+                'notify_whatsapp': getattr(user, 'notify_whatsapp', False),
+                'notify_urgent': getattr(user, 'notify_urgent', False),
+                'notification_time': getattr(user, 'notification_time', ''),
             }
         })
     except Exception as e:
@@ -476,6 +484,50 @@ except ImportError:
 def parse_json(request):
     try: return json.loads(request.body.decode('utf-8'))
     except Exception: return None
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def user_settings(request):
+    """Retrieve or update user settings."""
+    user = request.user
+    if request.method == 'GET':
+        return Response({
+            'language': getattr(user, 'language', ''),
+            'timezone': getattr(user, 'timezone', ''),
+            'currency': getattr(user, 'currency', ''),
+            'date_format': getattr(user, 'date_format', ''),
+            'notify_email': getattr(user, 'notify_email', False),
+            'notify_whatsapp': getattr(user, 'notify_whatsapp', False),
+            'notify_urgent': getattr(user, 'notify_urgent', False),
+            'notification_time': getattr(user, 'notification_time', ''),
+        })
+
+    if request.method == 'PUT':
+        data = parse_json(request)
+        if not data:
+            return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+
+        for field in [
+            'language', 'timezone', 'currency', 'date_format',
+            'notify_email', 'notify_whatsapp', 'notify_urgent',
+            'notification_time'
+        ]:
+            if field in data:
+                setattr(user, field, data[field])
+        user.save()
+
+        return Response({
+            'language': user.language,
+            'timezone': user.timezone,
+            'currency': user.currency,
+            'date_format': user.date_format,
+            'notify_email': user.notify_email,
+            'notify_whatsapp': user.notify_whatsapp,
+            'notify_urgent': user.notify_urgent,
+            'notification_time': user.notification_time,
+        })
+
+    return Response({'error': 'Unsupported method'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])

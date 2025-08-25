@@ -7,6 +7,7 @@ urlpatterns = [
     path('sync-address/', views.sync_address, name='sync_address'),
     path('tabu/', views.tabu, name='tabu'),
     path('reports/', views.reports, name='reports'),
+    path('settings/', views.user_settings, name='user_settings'),
     path('alerts/', views.alerts, name='alerts'),
     
     # Asset enrichment endpoints

@@ -10,6 +10,7 @@ django-cors-headers>=3.10.0
 # Environment & Configuration
 python-decouple>=3.6
 python-dotenv>=0.19.0
+dj-database-url>=1.0.0
 
 # HTTP Requests (for external APIs)
 requests>=2.25.0

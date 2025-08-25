@@ -44,7 +44,7 @@ except ImportError:
         return rows
 
 # Import tasks
-from .tasks import enrich_asset
+from .tasks import run_data_pipeline
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 REPORTS_DIR = os.environ.get(
@@ -577,7 +577,7 @@ def sync_address(request):
         
         # Start enrichment pipeline
         try:
-            enrich_asset.delay(asset.id)
+            run_data_pipeline.delay(asset.id)
             message = f'Asset enrichment started for {street} {number} (Asset ID: {asset.id})'
         except Exception as e:
             message = f'Asset created but enrichment failed: {str(e)}'
@@ -840,8 +840,7 @@ def assets(request):
         
         # Enqueue Celery task if available
         try:
-            from .tasks import enrich_asset
-            enrich_asset.delay(asset_id)
+            run_data_pipeline.delay(asset_id)
         except Exception as e:
             print(f"Failed to enqueue enrichment task: {e}")
             # Update asset status to error

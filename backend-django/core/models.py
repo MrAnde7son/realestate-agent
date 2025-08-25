@@ -11,6 +11,16 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # User preference fields for settings page
+    language = models.CharField(max_length=10, default="en")
+    timezone = models.CharField(max_length=100, default="UTC")
+    currency = models.CharField(max_length=10, default="usd")
+    date_format = models.CharField(max_length=20, default="yyyy-mm-dd")
+    notify_email = models.BooleanField(default=True)
+    notify_whatsapp = models.BooleanField(default=False)
+    notify_urgent = models.BooleanField(default=True)
+    notification_time = models.CharField(max_length=5, default="09:00")
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']

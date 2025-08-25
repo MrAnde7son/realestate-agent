@@ -12,7 +12,7 @@ urlpatterns = [
     # Asset enrichment endpoints
     path('assets/', views.assets, name='assets'),
     path('assets/<int:asset_id>/', views.asset_detail, name='asset_detail'),
-    path('assets/<int:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
+    path('assets/<str:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
     
 
     

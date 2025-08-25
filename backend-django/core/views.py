@@ -1107,6 +1107,13 @@ def asset_share_message(request, asset_id):
     )
 
     try:
+        # Check if OpenAI API key is configured
+        if not os.environ.get('OPENAI_API_KEY'):
+            return Response(
+                {'error': 'OpenAI API key not configured', 'details': 'OPENAI_API_KEY environment variable is missing'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
         client = OpenAI()
         completion = client.chat.completions.create(
             model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
@@ -1117,7 +1124,11 @@ def asset_share_message(request, asset_id):
         )
         message = completion.choices[0].message.content.strip()
     except Exception as e:
-        return Response({'error': 'Failed to generate message', 'details': str(e)}, status=500)
+        print(f"Error generating marketing message: {str(e)}")
+        return Response(
+            {'error': 'Failed to generate message', 'details': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
     return Response({'message': message})
 

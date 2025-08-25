@@ -1,8 +1,6 @@
 import logging
 from celery import shared_task
 
-from orchestration.data_pipeline import DataPipeline
-
 logger = logging.getLogger(__name__)
 
 
@@ -15,6 +13,14 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     persists all collected records to the SQLAlchemy database and
     returns the created ``Listing`` IDs.
     """
+    # Lazy import to avoid import errors during Django startup
+    try:
+        from orchestration.data_pipeline import DataPipeline
+    except ImportError as e:
+        logger.error("Failed to import orchestration module: %s", e)
+        logger.error("Make sure the orchestration module is available in the Python path")
+        raise ImportError("Orchestration module is required but not available") from e
+    
     try:
         from .models import Asset
 

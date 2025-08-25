@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 
 from core import tasks
 from core.models import Asset
@@ -17,9 +18,10 @@ def test_run_data_pipeline_task(monkeypatch):
     asset = Asset(scope_type='address', city='City', street='Main', number=5)
     monkeypatch.setattr(Asset.objects, 'get', lambda id: asset)
     dummy = DummyPipeline()
-    monkeypatch.setattr(tasks, 'DataPipeline', lambda: dummy)
-
-    result = tasks.run_data_pipeline.run(1)
+    
+    # Mock the orchestration import at the module level where it's imported from
+    with patch('orchestration.data_pipeline.DataPipeline', return_value=dummy):
+        result = tasks.run_data_pipeline.run(1)
 
     assert result == [42]
     assert dummy.calls == [('Main', 5, 1)]

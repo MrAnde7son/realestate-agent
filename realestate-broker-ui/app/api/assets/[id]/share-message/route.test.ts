@@ -13,7 +13,9 @@ describe('/api/assets/[id]/share-message', () => {
     ;(global.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ message: 'msg' })
+      headers: { get: () => 'application/json' },
+      json: async () => ({ message: 'msg' }),
+      text: async () => JSON.stringify({ message: 'msg' })
     })
     const req = new NextRequest(
       'http://localhost:3000/api/assets/1/share-message',
@@ -42,7 +44,10 @@ describe('/api/assets/[id]/share-message', () => {
     ;(global.fetch as any).mockResolvedValue({
       ok: false,
       status: 500,
-      json: async () => ({ error: 'fail' })
+      statusText: 'Internal Server Error',
+      headers: { get: () => 'text/plain' },
+      json: async () => ({ error: 'fail' }),
+      text: async () => 'fail'
     })
 
     const req = new NextRequest(

@@ -8,6 +8,9 @@ import { useRouter } from 'next/navigation'
 // Mock dependencies
 vi.mock('@/lib/auth-context')
 vi.mock('next/navigation')
+vi.mock('@/components/layout/dashboard-layout', () => ({
+  default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
+}))
 vi.mock('@/components/AssetsTable', () => ({
   default: ({ data, loading }: { data: any[], loading: boolean }) => (
     <div data-testid="assets-table">

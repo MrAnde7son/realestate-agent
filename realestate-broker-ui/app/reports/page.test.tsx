@@ -16,7 +16,7 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
 describe('ReportsPage', () => {
   it('loads and displays reports from the API', async () => {
     const sampleReports = [
-      { id: 'r1', assetId: 'l1', address: 'Demo St 1', filename: 'r1.pdf', createdAt: new Date().toISOString() }
+      { id: 1, assetId: 1, address: 'Demo St 1', filename: 'r1.pdf', createdAt: new Date().toISOString() }
     ];
 
     const fetchMock = vi.fn().mockResolvedValue({
@@ -29,7 +29,7 @@ describe('ReportsPage', () => {
     // Wait for the report address to appear in the main link
     const reportLink = await screen.findByRole('link', { name: 'Demo St 1' });
     expect(reportLink).toBeInTheDocument();
-    expect(reportLink).toHaveAttribute('href', '/assets/l1');
+    expect(reportLink).toHaveAttribute('href', '/assets/1');
     
     // Verify the API was called
     expect(fetchMock).toHaveBeenCalledWith('/api/reports');

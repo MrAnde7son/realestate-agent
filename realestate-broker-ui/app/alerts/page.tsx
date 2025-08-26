@@ -82,7 +82,7 @@ export default function AlertsPage() {
     )
   }
 
-  const markAsRead = (alertId: string) => {
+  const markAsRead = (alertId: number) => {
     setAlertsData(prev =>
       prev.map(alert =>
         alert.id === alertId ? { ...alert, isRead: true } : alert

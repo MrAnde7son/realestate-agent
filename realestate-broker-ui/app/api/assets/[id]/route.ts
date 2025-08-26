@@ -14,12 +14,12 @@ export async function GET(
     if (backendResponse.ok) {
       const data = await backendResponse.json()
       const backendAsset = data.rows?.find((l: any) =>
-        l.id?.toString() === id || l.external_id === id
+        l.id?.toString() === id || l.external_id?.toString() === id
       )
 
       if (backendAsset) {
         const asset = {
-          id: backendAsset.id?.toString() || backendAsset.external_id,
+          id: Number(backendAsset.id ?? backendAsset.external_id),
           address: backendAsset.address,
           price: backendAsset.price,
           bedrooms: backendAsset.rooms || 3,
@@ -93,7 +93,7 @@ export async function GET(
   }
 
   // Fallback to mock data
-  const asset = assets.find(l => l.id === id)
+  const asset = assets.find(l => l.id === Number(id))
   if(!asset) return new NextResponse('Not found', { status: 404, statusText: 'Not Found' })
   return NextResponse.json({ asset })
 }

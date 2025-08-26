@@ -25,6 +25,9 @@ from yad2.mcp.server import (
     search_real_estate
 )
 
+
+RUN_LIVE_YAD2_TESTS = os.getenv("RUN_LIVE_YAD2_TESTS")
+
 # Extract the underlying functions from the FastMCP tools
 get_all_property_types_func = get_all_property_types.fn
 search_locations_func = search_locations.fn
@@ -74,17 +77,21 @@ class TestPropertyTypeFunctionality:
 
 class TestLocationServices:
     """Test location service functions."""
-    
+
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        not RUN_LIVE_YAD2_TESTS,
+        reason="Requires access to Yad2 location API",
+    )
     async def test_search_locations(self, mock_ctx):
         """Test location search."""
         result = await search_locations_func(mock_ctx, search_text="רמת")
-        
+
         assert result["success"] is True
         assert "locations" in result
         assert "search_text" in result
         assert result["search_text"] == "רמת"
-        
+
         # Should have some location data
         locations = result["locations"]
         assert isinstance(locations, dict)
@@ -144,6 +151,10 @@ class TestSearchFunctionality:
         assert "property" in params
     
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        not RUN_LIVE_YAD2_TESTS,
+        reason="Requires access to Yad2 search API",
+    )
     async def test_search_real_estate(self, mock_ctx):
         """Test real estate search."""
         # Test with basic search
@@ -154,17 +165,21 @@ class TestSearchFunctionality:
             neighborhood="203",
             max_pages=1
         )
-        
+
         assert result["success"] is True
         assert "total_assets" in result
         assert "assets_preview" in result
         assert "search_url" in result
-        
+
         # Should have some results
         assert result["total_assets"] >= 0
         assert isinstance(result["assets_preview"], list)
 
 
+@pytest.mark.skipif(
+    not RUN_LIVE_YAD2_TESTS,
+    reason="Requires access to Yad2 APIs",
+)
 class TestIntegration:
     """Integration tests for complex workflows."""
     

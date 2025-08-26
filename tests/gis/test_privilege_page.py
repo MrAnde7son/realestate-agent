@@ -8,6 +8,13 @@ import os
 import pytest
 from gis.gis_client import TelAvivGS
 
+
+# Skip these tests unless explicitly enabled
+pytestmark = pytest.mark.skipif(
+    not os.getenv("RUN_LIVE_GIS_TESTS"),
+    reason="Requires access to Tel Aviv GIS service"
+)
+
 def test_privilege_page():
     """Test the get_building_privilege_page function"""
     print("Testing get_building_privilege_page function...")

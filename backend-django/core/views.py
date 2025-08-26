@@ -1071,17 +1071,7 @@ def asset_detail(request, asset_id):
 def asset_share_message(request, asset_id):
     """Generate a marketing message for an asset using LLM."""
     try:
-        # Try to get asset by ID (could be integer or string)
-        try:
-            # First try to get by integer ID
-            asset = Asset.objects.get(id=asset_id)
-        except (Asset.DoesNotExist, ValueError):
-            # If that fails, try to get by external_id from source records
-            try:
-                source_record = SourceRecord.objects.get(external_id=asset_id)
-                asset = source_record.asset
-            except SourceRecord.DoesNotExist:
-                return Response({'error': 'Asset not found'}, status=status.HTTP_404_NOT_FOUND)
+        asset = Asset.objects.get(id=asset_id)
     except Asset.DoesNotExist:
         return Response({'error': 'Asset not found'}, status=status.HTTP_404_NOT_FOUND)
 

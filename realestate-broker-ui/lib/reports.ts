@@ -1,6 +1,6 @@
 export interface Report {
-  id: string;
-  assetId: string;
+  id: number;
+  assetId: number;
   address: string;
   filename: string;
   createdAt: string;
@@ -8,8 +8,8 @@ export interface Report {
 
 export const reports: Report[] = [
   {
-    id: 'r1',
-    assetId: 'l1',
+    id: 1,
+    assetId: 1,
     address: 'רחוב הרצל 123, תל אביב',
     filename: 'r1.pdf',
     createdAt: '2024-01-15T08:00:00.000Z',

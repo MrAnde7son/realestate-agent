@@ -1,6 +1,6 @@
 /* eslint-env jest */
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import AlertsPage from './page';
@@ -113,6 +113,29 @@ describe('AlertsPage', () => {
     
     // Check that the mark all as read button is present (since there are unread alerts)
     expect(screen.getByText(/סמן הכל כנקרא/)).toBeInTheDocument();
+  });
+
+  it('filters alerts by priority and type selections', async () => {
+    render(<AlertsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('התראות אחרונות')).toBeInTheDocument();
+    });
+
+    const filterCard = screen.getByText('סינון התראות').parentElement!.parentElement!;
+    const highPriorityBadge = within(filterCard).getByText('חשוב');
+    fireEvent.click(highPriorityBadge);
+
+    const alertsCard = screen
+      .getByText('התראות אחרונות')
+      .parentElement!.parentElement!.parentElement!;
+    expect(within(alertsCard).queryByText('נכס חדש התווסף')).not.toBeInTheDocument();
+
+    const priceDropBadge = within(filterCard).getByText('ירידת מחיר');
+    fireEvent.click(priceDropBadge);
+
+    expect(within(alertsCard).getByText('ירידת מחיר בנכס')).toBeInTheDocument();
+    expect(within(alertsCard).queryByText('עדכון מסמכים')).not.toBeInTheDocument();
   });
 
   it('renders all expected text elements', async () => {

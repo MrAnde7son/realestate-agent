@@ -51,13 +51,18 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     try {
-      await fetch('/api/settings', {
+      const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       })
+      if (!res.ok) {
+        throw new Error('Failed to save settings')
+      }
+      alert('Settings saved successfully')
     } catch (err) {
       console.error('Failed to save settings', err)
+      alert('Failed to save settings')
     }
   }
 

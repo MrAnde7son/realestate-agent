@@ -1,12 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { POST } from './route'
 import { NextRequest } from 'next/server'
 
-global.fetch = vi.fn()
+const originalFetch = global.fetch
 
 describe('/api/assets/[id]/share-message', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    global.fetch = vi.fn()
+  })
+
+  afterAll(() => {
+    global.fetch = originalFetch
   })
 
   it('returns message from backend', async () => {

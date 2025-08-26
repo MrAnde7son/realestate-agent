@@ -20,6 +20,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [syncMessage, setSyncMessage] = useState<string>('')
   const [creatingMessage, setCreatingMessage] = useState(false)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
   const [language, setLanguage] = useState('he')
   const router = useRouter()
   const { id } = params
@@ -123,6 +124,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     if (!id) return
     setCreatingMessage(true)
     setShareMessage(null)
+    setShareError(null)
     try {
       const res = await fetch(`/api/assets/${id}/share-message`, {
         method: 'POST',
@@ -132,9 +134,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       if (res.ok) {
         const data = await res.json()
         setShareMessage(data.message)
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        setShareError(errorData.details || errorData.error || 'שגיאה ביצירת הודעה')
       }
     } catch (err) {
       console.error('Message generation failed:', err)
+      setShareError('שגיאה ביצירת הודעה')
     } finally {
       setCreatingMessage(false)
     }
@@ -271,6 +277,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   העתק הודעה
                 </Button>
               </div>
+            )}
+            {shareError && (
+              <div className="text-sm text-red-500">{shareError}</div>
             )}
           </div>
         </div>

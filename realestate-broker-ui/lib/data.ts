@@ -1,5 +1,5 @@
 export interface Asset {
-  id: string
+  id: number
   address: string
   price: number
   bedrooms: number
@@ -70,7 +70,7 @@ export interface Asset {
 
 export const assets: Asset[] = [
   {
-    id: "l1",
+    id: 1,
     address: "רחוב הרצל 123, תל אביב",
     price: 2850000,
     bedrooms: 3,
@@ -87,12 +87,12 @@ export const assets: Asset[] = [
       email: "yossi@example.com"
     },
     documents: [
-      { name: "נסח טאבו", url: "/docs/l1/tabu.pdf", type: "tabu" },
-      { name: "תשריט בית משותף", url: "/docs/l1/condo-plan.pdf", type: "condo_plan" },
-      { name: "היתר בנייה", url: "/docs/l1/permit.pdf", type: "permit" },
-      { name: "זכויות בנייה", url: "/docs/l1/rights.pdf", type: "rights" },
-      { name: "שומת מכרעת", url: "/docs/l1/decisive-appraisal.pdf", type: "appraisal_decisive" },
-      { name: "שומת רמ״י", url: "/docs/l1/rmi-appraisal.pdf", type: "appraisal_rmi" }
+      { name: "נסח טאבו", url: "/docs/1/tabu.pdf", type: "tabu" },
+      { name: "תשריט בית משותף", url: "/docs/1/condo-plan.pdf", type: "condo_plan" },
+      { name: "היתר בנייה", url: "/docs/1/permit.pdf", type: "permit" },
+      { name: "זכויות בנייה", url: "/docs/1/rights.pdf", type: "rights" },
+      { name: "שומת מכרעת", url: "/docs/1/decisive-appraisal.pdf", type: "appraisal_decisive" },
+      { name: "שומת רמ״י", url: "/docs/1/rmi-appraisal.pdf", type: "appraisal_rmi" }
     ],
     city: "תל אביב",
     neighborhood: "מרכז העיר",
@@ -123,7 +123,7 @@ export const assets: Asset[] = [
     permitMainArea: 120,
     permitServiceArea: 30,
     permitApplicant: 'בעלים',
-    permitDocUrl: '/docs/l1/permit.pdf',
+    permitDocUrl: '/docs/1/permit.pdf',
     mainRightsSqm: 150,
     serviceRightsSqm: 40,
     additionalPlanRights: 'תב"ע 1234',
@@ -140,7 +140,7 @@ export const assets: Asset[] = [
     bettermentLevy: 'היטל צפוי כ-50 אלף ₪'
   },
   {
-    id: "l2",
+    id: 2,
     address: "שדרות רוטשילד 45, תל אביב",
     price: 4200000,
     bedrooms: 4,
@@ -157,9 +157,9 @@ export const assets: Asset[] = [
       email: "dana@example.com"
     },
     documents: [
-      { name: "נסח טאבו", url: "/docs/l2/tabu.pdf", type: "tabu" },
-      { name: "היתר בנייה", url: "/docs/l2/permit.pdf", type: "permit" },
-      { name: "שומת רמ״י", url: "/docs/l2/rmi-appraisal.pdf", type: "appraisal_rmi" }
+      { name: "נסח טאבו", url: "/docs/2/tabu.pdf", type: "tabu" },
+      { name: "היתר בנייה", url: "/docs/2/permit.pdf", type: "permit" },
+      { name: "שומת רמ״י", url: "/docs/2/rmi-appraisal.pdf", type: "appraisal_rmi" }
     ],
     city: "תל אביב",
     neighborhood: "רוטשילד",
@@ -188,7 +188,7 @@ export const assets: Asset[] = [
 ]
 
 // Mock data functions for API routes
-export function appraisalByAsset(id: string) {
+export function appraisalByAsset(id: number) {
   return {
     assetId: id,
     marketValue: 2850000,
@@ -199,7 +199,7 @@ export function appraisalByAsset(id: string) {
   }
 }
 
-export function compsByAsset(id: string) {
+export function compsByAsset(id: number) {
   return [
     {
       address: "רחוב בן יהודה 45, תל אביב",
@@ -218,7 +218,7 @@ export function compsByAsset(id: string) {
   ]
 }
 
-export function rightsByAsset(id: string) {
+export function rightsByAsset(id: number) {
   return {
     assetId: id,
     buildingRights: "זכויות בנייה: 4 קומות + גג",
@@ -235,7 +235,7 @@ export interface Alert {
   type: 'price_drop' | 'new_asset' | 'market_change' | 'document_update' | 'permit_status'
   title: string
   message: string
-      assetId?: string
+      assetId?: number
     assetAddress?: string
   priority: 'high' | 'medium' | 'low'
   isRead: boolean
@@ -249,15 +249,15 @@ export const alerts: Alert[] = [
     type: "price_drop",
     title: "ירידת מחיר בנכס",
     message: "הנכס ברחוב הרצל 123 ירד במחיר ב-50,000 ₪",
-    assetId: "l1",
+    assetId: 1,
     assetAddress: "רחוב הרצל 123, תל אביב",
     priority: "high",
     isRead: false,
     createdAt: "2024-01-15T10:30:00Z",
-    actionUrl: "/assets/l1"
+    actionUrl: "/assets/1"
   },
   {
-    id: "alert2", 
+    id: "alert2",
     type: "new_asset",
     title: "נכס חדש התווסף",
     message: "נכס חדש במרכז תל אביב התאים לקריטריונים שלך - 3 חדרים, עד 3M ₪",
@@ -279,24 +279,24 @@ export const alerts: Alert[] = [
     type: "document_update",
     title: "עדכון מסמכים",
     message: "תוכנית בנייה חדשה פורסמה לאזור רוטשילד - עלולה להשפיע על ערך הנכס",
-    assetId: "l2",
-    assetAddress: "שדרות רוטשילד 45, תל אביב", 
+    assetId: 2,
+    assetAddress: "שדרות רוטשילד 45, תל אביב",
     priority: "high",
     isRead: true,
     createdAt: "2024-01-12T14:20:00Z",
-    actionUrl: "/assets/l2"
+    actionUrl: "/assets/2"
   },
   {
     id: "alert5",
     type: "permit_status",
     title: "עדכון היתר בנייה",
     message: "היתר הבנייה עבור הנכס ברוטשילד אושר - ניתן להתחיל בעבודות",
-    assetId: "l2",
+    assetId: 2,
     assetAddress: "שדרות רוטשילד 45, תל אביב",
     priority: "low",
     isRead: true,
     createdAt: "2024-01-10T11:15:00Z",
-    actionUrl: "/assets/l2"
+    actionUrl: "/assets/2"
   }
 ]
 

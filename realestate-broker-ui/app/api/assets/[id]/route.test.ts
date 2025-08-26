@@ -6,7 +6,7 @@ import { NextRequest } from 'next/server'
 vi.mock('@/lib/data', () => ({
   assets: [
     {
-      id: 'l1',
+      id: 1,
       address: 'Test Street 123',
       price: 3000000,
       bedrooms: 3,
@@ -18,7 +18,7 @@ vi.mock('@/lib/data', () => ({
       neighborhood: 'מרכז העיר',
     },
     {
-      id: 'l2',
+      id: 2,
       address: 'Another Street 456',
       price: 4200000,
       bedrooms: 4,
@@ -47,23 +47,23 @@ describe('/api/assets/[id]', () => {
 
   describe('GET', () => {
     it('returns asset when found in mock data', async () => {
-      const request = new NextRequest('http://localhost:3000/api/assets/l1')
-      const params = { id: 'l1' }
+      const request = new NextRequest('http://localhost:3000/api/assets/1')
+      const params = { id: '1' }
       
       const response = await GET(request, { params })
       const data = await response.json()
       
       expect(response.status).toBe(200)
       expect(data.asset).toBeDefined()
-      expect(data.asset.id).toBe('l1')
+      expect(data.asset.id).toBe(1)
       expect(data.asset.address).toBe('Test Street 123')
       expect(data.asset.price).toBe(3000000)
       expect(data.asset.city).toBe('תל אביב')
     })
 
     it('returns 404 when asset not found', async () => {
-      const request = new NextRequest('http://localhost:3000/api/assets/nonexistent')
-      const params = { id: 'nonexistent' }
+      const request = new NextRequest('http://localhost:3000/api/assets/999')
+      const params = { id: '999' }
       
       const response = await GET(request, { params })
       
@@ -73,7 +73,7 @@ describe('/api/assets/[id]', () => {
 
     it('prefers backend data when available', async () => {
       const mockBackendAsset = {
-        id: 'backend1',
+        id: 101,
         address: 'Backend Street 789',
         price: 5000000,
         size: 100,
@@ -88,22 +88,22 @@ describe('/api/assets/[id]', () => {
         })
       })
 
-      const request = new NextRequest('http://localhost:3000/api/assets/backend1')
-      const params = { id: 'backend1' }
+      const request = new NextRequest('http://localhost:3000/api/assets/101')
+      const params = { id: '101' }
       
       const response = await GET(request, { params })
       const data = await response.json()
       
       expect(response.status).toBe(200)
       expect(data.asset).toBeDefined()
-      expect(data.asset.id).toBe('backend1')
+      expect(data.asset.id).toBe(101)
       expect(data.asset.address).toBe('Backend Street 789')
       expect(data.asset.price).toBe(5000000)
       expect(data.asset.type).toBe('פנטהאוס')
       
       // Verify backend was called
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/assets/backend1'
+        'http://localhost:8000/api/assets/101'
       )
     })
 
@@ -111,15 +111,15 @@ describe('/api/assets/[id]', () => {
       // Mock backend failure
       ;(global.fetch as any).mockRejectedValue(new Error('Backend unavailable'))
 
-      const request = new NextRequest('http://localhost:3000/api/assets/l1')
-      const params = { id: 'l1' }
+      const request = new NextRequest('http://localhost:3000/api/assets/1')
+      const params = { id: '1' }
       
       const response = await GET(request, { params })
       const data = await response.json()
       
       expect(response.status).toBe(200)
       expect(data.asset).toBeDefined()
-      expect(data.asset.id).toBe('l1')
+      expect(data.asset.id).toBe(1)
       expect(data.asset.address).toBe('Test Street 123')
     })
 
@@ -133,8 +133,8 @@ describe('/api/assets/[id]', () => {
         )
       )
 
-      const request = new NextRequest('http://localhost:3000/api/assets/l1')
-      const params = { id: 'l1' }
+      const request = new NextRequest('http://localhost:3000/api/assets/1')
+      const params = { id: '1' }
       
       try {
         const response = await GET(request, { params })
@@ -142,7 +142,7 @@ describe('/api/assets/[id]', () => {
         
         expect(response.status).toBe(200)
         expect(data.asset).toBeDefined()
-        expect(data.asset.id).toBe('l1')
+        expect(data.asset.id).toBe(1)
       } finally {
         consoleSpy.mockRestore()
       }
@@ -150,8 +150,8 @@ describe('/api/assets/[id]', () => {
 
     it('transforms backend data correctly', async () => {
       const mockBackendAsset = {
-        id: 'transform1',
-        external_id: 'ext123',
+        id: 102,
+        external_id: 202,
         address: 'Transform Street 999',
         price: 2500000,
         size: 75,
@@ -175,8 +175,8 @@ describe('/api/assets/[id]', () => {
         })
       })
 
-      const request = new NextRequest('http://localhost:3000/api/assets/transform1')
-      const params = { id: 'transform1' }
+      const request = new NextRequest('http://localhost:3000/api/assets/102')
+      const params = { id: '102' }
       
       const response = await GET(request, { params })
       const data = await response.json()
@@ -185,7 +185,7 @@ describe('/api/assets/[id]', () => {
       expect(data.asset).toBeDefined()
       
       const asset = data.asset
-      expect(asset.id).toBe('transform1')
+      expect(asset.id).toBe(102)
       expect(asset.address).toBe('Transform Street 999')
       expect(asset.price).toBe(2500000)
       expect(asset.bedrooms).toBe(2.5)
@@ -210,7 +210,7 @@ describe('/api/assets/[id]', () => {
 
     it('uses external_id when id is not available in backend data', async () => {
       const mockBackendAsset = {
-        external_id: 'ext456',
+        external_id: 103,
         address: 'External ID Street',
         price: 3500000,
         size: 90,
@@ -224,14 +224,14 @@ describe('/api/assets/[id]', () => {
         })
       })
 
-      const request = new NextRequest('http://localhost:3000/api/assets/ext456')
-      const params = { id: 'ext456' }
+      const request = new NextRequest('http://localhost:3000/api/assets/103')
+      const params = { id: '103' }
       
       const response = await GET(request, { params })
       const data = await response.json()
       
       expect(response.status).toBe(200)
-      expect(data.asset.id).toBe('ext456')
+      expect(data.asset.id).toBe(103)
     })
   })
 })

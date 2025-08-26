@@ -66,9 +66,9 @@ describe('Data Module', () => {
 
   describe('appraisalByAsset', () => {
     it('returns appraisal data for valid asset ID', () => {
-      const result = appraisalByAsset('l1')
-      
-      expect(result).toHaveProperty('assetId', 'l1')
+      const result = appraisalByAsset(1)
+
+      expect(result).toHaveProperty('assetId', 1)
       expect(result).toHaveProperty('marketValue')
       expect(result).toHaveProperty('appraisedValue')
       expect(result).toHaveProperty('date')
@@ -79,17 +79,17 @@ describe('Data Module', () => {
     })
 
     it('returns default data for unknown asset ID', () => {
-      const result = appraisalByAsset('unknown')
-      
-      expect(result).toHaveProperty('assetId', 'unknown')
+      const result = appraisalByAsset(999)
+
+      expect(result).toHaveProperty('assetId', 999)
       expect(result).toHaveProperty('marketValue')
       expect(typeof result.marketValue).toBe('number')
     })
 
     it('has valid structure with expected fields', () => {
-      const result = appraisalByAsset('l1')
-      
-      expect(result.assetId).toBe('l1')
+      const result = appraisalByAsset(1)
+
+      expect(result.assetId).toBe(1)
       expect(result.marketValue).toBe(2850000)
       expect(result.appraisedValue).toBe(2800000)
       expect(typeof result.date).toBe('string')
@@ -100,21 +100,21 @@ describe('Data Module', () => {
 
   describe('compsByAsset', () => {
     it('returns comparison data for valid asset ID', () => {
-      const result = compsByAsset('l1')
+      const result = compsByAsset(1)
       
       expect(Array.isArray(result)).toBe(true)
       expect(result.length).toBeGreaterThan(0)
     })
 
     it('returns default data for unknown asset ID', () => {
-      const result = compsByAsset('unknown')
+      const result = compsByAsset(999)
       
       expect(Array.isArray(result)).toBe(true)
       expect(result.length).toBeGreaterThan(0)
     })
 
     it('has valid comparable property structure', () => {
-      const result = compsByAsset('l1')
+      const result = compsByAsset(1)
       
       result.forEach(prop => {
         expect(prop).toHaveProperty('address')
@@ -133,9 +133,9 @@ describe('Data Module', () => {
 
   describe('rightsByAsset', () => {
     it('returns rights data for valid asset ID', () => {
-      const result = rightsByAsset('l1')
-      
-      expect(result).toHaveProperty('assetId', 'l1')
+      const result = rightsByAsset(1)
+
+      expect(result).toHaveProperty('assetId', 1)
       expect(result).toHaveProperty('buildingRights')
       expect(result).toHaveProperty('landUse')
       expect(result).toHaveProperty('restrictions')
@@ -146,17 +146,17 @@ describe('Data Module', () => {
     })
 
     it('returns default data for unknown asset ID', () => {
-      const result = rightsByAsset('unknown')
-      
-      expect(result).toHaveProperty('assetId', 'unknown')
+      const result = rightsByAsset(999)
+
+      expect(result).toHaveProperty('assetId', 999)
       expect(result).toHaveProperty('buildingRights')
       expect(typeof result.buildingRights).toBe('string')
     })
 
     it('has valid structure with expected fields', () => {
-      const result = rightsByAsset('l1')
-      
-      expect(result.assetId).toBe('l1')
+      const result = rightsByAsset(1)
+
+      expect(result.assetId).toBe(1)
       expect(typeof result.buildingRights).toBe('string')
       expect(typeof result.landUse).toBe('string')
       expect(typeof result.lastUpdate).toBe('string')
@@ -203,7 +203,7 @@ describe('Data Module', () => {
 
     it('adds a new asset to the assets array', () => {
       const newAsset: Asset = {
-        id: 'test-asset',
+        id: 999,
         address: 'Test Street 123',
         price: 2000000,
         bedrooms: 3,
@@ -229,7 +229,7 @@ describe('Data Module', () => {
 
     it('maintains asset array structure after adding', () => {
       const newAsset: Asset = {
-        id: 'test-asset-2',
+        id: 1000,
         address: 'Another Test Street 456',
         price: 3500000,
         bedrooms: 4,
@@ -252,7 +252,7 @@ describe('Data Module', () => {
       addAsset(newAsset)
       
       const addedAsset = assets[assets.length - 1]
-      expect(addedAsset).toHaveProperty('id', 'test-asset-2')
+      expect(addedAsset).toHaveProperty('id', 1000)
       expect(addedAsset).toHaveProperty('city', 'תל אביב')
       expect(addedAsset).toHaveProperty('neighborhood', 'מרכז העיר')
       expect(addedAsset.features).toEqual(['garden', 'garage'])

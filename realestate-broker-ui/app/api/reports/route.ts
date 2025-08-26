@@ -24,7 +24,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { assetId } = await req.json();
+  const body = await req.json();
+  const assetId = Number(body.assetId);
 
   if (BACKEND_URL) {
     try {
@@ -74,8 +75,8 @@ if (!asset) {
 
   const report: Report = {
     id,
-            assetId,
-        address: asset.address,
+    assetId,
+    address: asset.address,
     filename,
     createdAt: new Date().toISOString(),
   };

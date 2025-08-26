@@ -22,7 +22,7 @@ export async function GET() {
   try {
     // Return mock data for now
     const transformedRows = assets.map((asset: any) => ({
-      id: asset.id?.toString(),
+      id: asset.id,
       address: asset.address,
       price: asset.price,
       bedrooms: asset.bedrooms || 0,
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     
     // Create asset with available data, using defaults for missing fields
     const asset: Asset = {
-      id: `asset_${Date.now()}`, // Generate unique ID
+      id: Date.now(), // Generate unique numeric ID
       address: validatedData.address,
       price: 0, // Will be populated by enrichment pipeline
       bedrooms: 0,

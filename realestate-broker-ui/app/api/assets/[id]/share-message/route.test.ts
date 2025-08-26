@@ -1,12 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { POST } from './route'
 import { NextRequest } from 'next/server'
 
-global.fetch = vi.fn()
+const originalFetch = global.fetch
 
 describe('/api/assets/[id]/share-message', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    global.fetch = vi.fn()
+  })
+
+  afterAll(() => {
+    global.fetch = originalFetch
   })
 
   it('returns message from backend', async () => {
@@ -14,7 +18,8 @@ describe('/api/assets/[id]/share-message', () => {
       ok: true,
       status: 200,
       headers: { get: () => 'application/json' },
-      json: async () => ({ message: 'msg' })
+      json: async () => ({ message: 'msg' }),
+      text: async () => JSON.stringify({ message: 'msg' })
     })
     const req = new NextRequest(
       'http://localhost:3000/api/assets/1/share-message',
@@ -43,10 +48,10 @@ describe('/api/assets/[id]/share-message', () => {
     ;(global.fetch as any).mockResolvedValue({
       ok: false,
       status: 500,
-      statusText: 'Server Error',
-      headers: { get: () => 'application/json' },
+      statusText: 'Internal Server Error',
+      headers: { get: () => 'text/plain' },
       json: async () => ({ error: 'fail' }),
-      text: async () => JSON.stringify({ error: 'fail' })
+      text: async () => 'fail'
     })
 
     const req = new NextRequest(

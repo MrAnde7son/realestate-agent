@@ -39,13 +39,15 @@ export function KpiCard({
   const t = toneMap[tone];
   
   const cardContent = (
-    <Card className={cn(
-      "border rounded-xl bg-white transition-all duration-200 cursor-pointer",
-      t.border,
-      showHoverEffect && t.hover,
-      showHoverEffect && "hover:shadow-lg hover:-translate-y-0.5",
-      className
-    )}>
+    <Card
+      className={cn(
+        "transition-all duration-200 cursor-pointer",
+        t.border,
+        showHoverEffect && t.hover,
+        showHoverEffect && "hover:shadow-lg hover:-translate-y-0.5",
+        className
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between pb-1">
         <CardTitle className="text-sm text-muted-foreground font-medium flex items-center gap-2">
           <span className={cn("size-2 rounded-full", t.dot)} />

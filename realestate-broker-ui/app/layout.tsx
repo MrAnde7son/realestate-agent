@@ -13,7 +13,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+        />
         <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/brand/favicon-32.png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/brand/favicon-192.png" />

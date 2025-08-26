@@ -8,6 +8,8 @@ to manually modify sys.path in each test file.
 import os
 import sys
 import pytest
+import django
+from django.core.management import call_command
 
 # Add project root to Python path
 sys.path.insert(0, os.path.abspath('backend-django'))
@@ -15,9 +17,9 @@ sys.path.insert(0, os.path.abspath('backend-django'))
 # Configure Django for testing
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
 
-# Import and setup Django
-import django
+# Setup Django and apply migrations
 django.setup()
+call_command("migrate", run_syncdb=True, verbosity=0)
 
 # Configure Django settings for testing
 from django.conf import settings

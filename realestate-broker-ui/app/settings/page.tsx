@@ -37,7 +37,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/settings')
+        const res = await fetch('/api/settings/')
         if (res.ok) {
           const data = await res.json()
           setSettings(data)
@@ -51,7 +51,7 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     try {
-      const res = await fetch('/api/settings', {
+      const res = await fetch('/api/settings/', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)

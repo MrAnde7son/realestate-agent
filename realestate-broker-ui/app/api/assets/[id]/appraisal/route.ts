@@ -6,10 +6,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const { id } = params
+  const numericId = Number(id)
 
   try {
     // Try to fetch from backend first
-    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8000'}/api/assets/${id}/appraisal/`)
+    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8000'}/api/assets/${numericId}/appraisal/`)
     
     if (backendResponse.ok) {
       const data = await backendResponse.json()
@@ -20,5 +21,5 @@ export async function GET(
   }
 
   // Fallback to mock data
-  return NextResponse.json(appraisalByAsset(id))
+  return NextResponse.json(appraisalByAsset(numericId))
 }

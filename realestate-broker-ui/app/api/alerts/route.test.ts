@@ -6,7 +6,7 @@ import { NextRequest } from 'next/server'
 vi.mock('@/lib/data', () => ({
   alerts: [
     {
-      id: 'alert1',
+      id: 1,
       type: 'price_drop',
       title: 'Test Alert',
       message: 'Test message',
@@ -15,7 +15,7 @@ vi.mock('@/lib/data', () => ({
       createdAt: '2024-01-15T10:30:00Z',
     },
     {
-      id: 'alert2',
+      id: 2,
       type: 'new_asset',
       title: 'Another Alert',
       message: 'Another message',
@@ -39,7 +39,7 @@ describe('/api/alerts', () => {
       
       // Check first alert structure
       expect(data.alerts[0]).toEqual({
-        id: 'alert1',
+        id: 1,
         type: 'price_drop',
         title: 'Test Alert',
         message: 'Test message',
@@ -82,7 +82,7 @@ describe('/api/alerts', () => {
 
     it('handles POST requests successfully', async () => {
       const requestBody = {
-        alertId: 'alert1',
+        alertId: 1,
         isRead: true
       }
       

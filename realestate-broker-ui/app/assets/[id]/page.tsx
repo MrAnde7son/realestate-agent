@@ -107,7 +107,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: id })
+        body: JSON.stringify({ assetId: Number(id) })
       })
       if (res.ok) {
         router.push('/reports')

@@ -74,17 +74,17 @@ class TestPropertyTypeFunctionality:
 
 class TestLocationServices:
     """Test location service functions."""
-    
+
     @pytest.mark.asyncio
     async def test_search_locations(self, mock_ctx):
         """Test location search."""
         result = await search_locations_func(mock_ctx, search_text="רמת")
-        
+
         assert result["success"] is True
         assert "locations" in result
         assert "search_text" in result
         assert result["search_text"] == "רמת"
-        
+
         # Should have some location data
         locations = result["locations"]
         assert isinstance(locations, dict)
@@ -154,12 +154,12 @@ class TestSearchFunctionality:
             neighborhood="203",
             max_pages=1
         )
-        
+
         assert result["success"] is True
         assert "total_assets" in result
         assert "assets_preview" in result
         assert "search_url" in result
-        
+
         # Should have some results
         assert result["total_assets"] >= 0
         assert isinstance(result["assets_preview"], list)

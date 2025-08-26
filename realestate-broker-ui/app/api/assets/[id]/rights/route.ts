@@ -20,5 +20,5 @@ export async function GET(
   }
 
   // Fallback to mock data
-  return NextResponse.json(rightsByAsset(id))
+  return NextResponse.json(rightsByAsset(Number(id)))
 }

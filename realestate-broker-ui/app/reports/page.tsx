@@ -11,8 +11,8 @@ import { FileText, Download, Eye, Calendar, MapPin } from 'lucide-react'
 import Link from 'next/link'
 
 type Report = {
-  id: string
-          assetId: string
+  id: number
+  assetId: number
   address: string
   filename: string
   createdAt: string
@@ -44,8 +44,8 @@ export default function ReportsPage() {
   // Sample data for demonstration (remove this in production)
   const sampleReports: Report[] = [
     {
-      id: '1',
-              assetId: '1',
+      id: 1,
+      assetId: 1,
       address: 'רחוב הרצל 123, תל אביב',
       filename: 'report_1.pdf',
       createdAt: new Date().toISOString(),
@@ -53,8 +53,8 @@ export default function ReportsPage() {
       status: 'הושלם'
     },
     {
-      id: '2',
-              assetId: '2',
+      id: 2,
+      assetId: 2,
       address: 'רחוב דיזנגוף 45, תל אביב',
       filename: 'report_2.pdf',
       createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago

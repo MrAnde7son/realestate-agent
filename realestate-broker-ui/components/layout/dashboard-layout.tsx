@@ -13,7 +13,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(true)
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-[100dvh] overflow-hidden">
       {/* Sidebar - hidden on mobile, sticky on desktop */}
       <div className="hidden md:flex-shrink-0 md:block">
         <AppSidebar isCollapsed={!sidebarOpen} />

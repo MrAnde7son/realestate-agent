@@ -19,7 +19,7 @@ describe('/api/assets/[id]/share-message', () => {
       status: 200,
       headers: { get: () => 'application/json' },
       json: async () => ({ message: 'msg' }),
-      text: async () => ''
+      text: async () => JSON.stringify({ message: 'msg' })
     })
     const req = new NextRequest(
       'http://localhost:3000/api/assets/1/share-message',
@@ -49,7 +49,8 @@ describe('/api/assets/[id]/share-message', () => {
       ok: false,
       status: 500,
       statusText: 'Internal Server Error',
-      headers: { get: () => 'application/json' },
+      headers: { get: () => 'text/plain' },
+      json: async () => ({ error: 'fail' }),
       text: async () => 'fail'
     })
 

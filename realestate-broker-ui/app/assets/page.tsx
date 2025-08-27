@@ -41,12 +41,20 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const searchParams = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [city, setCity] = useState<string>(() => searchParams.get("city") ?? "all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [priceMin, setPriceMin] = useState<number>();
-  const [priceMax, setPriceMax] = useState<number>();
+  const [typeFilter, setTypeFilter] = useState(
+    () => searchParams.get("type") ?? "all"
+  );
+  const [priceMin, setPriceMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("priceMin");
+    return val ? Number(val) : undefined;
+  });
+  const [priceMax, setPriceMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("priceMax");
+    return val ? Number(val) : undefined;
+  });
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -58,18 +66,41 @@ export default function AssetsPage() {
   };
 
   useEffect(() => {
-    const cityParam = searchParams.get("city");
-    if (cityParam) {
-      setCity(cityParam);
-    }
+    setSearch(searchParams.get("search") ?? "");
+    setCity(searchParams.get("city") ?? "all");
+    setTypeFilter(searchParams.get("type") ?? "all");
+    const min = searchParams.get("priceMin");
+    setPriceMin(min ? Number(min) : undefined);
+    const max = searchParams.get("priceMax");
+    setPriceMax(max ? Number(max) : undefined);
   }, [searchParams]);
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
+    if (search) {
+      params.set("search", search);
+    } else {
+      params.delete("search");
+    }
     if (city && city !== "all") {
       params.set("city", city);
     } else {
       params.delete("city");
+    }
+    if (typeFilter && typeFilter !== "all") {
+      params.set("type", typeFilter);
+    } else {
+      params.delete("type");
+    }
+    if (priceMin !== undefined) {
+      params.set("priceMin", priceMin.toString());
+    } else {
+      params.delete("priceMin");
+    }
+    if (priceMax !== undefined) {
+      params.set("priceMax", priceMax.toString());
+    } else {
+      params.delete("priceMax");
     }
     const query = params.toString();
     const newUrl = query ? `${pathname}?${query}` : pathname;
@@ -78,7 +109,7 @@ export default function AssetsPage() {
     if (newUrl !== currentUrl) {
       router.replace(newUrl, { scroll: false });
     }
-  }, [city, router, pathname, searchParams]);
+  }, [search, city, typeFilter, priceMin, priceMax, router, pathname, searchParams]);
 
   // Function to fetch assets
   const fetchAssets = async () => {

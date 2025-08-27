@@ -15,7 +15,7 @@ const newAssetSchema = z.object({
   number: z.number().optional(),
   gush: z.string().optional(),
   helka: z.string().optional(),
-  radius: z.number().optional()
+  radius: z.number().default(100)
 })
 
 export async function GET() {

@@ -53,6 +53,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 import { chartPalette as C } from "@/lib/chart-palette";
 import { KpiCard } from "@/components/KpiCard";
@@ -279,6 +280,7 @@ export default function HomePage() {
                     data={dashboardData.propertyTypes}
                     cx="50%"
                     cy="50%"
+                    nameKey="type"
                     labelLine={false}
                     label={({ type, percentage }) => `${type} ${percentage}%`}
                     outerRadius={80}
@@ -292,7 +294,8 @@ export default function HomePage() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => [value, "כמות"]} />
+                  <Tooltip />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>

@@ -9,7 +9,6 @@ SQLAlchemy database.
 """
 
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from abc import ABC, abstractmethod
 
 from db.database import SQLAlchemyDatabase
 from db.models import Listing, SourceRecord, Transaction
@@ -22,40 +21,8 @@ from gov.nadlan.scraper import NadlanDealsScraper
 from rami.rami_client import RamiClient
 from mavat.collector.mavat_collector import MavatCollector
 
-
-# ---------------------------------------------------------------------------
-# Base Collector Class
-# ---------------------------------------------------------------------------
-
-class BaseCollector(ABC):
-    """Base class for all data collectors.
-    
-    This abstract base class enforces a consistent interface for all collectors
-    and provides common functionality.
-    """
-    
-    @abstractmethod
-    def collect(self, **kwargs) -> Any:
-        """Collect data from the source.
-        
-        This method must be implemented by all subclasses to provide
-        a consistent interface for data collection.
-        
-        Returns:
-            The collected data in a format appropriate for the collector type.
-        """
-        pass
-    
-    def validate_parameters(self, **kwargs) -> bool:
-        """Validate input parameters for collection.
-        
-        Default implementation returns True. Subclasses can override
-        to provide parameter validation.
-        
-        Returns:
-            True if parameters are valid, False otherwise.
-        """
-        return True
+# Import base collector from separate module
+from .base_collector import BaseCollector
 
 
 # ---------------------------------------------------------------------------
@@ -161,94 +128,6 @@ class RamiCollector(BaseCollector):
         try:
             df = self.client.fetch_plans({"gush": block, "helka": parcel})
             return df.to_dict(orient="records") if hasattr(df, "to_dict") else []
-        except Exception:
-            return []
-
-
-class MavatCollector(BaseCollector):
-    """Collector for Mavat planning data."""
-
-    def __init__(self, client=None) -> None:
-        # Import here to avoid circular imports
-        from mavat.scrapers.mavat_api_client import MavatAPIClient
-        self.client = client or MavatAPIClient()
-
-    def collect(self, block: str, parcel: str, city: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Collect Mavat plans for a given block/parcel.
-        
-        This method implements the base collect interface and provides
-        planning data from the Mavat system.
-        """
-        try:
-            # Search by block and parcel
-            plans = self.client.search_by_block_parcel(block, parcel)
-            
-            # Convert to consistent format
-            formatted_plans = []
-            for plan in plans:
-                formatted_plans.append({
-                    "plan_id": plan.plan_id,
-                    "title": plan.title,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                })
-            
-            return formatted_plans
-        except Exception:
-            return []
-
-    def search_by_location(self, city: str, district: Optional[str] = None, 
-                          street: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
-        """Search for plans by location criteria."""
-        try:
-            plans = self.client.search_by_location(city=city, district=district, 
-                                                 street=street, limit=limit)
-            
-            # Convert to consistent format
-            formatted_plans = []
-            for plan in plans:
-                formatted_plans.append({
-                    "plan_id": plan.plan_id,
-                    "title": plan.title,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                })
-            
-            return formatted_plans
-        except Exception:
-            return []
-
-    def get_lookup_data(self, data_type: str = "cities", force_refresh: bool = False) -> List[Dict[str, Any]]:
-        """Get lookup data for various planning entities."""
-        try:
-            if data_type == "cities":
-                items = self.client.get_cities(force_refresh)
-            elif data_type == "districts":
-                items = self.client.get_districts(force_refresh)
-            elif data_type == "streets":
-                items = self.client.get_streets(force_refresh)
-            elif data_type == "plan_areas":
-                items = self.client.get_plan_areas(force_refresh)
-            else:
-                return []
-            
-            # Convert to consistent format
-            return [
-                {
-                    "code": item.code,
-                    "description": item.description,
-                    "raw": item.raw
-                }
-                for item in items
-            ]
         except Exception:
             return []
 

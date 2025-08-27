@@ -10,11 +10,12 @@ gov.il datasets and RAMI plans.
 from __future__ import annotations
 
 from typing import List, Optional, Dict, Any
+from orchestration.base_collector import BaseCollector
 
 from ..scrapers.mavat_api_client import MavatAPIClient, MavatSearchHit, MavatPlan
 
 
-class MavatCollector:
+class MavatCollector(BaseCollector):
     """Wrapper around :class:`MavatAPIClient` providing a stable API."""
 
     def __init__(self, client: Optional[MavatAPIClient] = None) -> None:

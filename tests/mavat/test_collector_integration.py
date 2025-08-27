@@ -4,40 +4,65 @@
 
 import pytest
 from unittest.mock import Mock, patch
-from mavat.collector.mavat_collector import MavatCollector
 
 
 class TestMavatCollectorIntegration:
     """Integration tests for MavatCollector."""
 
-    @pytest.fixture
-    def collector(self):
-        """Create a MavatCollector instance for testing."""
-        return MavatCollector()
+    def test_collector_import(self):
+        """Test that MavatCollector can be imported."""
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            assert True
+        except ImportError as e:
+            pytest.fail(f"Failed to import MavatCollector: {e}")
 
-    def test_collector_creation(self, collector):
+    def test_collector_creation(self):
         """Test that MavatCollector can be created."""
-        assert collector is not None
-        assert hasattr(collector, 'client')
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            collector = MavatCollector()
+            assert collector is not None
+            assert hasattr(collector, 'client')
+        except Exception as e:
+            pytest.fail(f"Failed to create MavatCollector: {e}")
 
-    def test_collect_method_interface(self, collector):
+    def test_collect_method_interface(self):
         """Test that the collect method follows the base interface."""
-        # The collect method should exist and be callable
-        assert hasattr(collector, 'collect')
-        assert callable(collector.collect)
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            collector = MavatCollector()
+            
+            # The collect method should exist and be callable
+            assert hasattr(collector, 'collect')
+            assert callable(collector.collect)
+        except Exception as e:
+            pytest.fail(f"Collect method test failed: {e}")
 
-    def test_search_methods_exist(self, collector):
+    def test_search_methods_exist(self):
         """Test that all search methods exist."""
-        assert hasattr(collector, 'search_by_location')
-        assert hasattr(collector, 'search_plans')
-        assert hasattr(collector, 'get_plan_details')
-        assert hasattr(collector, 'get_lookup_data')
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            collector = MavatCollector()
+            
+            assert hasattr(collector, 'search_by_location')
+            assert hasattr(collector, 'search_plans')
+            assert hasattr(collector, 'get_plan_details')
+            assert hasattr(collector, 'get_lookup_data')
+        except Exception as e:
+            pytest.fail(f"Search methods test failed: {e}")
 
-    def test_lookup_data_methods_exist(self, collector):
+    def test_lookup_data_methods_exist(self):
         """Test that lookup data methods exist."""
-        assert hasattr(collector, 'get_lookup_data')
-        assert hasattr(collector, 'search_lookup')
-        assert hasattr(collector, 'get_all_lookup_tables')
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            collector = MavatCollector()
+            
+            assert hasattr(collector, 'get_lookup_data')
+            assert hasattr(collector, 'search_lookup')
+            assert hasattr(collector, 'get_all_lookup_tables')
+        except Exception as e:
+            pytest.fail(f"Lookup data methods test failed: {e}")
 
 
 class TestMavatCollectorDataPipelineIntegration:
@@ -48,8 +73,8 @@ class TestMavatCollectorDataPipelineIntegration:
         try:
             from orchestration.data_pipeline import DataPipeline, MavatCollector
             assert True
-        except ImportError:
-            pytest.fail("Failed to import DataPipeline or MavatCollector")
+        except ImportError as e:
+            pytest.fail(f"Failed to import DataPipeline or MavatCollector: {e}")
 
     def test_data_pipeline_has_mavat_collector(self):
         """Test that DataPipeline includes MavatCollector."""
@@ -90,40 +115,74 @@ class TestMavatCollectorDataPipelineIntegration:
 class TestMavatCollectorErrorHandling:
     """Test error handling in MavatCollector."""
 
-    @pytest.fixture
-    def mock_collector(self):
-        """Create a collector with mocked client for error testing."""
-        with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
-            mock_client = Mock()
-            mock_client.search_by_block_parcel.side_effect = Exception("Test error")
-            mock_client.search_by_location.side_effect = Exception("Test error")
-            mock_client.search_plans.side_effect = Exception("Test error")
-            mock_client.get_lookup_data.side_effect = Exception("Test error")
-            mock_client_class.return_value = mock_client
-            
-            collector = MavatCollector(client=mock_client)
-            yield collector
-
-    def test_collect_method_error_handling(self, mock_collector):
+    def test_collect_method_error_handling(self):
         """Test that collect method handles errors gracefully."""
-        # Should return empty list on error, not raise exception
-        result = mock_collector.collect("666", "1")
-        assert result == []
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            
+            with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
+                mock_client = Mock()
+                mock_client.search_by_block_parcel.side_effect = Exception("Test error")
+                mock_client_class.return_value = mock_client
+                
+                collector = MavatCollector(client=mock_client)
+                
+                # Should return empty list on error, not raise exception
+                result = collector.collect("666", "1")
+                assert result == []
+        except Exception as e:
+            pytest.fail(f"Collect method error handling test failed: {e}")
 
-    def test_search_by_location_error_handling(self, mock_collector):
+    def test_search_by_location_error_handling(self):
         """Test that search_by_location handles errors gracefully."""
-        result = mock_collector.search_by_location("תל אביב")
-        assert result == []
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            
+            with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
+                mock_client = Mock()
+                mock_client.search_by_location.side_effect = Exception("Test error")
+                mock_client_class.return_value = mock_client
+                
+                collector = MavatCollector(client=mock_client)
+                
+                result = collector.search_by_location("תל אביב")
+                assert result == []
+        except Exception as e:
+            pytest.fail(f"Search by location error handling test failed: {e}")
 
-    def test_search_plans_error_handling(self, mock_collector):
+    def test_search_plans_error_handling(self):
         """Test that search_plans handles errors gracefully."""
-        result = mock_collector.search_plans("test")
-        assert result == []
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            
+            with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
+                mock_client = Mock()
+                mock_client.search_plans.side_effect = Exception("Test error")
+                mock_client_class.return_value = mock_client
+                
+                collector = MavatCollector(client=mock_client)
+                
+                result = collector.search_plans("test")
+                assert result == []
+        except Exception as e:
+            pytest.fail(f"Search plans error handling test failed: {e}")
 
-    def test_get_lookup_data_error_handling(self, mock_collector):
+    def test_get_lookup_data_error_handling(self):
         """Test that get_lookup_data handles errors gracefully."""
-        result = mock_collector.get_lookup_data("cities")
-        assert result == []
+        try:
+            from mavat.collector.mavat_collector import MavatCollector
+            
+            with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
+                mock_client = Mock()
+                mock_client.get_cities.side_effect = Exception("Test error")
+                mock_client_class.return_value = mock_client
+                
+                collector = MavatCollector(client=mock_client)
+                
+                result = collector.get_lookup_data("cities")
+                assert result == []
+        except Exception as e:
+            pytest.fail(f"Get lookup data error handling test failed: {e}")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 """Tests for the user settings API."""
 
-import json
+
+import uuid
 
 from django.contrib.auth import get_user_model
-import uuid
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 

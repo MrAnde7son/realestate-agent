@@ -6,6 +6,7 @@ Contains common codes and mappings for consistent searches
 # Import existing property type utilities to avoid duplication
 from .utils.property_types import PropertyTypeUtils
 
+
 # Property Type Codes - Using existing PropertyTypeUtils for consistency
 def get_property_type_code(property_name: str) -> int:
     """Get property type code by name using existing PropertyTypeUtils"""

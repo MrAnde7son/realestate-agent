@@ -1,4 +1,3 @@
-import pytest
 from bs4 import BeautifulSoup
 
 from utils.madlan_scraper import MadlanParser

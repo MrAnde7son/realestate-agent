@@ -8,6 +8,6 @@ to be minimal and self‑contained so it can be reused in CLI tools,
 FastAPI microservices or data pipelines.
 """
 
-from .mavat_scraper import MavatScraper, MavatSearchHit, MavatPlan
+from .mavat_scraper import MavatPlan, MavatScraper, MavatSearchHit
 
 __all__ = ["MavatScraper", "MavatSearchHit", "MavatPlan"]

@@ -15,9 +15,11 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from yad2.core import Yad2SearchParameters, Yad2ParameterReference
+from urllib.parse import parse_qs, unquote, urlparse
+
+from yad2.core import Yad2ParameterReference, Yad2SearchParameters
 from yad2.scrapers import Yad2Scraper
-from urllib.parse import urlparse, parse_qs, unquote
+
 
 def demo_original_url_extraction():
     """Demo: Extract parameters from your original URL."""

@@ -6,8 +6,7 @@ Test Core Functionality
 Tests for the core Yad2 scraper functionality.
 """
 
-import json
-from yad2.core import Yad2SearchParameters, Yad2ParameterReference, URLUtils
+from yad2.core import URLUtils, Yad2ParameterReference, Yad2SearchParameters
 
 
 def test_parameter_system():

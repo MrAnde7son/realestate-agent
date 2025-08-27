@@ -1,9 +1,11 @@
 """Government data collector implementation."""
 
-from typing import List, Optional, Dict, Any
-from .base_collector import BaseCollector
+from typing import Any, Dict, List, Optional
+
 from gov.decisive import fetch_decisive_appraisals
 from gov.nadlan.scraper import NadlanDealsScraper
+
+from .base_collector import BaseCollector
 
 
 class GovCollector(BaseCollector):

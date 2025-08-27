@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-import argparse, csv, json, sys, logging
+
+import argparse
+import csv
+import json
+import logging
 from typing import List
 
-from .models import Deal
 from .exceptions import NadlanError
+from .models import Deal
 from .scraper import NadlanDealsScraper
+
 
 def write_csv(path: str, deals: List[Deal]) -> None:
     with open(path, "w", newline="", encoding="utf-8") as f:

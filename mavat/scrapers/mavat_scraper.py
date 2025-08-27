@@ -35,7 +35,6 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-
 try:
     # Playwright is an optional dependency.  Import lazily so that
     # consumers can still import the module to inspect type hints

@@ -2,7 +2,7 @@
 """Test pagination parameters with the RAMI API."""
 
 import requests
-import json
+
 
 def test_pagination():
     endpoint = "https://apps.land.gov.il/TabaSearch/api//SerachPlans/GetPlans"

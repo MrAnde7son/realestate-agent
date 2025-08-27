@@ -6,10 +6,11 @@ Tests for Yad2 MCP Server
 Test suite for the enhanced Yad2 MCP server functionality.
 """
 
-import pytest
 import asyncio
-import sys
 import os
+import sys
+
+import pytest
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -18,11 +19,11 @@ if project_root not in sys.path:
 
 # Import MCP server functions (only the ones that actually exist)
 from yad2.mcp.server import (
-    get_all_property_types,
-    search_locations,
-    get_search_parameters_reference,
     build_search_url,
-    search_real_estate
+    get_all_property_types,
+    get_search_parameters_reference,
+    search_locations,
+    search_real_estate,
 )
 
 # Extract the underlying functions from the FastMCP tools

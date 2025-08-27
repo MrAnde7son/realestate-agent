@@ -7,6 +7,7 @@ to manually modify sys.path in each test file.
 
 import os
 import sys
+
 import pytest
 
 # Store the original system paths
@@ -21,10 +22,13 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 backend_path = os.path.abspath(os.path.join(project_root, 'backend_django'))
 sys.path.append(backend_path)
 
-# Add project root
+# Add back the original system paths FIRST to ensure system packages are found
+sys.path.extend(original_sys_path)
+
+# Add project root AFTER system paths to avoid conflicts with system packages
 sys.path.append(project_root)
 
-# Add package paths for non-Django tests (after backend_django to avoid conflicts)
+# Add package paths for non-Django tests (after system paths to avoid conflicts)
 mavat_path = os.path.abspath(os.path.join(project_root, "mavat"))
 sys.path.append(mavat_path)
 
@@ -44,9 +48,6 @@ sys.path.append(db_path)
 utils_path = os.path.abspath(os.path.join(project_root, "utils"))
 sys.path.append(utils_path)
 
-# Add back the original system paths
-sys.path.extend(original_sys_path)
-
 # Debug: Print the paths being added
 print("=== CONFTEST.PY DEBUG ===")
 print("Project root:", project_root)
@@ -61,7 +62,7 @@ print("=========================")
 try:
     import django
     from django.core.management import call_command
-    
+
     # Set environment variables for Django
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
     os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-testing')
@@ -82,16 +83,13 @@ try:
 except ImportError as e:
     # Django not available, skip Django setup
     print("Django not available: {}".format(e))
-    pass
 except Exception as e:
     print("Django setup failed: {}".format(e))
-    pass
 
 # Only setup Django if we're running Django tests
 def pytest_configure(config):
     """Configure Django only when needed."""
     # Django is already set up above, so this function is now a no-op
-    pass
 
 # Common fixtures for all tests
 @pytest.fixture

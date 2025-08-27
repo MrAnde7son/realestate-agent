@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Example of how to download documents using RamiClient."""
 
-import sys
 import os
+import sys
 from pathlib import Path
+
 
 # Robust path setup that works in all environments (terminal, debugger, pytest)
 def setup_python_path():

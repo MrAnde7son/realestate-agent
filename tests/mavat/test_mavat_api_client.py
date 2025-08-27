@@ -2,16 +2,12 @@
 # -*- coding: utf-8 -*-
 """Tests for the Mavat API client."""
 
-import pytest
 import json
-from unittest.mock import Mock, patch, MagicMock
-from mavat.scrapers.mavat_api_client import (
-    MavatAPIClient, 
-    MavatSearchHit, 
-    MavatPlan, 
-    MavatAttachment, 
-    MavatLookupItem
-)
+from unittest.mock import Mock
+
+import pytest
+
+from mavat.scrapers.mavat_api_client import MavatAPIClient, MavatLookupItem
 
 
 class TestMavatLookupItem:
@@ -666,7 +662,7 @@ class TestBackwardCompatibility:
     def test_mavat_scraper_alias(self):
         """Test that MavatScraper is available as an alias."""
         from mavat.scrapers.mavat_api_client import MavatScraper
-        
+
         # Should be the same class
         assert MavatScraper == MavatAPIClient
         

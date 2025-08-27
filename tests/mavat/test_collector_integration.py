@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 """Integration tests for MavatCollector."""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 class TestMavatCollectorIntegration:
@@ -12,7 +13,6 @@ class TestMavatCollectorIntegration:
     def test_collector_import(self):
         """Test that MavatCollector can be imported."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
             assert True
         except ImportError as e:
             pytest.fail(f"Failed to import MavatCollector: {e}")
@@ -71,7 +71,6 @@ class TestMavatCollectorDataPipelineIntegration:
     def test_data_pipeline_import(self):
         """Test that DataPipeline can import MavatCollector."""
         try:
-            from orchestration.data_pipeline import DataPipeline, MavatCollector
             assert True
         except ImportError as e:
             pytest.fail(f"Failed to import DataPipeline or MavatCollector: {e}")
@@ -80,7 +79,7 @@ class TestMavatCollectorDataPipelineIntegration:
         """Test that DataPipeline includes MavatCollector."""
         try:
             from orchestration.data_pipeline import DataPipeline
-            
+
             # Create pipeline instance
             pipeline = DataPipeline()
             

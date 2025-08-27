@@ -1,8 +1,10 @@
 """GIS data collector implementation."""
 
-from typing import List, Optional, Dict, Any, Tuple
-from .base_collector import BaseCollector
+from typing import Any, Dict, Optional, Tuple
+
 from gis.gis_client import TelAvivGS
+
+from .base_collector import BaseCollector
 
 
 class GISCollector(BaseCollector):

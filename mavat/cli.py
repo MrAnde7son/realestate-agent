@@ -18,25 +18,24 @@ Usage:
     python cli.py lookup "תל אביב"
 """
 
+import argparse
 import asyncio
 import sys
-import argparse
 from typing import Optional
 
 # Add the mavat package to the path
 sys.path.insert(0, '.')
 
 from mcp.server import (
-    search_plans, 
-    get_plan_details, 
-    get_plan_documents, 
-    search_by_location,
-    search_by_block_parcel,
-    get_lookup_tables,
-    get_districts,
     get_cities,
+    get_districts,
+    get_plan_details,
+    get_plan_documents,
     get_streets,
-    search_lookup
+    search_by_block_parcel,
+    search_by_location,
+    search_lookup,
+    search_plans,
 )
 
 

@@ -33,9 +33,10 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Sequence
 
-from playwright.async_api import async_playwright, Response
-from .models import Deal
+from playwright.async_api import Response, async_playwright
+
 from .exceptions import NadlanAPIError
+from .models import Deal
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,6 @@ class NadlanDealsScraper:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         # Playwright handles its own cleanup
-        pass
     
     def get_deals_by_neighborhood_id(self, neighbourhood_id: str) -> List[Deal]:
         """Retrieve deals using a neighbourhood identifier.
@@ -199,7 +199,7 @@ class NadlanDealsScraper:
     async def _search_address_async(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Search for addresses using the govmap autocomplete API."""
         import urllib.parse
-        
+
         # Encode the query for URL
         encoded_query = urllib.parse.quote(query)
         

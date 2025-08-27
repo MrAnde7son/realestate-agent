@@ -2,8 +2,9 @@
 """Test RamiClient by comparing with direct requests."""
 
 import requests
-import json
+
 from rami.rami_client import RamiClient
+
 
 def test_direct_vs_client():
     search_params = {

@@ -6,8 +6,7 @@ Interactive CLI
 Interactive command-line interface for building Yad2 searches.
 """
 
-import json
-from ..core import Yad2SearchParameters, Yad2ParameterReference, URLUtils
+from ..core import URLUtils, Yad2ParameterReference, Yad2SearchParameters
 from ..scrapers import Yad2Scraper
 
 

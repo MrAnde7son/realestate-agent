@@ -1,4 +1,5 @@
 import pytest
+
 from yad2.core.parameters import Yad2SearchParameters
 
 

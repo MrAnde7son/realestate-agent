@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Request, HTTPException
 import os
+
+from fastapi import FastAPI, HTTPException, Request
 
 app = FastAPI()
 TOKEN = os.environ.get("DOWNSTREAM_API_KEY", "")

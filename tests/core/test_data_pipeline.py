@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import pandas as pd
-
 from db.database import SQLAlchemyDatabase
-from db.models import Listing, SourceRecord, Transaction
-from orchestration.data_pipeline import DataPipeline
+from gov.nadlan.models import Deal
 from orchestration.collectors import (
-    Yad2Collector,
     GISCollector,
     GovCollector,
     RamiCollector,
+    Yad2Collector,
 )
+from orchestration.data_pipeline import DataPipeline
 from yad2.core.models import RealEstateListing
-from gov.nadlan.models import Deal
 
 
 class FakeYad2Collector(Yad2Collector):

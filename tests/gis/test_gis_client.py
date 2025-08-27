@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
-import os
-import io
 import json
-import shutil
-from unittest import mock
+import os
 from typing import Dict
+from unittest import mock
 
 import requests
-from gis.gis_client import TelAvivGS, ArcGISError
+
+from gis.gis_client import ArcGISError, TelAvivGS
 
 
 def _make_response(status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None):

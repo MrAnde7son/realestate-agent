@@ -1,31 +1,31 @@
-import json, statistics, re, os, urllib.parse
+import json
+import os
+import re
+import statistics
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 
+from django.contrib.auth import authenticate, get_user_model
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import authenticate
-from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+
 User = get_user_model()
-from reportlab.pdfgen import canvas
+from django.urls import reverse
+from openai import OpenAI
+from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.pagesizes import A4
-
-from .models import Alert
-
-from openai import OpenAI
-
-from django.urls import reverse
+from reportlab.pdfgen import canvas
 
 # Import Django models
-from .models import Asset, SourceRecord, RealEstateTransaction
+from .models import Alert, Asset, RealEstateTransaction, SourceRecord
 
 # Import utility functions
 try:
@@ -345,8 +345,8 @@ def auth_google_login(request):
 def auth_google_callback(request):
     """Handle Google OAuth callback and authenticate user."""
     try:
-        from django.conf import settings
         import requests
+        from django.conf import settings
         from django.contrib.auth import get_user_model
         from django.contrib.auth.hashers import make_password
         from rest_framework_simplejwt.tokens import RefreshToken
@@ -390,7 +390,7 @@ def auth_google_callback(request):
             )
         
         user_info = user_info_response.json()
-        google_id = user_info.get('id')
+        user_info.get('id')
         email = user_info.get('email')
         first_name = user_info.get('given_name', '')
         last_name = user_info.get('family_name', '')
@@ -716,7 +716,7 @@ def reports(request):
         if listing.get('size') is not None:
             c.drawString(50, y, f"מ""ר: {listing['size']}")
         c.save()
-    except Exception as e:
+    except Exception:
         # Fallback to text file if PDF creation fails
         file_path = file_path.replace('.pdf', '.txt')
         filename = filename.replace('.pdf', '.txt')

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Test script to verify robust imports work in all environments."""
 
-import sys
 import os
+import sys
 from pathlib import Path
+
 
 # Robust path setup that works in all environments (terminal, debugger, pytest)
 def setup_python_path():

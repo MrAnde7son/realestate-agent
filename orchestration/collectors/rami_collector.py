@@ -1,8 +1,10 @@
 """Rami data collector implementation."""
 
-from typing import List, Optional, Dict, Any
-from .base_collector import BaseCollector
+from typing import Any, Dict, List, Optional
+
 from rami.rami_client import RamiClient
+
+from .base_collector import BaseCollector
 
 
 class RamiCollector(BaseCollector):

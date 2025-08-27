@@ -11,13 +11,18 @@ Usage:
 """
 
 import asyncio
-import sys
 import os
+import sys
 
 # Add the mavat package to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from mcp.server import search_plans, get_plan_details, get_plan_documents, get_plan_gis_layers
+from mcp.server import (
+    get_plan_details,
+    get_plan_documents,
+    get_plan_gis_layers,
+    search_plans,
+)
 
 
 class MockContext:

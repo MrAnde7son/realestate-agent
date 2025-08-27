@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """Tests for the Mavat scraper."""
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from mavat.scrapers import MavatScraper, MavatSearchHit, MavatPlan
+
+from mavat.scrapers import MavatPlan, MavatScraper, MavatSearchHit
 
 
 class TestMavatSearchHit:
@@ -148,7 +150,6 @@ class TestMavatScraper:
         scraper = MavatScraper()
         
         # Mock the response handler to simulate collected data
-        collected_items = []
         
         def mock_on_response(response):
             # Simulate a response that would trigger data collection

@@ -1,8 +1,10 @@
 """Yad2 data collector implementation."""
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
+
+from yad2.scrapers.yad2_scraper import RealEstateListing, Yad2Scraper
+
 from .base_collector import BaseCollector
-from yad2.scrapers.yad2_scraper import Yad2Scraper, RealEstateListing
 
 
 class Yad2Collector(BaseCollector):

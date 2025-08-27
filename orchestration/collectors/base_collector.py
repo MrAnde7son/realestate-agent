@@ -21,7 +21,6 @@ class BaseCollector(ABC):
         Returns:
             The collected data in a format appropriate for the collector type.
         """
-        pass
     
     def validate_parameters(self, **kwargs) -> bool:
         """Validate input parameters for collection.

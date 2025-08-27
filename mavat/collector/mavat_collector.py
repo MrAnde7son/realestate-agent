@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from orchestration.collectors.base_collector import BaseCollector
 
-from ..scrapers.mavat_api_client import MavatAPIClient, MavatSearchHit, MavatPlan
+from ..scrapers.mavat_api_client import MavatAPIClient
 
 
 class MavatCollector(BaseCollector):

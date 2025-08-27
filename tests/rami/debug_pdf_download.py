@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Debug PDF download issues."""
 
-import tests.test_utils  # This sets up the Python path
 import requests
-from pathlib import Path
+
+import tests.test_utils  # This sets up the Python path
 
 
 def test_direct_pdf_access():

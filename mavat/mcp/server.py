@@ -29,15 +29,16 @@ Usage Examples:
 
 import os
 import sys
-from fastmcp import FastMCP, Context
 from typing import Any, Dict, List, Optional
+
+from fastmcp import Context, FastMCP
 
 # Add project root to path for imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from mavat.scrapers.mavat_api_client import MavatAPIClient, MavatSearchHit, MavatPlan, MavatAttachment, MavatLookupItem
+from mavat.scrapers.mavat_api_client import MavatAPIClient, MavatPlan, MavatSearchHit
 
 # Create an MCP server
 mcp = FastMCP("MavatPlanning", dependencies=["requests"])

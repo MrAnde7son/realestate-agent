@@ -7,10 +7,11 @@ Exposes RamiClient functions for searching plans and downloading planning docume
 from the Israeli land.gov.il TabaSearch API.
 """
 
-from fastmcp import FastMCP, Context
-from typing import Optional, List, Dict, Any, Union
 import os
 import sys
+from typing import Any, Dict, List, Optional
+
+from fastmcp import Context, FastMCP
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:

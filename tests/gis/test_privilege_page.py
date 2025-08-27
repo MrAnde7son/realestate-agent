@@ -3,10 +3,8 @@
 Test script for get_building_privilege_page function
 """
 
-import sys
-import os
-import pytest
 from gis.gis_client import TelAvivGS
+
 
 def test_privilege_page():
     """Test the get_building_privilege_page function"""

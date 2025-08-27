@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Test PDF downloading functionality for RamiClient."""
 
-import tests.test_utils  # This sets up the Python path
 import json
 from pathlib import Path
+
+import tests.test_utils  # This sets up the Python path
 from rami.rami_client import RamiClient
 
 

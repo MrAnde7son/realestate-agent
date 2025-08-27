@@ -1,6 +1,8 @@
 import os
 import tempfile
+
 import pytest
+
 from gis.parse_zchuyot import parse_html_privilege_page, parse_zchuyot
 
 

@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from dataclasses import dataclass, asdict
+
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
+
 
 @dataclass
 class Deal:

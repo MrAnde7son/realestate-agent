@@ -1,5 +1,6 @@
 import pytest
 
+
 def test_tabu_view_basic():
     """Test basic tabu view functionality."""
     try:

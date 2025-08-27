@@ -1,17 +1,17 @@
 """Data pipeline for collecting and processing real estate data from multiple sources."""
 
 import logging
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from mavat.collector.mavat_collector import MavatCollector
 
 from .collectors import (
     BaseCollector,
-    Yad2Collector,
-    GISCollector, 
+    GISCollector,
     GovCollector,
-    RamiCollector
+    RamiCollector,
+    Yad2Collector,
 )
-from mavat.collector.mavat_collector import MavatCollector
 
 logger = logging.getLogger(__name__)
 

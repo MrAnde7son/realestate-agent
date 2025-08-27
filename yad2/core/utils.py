@@ -7,7 +7,7 @@ Shared utility functions for URL handling, data processing, and common operation
 """
 
 import re
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 
 class URLUtils:

@@ -12,10 +12,11 @@ API Endpoints:
 """
 
 import json
-import requests
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote
+
+import requests
 
 
 @dataclass

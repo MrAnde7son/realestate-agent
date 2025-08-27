@@ -14,16 +14,17 @@ Usage:
   python parse_zchuyot.py file.pdf --json out.json --plans-csv plans.csv
 """
 
+import argparse
+import csv
+import json
 import os
 import re
-import json
-import argparse
-from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
-from dateutil import parser as dateparser
+from typing import Any, Dict, List, Optional
+
 import pdfplumber
 from bs4 import BeautifulSoup
-import csv
+from dateutil import parser as dateparser
 
 # Optional OCR
 try:

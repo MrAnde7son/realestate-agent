@@ -6,9 +6,9 @@ Property Types Utility Module
 Clean, focused property type functionality extracted from the main scraper.
 """
 
-from datetime import datetime
-import json
 import csv
+import json
+from datetime import datetime
 
 
 class PropertyTypeUtils:

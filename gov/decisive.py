@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import re
-from typing import List, Dict
+from typing import Dict, List
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 
-from .constants import USER_AGENT, DEFAULT_TIMEOUT
+from .constants import DEFAULT_TIMEOUT, USER_AGENT
 
 BASE_URL = "https://www.gov.il"
 DECISIVE_ENDPOINT = (

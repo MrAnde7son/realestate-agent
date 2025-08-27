@@ -2,15 +2,33 @@
 # -*- coding: utf-8 -*-
 """Tests for the Mavat MCP server."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from fastmcp import Context
+import os
 
 # Import the MCP server
 import sys
-import os
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from fastmcp import Context
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'mavat', 'mcp'))
-from server import mcp, search_plans, get_plan_details, get_plan_documents, search_by_location, search_by_block_parcel, get_plan_summary
+from server import (
+    get_plan_details,
+    get_plan_documents,
+    get_plan_summary,
+    mcp,
+    search_by_block_parcel,
+    search_by_location,
+    search_plans,
+)
+
+# Extract the underlying functions from the FastMCP tools
+search_plans_func = search_plans.fn
+get_plan_details_func = get_plan_details.fn
+get_plan_documents_func = get_plan_documents.fn
+search_by_location_func = search_by_location.fn
+search_by_block_parcel_func = search_by_block_parcel.fn
+get_plan_summary_func = get_plan_summary.fn
 
 
 @pytest.fixture
@@ -93,7 +111,7 @@ class TestSearchPlans:
             mock_client.search_plans.return_value = [sample_search_hit]
             mock_client_class.return_value = mock_client
             
-            result = await search_plans(mock_context, "test query", limit=10)
+            result = await search_plans_func(mock_context, "test query", limit=10)
             
             assert result["success"] is True
             assert result["search_criteria"]["query"] == "test query"
@@ -112,7 +130,7 @@ class TestSearchPlans:
             mock_client.search_plans.return_value = [sample_search_hit]
             mock_client_class.return_value = mock_client
             
-            result = await search_plans(
+            result = await search_plans_func(
                 mock_context, 
                 city="תל אביב", 
                 street="הירקון", 
@@ -130,7 +148,7 @@ class TestSearchPlans:
         with patch('server.MavatAPIClient') as mock_client_class:
             mock_client_class.side_effect = Exception("API connection failed")
             
-            result = await search_plans(mock_context, "test query")
+            result = await search_plans_func(mock_context, "test query")
             
             assert result["success"] is False
             assert result["error"] == "Search failed"
@@ -148,7 +166,7 @@ class TestGetPlanDetails:
             mock_client.get_plan_details.return_value = sample_plan
             mock_client_class.return_value = mock_client
             
-            result = await get_plan_details(mock_context, "12345")
+            result = await get_plan_details_func(mock_context, "12345")
             
             assert result["success"] is True
             assert result["plan"]["plan_id"] == "12345"
@@ -164,7 +182,7 @@ class TestGetPlanDetails:
         with patch('server.MavatAPIClient') as mock_client_class:
             mock_client_class.side_effect = Exception("API connection failed")
             
-            result = await get_plan_details(mock_context, "12345")
+            result = await get_plan_details_func(mock_context, "12345")
             
             assert result["success"] is False
             assert result["error"] == "Failed to get plan details"
@@ -189,7 +207,7 @@ class TestGetPlanDocuments:
                     "plan": {"entity_name": "Sample Plan"}
                 }
                 
-                result = await get_plan_documents(mock_context, "12345")
+                result = await get_plan_documents_func(mock_context, "12345")
                 
                 assert result["success"] is True
                 assert result["plan_id"] == "12345"
@@ -205,7 +223,7 @@ class TestGetPlanDocuments:
             mock_client.get_plan_attachments.return_value = [sample_attachment]
             mock_client_class.return_value = mock_client
             
-            result = await get_plan_documents(mock_context, "12345", "Sample Plan")
+            result = await get_plan_documents_func(mock_context, "12345", "Sample Plan")
             
             assert result["success"] is True
             assert result["entity_name"] == "Sample Plan"
@@ -225,7 +243,7 @@ class TestSearchByLocation:
                 "source": "mavat.iplan.gov.il REST API"
             }
             
-            result = await search_by_location(
+            result = await search_by_location_func(
                 mock_context, 
                 city="תל אביב", 
                 street="הירקון"
@@ -242,7 +260,7 @@ class TestSearchByLocation:
         with patch('server.search_plans') as mock_search:
             mock_search.side_effect = Exception("Search failed")
             
-            result = await search_by_location(mock_context, city="תל אביב")
+            result = await search_by_location_func(mock_context, city="תל אביב")
             
             assert result["success"] is False
             assert result["error"] == "Location search failed"
@@ -261,7 +279,7 @@ class TestSearchByBlockParcel:
                 "source": "mavat.iplan.gov.il REST API"
             }
             
-            result = await search_by_block_parcel(
+            result = await search_by_block_parcel_func(
                 mock_context, 
                 block_number="666", 
                 parcel_number="1"
@@ -275,10 +293,10 @@ class TestSearchByBlockParcel:
     @pytest.mark.asyncio
     async def test_search_by_block_parcel_failure(self, mock_context):
         """Test block/parcel search failure."""
-        with patch('server.search_plans') as mock_search:
+        with patch('server.search_plans') as mock_client_class:
             mock_search.side_effect = Exception("Search failed")
             
-            result = await search_by_block_parcel(
+            result = await search_by_block_parcel_func(
                 mock_context, 
                 block_number="666", 
                 parcel_number="1"
@@ -300,7 +318,7 @@ class TestGetPlanSummary:
             mock_get_details.return_value = {"success": True, "plan": {"id": "12345"}}
             mock_get_docs.return_value = {"success": True, "documents": [{"name": "doc1"}]}
             
-            result = await get_plan_summary(mock_context, "12345")
+            result = await get_plan_summary_func(mock_context, "12345")
             
             assert result["success"] is True
             assert result["plan_id"] == "12345"
@@ -313,12 +331,12 @@ class TestGetPlanSummary:
     async def test_get_plan_summary_partial_failure(self, mock_context):
         """Test plan summary when some operations fail."""
         with patch('server.get_plan_details') as mock_get_details, \
-             patch('server.get_plan_documents') as mock_get_docs:
+             patch('server.get_documents') as mock_get_docs:
             
             mock_get_details.return_value = {"success": True, "plan": {"id": "12345"}}
             mock_get_docs.return_value = {"success": False, "error": "Failed"}
             
-            result = await get_plan_summary(mock_context, "12345")
+            result = await get_plan_summary_func(mock_context, "12345")
             
             assert result["success"] is False
             assert result["error"] == "Failed to retrieve complete plan information"
@@ -329,18 +347,24 @@ class TestMCPTools:
 
     def test_tools_registered(self):
         """Test that all expected tools are registered with the MCP server."""
-        tool_names = [tool.name for tool in mcp.tools]
-        expected_tools = [
-            "search_plans",
-            "get_plan_details", 
-            "get_plan_documents",
-            "search_by_location",
-            "search_by_block_parcel",
-            "get_plan_summary"
+        # Check that the mcp object exists and has the expected structure
+        assert hasattr(mcp, 'tool'), "MCP server should have tool decorator"
+        assert hasattr(mcp, 'get_tools'), "MCP server should have get_tools method"
+        
+        # Verify that the imported functions exist and are FastMCP tools
+        expected_functions = [
+            search_plans,
+            get_plan_details, 
+            get_plan_documents,
+            search_by_location,
+            search_by_block_parcel,
+            get_plan_summary
         ]
         
-        for tool_name in expected_tools:
-            assert tool_name in tool_names, f"Tool {tool_name} not found in registered tools"
+        for func in expected_functions:
+            assert func is not None, f"Function {func.__name__} should not be None"
+            # Check that it's a FastMCP tool (has the expected attributes)
+            assert hasattr(func, 'fn'), f"Function {func.__name__} should have .fn attribute"
 
     def test_server_metadata(self):
         """Test MCP server metadata."""

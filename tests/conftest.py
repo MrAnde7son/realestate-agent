@@ -19,7 +19,7 @@ sys.path.clear()
 # Add backend-django to path for Django tests (using symbolic link) - MUST BE FIRST
 # to avoid conflicts with other 'core' modules
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-backend_path = os.path.abspath(os.path.join(project_root, 'backend_django'))
+backend_path = os.path.abspath(os.path.join(project_root, 'backend-django'))
 sys.path.append(backend_path)
 
 # Add back the original system paths FIRST to ensure system packages are found

@@ -71,7 +71,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-6">
+    <header className="fixed top-0 inset-x-0 z-50 flex h-16 items-center justify-between border-b bg-background px-6">
       {/* Left side - Menu button and search */}
       <div className="flex items-center gap-4">
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>

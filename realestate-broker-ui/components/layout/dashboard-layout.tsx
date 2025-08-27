@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background touch-pan-y -webkit-overflow-scrolling-touch">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background pt-16 touch-pan-y -webkit-overflow-scrolling-touch">
           <div className="min-h-full">
             {children}
           </div>

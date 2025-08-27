@@ -50,36 +50,55 @@ class DataPipeline:
         """Run the data pipeline for a given address."""
         logger.info(f"Starting data pipeline for {address} {house_number}")
         
-        # Get block and parcel from address
-        block, parcel = self._parse_address(address, house_number)
+        # Get coordinates from address
+        try:
+            x, y = self.gis.geocode(address, house_number)
+        except Exception as e:
+            logger.warning(f"Failed to geocode address: {e}")
+            x, y = 0.0, 0.0
+        
+        # Get block and parcel from GIS data
+        gis_data = self.gis.collect(x, y)
+        block, parcel = self.gis.extract_block_parcel(gis_data)
         
         # Collect data from all sources
         results = []
         
         # Collect from Yad2
-        yad2_data = self.yad2.collect(address=address, max_pages=max_pages)
-        if yad2_data:
-            results.extend(yad2_data)
+        try:
+            yad2_data = self.yad2.collect(address=address, max_pages=max_pages)
+            if yad2_data:
+                results.extend(yad2_data)
+        except Exception as e:
+            logger.warning(f"Failed to collect Yad2 data: {e}")
         
-        # Collect from GIS
-        gis_data = self.gis.collect(address=address, house_number=house_number)
+        # Collect from GIS (already collected above)
         if gis_data:
-            results.extend(gis_data)
+            results.append({"source": "gis", "data": gis_data})
         
         # Collect from Government sources
-        gov_data = self.gov.collect(address=address, house_number=house_number)
-        if gov_data:
-            results.extend(gov_data)
+        try:
+            gov_data = self.gov.collect(block=block, parcel=parcel, address=address)
+            if gov_data:
+                results.append({"source": "gov", "data": gov_data})
+        except Exception as e:
+            logger.warning(f"Failed to collect government data: {e}")
         
         # Collect from Rami
-        rami_data = self.rami.collect(address=address, house_number=house_number)
-        if rami_data:
-            results.extend(rami_data)
+        try:
+            rami_data = self.rami.collect(block=block, parcel=parcel)
+            if rami_data:
+                results.append({"source": "rami", "data": rami_data})
+        except Exception as e:
+            logger.warning(f"Failed to collect RAMI data: {e}")
         
         # Collect from Mavat
-        mavat_plans = self.mavat.collect(block, parcel)
-        if mavat_plans:
-            results.extend(mavat_plans)
+        try:
+            mavat_plans = self.mavat.collect(block, parcel)
+            if mavat_plans:
+                results.append({"source": "mavat", "data": mavat_plans})
+        except Exception as e:
+            logger.warning(f"Failed to collect Mavat data: {e}")
         
         logger.info(f"Data pipeline completed. Found {len(results)} results.")
         return results

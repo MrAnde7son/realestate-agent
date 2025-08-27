@@ -4,8 +4,8 @@ import pandas as pd
 
 from db.database import SQLAlchemyDatabase
 from db.models import Listing, SourceRecord, Transaction
-from orchestration.data_pipeline import (
-    DataPipeline,
+from orchestration.data_pipeline import DataPipeline
+from orchestration.collectors import (
     Yad2Collector,
     GISCollector,
     GovCollector,

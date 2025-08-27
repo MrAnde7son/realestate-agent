@@ -56,7 +56,7 @@ def mock_requests_session():
     """Create a mock requests session for testing."""
     from unittest.mock import Mock
     session = Mock()
-    session.headers = {}
+    session.headers = Mock()
     session.headers.update = Mock()
     return session
 

@@ -629,8 +629,8 @@ async def search_lookup(
     --------
     Dict[str, Any]
         A dictionary containing matching lookup items.
-        """
-        try:
+    """
+    try:
         table_type_desc = table_type if table_type else "all tables"
         await ctx.info(f"Searching lookup tables for '{search_text}' in {table_type_desc}")
         
@@ -682,8 +682,8 @@ async def get_plan_summary(
     --------
     Dict[str, Any]
         A dictionary containing comprehensive plan information.
-        """
-        try:
+    """
+    try:
         await ctx.info(f"Generating comprehensive summary for plan: {plan_id}")
         
         # Get plan details and documents

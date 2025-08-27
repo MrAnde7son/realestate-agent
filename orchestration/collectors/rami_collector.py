@@ -2,22 +2,37 @@
 
 from typing import List, Optional, Dict, Any
 from .base_collector import BaseCollector
+from rami.rami_client import RamiClient
 
 
 class RamiCollector(BaseCollector):
-    """Collects data from Rami system."""
-    
-    def __init__(self, api_key: Optional[str] = None):
-        """Initialize the Rami collector."""
-        self.api_key = api_key
-    
-    def collect(self, **kwargs) -> List[Dict[str, Any]]:
-        """Collect Rami data based on the provided parameters."""
-        # Implementation would go here
-        # For now, return empty list as placeholder
-        return []
-    
+    """Collector for RAMI plans data."""
+
+    def __init__(self, client: Optional[RamiClient] = None) -> None:
+        self.client = client or RamiClient()
+
+    def collect(self, block: str, parcel: str) -> List[Dict[str, Any]]:
+        """Collect RAMI plans for a given block/parcel."""
+        try:
+            # Search for plans by block and parcel
+            plans = self.client.search_plans(block=block, parcel=parcel)
+            
+            # Convert to consistent format
+            formatted_plans = []
+            for plan in plans:
+                formatted_plans.append({
+                    "planNumber": plan.get("planNumber", ""),
+                    "planId": plan.get("planId", ""),
+                    "title": plan.get("title", ""),
+                    "status": plan.get("status", ""),
+                    "raw": plan
+                })
+            
+            return formatted_plans
+        except Exception:
+            return []
+
     def validate_parameters(self, **kwargs) -> bool:
-        """Validate the parameters for Rami data collection."""
-        # Basic validation logic
-        return True
+        """Validate the parameters for RAMI data collection."""
+        required_params = ['block', 'parcel']
+        return all(param in kwargs for param in required_params)

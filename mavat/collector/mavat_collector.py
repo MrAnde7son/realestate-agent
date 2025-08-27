@@ -1,16 +1,9 @@
-"""Collector for Mavat plans.
-
-This module defines a thin wrapper around :class:`mavat.scrapers.mavat_api_client.MavatAPIClient`
-that exposes a simple interface for use in orchestration or batch
-jobs.  It follows the same pattern as the collectors found in the
-``realestate‑agent/orchestration`` package for Yad2, Tel‑Aviv GIS,
-gov.il datasets and RAMI plans.
-"""
+"""Mavat data collector implementation."""
 
 from __future__ import annotations
 
 from typing import List, Optional, Dict, Any
-from orchestration.base_collector import BaseCollector
+from orchestration.collectors.base_collector import BaseCollector
 
 from ..scrapers.mavat_api_client import MavatAPIClient, MavatSearchHit, MavatPlan
 

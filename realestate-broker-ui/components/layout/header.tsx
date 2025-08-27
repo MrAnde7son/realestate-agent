@@ -155,7 +155,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           </SheetContent>
         </Sheet>
 
-        <Link href="/" className="md:hidden" aria-label="עמוד הבית">
+        <Link href="/" aria-label="עמוד הבית">
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
         </Link>
         <GlobalSearch />

@@ -38,3 +38,5 @@ redis>=4.0.0
 # Development & Testing
 pytest>=6.2.0
 pytest-asyncio>=0.15.0
+
+fastmcp==2.11.2

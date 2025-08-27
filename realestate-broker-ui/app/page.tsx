@@ -53,6 +53,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 import { chartPalette as C } from "@/lib/chart-palette";
 import { KpiCard } from "@/components/KpiCard";
@@ -158,19 +159,19 @@ export default function HomePage() {
 
         {/* Login Prompt for Guests */}
         {!isAuthenticated && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="bg-blue-50 border border-blue-200 dark:bg-blue-950 dark:border-blue-800 rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium text-blue-900">
+                <h3 className="font-medium text-blue-900 dark:text-blue-100">
                   התחבר כדי לגשת לכל התכונות
                 </h3>
-                <p className="text-sm text-blue-700 mt-1">
+                <p className="text-sm text-blue-700 dark:text-blue-200 mt-1">
                   צור חשבון או התחבר כדי ליצור דוחות, לנתח משכנתאות ולנהל התראות
                 </p>
               </div>
               <Button
                 onClick={() => router.push("/auth")}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
                 התחבר עכשיו
               </Button>
@@ -199,7 +200,7 @@ export default function HomePage() {
           >
             התראות פעילות במערכת
             {!isAuthenticated && (
-              <div className="text-blue-600 mt-1">
+              <div className="text-blue-600 dark:text-blue-400 mt-1">
                 התחבר לניהול התראות
               </div>
             )}
@@ -214,7 +215,7 @@ export default function HomePage() {
           >
             סה״כ דוחות במערכת
             {!isAuthenticated && (
-              <div className="text-blue-600 mt-1">
+              <div className="text-blue-600 dark:text-blue-400 mt-1">
                 התחבר לצפייה בדוחות
               </div>
             )}
@@ -279,6 +280,7 @@ export default function HomePage() {
                     data={dashboardData.propertyTypes}
                     cx="50%"
                     cy="50%"
+                    nameKey="type"
                     labelLine={false}
                     label={({ type, percentage }) => `${type} ${percentage}%`}
                     outerRadius={80}
@@ -292,7 +294,8 @@ export default function HomePage() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => [value, "כמות"]} />
+                  <Tooltip />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -344,9 +347,10 @@ export default function HomePage() {
           <CardContent>
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
               {dashboardData.topAreas.map((area, index) => (
-                <div
+                <Link
                   key={index}
-                  className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+                  href={`/assets?city=${encodeURIComponent(area.area)}`}
+                  className="p-4 border rounded-lg hover:shadow-md transition-shadow block"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium">{area.area}</h4>
@@ -369,7 +373,7 @@ export default function HomePage() {
                   <div className="text-sm text-muted-foreground">
                     {fmtCurrency(area.avgPrice)} ממוצע
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>

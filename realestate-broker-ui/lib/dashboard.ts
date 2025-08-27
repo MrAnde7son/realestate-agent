@@ -68,7 +68,7 @@ export function useDashboardData() {
 
           assets.forEach((asset: any) => {
             // Count property types
-            const type = asset.property_type || 'לא ידוע'
+            const type = asset.property_type || asset.type || 'לא ידוע'
             typeCounts[type] = (typeCounts[type] || 0) + 1
 
             // Calculate individual property return

@@ -3,11 +3,15 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AssetsPage from './page'
 import { useAuth } from '@/lib/auth-context'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 
 // Mock dependencies
 vi.mock('@/lib/auth-context')
-vi.mock('next/navigation')
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(),
+  useSearchParams: vi.fn(),
+  usePathname: vi.fn(),
+}))
 vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
 }))
@@ -32,6 +36,11 @@ const mockUseRouter = {
   prefetch: vi.fn()
 }
 
+const mockUseSearchParams = {
+  get: vi.fn(),
+  toString: vi.fn(),
+}
+
 const mockUseAuth = {
   isAuthenticated: true,
   user: { id: '1', name: 'Test User' },
@@ -44,6 +53,10 @@ describe('AssetsPage', () => {
     vi.clearAllMocks()
     mockUseAuth.isAuthenticated = true
     ;(useRouter as any).mockReturnValue(mockUseRouter)
+    ;(useSearchParams as any).mockReturnValue(mockUseSearchParams)
+    ;(usePathname as any).mockReturnValue('/assets')
+    mockUseSearchParams.get.mockReturnValue(null)
+    mockUseSearchParams.toString.mockReturnValue('')
     ;(useAuth as any).mockReturnValue(mockUseAuth)
 
     // Default successful fetch mock
@@ -251,6 +264,135 @@ describe('AssetsPage', () => {
     // Test city filter - the city filter is handled in the component state
     // and the actual filtering happens in the AssetsTable component
     expect(screen.getByTestId('assets-table')).toBeInTheDocument()
+  })
+
+  it('applies city filter from query params', async () => {
+    mockUseSearchParams.get.mockImplementation((key: string) =>
+      key === 'city' ? 'חיפה' : null
+    )
+    mockUseSearchParams.toString.mockReturnValue('city=חיפה')
+    ;(global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        rows: [
+          {
+            id: 'asset1',
+            address: 'Haifa Street 1',
+            price: 3000000,
+            city: 'חיפה',
+            type: 'דירה',
+            asset_status: 'active'
+          },
+          {
+            id: 'asset2',
+            address: 'Tel Aviv Street 2',
+            price: 4200000,
+            city: 'תל אביב',
+            type: 'בית',
+            asset_status: 'pending'
+          }
+        ]
+      })
+    })
+
+    await act(async () => {
+      render(<AssetsPage />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('1 assets')).toBeInTheDocument()
+    })
+  })
+
+  it('applies type filter from query params', async () => {
+    mockUseSearchParams.get.mockImplementation((key: string) =>
+      key === 'type' ? 'דירה' : null
+    )
+    mockUseSearchParams.toString.mockReturnValue('type=דירה')
+
+    await act(async () => {
+      render(<AssetsPage />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('1 assets')).toBeInTheDocument()
+    })
+  })
+
+  it('applies search filter from query params', async () => {
+    mockUseSearchParams.get.mockImplementation((key: string) =>
+      key === 'search' ? 'Another' : null
+    )
+    mockUseSearchParams.toString.mockReturnValue('search=Another')
+
+    await act(async () => {
+      render(<AssetsPage />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('1 assets')).toBeInTheDocument()
+    })
+  })
+
+  it('updates URL when city filter changes', async () => {
+    await act(async () => {
+      render(<AssetsPage />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('assets-table')).toBeInTheDocument()
+    })
+
+    mockUseRouter.replace.mockClear()
+
+    // Open city select and choose Tel Aviv
+    fireEvent.click(screen.getByText('כל הערים'))
+    fireEvent.click(screen.getByText('תל אביב'))
+
+    await waitFor(() => {
+      const encoded = new URLSearchParams({ city: 'תל אביב' }).toString()
+      expect(mockUseRouter.replace).toHaveBeenCalledWith(`/assets?${encoded}`, { scroll: false })
+    })
+  })
+
+  it('updates URL when type filter changes', async () => {
+    await act(async () => {
+      render(<AssetsPage />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('assets-table')).toBeInTheDocument()
+    })
+
+    mockUseRouter.replace.mockClear()
+
+    fireEvent.click(screen.getByText('כל הסוגים'))
+    fireEvent.click(screen.getByText('דירה'))
+
+    await waitFor(() => {
+      const encoded = new URLSearchParams({ type: 'דירה' }).toString()
+      expect(mockUseRouter.replace).toHaveBeenCalledWith(`/assets?${encoded}`, { scroll: false })
+    })
+  })
+
+  it('updates URL when search filter changes', async () => {
+    await act(async () => {
+      render(<AssetsPage />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('assets-table')).toBeInTheDocument()
+    })
+
+    mockUseRouter.replace.mockClear()
+
+    const searchInput = screen.getByPlaceholderText('חיפוש בכתובת או עיר...')
+    fireEvent.change(searchInput, { target: { value: 'Street' } })
+
+    await waitFor(() => {
+      const encoded = new URLSearchParams({ search: 'Street' }).toString()
+      expect(mockUseRouter.replace).toHaveBeenCalledWith(`/assets?${encoded}`, { scroll: false })
+    })
   })
 
   it('filters assets by price range', async () => {

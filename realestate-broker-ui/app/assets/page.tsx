@@ -372,7 +372,7 @@ export default function AssetsPage() {
                     className="space-y-4 mt-6"
                   >
                     <div className="space-y-2">
-                      <Label htmlFor="locationType">סוג מיקום</Label>
+                      <Label htmlFor="locationType">סוג חיפוש</Label>
                       <Select
                         onValueChange={(value) =>
                           form.setValue("locationType", value as any)

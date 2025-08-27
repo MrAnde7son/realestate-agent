@@ -59,6 +59,60 @@ export default function AssetsPage() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
+
+  const fetchCitySuggestions = async (query: string) => {
+    if (!query) {
+      setCitySuggestions([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?country=Israel&format=json&limit=5&city=${encodeURIComponent(
+          query
+        )}`,
+        { headers: { "User-Agent": "realestate-agent" } }
+      );
+      const data = await res.json();
+      setCitySuggestions(
+        Array.from(
+          new Set(
+            data.map((item: any) => item.display_name.split(",")[0])
+          )
+        )
+      );
+    } catch (e) {
+      console.error("Failed to fetch city suggestions", e);
+    }
+  };
+
+  const fetchStreetSuggestions = async (query: string, cityName: string) => {
+    if (!query || !cityName) {
+      setStreetSuggestions([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?country=Israel&format=json&limit=5&city=${encodeURIComponent(
+          cityName
+        )}&street=${encodeURIComponent(query)}`,
+        { headers: { "User-Agent": "realestate-agent" } }
+      );
+      const data = await res.json();
+      const roads = Array.from(
+        new Set(
+          data
+            .map((item: any) => item.address?.road)
+            .filter(Boolean)
+        )
+      );
+      setStreetSuggestions(roads as string[]);
+    } catch (e) {
+      console.error("Failed to fetch street suggestions", e);
+    }
+  };
+
   const handleProtectedAction = () => {
     if (!isAuthenticated) {
       router.push("/auth?redirect=" + encodeURIComponent("/assets"));
@@ -129,60 +183,91 @@ export default function AssetsPage() {
     }
   };
 
-  const newAssetSchema = z.object({
-    scopeType: z.enum(["address", "neighborhood", "street", "city", "parcel"]),
-    // Common fields
-    address: z.string().min(1, "כתובת נדרשת"),
-    city: z.string().min(1, "עיר נדרשת"),
-    // Street-specific fields
-    street: z.string().optional(),
-    number: z.number().optional(),
-    // Parcel-specific fields
-    gush: z.string().optional(),
-    helka: z.string().optional(),
-    // Radius for neighborhood/city searches
-    radius: z.number().min(100).max(5000).optional(),
-  });
+  const newAssetSchema = z
+    .object({
+      locationType: z.enum(["address", "parcel"]),
+      city: z.string().optional(),
+      street: z.string().optional(),
+      houseNumber: z.string().optional(),
+      apartment: z.string().optional(),
+      gush: z.string().optional(),
+      helka: z.string().optional(),
+      subHelka: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.locationType === "address") {
+        if (!data.city) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["city"],
+            message: "עיר נדרשת",
+          });
+        }
+        if (!data.street) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["street"],
+            message: "רחוב נדרש",
+          });
+        }
+      } else {
+        if (!data.gush) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["gush"],
+            message: "גוש נדרש",
+          });
+        }
+        if (!data.helka) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["helka"],
+            message: "חלקה נדרשת",
+          });
+        }
+      }
+    });
 
   type NewAsset = z.infer<typeof newAssetSchema>;
 
   const form = useForm<NewAsset>({
     resolver: zodResolver(newAssetSchema),
     defaultValues: {
-      scopeType: "address",
-      address: "",
+      locationType: "address",
       city: "",
       street: "",
-      number: undefined,
+      houseNumber: "",
+      apartment: "",
       gush: "",
       helka: "",
-      radius: 500,
+      subHelka: "",
     },
   });
 
   const onSubmit = async (data: NewAsset) => {
     try {
-      const body = {
-        scope: {
-          type: data.scopeType,
-          value:
-            data.scopeType === "address"
-              ? data.address
-              : data.scopeType === "street"
-              ? `${data.street} ${data.number}`
-              : data.scopeType === "parcel"
-              ? `${data.gush}/${data.helka}`
-              : data.address,
-          city: data.city,
-        },
-        address: data.address,
-        city: data.city,
-        street: data.street,
-        number: data.number,
-        gush: data.gush,
-        helka: data.helka,
-        radius: data.radius,
-      };
+      const body =
+        data.locationType === "address"
+          ? {
+              scope: {
+                type: "address",
+                value: `${data.street} ${data.houseNumber ?? ""}`.trim(),
+                city: data.city,
+              },
+              city: data.city,
+              street: data.street,
+              number: data.houseNumber ? Number(data.houseNumber) : undefined,
+              apartment: data.apartment,
+            }
+          : {
+              scope: {
+                type: "parcel",
+                value: `${data.gush}/${data.helka}`,
+              },
+              gush: data.gush,
+              helka: data.helka,
+              subHelka: data.subHelka,
+            };
 
       const response = await fetch("/api/assets", {
         method: "POST",
@@ -287,68 +372,86 @@ export default function AssetsPage() {
                     className="space-y-4 mt-6"
                   >
                     <div className="space-y-2">
-                      <Label htmlFor="scopeType">סוג חיפוש</Label>
+                      <Label htmlFor="locationType">סוג מיקום</Label>
                       <Select
                         onValueChange={(value) =>
-                          form.setValue("scopeType", value as any)
+                          form.setValue("locationType", value as any)
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="בחר סוג חיפוש" />
+                          <SelectValue placeholder="בחר סוג" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="address">כתובת מדויקת</SelectItem>
-                          <SelectItem value="neighborhood">שכונה</SelectItem>
-                          <SelectItem value="street">רחוב</SelectItem>
-                          <SelectItem value="city">עיר</SelectItem>
+                          <SelectItem value="address">כתובת</SelectItem>
                           <SelectItem value="parcel">גוש/חלקה</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="address">כתובת</Label>
-                      <Input
-                        id="address"
-                        placeholder="הזן כתובת"
-                        {...form.register("address")}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="city">עיר</Label>
-                      <Input
-                        id="city"
-                        placeholder="הזן עיר"
-                        {...form.register("city")}
-                      />
-                    </div>
-
-                    {form.watch("scopeType") === "street" && (
+                    {form.watch("locationType") === "address" && (
                       <>
+                        <div className="space-y-2">
+                          <Label htmlFor="city">עיר</Label>
+                          <Input
+                            id="city"
+                            list="city-options"
+                            placeholder="בחר עיר"
+                            value={form.watch("city")}
+                            onChange={(e) => {
+                              form.setValue("city", e.target.value);
+                              fetchCitySuggestions(e.target.value);
+                            }}
+                          />
+                          <datalist id="city-options">
+                            {citySuggestions.map((c) => (
+                              <option key={c} value={c} />
+                            ))}
+                          </datalist>
+                        </div>
+
                         <div className="space-y-2">
                           <Label htmlFor="street">רחוב</Label>
                           <Input
                             id="street"
-                            placeholder="הזן רחוב"
-                            {...form.register("street")}
+                            list="street-options"
+                            placeholder="בחר רחוב"
+                            value={form.watch("street")}
+                            onChange={(e) => {
+                              form.setValue("street", e.target.value);
+                              fetchStreetSuggestions(
+                                e.target.value,
+                                form.watch("city")
+                              );
+                            }}
+                          />
+                          <datalist id="street-options">
+                            {streetSuggestions.map((s) => (
+                              <option key={s} value={s} />
+                            ))}
+                          </datalist>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="houseNumber">מספר בית</Label>
+                          <Input
+                            id="houseNumber"
+                            placeholder="הזן מספר בית"
+                            {...form.register("houseNumber")}
                           />
                         </div>
+
                         <div className="space-y-2">
-                          <Label htmlFor="number">מספר בית</Label>
+                          <Label htmlFor="apartment">מספר דירה</Label>
                           <Input
-                            id="number"
-                            type="number"
-                            placeholder="הזן מספר בית"
-                            {...form.register("number", {
-                              valueAsNumber: true,
-                            })}
+                            id="apartment"
+                            placeholder="הזן מספר דירה"
+                            {...form.register("apartment")}
                           />
                         </div>
                       </>
                     )}
 
-                    {form.watch("scopeType") === "parcel" && (
+                    {form.watch("locationType") === "parcel" && (
                       <>
                         <div className="space-y-2">
                           <Label htmlFor="gush">גוש</Label>
@@ -366,20 +469,15 @@ export default function AssetsPage() {
                             {...form.register("helka")}
                           />
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subHelka">תת חלקה</Label>
+                          <Input
+                            id="subHelka"
+                            placeholder="הזן מספר תת חלקה"
+                            {...form.register("subHelka")}
+                          />
+                        </div>
                       </>
-                    )}
-
-                    {(form.watch("scopeType") === "neighborhood" ||
-                      form.watch("scopeType") === "city") && (
-                      <div className="space-y-2">
-                        <Label htmlFor="radius">רדיוס חיפוש (מטרים)</Label>
-                        <Input
-                          id="radius"
-                          type="number"
-                          placeholder="500"
-                          {...form.register("radius", { valueAsNumber: true })}
-                        />
-                      </div>
                     )}
 
                     <Button type="submit" className="w-full">

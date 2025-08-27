@@ -60,28 +60,33 @@ describe('AssetsPage', () => {
     ;(useAuth as any).mockReturnValue(mockUseAuth)
 
     // Default successful fetch mock
-    ;(global.fetch as any).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        rows: [
-          {
-            id: 'asset1',
-            address: 'Test Street 123',
-            price: 3000000,
-            city: 'תל אביב',
-            type: 'דירה',
-            asset_status: 'active'
-          },
-          {
-            id: 'asset2',
-            address: 'Another Street 456',
-            price: 4200000,
-            city: 'תל אביב',
-            type: 'בית',
-            asset_status: 'pending'
-          }
-        ]
-      })
+    ;(global.fetch as any).mockImplementation((url: string, opts?: any) => {
+      if (url === '/api/assets') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            rows: [
+              {
+                id: 'asset1',
+                address: 'Test Street 123',
+                price: 3000000,
+                city: 'תל אביב',
+                type: 'דירה',
+                asset_status: 'active'
+              },
+              {
+                id: 'asset2',
+                address: 'Another Street 456',
+                price: 4200000,
+                city: 'תל אביב',
+                type: 'בית',
+                asset_status: 'pending'
+              }
+            ]
+          })
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => [] })
     })
   })
 
@@ -175,66 +180,46 @@ describe('AssetsPage', () => {
   })
 
   it('submits new asset form successfully', async () => {
-    // Mock successful asset creation
-    ;(global.fetch as any)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ rows: [] })
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          asset: {
-            id: 'new-asset',
-            address: 'New Street 789',
-            city: 'תל אביב'
-          }
+    ;(global.fetch as any).mockImplementation((url: string, opts?: any) => {
+      if (url === '/api/assets' && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            asset: { id: 'new-asset', address: 'New Street 1', city: 'תל אביב' }
+          })
         })
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          rows: [
-            {
-              id: 'new-asset',
-              address: 'New Street 789',
-              city: 'תל אביב',
-              price: 0,
-              type: 'דירה',
-              asset_status: 'pending'
-            }
-          ]
-        })
-      })
+      }
+      if (url === '/api/assets') {
+        return Promise.resolve({ ok: true, json: async () => ({ rows: [] }) })
+      }
+      return Promise.resolve({ ok: true, json: async () => [] })
+    })
 
     await act(async () => {
       render(<AssetsPage />)
     })
 
-    // Open form
     const addButton = screen.getByText('הוסף נכס חדש')
     fireEvent.click(addButton)
 
-    // Fill form
-    const addressInput = screen.getByLabelText('כתובת')
     const cityInput = screen.getByLabelText('עיר')
-    
+    const streetInput = screen.getByLabelText('רחוב')
+
     await act(async () => {
-      fireEvent.change(addressInput, { target: { value: 'New Street 789' } })
       fireEvent.change(cityInput, { target: { value: 'תל אביב' } })
+      fireEvent.change(streetInput, { target: { value: 'רחוב חדש' } })
     })
 
-    // Submit form
     const submitButton = screen.getByText('הוסף נכס')
     await act(async () => {
       fireEvent.click(submitButton)
     })
 
-    // Should close form and refresh assets
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/assets', expect.objectContaining({
-        method: 'POST'
-      }))
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/assets',
+        expect.objectContaining({ method: 'POST' })
+      )
     })
   })
 
@@ -429,7 +414,7 @@ describe('AssetsPage', () => {
     expect(submitButton).toBeInTheDocument()
   })
 
-  it('handles different scope types in form', async () => {
+  it('handles different location types in form', async () => {
     await act(async () => {
       render(<AssetsPage />)
     })
@@ -438,9 +423,8 @@ describe('AssetsPage', () => {
     const addButton = screen.getByText('הוסף נכס חדש')
     fireEvent.click(addButton)
 
-    // Test scope type selection - the scope type is handled in component state
-    // and the form adapts dynamically based on the selected type
-    expect(screen.getByText('סוג חיפוש')).toBeInTheDocument()
+    // Test location type selection
+    expect(screen.getByText('סוג מיקום')).toBeInTheDocument()
   })
 
   it('displays asset count correctly', async () => {

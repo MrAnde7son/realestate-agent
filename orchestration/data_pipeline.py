@@ -9,6 +9,7 @@ SQLAlchemy database.
 """
 
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from abc import ABC, abstractmethod
 
 from db.database import SQLAlchemyDatabase
 from db.models import Listing, SourceRecord, Transaction
@@ -19,19 +20,64 @@ from gis.gis_client import TelAvivGS
 from gov.decisive import fetch_decisive_appraisals
 from gov.nadlan.scraper import NadlanDealsScraper
 from rami.rami_client import RamiClient
+from mavat.collector.mavat_collector import MavatCollector
+
+
+# ---------------------------------------------------------------------------
+# Base Collector Class
+# ---------------------------------------------------------------------------
+
+class BaseCollector(ABC):
+    """Base class for all data collectors.
+    
+    This abstract base class enforces a consistent interface for all collectors
+    and provides common functionality.
+    """
+    
+    @abstractmethod
+    def collect(self, **kwargs) -> Any:
+        """Collect data from the source.
+        
+        This method must be implemented by all subclasses to provide
+        a consistent interface for data collection.
+        
+        Returns:
+            The collected data in a format appropriate for the collector type.
+        """
+        pass
+    
+    def validate_parameters(self, **kwargs) -> bool:
+        """Validate input parameters for collection.
+        
+        Default implementation returns True. Subclasses can override
+        to provide parameter validation.
+        
+        Returns:
+            True if parameters are valid, False otherwise.
+        """
+        return True
 
 
 # ---------------------------------------------------------------------------
 # Collector classes
 # ---------------------------------------------------------------------------
 
-class Yad2Collector:
+class Yad2Collector(BaseCollector):
     """Wrapper around :class:`Yad2Scraper` implementing a simple interface."""
 
     def __init__(self, client: Optional[Yad2Scraper] = None) -> None:
         self.client = client or Yad2Scraper()
 
+    def collect(self, address: str, max_pages: int = 1) -> List[RealEstateListing]:
+        """Collect Yad2 listings for a given address.
+        
+        This method implements the base collect interface and provides
+        backward compatibility with the existing fetch_listings method.
+        """
+        return self.fetch_listings(address, max_pages)
+
     def fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
+        """Fetch Yad2 listings for a given address."""
         location = self.client.fetch_location_data(address)
         if location:
             city = location.get("cities") or []
@@ -43,16 +89,14 @@ class Yad2Collector:
         return self.client.scrape_all_pages(max_pages=max_pages, delay=0)
 
 
-class GISCollector:
+class GISCollector(BaseCollector):
     """Collector for Tel-Aviv GIS data."""
 
     def __init__(self, client: Optional[TelAvivGS] = None) -> None:
         self.client = client or TelAvivGS()
 
-    def geocode(self, address: str, house_number: int) -> Tuple[float, float]:
-        return self.client.get_address_coordinates(address, house_number)
-
     def collect(self, x: float, y: float) -> Dict[str, Any]:
+        """Collect GIS data for a given coordinate pair."""
         return {
             "blocks": self.client.get_blocks(x, y),
             "parcels": self.client.get_parcels(x, y),
@@ -63,13 +107,18 @@ class GISCollector:
             "noise": self.client.get_noise_levels(x, y),
         }
 
+    def geocode(self, address: str, house_number: int) -> Tuple[float, float]:
+        """Geocode an address to coordinates."""
+        return self.client.get_address_coordinates(address, house_number)
+
     def extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
+        """Extract block and parcel numbers from GIS data."""
         block = data.get("blocks", [{}])[0].get("ms_gush", "")
         parcel = data.get("parcels", [{}])[0].get("ms_chelka", "")
         return block, parcel
 
 
-class GovCollector:
+class GovCollector(BaseCollector):
     """Collector for gov.il decisive appraisals and transaction history."""
 
     def __init__(
@@ -80,28 +129,126 @@ class GovCollector:
         self.deals_client = deals_client or NadlanDealsScraper()
         self.decisive_func = decisive_func
 
+    def collect(self, block: str, parcel: str, address: str) -> Dict[str, Any]:
+        """Collect government data for a given block/parcel and address."""
+        return {
+            "decisive": self.collect_decisive(block, parcel),
+            "transactions": list(self.collect_transactions(address))
+        }
+
     def collect_decisive(self, block: str, parcel: str) -> List[Any]:
+        """Collect decisive appraisals for a block/parcel."""
         if block and parcel:
             return self.decisive_func(block=block, plot=parcel) or []
         return []
 
     def collect_transactions(self, address: str) -> Iterable[Any]:
+        """Collect transaction history for an address."""
         try:
             return self.deals_client.get_deals_by_address(address) or []
         except Exception:
             return []
 
 
-class RamiCollector:
+class RamiCollector(BaseCollector):
     """Collector for RAMI plans."""
 
     def __init__(self, client: Optional[RamiClient] = None) -> None:
         self.client = client or RamiClient()
 
     def collect(self, block: str, parcel: str) -> List[Dict[str, Any]]:
+        """Collect RAMI plans for a given block/parcel."""
         try:
             df = self.client.fetch_plans({"gush": block, "helka": parcel})
             return df.to_dict(orient="records") if hasattr(df, "to_dict") else []
+        except Exception:
+            return []
+
+
+class MavatCollector(BaseCollector):
+    """Collector for Mavat planning data."""
+
+    def __init__(self, client=None) -> None:
+        # Import here to avoid circular imports
+        from mavat.scrapers.mavat_api_client import MavatAPIClient
+        self.client = client or MavatAPIClient()
+
+    def collect(self, block: str, parcel: str, city: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Collect Mavat plans for a given block/parcel.
+        
+        This method implements the base collect interface and provides
+        planning data from the Mavat system.
+        """
+        try:
+            # Search by block and parcel
+            plans = self.client.search_by_block_parcel(block, parcel)
+            
+            # Convert to consistent format
+            formatted_plans = []
+            for plan in plans:
+                formatted_plans.append({
+                    "plan_id": plan.plan_id,
+                    "title": plan.title,
+                    "status": plan.status,
+                    "authority": plan.authority,
+                    "entity_number": plan.entity_number,
+                    "approval_date": plan.approval_date,
+                    "status_date": plan.status_date,
+                    "raw": plan.raw
+                })
+            
+            return formatted_plans
+        except Exception:
+            return []
+
+    def search_by_location(self, city: str, district: Optional[str] = None, 
+                          street: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
+        """Search for plans by location criteria."""
+        try:
+            plans = self.client.search_by_location(city=city, district=district, 
+                                                 street=street, limit=limit)
+            
+            # Convert to consistent format
+            formatted_plans = []
+            for plan in plans:
+                formatted_plans.append({
+                    "plan_id": plan.plan_id,
+                    "title": plan.title,
+                    "status": plan.status,
+                    "authority": plan.authority,
+                    "entity_number": plan.entity_number,
+                    "approval_date": plan.approval_date,
+                    "status_date": plan.status_date,
+                    "raw": plan.raw
+                })
+            
+            return formatted_plans
+        except Exception:
+            return []
+
+    def get_lookup_data(self, data_type: str = "cities", force_refresh: bool = False) -> List[Dict[str, Any]]:
+        """Get lookup data for various planning entities."""
+        try:
+            if data_type == "cities":
+                items = self.client.get_cities(force_refresh)
+            elif data_type == "districts":
+                items = self.client.get_districts(force_refresh)
+            elif data_type == "streets":
+                items = self.client.get_streets(force_refresh)
+            elif data_type == "plan_areas":
+                items = self.client.get_plan_areas(force_refresh)
+            else:
+                return []
+            
+            # Convert to consistent format
+            return [
+                {
+                    "code": item.code,
+                    "description": item.description,
+                    "raw": item.raw
+                }
+                for item in items
+            ]
         except Exception:
             return []
 
@@ -121,12 +268,14 @@ class DataPipeline:
         gis: Optional[GISCollector] = None,
         gov: Optional[GovCollector] = None,
         rami: Optional[RamiCollector] = None,
+        mavat: Optional[MavatCollector] = None,
     ) -> None:
         self.db = db or SQLAlchemyDatabase()
         self.yad2 = yad2 or Yad2Collector()
         self.gis = gis or GISCollector()
         self.gov = gov or GovCollector()
         self.rami = rami or RamiCollector()
+        self.mavat = mavat or MavatCollector()
 
         # Ensure database is ready
         self.db.init_db()
@@ -191,7 +340,7 @@ class DataPipeline:
         x, y = self.gis.geocode(address, house_number)
 
         # Search Yad2 for listings near the location
-        listings = self.yad2.fetch_listings(address, max_pages)
+        listings = self.yad2.collect(address, max_pages)
 
         created_ids: List[int] = []
         with self.db.get_session() as session:
@@ -205,19 +354,22 @@ class DataPipeline:
 
                 block, parcel = self.gis.extract_block_parcel(gis_data)
 
-                # ---------------- Gov - decisive ----------------
-                decisives = self.gov.collect_decisive(block, parcel)
-                if decisives:
-                    self._add_source_record(session, db_listing.id, "decisive", decisives)
-
-                # ---------------- Gov - transactions ----------------
-                deals = self.gov.collect_transactions(address)
-                self._add_transactions(session, db_listing.id, deals)
+                # ---------------- Gov - decisive and transactions ----------------
+                gov_data = self.gov.collect(block, parcel, address)
+                if gov_data["decisive"]:
+                    self._add_source_record(session, db_listing.id, "decisive", gov_data["decisive"])
+                if gov_data["transactions"]:
+                    self._add_transactions(session, db_listing.id, gov_data["transactions"])
 
                 # ---------------- RAMI plans ----------------
-                plans = self.rami.collect(block, parcel)
-                if plans:
-                    self._add_source_record(session, db_listing.id, "rami", plans)
+                rami_plans = self.rami.collect(block, parcel)
+                if rami_plans:
+                    self._add_source_record(session, db_listing.id, "rami", rami_plans)
+
+                # ---------------- Mavat plans ----------------
+                mavat_plans = self.mavat.collect(block, parcel)
+                if mavat_plans:
+                    self._add_source_record(session, db_listing.id, "mavat", mavat_plans)
 
             session.commit()
 
@@ -226,8 +378,10 @@ class DataPipeline:
 
 __all__ = [
     "DataPipeline",
+    "BaseCollector",
     "Yad2Collector",
     "GISCollector",
     "GovCollector",
     "RamiCollector",
+    "MavatCollector",
 ]

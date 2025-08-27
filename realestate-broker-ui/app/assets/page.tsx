@@ -35,25 +35,50 @@ import { useAuth } from "@/lib/auth-context";
 import { Asset } from "@/lib/data";
 import AssetsTable from "@/components/AssetsTable";
 import DashboardLayout from "@/components/layout/dashboard-layout";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [city, setCity] = useState("all");
+  const searchParams = useSearchParams();
+  const [city, setCity] = useState<string>(() => searchParams.get("city") ?? "all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [priceMin, setPriceMin] = useState<number>();
   const [priceMax, setPriceMax] = useState<number>();
   const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleProtectedAction = () => {
     if (!isAuthenticated) {
       router.push("/auth?redirect=" + encodeURIComponent("/assets"));
     }
   };
+
+  useEffect(() => {
+    const cityParam = searchParams.get("city");
+    if (cityParam) {
+      setCity(cityParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (city && city !== "all") {
+      params.set("city", city);
+    } else {
+      params.delete("city");
+    }
+    const query = params.toString();
+    const newUrl = query ? `${pathname}?${query}` : pathname;
+    const currentQuery = searchParams.toString();
+    const currentUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname;
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [city, router, pathname, searchParams]);
 
   // Function to fetch assets
   const fetchAssets = async () => {

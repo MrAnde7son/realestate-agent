@@ -344,9 +344,10 @@ export default function HomePage() {
           <CardContent>
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
               {dashboardData.topAreas.map((area, index) => (
-                <div
+                <Link
                   key={index}
-                  className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+                  href={`/assets?city=${encodeURIComponent(area.area)}`}
+                  className="p-4 border rounded-lg hover:shadow-md transition-shadow block"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium">{area.area}</h4>
@@ -369,7 +370,7 @@ export default function HomePage() {
                   <div className="text-sm text-muted-foreground">
                     {fmtCurrency(area.avgPrice)} ממוצע
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>

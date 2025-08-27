@@ -10,11 +10,14 @@ import { NextRouter } from 'next/router'
 import AssetsPage from '../../app/assets/page'
 import AssetDetailPage from '../../app/assets/[id]/page'
 import { useAuth } from '@/lib/auth-context'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 // Mock dependencies
 vi.mock('@/lib/auth-context')
-vi.mock('next/navigation')
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(),
+  useSearchParams: vi.fn(),
+}))
 vi.mock('@/components/AssetsTable', () => ({
   default: ({ data, loading }: { data: any[], loading: boolean }) => (
     <div data-testid="assets-table">
@@ -55,6 +58,10 @@ const mockUseRouter = {
   prefetch: vi.fn()
 }
 
+const mockUseSearchParams = {
+  get: vi.fn(),
+}
+
 const mockUseAuth = {
   isAuthenticated: true,
   user: { id: '1', name: 'Test User', email: 'test@example.com' },
@@ -69,6 +76,8 @@ describe('Asset Management Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     ;(useRouter as any).mockReturnValue(mockUseRouter)
+    ;(useSearchParams as any).mockReturnValue(mockUseSearchParams)
+    mockUseSearchParams.get.mockReturnValue(null)
     ;(useAuth as any).mockReturnValue(mockUseAuth)
     
     // Default fetch responses

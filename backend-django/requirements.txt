@@ -27,9 +27,10 @@ celery>=5.2.0
 redis>=4.0.0
 
 # Development & Testing
-# Uncomment for development:
-# django-debug-toolbar>=3.2.0
-# pytest-django>=4.4.0
+pytest-django>=4.4.0
+pytest>=6.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
 
 # Production (uncomment as needed)
 gunicorn>=20.1.0

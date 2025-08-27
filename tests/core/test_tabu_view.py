@@ -1,14 +1,4 @@
-import os
-import sys
 import pytest
-
-# Configure Django for testing
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
-sys.path.insert(0, os.path.abspath('backend-django'))
-
-# Import Django settings
-import django
-django.setup()
 
 def test_tabu_view_basic():
     """Test basic tabu view functionality."""

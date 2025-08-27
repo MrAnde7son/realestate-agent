@@ -86,12 +86,15 @@ class FakeRamiCollector(RamiCollector):
 
 def test_data_pipeline_integration():
     db = SQLAlchemyDatabase("sqlite:///:memory:")
+    db.init_db()  # Initialize the database engine first
+    db.create_tables()  # Then create tables
+    
     pipeline = DataPipeline(
-        db=db,
         yad2=FakeYad2Collector(),
         gis=FakeGISCollector(),
         gov=FakeGovCollector(),
         rami=FakeRamiCollector(),
+        db_session=db.get_session()
     )
 
     ids = pipeline.run("Fake", 1)

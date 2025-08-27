@@ -9,46 +9,89 @@ import os
 import sys
 import pytest
 
-# Add project root to Python path for all tests
-project_root = os.path.abspath(os.path.dirname(__file__))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# Store the original system paths
+original_sys_path = sys.path.copy()
 
-# Add backend-django to path for Django tests
-backend_path = os.path.join(project_root, 'backend-django')
-if backend_path not in sys.path:
-    sys.path.insert(0, backend_path)
+# Clear and rebuild the Python path to ensure correct order
+sys.path.clear()
 
-# Add package paths for non-Django tests
-mavat_path = os.path.join(project_root, "mavat")
-if mavat_path not in sys.path:
-    sys.path.insert(0, mavat_path)
+# Add backend-django to path for Django tests (using symbolic link) - MUST BE FIRST
+# to avoid conflicts with other 'core' modules
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+backend_path = os.path.abspath(os.path.join(project_root, 'backend_django'))
+sys.path.append(backend_path)
 
-orchestration_path = os.path.join(project_root, "orchestration")
-if orchestration_path not in sys.path:
-    sys.path.insert(0, orchestration_path)
+# Add project root
+sys.path.append(project_root)
+
+# Add package paths for non-Django tests (after backend_django to avoid conflicts)
+mavat_path = os.path.abspath(os.path.join(project_root, "mavat"))
+sys.path.append(mavat_path)
+
+orchestration_path = os.path.abspath(os.path.join(project_root, "orchestration"))
+sys.path.append(orchestration_path)
+
+yad2_path = os.path.abspath(os.path.join(project_root, "yad2"))
+sys.path.append(yad2_path)
+
+gov_path = os.path.abspath(os.path.join(project_root, "gov"))
+sys.path.append(gov_path)
+
+db_path = os.path.abspath(os.path.join(project_root, "db"))
+sys.path.append(db_path)
+
+# Add utils directory
+utils_path = os.path.abspath(os.path.join(project_root, "utils"))
+sys.path.append(utils_path)
+
+# Add back the original system paths
+sys.path.extend(original_sys_path)
+
+# Debug: Print the paths being added
+print("=== CONFTEST.PY DEBUG ===")
+print("Project root:", project_root)
+print("Backend path:", backend_path)
+print("Backend exists:", os.path.exists(backend_path))
+print("Python path after setup:")
+for i, path in enumerate(sys.path[:10]):  # Show first 10 paths
+    print(f"  {i}: {path}")
+print("=========================")
+
+# Set up Django immediately for all tests that might need it
+try:
+    import django
+    from django.core.management import call_command
+    
+    # Set environment variables for Django
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
+    os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-testing')
+    os.environ.setdefault('DEBUG', 'True')
+    
+    # Configure Django for testing
+    django.setup()
+    
+    # Run migrations for test database
+    try:
+        call_command("migrate", run_syncdb=True, verbosity=0)
+    except Exception:
+        # If migrations fail, continue - this might be expected in test environment
+        pass
+        
+    print("Django setup completed successfully")
+        
+except ImportError as e:
+    # Django not available, skip Django setup
+    print("Django not available: {}".format(e))
+    pass
+except Exception as e:
+    print("Django setup failed: {}".format(e))
+    pass
 
 # Only setup Django if we're running Django tests
 def pytest_configure(config):
     """Configure Django only when needed."""
-    # Check if we're running Django tests
-    if any('backend-django' in str(item) for item in config.getini('testpaths')):
-        try:
-            import django
-            from django.core.management import call_command
-            
-            # Configure Django for testing
-            os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
-            django.setup()
-            call_command("migrate", run_syncdb=True, verbosity=0)
-            
-            # Configure Django settings for testing
-            from django.conf import settings
-            settings.ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
-            settings.DEBUG = True
-        except ImportError:
-            # Django not available, skip Django setup
-            pass
+    # Django is already set up above, so this function is now a no-op
+    pass
 
 # Common fixtures for all tests
 @pytest.fixture

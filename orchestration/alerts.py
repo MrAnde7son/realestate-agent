@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 try:  # optional dependency for WhatsApp via Twilio
     from twilio.rest import Client  # type: ignore
-except Exception:  # pragma: no cover - twilio may not be installed at runtime
+except ImportError:  # pragma: no cover - twilio may not be installed at runtime
     Client = None  # type: ignore
 
 
@@ -108,4 +108,48 @@ class Notifier:
         message = f"New listing found: {listing.title} for {listing.price} - {listing.url}"
         for alert in self.alerts:
             alert.send(message)
+
+
+def create_notifier_for_user(user: Any, criteria: Dict[str, Any]) -> Optional[Notifier]:
+    """Create a :class:`Notifier` configured for a specific user.
+
+    The function inspects the given ``user`` object for contact details and
+    notification preferences. If the user has enabled email or WhatsApp
+    alerts (via ``notify_email`` / ``notify_whatsapp``) and provided the
+    corresponding contact information, the appropriate alert channels are
+    instantiated. When at least one channel is available, a ``Notifier`` is
+    returned; otherwise ``None`` is returned.
+
+    Parameters
+    ----------
+    user:
+        An object representing the user. It should expose ``email``,
+        ``phone``, ``notify_email`` and ``notify_whatsapp`` attributes.
+    criteria:
+        Dictionary of attribute/value pairs that a listing must match in
+        order to trigger the notification.
+
+    Returns
+    -------
+    Optional[Notifier]
+        A configured ``Notifier`` instance or ``None`` if no alert channels
+        could be created for the user.
+    """
+
+    channels: List[Alert] = []
+
+    if getattr(user, "notify_email", False):
+        email = getattr(user, "email", None)
+        if email:
+            channels.append(EmailAlert(email))
+
+    if getattr(user, "notify_whatsapp", False):
+        phone = getattr(user, "phone", None)
+        if phone:
+            channels.append(WhatsAppAlert(phone))
+
+    if not channels:
+        return None
+
+    return Notifier(criteria, channels)
 

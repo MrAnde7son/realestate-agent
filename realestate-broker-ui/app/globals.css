@@ -99,7 +99,7 @@
   * {
     @apply border-border;
     /* Ensure proper touch behavior on mobile */
-    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
   }
   body {
     @apply bg-background text-foreground;
@@ -108,7 +108,7 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: none;
     /* Prevent mobile zoom issues */
-    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
   }
   
   /* Mobile-specific scrolling improvements */
@@ -122,7 +122,7 @@
     main {
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-      touch-action: pan-y;
+      touch-action: pan-y pinch-zoom;
     }
     
     /* Ensure the main content wrapper is properly sized */
@@ -163,13 +163,13 @@
     
     /* Ensure mobile sidebar works properly */
     [data-radix-dialog-content] {
-      touch-action: pan-y;
+      touch-action: pan-y pinch-zoom;
       -webkit-overflow-scrolling: touch;
     }
     
     /* Mobile sidebar specific styles */
     .mobile-sidebar {
-      touch-action: pan-y;
+      touch-action: pan-y pinch-zoom;
       -webkit-overflow-scrolling: touch;
     }
     
@@ -181,7 +181,7 @@
     
     /* Mobile sidebar touch improvements */
     .mobile-sidebar-nav {
-      touch-action: pan-y;
+      touch-action: pan-y pinch-zoom;
       -webkit-overflow-scrolling: touch;
     }
     

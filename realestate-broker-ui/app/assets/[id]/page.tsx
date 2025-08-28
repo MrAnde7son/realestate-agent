@@ -333,23 +333,23 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <CardTitle>פרטי הנכס</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">סוג:</span>
                     <span>{asset.type === 'house' ? 'בית' : 'דירה'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מ״ר נטו:</span>
                     <span>{asset.netSqm}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">חדרים:</span>
                     <span>{asset.bedrooms || '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">ייעוד:</span>
                     <span>{asset.zoning || '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">רמת ביטחון:</span>
                     <Badge variant={asset.confidencePct >= 80 ? 'good' : 'warn'}>
                       {asset.confidencePct}%
@@ -363,27 +363,27 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <CardTitle>אנליזה פיננסית</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מחיר מודל:</span>
                     <span>₪{asset.modelPrice?.toLocaleString('he-IL')}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">פער למחיר:</span>
                     <Badge variant={asset.priceGapPct > 0 ? 'warn' : 'good'}>
                       {asset.priceGapPct?.toFixed(1)}%
                     </Badge>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">הערכת שכירות:</span>
                     <span>₪{asset.rentEstimate?.toLocaleString('he-IL')}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תשואה שנתית:</span>
                     <Badge variant={asset.capRatePct >= 3 ? 'good' : 'warn'}>
                       {asset.capRatePct?.toFixed(1)}%
                     </Badge>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תחרות 1 ק״מ:</span>
                     <span>{asset.competition1km || '—'}</span>
                   </div>
@@ -396,19 +396,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardTitle>ניתוח תכנוני ומשפטי</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">רמת ניצול זכויות:</span>
                   <span>{asset.rightsUsagePct ? `${asset.rightsUsagePct}%` : '—'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">מגבלות משפטיות:</span>
                   <span>{asset.legalRestrictions || '—'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">פוטנציאל התחדשות:</span>
                   <span>{asset.urbanRenewalPotential || '—'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">היטל השבחה צפוי:</span>
                   <span>{asset.bettermentLevy || '—'}</span>
                 </div>
@@ -421,7 +421,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between rtl:flex-row-reverse">
                     <span>ציון כללי:</span>
                     <div className="flex items-center gap-2">
                       <div className="text-2xl font-bold">{Math.round((asset.confidencePct + (asset.capRatePct * 20) + (asset.priceGapPct < 0 ? 100 + asset.priceGapPct : 100 - asset.priceGapPct)) / 3)}</div>
@@ -446,37 +446,37 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">תכנית נוכחית:</span>
                       <span>{asset.program || 'לא זמין'}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">ייעוד:</span>
                       <Badge variant="outline">{asset.zoning || 'לא צוין'}</Badge>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">יתרת זכויות:</span>
                       <Badge variant={asset.remainingRightsSqm > 0 ? 'good' : 'outline'}>
                         +{asset.remainingRightsSqm} מ״ר
                       </Badge>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">זכויות בנייה עיקריות:</span>
                       <span>{asset.mainRightsSqm ? `${asset.mainRightsSqm} מ״ר` : 'לא זמין'}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">שטחי שירות:</span>
                       <span>{asset.serviceRightsSqm ? `${asset.serviceRightsSqm} מ״ר` : 'לא זמין'}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">זכויות משלימות:</span>
                       <span>{asset.additionalPlanRights || 'אין'}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">מגבלות/חובות ציבוריות:</span>
                       <span>{asset.publicObligations || 'אין'}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תוכנית:</span>
                       <span>{asset.planStatus || 'לא ידוע'}</span>
                     </div>
@@ -495,11 +495,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תכנוני:</span>
                       <Badge variant="good">פעיל</Badge>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">הגבלות מיוחדות:</span>
                       <span>{asset.riskFlags?.length > 0 ? asset.riskFlags.join(', ') : 'אין'}</span>
                     </div>
@@ -584,23 +584,23 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardTitle>סביבת הנכס</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">תחבורה ציבורית:</span>
                   <span>{asset.publicTransport || '—'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">שטחים פתוחים בקרבת מקום:</span>
                   <span>{asset.openSpacesNearby || '—'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">מבני ציבור:</span>
                   <span>{asset.publicBuildings || '—'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">מצב חניה:</span>
                   <span>{asset.parking || '—'}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">פרויקטים סמוכים:</span>
                   <span>{asset.nearbyProjects || '—'}</span>
                 </div>
@@ -615,31 +615,31 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <CardTitle>פרטי היתר</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תאריך היתר:</span>
                     <span>{asset.permitDate || '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">סטטוס:</span>
                     <span>{asset.permitStatus || '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">פירוט:</span>
                     <span>{asset.permitDetails || '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">שטח עיקרי:</span>
                     <span>{asset.permitMainArea ? `${asset.permitMainArea} מ״ר` : '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">שטחי שירות:</span>
                     <span>{asset.permitServiceArea ? `${asset.permitServiceArea} מ״ר` : '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מבקש:</span>
                     <span>{asset.permitApplicant || '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מסמך:</span>
                     {asset.permitDocUrl ? (
                       <a href={asset.permitDocUrl} target="_blank" className="text-blue-500 underline">צפה</a>
@@ -656,13 +656,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
                       <Badge variant={asset.lastPermitQ ? 'good' : 'outline'}>
                         {asset.lastPermitQ || 'לא זמין'}
                       </Badge>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">פעילות בנייה באזור:</span>
                       <span>{asset.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
                     </div>
@@ -681,7 +681,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">היתר בתוקף:</span>
                       <Badge variant="good">כן</Badge>
                     </div>
@@ -689,7 +689,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       <span className="text-muted-foreground">סוג היתר:</span>
                       <span>מגורים</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">אישורי חיבור:</span>
                       <Badge variant="good">מאושר</Badge>
                     </div>
@@ -753,7 +753,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardContent>
                 <div className="space-y-3">
                   <div className="grid gap-3">
-                    <div className="flex justify-between items-center p-3 border rounded">
+                    <div className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
                       <div>
                         <div className="font-medium">רח&apos; בן יהודה 45</div>
                         <div className="text-sm text-muted-foreground">80 מ״ר • 3 חדרים • 10/01/24</div>
@@ -763,7 +763,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         <div className="text-sm text-muted-foreground">₪34,375/מ״ר</div>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center p-3 border rounded">
+                    <div className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
                       <div>
                         <div className="font-medium">רח&apos; דיזנגוף 67</div>
                         <div className="text-sm text-muted-foreground">90 מ״ר • 3.5 חדרים • 05/01/24</div>
@@ -773,7 +773,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         <div className="text-sm text-muted-foreground">₪32,222/מ״ר</div>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center p-3 border rounded">
+                    <div className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
                       <div>
                         <div className="font-medium">רח&apos; הרצל 130</div>
                         <div className="text-sm text-muted-foreground">85 מ״ר • 3 חדרים • 28/12/23</div>
@@ -894,7 +894,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       {manualDocs.map((doc: any, idx: number) => (
                         <div
                           key={idx}
-                          className="flex justify-between items-center p-2 border rounded"
+                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
                           <span>{doc.name}</span>
                           <Button variant="outline" size="sm" asChild>
@@ -919,7 +919,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       {permitDocs.map((doc: any, idx: number) => (
                         <div
                           key={idx}
-                          className="flex justify-between items-center p-2 border rounded"
+                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
                           <span>{doc.name}</span>
                           <Button variant="outline" size="sm" asChild>
@@ -942,7 +942,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       {rightsDocs.map((doc: any, idx: number) => (
                         <div
                           key={idx}
-                          className="flex justify-between items-center p-2 border rounded"
+                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
                           <span>{doc.name}</span>
                           <Button variant="outline" size="sm" asChild>
@@ -965,7 +965,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       {decisiveDocs.map((doc: any, idx: number) => (
                         <div
                           key={idx}
-                          className="flex justify-between items-center p-2 border rounded"
+                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
                           <span>{doc.name}</span>
                           <Button variant="outline" size="sm" asChild>
@@ -988,7 +988,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       {rmiDocs.map((doc: any, idx: number) => (
                         <div
                           key={idx}
-                          className="flex justify-between items-center p-2 border rounded"
+                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
                           <span>{doc.name}</span>
                           <Button variant="outline" size="sm" asChild>

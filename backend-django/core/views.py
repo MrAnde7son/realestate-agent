@@ -1,4 +1,4 @@
-import json, statistics, re, os, urllib.parse
+import json, statistics, re, os, urllib.parse, time
 from datetime import datetime
 from pathlib import Path
 
@@ -25,7 +25,7 @@ from openai import OpenAI
 from django.urls import reverse
 
 # Import Django models
-from .models import Asset, SourceRecord, RealEstateTransaction
+from .models import Asset, SourceRecord, RealEstateTransaction, Report
 
 # Import utility functions
 try:
@@ -51,8 +51,6 @@ REPORTS_DIR = os.environ.get(
     'REPORTS_DIR',
     str((BASE_DIR.parent / 'realestate-broker-ui' / 'public' / 'reports').resolve())
 )
-# Persist reports metadata in a JSON file so they survive server restarts
-REPORTS_META = Path(REPORTS_DIR) / 'reports.json'
 
 # Authentication views
 @api_view(['POST'])
@@ -458,25 +456,16 @@ def auth_google_callback(request):
         )
 
 
-def _load_reports():
-    try:
-        with open(REPORTS_META, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return []
 
-
-def _save_reports(reports):
-    os.makedirs(REPORTS_DIR, exist_ok=True)
-    with open(REPORTS_META, 'w', encoding='utf-8') as f:
-        json.dump(reports, f, ensure_ascii=False)
 
 try:
+    # Try to use a font that supports Hebrew
     FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     if os.path.exists(FONT_PATH):
         pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
         REPORT_FONT = "DejaVu"
     else:
+        # Fallback to Helvetica but we'll handle Hebrew differently
         REPORT_FONT = "Helvetica"
 except ImportError:
     REPORT_FONT = "Helvetica"
@@ -668,78 +657,409 @@ def sync_address(request):
 @csrf_exempt
 def reports(request):
     """Create a PDF report for a listing or list existing reports."""
-    reports_list = _load_reports()
-
     if request.method == 'GET':
+        # Get all reports from database
+        reports_list = []
+        for report in Report.objects.all().order_by('-generated_at'):
+            reports_list.append({
+                'id': report.id,
+                'assetId': report.asset.id if report.asset else None,
+                'address': report.title or 'N/A',
+                'filename': report.filename,
+                'createdAt': report.generated_at.isoformat(),
+                'status': report.status,
+                'pages': report.pages,
+                'fileSize': report.file_size,
+            })
         return JsonResponse({'reports': reports_list})
 
+    if request.method == 'DELETE':
+        # Delete a specific report
+        data = parse_json(request)
+        if not data or not data.get('reportId'):
+            return JsonResponse({'error': 'reportId required'}, status=400)
+        
+        try:
+            report_id = int(data['reportId'])
+            report = Report.objects.get(id=report_id)
+            
+            if report.delete_report():
+                return JsonResponse({'message': f'Report {report_id} deleted successfully'}, status=200)
+            else:
+                return JsonResponse({'error': 'Failed to delete report'}, status=500)
+                
+        except Report.DoesNotExist:
+            return JsonResponse({'error': 'Report not found'}, status=404)
+        except ValueError:
+            return JsonResponse({'error': 'Invalid report ID'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': 'Error deleting report', 'details': str(e)}, status=500)
+
     if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=405)
+        return JsonResponse({'error': 'POST or DELETE required'}, status=405)
 
     data = parse_json(request)
-    if not data or not data.get('listingId'):
-        return JsonResponse({'error': 'listingId required'}, status=400)
+    if not data or not data.get('assetId'):
+        return JsonResponse({'error': 'assetId required'}, status=400)
 
-    listing_id = data['listingId']
+    asset_id = data['assetId']
     
-    # Create a dummy listing for testing (since we no longer have the old Listing model)
-    listing = {
-        'address': 'כתובת לדוגמה',
-        'price': 2000000,
-        'rooms': 3,
-        'size': 80,
+    # For now, use mock asset data that matches the frontend structure
+    # TODO: In the future, this should fetch from a proper asset database
+    mock_assets = {
+        1: {
+            'address': 'רחוב הרצל 123, תל אביב',
+            'city': 'תל אביב',
+            'neighborhood': 'מרכז העיר',
+            'type': 'דירה',
+            'price': 2850000,
+            'bedrooms': 3,
+            'bathrooms': 2,
+            'netSqm': 85,
+            'area': 85,
+            'pricePerSqm': 33529,
+            'remainingRightsSqm': 45,
+            'program': 'תמ״א 38',
+            'lastPermitQ': 'Q2/24',
+            'noiseLevel': 2,
+            'competition1km': 'בינוני',
+            'zoning': 'מגורים א׳',
+            'priceGapPct': -5.2,
+            'expectedPriceRange': '2.7M - 3.0M',
+            'modelPrice': 3000000,
+            'confidencePct': 85,
+            'capRatePct': 3.2,
+            'rentEstimate': 9500,
+            'riskFlags': [],
+            'features': ['מעלית', 'חניה', 'מרפסת', 'משופצת'],
+            'contactInfo': {
+                'agent': 'יוסי כהן',
+                'phone': '050-1234567',
+                'email': 'yossi@example.com'
+            },
+            'documents': [
+                {'name': 'נסח טאבו', 'type': 'tabu'},
+                {'name': 'תשריט בית משותף', 'type': 'condo_plan'},
+                {'name': 'היתר בנייה', 'type': 'permit'},
+                {'name': 'זכויות בנייה', 'type': 'rights'},
+                {'name': 'שומת מכרעת', 'type': 'appraisal_decisive'},
+                {'name': 'שומת רמ״י', 'type': 'appraisal_rmi'}
+            ]
+        }
     }
+    
+    if asset_id not in mock_assets:
+        return JsonResponse({'error': 'Asset not found'}, status=404)
+    
+    asset = mock_assets[asset_id]
+    listing = asset
 
-    if not listing:
-        return JsonResponse({'error': 'Listing not found'}, status=404)
+    # Create report record in database
+    report = Report.objects.create(
+        asset=None,  # TODO: Link to actual Asset model when available
+        report_type='asset',
+        status='generating',
+        filename='',
+        file_path='',
+        title=listing['address'],
+        description=f'Asset report for {listing["address"]}',
+        pages=4,  # We know it's 4 pages
+    )
 
-    report_id = f"r{len(reports_list) + 1}"
-    filename = f"{report_id}.pdf"
+    # Generate filename based on report ID
+    filename = f"r{report.id}.pdf"
     os.makedirs(REPORTS_DIR, exist_ok=True)
     file_path = os.path.join(REPORTS_DIR, filename)
+    
+    # Update report with file information
+    report.filename = filename
+    report.file_path = file_path
+    report.save()
 
-    # Try to create PDF, fallback to text file if reportlab fails
+    start_time = time.time()
+    
+    # Create rich PDF report with multiple pages (one per tab)
     try:
         c = canvas.Canvas(file_path, pagesize=A4)
-        c.setFont(REPORT_FONT, 20)
-        c.drawCentredString(300, 760, 'דו"ח נכס')
+        
+        # Set up Hebrew font - try to use DejaVu if available, otherwise use a fallback approach
+        try:
+            if REPORT_FONT == "DejaVu":
+                c.setFont(REPORT_FONT, 20)
+                # Page 1: General Analysis (ניתוח כללי)
+                c.drawCentredString(300, 760, 'דו"ח נכס - ניתוח כללי')
+            else:
+                # Fallback: use English titles and handle Hebrew content carefully
+                c.setFont(REPORT_FONT, 20)
+                c.drawCentredString(300, 760, 'Asset Report - General Analysis')
+        except:
+            # If font setting fails, use default
+            c.setFont("Helvetica", 20)
+            c.drawCentredString(300, 760, 'Asset Report - General Analysis')
+        
         c.setFont(REPORT_FONT, 12)
         y = 720
-        c.drawString(50, y, f"כתובת: {listing['address'] or ''}")
+        
+        # Asset Details Section
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'פרטי הנכס')
+        else:
+            c.drawString(50, y, 'Asset Details')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        # Handle Hebrew text carefully - use English labels if font doesn't support Hebrew
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, f"כתובת: {listing['address']}")
+            y -= 20
+            c.drawString(50, y, f"עיר: {listing['city']}")
+            y -= 20
+            c.drawString(50, y, f"שכונה: {listing['neighborhood']}")
+            y -= 20
+            c.drawString(50, y, f"סוג: {listing['type']}")
+            y -= 20
+        else:
+            c.drawString(50, y, f"Address: {listing['address']}")
+            y -= 20
+            c.drawString(50, y, f"City: {listing['city']}")
+            y -= 20
+            c.drawString(50, y, f"Neighborhood: {listing['neighborhood']}")
+            y -= 20
+            c.drawString(50, y, f"Type: {listing['type']}")
+            y -= 20
+        
+        c.drawString(50, y, f"Price: ₪{int(listing['price']):,}")
         y -= 20
-        if listing.get('price') is not None:
-            c.drawString(50, y, f"מחיר: ₪{int(listing['price'])}")
-            y -= 20
-        if listing.get('rooms') is not None:
-            c.drawString(50, y, f"חדרים: {listing['rooms']}")
-            y -= 20
-        if listing.get('size') is not None:
-            c.drawString(50, y, f"מ""ר: {listing['size']}")
+        c.drawString(50, y, f"Bedrooms: {listing['bedrooms']}")
+        y -= 20
+        c.drawString(50, y, f"Bathrooms: {listing['bathrooms']}")
+        y -= 20
+        c.drawString(50, y, f"Area (sqm): {listing['netSqm']}")
+        y -= 20
+        c.drawString(50, y, f"Price per sqm: ₪{listing['pricePerSqm']:,}")
+        y -= 20
+        
+        # Financial Analysis Section
+        y -= 20
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'אנליזה פיננסית')
+        else:
+            c.drawString(50, y, 'Financial Analysis')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        c.drawString(50, y, f"Model Price: ₪{listing['modelPrice']:,}")
+        y -= 20
+        c.drawString(50, y, f"Price Gap: {listing['priceGapPct']}%")
+        y -= 20
+        c.drawString(50, y, f"Rent Estimate: ₪{listing['rentEstimate']:,}")
+        y -= 20
+        c.drawString(50, y, f"Annual Return: {listing['capRatePct']}%")
+        y -= 20
+        c.drawString(50, y, f"Competition (1km): {listing['competition1km']}")
+        y -= 20
+        
+        # Investment Recommendation
+        y -= 20
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'המלצת השקעה')
+        else:
+            c.drawString(50, y, 'Investment Recommendation')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        overall_score = round((listing['confidencePct'] + (listing['capRatePct'] * 20) + (listing['priceGapPct'] < 0 and 100 + listing['priceGapPct'] or 100 - listing['priceGapPct'])) / 3)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, f"ציון כללי: {overall_score}/100")
+        else:
+            c.drawString(50, y, f"Overall Score: {overall_score}/100")
+        y -= 20
+        
+        if listing['priceGapPct'] < -10:
+            recommendation = "Asset at attractive price below market"
+        elif listing['priceGapPct'] > 10:
+            recommendation = "Asset expensive relative to market"
+        else:
+            recommendation = "Asset at fair market price"
+        
+        c.drawString(50, y, f"Recommendation: {recommendation}")
+        
+        c.showPage()
+        
+        # Page 2: Plans (תוכניות)
+        c.setFont(REPORT_FONT, 20)
+        if REPORT_FONT == "DejaVu":
+            c.drawCentredString(300, 760, 'תוכניות וזכויות בנייה')
+        else:
+            c.drawCentredString(300, 760, 'Plans and Building Rights')
+        c.setFont(REPORT_FONT, 12)
+        y = 720
+        
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'תוכניות מקומיות ומפורטות')
+        else:
+            c.drawString(50, y, 'Local and Detailed Plans')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        c.drawString(50, y, f"Current Plan: {listing['program']}")
+        y -= 20
+        c.drawString(50, y, f"Zoning: {listing['zoning']}")
+        y -= 20
+        c.drawString(50, y, f"Remaining Rights: +{listing['remainingRightsSqm']} sqm")
+        y -= 20
+        c.drawString(50, y, f"Main Building Rights: {listing['netSqm']} sqm")
+        y -= 20
+        
+        # Rights Summary
+        y -= 20
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'זכויות בנייה מפורטות')
+        else:
+            c.drawString(50, y, 'Building Rights Details')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        c.drawString(50, y, f"Remaining Rights: {listing['remainingRightsSqm']} sqm")
+        y -= 20
+        c.drawString(50, y, f"Additional Rights %: {round((listing['remainingRightsSqm'] / listing['netSqm']) * 100)}%")
+        y -= 20
+        rights_value = round((listing['pricePerSqm'] * listing['remainingRightsSqm'] * 0.7) / 1000)
+        c.drawString(50, y, f"Estimated Rights Value: ₪{rights_value}K")
+        
+        c.showPage()
+        
+        # Page 3: Environment (סביבה)
+        c.setFont(REPORT_FONT, 20)
+        if REPORT_FONT == "DejaVu":
+            c.drawCentredString(300, 760, 'מידע סביבתי')
+        else:
+            c.drawCentredString(300, 760, 'Environmental Information')
+        c.setFont(REPORT_FONT, 12)
+        y = 720
+        
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'מידע סביבתי')
+        else:
+            c.drawString(50, y, 'Environmental Data')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        c.drawString(50, y, f"Noise Level: {listing['noiseLevel']}/5")
+        y -= 20
+        c.drawString(50, y, f"Public Areas ≤300m: Yes")
+        y -= 20
+        c.drawString(50, y, f"Antenna Distance: 150m")
+        y -= 20
+        
+        # Risk Flags
+        y -= 20
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'סיכונים')
+        else:
+            c.drawString(50, y, 'Risk Factors')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        if listing['riskFlags'] and len(listing['riskFlags']) > 0:
+            for flag in listing['riskFlags']:
+                c.drawString(50, y, f"• {flag}")
+                y -= 20
+        else:
+            if REPORT_FONT == "DejaVu":
+                c.drawString(50, y, "אין סיכונים מיוחדים")
+            else:
+                c.drawString(50, y, "No special risks")
+        
+        c.showPage()
+        
+        # Page 4: Documents and Summary
+        c.setFont(REPORT_FONT, 20)
+        if REPORT_FONT == "DejaVu":
+            c.drawCentredString(300, 760, 'מסמכים וסיכום')
+        else:
+            c.drawCentredString(300, 760, 'Documents and Summary')
+        c.setFont(REPORT_FONT, 12)
+        y = 720
+        
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'מסמכים זמינים')
+        else:
+            c.drawString(50, y, 'Available Documents')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        if listing['documents'] and len(listing['documents']) > 0:
+            for doc in listing['documents']:
+                c.drawString(50, y, f"• {doc['name']} ({doc['type']})")
+                y -= 20
+        else:
+            if REPORT_FONT == "DejaVu":
+                c.drawString(50, y, "אין מסמכים זמינים")
+            else:
+                c.drawString(50, y, "No documents available")
+        
+        # Contact Info
+        y -= 30
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'פרטי קשר')
+        else:
+            c.drawString(50, y, 'Contact Information')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        if listing['contactInfo']:
+            if REPORT_FONT == "DejaVu":
+                c.drawString(50, y, f"סוכן: {listing['contactInfo']['agent']}")
+                y -= 20
+                c.drawString(50, y, f"טלפון: {listing['contactInfo']['phone']}")
+                y -= 20
+                c.drawString(50, y, f"אימייל: {listing['contactInfo']['email']}")
+            else:
+                c.drawString(50, y, f"Agent: {listing['contactInfo']['agent']}")
+                y -= 20
+                c.drawString(50, y, f"Phone: {listing['contactInfo']['phone']}")
+                y -= 20
+                c.drawString(50, y, f"Email: {listing['contactInfo']['email']}")
+        
         c.save()
+        
+        # Mark report as completed
+        generation_time = time.time() - start_time
+        file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+        report.mark_completed(
+            file_size=file_size,
+            pages=4,
+            generation_time=generation_time
+        )
+        
     except Exception as e:
-        # Fallback to text file if PDF creation fails
-        file_path = file_path.replace('.pdf', '.txt')
-        filename = filename.replace('.pdf', '.txt')
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write('דו"ח נכס\n')
-            f.write(f"כתובת: {listing['address'] or ''}\n")
-            if listing.get('price') is not None:
-                f.write(f"מחיר: ₪{int(listing['price'])}\n")
-            if listing.get('rooms') is not None:
-                f.write(f"חדרים: {listing['rooms']}\n")
-            if listing.get('size') is not None:
-                f.write(f"מ\"ר: {listing['size']}\n")
+        # Mark report as failed
+        report.mark_failed(str(e))
+        return JsonResponse({'error': 'PDF generation failed', 'details': str(e)}, status=500)
 
-    report = {
-        'id': report_id,
-        'listingId': str(listing_id),
-        'address': listing['address'],
-        'filename': filename,
-        'createdAt': datetime.utcnow().isoformat(),
-    }
-    reports_list.append(report)
-    _save_reports(reports_list)
-    return JsonResponse({'report': report}, status=201)
+    # Return the report data
+    return JsonResponse({
+        'report': {
+            'id': report.id,
+            'assetId': asset_id,
+            'address': listing['address'],
+            'filename': filename,
+            'createdAt': report.generated_at.isoformat(),
+            'status': report.status,
+            'pages': report.pages,
+            'fileSize': report.file_size,
+        }
+    }, status=201)
 
 def _group_by_month(transactions):
     months = {}

@@ -39,7 +39,7 @@ try:  # pragma: no cover - best effort import
         django.setup()
 
     from core.models import Alert  # type: ignore
-except Exception as e:  # pragma: no cover - best effort
+except ImportError as e:  # pragma: no cover - best effort
     print(f"Failed to import Django models: {e}")
 
     class Alert:  # type: ignore

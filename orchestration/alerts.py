@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 try:  # optional dependency for WhatsApp via Twilio
     from twilio.rest import Client  # type: ignore
-except Exception:  # pragma: no cover - twilio may not be installed at runtime
+except ImportError:  # pragma: no cover - twilio may not be installed at runtime
     Client = None  # type: ignore
 
 

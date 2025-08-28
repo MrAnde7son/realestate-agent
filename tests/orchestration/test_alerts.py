@@ -35,3 +35,15 @@ def test_create_notifier_for_user_returns_none_without_channels():
     user = DummyUser(email=None, phone=None, notify_email=False, notify_whatsapp=False)
     notifier = create_notifier_for_user(user, {"city": "tel aviv"})
     assert notifier is None
+
+
+def test_whatsapp_alert_no_client(monkeypatch):
+    import orchestration.alerts as alerts
+
+    monkeypatch.setattr(alerts, "Client", None)
+    wa = alerts.WhatsAppAlert(
+        "+15551234567", account_sid="sid", auth_token="token", from_number="111"
+    )
+
+    # should silently return without attempting to send
+    wa.send("msg")

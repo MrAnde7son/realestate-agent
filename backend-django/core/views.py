@@ -459,20 +459,14 @@ def auth_google_callback(request):
 
 
 try:
-    # Try to use macOS Hebrew fonts for proper Hebrew support
-    FONT_PATH = "/System/Library/Fonts/SFHebrew.ttf"
+    # Try to use a font that supports Hebrew
+    FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     if os.path.exists(FONT_PATH):
-        pdfmetrics.registerFont(TTFont("SFHebrew", FONT_PATH))
-        REPORT_FONT = "SFHebrew"
+        pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
+        REPORT_FONT = "DejaVu"
     else:
-        # Fallback to SFHebrewRounded
-        FONT_PATH = "/System/Library/Fonts/SFHebrewRounded.ttf"
-        if os.path.exists(FONT_PATH):
-            pdfmetrics.registerFont(TTFont("SFHebrew", FONT_PATH))
-            REPORT_FONT = "SFHebrew"
-        else:
-            # Final fallback to Helvetica
-            REPORT_FONT = "Helvetica"
+        # Fallback to Helvetica but we'll handle Hebrew differently
+        REPORT_FONT = "Helvetica"
 except ImportError:
     REPORT_FONT = "Helvetica"
 
@@ -788,14 +782,14 @@ def reports(request):
     try:
         c = canvas.Canvas(file_path, pagesize=A4)
         
-        # Set up Hebrew font - use SFHebrew for proper Hebrew support
+        # Set up Hebrew font - try to use DejaVu if available, otherwise use a fallback approach
         try:
-            if REPORT_FONT == "SFHebrew":
+            if REPORT_FONT == "DejaVu":
                 c.setFont(REPORT_FONT, 20)
                 # Page 1: General Analysis (ניתוח כללי)
                 c.drawCentredString(300, 760, 'דו"ח נכס - ניתוח כללי')
             else:
-                # Fallback: use English titles
+                # Fallback: use English titles and handle Hebrew content carefully
                 c.setFont(REPORT_FONT, 20)
                 c.drawCentredString(300, 760, 'Asset Report - General Analysis')
         except:
@@ -808,15 +802,15 @@ def reports(request):
         
         # Asset Details Section
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "SFHebrew":
+        if REPORT_FONT == "DejaVu":
             c.drawString(50, y, 'פרטי הנכס')
         else:
             c.drawString(50, y, 'Asset Details')
         y -= 25
         c.setFont(REPORT_FONT, 12)
         
-        # Use Hebrew labels when possible, fallback to English
-        if REPORT_FONT == "SFHebrew":
+        # Handle Hebrew text carefully - use English labels if font doesn't support Hebrew
+        if REPORT_FONT == "DejaVu":
             c.drawString(50, y, f"כתובת: {listing['address']}")
             y -= 20
             c.drawString(50, y, f"עיר: {listing['city']}")
@@ -824,16 +818,6 @@ def reports(request):
             c.drawString(50, y, f"שכונה: {listing['neighborhood']}")
             y -= 20
             c.drawString(50, y, f"סוג: {listing['type']}")
-            y -= 20
-            c.drawString(50, y, f"מחיר: ₪{int(listing['price']):,}")
-            y -= 20
-            c.drawString(50, y, f"חדרים: {listing['bedrooms']}")
-            y -= 20
-            c.drawString(50, y, f"מקלחות: {listing['bathrooms']}")
-            y -= 20
-            c.drawString(50, y, f"מ""ר נטו: {listing['netSqm']}")
-            y -= 20
-            c.drawString(50, y, f"מחיר למ""ר: ₪{listing['pricePerSqm']:,}")
             y -= 20
         else:
             c.drawString(50, y, f"Address: {listing['address']}")
@@ -844,16 +828,17 @@ def reports(request):
             y -= 20
             c.drawString(50, y, f"Type: {listing['type']}")
             y -= 20
-            c.drawString(50, y, f"Price: ₪{int(listing['price']):,}")
-            y -= 20
-            c.drawString(50, y, f"Bedrooms: {listing['bedrooms']}")
-            y -= 20
-            c.drawString(50, y, f"Bathrooms: {listing['bathrooms']}")
-            y -= 20
-            c.drawString(50, y, f"Area (sqm): {listing['netSqm']}")
-            y -= 20
-            c.drawString(50, y, f"Price per sqm: ₪{listing['pricePerSqm']:,}")
-            y -= 20
+        
+        c.drawString(50, y, f"Price: ₪{int(listing['price']):,}")
+        y -= 20
+        c.drawString(50, y, f"Bedrooms: {listing['bedrooms']}")
+        y -= 20
+        c.drawString(50, y, f"Bathrooms: {listing['bathrooms']}")
+        y -= 20
+        c.drawString(50, y, f"Area (sqm): {listing['netSqm']}")
+        y -= 20
+        c.drawString(50, y, f"Price per sqm: ₪{listing['pricePerSqm']:,}")
+        y -= 20
         
         # Financial Analysis Section
         y -= 20

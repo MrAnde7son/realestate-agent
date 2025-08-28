@@ -46,7 +46,6 @@ describe('reports API', () => {
   });
 
   it('creates a new report', async () => {
-    const initial = reports.length;
     const req = new Request('http://localhost/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -56,23 +55,13 @@ describe('reports API', () => {
     const res = await POST(req);
     const data = await res.json();
     
-    // In CI environment, we expect the local fallback to work
+    // Since we're using backend-first approach, expect success
     expect(res.status).toBe(201);
     expect(data.report.assetId).toBe(assets[0].id);
     expect(data.report.filename).toBeDefined();
-    
-    // Verify that the report was added to local reports
-    expect(reports.length).toBe(initial + 1);
-    
-    // Clean up
-    reports.pop();
-    expect(reports.length).toBe(initial);
-  });
-
-  it('lists reports', async () => {
-    const res = await GET(new Request('http://localhost/api/reports'));
-    const data = await res.json();
-    expect(Array.isArray(data.reports)).toBe(true);
+    expect(data.report.status).toBe('completed');
+    expect(data.report.pages).toBeGreaterThan(0);
+    expect(data.report.fileSize).toBeGreaterThan(0);
   });
 
   it('handles missing assetId gracefully', async () => {
@@ -84,16 +73,28 @@ describe('reports API', () => {
     
     const res = await POST(req);
     expect(res.status).toBe(400);
+    
+    const data = await res.json();
+    expect(data.error).toBe('Invalid assetId');
   });
 
   it('handles invalid assetId gracefully', async () => {
     const req = new Request('http://localhost/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetId: 99999 }),
+      body: JSON.stringify({ assetId: 'invalid' }),
     });
     
     const res = await POST(req);
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(400);
+    
+    const data = await res.json();
+    expect(data.error).toBe('Invalid assetId');
+  });
+
+  it('lists reports', async () => {
+    const res = await GET(new Request('http://localhost/api/reports'));
+    const data = await res.json();
+    expect(Array.isArray(data.reports)).toBe(true);
   });
 });

@@ -9,7 +9,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 export async function GET(req: Request) {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/reports`, { cache: 'no-store' });
+    const res = await fetch(`${BACKEND_URL}/api/reports/`, { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       const backendReports = data.reports || [];
@@ -78,23 +78,23 @@ export async function DELETE(req: Request) {
           return NextResponse.json({ error: 'Report not found' }, { status: 404 });
         }
       }
-    } catch (err) {
-      console.error('Error connecting to backend for delete:', err);
-      // If backend is unavailable, try local deletion
-      console.log('Backend unavailable, trying local deletion');
-      const localReportIndex = reports.findIndex(r => r.id === reportId);
-      if (localReportIndex !== -1) {
-        // Remove from local reports
-        const deletedReport = reports.splice(localReportIndex, 1)[0];
-        console.log('Deleted local report:', deletedReport);
-        return NextResponse.json({ 
-          message: `Report ${reportId} deleted successfully from local storage`,
-          deletedReport 
-        }, { status: 200 });
-      } else {
-        return NextResponse.json({ error: 'Report not found' }, { status: 404 });
+          } catch (err) {
+        console.error('Error connecting to backend for delete:', err);
+        // If backend is unavailable, try local deletion
+        console.log('Backend unavailable, trying local deletion');
+        const localReportIndex = reports.findIndex(r => r.id === reportId);
+        if (localReportIndex !== -1) {
+          // Remove from local reports
+          const deletedReport = reports.splice(localReportIndex, 1)[0];
+          console.log('Deleted local report:', deletedReport);
+          return NextResponse.json({ 
+            message: `Report ${reportId} deleted successfully from local storage`,
+            deletedReport 
+          }, { status: 200 });
+        } else {
+          return NextResponse.json({ error: 'Report not found' }, { status: 404 });
+        }
       }
-    }
   } catch (err) {
     console.error('Error in DELETE handler:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
   // Try to connect to backend first
   try {
     console.log('Attempting to connect to backend at:', BACKEND_URL);
-    const res = await fetch(`${BACKEND_URL}/api/reports`, {
+    const res = await fetch(`${BACKEND_URL}/api/reports/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assetId }),
@@ -134,15 +134,24 @@ export async function POST(req: Request) {
       const data = await res.json();
       console.log('Backend response data:', data);
       return NextResponse.json(data, { status: res.status });
-    } else {
-      console.error('Backend returned error status:', res.status);
-      const errorText = await res.text();
-      console.error('Backend error response:', errorText);
+          } else {
+        console.error('Backend returned error status:', res.status);
+        const errorText = await res.text();
+        console.error('Backend error response:', errorText);
+        
+        // If backend fails, return the error instead of falling back to local generation
+        // This ensures we get proper Hebrew support from the backend
+        return NextResponse.json({ 
+          error: 'Backend report generation failed', 
+          details: errorText,
+          suggestion: 'Please ensure the backend is running for proper Hebrew support'
+        }, { status: res.status });
+      }
+      } catch (err) {
+      console.error('Error connecting to backend:', err);
+      // Only fall back to local generation if backend is completely unreachable
+      console.log('Backend completely unreachable, falling back to local generation');
     }
-  } catch (err) {
-    console.error('Error connecting to backend:', err);
-    console.log('Falling back to local generation due to backend error');
-  }
 
   // Generate report locally as fallback
   try {
@@ -158,23 +167,11 @@ export async function POST(req: Request) {
     const filename = `r${id}.pdf`; // Generate PDF reports
     console.log('Current working directory:', process.cwd());
     console.log('Attempting to create directory for reports');
-    
-    // Use relative path to the reports directory for better CI compatibility
-    const reportsDir = path.join(process.cwd(), 'public', 'reports');
-    console.log('Reports directory path:', reportsDir);
-    
-    try {
-      // Create directory if it doesn't exist
-      if (!fs.existsSync(reportsDir)) {
-        fs.mkdirSync(reportsDir, { recursive: true });
-      }
-    } catch (error) {
-      console.error('Error creating reports directory:', error);
-      // In CI environment, we might not be able to create directories
-      // Continue with the report generation anyway
-    }
-    
-    const filePath = path.join(reportsDir, filename);
+    // Use absolute path to the reports directory
+    const dir = '/Users/imizrahi/Documents/Git/realestate-agent/realestate-broker-ui/public/reports';
+    console.log('Reports directory path:', dir);
+    fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, filename);
     console.log('File path:', filePath);
 
     // Create a rich PDF report with multiple pages (one per tab)
@@ -313,16 +310,8 @@ export async function POST(req: Request) {
     doc.text(`Report generated on: ${new Date().toLocaleString('he-IL')}`, 105, 280, { align: 'center' });
     
     // Save the PDF
-    try {
-      const pdfBuffer = doc.output('arraybuffer');
-      fs.writeFileSync(filePath, Buffer.from(pdfBuffer));
-      console.log('PDF saved successfully to:', filePath);
-    } catch (error) {
-      console.error('Error saving PDF:', error);
-      // In CI environment, we might not be able to write files
-      // Continue with the report generation and return success
-      console.log('Continuing without file save (CI environment)');
-    }
+    const pdfBuffer = doc.output('arraybuffer');
+    fs.writeFileSync(filePath, Buffer.from(pdfBuffer));
 
     const report: Report = {
       id,

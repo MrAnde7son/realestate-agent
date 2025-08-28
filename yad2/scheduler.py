@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
 
-from orchestration.alerts import Notifier
+from orchestration.alerts import Notifier, create_notifier_for_user
 from orchestration.scheduler import create_scheduler
 from yad2.scrapers.yad2_scraper import Yad2Scraper
 # Import Django models if available
@@ -23,7 +23,7 @@ try:
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
         django.setup()
     
-    from core.models import Asset
+    from core.models import Asset, Alert
 except Exception as e:
     print(f"Failed to import Django models: {e}")
     # Create a dummy Asset class for when Django is not available
@@ -32,10 +32,27 @@ except Exception as e:
             for key, value in kwargs.items():
                 setattr(self, key, value)
 
+    class Alert:  # type: ignore
+        objects = []
+
+
+def _load_user_notifiers() -> List[Notifier]:
+    """Build notifiers for all users with active alerts."""
+    notifiers: List[Notifier] = []
+    try:
+        alerts = Alert.objects.filter(active=True).select_related("user")  # type: ignore[attr-defined]
+        for alert in alerts:
+            notifier = create_notifier_for_user(alert.user, alert.criteria)
+            if notifier:
+                notifiers.append(notifier)
+    except Exception as e:  # pragma: no cover - best effort
+        print(f"Failed to create user notifiers: {e}")
+    return notifiers
+
 
 def _store_assets(
     assets: Iterable[object],
-    notifier: Optional[Notifier] = None,
+    notifiers: Optional[Iterable[Notifier]] = None,
 ) -> None:
     """Persist assets to the database and trigger alerts if needed."""
     
@@ -84,36 +101,32 @@ def _store_assets(
                     }
                 )
 
-                if notifier:
-                    notifier.notify(asset)
+                if notifiers:
+                    for notifier in notifiers:
+                        notifier.notify(asset)
     except Exception as e:
         print(f"Error storing assets: {e}")
 
 
-def fetch_and_store(
-    notifier: Optional[Notifier] = None,
-) -> None:
+def fetch_and_store() -> None:
     """Fetch assets from Yad2 and store them in the database."""
-    
+
     try:
         scraper = Yad2Scraper()
         assets = scraper.scrape_page()
-        _store_assets(assets, notifier=notifier)
-    except Exception as e:
+        notifiers = _load_user_notifiers()
+        _store_assets(assets, notifiers=notifiers)
+    except Exception as e:  # pragma: no cover - best effort
         print(f"Error fetching Yad2 data: {e}")
 
 
-def start_yad2_scheduler(
-    interval_minutes: int = 60,
-    notifier: Optional[Notifier] = None,
-):
+def start_yad2_scheduler(interval_minutes: int = 60):
     """Start a scheduler that periodically fetches Yad2 data."""
     scheduler = create_scheduler()
     scheduler.add_job(
         fetch_and_store,
         "interval",
         minutes=interval_minutes,
-        kwargs={"notifier": notifier},
     )
     scheduler.start()
     return scheduler

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -71,18 +71,23 @@ export default function AssetsPage() {
     }
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?country=Israel&format=json&limit=5&city=${encodeURIComponent(
+        `https://data.gov.il/api/3/action/datastore_search?resource_id=d4901968-dad3-4845-a9b0-a57d027f11ab&q=${encodeURIComponent(
           query
-        )}`,
-        { headers: { "User-Agent": "realestate-agent" } }
+        )}&limit=5`
       );
-      const data = await res.json();
+      const json = await res.json();
+      const records = json.result?.records || [];
       setCitySuggestions(
         Array.from(
           new Set(
-            data.map((item: any) => item.display_name.split(",")[0])
+            records
+              .map(
+                (item: any) =>
+                  item["שם_ישוב"] || item["שם ישוב"] || item.city || item.name
+              )
+              .filter(Boolean)
           )
-        )
+        ) as string[]
       );
     } catch (e) {
       console.error("Failed to fetch city suggestions", e);
@@ -99,16 +104,19 @@ export default function AssetsPage() {
     }
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?country=Israel&format=json&limit=5&city=${encodeURIComponent(
-          cityName
-        )}&street=${encodeURIComponent(query)}`,
-        { headers: { "User-Agent": "realestate-agent" } }
+        `https://data.gov.il/api/3/action/datastore_search?resource_id=d4901968-dad3-4845-a9b0-a57d027f11ab&q=${encodeURIComponent(
+          `${cityName} ${query}`
+        )}&limit=5`
       );
-      const data = await res.json();
+      const json = await res.json();
+      const records = json.result?.records || [];
       const roads = Array.from(
         new Set(
-          data
-            .map((item: any) => item.address?.road)
+          records
+            .map(
+              (item: any) =>
+                item["שם_רחוב"] || item["שם רחוב"] || item.street || item.road
+            )
             .filter(Boolean)
         )
       );
@@ -198,6 +206,7 @@ export default function AssetsPage() {
       gush: z.string().optional(),
       helka: z.string().optional(),
       subHelka: z.string().optional(),
+      radius: z.number().int().positive().default(DEFAULT_RADIUS_METERS),
     })
     .superRefine((data, ctx) => {
       if (data.locationType === "address") {
@@ -246,6 +255,7 @@ export default function AssetsPage() {
       gush: "",
       helka: "",
       subHelka: "",
+      radius: DEFAULT_RADIUS_METERS,
     },
   });
 
@@ -263,7 +273,7 @@ export default function AssetsPage() {
               street: data.street,
               number: data.houseNumber ? Number(data.houseNumber) : undefined,
               apartment: data.apartment,
-              radius: DEFAULT_RADIUS_METERS,
+              radius: data.radius,
             }
           : {
               scope: {
@@ -273,7 +283,7 @@ export default function AssetsPage() {
               gush: data.gush,
               helka: data.helka,
               subHelka: data.subHelka,
-              radius: DEFAULT_RADIUS_METERS,
+              radius: data.radius,
             };
 
       const response = await fetch("/api/assets", {
@@ -380,19 +390,24 @@ export default function AssetsPage() {
                   >
                     <div className="space-y-2">
                       <Label htmlFor="locationType">סוג מיקום</Label>
-                      <Select
-                        onValueChange={(value) =>
-                          form.setValue("locationType", value as any)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="בחר סוג" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="address">כתובת</SelectItem>
-                          <SelectItem value="parcel">גוש/חלקה</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Controller
+                        control={form.control}
+                        name="locationType"
+                        render={({ field }) => (
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="בחר סוג" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="address">כתובת</SelectItem>
+                              <SelectItem value="parcel">גוש/חלקה</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
                     </div>
 
                     {form.watch("locationType") === "address" && (
@@ -403,11 +418,10 @@ export default function AssetsPage() {
                             id="city"
                             list="city-options"
                             placeholder="בחר עיר"
-                            value={form.watch("city")}
-                            onChange={(e) => {
-                              form.setValue("city", e.target.value);
-                              fetchCitySuggestions(e.target.value);
-                            }}
+                            {...form.register("city", {
+                              onChange: (e) =>
+                                fetchCitySuggestions(e.target.value),
+                            })}
                           />
                           <datalist id="city-options">
                             {citySuggestions.map((c) => (
@@ -422,14 +436,13 @@ export default function AssetsPage() {
                             id="street"
                             list="street-options"
                             placeholder="בחר רחוב"
-                            value={form.watch("street")}
-                            onChange={(e) => {
-                              form.setValue("street", e.target.value);
-                              fetchStreetSuggestions(
-                                e.target.value,
-                                form.watch("city") || ""
-                              );
-                            }}
+                            {...form.register("street", {
+                              onChange: (e) =>
+                                fetchStreetSuggestions(
+                                  e.target.value,
+                                  form.getValues("city") || ""
+                                ),
+                            })}
                           />
                           <datalist id="street-options">
                             {streetSuggestions.map((s) => (
@@ -486,6 +499,15 @@ export default function AssetsPage() {
                         </div>
                       </>
                     )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="radius">רדיוס (מטרים)</Label>
+                      <Input
+                        id="radius"
+                        type="number"
+                        {...form.register("radius", { valueAsNumber: true })}
+                      />
+                    </div>
 
                     <Button type="submit" className="w-full">
                       הוסף נכס

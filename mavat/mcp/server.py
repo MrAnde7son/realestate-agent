@@ -248,7 +248,7 @@ async def get_plan_documents(
         
         # Get plan details first to access entity name if not provided
         if not entity_name:
-            plan_result = await get_plan_details(ctx, plan_id)
+            plan_result = await get_plan_details.fn(ctx, plan_id)
             if not plan_result.get("success"):
                 return plan_result
             entity_name = plan_result["plan"].get("entity_name", "Unknown")
@@ -321,7 +321,7 @@ async def search_by_location(
         await ctx.info(f"Searching for plans in location: city='{city}', district='{district}', street='{street}'")
         
         # Use the main search function with location parameters
-        result = await search_plans(
+        result = await search_plans.fn(
             ctx,
             city=city,
             district=district,
@@ -377,7 +377,7 @@ async def search_by_block_parcel(
         await ctx.info(f"Searching for plans by block/parcel: block={block_number}, parcel={parcel_number}")
         
         # Use the main search function with cadastral parameters
-        result = await search_plans(
+        result = await search_plans.fn(
             ctx,
             block_number=block_number,
             parcel_number=parcel_number,
@@ -688,8 +688,8 @@ async def get_plan_summary(
         await ctx.info(f"Generating comprehensive summary for plan: {plan_id}")
         
         # Get plan details and documents
-        details_result = await get_plan_details(ctx, plan_id)
-        documents_result = await get_plan_documents(ctx, plan_id)
+        details_result = await get_plan_details.fn(ctx, plan_id)
+        documents_result = await get_plan_documents.fn(ctx, plan_id)
         
         # Check if all operations were successful
         if not all([

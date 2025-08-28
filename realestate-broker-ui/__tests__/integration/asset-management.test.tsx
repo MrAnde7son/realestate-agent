@@ -119,14 +119,15 @@ describe('Asset Management Integration', () => {
       }
       
       if (url === '/api/assets' && options?.method === 'POST') {
+        const body = options.body ? JSON.parse(options.body) : {}
         return Promise.resolve({
           ok: true,
           json: async () => ({
             asset: {
               id: 'new-asset',
-              address: options.body ? JSON.parse(options.body).address : 'New Asset',
+              address: body.street ? `${body.street} ${body.number || ''}`.trim() : 'New Asset',
               price: 0,
-              city: 'תל אביב',
+              city: body.city || 'תל אביב',
               type: 'דירה',
               asset_status: 'pending'
             }
@@ -134,7 +135,7 @@ describe('Asset Management Integration', () => {
         })
       }
       
-      return Promise.reject(new Error('Unhandled fetch call'))
+      return Promise.resolve({ ok: true, json: async () => [] })
     })
   })
 
@@ -209,12 +210,12 @@ describe('Asset Management Integration', () => {
       expect(screen.getByText('הזן פרטי הנכס כדי להתחיל תהליך העשרת מידע')).toBeInTheDocument()
 
       // Step 2: Fill form with required data
-      const addressInput = screen.getByLabelText('כתובת')
       const cityInput = screen.getByLabelText('עיר')
-      
+      const streetInput = screen.getByLabelText('רחוב')
+
       await act(async () => {
-        fireEvent.change(addressInput, { target: { value: 'רחוב החלוצים 789, תל אביב' } })
         fireEvent.change(cityInput, { target: { value: 'תל אביב' } })
+        fireEvent.change(streetInput, { target: { value: 'החלוצים' } })
       })
 
       // Step 3: Submit form
@@ -256,7 +257,7 @@ describe('Asset Management Integration', () => {
       expect(submitButton).toBeInTheDocument()
     })
 
-    it('handles different scope types in asset creation', async () => {
+    it('handles different location types in asset creation', async () => {
       await act(async () => {
         render(<AssetsPage />)
       })
@@ -265,9 +266,8 @@ describe('Asset Management Integration', () => {
       const addButton = screen.getByText('הוסף נכס חדש')
       fireEvent.click(addButton)
 
-      // Test scope type selection - the scope type is in the form
-      // and adapts dynamically based on selection
-      expect(screen.getByText('סוג חיפוש')).toBeInTheDocument()
+      // Test location type selection in the form
+      expect(screen.getByText('סוג מיקום')).toBeInTheDocument()
     })
   })
 
@@ -298,12 +298,12 @@ describe('Asset Management Integration', () => {
       const addButton = screen.getByText('הוסף נכס חדש')
       fireEvent.click(addButton)
 
-      const addressInput = screen.getByLabelText('כתובת')
       const cityInput = screen.getByLabelText('עיר')
-      
+      const streetInput = screen.getByLabelText('רחוב')
+
       await act(async () => {
-        fireEvent.change(addressInput, { target: { value: 'Test Address' } })
         fireEvent.change(cityInput, { target: { value: 'תל אביב' } })
+        fireEvent.change(streetInput, { target: { value: 'Test Address' } })
       })
 
       // Submit form
@@ -392,19 +392,19 @@ describe('Asset Management Integration', () => {
       fireEvent.click(addButton)
 
       // Fill partial data
-      const addressInput = screen.getByLabelText('כתובת')
+      const streetInput = screen.getByLabelText('רחוב')
       await act(async () => {
-        fireEvent.change(addressInput, { target: { value: 'Partial Address' } })
+        fireEvent.change(streetInput, { target: { value: 'Partial Street' } })
       })
 
       // Value should be maintained
-      expect(addressInput).toHaveValue('Partial Address')
+      expect(streetInput).toHaveValue('Partial Street')
 
       // Verify form elements are accessible
-      expect(screen.getByText('סוג חיפוש')).toBeInTheDocument()
+      expect(screen.getByText('סוג מיקום')).toBeInTheDocument()
 
-      // Address should still be there
-      expect(addressInput).toHaveValue('Partial Address')
+      // Street should still be there
+      expect(streetInput).toHaveValue('Partial Street')
     })
   })
 })

@@ -2,12 +2,14 @@
 
 
 import uuid
+import pytest
 
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
+@pytest.mark.django_db
 def test_user_settings_get_and_update():
     User = get_user_model()
     uid = uuid.uuid4().hex

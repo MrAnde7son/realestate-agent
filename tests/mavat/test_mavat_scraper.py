@@ -120,6 +120,7 @@ class TestMavatScraper:
     def test_launch_method(self, mock_sync_playwright):
         """Test the _launch method."""
         mock_playwright = Mock()
+        mock_playwright.start.return_value = mock_playwright
         mock_sync_playwright.return_value = mock_playwright
         
         scraper = MavatScraper()
@@ -127,6 +128,7 @@ class TestMavatScraper:
         
         assert result == mock_playwright
         mock_sync_playwright.assert_called_once()
+        mock_playwright.start.assert_called_once()
 
     @patch('mavat.scrapers.mavat_scraper.sync_playwright')
     def test_search_text_success(self, mock_sync_playwright):

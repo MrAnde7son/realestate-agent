@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { assets } from '@/lib/data'
 
+function determineAssetType(asset: any): string {
+  return asset?.type || asset?.property_type || asset?.propertyType || 'לא ידוע'
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -25,7 +29,7 @@ export async function GET(
           bedrooms: backendAsset.rooms || 3,
           bathrooms: backendAsset.bathrooms || 2,
           area: backendAsset.size || 85,
-          type: backendAsset.property_type || 'דירה',
+          type: determineAssetType(backendAsset),
           status: 'active',
           images: backendAsset.images || ['/placeholder-home.jpg'],
           description: backendAsset.description || 'תיאור הנכס',

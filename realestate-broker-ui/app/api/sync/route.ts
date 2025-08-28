@@ -13,7 +13,7 @@ async function collectDataFromSources(address: string) {
     bedrooms: Math.floor(Math.random() * 3) + 2, // 2-4 rooms
     bathrooms: Math.floor(Math.random() * 2) + 1, // 1-2 bathrooms
     area: Math.floor(Math.random() * 50) + 60, // 60-110 sqm
-    type: 'דירה',
+    type: 'לא ידוע',
     
     // GIS data
     zoning: 'מגורים א\'',

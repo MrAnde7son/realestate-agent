@@ -18,6 +18,10 @@ const newAssetSchema = z.object({
   radius: z.number().default(100)
 })
 
+function determineAssetType(asset: any): string {
+  return asset?.type || asset?.property_type || asset?.propertyType || 'לא ידוע'
+}
+
 export async function GET() {
   try {
     // Return mock data for now
@@ -28,7 +32,7 @@ export async function GET() {
       bedrooms: asset.bedrooms || 0,
       bathrooms: asset.bathrooms || 1, // Default since not in backend
       area: asset.area,
-      type: asset.type || 'דירה',
+      type: determineAssetType(asset),
       status: asset.status || 'active',
       images: asset.images || [],
       description: asset.description || '',
@@ -85,7 +89,7 @@ export async function POST(req: Request) {
       bedrooms: 0,
       bathrooms: 1,
       area: 0,
-      type: 'דירה',
+      type: determineAssetType(body),
       status: 'pending',
       images: [],
       description: `נכס ${validatedData.scope.type} - ${validatedData.city}`,

@@ -20,6 +20,46 @@ from gov.decisive import fetch_decisive_appraisals
 from gov.nadlan.scraper import NadlanDealsScraper
 from rami.rami_client import RamiClient
 
+# alert helpers
+from orchestration.alerts import Notifier, create_notifier_for_user
+
+# Import Django Alert model if available
+try:  # pragma: no cover - best effort import
+    import sys
+    import os
+
+    backend_path = os.path.join(os.path.dirname(__file__), "..", "backend-django")
+    if backend_path not in sys.path:
+        sys.path.insert(0, backend_path)
+
+    import django
+
+    if not django.conf.settings.configured:
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
+        django.setup()
+
+    from core.models import Alert  # type: ignore
+except Exception as e:  # pragma: no cover - best effort
+    print(f"Failed to import Django models: {e}")
+
+    class Alert:  # type: ignore
+        objects = []
+
+
+def _load_user_notifiers() -> List[Notifier]:
+    """Build notifiers for all users with active alerts."""
+
+    notifiers: List[Notifier] = []
+    try:
+        alerts = Alert.objects.filter(active=True).select_related("user")  # type: ignore[attr-defined]
+        for alert in alerts:
+            notifier = create_notifier_for_user(alert.user, alert.criteria)
+            if notifier:
+                notifiers.append(notifier)
+    except Exception as e:  # pragma: no cover - best effort
+        print(f"Failed to create user notifiers: {e}")
+    return notifiers
+
 
 # ---------------------------------------------------------------------------
 # Collector classes
@@ -193,6 +233,9 @@ class DataPipeline:
         # Search Yad2 for listings near the location
         listings = self.yad2.fetch_listings(address, max_pages)
 
+        # Load user notifiers once per run
+        notifiers = _load_user_notifiers()
+
         created_ids: List[int] = []
         with self.db.get_session() as session:
             for listing in listings:
@@ -218,6 +261,10 @@ class DataPipeline:
                 plans = self.rami.collect(block, parcel)
                 if plans:
                     self._add_source_record(session, db_listing.id, "rami", plans)
+
+                # ---------------- Alerts ----------------
+                for notifier in notifiers:
+                    notifier.notify(db_listing)
 
             session.commit()
 

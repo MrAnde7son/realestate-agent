@@ -65,11 +65,61 @@ if (!asset) {
 
   doc.fontSize(20).text('דו"ח נכס', { align: 'center' });
   doc.moveDown();
-      doc.fontSize(12).text(`כתובת: ${asset.address}`);
-    doc.text(`מחיר: ₪${asset.price.toLocaleString('he-IL')}`);
-    doc.text(`חדרים: ${asset.bedrooms}`);
-    doc.text(`מקלחות: ${asset.bathrooms}`);
-    doc.text(`מ"ר: ${asset.area}`);
+
+  // Helper to add a line to the PDF if the value exists
+  const addLine = (label: string, value: any) => {
+    if (value === undefined || value === null || value === '') return;
+    // Format numbers with locale when possible
+    let formatted: any = value;
+    if (typeof value === 'number') {
+      formatted = value.toLocaleString('he-IL');
+    } else if (Array.isArray(value)) {
+      formatted = value.map(v => (typeof v === 'number' ? v.toLocaleString('he-IL') : String(v))).join(', ');
+    } else if (typeof value === 'boolean') {
+      formatted = value ? 'כן' : 'לא';
+    }
+    doc.text(`${label}: ${formatted}`);
+  };
+
+  // Basic details
+  addLine('כתובת', asset.address);
+  addLine('עיר', asset.city);
+  addLine('שכונה', asset.neighborhood);
+  addLine('סוג', asset.type);
+  addLine('מחיר', `₪${asset.price.toLocaleString('he-IL')}`);
+  addLine('חדרים', asset.bedrooms);
+  addLine('מקלחות', asset.bathrooms);
+  addLine('מ"ר נטו', asset.netSqm ?? asset.area);
+  addLine('מחיר למ"ר', asset.pricePerSqm ? `₪${asset.pricePerSqm.toLocaleString('he-IL')}` : undefined);
+  addLine('יתרת זכויות', asset.remainingRightsSqm);
+  addLine('תכנית', asset.program);
+  addLine('היתר אחרון', asset.lastPermitQ);
+  addLine('רמת רעש', asset.noiseLevel);
+  addLine('תחרות 1 ק"מ', asset.competition1km);
+  addLine('זונינג', asset.zoning);
+  addLine('פער למחיר', asset.priceGapPct);
+  addLine('טווח מחיר צפוי', asset.expectedPriceRange);
+  addLine('מחיר מודל', asset.modelPrice ? `₪${asset.modelPrice.toLocaleString('he-IL')}` : undefined);
+  addLine('רמת ביטחון', asset.confidencePct);
+  addLine('תשואה', asset.capRatePct);
+  addLine('הערכת שכירות', asset.rentEstimate ? `₪${asset.rentEstimate.toLocaleString('he-IL')}` : undefined);
+  addLine('דגלי סיכון', asset.riskFlags && asset.riskFlags.length ? asset.riskFlags.join(', ') : undefined);
+  addLine('מאפיינים', asset.features && asset.features.length ? asset.features.join(', ') : undefined);
+
+  if (asset.contactInfo) {
+    doc.moveDown().text('פרטי קשר:', { underline: true });
+    addLine('סוכן', asset.contactInfo.agent);
+    addLine('טלפון', asset.contactInfo.phone);
+    addLine('אימייל', asset.contactInfo.email);
+  }
+
+  if (asset.documents && asset.documents.length) {
+    doc.moveDown().text('מסמכים:', { underline: true });
+    asset.documents.forEach((d: any) => {
+      addLine('-', `${d.name}${d.type ? ` (${d.type})` : ''}`);
+    });
+  }
+
   doc.end();
   await new Promise<void>((resolve) => stream.on('finish', () => resolve()));
 

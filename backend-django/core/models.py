@@ -2,11 +2,13 @@ import os
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 
-class UserProfile(models.Model):
-    """User profile model that extends the built-in User model."""
-    user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='profile')
+class User(AbstractUser):
+    """Custom user model for the real estate application."""
+    email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     company = models.CharField(max_length=100, blank=True, null=True)
     role = models.CharField(max_length=50, blank=True, null=True)  # broker, appraiser, investor, etc.
@@ -24,21 +26,18 @@ class UserProfile(models.Model):
     notify_urgent = models.BooleanField(default=True)
     notification_time = models.CharField(max_length=5, default="09:00")
     
-    class Meta:
-        app_label = 'core'
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
     
     def __str__(self):
-        return f"Profile for {self.user.email}"
+        return self.email
 
 class Alert(models.Model):
-    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='alerts')
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='alerts')
     criteria = models.JSONField()
     notify = models.JSONField(default=list)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        app_label = 'core'
     
     def __str__(self): 
         return f"Alert({self.user.email}, active={self.active})"
@@ -86,7 +85,6 @@ class Asset(models.Model):
             models.Index(fields=['normalized_address']),
             models.Index(fields=['status']),
         ]
-        app_label = 'core'
     
     def __str__(self):
         return f"Asset({self.id}, {self.scope_type}, {self.status})"
@@ -118,7 +116,6 @@ class SourceRecord(models.Model):
             models.Index(fields=['external_id']),
         ]
         unique_together = ['source', 'external_id']
-        app_label = 'core'
     
     def __str__(self):
         return f"SourceRecord({self.source}, {self.external_id})"
@@ -141,7 +138,6 @@ class RealEstateTransaction(models.Model):
             models.Index(fields=['asset']),
             models.Index(fields=['deal_id']),
         ]
-        app_label = 'core'
     
     def __str__(self):
         return f"Transaction({self.deal_id}, {self.price})"
@@ -161,7 +157,7 @@ class Report(models.Model):
         ('failed', 'Failed'),
     ]
     
-    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='reports', null=True, blank=True)
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='reports', null=True, blank=True)
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='reports', null=True, blank=True)
     report_type = models.CharField(max_length=50, choices=REPORT_TYPE_CHOICES, default='asset')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='generating')
@@ -195,7 +191,6 @@ class Report(models.Model):
             models.Index(fields=['generated_at']),
         ]
         ordering = ['-generated_at']
-        app_label = 'core'
     
     def __str__(self):
         return f"Report({self.id}, {self.report_type}, {self.status})"

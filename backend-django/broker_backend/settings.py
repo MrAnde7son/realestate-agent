@@ -21,7 +21,8 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver').split(',')
 
-# Using built-in User model with UserProfile extension
+# Custom user model
+AUTH_USER_MODEL = 'core.User'
 
 INSTALLED_APPS = [
     'django.contrib.admin',

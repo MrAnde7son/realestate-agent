@@ -75,7 +75,7 @@ describe('/api/assets', () => {
       expect(data.asset.address).toBe('New St 5')
       expect(data.asset.city).toBe('תל אביב')
       expect(data.asset.status).toBe('pending')
-      expect(data.asset.type).toBe('דירה')
+      expect(data.asset.type).toBe('לא ידוע')
     })
 
     it('validates required fields', async () => {

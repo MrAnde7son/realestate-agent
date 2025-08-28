@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Download, Eye, Calendar, MapPin } from 'lucide-react'
+import { FileText, Download, Eye, Calendar, MapPin, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 type Report = {
@@ -23,6 +23,7 @@ type Report = {
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/reports')
@@ -66,6 +67,36 @@ export default function ReportsPage() {
   // Use sample data if no real data is available (for demo purposes)
   const displayReports = reports.length > 0 ? reports : sampleReports
   const isSampleData = reports.length === 0 && !loading
+
+  const handleDeleteReport = async (reportId: number) => {
+    if (!confirm('האם אתה בטוח שברצונך למחוק דוח זה?')) {
+      return
+    }
+
+    setDeleting(reportId)
+    try {
+      const response = await fetch('/api/reports', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId })
+      })
+
+      if (response.ok) {
+        // Remove the report from the local state
+        setReports(prev => prev.filter(r => r.id !== reportId))
+        // Show success message (you could add a toast notification here)
+        alert('הדוח נמחק בהצלחה')
+      } else {
+        const error = await response.json()
+        alert(`שגיאה במחיקת הדוח: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting report:', error)
+      alert('שגיאה במחיקת הדוח')
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -177,6 +208,15 @@ export default function ReportsPage() {
                                     <Download className="h-4 w-4 ml-2" />
                                     הורדה
                                   </a>
+                                </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  onClick={() => handleDeleteReport(report.id)}
+                                  disabled={deleting === report.id}
+                                >
+                                  <Trash2 className="h-4 w-4 ml-2" />
+                                  {deleting === report.id ? 'מוחק...' : 'מחיקה'}
                                 </Button>
                               </div>
                             </TableCell>

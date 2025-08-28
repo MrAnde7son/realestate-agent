@@ -3,20 +3,30 @@ import { assets, addAsset } from '@/lib/data'
 import type { Asset } from '@/lib/data'
 import { z } from 'zod'
 
+// Schema for new asset creation. The backend accepts various combinations of
+// fields depending on the scope type, so most fields are optional here. Basic
+// validation is still applied where possible.
 const newAssetSchema = z.object({
   scope: z.object({
     type: z.enum(['address', 'neighborhood', 'street', 'city', 'parcel']),
     value: z.string(),
-    city: z.string()
+    // City is only required for some scope types (e.g. address) so mark it optional
+    city: z.string().optional()
   }),
-  address: z.string(),
-  city: z.string(),
+  // Address information might be derived from street/number or from the scope
+  // value, so keep it optional
+  address: z.string().optional(),
+  city: z.string().optional(),
   street: z.string().optional(),
   number: z.number().optional(),
   gush: z.string().optional(),
   helka: z.string().optional(),
-  radius: z.number().optional()
+  radius: z.number().default(100)
 })
+
+function determineAssetType(asset: any): string {
+  return asset?.type || asset?.property_type || asset?.propertyType || 'לא ידוע'
+}
 
 export async function GET() {
   try {
@@ -28,7 +38,7 @@ export async function GET() {
       bedrooms: asset.bedrooms || 0,
       bathrooms: asset.bathrooms || 1, // Default since not in backend
       area: asset.area,
-      type: asset.type || 'דירה',
+      type: determineAssetType(asset),
       status: asset.status || 'active',
       images: asset.images || [],
       description: asset.description || '',
@@ -73,29 +83,40 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    
+
     // Validate input
     const validatedData = newAssetSchema.parse(body)
-    
+    // Derive address/city if missing. This mirrors the backend's flexibility
+    // and allows submissions that only provide street/number or parcel info.
+    const derivedAddress =
+      validatedData.address ||
+      (validatedData.street
+        ? `${validatedData.street} ${validatedData.number ?? ''}`.trim()
+        : validatedData.scope.value)
+
+    const derivedCity = validatedData.city || validatedData.scope.city || ''
+
+    const id = Date.now() // Generate unique numeric ID once
+
     // Create asset with available data, using defaults for missing fields
     const asset: Asset = {
-      id: Date.now(), // Generate unique numeric ID
-      address: validatedData.address,
+      id,
+      address: derivedAddress,
       price: 0, // Will be populated by enrichment pipeline
       bedrooms: 0,
       bathrooms: 1,
       area: 0,
-      type: 'דירה',
+      type: determineAssetType(body),
       status: 'pending',
       images: [],
-      description: `נכס ${validatedData.scope.type} - ${validatedData.city}`,
+      description: `נכס ${validatedData.scope.type} - ${derivedCity}`,
       features: [],
       contactInfo: {
         agent: '',
         phone: '',
         email: ''
       },
-      city: validatedData.city,
+      city: derivedCity,
       neighborhood: '',
       netSqm: 0,
       pricePerSqm: 0,
@@ -118,7 +139,7 @@ export async function POST(req: Request) {
       antennaDistanceM: 150,
       shelterDistanceM: 100,
       rentEstimate: 0,
-      asset_id: Date.now(),
+      asset_id: id,
       asset_status: 'pending',
       sources: [],
       primary_source: 'manual'

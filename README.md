@@ -1,6 +1,8 @@
-# Real Estate Agent
+# Nadlaner™
 
-A comprehensive real estate intelligence platform designed for brokers, appraisers, and real estate professionals in Israel. Features advanced MCP (Model Context Protocol) server integration for seamless LLM use, Israeli real estate scraping (Yad2), planning document access (RAMI), Tel Aviv GIS integration, and professional broker tools.
+Nadlaner™ is a comprehensive real estate intelligence platform designed for brokers, appraisers, and real estate professionals in Israel. Features advanced MCP (Model Context Protocol) server integration for seamless LLM use, Israeli real estate scraping (Yad2), planning document access (RAMI), Tel Aviv GIS integration, and professional broker tools.
+
+Nadlaner™ is a trademark of MrAnde7son.
 
 ## 🎯 Core Features
 
@@ -62,6 +64,7 @@ realestate-agent/
 │   │   ├── gis_client.py          # Tel Aviv ArcGIS client & CLI
 │   │   ├── parse_zchuyot.py       # Building privilege parser
 │   │   └── mcp/server.py          # GIS data MCP server
+│   ├── mavat/                     # National planning portal (MAVAT) tools
 │   └── gov/                       # Government data services
 │       └── mcp/                   # Gov.il data MCP server
 │           ├── server.py          # Government datasets & comparables
@@ -767,6 +770,8 @@ If MCP servers won't start:
 ## 📄 License
 
 GNU General Public License v3.0 or later (GPLv3) - see LICENSE file for details.
+
+Nadlaner™ is a trademark of MrAnde7son.
 
 ## ⚠️ Disclaimer
 

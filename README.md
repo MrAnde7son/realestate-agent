@@ -45,7 +45,7 @@ Nadlaner™ is a trademark of MrAnde7son.
 ## 📁 Project Architecture
 
 ```
-nadlaner/
+realestate-agent/
 ├── 🏠 CORE SCRAPING & MCP SERVICES
 │   ├── yad2/                      # Real estate scraping & MCP server
 │   │   ├── core/                  # Core functionality
@@ -127,8 +127,8 @@ nadlaner/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/nadlaner.git
-cd nadlaner
+git clone https://github.com/your-username/realestate-agent.git
+cd realestate-agent
 
 # Create and activate virtual environment (recommended)
 python3 -m venv .venv

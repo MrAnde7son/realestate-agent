@@ -1,5 +1,3 @@
-# backend-django/core/views.py
-
 import json
 import os
 import re

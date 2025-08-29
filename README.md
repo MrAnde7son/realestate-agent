@@ -717,7 +717,7 @@ The codebase is organized into logical modules:
 
 ### Common Issues
 
-1. **Import errors**: Ensure you ran `pip install -r requirements.txt` and `cd nadlaner`
+1. **Import errors**: Ensure you ran `pip install -r requirements.txt` and `cd realestate-agent`
 2. **Module not found errors in tests**: Use the robust import template provided in the Testing section
 3. **Debugger import issues**: Ensure `.vscode/launch.json` has `"cwd": "${workspaceFolder}"`
 4. **No assets found**: Check if parameters are too restrictive

@@ -1,76 +1,74 @@
-#!/usr/bin/env python3
-"""
-Test script for get_building_privilege_page function
-"""
+import json
+from typing import Dict
+from unittest import mock
+
+import requests
 
 from gis.gis_client import TelAvivGS
 
 
-def test_privilege_page():
-    """Test the get_building_privilege_page function"""
-    print("Testing get_building_privilege_page function...")
-    
-    # Initialize the GIS client
+def _make_response(status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None):
+    r = requests.Response()
+    r.status_code = status
+    r._content = text.encode("utf-8")
+    r.headers.update(headers or {})
+    if json_payload is not None:
+        r._content = json.dumps(json_payload).encode("utf-8")
+        r.headers["Content-Type"] = "application/json"
+    return r
+
+
+def test_privilege_page(tmp_path):
     gs = TelAvivGS()
-    
-    # Coordinates for רחוב הגולן 1, תל אביב
     x, y = 184320.94, 668548.65
-    
-    print(f"Testing with coordinates: x={x}, y={y}")
-    
-    # Test individual functions first
-    print("\n1. Testing get_blocks...")
-    blocks = gs.get_blocks(x, y)
-    print(f"   Blocks found: {len(blocks)}")
-    if blocks:
-        print(f"   First block: {blocks[0]}")
-        gush = blocks[0].get("ms_gush")
-        print(f"   Gush: {gush}")
-    
-    print("\n2. Testing get_parcels...")
-    parcels = gs.get_parcels(x, y)
-    print(f"   Parcels found: {len(parcels)}")
-    if parcels:
-        print(f"   First parcel: {parcels[0]}")
-        helka = parcels[0].get("ms_chelka")
-        print(f"   Helka: {helka}")
-    
-    # Test the main function
-    print("\n3. Testing get_building_privilege_page...")
-    try:
-        result = gs.get_building_privilege_page(x, y, save_dir="test_privilege_pages")
-        if result:
-            print(f"   SUCCESS! Result: {result}")
-            print(f"   File path: {result.get('file_path')}")
-            print(f"   Content type: {result.get('content_type')}")
-            print(f"   Message: {result.get('message')}")
-        else:
-            print("   FAILED: Function returned None")
-    except Exception as e:
-        print(f"   ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
+    privilege_content = b"%PDF-1.4\n%Test PDF content"
+
+    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+        if "MapServer/525/query" in url:
+            return _make_response(json_payload=blocks_payload)
+        if "MapServer/524/query" in url:
+            return _make_response(json_payload=parcels_payload)
+        if "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
+            r = requests.Response()
+            r.status_code = 200
+            r._content = privilege_content
+            r.headers["Content-Type"] = "application/pdf"
+            return r
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    save_dir = tmp_path / "privilege_pages"
+    with mock.patch("requests.get", side_effect=fake_get):
+        blocks = gs.get_blocks(x, y)
+        parcels = gs.get_parcels(x, y)
+        result = gs.get_building_privilege_page(x, y, save_dir=str(save_dir))
+
+    assert len(blocks) == 1 and blocks[0]["ms_gush"] == "6638"
+    assert len(parcels) == 1 and parcels[0]["ms_chelka"] == "572"
+    assert result is not None
+    assert result["gush"] == "6638"
+    assert result["helka"] == "572"
+    assert result["content_type"] == "pdf"
+    assert (save_dir / "privilege_gush_6638_helka_572.pdf").exists()
+
 
 def test_gush_helka_extraction():
-    """Test the gush and helka extraction specifically"""
-    print("\n=== Testing Gush and Helka Extraction ===")
-    
     gs = TelAvivGS()
     x, y = 184320.94, 668548.65
-    
-    # Test the debug function
-    try:
-        result = gs.get_gush_helka_info(x, y)
-        print(f"Gush/Helka info: {result}")
-        
-        if result.get('success'):
-            print(f"✅ SUCCESS: Gush {result['gush']}, Helka {result['helka']}")
-            print(f"URL: {result['url']}")
-        else:
-            print(f"❌ FAILED: {result.get('error')}")
-    except Exception as e:
-        print(f"❌ ERROR: {e}")
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
 
-if __name__ == "__main__":
-    test_privilege_page()
-    test_gush_helka_extraction()
+    def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
+        if "MapServer/525/query" in url:
+            return _make_response(json_payload=blocks_payload)
+        if "MapServer/524/query" in url:
+            return _make_response(json_payload=parcels_payload)
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    with mock.patch("requests.get", side_effect=fake_get):
+        result = gs.get_gush_helka_info(x, y)
+
+    assert result["success"] is True
+    assert result["gush"] == "6638"
+    assert result["helka"] == "572"

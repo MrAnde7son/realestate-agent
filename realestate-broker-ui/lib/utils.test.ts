@@ -142,4 +142,5 @@ describe('Utils', () => {
       expect(fmtPct(250.75)).toBe('+250.8%')
     })
   })
+
 })

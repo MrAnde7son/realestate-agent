@@ -186,8 +186,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <div>
               <h1 className="text-3xl font-bold">{asset.address}</h1>
               <p className="text-muted-foreground">
-                {asset.city}{asset.neighborhood ? ` · ${asset.neighborhood}` : ''} ·
-                {asset.type === 'house' ? ' בית' : ' דירה'} · {asset.netSqm} מ״ר נטו
+                {asset.city}{asset.neighborhood ? ` · ${asset.neighborhood}` : ''} · {asset.type ?? '—'} · {asset.netSqm} מ״ר נטו
               </p>
             </div>
           </div>
@@ -335,7 +334,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardContent className="space-y-2">
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">סוג:</span>
-                    <span>{asset.type === 'house' ? 'בית' : 'דירה'}</span>
+                    <span>{asset.type ?? '—'}</span>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מ״ר נטו:</span>

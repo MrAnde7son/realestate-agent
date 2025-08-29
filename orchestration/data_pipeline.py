@@ -10,6 +10,8 @@ SQLAlchemy database.
 
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from sqlalchemy.orm import Session
+
 from db.database import SQLAlchemyDatabase
 from db.models import Listing, SourceRecord, Transaction
 
@@ -19,6 +21,7 @@ from gis.gis_client import TelAvivGS
 from gov.decisive import fetch_decisive_appraisals
 from gov.nadlan.scraper import NadlanDealsScraper
 from rami.rami_client import RamiClient
+from mavat.collector.mavat_collector import MavatCollector
 
 # alert helpers
 from orchestration.alerts import Notifier, create_notifier_for_user
@@ -157,24 +160,47 @@ class DataPipeline:
         self,
         db: Optional[SQLAlchemyDatabase] = None,
         *,
+        db_session: Optional["Session"] = None,
         yad2: Optional[Yad2Collector] = None,
         gis: Optional[GISCollector] = None,
         gov: Optional[GovCollector] = None,
         rami: Optional[RamiCollector] = None,
+        mavat: Optional[MavatCollector] = None,
     ) -> None:
-        self.db = db or SQLAlchemyDatabase()
+        """Create a new :class:`DataPipeline` instance.
+
+        Parameters
+        ----------
+        db:
+            Optional database helper.  If omitted a new ``SQLAlchemyDatabase``
+            instance is created.  When ``db_session`` is provided this argument
+            may be ``None``.
+        db_session:
+            Optional SQLAlchemy :class:`Session` object to use instead of
+            creating a new one via ``db.get_session``.  This makes the pipeline
+            easier to unit test where an in-memory session is often supplied.
+        """
+
+        self.db = db
+        self.session = db_session
+        if self.db is None and self.session is None:
+            # Fallback to default database when nothing is supplied.
+            self.db = SQLAlchemyDatabase()
+
         self.yad2 = yad2 or Yad2Collector()
         self.gis = gis or GISCollector()
         self.gov = gov or GovCollector()
         self.rami = rami or RamiCollector()
+        self.mavat = mavat or MavatCollector()
 
-        # Ensure database is ready
-        self.db.init_db()
-        try:
-            self.db.create_tables()
-        except Exception:
-            # Tables might already exist – ignore
-            pass
+        # Ensure database is ready when we manage it ourselves.
+        if self.db is not None:
+            self.db.init_db()
+            try:
+                self.db.create_tables()
+            except Exception:
+                # Tables might already exist – ignore
+                pass
 
     # ------------------------------------------------------------------
     def _store_listing(self, session, listing: RealEstateListing) -> Listing:
@@ -221,10 +247,12 @@ class DataPipeline:
             )
 
     # ------------------------------------------------------------------
-    def run(self, address: str, house_number: int, max_pages: int = 1) -> List[int]:
+    def run(self, address: str, house_number: int, max_pages: int = 1) -> List[Any]:
         """Run the pipeline for a given address.
 
-        Returns a list of database ``Listing`` IDs that were created.
+        The function still persists results to the database but also returns a
+        list of raw objects/dictionaries representing the collected data.  This
+        makes the pipeline easier to test in isolation.
         """
 
         # Geocode address via GIS first
@@ -236,15 +264,23 @@ class DataPipeline:
         # Load user notifiers once per run
         notifiers = _load_user_notifiers()
 
-        created_ids: List[int] = []
-        with self.db.get_session() as session:
+        # Decide which session to use
+        session_provided = self.session is not None
+        session = self.session or (self.db.get_session() if self.db else None)
+        if session is None:
+            raise RuntimeError("No database session available")
+
+        results: List[Any] = []
+        try:
             for listing in listings:
+                # Store listing in DB and add to return list
                 db_listing = self._store_listing(session, listing)
-                created_ids.append(db_listing.id)
+                results.append(listing)
 
                 # ---------------- GIS ----------------
                 gis_data = self.gis.collect(x, y)
                 self._add_source_record(session, db_listing.id, "gis", gis_data)
+                results.append({"source": "gis", "data": gis_data})
 
                 block, parcel = self.gis.extract_block_parcel(gis_data)
 
@@ -252,23 +288,31 @@ class DataPipeline:
                 decisives = self.gov.collect_decisive(block, parcel)
                 if decisives:
                     self._add_source_record(session, db_listing.id, "decisive", decisives)
+                    results.append({"source": "decisive", "data": decisives})
 
                 # ---------------- Gov - transactions ----------------
-                deals = self.gov.collect_transactions(address)
+                deals = list(self.gov.collect_transactions(address))
                 self._add_transactions(session, db_listing.id, deals)
+                if deals:
+                    deal_dicts = [d.to_dict() if hasattr(d, "to_dict") else dict(d) for d in deals]
+                    results.append({"source": "transactions", "data": deal_dicts})
 
                 # ---------------- RAMI plans ----------------
                 plans = self.rami.collect(block, parcel)
                 if plans:
                     self._add_source_record(session, db_listing.id, "rami", plans)
+                    results.append({"source": "rami", "data": plans})
 
                 # ---------------- Alerts ----------------
                 for notifier in notifiers:
                     notifier.notify(db_listing)
 
             session.commit()
+        finally:
+            if not session_provided:
+                session.close()
 
-        return created_ids
+        return results
 
 
 __all__ = [
@@ -277,4 +321,5 @@ __all__ = [
     "GISCollector",
     "GovCollector",
     "RamiCollector",
+    "MavatCollector",
 ]

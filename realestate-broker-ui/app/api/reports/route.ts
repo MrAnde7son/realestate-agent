@@ -134,24 +134,28 @@ export async function POST(req: Request) {
       const data = await res.json();
       console.log('Backend response data:', data);
       return NextResponse.json(data, { status: res.status });
-          } else {
-        console.error('Backend returned error status:', res.status);
-        const errorText = await res.text();
-        console.error('Backend error response:', errorText);
-        
-        // If backend fails, return the error instead of falling back to local generation
-        // This ensures we get proper Hebrew support from the backend
-        return NextResponse.json({ 
-          error: 'Backend report generation failed', 
+    } else {
+      console.error('Backend returned error status:', res.status);
+      const errorText = await res.text();
+      console.error('Backend error response:', errorText);
+
+      // If asset not found in backend, fall back to local generation
+      if (res.status === 404) {
+        console.log('Asset not found in backend, falling back to local data');
+      } else {
+        // For other backend errors, return the backend error
+        return NextResponse.json({
+          error: 'Backend report generation failed',
           details: errorText,
           suggestion: 'Please ensure the backend is running for proper Hebrew support'
         }, { status: res.status });
       }
-      } catch (err) {
-      console.error('Error connecting to backend:', err);
-      // Only fall back to local generation if backend is completely unreachable
-      console.log('Backend completely unreachable, falling back to local generation');
     }
+  } catch (err) {
+    console.error('Error connecting to backend:', err);
+    // Only fall back to local generation if backend is completely unreachable
+    console.log('Backend completely unreachable, falling back to local generation');
+  }
 
   // Generate report locally as fallback
   try {
@@ -167,8 +171,8 @@ export async function POST(req: Request) {
     const filename = `r${id}.pdf`; // Generate PDF reports
     console.log('Current working directory:', process.cwd());
     console.log('Attempting to create directory for reports');
-    // Use absolute path to the reports directory
-    const dir = '/Users/imizrahi/Documents/Git/realestate-agent/realestate-broker-ui/public/reports';
+    // Use path relative to the project root so it works in any environment
+    const dir = path.join(process.cwd(), 'public', 'reports');
     console.log('Reports directory path:', dir);
     fs.mkdirSync(dir, { recursive: true });
     const filePath = path.join(dir, filename);

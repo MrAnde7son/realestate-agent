@@ -83,7 +83,7 @@ export default function AssetsPage() {
             records
               .map(
                 (item: any) =>
-                  item["שם_ישוב"] || item["שם ישוב"] || item.city || item.name
+                  (item["שם_ישוב"] || item["שם ישוב"] || item.city || item.name).trim()
               )
               .filter(Boolean)
           )
@@ -106,8 +106,6 @@ export default function AssetsPage() {
       const res = await fetch(
         `https://data.gov.il/api/3/action/datastore_search?resource_id=9ad3862c-8391-4b2f-84a4-2d4c68625f4b&limit=5&q=${encodeURIComponent(
           query
-        )}&filters=${encodeURIComponent(
-          JSON.stringify({ "שם_ישוב": cityName })
         )}`
       );
       const json = await res.json();
@@ -117,10 +115,10 @@ export default function AssetsPage() {
           records
             .map(
               (item: any) =>
-                item["שם_רחוב"] ||
+                (item["שם_רחוב"] ||
                 item["שם רחוב"] ||
                 item.street ||
-                item.road
+                item.road).trim()
             )
             .filter(Boolean)
         )

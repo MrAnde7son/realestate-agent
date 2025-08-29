@@ -23,7 +23,7 @@ const columns: ColumnDef<Asset>[] = [
           <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
         </div>
         <div className="text-xs text-sub">
-          {row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type==='house'?'בית':'דירה'} · {row.original.netSqm??'—'} מ&quot;ר נטו
+            {row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type ?? '—'} · {row.original.netSqm??'—'} מ&quot;ר נטו
         </div>
       </div>
     ) 

@@ -158,8 +158,9 @@ export default function ReportsPage() {
                             <TableCell>
                               <div>
                                 <div className="font-semibold">
-                                  <Link 
-                                    href={`/assets/${report.assetId}`}
+                                  <Link
+                                    href={`/reports/${report.filename}`}
+                                    target="_blank"
                                     className="hover:text-primary transition-colors"
                                   >
                                     {report.address}
@@ -167,7 +168,7 @@ export default function ReportsPage() {
                                 </div>
                                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                                   <MapPin className="h-3 w-3" />
-                                  <span>פרטי הנכס</span>
+                                  <span>צפה בדוח</span>
                                 </div>
                               </div>
                             </TableCell>

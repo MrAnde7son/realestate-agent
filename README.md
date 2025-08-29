@@ -739,7 +739,7 @@ If you encounter import problems in test files:
 
 1. **Use the robust import template** from the Testing section
 2. **Verify project structure**: Ensure you're in the project root with `rami/`, `gis/`, `yad2/` directories
-3. **Check working directory**: Run `pwd` to confirm you're in `/path/to/nadlaner`
+3. **Check working directory**: Run `pwd` to confirm you're in `/path/to/realestate-agent`
 4. **Test the import system**:
    ```bash
    python tests/rami/test_robust_imports.py

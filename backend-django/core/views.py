@@ -464,17 +464,9 @@ def auth_google_callback(request):
 
 
 
-try:
-    # Try to use a font that supports Hebrew
-    FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    if os.path.exists(FONT_PATH):
-        pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
-        REPORT_FONT = "DejaVu"
-    else:
-        # Fallback to Helvetica but we'll handle Hebrew differently
-        REPORT_FONT = "Helvetica"
-except ImportError:
-    REPORT_FONT = "Helvetica"
+FONT_PATH = BASE_DIR / "fonts" / "DejaVuSans.ttf"
+pdfmetrics.registerFont(TTFont("DejaVu", str(FONT_PATH)))
+REPORT_FONT = "DejaVu"
 
 def parse_json(request):
     try: return json.loads(request.body.decode('utf-8'))
@@ -799,52 +791,27 @@ def reports(request):
             else:
                 c.drawString(x, y, text)
 
-        # Set up Hebrew font - try to use DejaVu if available, otherwise use a fallback approach
-        try:
-            if REPORT_FONT == "DejaVu":
-                c.setFont(REPORT_FONT, 20)
-                # Page 1: General Analysis (ניתוח כללי)
-                draw_hebrew(300, 760, 'דו"ח נכס - ניתוח כללי', align='center')
-            else:
-                # Fallback: use English titles and handle Hebrew content carefully
-                c.setFont(REPORT_FONT, 20)
-                c.drawCentredString(300, 760, 'Asset Report - General Analysis')
-        except:
-            # If font setting fails, use default
-            c.setFont("Helvetica", 20)
-            c.drawCentredString(300, 760, 'Asset Report - General Analysis')
+        # Page 1: General Analysis (ניתוח כללי)
+        c.setFont(REPORT_FONT, 20)
+        draw_hebrew(300, 760, 'דו"ח נכס - ניתוח כללי', align='center')
 
         c.setFont(REPORT_FONT, 12)
         y = 720
 
         # Asset Details Section
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'פרטי הנכס')
-        else:
-            c.drawString(50, y, 'Asset Details')
+        draw_hebrew(RIGHT_MARGIN, y, 'פרטי הנכס')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
-        # Handle Hebrew text carefully - use English labels if font doesn't support Hebrew
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, f"כתובת: {listing['address']}")
-            y -= 20
-            draw_hebrew(RIGHT_MARGIN, y, f"עיר: {listing['city']}")
-            y -= 20
-            draw_hebrew(RIGHT_MARGIN, y, f"שכונה: {listing['neighborhood']}")
-            y -= 20
-            draw_hebrew(RIGHT_MARGIN, y, f"סוג: {listing['type']}")
-            y -= 20
-        else:
-            c.drawString(50, y, f"Address: {listing['address']}")
-            y -= 20
-            c.drawString(50, y, f"City: {listing['city']}")
-            y -= 20
-            c.drawString(50, y, f"Neighborhood: {listing['neighborhood']}")
-            y -= 20
-            c.drawString(50, y, f"Type: {listing['type']}")
-            y -= 20
+        draw_hebrew(RIGHT_MARGIN, y, f"כתובת: {listing['address']}")
+        y -= 20
+        draw_hebrew(RIGHT_MARGIN, y, f"עיר: {listing['city']}")
+        y -= 20
+        draw_hebrew(RIGHT_MARGIN, y, f"שכונה: {listing['neighborhood']}")
+        y -= 20
+        draw_hebrew(RIGHT_MARGIN, y, f"סוג: {listing['type']}")
+        y -= 20
 
         draw_hebrew(RIGHT_MARGIN, y, f"מחיר: ₪{int(listing['price']):,}")
         y -= 20
@@ -860,10 +827,7 @@ def reports(request):
         # Financial Analysis Section
         y -= 20
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'אנליזה פיננסית')
-        else:
-            c.drawString(50, y, 'Financial Analysis')
+        draw_hebrew(RIGHT_MARGIN, y, 'אנליזה פיננסית')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
@@ -881,18 +845,12 @@ def reports(request):
         # Investment Recommendation
         y -= 20
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'המלצת השקעה')
-        else:
-            c.drawString(50, y, 'Investment Recommendation')
+        draw_hebrew(RIGHT_MARGIN, y, 'המלצת השקעה')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
         overall_score = round((listing['confidencePct'] + (listing['capRatePct'] * 20) + (listing['priceGapPct'] < 0 and 100 + listing['priceGapPct'] or 100 - listing['priceGapPct'])) / 3)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, f"ציון כללי: {overall_score}/100")
-        else:
-            c.drawString(50, y, f"Overall Score: {overall_score}/100")
+        draw_hebrew(RIGHT_MARGIN, y, f"ציון כללי: {overall_score}/100")
         y -= 20
 
         if listing['priceGapPct'] < -10:
@@ -908,18 +866,12 @@ def reports(request):
         
         # Page 2: Plans (תוכניות)
         c.setFont(REPORT_FONT, 20)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(300, 760, 'תוכניות וזכויות בנייה', align='center')
-        else:
-            c.drawCentredString(300, 760, 'Plans and Building Rights')
+        draw_hebrew(300, 760, 'תוכניות וזכויות בנייה', align='center')
         c.setFont(REPORT_FONT, 12)
         y = 720
 
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'תוכניות מקומיות ומפורטות')
-        else:
-            c.drawString(50, y, 'Local and Detailed Plans')
+        draw_hebrew(RIGHT_MARGIN, y, 'תוכניות מקומיות ומפורטות')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
@@ -935,10 +887,7 @@ def reports(request):
         # Rights Summary
         y -= 20
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'זכויות בנייה מפורטות')
-        else:
-            c.drawString(50, y, 'Building Rights Details')
+        draw_hebrew(RIGHT_MARGIN, y, 'זכויות בנייה מפורטות')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
@@ -953,18 +902,12 @@ def reports(request):
         
         # Page 3: Environment (סביבה)
         c.setFont(REPORT_FONT, 20)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(300, 760, 'מידע סביבתי', align='center')
-        else:
-            c.drawCentredString(300, 760, 'Environmental Information')
+        draw_hebrew(300, 760, 'מידע סביבתי', align='center')
         c.setFont(REPORT_FONT, 12)
         y = 720
 
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'מידע סביבתי')
-        else:
-            c.drawString(50, y, 'Environmental Data')
+        draw_hebrew(RIGHT_MARGIN, y, 'מידע סביבתי')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
@@ -978,10 +921,7 @@ def reports(request):
         # Risk Flags
         y -= 20
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'סיכונים')
-        else:
-            c.drawString(50, y, 'Risk Factors')
+        draw_hebrew(RIGHT_MARGIN, y, 'סיכונים')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
@@ -990,27 +930,18 @@ def reports(request):
                 draw_hebrew(RIGHT_MARGIN, y, f"• {flag}")
                 y -= 20
         else:
-            if REPORT_FONT == "DejaVu":
-                draw_hebrew(RIGHT_MARGIN, y, "אין סיכונים מיוחדים")
-            else:
-                c.drawString(50, y, "No special risks")
+            draw_hebrew(RIGHT_MARGIN, y, "אין סיכונים מיוחדים")
 
         c.showPage()
 
         # Page 4: Documents and Summary
         c.setFont(REPORT_FONT, 20)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(300, 760, 'מסמכים וסיכום', align='center')
-        else:
-            c.drawCentredString(300, 760, 'Documents and Summary')
+        draw_hebrew(300, 760, 'מסמכים וסיכום', align='center')
         c.setFont(REPORT_FONT, 12)
         y = 720
 
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'מסמכים זמינים')
-        else:
-            c.drawString(50, y, 'Available Documents')
+        draw_hebrew(RIGHT_MARGIN, y, 'מסמכים זמינים')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
@@ -1019,34 +950,21 @@ def reports(request):
                 draw_hebrew(RIGHT_MARGIN, y, f"• {doc['name']} ({doc['type']})")
                 y -= 20
         else:
-            if REPORT_FONT == "DejaVu":
-                draw_hebrew(RIGHT_MARGIN, y, "אין מסמכים זמינים")
-            else:
-                c.drawString(50, y, "No documents available")
+            draw_hebrew(RIGHT_MARGIN, y, "אין מסמכים זמינים")
 
         # Contact Info
         y -= 30
         c.setFont(REPORT_FONT, 14)
-        if REPORT_FONT == "DejaVu":
-            draw_hebrew(RIGHT_MARGIN, y, 'פרטי קשר')
-        else:
-            c.drawString(50, y, 'Contact Information')
+        draw_hebrew(RIGHT_MARGIN, y, 'פרטי קשר')
         y -= 25
         c.setFont(REPORT_FONT, 12)
 
         if listing['contactInfo']:
-            if REPORT_FONT == "DejaVu":
-                draw_hebrew(RIGHT_MARGIN, y, f"סוכן: {listing['contactInfo']['agent']}")
-                y -= 20
-                draw_hebrew(RIGHT_MARGIN, y, f"טלפון: {listing['contactInfo']['phone']}")
-                y -= 20
-                draw_hebrew(RIGHT_MARGIN, y, f"אימייל: {listing['contactInfo']['email']}")
-            else:
-                c.drawString(50, y, f"Agent: {listing['contactInfo']['agent']}")
-                y -= 20
-                c.drawString(50, y, f"Phone: {listing['contactInfo']['phone']}")
-                y -= 20
-                c.drawString(50, y, f"Email: {listing['contactInfo']['email']}")
+            draw_hebrew(RIGHT_MARGIN, y, f"סוכן: {listing['contactInfo']['agent']}")
+            y -= 20
+            draw_hebrew(RIGHT_MARGIN, y, f"טלפון: {listing['contactInfo']['phone']}")
+            y -= 20
+            draw_hebrew(RIGHT_MARGIN, y, f"אימייל: {listing['contactInfo']['email']}")
         
         c.save()
         

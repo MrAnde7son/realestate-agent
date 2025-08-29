@@ -1,10 +1,10 @@
-import requests
-from bs4 import BeautifulSoup
 import csv
 import time
-from typing import Dict, List, Optional
 from dataclasses import dataclass
-import urllib.parse
+from typing import Dict, List, Optional
+
+import requests
+from bs4 import BeautifulSoup
 
 
 @dataclass

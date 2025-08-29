@@ -1,5 +1,6 @@
-from django.core.management.base import BaseCommand
 from core.models import Asset
+from django.core.management.base import BaseCommand
+
 
 class Command(BaseCommand):
     help = 'Create sample assets for testing the enrichment pipeline'

@@ -28,16 +28,17 @@ Usage Examples:
 4. Search real estate: search_real_estate(property="5", city="5000", neighborhood="203")
 """
 
-from fastmcp import FastMCP, Context
-from typing import Optional
 import os
 import sys
+from typing import Optional
+
+from fastmcp import Context, FastMCP
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from yad2.core import Yad2SearchParameters, Yad2ParameterReference
+from yad2.core import Yad2ParameterReference, Yad2SearchParameters
 from yad2.core.utils import DataUtils
 from yad2.scrapers import Yad2Scraper
 

@@ -6,14 +6,20 @@ Yad2 Scraper - Core Functionality
 Essential Yad2 scraper with clean, focused implementation.
 """
 
-import requests
 import json
 import time
 from datetime import datetime
-from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
-from ..core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
+import requests
+from bs4 import BeautifulSoup
+
+from ..core import (
+    RealEstateListing,
+    URLUtils,
+    Yad2ParameterReference,
+    Yad2SearchParameters,
+)
 
 
 class Yad2Scraper:

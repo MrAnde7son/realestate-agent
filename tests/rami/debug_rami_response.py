@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Debug the RAMI API response to see what we're actually getting."""
 
-import requests
 import json
+
+import requests
+
 
 def debug_rami_api():
     endpoint = "https://apps.land.gov.il/TabaSearch/api//SerachPlans/GetPlans"

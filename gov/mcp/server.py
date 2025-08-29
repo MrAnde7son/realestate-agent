@@ -1,7 +1,9 @@
 # server.py
 import asyncio
-from fastmcp import FastMCP, Context
 from typing import Any, Dict, Optional
+
+from fastmcp import Context, FastMCP
+
 from ..decisive import fetch_decisive_appraisals
 from ..nadlan import NadlanDealsScraper
 

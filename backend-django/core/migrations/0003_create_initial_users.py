@@ -1,5 +1,6 @@
-from django.db import migrations
 from django.contrib.auth.hashers import make_password
+from django.db import migrations
+
 
 def create_initial_users(apps, schema_editor):
     User = apps.get_model('core', 'User')

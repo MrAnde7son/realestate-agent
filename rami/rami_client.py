@@ -10,7 +10,6 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
-from urllib.parse import urljoin
 
 import pandas as pd
 import requests

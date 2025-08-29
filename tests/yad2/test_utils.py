@@ -1,5 +1,5 @@
-from yad2.core.utils import URLUtils, DataUtils
 from yad2.core.models import RealEstateListing
+from yad2.core.utils import DataUtils, URLUtils
 
 
 def make_listing(price=None, rooms=None, address=None):

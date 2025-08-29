@@ -3,8 +3,8 @@ Yad2 Real Estate Search Helper
 Provides unified search functions with automatic parameter resolution
 """
 
-from typing import Dict, List, Optional, Union
 import logging
+from typing import Dict, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +31,7 @@ class Yad2SearchHelper:
         try:
             # Use existing PropertyTypeUtils first
             from .utils.property_types import PropertyTypeUtils
-            
+
             # Try Hebrew name first
             code = PropertyTypeUtils.hebrew_name_to_code(property_name)
             if code:

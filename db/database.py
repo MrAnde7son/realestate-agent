@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from contextlib import contextmanager
-from typing import Iterator, Optional
+from typing import Iterator
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, declarative_base, sessionmaker, scoped_session
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 Base = declarative_base()

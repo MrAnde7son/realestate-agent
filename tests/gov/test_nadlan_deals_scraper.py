@@ -2,14 +2,14 @@
 Tests for the NadlanDealsScraper module.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-import responses
-from unittest.mock import Mock, patch, MagicMock
 
 from gov.nadlan import (
-    NadlanDealsScraper,
     Deal,
     NadlanAPIError,
+    NadlanDealsScraper,
 )
 
 
@@ -267,7 +267,7 @@ class TestLegacyFunctions:
     def test_legacy_get_deals_by_neighborhood_id(self, mock_scraper_class):
         """Test legacy get_deals_by_neighborhood_id function."""
         from gov.nadlan.scraper import get_deals_by_neighborhood_id
-        
+
         # Mock the scraper instance
         mock_scraper = Mock()
         mock_deals = [

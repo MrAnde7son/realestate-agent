@@ -6,7 +6,7 @@ This script initializes the database and creates all necessary tables.
 
 import os
 import sys
-import time
+
 
 def setup_database():
     """Initialize the database and create tables."""

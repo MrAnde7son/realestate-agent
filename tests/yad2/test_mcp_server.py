@@ -6,10 +6,12 @@ Tests for Yad2 MCP Server
 Test suite for the enhanced Yad2 MCP server functionality.
 """
 
-import pytest
 import asyncio
-import sys
 import os
+import sys
+
+import pytest
+from unittest.mock import Mock, patch
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -18,11 +20,11 @@ if project_root not in sys.path:
 
 # Import MCP server functions (only the ones that actually exist)
 from yad2.mcp.server import (
-    get_all_property_types,
-    search_locations,
-    get_search_parameters_reference,
     build_search_url,
-    search_real_estate
+    get_all_property_types,
+    get_search_parameters_reference,
+    search_locations,
+    search_real_estate,
 )
 
 # Extract the underlying functions from the FastMCP tools
@@ -78,16 +80,27 @@ class TestLocationServices:
     @pytest.mark.asyncio
     async def test_search_locations(self, mock_ctx):
         """Test location search."""
-        result = await search_locations_func(mock_ctx, search_text="רמת")
+        with patch('yad2.mcp.server.Yad2Scraper') as mock_scraper_class:
+            mock_scraper = Mock()
+            mock_scraper.fetch_location_data.return_value = {
+                "cities": ["רמת גן", "רמת השרון"],
+                "neighborhoods": ["רמת החייל", "רמת אביב"]
+            }
+            mock_scraper_class.return_value = mock_scraper
+            
+            result = await search_locations_func(mock_ctx, search_text="רמת")
 
-        assert result["success"] is True
-        assert "locations" in result
-        assert "search_text" in result
-        assert result["search_text"] == "רמת"
+            assert result["success"] is True
+            assert "locations" in result
+            assert "search_text" in result
+            assert result["search_text"] == "רמת"
 
-        # Should have some location data
-        locations = result["locations"]
-        assert isinstance(locations, dict)
+            # Should have some location data
+            locations = result["locations"]
+            assert isinstance(locations, dict)
+            
+            # Verify the mock was called correctly
+            mock_scraper.fetch_location_data.assert_called_once_with("רמת")
 
 
 class TestSearchFunctionality:
@@ -146,23 +159,55 @@ class TestSearchFunctionality:
     @pytest.mark.asyncio
     async def test_search_real_estate(self, mock_ctx):
         """Test real estate search."""
-        # Test with basic search
-        result = await search_real_estate_func(
-            mock_ctx,
-            property="5",
-            city="5000",
-            neighborhood="203",
-            max_pages=1
-        )
+        with patch('yad2.mcp.server.Yad2Scraper') as mock_scraper_class:
+            mock_scraper = Mock()
+            mock_scraper.get_search_summary.return_value = {
+                "search_url": "https://www.yad2.co.il/realestate/forsale?property=5&city=5000",
+                "parameters": {"property": "5", "city": "5000"},
+                "parameter_descriptions": {"property": "Property Type", "city": "City"}
+            }
+            # Create mock asset objects with the required attributes
+            mock_asset1 = Mock()
+            mock_asset1.title = "Test Property 1"
+            mock_asset1.price = "1000000"
+            mock_asset1.address = "Test Address 1"
+            mock_asset1.rooms = "3"
+            mock_asset1.size = "80"
+            mock_asset1.floor = "2"
+            mock_asset1.url = "https://example.com/property1"
+            
+            mock_asset2 = Mock()
+            mock_asset2.title = "Test Property 2"
+            mock_asset2.price = "1500000"
+            mock_asset2.address = "Test Address 2"
+            mock_asset2.rooms = "4"
+            mock_asset2.size = "100"
+            mock_asset2.floor = "1"
+            mock_asset2.url = "https://example.com/property2"
+            
+            mock_scraper.scrape_all_pages.return_value = [mock_asset1, mock_asset2]
+            mock_scraper_class.return_value = mock_scraper
+            
+            # Test with basic search
+            result = await search_real_estate_func(
+                mock_ctx,
+                property="5",
+                city="5000",
+                neighborhood="203",
+                max_pages=1
+            )
 
-        assert result["success"] is True
-        assert "total_assets" in result
-        assert "assets_preview" in result
-        assert "search_url" in result
+            assert result["success"] is True
+            assert "total_assets" in result
+            assert "assets_preview" in result
+            assert "search_url" in result
 
-        # Should have some results
-        assert result["total_assets"] >= 0
-        assert isinstance(result["assets_preview"], list)
+            # Should have some results
+            assert result["total_assets"] >= 0
+            assert isinstance(result["assets_preview"], list)
+            
+            # Verify the mock was called
+            mock_scraper.scrape_all_pages.assert_called_once_with(max_pages=1, delay=1)
 
 
 class TestIntegration:
@@ -171,54 +216,90 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_property_search_workflow(self, mock_ctx):
         """Test a complete property search workflow."""
-        # Step 1: Get all property types
-        all_types = await get_all_property_types_func(mock_ctx)
-        assert all_types["success"] is True
-        
-        # Step 2: Get search parameters reference
-        params_ref = await get_search_parameters_reference_func(mock_ctx)
-        # This function doesn't return a 'success' key
-        assert "categories" in params_ref
-        
-        # Step 3: Build a search URL
-        search_url = await build_search_url_func(
-            mock_ctx,
-            property="5",
-            city="5000"
-        )
-        assert search_url["success"] is True
-        
-        # Step 4: Perform a search
-        search_results = await search_real_estate_func(
-            mock_ctx,
-            property="5",
-            city="5000",
-            max_pages=1
-        )
-        assert search_results["success"] is True
+        with patch('yad2.mcp.server.Yad2Scraper') as mock_scraper_class:
+            mock_scraper = Mock()
+            mock_scraper.get_property_types.return_value = {
+                1: "דירה",
+                5: "בית פרטי",
+                6: "נטהאוס"
+            }
+            mock_scraper.get_search_summary.return_value = {
+                "search_url": "https://www.yad2.co.il/realestate/forsale?property=5&city=5000",
+                "parameters": {"property": "5", "city": "5000"},
+                "parameter_descriptions": {"property": "Property Type", "city": "City"}
+            }
+            # Create mock asset object with the required attributes
+            mock_asset = Mock()
+            mock_asset.title = "Test Property 1"
+            mock_asset.price = "1000000"
+            mock_asset.address = "Test Address 1"
+            mock_asset.rooms = "3"
+            mock_asset.size = "80"
+            mock_asset.floor = "2"
+            mock_asset.url = "https://example.com/property1"
+            
+            mock_scraper.scrape_all_pages.return_value = [mock_asset]
+            mock_scraper_class.return_value = mock_scraper
+            
+            # Step 1: Get all property types
+            all_types = await get_all_property_types_func(mock_ctx)
+            assert all_types["success"] is True
+            
+            # Step 2: Get search parameters reference
+            params_ref = await get_search_parameters_reference_func(mock_ctx)
+            # This function doesn't return a 'success' key
+            assert "categories" in params_ref
+            
+            # Step 3: Build a search URL
+            search_url = await build_search_url_func(
+                mock_ctx,
+                property="5",
+                city="5000"
+            )
+            assert search_url["success"] is True
+            
+            # Step 4: Perform a search
+            search_results = await search_real_estate_func(
+                mock_ctx,
+                property="5",
+                city="5000",
+                max_pages=1
+            )
+            assert search_results["success"] is True
     
     @pytest.mark.asyncio
     async def test_location_workflow(self, mock_ctx):
         """Test a complete location workflow."""
-        # Step 1: Search for locations
-        locations = await search_locations_func(mock_ctx, search_text="רמת")
-        assert locations["success"] is True
-        
-        # Step 2: Use location in search
-        if locations["locations"].get("hoods"):
-            # Get first neighborhood
-            first_hood = locations["locations"]["hoods"][0]
-            city_id = first_hood["cityId"]
-            hood_id = first_hood["hoodId"]
+        with patch('yad2.mcp.server.Yad2Scraper') as mock_scraper_class:
+            mock_scraper = Mock()
+            mock_scraper.fetch_location_data.return_value = {
+                "cities": ["רמת גן", "רמת השרון"],
+                "neighborhoods": ["רמת החייל", "רמת אביב"],
+                "hoods": [
+                    {"cityId": "5000", "hoodId": "203", "name": "רמת החייל"}
+                ]
+            }
+            mock_scraper_class.return_value = mock_scraper
             
-            # Build search URL with found location
-            search_url = await build_search_url_func(
-                mock_ctx,
-                property="5",
-                city=city_id,
-                neighborhood=hood_id
-            )
-            assert search_url["success"] is True
+            # Step 1: Search for locations
+            locations = await search_locations_func(mock_ctx, search_text="רמת")
+            assert locations["success"] is True
+            
+            # Step 2: Use location in search
+            if locations["locations"].get("hoods"):
+                # Get first neighborhood
+                first_hood = locations["locations"]["hoods"][0]
+                city_id = first_hood["cityId"]
+                hood_id = first_hood["hoodId"]
+                
+                # Build search URL with found location
+                search_url = await build_search_url_func(
+                    mock_ctx,
+                    property="5",
+                    city=city_id,
+                    neighborhood=hood_id
+                )
+                assert search_url["success"] is True
 
 
 def test_mock_context():

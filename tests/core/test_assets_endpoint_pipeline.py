@@ -1,9 +1,8 @@
 import json
 
-from django.test import RequestFactory
-
 from core import views
 from core.models import Asset
+from django.test import RequestFactory
 
 
 class DummyTask:

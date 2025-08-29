@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Simple test to isolate PDF download issue."""
 
-import tests.test_utils  # This sets up the Python path
 import requests
+
+import tests.test_utils  # This sets up the Python path
 from rami.rami_client import RamiClient
 
 

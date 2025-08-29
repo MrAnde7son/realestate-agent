@@ -6,10 +6,11 @@ GIS (Tel Aviv) FastMCP Server
 Exposes TelAvivGS functions for address geocoding, permits, and nearby layers.
 """
 
-from fastmcp import FastMCP, Context
-from typing import Optional, Iterable, Dict, Any
 import os
 import sys
+from typing import Iterable, Optional
+
+from fastmcp import Context, FastMCP
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:

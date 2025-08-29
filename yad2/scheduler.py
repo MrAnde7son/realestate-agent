@@ -8,10 +8,12 @@ from typing import Iterable, Optional
 from orchestration.alerts import Notifier
 from orchestration.scheduler import create_scheduler
 from yad2.scrapers.yad2_scraper import Yad2Scraper
+
 # Import Django models if available
 try:
-    import sys
     import os
+    import sys
+
     # Add the backend-django directory to the path
     backend_path = os.path.join(os.path.dirname(__file__), '..', 'backend-django')
     if backend_path not in sys.path:

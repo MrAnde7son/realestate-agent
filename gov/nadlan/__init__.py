@@ -8,6 +8,16 @@ High-level API:
     scraper = NadlanDealsScraper()
     deals = scraper.get_deals_by_neighborhood_id("65210036")
 """
-from .exceptions import NadlanError, NadlanAPIError
-from .models import Deal, NeighborhoodInfo
+
+from .models import Deal
+from .exceptions import NadlanAPIError, NadlanError, NadlanConfigError, NadlanDecodeError
 from .scraper import NadlanDealsScraper
+
+__all__ = [
+    "Deal",
+    "NadlanAPIError", 
+    "NadlanError",
+    "NadlanConfigError",
+    "NadlanDecodeError",
+    "NadlanDealsScraper"
+]

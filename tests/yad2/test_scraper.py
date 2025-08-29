@@ -1,8 +1,9 @@
 import json
 import os
+
 from bs4 import BeautifulSoup
 
-from yad2.core import Yad2SearchParameters, RealEstateListing
+from yad2.core import RealEstateListing, Yad2SearchParameters
 from yad2.scrapers import Yad2Scraper
 
 

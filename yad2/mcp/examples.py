@@ -9,7 +9,6 @@ for various real estate search and analysis tasks.
 
 import asyncio
 import json
-from typing import Dict, Any
 
 # Note: This assumes the MCP server is running and accessible
 # In practice, you would connect to the MCP server using a proper MCP client

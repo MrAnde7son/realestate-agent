@@ -1,6 +1,7 @@
 """Tests for the RamiClient class."""
 
 import json
+
 import pytest
 import requests
 

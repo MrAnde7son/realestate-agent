@@ -4,8 +4,8 @@
 Basic integration test for the address sync functionality.
 """
 
-import sys
 import os
+import sys
 
 # Add project root to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../'))
@@ -17,7 +17,7 @@ def test_database_models():
     try:
         from db.database import SQLAlchemyDatabase
         from db.models import Listing
-        
+
         # Test database connection
         db = SQLAlchemyDatabase()
         print("   ✅ Database connection created")

@@ -5,9 +5,10 @@ Test script for RAMI MCP Server
 Tests the MCP server functionality by importing and checking basic operations.
 """
 
-import tests.test_utils  # This sets up the Python path
-import sys
 import os
+import sys
+
+import tests.test_utils  # This sets up the Python path
 
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -17,7 +18,7 @@ if project_root not in sys.path:
 def test_import_mcp_server():
     """Test that the MCP server can be imported successfully."""
     try:
-        from rami.mcp.server import mcp, _get_client
+        from rami.mcp.server import _get_client
         print("✅ MCP server imported successfully")
         
         # Test client creation
@@ -33,7 +34,7 @@ def test_mcp_tools():
     """Test that MCP tools are registered correctly."""
     try:
         from rami.mcp.server import mcp
-        
+
         # Check if mcp object has the expected attributes/methods
         if hasattr(mcp, 'tools') and callable(mcp.tools):
             tools_dict = mcp.tools()
@@ -52,10 +53,6 @@ def test_mcp_tools():
             ]
             
             # Import the functions and check they exist
-            from rami.mcp.server import (
-                search_plans, search_tel_aviv_plans, download_plan_documents,
-                download_multiple_plans_documents, get_document_types_info
-            )
             
             tools = expected_tools  # If we can import them, they exist
         
@@ -87,8 +84,11 @@ def test_tool_functions():
     """Test that MCP tool functions can be imported and exist."""
     try:
         from rami.mcp.server import (
-            search_plans, search_tel_aviv_plans, download_plan_documents,
-            download_multiple_plans_documents, get_document_types_info
+            download_multiple_plans_documents,
+            download_plan_documents,
+            get_document_types_info,
+            search_plans,
+            search_tel_aviv_plans,
         )
         
         tools_to_check = [
@@ -120,7 +120,7 @@ def test_rami_client_integration():
     try:
         from rami.mcp.server import _get_client
         from rami.rami_client import RamiClient
-        
+
         # Test client creation
         client = _get_client()
         

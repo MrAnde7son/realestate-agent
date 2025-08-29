@@ -6,6 +6,7 @@ Run this script to initialize the database and create a test user.
 
 import os
 import sys
+
 import django
 
 # Add the parent directory to the Python path

@@ -13,22 +13,22 @@ Usage (example):
 """
 
 from __future__ import annotations
+
 import argparse
 import json
+import logging
 import os
 import re
 import time
-import logging
-import math
-from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+
 
 import requests
 from bs4 import BeautifulSoup
 from pyproj import Transformer
-from dateutil import parser as dtp
 
-from .parse_zchuyot import parse_zchuyot, parse_html_privilege_page
+from .parse_zchuyot import parse_html_privilege_page, parse_zchuyot
+
 
 class ArcGISError(RuntimeError):
     pass
@@ -264,7 +264,7 @@ class TelAvivGS:
             
             self._logger.info(
                 "Downloading privilege page", extra={"url": privilege_url, "gush": gush, "helka": helka}
-            )            
+            )
             r = requests.get(privilege_url, headers=self.HDRS, timeout=30, allow_redirects=True)
             r.raise_for_status()
             

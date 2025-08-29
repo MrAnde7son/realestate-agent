@@ -1,5 +1,6 @@
+from typing import IO, Dict, Iterable, List
+
 import pdfplumber
-from typing import List, Dict, IO, Iterable
 
 
 def parse_tabu_pdf(file: IO) -> List[Dict[str, str]]:

@@ -1,6 +1,8 @@
-# Real Estate Agent
+# Nadlaner™
 
-A comprehensive real estate intelligence platform designed for brokers, appraisers, and real estate professionals in Israel. Features advanced MCP (Model Context Protocol) server integration for seamless LLM use, Israeli real estate scraping (Yad2), planning document access (RAMI), Tel Aviv GIS integration, and professional broker tools.
+Nadlaner™ is a comprehensive real estate intelligence platform designed for brokers, appraisers, and real estate professionals in Israel. Features advanced MCP (Model Context Protocol) server integration for seamless LLM use, Israeli real estate scraping (Yad2), planning document access (RAMI), Tel Aviv GIS integration, and professional broker tools.
+
+Nadlaner™ is a trademark of MrAnde7son.
 
 ## 🎯 Core Features
 
@@ -43,7 +45,7 @@ A comprehensive real estate intelligence platform designed for brokers, appraise
 ## 📁 Project Architecture
 
 ```
-realestate-agent/
+nadlaner/
 ├── 🏠 CORE SCRAPING & MCP SERVICES
 │   ├── yad2/                      # Real estate scraping & MCP server
 │   │   ├── core/                  # Core functionality
@@ -62,6 +64,7 @@ realestate-agent/
 │   │   ├── gis_client.py          # Tel Aviv ArcGIS client & CLI
 │   │   ├── parse_zchuyot.py       # Building privilege parser
 │   │   └── mcp/server.py          # GIS data MCP server
+│   ├── mavat/                     # National planning portal (MAVAT) tools
 │   └── gov/                       # Government data services
 │       └── mcp/                   # Gov.il data MCP server
 │           ├── server.py          # Government datasets & comparables
@@ -124,8 +127,8 @@ realestate-agent/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/realestate-agent.git
-cd realestate-agent
+git clone https://github.com/your-username/nadlaner.git
+cd nadlaner
 
 # Create and activate virtual environment (recommended)
 python3 -m venv .venv
@@ -714,7 +717,7 @@ The codebase is organized into logical modules:
 
 ### Common Issues
 
-1. **Import errors**: Ensure you ran `pip install -r requirements.txt` and `cd realestate-agent`
+1. **Import errors**: Ensure you ran `pip install -r requirements.txt` and `cd nadlaner`
 2. **Module not found errors in tests**: Use the robust import template provided in the Testing section
 3. **Debugger import issues**: Ensure `.vscode/launch.json` has `"cwd": "${workspaceFolder}"`
 4. **No assets found**: Check if parameters are too restrictive
@@ -736,7 +739,7 @@ If you encounter import problems in test files:
 
 1. **Use the robust import template** from the Testing section
 2. **Verify project structure**: Ensure you're in the project root with `rami/`, `gis/`, `yad2/` directories
-3. **Check working directory**: Run `pwd` to confirm you're in `/path/to/realestate-agent`
+3. **Check working directory**: Run `pwd` to confirm you're in `/path/to/nadlaner`
 4. **Test the import system**:
    ```bash
    python tests/rami/test_robust_imports.py
@@ -767,6 +770,8 @@ If MCP servers won't start:
 ## 📄 License
 
 GNU General Public License v3.0 or later (GPLv3) - see LICENSE file for details.
+
+Nadlaner™ is a trademark of MrAnde7son.
 
 ## ⚠️ Disclaimer
 

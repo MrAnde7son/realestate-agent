@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>דו"ח נכס</title>
+  <style>
+    @font-face {
+      font-family: "NotoSansHebrew";
+      src: url("{{ font_path }}") format("truetype");
+      font-weight: 400;
+      font-style: normal;
+    }
+    html, body {
+      margin: 0; padding: 0;
+      font-family: "NotoSansHebrew", sans-serif;
+      direction: rtl;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    /* Page setup */
+    @page {
+      size: A4;
+      margin: 20mm 15mm;
+    }
+    /* Color tokens – tweak to match nadlaner */
+    :root{
+      --bg:#f8fafc;          /* soft background */
+      --card:#ffffff;        /* card surface */
+      --ink:#0f172a;         /* text */
+      --muted:#475569;       /* secondary text */
+      --brand:#2563eb;       /* primary */
+      --brand-ink:#ffffff;   /* on-brand text */
+      --chip-bg:#e2e8f0;     /* pill bg */
+      --chip-ink:#0f172a;    /* pill text */
+      --divider:#e5e7eb;
+    }
+    body { background: var(--bg); color: var(--ink); }
+    .header{
+      margin-bottom: 12mm;
+      padding-bottom: 6mm;
+      border-bottom: 1px solid var(--divider);
+    }
+    .title{
+      font-size: 20pt; font-weight: 700; margin: 0 0 4mm 0;
+    }
+    .subtitle{ color: var(--muted); font-size: 11pt; }
+    .chips{ margin-top: 4mm; display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip{ background: var(--chip-bg); color: var(--chip-ink); border-radius: 999px; padding: 2px 8px; font-size: 9pt; }
+
+    .grid{
+      display: grid;
+      grid-template-columns: 1fr 0.9fr;
+      gap: 8mm;
+    }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      padding: 6mm;
+      break-inside: avoid;
+    }
+    .card h2{
+      margin: 0 0 4mm 0; font-size: 14pt;
+      border-bottom: 1px solid var(--divider);
+      padding-bottom: 3mm;
+    }
+    .kv{ display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 6mm; }
+    .kv .k{ color: var(--muted); font-size: 10pt; }
+    .kv .v{ font-size: 11.5pt; }
+
+    .list{ margin: 0; padding: 0 5mm 0 0; }
+    .list li{ margin: 2mm 0; }
+
+    .badge{
+      background: var(--brand); color: var(--brand-ink);
+      padding: 2px 8px; border-radius: 6px; font-size: 10pt;
+      display: inline-block; margin-inline-start: 4mm;
+    }
+
+    .two{ display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+    .muted{ color: var(--muted); }
+
+    /* Page section titles – to echo your app’s tabs */
+    .section-title{
+      font-size: 16pt; font-weight: 700; margin: 12mm 0 4mm;
+      border-bottom: 2px solid var(--divider);
+      padding-bottom: 3mm;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="title">דו"ח נכס</div>
+    <div class="subtitle">
+      {{ listing.address }} <span class="badge">{{ listing.city }}</span>
+      {% if listing.neighborhood %}<span class="badge">{{ listing.neighborhood }}</span>{% endif %}
+    </div>
+    <div class="chips">
+      <span class="chip">{{ listing.type }}</span>
+      <span class="chip">מחיר: ₪{{ listing.price|intcomma }}</span>
+      <span class="chip">שטח: {{ listing.netSqm }} מ"ר</span>
+      <span class="chip">מחיר למ"ר: ₪{{ listing.pricePerSqm|intcomma }}</span>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    <!-- Left column -->
+    <section class="card">
+      <h2>פרטי הנכס</h2>
+      <div class="kv">
+        <div>
+          <div class="k">כתובת</div>
+          <div class="v">{{ listing.address }}</div>
+        </div>
+        <div>
+          <div class="k">סוג</div>
+          <div class="v">{{ listing.type }}</div>
+        </div>
+        <div>
+          <div class="k">חדרי שינה</div>
+          <div class="v">{{ listing.bedrooms }}</div>
+        </div>
+        <div>
+          <div class="k">חדרי רחצה</div>
+          <div class="v">{{ listing.bathrooms }}</div>
+        </div>
+        <div>
+          <div class="k">שטח נטו (מ"ר)</div>
+          <div class="v">{{ listing.netSqm }}</div>
+        </div>
+        <div>
+          <div class="k">מחיר</div>
+          <div class="v">₪{{ listing.price|intcomma }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>אנליזה פיננסית</h2>
+      <div class="kv">
+        <div>
+          <div class="k">מחיר מודל</div>
+          <div class="v">₪{{ listing.modelPrice|intcomma }}</div>
+        </div>
+        <div>
+          <div class="k">פער מחיר</div>
+          <div class="v">{{ listing.priceGapPct }}%</div>
+        </div>
+        <div>
+          <div class="k">שכירות משוערת</div>
+          <div class="v">₪{{ listing.rentEstimate|intcomma }}</div>
+        </div>
+        <div>
+          <div class="k">תשואה שנתית</div>
+          <div class="v">{{ listing.capRatePct }}%</div>
+        </div>
+        <div>
+          <div class="k">תחרות (1 ק"מ)</div>
+          <div class="v">{{ listing.competition1km }}</div>
+        </div>
+        <div>
+          <div class="k">ציון כללי</div>
+          <div class="v">{{ overall_score }}/100</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right column -->
+    <section class="card">
+      <h2>תוכניות וזכויות בנייה</h2>
+      <div class="kv">
+        <div>
+          <div class="k">תוכנית</div>
+          <div class="v">{{ listing.program }}</div>
+        </div>
+        <div>
+          <div class="k">אזור תכנון</div>
+          <div class="v">{{ listing.zoning }}</div>
+        </div>
+        <div>
+          <div class="k">יתרת זכויות</div>
+          <div class="v">+{{ listing.remainingRightsSqm }} מ"ר</div>
+        </div>
+        <div>
+          <div class="k">אחוז זכויות נוספות</div>
+          <div class="v">{{ extra_rights_pct }}%</div>
+        </div>
+        <div>
+          <div class="k">שווי זכויות משוער</div>
+          <div class="v">₪{{ rights_value_k }} אלף</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>מידע סביבתי וסיכונים</h2>
+      <div class="two">
+        <div>
+          <div class="k">רמת רעש</div>
+          <div class="v">{{ listing.noiseLevel }}/5</div>
+          <div class="k">שטחים ציבוריים ≤300מ׳</div>
+          <div class="v">כן</div>
+          <div class="k">מרחק אנטנה</div>
+          <div class="v">150מ׳</div>
+        </div>
+        <div>
+          <div class="k">סיכונים</div>
+          {% if listing.riskFlags and listing.riskFlags|length %}
+            <ul class="list">
+            {% for f in listing.riskFlags %}
+              <li>{{ f }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <div class="muted">אין סיכונים מיוחדים</div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>מסמכים וזיהוי איש קשר</h2>
+      <div class="two">
+        <div>
+          {% if listing.documents and listing.documents|length %}
+          <ul class="list">
+            {% for d in listing.documents %}
+              <li>{{ d.name }} ({{ d.type }})</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+            <div class="muted">אין מסמכים זמינים</div>
+          {% endif %}
+        </div>
+        <div>
+          <div class="k">פרטי קשר</div>
+          <div class="v">{{ listing.contactInfo.agent }}</div>
+          <div class="v">{{ listing.contactInfo.phone }}</div>
+          <div class="v">{{ listing.contactInfo.email }}</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>

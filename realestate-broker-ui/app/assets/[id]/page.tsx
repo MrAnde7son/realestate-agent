@@ -103,19 +103,27 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
   const handleGenerateReport = async () => {
     if (!id) return
+
     setGeneratingReport(true)
+
     try {
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assetId: Number(id) })
       })
-      if (res.ok) {
-        router.push('/reports')
+
+      if (!res.ok) {
+        console.error('Report generation failed:', await res.text())
+        return
       }
+
+      // stop loading state before navigating to ensure the
+      // "generating" indicator doesn't remain stuck
+      setGeneratingReport(false)
+      router.push('/reports')
     } catch (err) {
       console.error('Report generation failed:', err)
-    } finally {
       setGeneratingReport(false)
     }
   }

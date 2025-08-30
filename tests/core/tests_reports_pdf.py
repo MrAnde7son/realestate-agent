@@ -35,7 +35,7 @@ class HebrewPDFGenerationTest(TestCase):
         resp = views.reports(req)
         self.assertEqual(resp.status_code, 201, resp.content)
 
-        filename = resp.json()["report"]["filename"]
+        filename = json.loads(resp.content)["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
         self.assertTrue(os.path.exists(path), f"ציפינו לקובץ PDF בנתיב {path}")
 

@@ -7,6 +7,7 @@ from django.test import TestCase, RequestFactory
 from pypdf import PdfReader
 
 from core import views
+from core.models import Report
 
 class HebrewPDFGenerationTest(TestCase):
     def setUp(self):
@@ -38,6 +39,11 @@ class HebrewPDFGenerationTest(TestCase):
         filename = json.loads(resp.content)["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
         self.assertTrue(os.path.exists(path), f"ציפינו לקובץ PDF בנתיב {path}")
+
+        # Verify the Report model points to the correct URL and path
+        report = Report.objects.get(filename=filename)
+        self.assertEqual(report.file_path, path)
+        self.assertEqual(report.file_url, f"/reports/{filename}")
 
         # Extract text and verify Hebrew section titles exist
         reader = PdfReader(path)

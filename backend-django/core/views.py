@@ -540,55 +540,53 @@ def reports(request):
         return JsonResponse({'error': 'assetId נדרש'}, status=400)
     asset_id = int(data['assetId'])
 
-    # Mock (as in original)
-    mock_assets = {
-        1: {
-            'address': 'רחוב הרצל 123, תל אביב',
-            'city': 'תל אביב',
-            'neighborhood': 'מרכז העיר',
-            'type': 'דירה',
-            'price': 2850000,
-            'bedrooms': 3,
-            'bathrooms': 2,
-            'netSqm': 85,
-            'area': 85,
-            'pricePerSqm': 33529,
-            'remainingRightsSqm': 45,
-            'program': 'תמ״א 38',
-            'lastPermitQ': 'Q2/24',
-            'noiseLevel': 2,
-            'competition1km': 'בינוני',
-            'zoning': 'מגורים א׳',
-            'priceGapPct': -5.2,
-            'expectedPriceRange': '2.7M - 3.0M',
-            'modelPrice': 3000000,
-            'confidencePct': 85,
-            'capRatePct': 3.2,
-            'rentEstimate': 9500,
-            'riskFlags': [],
-            'features': ['מעלית', 'חניה', 'מרפסת', 'משופצת'],
-            'contactInfo': {
-                'agent': 'יוסי כהן',
-                'phone': '050-1234567',
-                'email': 'yossi@example.com'
-            },
-            'documents': [
-                {'name': 'נסח טאבו', 'type': 'tabu'},
-                {'name': 'תשריט בית משותף', 'type': 'condo_plan'},
-                {'name': 'היתר בנייה', 'type': 'permit'},
-                {'name': 'זכויות בנייה', 'type': 'rights'},
-                {'name': 'שומת מכרעת', 'type': 'appraisal_decisive'},
-                {'name': 'שומת רמ״י', 'type': 'appraisal_rmi'}
-            ]
-        }
-    }
-    if asset_id not in mock_assets:
-        return JsonResponse({'error': 'נכס לא נמצא'}, status=404)
-    listing = mock_assets[asset_id]
+    # Try to fetch a real asset from the database.  The original endpoint only
+    # knew about a single hard-coded mock asset.  By consulting the database we
+    # support real asset records while still falling back to a minimal
+    # placeholder if the requested ID does not exist.
+    asset_obj = Asset.objects.filter(id=asset_id).first()
 
-    # Create report record
+    # Start with placeholder defaults to avoid KeyError/0-division during PDF
+    # rendering.
+    listing = {
+        'address': f'נכס {asset_id}',
+        'city': '',
+        'neighborhood': '',
+        'type': 'דירה',
+        'price': 0,
+        'bedrooms': 0,
+        'bathrooms': 0,
+        'netSqm': 1,  # avoid divide-by-zero
+        'area': 1,
+        'pricePerSqm': 0,
+        'remainingRightsSqm': 0,
+        'program': '',
+        'lastPermitQ': '',
+        'noiseLevel': 0,
+        'competition1km': '',
+        'zoning': '',
+        'priceGapPct': 0,
+        'expectedPriceRange': '',
+        'modelPrice': 0,
+        'confidencePct': 0,
+        'capRatePct': 0,
+        'rentEstimate': 0,
+        'riskFlags': [],
+        'features': [],
+        'contactInfo': {'agent': '', 'phone': '', 'email': ''},
+        'documents': [],
+    }
+
+    if asset_obj:
+        if asset_obj.meta:
+            listing.update(asset_obj.meta)
+        listing.setdefault('address', asset_obj.normalized_address or f'נכס {asset_id}')
+        listing.setdefault('city', asset_obj.city or '')
+        listing.setdefault('neighborhood', asset_obj.neighborhood or '')
+
+    # Create report record, linking to the asset if it exists
     report = Report.objects.create(
-        asset=None,
+        asset=asset_obj,
         report_type='asset',
         status='generating',
         filename='',

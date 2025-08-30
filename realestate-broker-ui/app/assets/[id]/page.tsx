@@ -118,12 +118,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         return
       }
 
-      // stop loading state before navigating to ensure the
-      // "generating" indicator doesn't remain stuck
-      setGeneratingReport(false)
       router.push('/reports')
     } catch (err) {
       console.error('Report generation failed:', err)
+    } finally {
+      // ensure loading state always clears even on failure
       setGeneratingReport(false)
     }
   }

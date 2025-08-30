@@ -1,37 +1,49 @@
-# backend-django/core/views.py
-
-import json
-import os
-import re
-import statistics
-import urllib.parse
-import time
+import json, statistics, re, os, urllib.parse, time
 from datetime import datetime
 from pathlib import Path
 
-from django.contrib.auth import authenticate, get_user_model
 from django.http import JsonResponse
-from django.shortcuts import redirect
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status
+from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
+from django.shortcuts import redirect
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-
 User = get_user_model()
-from django.urls import reverse
-from openai import OpenAI
-
-# PDF/Fonts
-from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen import canvas
-from bidi.algorithm import get_display
+from reportlab.lib.pagesizes import A4
 
 from .models import Alert
+
+from openai import OpenAI
+
+from django.urls import reverse
+
+# Import Django models
 from .models import Asset, SourceRecord, RealEstateTransaction, Report
+
+# Import utility functions
+try:
+    # Try to import from utils - this will work if the module is available
+    from utils.tabu_parser import parse_tabu_pdf, search_rows
+except ImportError:
+    # Fallback functions when utils module is not available
+    # This ensures the app can still run even if utils is missing
+    # Note: These functions return empty results, so tabu parsing will show dummy data
+    def parse_tabu_pdf(file):
+        """Fallback function for parsing tabu PDFs when utils module is not available."""
+        return []
+    
+    def search_rows(rows, query):
+        """Fallback function for searching rows when utils module is not available."""
+        return rows
+
+# Import tasks
 from .tasks import run_data_pipeline
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,58 +52,7 @@ REPORTS_DIR = os.environ.get(
     str((BASE_DIR.parent / 'realestate-broker-ui' / 'public' / 'reports').resolve())
 )
 
-# ---------- Hebrew font handling (robust) ----------
-_HEBREW_FONT_NAME = None
-
-def _candidate_font_paths():
-    return [
-        os.environ.get("REPORT_HEBREW_FONT_PATH"),
-        str(BASE_DIR / "core" / "fonts" / "NotoSansHebrew-Regular.ttf"),
-        "/usr/share/fonts/truetype/noto/NotoSansHebrew-Regular.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansHebrew-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-    ]
-
-def get_hebrew_font_name():
-    """Register a Hebrew-capable TTF and return its name (fallback to Helvetica last)."""
-    global _HEBREW_FONT_NAME
-    if _HEBREW_FONT_NAME:
-        return _HEBREW_FONT_NAME
-    for p in _candidate_font_paths():
-        if not p:
-            continue
-        try:
-            if os.path.exists(p):
-                pdfmetrics.registerFont(TTFont("HebrewTT", p))
-                _HEBREW_FONT_NAME = "HebrewTT"
-                return _HEBREW_FONT_NAME
-        except Exception:
-            pass
-    _HEBREW_FONT_NAME = "Helvetica"  # not ideal for Hebrew, but prevents crash
-    return _HEBREW_FONT_NAME
-
-def draw_text(c: canvas.Canvas, x: float, y: float, text: str, *, size=12, align='right'):
-    """Draw text with bidi reordering so Hebrew is readable. align: right|center|left."""
-    font_name = get_hebrew_font_name()
-    c.setFont(font_name, size)
-    content = get_display(str(text)) if font_name != "Helvetica" else str(text)
-    if align == 'center':
-        c.drawCentredString(x, y, content)
-    elif align == 'right':
-        c.drawRightString(x, y, content)
-    else:
-        c.drawString(x, y, content)
-
-def ensure_reports_dir():
-    os.makedirs(REPORTS_DIR, exist_ok=True)
-
-def parse_json(request):
-    try: return json.loads(request.body.decode('utf-8'))
-    except Exception: return None
-
-# ---------- Auth endpoints ----------
-
+# Authentication views
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def auth_login(request):
@@ -100,12 +61,25 @@ def auth_login(request):
         data = json.loads(request.body.decode('utf-8'))
         email = data.get('email')
         password = data.get('password')
+        
         if not email or not password:
-            return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Email and password are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Authenticate user
         user = authenticate(request, username=email, password=password)
+        
         if user is None:
-            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {'error': 'Invalid credentials'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
+        
         return Response({
             'access_token': str(refresh.access_token),
             'refresh_token': str(refresh),
@@ -120,10 +94,17 @@ def auth_login(request):
                 'is_verified': getattr(user, 'is_verified', False),
             }
         })
+        
     except json.JSONDecodeError:
-        return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'Invalid JSON'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -138,12 +119,27 @@ def auth_register(request):
         last_name = data.get('last_name', '')
         company = data.get('company', '')
         role = data.get('role', '')
+        
         if not email or not password or not username:
-            return Response({'error': 'Email, password, and username are required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Email, password, and username are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user already exists
         if User.objects.filter(email=email).exists():
-            return Response({'error': 'User with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'User with this email already exists'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         if User.objects.filter(username=username).exists():
-            return Response({'error': 'Username already taken'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Username already taken'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create user
         user = User.objects.create_user(
             username=username,
             email=email,
@@ -153,7 +149,10 @@ def auth_register(request):
             company=company,
             role=role
         )
+        
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
+        
         return Response({
             'access_token': str(refresh.access_token),
             'refresh_token': str(refresh),
@@ -168,19 +167,31 @@ def auth_register(request):
                 'is_verified': getattr(user, 'is_verified', False),
             }
         }, status=status.HTTP_201_CREATED)
+        
     except json.JSONDecodeError:
-        return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'Invalid JSON'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def auth_logout(request):
     """User logout endpoint."""
     try:
+        # In a real application, you might want to blacklist the token
+        # For now, we'll just return success
         return Response({'message': 'Logged out successfully'})
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -210,7 +221,10 @@ def auth_profile(request):
             }
         })
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
@@ -219,6 +233,8 @@ def auth_update_profile(request):
     try:
         data = json.loads(request.body.decode('utf-8'))
         user = request.user
+        
+        # Update allowed fields
         if 'first_name' in data:
             user.first_name = data['first_name']
         if 'last_name' in data:
@@ -227,7 +243,9 @@ def auth_update_profile(request):
             user.company = data['company']
         if 'role' in data:
             user.role = data['role']
+        
         user.save()
+        
         return Response({
             'user': {
                 'id': user.id,
@@ -240,10 +258,17 @@ def auth_update_profile(request):
                 'is_verified': getattr(user, 'is_verified', False),
             }
         })
+        
     except json.JSONDecodeError:
-        return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'Invalid JSON'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -252,22 +277,38 @@ def auth_refresh(request):
     try:
         data = json.loads(request.body.decode('utf-8'))
         refresh_token = data.get('refresh_token')
+        
         if not refresh_token:
-            return Response({'error': 'Refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Refresh token is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify and refresh token
         refresh = RefreshToken(refresh_token)
         access_token = str(refresh.access_token)
+        
         return Response({
             'access_token': access_token,
             'refresh_token': str(refresh),
         })
+        
     except json.JSONDecodeError:
-        return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'Invalid JSON'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
 
 def _callback_url(request) -> str:
     """Build absolute callback URL for Google OAuth."""
     return request.build_absolute_uri(reverse('auth_google_callback'))
+
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -275,6 +316,7 @@ def auth_google_login(request):
     """Initiate Google OAuth login flow."""
     try:
         from django.conf import settings
+
         redirect_uri = _callback_url(request)
         params = {
             'client_id': settings.GOOGLE_CLIENT_ID,
@@ -284,26 +326,39 @@ def auth_google_login(request):
             'access_type': 'offline',
             'prompt': 'consent',
         }
+
         auth_url = f"{settings.GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
+
         return Response({'auth_url': auth_url})
+        
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def auth_google_callback(request):
     """Handle Google OAuth callback and authenticate user."""
     try:
-        import requests
         from django.conf import settings
+        import requests
         from django.contrib.auth import get_user_model
         from django.contrib.auth.hashers import make_password
         from rest_framework_simplejwt.tokens import RefreshToken
-
+        
         User = get_user_model()
+        
+        # Get authorization code from query parameters
         code = request.GET.get('code')
         if not code:
-            return Response({'error': 'Authorization code not provided'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Authorization code not provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         redirect_uri = _callback_url(request)
         token_data = {
             'client_id': settings.GOOGLE_CLIENT_ID,
@@ -312,42 +367,66 @@ def auth_google_callback(request):
             'grant_type': 'authorization_code',
             'redirect_uri': redirect_uri,
         }
+
         token_response = requests.post(settings.GOOGLE_TOKEN_URL, data=token_data, timeout=10)
         token_info = token_response.json()
         if token_response.status_code != 200:
             return Response(token_info, status=status.HTTP_400_BAD_REQUEST)
+
         access_token = token_info.get('access_token')
+        
+        # Get user info from Google
         user_info_response = requests.get(
             settings.GOOGLE_USER_INFO_URL,
             headers={'Authorization': f'Bearer {access_token}'}
         )
+        
         if not user_info_response.ok:
-            return Response({'error': 'Failed to get user info from Google'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Failed to get user info from Google'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         user_info = user_info_response.json()
+        google_id = user_info.get('id')
         email = user_info.get('email')
         first_name = user_info.get('given_name', '')
         last_name = user_info.get('family_name', '')
+        
         if not email:
-            return Response({'error': 'Email not provided by Google'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Email not provided by Google'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user exists, create if not
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            username = email.split('@')[0]
+            # Create new user
+            username = email.split('@')[0]  # Use email prefix as username
+            # Ensure username is unique
             base_username = username
             counter = 1
             while User.objects.filter(username=username).exists():
                 username = f"{base_username}{counter}"
                 counter += 1
+            
             user = User.objects.create_user(
                 username=username,
                 email=email,
-                password=make_password(None),
+                password=make_password(None),  # No password for OAuth users
                 first_name=first_name,
                 last_name=last_name,
-                is_verified=True
+                is_verified=True  # Google users are verified
             )
+        
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
+        
+        # Get frontend URL from settings with fallback
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        
         tokens = {
             'access_token': str(refresh.access_token),
             'refresh_token': str(refresh),
@@ -362,13 +441,38 @@ def auth_google_callback(request):
                 'is_verified': getattr(user, 'is_verified', False),
             }
         }
+        
+        # Encode tokens in URL parameters
+        import urllib.parse
         encoded_tokens = urllib.parse.urlencode(tokens)
         redirect_url = f"{frontend_url}/auth/google-callback?{encoded_tokens}"
-        return redirect(redirect_url)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ---------- User Settings & Alerts ----------
+        return redirect(redirect_url)
+        
+    except Exception as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+
+
+try:
+    # Try to use a font that supports Hebrew
+    FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    if os.path.exists(FONT_PATH):
+        pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
+        REPORT_FONT = "DejaVu"
+    else:
+        # Fallback to Helvetica but we'll handle Hebrew differently
+        REPORT_FONT = "Helvetica"
+except ImportError:
+    REPORT_FONT = "Helvetica"
+
+def parse_json(request):
+    try: return json.loads(request.body.decode('utf-8'))
+    except Exception: return None
 
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
@@ -386,10 +490,12 @@ def user_settings(request):
             'notify_urgent': getattr(user, 'notify_urgent', False),
             'notification_time': getattr(user, 'notification_time', ''),
         })
+
     if request.method == 'PUT':
         data = parse_json(request)
         if not data:
             return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+
         for field in [
             'language', 'timezone', 'currency', 'date_format',
             'notify_email', 'notify_whatsapp', 'notify_urgent',
@@ -398,6 +504,7 @@ def user_settings(request):
             if field in data:
                 setattr(user, field, data[field])
         user.save()
+
         return Response({
             'language': user.language,
             'timezone': user.timezone,
@@ -408,6 +515,7 @@ def user_settings(request):
             'notify_urgent': user.notify_urgent,
             'notification_time': user.notification_time,
         })
+
     return Response({'error': 'Unsupported method'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 @api_view(['GET', 'POST'])
@@ -415,56 +523,91 @@ def user_settings(request):
 def alerts(request):
     if request.method == 'POST':
         data = parse_json(request)
-        if not data:
+        if not data: 
             return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+        
         alert = Alert.objects.create(
             user=request.user,
-            criteria=data.get('criteria') or {},
+            criteria=data.get('criteria') or {}, 
             notify=data.get('notify') or []
         )
-        return Response({'id': alert.id, 'created_at': alert.created_at.isoformat()}, status=status.HTTP_201_CREATED)
-    if request.method == 'GET':
-        alerts_qs = Alert.objects.filter(user=request.user).order_by('-created_at')
-        rows = [{
-            'id': alert.id,
-            'criteria': alert.criteria,
-            'notify': alert.notify,
-            'active': alert.active,
+        return Response({
+            'id': alert.id, 
             'created_at': alert.created_at.isoformat()
-        } for alert in alerts_qs]
+        }, status=status.HTTP_201_CREATED)
+    
+    if request.method == 'GET':
+        # Only return alerts for the current user
+        alerts = Alert.objects.filter(user=request.user).order_by('-created_at')
+        rows = [
+            {
+                'id': alert.id,
+                'criteria': alert.criteria,
+                'notify': alert.notify,
+                'active': alert.active,
+                'created_at': alert.created_at.isoformat()
+            }
+            for alert in alerts
+        ]
         return Response({'rows': rows})
+    
     return Response({'error': 'Unsupported method'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-# ---------- Address sync ----------
 
 @csrf_exempt
 def sync_address(request):
-    """Fetch external data for a given address and store it."""
+    """Fetch external data for a given address and store it.
+    
+    Expected JSON payload:
+    - street: str - Street name in Hebrew
+    - house_number: int - House number
+    OR
+    - address: str - Full address string to parse
+    
+    Returns:
+    - 200: {"rows": [...]} - List of found assets
+    - 400: Error message for invalid input
+    - 500: Error message for server errors
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
+    
+    # Parse JSON with error handling
     data = parse_json(request)
     if not data:
         return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    
+    # Extract street and number from data
     street = data.get('street', '').strip() if data.get('street') else None
     number = data.get('house_number')
+    
+    # If no direct street/number, try to parse from address field
     if not street or number is None:
         addr = (data.get('address') or '').strip()
         if not addr:
             return JsonResponse({'error': 'Either (street, house_number) or address is required'}, status=400)
+        
         match = re.match(r'^(.+?)\s+(\d+)', addr)
         if match:
             street, number = match.group(1).strip(), match.group(2)
         else:
             return JsonResponse({'error': 'Could not parse address. Expected format: "Street Name Number"'}, status=400)
+    
+    # Validate and convert number
     if not street:
         return JsonResponse({'error': 'Street name is required'}, status=400)
+    
     try:
         number = int(number)
         if number <= 0:
             return JsonResponse({'error': 'House number must be a positive integer'}, status=400)
     except (TypeError, ValueError):
         return JsonResponse({'error': 'House number must be a valid integer'}, status=400)
+    
+    # Execute sync with comprehensive error handling
     try:
+        # Create a new asset for the address
+        from .models import Asset
         asset = Asset.objects.create(
             scope_type='address',
             street=street,
@@ -472,34 +615,50 @@ def sync_address(request):
             status='pending',
             meta={'radius': 150}
         )
+        
+        # Start enrichment pipeline
         try:
             run_data_pipeline.delay(asset.id)
-            message = f'העשרת הנכס החלה עבור {street} {number} (Asset ID: {asset.id})'
+            message = f'Asset enrichment started for {street} {number} (Asset ID: {asset.id})'
         except Exception as e:
-            message = f'נוצר נכס אך תזמון ההעשרה נכשל: {str(e)}'
+            message = f'Asset created but enrichment failed: {str(e)}'
+        
+        # Return asset info
         assets = [{
             'id': asset.id,
             'source': 'asset',
             'external_id': f'asset_{asset.id}',
-            'title': f'נכס עבור {street} {number}',
+            'title': f'Asset for {street} {number}',
             'address': f'{street} {number}',
             'status': asset.status,
             'message': message
         }]
-        return JsonResponse({'rows': assets, 'message': message, 'address': f'{street} {number}'})
+        
+        return JsonResponse({
+            'rows': assets,
+            'message': message,
+            'address': f'{street} {number}'
+        })
     except ValueError as e:
         return JsonResponse({'error': f'Validation error: {str(e)}'}, status=400)
     except Exception as e:
+        # Log the full error for debugging
         import logging
         logging.exception("Unexpected error in sync_address: %s", e)
-        return JsonResponse({'error': 'שגיאה פנימית במהלך סנכרון הכתובת'}, status=500)
+        return JsonResponse(
+            {'error': 'Internal server error occurred during address sync'}, 
+            status=500
+        )
 
-# ---------- Reports (Hebrew-only PDF) ----------
+
+# Old view functions removed - replaced with new asset enrichment pipeline
+
 
 @csrf_exempt
 def reports(request):
-    """צור דו״ח PDF עבור נכס או הצג רשימת דוחות קיימים (עברית מלאה)."""
+    """Create a PDF report for a listing or list existing reports."""
     if request.method == 'GET':
+        # Get all reports from database
         reports_list = []
         for report in Report.objects.all().order_by('-generated_at'):
             reports_list.append({
@@ -515,199 +674,380 @@ def reports(request):
         return JsonResponse({'reports': reports_list})
 
     if request.method == 'DELETE':
+        # Delete a specific report
         data = parse_json(request)
         if not data or not data.get('reportId'):
-            return JsonResponse({'error': 'reportId נדרש'}, status=400)
+            return JsonResponse({'error': 'reportId required'}, status=400)
+        
         try:
             report_id = int(data['reportId'])
             report = Report.objects.get(id=report_id)
+            
             if report.delete_report():
-                return JsonResponse({'message': f'דו״ח {report_id} נמחק בהצלחה'}, status=200)
+                return JsonResponse({'message': f'Report {report_id} deleted successfully'}, status=200)
             else:
-                return JsonResponse({'error': 'מחיקת הדו״ח נכשלה'}, status=500)
+                return JsonResponse({'error': 'Failed to delete report'}, status=500)
+                
         except Report.DoesNotExist:
-            return JsonResponse({'error': 'דו״ח לא נמצא'}, status=404)
+            return JsonResponse({'error': 'Report not found'}, status=404)
         except ValueError:
-            return JsonResponse({'error': 'מזהה דו״ח לא תקין'}, status=400)
+            return JsonResponse({'error': 'Invalid report ID'}, status=400)
         except Exception as e:
-            return JsonResponse({'error': 'שגיאה במחיקת דו״ח', 'details': str(e)}, status=500)
+            return JsonResponse({'error': 'Error deleting report', 'details': str(e)}, status=500)
 
     if request.method != 'POST':
-        return JsonResponse({'error': 'נדרשת בקשת POST או DELETE'}, status=405)
+        return JsonResponse({'error': 'POST or DELETE required'}, status=405)
 
     data = parse_json(request)
     if not data or not data.get('assetId'):
-        return JsonResponse({'error': 'assetId נדרש'}, status=400)
-    asset_id = int(data['assetId'])
+        return JsonResponse({'error': 'assetId required'}, status=400)
 
-    # Try to fetch a real asset from the database.  The original endpoint only
-    # knew about a single hard-coded mock asset.  By consulting the database we
-    # support real asset records while still falling back to a minimal
-    # placeholder if the requested ID does not exist.
-    asset_obj = Asset.objects.filter(id=asset_id).first()
-
-    # Start with placeholder defaults to avoid KeyError/0-division during PDF
-    # rendering.
-    listing = {
-        'address': f'נכס {asset_id}',
-        'city': '',
-        'neighborhood': '',
-        'type': 'דירה',
-        'price': 0,
-        'bedrooms': 0,
-        'bathrooms': 0,
-        'netSqm': 1,  # avoid divide-by-zero
-        'area': 1,
-        'pricePerSqm': 0,
-        'remainingRightsSqm': 0,
-        'program': '',
-        'lastPermitQ': '',
-        'noiseLevel': 0,
-        'competition1km': '',
-        'zoning': '',
-        'priceGapPct': 0,
-        'expectedPriceRange': '',
-        'modelPrice': 0,
-        'confidencePct': 0,
-        'capRatePct': 0,
-        'rentEstimate': 0,
-        'riskFlags': [],
-        'features': [],
-        'contactInfo': {'agent': '', 'phone': '', 'email': ''},
-        'documents': [],
+    asset_id = data['assetId']
+    
+    # For now, use mock asset data that matches the frontend structure
+    # TODO: In the future, this should fetch from a proper asset database
+    mock_assets = {
+        1: {
+            'address': 'רחוב הרצל 123, תל אביב',
+            'city': 'תל אביב',
+            'neighborhood': 'מרכז העיר',
+            'type': 'דירה',
+            'price': 2850000,
+            'bedrooms': 3,
+            'bathrooms': 2,
+            'netSqm': 85,
+            'area': 85,
+            'pricePerSqm': 33529,
+            'remainingRightsSqm': 45,
+            'program': 'תמ״א 38',
+            'lastPermitQ': 'Q2/24',
+            'noiseLevel': 2,
+            'competition1km': 'בינוני',
+            'zoning': 'מגורים א׳',
+            'priceGapPct': -5.2,
+            'expectedPriceRange': '2.7M - 3.0M',
+            'modelPrice': 3000000,
+            'confidencePct': 85,
+            'capRatePct': 3.2,
+            'rentEstimate': 9500,
+            'riskFlags': [],
+            'features': ['מעלית', 'חניה', 'מרפסת', 'משופצת'],
+            'contactInfo': {
+                'agent': 'יוסי כהן',
+                'phone': '050-1234567',
+                'email': 'yossi@example.com'
+            },
+            'documents': [
+                {'name': 'נסח טאבו', 'type': 'tabu'},
+                {'name': 'תשריט בית משותף', 'type': 'condo_plan'},
+                {'name': 'היתר בנייה', 'type': 'permit'},
+                {'name': 'זכויות בנייה', 'type': 'rights'},
+                {'name': 'שומת מכרעת', 'type': 'appraisal_decisive'},
+                {'name': 'שומת רמ״י', 'type': 'appraisal_rmi'}
+            ]
+        }
     }
+    
+    if asset_id not in mock_assets:
+        return JsonResponse({'error': 'Asset not found'}, status=404)
+    
+    asset = mock_assets[asset_id]
+    listing = asset
 
-    if asset_obj:
-        if asset_obj.meta:
-            listing.update(asset_obj.meta)
-        listing.setdefault('address', asset_obj.normalized_address or f'נכס {asset_id}')
-        listing.setdefault('city', asset_obj.city or '')
-        listing.setdefault('neighborhood', asset_obj.neighborhood or '')
-
-    # Create report record, linking to the asset if it exists
+    # Create report record in database
     report = Report.objects.create(
-        asset=asset_obj,
+        asset=None,  # TODO: Link to actual Asset model when available
         report_type='asset',
         status='generating',
         filename='',
         file_path='',
         title=listing['address'],
-        description=f'דו״ח נכס עבור {listing["address"]}',
-        pages=4,
+        description=f'Asset report for {listing["address"]}',
+        pages=4,  # We know it's 4 pages
     )
 
-    ensure_reports_dir()
+    # Generate filename based on report ID
     filename = f"r{report.id}.pdf"
+    os.makedirs(REPORTS_DIR, exist_ok=True)
     file_path = os.path.join(REPORTS_DIR, filename)
-
+    
+    # Update report with file information
     report.filename = filename
     report.file_path = file_path
     report.save()
 
-    started = time.time()
+    start_time = time.time()
+    
+    # Create rich PDF report with multiple pages (one per tab)
     try:
         c = canvas.Canvas(file_path, pagesize=A4)
-        PAGE_WIDTH, PAGE_HEIGHT = A4
-        RIGHT_MARGIN = PAGE_WIDTH - 50
-        CENTER_X = PAGE_WIDTH / 2
-
-        # Page 1: General (Hebrew only)
-        draw_text(c, CENTER_X, 760, 'דו"ח נכס - ניתוח כללי', size=20, align='center')
+        
+        # Set up Hebrew font - try to use DejaVu if available, otherwise use a fallback approach
+        try:
+            if REPORT_FONT == "DejaVu":
+                c.setFont(REPORT_FONT, 20)
+                # Page 1: General Analysis (ניתוח כללי)
+                c.drawCentredString(300, 760, 'דו"ח נכס - ניתוח כללי')
+            else:
+                # Fallback: use English titles and handle Hebrew content carefully
+                c.setFont(REPORT_FONT, 20)
+                c.drawCentredString(300, 760, 'Asset Report - General Analysis')
+        except:
+            # If font setting fails, use default
+            c.setFont("Helvetica", 20)
+            c.drawCentredString(300, 760, 'Asset Report - General Analysis')
+        
+        c.setFont(REPORT_FONT, 12)
         y = 720
-        draw_text(c, RIGHT_MARGIN, y, 'פרטי הנכס', size=14); y -= 25
-        draw_text(c, RIGHT_MARGIN, y, f"כתובת: {listing['address']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"עיר: {listing['city']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"שכונה: {listing['neighborhood']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"סוג: {listing['type']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"מחיר: ₪{int(listing['price']):,}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"חדרי שינה: {listing['bedrooms']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"חדרי רחצה: {listing['bathrooms']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"שטח (מ\"ר): {listing['netSqm']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"מחיר למ\"ר: ₪{listing['pricePerSqm']:,}"); y -= 20
-
+        
+        # Asset Details Section
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'פרטי הנכס')
+        else:
+            c.drawString(50, y, 'Asset Details')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        # Handle Hebrew text carefully - use English labels if font doesn't support Hebrew
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, f"כתובת: {listing['address']}")
+            y -= 20
+            c.drawString(50, y, f"עיר: {listing['city']}")
+            y -= 20
+            c.drawString(50, y, f"שכונה: {listing['neighborhood']}")
+            y -= 20
+            c.drawString(50, y, f"סוג: {listing['type']}")
+            y -= 20
+        else:
+            c.drawString(50, y, f"Address: {listing['address']}")
+            y -= 20
+            c.drawString(50, y, f"City: {listing['city']}")
+            y -= 20
+            c.drawString(50, y, f"Neighborhood: {listing['neighborhood']}")
+            y -= 20
+            c.drawString(50, y, f"Type: {listing['type']}")
+            y -= 20
+        
+        c.drawString(50, y, f"Price: ₪{int(listing['price']):,}")
         y -= 20
-        draw_text(c, RIGHT_MARGIN, y, 'אנליזה פיננסית', size=14); y -= 25
-        draw_text(c, RIGHT_MARGIN, y, f"מחיר מודל: ₪{listing['modelPrice']:,}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"פער מחיר: {listing['priceGapPct']}%"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"שכירות משוערת: ₪{listing['rentEstimate']:,}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"תשואה שנתית: {listing['capRatePct']}%"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"תחרות (1 ק\"מ): {listing['competition1km']}"); y -= 20
-
+        c.drawString(50, y, f"Bedrooms: {listing['bedrooms']}")
         y -= 20
-        draw_text(c, RIGHT_MARGIN, y, 'המלצת השקעה', size=14); y -= 25
-        price_gap_component = 100 + listing['priceGapPct'] if listing['priceGapPct'] < 0 else 100 - listing['priceGapPct']
-        overall_score = round((listing['confidencePct'] + (listing['capRatePct'] * 20) + price_gap_component) / 3)
-        draw_text(c, RIGHT_MARGIN, y, f"ציון כללי: {overall_score}/100"); y -= 20
+        c.drawString(50, y, f"Bathrooms: {listing['bathrooms']}")
+        y -= 20
+        c.drawString(50, y, f"Area (sqm): {listing['netSqm']}")
+        y -= 20
+        c.drawString(50, y, f"Price per sqm: ₪{listing['pricePerSqm']:,}")
+        y -= 20
+        
+        # Financial Analysis Section
+        y -= 20
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'אנליזה פיננסית')
+        else:
+            c.drawString(50, y, 'Financial Analysis')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        c.drawString(50, y, f"Model Price: ₪{listing['modelPrice']:,}")
+        y -= 20
+        c.drawString(50, y, f"Price Gap: {listing['priceGapPct']}%")
+        y -= 20
+        c.drawString(50, y, f"Rent Estimate: ₪{listing['rentEstimate']:,}")
+        y -= 20
+        c.drawString(50, y, f"Annual Return: {listing['capRatePct']}%")
+        y -= 20
+        c.drawString(50, y, f"Competition (1km): {listing['competition1km']}")
+        y -= 20
+        
+        # Investment Recommendation
+        y -= 20
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'המלצת השקעה')
+        else:
+            c.drawString(50, y, 'Investment Recommendation')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        overall_score = round((listing['confidencePct'] + (listing['capRatePct'] * 20) + (listing['priceGapPct'] < 0 and 100 + listing['priceGapPct'] or 100 - listing['priceGapPct'])) / 3)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, f"ציון כללי: {overall_score}/100")
+        else:
+            c.drawString(50, y, f"Overall Score: {overall_score}/100")
+        y -= 20
+        
         if listing['priceGapPct'] < -10:
-            recommendation = "הנכס במחיר אטרקטיבי מתחת לשוק"
+            recommendation = "Asset at attractive price below market"
         elif listing['priceGapPct'] > 10:
-            recommendation = "הנכס יקר יחסית לשוק"
+            recommendation = "Asset expensive relative to market"
         else:
-            recommendation = "הנכס במחיר שוק הוגן"
-        draw_text(c, RIGHT_MARGIN, y, f"המלצה: {recommendation}")
-
+            recommendation = "Asset at fair market price"
+        
+        c.drawString(50, y, f"Recommendation: {recommendation}")
+        
         c.showPage()
-
-        # Page 2: Plans & Rights (Hebrew)
-        draw_text(c, CENTER_X, 760, 'תוכניות וזכויות בנייה', size=20, align='center')
+        
+        # Page 2: Plans (תוכניות)
+        c.setFont(REPORT_FONT, 20)
+        if REPORT_FONT == "DejaVu":
+            c.drawCentredString(300, 760, 'תוכניות וזכויות בנייה')
+        else:
+            c.drawCentredString(300, 760, 'Plans and Building Rights')
+        c.setFont(REPORT_FONT, 12)
         y = 720
-        draw_text(c, RIGHT_MARGIN, y, 'תוכניות מקומיות ומפורטות', size=14); y -= 25
-        draw_text(c, RIGHT_MARGIN, y, f"תוכנית נוכחית: {listing['program']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"אזור תכנון: {listing['zoning']}"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"יתרת זכויות: +{listing['remainingRightsSqm']} מ\"ר"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, f"זכויות בנייה עיקריות: {listing['netSqm']} מ\"ר"); y -= 40
-
-        draw_text(c, RIGHT_MARGIN, y, 'זכויות בנייה מפורטות', size=14); y -= 25
-        draw_text(c, RIGHT_MARGIN, y, f"יתרת זכויות: {listing['remainingRightsSqm']} מ\"ר"); y -= 20
-        pct = round((listing['remainingRightsSqm'] / listing['netSqm']) * 100)
-        draw_text(c, RIGHT_MARGIN, y, f"אחוז זכויות נוספות: {pct}%"); y -= 20
+        
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'תוכניות מקומיות ומפורטות')
+        else:
+            c.drawString(50, y, 'Local and Detailed Plans')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        c.drawString(50, y, f"Current Plan: {listing['program']}")
+        y -= 20
+        c.drawString(50, y, f"Zoning: {listing['zoning']}")
+        y -= 20
+        c.drawString(50, y, f"Remaining Rights: +{listing['remainingRightsSqm']} sqm")
+        y -= 20
+        c.drawString(50, y, f"Main Building Rights: {listing['netSqm']} sqm")
+        y -= 20
+        
+        # Rights Summary
+        y -= 20
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'זכויות בנייה מפורטות')
+        else:
+            c.drawString(50, y, 'Building Rights Details')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        c.drawString(50, y, f"Remaining Rights: {listing['remainingRightsSqm']} sqm")
+        y -= 20
+        c.drawString(50, y, f"Additional Rights %: {round((listing['remainingRightsSqm'] / listing['netSqm']) * 100)}%")
+        y -= 20
         rights_value = round((listing['pricePerSqm'] * listing['remainingRightsSqm'] * 0.7) / 1000)
-        draw_text(c, RIGHT_MARGIN, y, f"שווי זכויות משוער: ₪{rights_value} אלף")
-
+        c.drawString(50, y, f"Estimated Rights Value: ₪{rights_value}K")
+        
         c.showPage()
-
-        # Page 3: Environment (Hebrew)
-        draw_text(c, CENTER_X, 760, 'מידע סביבתי', size=20, align='center')
+        
+        # Page 3: Environment (סביבה)
+        c.setFont(REPORT_FONT, 20)
+        if REPORT_FONT == "DejaVu":
+            c.drawCentredString(300, 760, 'מידע סביבתי')
+        else:
+            c.drawCentredString(300, 760, 'Environmental Information')
+        c.setFont(REPORT_FONT, 12)
         y = 720
-        draw_text(c, RIGHT_MARGIN, y, 'מידע סביבתי', size=14); y -= 25
-        draw_text(c, RIGHT_MARGIN, y, f"רמת רעש: {listing['noiseLevel']}/5"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, "שטחים ציבוריים ≤300מ׳: כן"); y -= 20
-        draw_text(c, RIGHT_MARGIN, y, "מרחק אנטנה: 150מ׳"); y -= 40
-        draw_text(c, RIGHT_MARGIN, y, 'סיכונים', size=14); y -= 25
-        if listing['riskFlags']:
+        
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'מידע סביבתי')
+        else:
+            c.drawString(50, y, 'Environmental Data')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        c.drawString(50, y, f"Noise Level: {listing['noiseLevel']}/5")
+        y -= 20
+        c.drawString(50, y, f"Public Areas ≤300m: Yes")
+        y -= 20
+        c.drawString(50, y, f"Antenna Distance: 150m")
+        y -= 20
+        
+        # Risk Flags
+        y -= 20
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'סיכונים')
+        else:
+            c.drawString(50, y, 'Risk Factors')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        if listing['riskFlags'] and len(listing['riskFlags']) > 0:
             for flag in listing['riskFlags']:
-                draw_text(c, RIGHT_MARGIN, y, f"• {flag}"); y -= 20
+                c.drawString(50, y, f"• {flag}")
+                y -= 20
         else:
-            draw_text(c, RIGHT_MARGIN, y, "אין סיכונים מיוחדים")
-
+            if REPORT_FONT == "DejaVu":
+                c.drawString(50, y, "אין סיכונים מיוחדים")
+            else:
+                c.drawString(50, y, "No special risks")
+        
         c.showPage()
-
-        # Page 4: Documents & Summary (Hebrew)
-        draw_text(c, CENTER_X, 760, 'מסמכים וסיכום', size=20, align='center')
-        y = 720
-        draw_text(c, RIGHT_MARGIN, y, 'מסמכים זמינים', size=14); y -= 25
-        if listing['documents']:
-            for doc in listing['documents']:
-                draw_text(c, RIGHT_MARGIN, y, f"• {doc['name']} ({doc['type']})"); y -= 20
+        
+        # Page 4: Documents and Summary
+        c.setFont(REPORT_FONT, 20)
+        if REPORT_FONT == "DejaVu":
+            c.drawCentredString(300, 760, 'מסמכים וסיכום')
         else:
-            draw_text(c, RIGHT_MARGIN, y, "אין מסמכים זמינים")
+            c.drawCentredString(300, 760, 'Documents and Summary')
+        c.setFont(REPORT_FONT, 12)
+        y = 720
+        
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'מסמכים זמינים')
+        else:
+            c.drawString(50, y, 'Available Documents')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
+        if listing['documents'] and len(listing['documents']) > 0:
+            for doc in listing['documents']:
+                c.drawString(50, y, f"• {doc['name']} ({doc['type']})")
+                y -= 20
+        else:
+            if REPORT_FONT == "DejaVu":
+                c.drawString(50, y, "אין מסמכים זמינים")
+            else:
+                c.drawString(50, y, "No documents available")
+        
+        # Contact Info
         y -= 30
-        draw_text(c, RIGHT_MARGIN, y, 'פרטי קשר', size=14); y -= 25
+        c.setFont(REPORT_FONT, 14)
+        if REPORT_FONT == "DejaVu":
+            c.drawString(50, y, 'פרטי קשר')
+        else:
+            c.drawString(50, y, 'Contact Information')
+        y -= 25
+        c.setFont(REPORT_FONT, 12)
+        
         if listing['contactInfo']:
-            draw_text(c, RIGHT_MARGIN, y, f"סוכן: {listing['contactInfo']['agent']}"); y -= 20
-            draw_text(c, RIGHT_MARGIN, y, f"טלפון: {listing['contactInfo']['phone']}"); y -= 20
-            draw_text(c, RIGHT_MARGIN, y, f"אימייל: {listing['contactInfo']['email']}")
-
+            if REPORT_FONT == "DejaVu":
+                c.drawString(50, y, f"סוכן: {listing['contactInfo']['agent']}")
+                y -= 20
+                c.drawString(50, y, f"טלפון: {listing['contactInfo']['phone']}")
+                y -= 20
+                c.drawString(50, y, f"אימייל: {listing['contactInfo']['email']}")
+            else:
+                c.drawString(50, y, f"Agent: {listing['contactInfo']['agent']}")
+                y -= 20
+                c.drawString(50, y, f"Phone: {listing['contactInfo']['phone']}")
+                y -= 20
+                c.drawString(50, y, f"Email: {listing['contactInfo']['email']}")
+        
         c.save()
-
-        generation_time = time.time() - started
+        
+        # Mark report as completed
+        generation_time = time.time() - start_time
         file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
-        report.mark_completed(file_size=file_size, pages=4, generation_time=generation_time)
-
+        report.mark_completed(
+            file_size=file_size,
+            pages=4,
+            generation_time=generation_time
+        )
+        
     except Exception as e:
+        # Mark report as failed
         report.mark_failed(str(e))
-        return JsonResponse({'error': 'יצירת ה-PDF נכשלה', 'details': str(e)}, status=500)
+        return JsonResponse({'error': 'PDF generation failed', 'details': str(e)}, status=500)
 
+    # Return the report data
     return JsonResponse({
         'report': {
             'id': report.id,
@@ -720,8 +1060,6 @@ def reports(request):
             'fileSize': report.file_size,
         }
     }, status=201)
-
-# ---------- Mortgage ----------
 
 def _group_by_month(transactions):
     months = {}
@@ -773,28 +1111,21 @@ def mortgage_analyze(request):
         'notes': ['אינפורמטיבי בלבד', f'LTV 70%, ריבית {annual_rate_pct}%, תקופה {term_years}y']
     })
 
-# ---------- Tabu parsing ----------
-
-try:
-    # Try to import from utils - this will work if the module is available
-    from utils.tabu_parser import parse_tabu_pdf, search_rows
-except ImportError:
-    # Fallback functions when utils module is not available.
-    def parse_tabu_pdf(file):
-        """Fallback function for parsing tabu PDFs when utils module is not available."""
-        return []
-    def search_rows(rows, query):
-        """Fallback function for searching rows when utils module is not available."""
-        return rows
 
 @csrf_exempt
 def tabu(request):
-    """Parse an uploaded Tabu PDF and return its data as a searchable table."""
+    """Parse an uploaded Tabu PDF and return its data as a searchable table.
+    
+    Note: If the utils module is not available, this will return dummy data
+    to ensure the app continues to function.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     file = request.FILES.get('file')
     if not file:
         return JsonResponse({'error': 'file required'}, status=400)
+    
+    # Try to parse the PDF file
     try:
         rows = parse_tabu_pdf(file)
         query = request.GET.get('q') or ''
@@ -803,6 +1134,8 @@ def tabu(request):
         return JsonResponse({'rows': rows})
     except Exception as e:
         print(f"Error parsing tabu PDF: {e}")
+        # Return dummy data for testing if parsing fails
+        # This also handles the case where utils module is not available
         return JsonResponse({'rows': [
             {
                 'id': 1,
@@ -814,23 +1147,49 @@ def tabu(request):
             }
         ]})
 
-# ---------- Assets ----------
-
 @csrf_exempt
 def assets(request):
-    """Handle assets - GET (list all) or POST (create new)."""
+    """Handle assets - GET (list all) or POST (create new).
+    
+    GET: Returns all assets in listing format
+    POST: Creates a new asset and enqueues enrichment pipeline
+    
+    Expected JSON payload for POST:
+    {
+        "scope": {
+            "type": "address|neighborhood|street|city|parcel",
+            "value": "string",
+            "city": "string"
+        },
+        "address": "string",
+        "city": "string", 
+        "street": "string",
+        "number": "integer",
+        "gush": "string",
+        "helka": "string",
+        "radius": "integer"
+    }
+    """
     if request.method == 'GET':
+        # Return all assets in listing format
         return _get_assets_list()
+    
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
+    
+    # Parse JSON with error handling
     data = parse_json(request)
     if not data:
         return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    
     try:
+        # Extract scope information
         scope = data.get('scope', {})
         scope_type = scope.get('type')
         if not scope_type:
             return JsonResponse({'error': 'Scope type is required'}, status=400)
+        
+        # Create asset record
         asset_data = {
             'scope_type': scope_type,
             'city': data.get('city') or scope.get('city'),
@@ -846,50 +1205,70 @@ def assets(request):
                 'radius': data.get('radius', 150)
             }
         }
+        
+        # Save to Django database
         asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
+        
+        # Enqueue Celery task if available
         try:
             run_data_pipeline.delay(asset_id)
         except Exception as e:
             print(f"Failed to enqueue enrichment task: {e}")
+            # Update asset status to error
             try:
                 asset = Asset.objects.get(id=asset_id)
                 asset.status = 'error'
-                m = asset.meta or {}
-                m['error'] = str(e)
-                asset.meta = m
+                asset.meta['error'] = str(e)
                 asset.save()
             except Exception as save_error:
                 print(f"Failed to update asset status: {save_error}")
+        
         return JsonResponse({
             'id': asset_id,
             'status': asset_data['status'],
-            'message': 'נכס נוצר בהצלחה, העשרה תוזמנה'
+            'message': 'Asset created successfully, enrichment pipeline started'
         }, status=201)
+        
     except Exception as e:
         print(f"Error creating asset: {e}")
-        return JsonResponse({'error': 'Failed to create asset', 'details': str(e)}, status=500)
+        return JsonResponse({
+            'error': 'Failed to create asset',
+            'details': str(e)
+        }, status=500)
 
 def _get_assets_list():
     """Helper function to get all assets in listing format."""
+    
     try:
-        qs = Asset.objects.all().order_by('-created_at')
-        rows = []
-        for asset in qs:
+        # Get all assets
+        assets = Asset.objects.all().order_by('-created_at')
+        
+        # Transform assets to listing format
+        assets = []
+        for asset in assets:
+            # Get source records for this asset
             source_records = SourceRecord.objects.filter(asset_id=asset.id)
+            
+            # Get all source records for this asset
             all_sources = list(set([r.source for r in source_records]))
+            
             if all_sources:
+                # Create assets for each source
                 for source in all_sources:
                     source_records_for_source = [r for r in source_records if r.source == source]
+                    
                     for record in source_records_for_source:
                         raw_data = record.raw or {}
+                        
+                        # Base listing data
                         listing = {
                             'id': f'asset_{asset.id}_{record.id}',
                             'external_id': record.external_id,
-                            'address': asset.normalized_address or f"{(asset.street or '').strip()} {(asset.number or '')}".strip(),
+                            'address': asset.normalized_address or f"{asset.street or ''} {asset.number or ''}".strip(),
                             'price': raw_data.get('price', 0),
                             'bedrooms': raw_data.get('rooms', 0),
-                            'bathrooms': 1,
+                            'bathrooms': 1,  # Default
                             'area': raw_data.get('size', 0),
                             'type': raw_data.get('property_type', 'דירה'),
                             'status': 'active',
@@ -908,7 +1287,7 @@ def _get_assets_list():
                             'deltaVsAreaPct': 0,
                             'domPercentile': 50,
                             'competition1km': 'בינוני',
-                            'zoning': "מגורים א'",
+                            'zoning': 'מגורים א\'',
                             'riskFlags': [],
                             'priceGapPct': 0,
                             'expectedPriceRange': '',
@@ -929,13 +1308,14 @@ def _get_assets_list():
                             'sources': all_sources,
                             'primary_source': source
                         }
-                        rows.append(listing)
+                        assets.append(listing)
             else:
+                # Create a basic listing from asset data when no sources yet
                 listing = {
                     'id': f'asset_{asset.id}',
                     'external_id': f'asset_{asset.id}',
-                    'address': asset.normalized_address or f"{(asset.street or '').strip()} {(asset.number or '')}".strip(),
-                    'price': 0,
+                    'address': asset.normalized_address or f"{asset.street or ''} {asset.number or ''}".strip(),
+                    'price': 0,  # Will be populated when enrichment completes
                     'bedrooms': 0,
                     'bathrooms': 1,
                     'area': 0,
@@ -952,7 +1332,7 @@ def _get_assets_list():
                     'deltaVsAreaPct': 0,
                     'domPercentile': 50,
                     'competition1km': 'בינוני',
-                    'zoning': "מגורים א'",
+                    'zoning': 'מגורים א\'',
                     'riskFlags': [],
                     'priceGapPct': 0,
                     'expectedPriceRange': '',
@@ -973,26 +1353,37 @@ def _get_assets_list():
                     'sources': [],
                     'primary_source': 'asset'
                 }
-                rows.append(listing)
-        return JsonResponse({'rows': rows})
+                assets.append(listing)
+        
+        return JsonResponse({'rows': assets})
+        
     except Exception as e:
         print(f"Error fetching assets: {e}")
-        return JsonResponse({'error': 'Failed to fetch assets', 'details': str(e)}, status=500)
+        return JsonResponse({
+            'error': 'Failed to fetch assets',
+            'details': str(e)
+        }, status=500)
 
 @csrf_exempt
 def asset_detail(request, asset_id):
     """Get asset details including enriched data and source records."""
     if request.method != 'GET':
         return JsonResponse({'error': 'GET method required'}, status=405)
+    
     try:
+        # Get asset using Django ORM
         try:
             asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
             return JsonResponse({'error': 'Asset not found'}, status=404)
+        
+        # Get source records grouped by source
         source_records = SourceRecord.objects.filter(asset_id=asset_id)
         records_by_source = {}
         for record in source_records:
-            records_by_source.setdefault(record.source, []).append({
+            if record.source not in records_by_source:
+                records_by_source[record.source] = []
+            records_by_source[record.source].append({
                 'id': record.id,
                 'title': record.title,
                 'external_id': record.external_id,
@@ -1001,6 +1392,8 @@ def asset_detail(request, asset_id):
                 'raw': record.raw,
                 'fetched_at': record.fetched_at.isoformat() if record.fetched_at else None
             })
+        
+        # Get transactions
         transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
         transaction_list = []
         for trans in transactions:
@@ -1016,6 +1409,8 @@ def asset_detail(request, asset_id):
                 'raw': trans.raw,
                 'fetched_at': trans.fetched_at.isoformat() if trans.fetched_at else None
             })
+            
+        # Return asset details
         return JsonResponse({
             'id': asset.id,
             'scope_type': asset.scope_type,
@@ -1034,11 +1429,14 @@ def asset_detail(request, asset_id):
             'records': records_by_source,
             'transactions': transaction_list
         })
+            
     except Exception as e:
         print(f"Error retrieving asset {asset_id}: {e}")
-        return JsonResponse({'error': 'Failed to retrieve asset', 'details': str(e)}, status=500)
+        return JsonResponse({
+            'error': 'Failed to retrieve asset',
+            'details': str(e)
+        }, status=500)
 
-# ---------- LLM Marketing ----------
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -1048,10 +1446,13 @@ def asset_share_message(request, asset_id):
         asset = Asset.objects.get(id=asset_id)
     except Asset.DoesNotExist:
         return Response({'error': 'Asset not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Read language from request, default to Hebrew
     try:
         data = json.loads(request.body.decode('utf-8')) if request.body else {}
     except json.JSONDecodeError:
         data = {}
+
     language_code = data.get('language', 'he').lower()
     supported = {
         'he': 'Hebrew',
@@ -1062,6 +1463,8 @@ def asset_share_message(request, asset_id):
         'ar': 'Arabic',
     }
     language = supported.get(language_code, 'Hebrew')
+
+    # Build prompt from asset details
     address_parts = [
         asset.street or '',
         str(asset.number or ''),
@@ -1074,12 +1477,15 @@ def asset_share_message(request, asset_id):
         f"about a property for sale located at {address}. Include key details like property type, "
         f"size and any selling points from this data: {json.dumps(asset.meta, ensure_ascii=False)}"
     )
+
     try:
+        # Check if OpenAI API key is configured
         if not os.environ.get('OPENAI_API_KEY'):
             return Response(
-                {'error': 'OpenAI API key not configured', 'details': 'OPENAI_API_KEY environment variable is missing'},
+                {'error': 'OpenAI API key not configured', 'details': 'OPENAI_API_KEY environment variable is missing'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
         client = OpenAI()
         completion = client.chat.completions.create(
             model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
@@ -1091,10 +1497,12 @@ def asset_share_message(request, asset_id):
         message = completion.choices[0].message.content.strip()
     except Exception as e:
         print(f"Error generating marketing message: {str(e)}")
-        return Response({'error': 'Failed to generate message', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    return Response({'message': message})
+        return Response(
+            {'error': 'Failed to generate message', 'details': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
-# ---------- Change password (kept intact) ----------
+    return Response({'message': message})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1104,19 +1512,49 @@ def change_password(request):
         data = json.loads(request.body.decode('utf-8'))
         current_password = data.get('current_password')
         new_password = data.get('new_password')
+        
         if not current_password or not new_password:
-            return Response({'error': 'Current password and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Current password and new password are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         if len(new_password) < 8:
-            return Response({'error': 'New password must be at least 8 characters long'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'New password must be at least 8 characters long'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify current password
         user = request.user
         if not user.check_password(current_password):
-            return Response({'error': 'Current password is incorrect'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Current password is incorrect'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if new password is different from current
         if user.check_password(new_password):
-            return Response({'error': 'New password must be different from current password'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'New password must be different from current password'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update password
         user.set_password(new_password)
         user.save()
-        return Response({'message': 'Password changed successfully'})
+        
+        return Response({
+            'message': 'Password changed successfully'
+        })
+        
     except json.JSONDecodeError:
-        return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'Invalid JSON'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

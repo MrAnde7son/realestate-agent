@@ -47,9 +47,13 @@ describe('/api/settings', () => {
       body: JSON.stringify({ language: 'he' })
     })
     const res = await PUT(req)
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/settings/'), expect.objectContaining({
-      method: 'PUT'
-    }))
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/settings/'),
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ language: 'he' })
+      })
+    )
     const data = await res.json()
     expect(data).toEqual({ success: true })
   })

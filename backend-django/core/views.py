@@ -460,7 +460,7 @@ def auth_google_callback(request):
 
 try:
     # Try to use a font that supports Hebrew
-    FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    FONT_PATH = str((BASE_DIR.parent / 'backend-django' / 'chore' / 'fonts' / 'NotoSansHebrew-Regular.ttf').resolve())
     if os.path.exists(FONT_PATH):
         pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
         REPORT_FONT = "DejaVu"

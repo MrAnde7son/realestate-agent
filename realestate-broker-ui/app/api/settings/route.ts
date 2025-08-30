@@ -21,15 +21,20 @@ export async function PUT(req: Request) {
   if (!token) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  let body
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
-  const body = await req.text()
   const res = await fetch(`${BACKEND_URL}/api/settings/`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`
     },
-    body
+    body: JSON.stringify(body)
   })
   const data = await res.json().catch(() => ({}))
   return NextResponse.json(data, { status: res.status })

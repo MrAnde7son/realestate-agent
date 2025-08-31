@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Download, Eye, Calendar, MapPin, Trash2 } from 'lucide-react'
+import { FileText, Download, Eye, Calendar, MapPin, Trash2, ExternalLink, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 type Report = {
@@ -24,6 +24,7 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<number | null>(null)
+  const [clickedRow, setClickedRow] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/reports')
@@ -67,6 +68,14 @@ export default function ReportsPage() {
   // Use sample data if no real data is available (for demo purposes)
   const displayReports = reports.length > 0 ? reports : sampleReports
   const isSampleData = reports.length === 0 && !loading
+
+  const handleRowClick = (report: Report) => {
+    setClickedRow(report.id)
+    // Open the report in a new tab
+    window.open(`/reports/${report.filename}`, '_blank')
+    // Reset the clicked state after a short delay
+    setTimeout(() => setClickedRow(null), 300)
+  }
 
   const handleDeleteReport = async (reportId: number) => {
     if (!confirm('האם אתה בטוח שברצונך למחוק דוח זה?')) {
@@ -154,21 +163,39 @@ export default function ReportsPage() {
                         </TableRow>
                       ) : (
                         displayReports.map(report => (
-                          <TableRow key={report.id} className="hover:bg-muted/50">
+                          <TableRow 
+                            key={report.id} 
+                            className={`hover:bg-blue-50/50 hover:shadow-sm cursor-pointer transition-all duration-200 group border-l-4 transition-colors ${
+                              clickedRow === report.id 
+                                ? 'bg-blue-100/70 border-l-blue-600 shadow-md' 
+                                : 'border-l-transparent hover:border-l-blue-500'
+                            }`}
+                            onClick={() => handleRowClick(report)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                handleRowClick(report)
+                              }
+                            }}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`צפה בדוח עבור ${report.address}`}
+                          >
                             <TableCell>
                               <div>
-                                <div className="font-semibold">
-                                  <Link
-                                    href={`/reports/${report.filename}`}
-                                    target="_blank"
-                                    className="hover:text-primary transition-colors"
-                                  >
-                                    {report.address}
-                                  </Link>
+                                <div className="font-semibold group-hover:text-primary transition-colors">
+                                  {report.address}
                                 </div>
                                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                                   <MapPin className="h-3 w-3" />
-                                  <span>צפה בדוח</span>
+                                  <span>
+                                    {clickedRow === report.id ? 'פותח דוח...' : 'לחץ לצפייה בדוח'}
+                                  </span>
+                                  {clickedRow === report.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                                  ) : (
+                                    <ExternalLink className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                                  )}
                                 </div>
                               </div>
                             </TableCell>
@@ -197,7 +224,7 @@ export default function ReportsPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-2 justify-end">
+                              <div className="flex gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
                                 <Button variant="ghost" size="sm" asChild>
                                   <Link href={`/reports/${report.filename}`} target="_blank">
                                     <Eye className="h-4 w-4 ml-2" />

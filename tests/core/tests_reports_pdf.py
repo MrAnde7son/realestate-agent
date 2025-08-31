@@ -4,7 +4,7 @@ import shutil
 import tempfile
 
 from django.test import TestCase, RequestFactory
-from pypdf import PdfReader
+from PyPDF2 import PdfReader
 
 from core import views
 from core.models import Report, Asset
@@ -71,11 +71,10 @@ class HebrewPDFGenerationTest(TestCase):
 
     def test_pdf_contains_hebrew_titles(self):
         # Ensure we actually have a Hebrew-capable font
-        font_name = views.get_hebrew_font_name()
         self.assertNotEqual(
-            font_name, "Helvetica",
-            "לא נמצא גופן עברי. הוסף core/fonts/NotoSansHebrew-Regular.ttf "
-            "או הגדר REPORT_HEBREW_FONT_PATH ל-TTF שתומך בעברית."
+            views.REPORT_FONT, "Helvetica",
+            "Hebrew font not found. Add core/fonts/NotoSansHebrew-Regular.ttf "
+            "or set REPORT_HEBREW_FONT_PATH to a TTF that supports Hebrew."
         )
 
         # Generate report for the asset inserted into the test database
@@ -89,7 +88,7 @@ class HebrewPDFGenerationTest(TestCase):
 
         filename = json.loads(resp.content)["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
-        self.assertTrue(os.path.exists(path), f"ציפינו לקובץ PDF בנתיב {path}")
+        self.assertTrue(os.path.exists(path), f"Expected PDF file at path {path}")
 
         # Verify the Report model points to the correct URL and path
         report = Report.objects.get(filename=filename)
@@ -124,12 +123,25 @@ class HebrewPDFGenerationTest(TestCase):
         missing = [t for t in must_have if t not in extracted]
         self.assertFalse(
             missing,
-            f"הכותרות העבריות הבאות לא נמצאו בטקסט: {missing}\n"
-            f"תחילת הטקסט שהופק: {extracted[:350]!r}"
+            f"The following Hebrew titles were not found in the text: {missing}\n"
+            f"Beginning of extracted text: {extracted[:350]!r}"
         )
 
         # Ensure asset-specific data from the database made it into the PDF
         self.assertIn('רחוב הרצל', extracted)
+        
+        # Additional validation: Check that Hebrew text is properly rendered
+        # If the font is working, Hebrew text should appear as readable text, not as individual characters
+        hebrew_address = 'רחוב הרצל 123, תל אביב'
+        if hebrew_address in extracted:
+            print(f"✓ Hebrew address found in PDF: {hebrew_address}")
+        else:
+            # Check if it's rendered as individual characters (font issue)
+            individual_chars = ' '.join(hebrew_address)
+            if individual_chars in extracted:
+                print(f"⚠ Hebrew text rendered as individual characters (font issue): {individual_chars}")
+            else:
+                print(f"✗ Hebrew address not found in PDF. Extracted text preview: {extracted[:200]}")
 
     def test_unknown_asset_id_generates_placeholder_report(self):
         """Ensure report generation succeeds even for unknown asset IDs."""
@@ -144,8 +156,28 @@ class HebrewPDFGenerationTest(TestCase):
         data = json.loads(resp.content)
         filename = data["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
-        self.assertTrue(os.path.exists(path), f"ציפינו לקובץ PDF בנתיב {path}")
+        self.assertTrue(os.path.exists(path), f"Expected PDF file at path {path}")
 
         report = Report.objects.get(filename=filename)
         self.assertEqual(report.file_url, f"/reports/{filename}")
         self.assertIsNone(report.asset_id)
+
+    def test_hebrew_font_registration(self):
+        """Test that Hebrew font is properly registered and available."""
+        # Check if the Hebrew font is registered
+        self.assertNotEqual(
+            views.REPORT_FONT, "Helvetica",
+            "Hebrew font should be registered and REPORT_FONT should not be Helvetica"
+        )
+        
+        # Check if the font file exists
+        font_path = views.BASE_DIR.parent / 'backend-django' / 'core' / 'fonts' / 'NotoSansHebrew-Regular.ttf'
+        self.assertTrue(
+            font_path.exists(),
+            f"Hebrew font file should exist at {font_path}"
+        )
+        
+        # Print current font status for debugging
+        print(f"Current REPORT_FONT: {views.REPORT_FONT}")
+        print(f"Font file exists: {font_path.exists()}")
+        print(f"Font file path: {font_path}")

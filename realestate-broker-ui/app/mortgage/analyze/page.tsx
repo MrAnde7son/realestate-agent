@@ -252,7 +252,7 @@ export default function MortgageAnalyzePage() {
                 return (
                   <div key={scenario.name} className={`p-4 rounded-lg ${scenario.color}`}>
                     <h3 className="font-medium text-center">{scenario.name}</h3>
-                    <div className="text-center text-sm text-muted-foreground">{scenario.rate}% שנתיה</div>
+                    <div className="text-center text-sm text-muted-foreground">{scenario.rate}% שנתי</div>
                     <div className="text-center text-xl font-bold mt-2">
                       {fmtCurrency(payment)}
                     </div>

@@ -9,7 +9,7 @@ export async function POST(
   try {
     // Try to upload to backend first
     const formData = await request.formData()
-    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8000'}/api/assets/${id}/documents/`, {
+    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${id}/documents/`, {
       method: 'POST',
       body: formData,
     })

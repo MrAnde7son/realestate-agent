@@ -43,7 +43,7 @@ export interface ChangePasswordData {
   new_password: string
 }
 
-const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 class AuthAPI {
   private async request<T>(

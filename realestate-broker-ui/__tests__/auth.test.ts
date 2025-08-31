@@ -18,7 +18,7 @@ afterEach(() => {
 describe('authAPI', () => {
   it('uses correct endpoint for updateProfile', async () => {
     await authAPI.updateProfile({ first_name: 'John' })
-    const expectedUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/api/auth/update-profile/`
+    const expectedUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/auth/update-profile/`
     expect(global.fetch).toHaveBeenCalledWith(expectedUrl, expect.objectContaining({
       method: 'PUT'
     }))

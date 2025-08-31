@@ -164,20 +164,26 @@ class HebrewPDFGenerationTest(TestCase):
 
     def test_hebrew_font_registration(self):
         """Test that Hebrew font is properly registered and available."""
+        # Create a PDF generator instance to test font registration
+        from core.pdf_generator import HebrewPDFGenerator
+        from pathlib import Path
+        
+        base_dir = Path(__file__).resolve().parent.parent.parent / 'backend-django'
+        pdf_generator = HebrewPDFGenerator(base_dir)
+        
         # Check if the Hebrew font is registered
         self.assertNotEqual(
-            views.REPORT_FONT, "Helvetica",
-            "Hebrew font should be registered and REPORT_FONT should not be Helvetica"
+            pdf_generator.report_font, "Helvetica",
+            "Hebrew font should be registered and report_font should not be Helvetica"
         )
         
         # Check if the font file exists
-        font_path = views.BASE_DIR.parent / 'backend-django' / 'core' / 'fonts' / 'NotoSansHebrew-Regular.ttf'
         self.assertTrue(
-            font_path.exists(),
-            f"Hebrew font file should exist at {font_path}"
+            os.path.exists(pdf_generator.font_path),
+            f"Hebrew font file should exist at {pdf_generator.font_path}"
         )
         
         # Print current font status for debugging
-        print(f"Current REPORT_FONT: {views.REPORT_FONT}")
-        print(f"Font file exists: {font_path.exists()}")
-        print(f"Font file path: {font_path}")
+        print(f"Current REPORT_FONT: {pdf_generator.report_font}")
+        print(f"Font file exists: {os.path.exists(pdf_generator.font_path)}")
+        print(f"Font file path: {pdf_generator.font_path}")

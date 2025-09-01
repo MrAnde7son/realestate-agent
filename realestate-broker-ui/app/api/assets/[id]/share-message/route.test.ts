@@ -22,7 +22,7 @@ describe('/api/assets/[id]/share-message', () => {
       text: async () => JSON.stringify({ message: 'msg' })
     })
     const req = new NextRequest(
-      'http://localhost:3000/api/assets/1/share-message',
+      'http://127.0.0.1:3000/api/assets/1/share-message',
       {
         method: 'POST',
         body: JSON.stringify({ language: 'en' }),
@@ -55,7 +55,7 @@ describe('/api/assets/[id]/share-message', () => {
     })
 
     const req = new NextRequest(
-      'http://localhost:3000/api/assets/1/share-message',
+      'http://127.0.0.1:3000/api/assets/1/share-message',
       {
         method: 'POST',
         body: JSON.stringify({ language: 'en' }),

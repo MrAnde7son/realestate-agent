@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from './route'
 import { NextRequest } from 'next/server'
 
+process.env.BACKEND_URL = 'http://localhost:8000'
+
 // Mock the data import
 vi.mock('@/lib/data', () => ({
   assets: [
@@ -103,7 +105,7 @@ describe('/api/assets/[id]', () => {
       
       // Verify backend was called
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/assets/101'
+        `${process.env.BACKEND_URL || 'http://localhost:8000'}/api/assets/101`
       )
     })
 

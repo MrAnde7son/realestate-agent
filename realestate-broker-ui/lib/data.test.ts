@@ -9,6 +9,7 @@ import {
   getActiveAlertsCount,
   getActiveAssetsCount,
   addAsset,
+  deleteAsset,
   type Asset,
   type Alert
 } from './data'
@@ -296,6 +297,21 @@ describe('Data Module', () => {
       alerts.forEach(alert => {
         expect(validPriorities).toContain(alert.priority)
       })
+    })
+  })
+
+  describe('deleteAsset', () => {
+    it('removes asset by id', () => {
+      const newAsset: Asset = { id: 1010, address: 'Del St', price: 1, bedrooms: 1, bathrooms: 1, area: 1, type: 'דירה', status: 'active', images: [], description: '', features: [], contactInfo: { agent: '', phone: '', email: '' } }
+      addAsset(newAsset)
+      const removed = deleteAsset(1010)
+      expect(removed?.id).toBe(1010)
+      expect(assets.find(a => a.id === 1010)).toBeUndefined()
+    })
+
+    it('returns null for unknown id', () => {
+      const result = deleteAsset(99999)
+      expect(result).toBeNull()
     })
   })
 })

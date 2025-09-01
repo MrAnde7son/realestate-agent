@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { POST } from './route'
 import { NextRequest } from 'next/server'
 
+process.env.BACKEND_URL = 'http://localhost:8000'
+
 const originalFetch = global.fetch
 
 describe('/api/assets/[id]/share-message', () => {
@@ -35,7 +37,7 @@ describe('/api/assets/[id]/share-message', () => {
     expect(res.status).toBe(200)
     expect(data.message).toBe('msg')
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:8000/api/assets/1/share-message/',
+      `${process.env.BACKEND_URL || 'http://localhost:8000'}/api/assets/1/share-message/`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

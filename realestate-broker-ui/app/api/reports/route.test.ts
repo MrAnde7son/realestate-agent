@@ -46,7 +46,7 @@ describe('reports API', () => {
   });
 
   it('creates a new report', async () => {
-    const req = new Request('http://localhost/api/reports', {
+    const req = new Request('http://127.0.0.1/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assetId: assets[0].id }),
@@ -73,7 +73,7 @@ describe('reports API', () => {
   });
 
   it('handles missing assetId gracefully', async () => {
-    const req = new Request('http://localhost/api/reports', {
+    const req = new Request('http://127.0.0.1/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -87,7 +87,7 @@ describe('reports API', () => {
   });
 
   it('handles invalid assetId gracefully', async () => {
-    const req = new Request('http://localhost/api/reports', {
+    const req = new Request('http://127.0.0.1/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assetId: 'invalid' }),
@@ -105,7 +105,7 @@ describe('reports API', () => {
       new Response('Not found', { status: 404 })
     );
 
-    const req = new Request('http://localhost/api/reports', {
+    const req = new Request('http://127.0.0.1/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assetId: assets[0].id }),
@@ -121,7 +121,7 @@ describe('reports API', () => {
   });
 
   it('lists reports', async () => {
-    const res = await GET(new Request('http://localhost/api/reports'));
+    const res = await GET(new Request('http://127.0.0.1/api/reports'));
     const data = await res.json();
     expect(Array.isArray(data.reports)).toBe(true);
   });

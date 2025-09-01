@@ -42,7 +42,7 @@ describe('/api/settings', () => {
       status: 200,
       json: async () => ({ success: true })
     } as any)
-    const req = new NextRequest('http://localhost/api/settings', {
+    const req = new NextRequest('http://127.0.0.1/api/settings', {
       method: 'PUT',
       body: JSON.stringify({ language: 'he' })
     })

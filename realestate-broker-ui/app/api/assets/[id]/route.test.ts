@@ -47,7 +47,7 @@ describe('/api/assets/[id]', () => {
 
   describe('GET', () => {
     it('returns asset when found in mock data', async () => {
-      const request = new NextRequest('http://localhost:3000/api/assets/1')
+      const request = new NextRequest('http://127.0.0.1:3000/api/assets/1')
       const params = { id: '1' }
       
       const response = await GET(request, { params })
@@ -62,7 +62,7 @@ describe('/api/assets/[id]', () => {
     })
 
     it('returns 404 when asset not found', async () => {
-      const request = new NextRequest('http://localhost:3000/api/assets/999')
+      const request = new NextRequest('http://127.0.0.1:3000/api/assets/999')
       const params = { id: '999' }
       
       const response = await GET(request, { params })
@@ -88,7 +88,7 @@ describe('/api/assets/[id]', () => {
         })
       })
 
-      const request = new NextRequest('http://localhost:3000/api/assets/101')
+      const request = new NextRequest('http://127.0.0.1:3000/api/assets/101')
       const params = { id: '101' }
       
       const response = await GET(request, { params })
@@ -103,7 +103,7 @@ describe('/api/assets/[id]', () => {
       
       // Verify backend was called
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/assets/101'
+        'http://127.0.0.1:8000/api/assets/101'
       )
     })
 
@@ -111,7 +111,7 @@ describe('/api/assets/[id]', () => {
       // Mock backend failure
       ;(global.fetch as any).mockRejectedValue(new Error('Backend unavailable'))
 
-      const request = new NextRequest('http://localhost:3000/api/assets/1')
+      const request = new NextRequest('http://127.0.0.1:3000/api/assets/1')
       const params = { id: '1' }
       
       const response = await GET(request, { params })
@@ -133,7 +133,7 @@ describe('/api/assets/[id]', () => {
         )
       )
 
-      const request = new NextRequest('http://localhost:3000/api/assets/1')
+      const request = new NextRequest('http://127.0.0.1:3000/api/assets/1')
       const params = { id: '1' }
       
       try {
@@ -175,7 +175,7 @@ describe('/api/assets/[id]', () => {
         })
       })
 
-      const request = new NextRequest('http://localhost:3000/api/assets/102')
+      const request = new NextRequest('http://127.0.0.1:3000/api/assets/102')
       const params = { id: '102' }
       
       const response = await GET(request, { params })
@@ -224,7 +224,7 @@ describe('/api/assets/[id]', () => {
         })
       })
 
-      const request = new NextRequest('http://localhost:3000/api/assets/103')
+      const request = new NextRequest('http://127.0.0.1:3000/api/assets/103')
       const params = { id: '103' }
       
       const response = await GET(request, { params })

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { GET, POST } from './route'
+import { GET, POST, DELETE } from './route'
 import { NextRequest } from 'next/server'
+import { addAsset, assets } from '@/lib/data'
 
 // Mock NextRequest
 const createMockRequest = (body?: any) => {
@@ -166,6 +167,38 @@ describe('/api/assets', () => {
       } finally {
         consoleSpy.mockRestore()
       }
+    })
+  })
+
+  describe('DELETE', () => {
+    it('deletes an asset', async () => {
+      const newAsset = {
+        id: 1234,
+        address: 'Temp',
+        price: 0,
+        bedrooms: 0,
+        bathrooms: 1,
+        area: 0,
+        type: 'דירה',
+        status: 'active',
+        images: [],
+        description: '',
+        features: [],
+        contactInfo: { agent: '', phone: '', email: '' },
+      }
+      addAsset(newAsset as any)
+      const req = new Request('http://localhost/api/assets', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: newAsset.id }),
+      })
+
+      const res = await DELETE(req)
+      const data = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(data.message).toBeDefined()
+      expect(assets.find(a => a.id === newAsset.id)).toBeUndefined()
     })
   })
 })

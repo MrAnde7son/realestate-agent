@@ -16,7 +16,7 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
 }))
 vi.mock('@/components/AssetsTable', () => ({
-  default: ({ data, loading }: { data: any[], loading: boolean }) => (
+  default: ({ data, loading }: { data: any[], loading: boolean, onDelete?: any }) => (
     <div data-testid="assets-table">
       {loading ? 'Loading...' : `${data?.length || 0} assets`}
     </div>

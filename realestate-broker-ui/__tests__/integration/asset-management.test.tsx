@@ -20,7 +20,7 @@ vi.mock('next/navigation', () => ({
   usePathname: vi.fn(),
 }))
 vi.mock('@/components/AssetsTable', () => ({
-  default: ({ data, loading }: { data: any[], loading: boolean }) => (
+  default: ({ data, loading }: { data: any[], loading: boolean, onDelete?: any }) => (
     <div data-testid="assets-table">
       {loading ? (
         'Loading...'
@@ -28,8 +28,8 @@ vi.mock('@/components/AssetsTable', () => ({
         <div>
           <div data-testid="asset-count">{data?.length || 0} assets</div>
           {data?.map((asset: any) => (
-            <div 
-              key={asset.id} 
+            <div
+              key={asset.id}
               data-testid={`asset-${asset.id}`}
               onClick={() => window.location.href = `/assets/${asset.id}`}
             >

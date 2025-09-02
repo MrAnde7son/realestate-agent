@@ -125,8 +125,9 @@ export function useDashboardData() {
         let activeAlerts = 0
         if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
           const alertsData = await alertsRes.value.json()
-          const alerts = alertsData.rows || []
-          activeAlerts = alerts.filter((alert: any) => alert.active).length
+          const alerts = alertsData.alerts || []
+          // Count unread alerts as active alerts
+          activeAlerts = alerts.filter((alert: any) => !alert.isRead).length
         }
 
         // Process reports data

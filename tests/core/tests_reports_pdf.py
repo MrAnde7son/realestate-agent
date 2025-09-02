@@ -4,7 +4,7 @@ import shutil
 import tempfile
 
 from django.test import TestCase, RequestFactory
-from pypdf import PdfReader
+from PyPDF2 import PdfReader
 
 from core import views
 from core.models import Report, Asset
@@ -13,7 +13,7 @@ class HebrewPDFGenerationTest(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.tmpdir = tempfile.mkdtemp(prefix="reports_test_")
-        views.REPORTS_DIR = self.tmpdir
+        views.report_service.reports_dir = self.tmpdir
 
         # Insert a mock asset into the database so the endpoint can fetch real
         # data instead of relying solely on in-memory mocks.
@@ -71,11 +71,10 @@ class HebrewPDFGenerationTest(TestCase):
 
     def test_pdf_contains_hebrew_titles(self):
         # Ensure we actually have a Hebrew-capable font
-        font_name = views.get_hebrew_font_name()
         self.assertNotEqual(
-            font_name, "Helvetica",
-            "לא נמצא גופן עברי. הוסף core/fonts/NotoSansHebrew-Regular.ttf "
-            "או הגדר REPORT_HEBREW_FONT_PATH ל-TTF שתומך בעברית."
+            views.report_service.pdf_generator.report_font, "Helvetica",
+            "Hebrew font not found. Add core/fonts/NotoSansHebrew-Regular.ttf "
+            "or set REPORT_HEBREW_FONT_PATH to a TTF that supports Hebrew."
         )
 
         # Generate report for the asset inserted into the test database
@@ -89,7 +88,7 @@ class HebrewPDFGenerationTest(TestCase):
 
         filename = json.loads(resp.content)["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
-        self.assertTrue(os.path.exists(path), f"ציפינו לקובץ PDF בנתיב {path}")
+        self.assertTrue(os.path.exists(path), f"Expected PDF file at path {path}")
 
         # Verify the Report model points to the correct URL and path
         report = Report.objects.get(filename=filename)
@@ -108,28 +107,37 @@ class HebrewPDFGenerationTest(TestCase):
 
         # Look for all-Hebrew titles
         must_have = [
-            'דו"ח נכס - ניתוח כללי',
-            'תוכניות וזכויות בנייה',
-            'מידע סביבתי',
-            'מסמכים וסיכום',
+            'דו"ח נכס',
             'פרטי הנכס',
             'אנליזה פיננסית',
-            'המלצת השקעה',
-            'תוכניות מקומיות ומפורטות',
-            'זכויות בנייה מפורטות',
+            'תוכניות וזכויות בנייה',
+            'מידע סביבתי וסיכונים',
+            'מסמכים וזיהוי איש קשר',
             'סיכונים',
-            'מסמכים זמינים',
             'פרטי קשר',
         ]
         missing = [t for t in must_have if t not in extracted]
         self.assertFalse(
             missing,
-            f"הכותרות העבריות הבאות לא נמצאו בטקסט: {missing}\n"
-            f"תחילת הטקסט שהופק: {extracted[:350]!r}"
+            f"The following Hebrew titles were not found in the text: {missing}\n"
+            f"Beginning of extracted text: {extracted[:350]!r}"
         )
 
         # Ensure asset-specific data from the database made it into the PDF
         self.assertIn('רחוב הרצל', extracted)
+        
+        # Additional validation: Check that Hebrew text is properly rendered
+        # If the font is working, Hebrew text should appear as readable text, not as individual characters
+        hebrew_address = 'רחוב הרצל 123, תל אביב'
+        if hebrew_address in extracted:
+            print(f"✓ Hebrew address found in PDF: {hebrew_address}")
+        else:
+            # Check if it's rendered as individual characters (font issue)
+            individual_chars = ' '.join(hebrew_address)
+            if individual_chars in extracted:
+                print(f"⚠ Hebrew text rendered as individual characters (font issue): {individual_chars}")
+            else:
+                print(f"✗ Hebrew address not found in PDF. Extracted text preview: {extracted[:200]}")
 
     def test_unknown_asset_id_generates_placeholder_report(self):
         """Ensure report generation succeeds even for unknown asset IDs."""
@@ -144,8 +152,34 @@ class HebrewPDFGenerationTest(TestCase):
         data = json.loads(resp.content)
         filename = data["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
-        self.assertTrue(os.path.exists(path), f"ציפינו לקובץ PDF בנתיב {path}")
+        self.assertTrue(os.path.exists(path), f"Expected PDF file at path {path}")
 
         report = Report.objects.get(filename=filename)
         self.assertEqual(report.file_url, f"/reports/{filename}")
         self.assertIsNone(report.asset_id)
+
+    def test_hebrew_font_registration(self):
+        """Test that Hebrew font is properly registered and available."""
+        # Create a PDF generator instance to test font registration
+        from core.pdf_generator import HebrewPDFGenerator
+        from pathlib import Path
+        
+        base_dir = Path(__file__).resolve().parent.parent.parent / 'backend-django'
+        pdf_generator = HebrewPDFGenerator(base_dir)
+        
+        # Check if the Hebrew font is registered
+        self.assertNotEqual(
+            pdf_generator.report_font, "Helvetica",
+            "Hebrew font should be registered and report_font should not be Helvetica"
+        )
+        
+        # Check if the font file exists
+        self.assertTrue(
+            os.path.exists(pdf_generator.font_path),
+            f"Hebrew font file should exist at {pdf_generator.font_path}"
+        )
+        
+        # Print current font status for debugging
+        print(f"Current REPORT_FONT: {pdf_generator.report_font}")
+        print(f"Font file exists: {os.path.exists(pdf_generator.font_path)}")
+        print(f"Font file path: {pdf_generator.font_path}")

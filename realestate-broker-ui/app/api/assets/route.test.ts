@@ -5,7 +5,7 @@ import { addAsset, assets } from '@/lib/data'
 
 // Mock NextRequest
 const createMockRequest = (body?: any) => {
-  const request = new NextRequest('http://localhost:3000/api/assets', {
+  const request = new NextRequest('http://127.0.0.1:3000/api/assets', {
     method: 'POST',
     body: body ? JSON.stringify(body) : undefined,
     headers: {
@@ -150,7 +150,7 @@ describe('/api/assets', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       
       // Create invalid request to trigger error
-      const request = new NextRequest('http://localhost:3000/api/assets', {
+      const request = new NextRequest('http://127.0.0.1:3000/api/assets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -3,7 +3,7 @@ import { alerts } from '@/lib/data'
 
 export async function GET() {
   try {
-    // Return mock alerts data
+    // Return mock alerts data in the format expected by dashboard
     return NextResponse.json({ alerts })
   } catch (error) {
     console.error('Error fetching alerts:', error)

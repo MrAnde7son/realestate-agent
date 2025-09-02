@@ -71,7 +71,7 @@ describe('/api/alerts', () => {
 
   describe('POST', () => {
     const createMockRequest = (body: any) => {
-      return new NextRequest('http://localhost:3000/api/alerts', {
+      return new NextRequest('http://127.0.0.1:3000/api/alerts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ describe('/api/alerts', () => {
     it('handles invalid JSON in POST request', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       
-      const request = new NextRequest('http://localhost:3000/api/alerts', {
+      const request = new NextRequest('http://127.0.0.1:3000/api/alerts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

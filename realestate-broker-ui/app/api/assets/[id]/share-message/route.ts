@@ -6,7 +6,7 @@ export async function POST(
 ) {
   const { id } = params
   try {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
     console.log('Share message request for asset:', id, 'Backend URL:', backendUrl)
     
     let language: string | undefined

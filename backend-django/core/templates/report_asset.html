@@ -1,4 +1,5 @@
 <!doctype html>
+{% load humanize %}
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
@@ -236,9 +237,13 @@
         </div>
         <div>
           <div class="k">פרטי קשר</div>
-          <div class="v">{{ listing.contactInfo.agent }}</div>
-          <div class="v">{{ listing.contactInfo.phone }}</div>
-          <div class="v">{{ listing.contactInfo.email }}</div>
+          {% if listing.contactInfo %}
+            <div class="v">{{ listing.contactInfo.agent|default:"" }}</div>
+            <div class="v">{{ listing.contactInfo.phone|default:"" }}</div>
+            <div class="v">{{ listing.contactInfo.email|default:"" }}</div>
+          {% else %}
+            <div class="muted">אין פרטי קשר זמינים</div>
+          {% endif %}
         </div>
       </div>
     </section>

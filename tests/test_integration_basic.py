@@ -114,7 +114,7 @@ def main():
     print("\nNext steps:")
     print("1. Start the Django backend: cd backend-django && python manage.py runserver")
     print("2. Start the Next.js frontend: cd realestate-broker-ui && npm run dev")
-    print("3. Visit http://localhost:3000 to use the application")
+    print("3. Visit http://127.0.0.1:3000 to use the application")
     print("4. Use the 'סנכרן נתונים' button on listing pages to sync external data")
 
 if __name__ == "__main__":

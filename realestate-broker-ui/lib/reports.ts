@@ -4,9 +4,11 @@ export interface Report {
   address: string;
   filename: string;
   createdAt: string;
+  status?: string;
 }
 
-export const reports: Report[] = [
+// Mock data for testing only - not used in production
+export const mockReports: Report[] = [
   {
     id: 1,
     assetId: 1,

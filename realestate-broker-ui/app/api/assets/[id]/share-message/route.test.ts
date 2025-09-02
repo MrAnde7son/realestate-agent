@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { POST } from './route'
 import { NextRequest } from 'next/server'
 
-process.env.BACKEND_URL = 'http://localhost:8000'
+process.env.BACKEND_URL = 'http://127.0.0.1:8000'
 
 const originalFetch = global.fetch
 

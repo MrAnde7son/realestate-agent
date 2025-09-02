@@ -5,6 +5,7 @@ from gov.nadlan.models import Deal
 from orchestration.collectors import (
     GISCollector,
     GovCollector,
+    MavatCollector,
     RamiCollector,
     Yad2Collector,
 )
@@ -81,6 +82,14 @@ class FakeRamiCollector(RamiCollector):
         return [{"planNumber": "111", "planId": "222"}]
 
 
+class FakeMavatCollector(MavatCollector):
+    def __init__(self):
+        pass
+
+    def collect(self, block, parcel, city=None):
+        return [{"plan_id": "333", "title": "Test Mavat Plan", "status": "approved"}]
+
+
 def test_data_pipeline_integration():
     db = SQLAlchemyDatabase("sqlite:///:memory:")
     db.init_db()  # Initialize the database engine first
@@ -91,6 +100,7 @@ def test_data_pipeline_integration():
         gis=FakeGISCollector(),
         gov=FakeGovCollector(),
         rami=FakeRamiCollector(),
+        mavat=FakeMavatCollector(),
         db_session=db.get_session()
     )
 
@@ -115,3 +125,7 @@ def test_data_pipeline_integration():
     # Verify specific source data
     gis_found = any('gis' in str(result) for result in results)
     assert gis_found, "GIS data should be included in results"
+    
+    # Verify Mavat data is included
+    mavat_found = any('mavat' in str(result) for result in results)
+    assert mavat_found, "Mavat data should be included in results"

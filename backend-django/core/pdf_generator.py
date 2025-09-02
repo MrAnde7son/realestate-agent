@@ -404,7 +404,7 @@ class HebrewPDFGenerator:
         
         if listing['documents'] and len(listing['documents']) > 0:
             for doc in listing['documents']:
-                c.drawString(x, y, f"• {doc['name']} ({doc['type']})")
+                c.drawString(x, y, f"• {doc['name']}")
                 y -= 20
         else:
             if self.report_font == "HebrewFont":

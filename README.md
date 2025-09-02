@@ -158,7 +158,7 @@ python setup_auth.py  # Runs migrations and creates demo/admin users
 # Default credentials:
 #   admin@example.com / admin123
 #   demo@example.com  / demo123
-python manage.py runserver 0.0.0.0:8000  # API on http://localhost:8000
+python manage.py runserver 0.0.0.0:8000  
 ```
 
 #### 🚨 Enable Real-time Alerts (Optional)

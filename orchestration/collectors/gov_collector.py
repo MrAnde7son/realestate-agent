@@ -36,7 +36,8 @@ class GovCollector(BaseCollector):
     def collect_transactions(self, address: str) -> List[Dict[str, Any]]:
         """Collect transaction history for a given address."""
         try:
-            return self.deals_client.fetch_deals(address)
+            deals = self.deals_client.get_deals_by_address(address)
+            return [deal.to_dict() if hasattr(deal, 'to_dict') else dict(deal) for deal in deals]
         except Exception:
             return []
 

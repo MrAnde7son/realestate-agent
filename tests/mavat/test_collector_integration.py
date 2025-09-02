@@ -20,7 +20,7 @@ class TestMavatCollectorIntegration:
     def test_collector_creation(self):
         """Test that MavatCollector can be created."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             collector = MavatCollector()
             assert collector is not None
             assert hasattr(collector, 'client')
@@ -30,7 +30,7 @@ class TestMavatCollectorIntegration:
     def test_collect_method_interface(self):
         """Test that the collect method follows the base interface."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             collector = MavatCollector()
             
             # The collect method should exist and be callable
@@ -42,7 +42,7 @@ class TestMavatCollectorIntegration:
     def test_search_methods_exist(self):
         """Test that all search methods exist."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             collector = MavatCollector()
             
             assert hasattr(collector, 'search_by_location')
@@ -55,7 +55,7 @@ class TestMavatCollectorIntegration:
     def test_lookup_data_methods_exist(self):
         """Test that lookup data methods exist."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             collector = MavatCollector()
             
             assert hasattr(collector, 'get_lookup_data')
@@ -87,7 +87,7 @@ class TestMavatCollectorDataPipelineIntegration:
             assert hasattr(pipeline, 'mavat'), "MavatCollector not found in pipeline"
             
             # Check if it's the right type
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             assert isinstance(pipeline.mavat, MavatCollector), "Pipeline mavat is not MavatCollector"
             
         except Exception as e:
@@ -117,9 +117,9 @@ class TestMavatCollectorErrorHandling:
     def test_collect_method_error_handling(self):
         """Test that collect method handles errors gracefully."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             
-            with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
+            with patch('orchestration.collectors.mavat_collector.MavatAPIClient') as mock_client_class:
                 mock_client = Mock()
                 mock_client.search_by_block_parcel.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client
@@ -135,9 +135,9 @@ class TestMavatCollectorErrorHandling:
     def test_search_by_location_error_handling(self):
         """Test that search_by_location handles errors gracefully."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             
-            with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
+            with patch('orchestration.collectors.mavat_collector.MavatAPIClient') as mock_client_class:
                 mock_client = Mock()
                 mock_client.search_by_location.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client
@@ -152,9 +152,9 @@ class TestMavatCollectorErrorHandling:
     def test_search_plans_error_handling(self):
         """Test that search_plans handles errors gracefully."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             
-            with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
+            with patch('orchestration.collectors.mavat_collector.MavatAPIClient') as mock_client_class:
                 mock_client = Mock()
                 mock_client.search_plans.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client
@@ -169,9 +169,9 @@ class TestMavatCollectorErrorHandling:
     def test_get_lookup_data_error_handling(self):
         """Test that get_lookup_data handles errors gracefully."""
         try:
-            from mavat.collector.mavat_collector import MavatCollector
+            from orchestration.collectors.mavat_collector import MavatCollector
             
-            with patch('mavat.collector.mavat_collector.MavatAPIClient') as mock_client_class:
+            with patch('orchestration.collectors.mavat_collector.MavatAPIClient') as mock_client_class:
                 mock_client = Mock()
                 mock_client.get_cities.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client

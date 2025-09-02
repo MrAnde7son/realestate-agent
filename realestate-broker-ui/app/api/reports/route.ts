@@ -197,28 +197,28 @@ export async function POST(req: Request) {
     doc.text(`Price: ₪${asset.price?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
     doc.text(`Bedrooms: ${asset.bedrooms || 'N/A'}`, 20, y); y += 10;
     doc.text(`Bathrooms: ${asset.bathrooms || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Area: ${asset.netSqm || asset.area || 'N/A'} sqm`, 20, y); y += 10;
-    doc.text(`Price per sqm: ₪${asset.pricePerSqm?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
+    doc.text(`Area: ${asset.net_sqm || asset.area || 'N/A'} sqm`, 20, y); y += 10;
+    doc.text(`Price per sqm: ₪${asset.price_per_sqm_display?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
     
     // Financial Analysis Section
     y += 20;
     doc.setFontSize(14);
     doc.text('Financial Analysis', 20, y); y += 15;
     doc.setFontSize(12);
-    doc.text(`Model Price: ₪${asset.modelPrice?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Price Gap: ${asset.priceGapPct || 'N/A'}%`, 20, y); y += 10;
-    doc.text(`Rent Estimate: ₪${asset.rentEstimate?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Annual Return: ${asset.capRatePct || 'N/A'}%`, 20, y); y += 10;
-    doc.text(`Competition (1km): ${asset.competition1km || 'N/A'}`, 20, y); y += 10;
+    doc.text(`Model Price: ₪${asset.model_price?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
+    doc.text(`Price Gap: ${asset.price_gap_pct || 'N/A'}%`, 20, y); y += 10;
+    doc.text(`Rent Estimate: ₪${asset.rent_estimate?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
+    doc.text(`Annual Return: ${asset.cap_rate_pct || 'N/A'}%`, 20, y); y += 10;
+    doc.text(`Competition (1km): ${asset.competition_1km || 'N/A'}`, 20, y); y += 10;
     
     // Investment Recommendation
     y += 20;
     doc.setFontSize(14);
     doc.text('Investment Recommendation', 20, y); y += 15;
     doc.setFontSize(12);
-    const confidence = asset.confidencePct || 0;
-    const capRate = asset.capRatePct || 0;
-    const priceGap = asset.priceGapPct || 0;
+    const confidence = asset.confidence_pct || 0;
+    const capRate = asset.cap_rate_pct || 0;
+    const priceGap = asset.price_gap_pct || 0;
     const overallScore = Math.round((confidence + (capRate * 20) + (priceGap < 0 ? 100 + priceGap : 100 - priceGap)) / 3);
     doc.text(`Overall Score: ${overallScore}/100`, 20, y); y += 10;
     
@@ -241,17 +241,17 @@ export async function POST(req: Request) {
     doc.setFontSize(12);
     doc.text(`Current Plan: ${asset.program || 'N/A'}`, 20, y); y += 10;
     doc.text(`Zoning: ${asset.zoning || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Remaining Rights: +${asset.remainingRightsSqm || 'N/A'} sqm`, 20, y); y += 10;
-    doc.text(`Main Building Rights: ${asset.netSqm || asset.area || 'N/A'} sqm`, 20, y); y += 10;
+    doc.text(`Remaining Rights: +${asset.remaining_rights_sqm || 'N/A'} sqm`, 20, y); y += 10;
+    doc.text(`Main Building Rights: ${asset.net_sqm || asset.area || 'N/A'} sqm`, 20, y); y += 10;
     
     y += 20;
     doc.setFontSize(14);
     doc.text('Building Rights Details', 20, y); y += 15;
     doc.setFontSize(12);
-    doc.text(`Remaining Rights: ${asset.remainingRightsSqm || 'N/A'} sqm`, 20, y); y += 10;
-    const rightsPercentage = asset.remainingRightsSqm && asset.netSqm ? Math.round((asset.remainingRightsSqm / asset.netSqm) * 100) : 0;
+    doc.text(`Remaining Rights: ${asset.remaining_rights_sqm || 'N/A'} sqm`, 20, y); y += 10;
+    const rightsPercentage = asset.remaining_rights_sqm && asset.net_sqm ? Math.round((asset.remaining_rights_sqm / asset.net_sqm) * 100) : 0;
     doc.text(`Additional Rights Percentage: ${rightsPercentage}%`, 20, y); y += 10;
-    const rightsValue = asset.pricePerSqm && asset.remainingRightsSqm ? Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000) : 0;
+    const rightsValue = asset.price_per_sqm_display && asset.remaining_rights_sqm ? Math.round((asset.price_per_sqm_display * asset.remaining_rights_sqm * 0.7) / 1000) : 0;
     doc.text(`Estimated Rights Value: ₪${rightsValue}K`, 20, y);
     
     // Page 3: Environment
@@ -263,7 +263,7 @@ export async function POST(req: Request) {
     doc.setFontSize(14);
     doc.text('Environmental Data', 20, y); y += 15;
     doc.setFontSize(12);
-    doc.text(`Noise Level: ${asset.noiseLevel || 'N/A'}/5`, 20, y); y += 10;
+    doc.text(`Noise Level: ${asset.noise_level || 'N/A'}/5`, 20, y); y += 10;
     doc.text(`Public Areas ≤300m: Yes`, 20, y); y += 10;
     doc.text(`Antenna Distance: 150m`, 20, y); y += 10;
     
@@ -271,8 +271,8 @@ export async function POST(req: Request) {
     doc.setFontSize(14);
     doc.text('Risk Factors', 20, y); y += 15;
     doc.setFontSize(12);
-    if (asset.riskFlags && asset.riskFlags.length > 0) {
-      asset.riskFlags.forEach(flag => {
+    if (asset.risk_flags && asset.risk_flags.length > 0) {
+      asset.risk_flags.forEach(flag => {
         doc.text(`• ${flag}`, 20, y); y += 10;
       });
     } else {
@@ -301,10 +301,10 @@ export async function POST(req: Request) {
     doc.setFontSize(14);
     doc.text('Contact Information', 20, y); y += 15;
     doc.setFontSize(12);
-    if (asset.contactInfo) {
-      doc.text(`Agent: ${asset.contactInfo.agent}`, 20, y); y += 10;
-      doc.text(`Phone: ${asset.contactInfo.phone}`, 20, y); y += 10;
-      doc.text(`Email: ${asset.contactInfo.email}`, 20, y);
+    if (asset.contact_info) {
+      doc.text(`Agent: ${asset.contact_info.agent}`, 20, y); y += 10;
+      doc.text(`Phone: ${asset.contact_info.phone}`, 20, y); y += 10;
+      doc.text(`Email: ${asset.contact_info.email}`, 20, y);
     } else {
       doc.text('N/A', 20, y);
     }

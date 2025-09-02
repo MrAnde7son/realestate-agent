@@ -32,8 +32,8 @@ describe('/api/assets', () => {
       expect(firstAsset).toHaveProperty('address')
       expect(firstAsset).toHaveProperty('price')
       expect(firstAsset).toHaveProperty('city')
-      expect(firstAsset).toHaveProperty('asset_id')
-      expect(firstAsset).toHaveProperty('asset_status')
+      expect(firstAsset).toHaveProperty('assetId')
+      expect(firstAsset).toHaveProperty('assetStatus')
     })
 
     it('handles errors gracefully', async () => {

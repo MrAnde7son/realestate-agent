@@ -97,7 +97,7 @@ describe('Asset Management Integration', () => {
                 price: 3000000,
                 city: 'תל אביב',
                 type: 'דירה',
-                asset_status: 'active',
+                assetStatus: 'active',
                 bedrooms: 3,
                 bathrooms: 2,
                 area: 85
@@ -108,7 +108,7 @@ describe('Asset Management Integration', () => {
                 price: 4200000,
                 city: 'תל אביב',
                 type: 'פנטהאוס',
-                asset_status: 'pending',
+                assetStatus: 'pending',
                 bedrooms: 4,
                 bathrooms: 3,
                 area: 120
@@ -129,7 +129,7 @@ describe('Asset Management Integration', () => {
               price: 0,
               city: body.city || 'תל אביב',
               type: 'דירה',
-              asset_status: 'pending'
+              assetStatus: 'pending'
             }
           })
         })

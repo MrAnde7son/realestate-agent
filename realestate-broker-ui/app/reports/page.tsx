@@ -20,6 +20,16 @@ type Report = {
   status?: string
 }
 
+// Status mapping function
+const getStatusHebrew = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'generating': 'מתבצע',
+    'completed': 'הושלם',
+    'failed': 'נכשל',
+  }
+  return statusMap[status] || status
+}
+
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,7 +62,7 @@ export default function ReportsPage() {
       filename: 'report_1.pdf',
       createdAt: new Date().toISOString(),
       type: 'דוח שמאות',
-      status: 'הושלם'
+      status: 'completed'
     },
     {
       id: 2,
@@ -61,7 +71,7 @@ export default function ReportsPage() {
       filename: 'report_2.pdf',
       createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
       type: 'דוח תכנון',
-      status: 'הושלם'
+      status: 'completed'
     }
   ]
 
@@ -206,7 +216,7 @@ export default function ReportsPage() {
                             </TableCell>
                             <TableCell>
                               <Badge variant="good">
-                                {report.status || 'הושלם'}
+                                {report.status ? getStatusHebrew(report.status) : 'הושלם'}
                               </Badge>
                             </TableCell>
                             <TableCell>

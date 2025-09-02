@@ -4,6 +4,7 @@ export interface Report {
   address: string;
   filename: string;
   createdAt: string;
+  status?: string;
 }
 
 export const reports: Report[] = [

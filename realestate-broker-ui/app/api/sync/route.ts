@@ -30,7 +30,7 @@ async function collectDataFromSources(address: string) {
     
     // Calculated fields
     pricePerSqm: 0,
-    rent_estimate: 0,
+    rentEstimate: 0,
     
     // Metadata
     collectedAt: new Date().toISOString(),
@@ -39,7 +39,7 @@ async function collectDataFromSources(address: string) {
   
   // Calculate derived fields
   mockData.pricePerSqm = Math.round(mockData.price / mockData.area)
-  mockData.rent_estimate = Math.round(mockData.price * 0.004) // 0.4% monthly
+  mockData.rentEstimate = Math.round(mockData.price * 0.004) // 0.4% monthly
   
   // Simulate processing time
   await new Promise(resolve => setTimeout(resolve, 2000))
@@ -93,7 +93,7 @@ export async function POST(req: Request){
             buildingPermits: [],
             lastPermitDate: '',
             pricePerSqm: 0,
-            rent_estimate: 0,
+            rentEstimate: 0,
             collectedAt: new Date().toISOString(),
             sources: []
           },
@@ -120,8 +120,8 @@ export async function POST(req: Request){
           lastAppraisalDate: '',
           buildingPermits: [],
           lastPermitDate: '',
-          pricePerSqm: 0,
-          rent_estimate: 0,
+            pricePerSqm: 0,
+            rentEstimate: 0,
           collectedAt: new Date().toISOString(),
           sources: []
         },

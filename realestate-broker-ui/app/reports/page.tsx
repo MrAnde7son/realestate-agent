@@ -59,7 +59,7 @@ export default function ReportsPage() {
       id: 1,
       assetId: 1,
       address: 'רחוב הרצל 123, תל אביב',
-      filename: 'report_1.pdf',
+      filename: 'r1.pdf',
       createdAt: new Date().toISOString(),
       type: 'דוח שמאות',
       status: 'completed'
@@ -68,7 +68,7 @@ export default function ReportsPage() {
       id: 2,
       assetId: 2,
       address: 'רחוב דיזנגוף 45, תל אביב',
-      filename: 'report_2.pdf',
+      filename: 'r2.pdf',
       createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
       type: 'דוח תכנון',
       status: 'completed'

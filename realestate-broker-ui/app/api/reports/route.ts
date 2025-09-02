@@ -67,7 +67,7 @@ export async function DELETE(req: Request) {
         const localReportIndex = mockReports.findIndex(r => r.id === reportId);
         if (localReportIndex !== -1) {
           // Remove from local reports
-          const deletedReport = reports.splice(localReportIndex, 1)[0];
+          const deletedReport = mockReports.splice(localReportIndex, 1)[0];
           console.log('Deleted local report:', deletedReport);
           return NextResponse.json({ 
             message: `Report ${reportId} deleted successfully from local storage`,
@@ -85,7 +85,7 @@ export async function DELETE(req: Request) {
         const localReportIndex = mockReports.findIndex(r => r.id === reportId);
         if (localReportIndex !== -1) {
           // Remove from local reports
-          const deletedReport = reports.splice(localReportIndex, 1)[0];
+          const deletedReport = mockReports.splice(localReportIndex, 1)[0];
           console.log('Deleted local report:', deletedReport);
           return NextResponse.json({ 
             message: `Report ${reportId} deleted successfully from local storage`,

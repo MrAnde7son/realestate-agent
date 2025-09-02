@@ -15,15 +15,50 @@ export interface Asset {
     phone: string
     email: string
   }
-  // Additional properties for table display
+  
+  // Basic address fields
   city?: string
   neighborhood?: string
+  street?: string
+  number?: number
+  gush?: string
+  helka?: string
+  subhelka?: string
+  lat?: number
+  lon?: number
+  normalized_address?: string
+  
+  // Building details
+  building_type?: string
+  floor?: number
+  total_floors?: number
+  rooms?: number
+  total_area?: number
+  balcony_area?: number
+  parking_spaces?: number
+  storage_room?: boolean
+  elevator?: boolean
+  air_conditioning?: boolean
+  furnished?: boolean
+  renovated?: boolean
+  year_built?: number
+  last_renovation?: number
+  
+  // Financial fields
+  price_per_sqm?: number
+  rent_estimate?: number
+  
+  // Legal/Planning fields
+  building_rights?: string
+  permit_status?: string
+  permit_date?: string
+  
+  // Additional properties for table display
   netSqm?: number
   pricePerSqm?: number
   deltaVsAreaPct?: number
   domPercentile?: number
   competition1km?: string
-  zoning?: string
   riskFlags?: string[]
   priceGapPct?: number
   expectedPriceRange?: string
@@ -38,8 +73,8 @@ export interface Asset {
   capRatePct?: number
   antennaDistanceM?: number
   shelterDistanceM?: number
-  rentEstimate?: number
   documents?: { name: string; url: string; type?: string }[]
+  
   // Asset enrichment fields
   asset_id?: number
   asset_status?: string
@@ -86,6 +121,44 @@ export const assets: Asset[] = [
       phone: "050-1234567",
       email: "yossi@example.com"
     },
+    
+    // Basic address fields
+    city: "תל אביב",
+    neighborhood: "מרכז העיר",
+    street: "הרצל",
+    number: 123,
+    gush: "1234",
+    helka: "56",
+    subhelka: "1",
+    lat: 32.0853,
+    lon: 34.7818,
+    normalized_address: "רחוב הרצל 123, תל אביב",
+    
+    // Building details
+    building_type: "דירה",
+    floor: 3,
+    total_floors: 6,
+    rooms: 4,
+    total_area: 95,
+    balcony_area: 10,
+    parking_spaces: 1,
+    storage_room: true,
+    elevator: true,
+    air_conditioning: true,
+    furnished: false,
+    renovated: true,
+    year_built: 2015,
+    last_renovation: 2022,
+    
+    // Financial fields
+    price_per_sqm: 33529,
+    rent_estimate: 9500,
+    
+    // Legal/Planning fields
+    zoning: "מגורים א'",
+    building_rights: "4 קומות + גג",
+    permit_status: "מאושר",
+    permit_date: "2024-01-15",
     documents: [
       { name: "נסח טאבו", url: "/docs/1/tabu.pdf", type: "tabu" },
       { name: "תשריט בית משותף", url: "/docs/1/condo-plan.pdf", type: "condo_plan" },
@@ -156,6 +229,44 @@ export const assets: Asset[] = [
       phone: "052-7654321",
       email: "dana@example.com"
     },
+    
+    // Basic address fields
+    city: "תל אביב",
+    neighborhood: "רוטשילד",
+    street: "שדרות רוטשילד",
+    number: 45,
+    gush: "5678",
+    helka: "12",
+    subhelka: "3",
+    lat: 32.0668,
+    lon: 34.7778,
+    normalized_address: "שדרות רוטשילד 45, תל אביב",
+    
+    // Building details
+    building_type: "דירה",
+    floor: 8,
+    total_floors: 8,
+    rooms: 5,
+    total_area: 140,
+    balcony_area: 25,
+    parking_spaces: 2,
+    storage_room: true,
+    elevator: true,
+    air_conditioning: true,
+    furnished: false,
+    renovated: false,
+    year_built: 2020,
+    last_renovation: null,
+    
+    // Financial fields
+    price_per_sqm: 35000,
+    rent_estimate: 12000,
+    
+    // Legal/Planning fields
+    zoning: "מגורים א' מיוחד",
+    building_rights: "8 קומות + גג",
+    permit_status: "בטיפול",
+    permit_date: "2024-02-01",
     documents: [
       { name: "נסח טאבו", url: "/docs/2/tabu.pdf", type: "tabu" },
       { name: "היתר בנייה", url: "/docs/2/permit.pdf", type: "permit" },

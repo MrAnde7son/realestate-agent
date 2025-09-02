@@ -53,31 +53,9 @@ export default function ReportsPage() {
       })
   }, [])
 
-  // Sample data for demonstration (remove this in production)
-  const sampleReports: Report[] = [
-    {
-      id: 1,
-      assetId: 1,
-      address: 'רחוב הרצל 123, תל אביב',
-      filename: 'r1.pdf',
-      createdAt: new Date().toISOString(),
-      type: 'דוח שמאות',
-      status: 'completed'
-    },
-    {
-      id: 2,
-      assetId: 2,
-      address: 'רחוב דיזנגוף 45, תל אביב',
-      filename: 'r2.pdf',
-      createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-      type: 'דוח תכנון',
-      status: 'completed'
-    }
-  ]
-
-  // Use sample data if no real data is available (for demo purposes)
-  const displayReports = reports.length > 0 ? reports : sampleReports
-  const isSampleData = reports.length === 0 && !loading
+  // Use only real data from API
+  const displayReports = reports
+  const isSampleData = false
 
   const handleRowClick = (report: Report) => {
     setClickedRow(report.id)

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import jsPDF from 'jspdf';
 import fs from 'fs';
 import path from 'path';
-import { reports, type Report } from '@/lib/reports';
+import { mockReports, type Report } from '@/lib/reports';
 import { assets } from '@/lib/data';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
@@ -13,12 +13,12 @@ export async function GET(req: Request) {
     if (res.ok) {
       const data = await res.json();
       const backendReports = data.reports || [];
-      return NextResponse.json({ reports: [...backendReports, ...reports] });
+      return NextResponse.json({ reports: [...backendReports, ...mockReports] });
     }
   } catch (err) {
     console.error('Backend reports fetch failed:', err);
   }
-  return NextResponse.json({ reports });
+  return NextResponse.json({ reports: mockReports });
 }
 
 export async function DELETE(req: Request) {
@@ -64,7 +64,7 @@ export async function DELETE(req: Request) {
       } else {
         // If backend doesn't have the report, try to delete from local reports
         console.log('Backend report not found, trying local deletion');
-        const localReportIndex = reports.findIndex(r => r.id === reportId);
+        const localReportIndex = mockReports.findIndex(r => r.id === reportId);
         if (localReportIndex !== -1) {
           // Remove from local reports
           const deletedReport = reports.splice(localReportIndex, 1)[0];
@@ -82,7 +82,7 @@ export async function DELETE(req: Request) {
         console.error('Error connecting to backend for delete:', err);
         // If backend is unavailable, try local deletion
         console.log('Backend unavailable, trying local deletion');
-        const localReportIndex = reports.findIndex(r => r.id === reportId);
+        const localReportIndex = mockReports.findIndex(r => r.id === reportId);
         if (localReportIndex !== -1) {
           // Remove from local reports
           const deletedReport = reports.splice(localReportIndex, 1)[0];
@@ -167,7 +167,7 @@ export async function POST(req: Request) {
     }
     console.log('Found local asset:', asset.address);
 
-    const id = reports.length + 1;
+    const id = mockReports.length + 1;
     const filename = `r${id}.pdf`; // Generate PDF reports
     console.log('Current working directory:', process.cwd());
     console.log('Attempting to create directory for reports');
@@ -324,7 +324,7 @@ export async function POST(req: Request) {
       filename,
       createdAt: new Date().toISOString(),
     };
-    reports.push(report);
+    mockReports.push(report);
     return NextResponse.json({ report }, { status: 201 });
   } catch (err) {
     console.error('Error in local fallback:', err);

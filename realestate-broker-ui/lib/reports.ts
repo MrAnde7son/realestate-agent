@@ -7,7 +7,8 @@ export interface Report {
   status?: string;
 }
 
-export const reports: Report[] = [
+// Mock data for testing only - not used in production
+export const mockReports: Report[] = [
   {
     id: 1,
     assetId: 1,

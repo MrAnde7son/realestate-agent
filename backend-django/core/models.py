@@ -67,9 +67,41 @@ class Asset(models.Model):
     number = models.IntegerField(blank=True, null=True)
     gush = models.CharField(max_length=20, blank=True, null=True)
     helka = models.CharField(max_length=20, blank=True, null=True)
+    subhelka = models.CharField(max_length=20, blank=True, null=True)
     lat = models.FloatField(blank=True, null=True)
     lon = models.FloatField(blank=True, null=True)
     normalized_address = models.CharField(max_length=500, blank=True, null=True)
+    
+    # Additional real estate fields
+    building_type = models.CharField(max_length=50, blank=True, null=True)  # דירה, בית פרטי, etc.
+    floor = models.IntegerField(blank=True, null=True)
+    total_floors = models.IntegerField(blank=True, null=True)
+    rooms = models.IntegerField(blank=True, null=True)
+    bedrooms = models.IntegerField(blank=True, null=True)
+    bathrooms = models.IntegerField(blank=True, null=True)
+    area = models.FloatField(blank=True, null=True)  # שטח נטו
+    total_area = models.FloatField(blank=True, null=True)  # שטח כולל
+    balcony_area = models.FloatField(blank=True, null=True)
+    parking_spaces = models.IntegerField(blank=True, null=True)
+    storage_room = models.BooleanField(default=False)
+    elevator = models.BooleanField(default=False)
+    air_conditioning = models.BooleanField(default=False)
+    furnished = models.BooleanField(default=False)
+    renovated = models.BooleanField(default=False)
+    year_built = models.IntegerField(blank=True, null=True)
+    last_renovation = models.IntegerField(blank=True, null=True)
+    
+    # Financial fields
+    price = models.IntegerField(blank=True, null=True)
+    price_per_sqm = models.IntegerField(blank=True, null=True)
+    rent_estimate = models.IntegerField(blank=True, null=True)
+    
+    # Legal/Planning fields
+    zoning = models.CharField(max_length=100, blank=True, null=True)
+    building_rights = models.CharField(max_length=200, blank=True, null=True)
+    permit_status = models.CharField(max_length=50, blank=True, null=True)
+    permit_date = models.DateField(blank=True, null=True)
+    
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     meta = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -82,8 +114,14 @@ class Asset(models.Model):
             models.Index(fields=['street']),
             models.Index(fields=['gush']),
             models.Index(fields=['helka']),
+            models.Index(fields=['subhelka']),
             models.Index(fields=['normalized_address']),
             models.Index(fields=['status']),
+            models.Index(fields=['building_type']),
+            models.Index(fields=['price']),
+            models.Index(fields=['area']),
+            models.Index(fields=['rooms']),
+            models.Index(fields=['zoning']),
         ]
     
     def __str__(self):

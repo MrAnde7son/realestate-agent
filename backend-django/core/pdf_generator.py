@@ -65,44 +65,95 @@ class HebrewPDFGenerator:
     def create_asset_listing(self, asset: Optional[Asset]) -> dict:
         """Create a listing dictionary from an Asset model with fallbacks."""
         asset = asset or Asset(scope_type='address', meta={})
+        
+        # Extract street and number from meta if not in direct fields
+        street = asset.street
+        number = asset.number
+        city = asset.city
+        
+        # If direct fields are empty, try to get from meta
+        if not street and asset.meta and 'scope' in asset.meta:
+            scope = asset.meta['scope']
+            # Try to get from separate street/number fields
+            street = scope.get('street')
+            number = scope.get('number')
+            city = scope.get('city')
+            
+            # If not found, try to parse from 'value' field
+            if not street and 'value' in scope:
+                value = scope['value']
+                # Use the full value as address if it contains the full address
+                if value and isinstance(value, str):
+                    # If it looks like a complete address, use it directly
+                    if ',' in value or 'תל אביב' in value or 'ירושלים' in value:
+                        address = value
+                        # Return early with the complete address from value
+                        return {
+                            'address': address,
+                            'city': asset.city,
+                            'neighborhood': asset.neighborhood,
+                            'type': asset.meta.get('type'),
+                            'price': asset.meta.get('price'),
+                            'bedrooms': asset.meta.get('bedrooms'),
+                            'bathrooms': asset.meta.get('bathrooms'),
+                            'netSqm': asset.meta.get('netSqm') or asset.meta.get('area'),
+                            'area': asset.meta.get('area'),
+                            'pricePerSqm': asset.meta.get('pricePerSqm'),
+                            'remainingRightsSqm': asset.meta.get('remainingRightsSqm'),
+                            'program': asset.meta.get('program'),
+                            'lastPermitQ': asset.meta.get('lastPermitQ'),
+                            'noiseLevel': asset.meta.get('noiseLevel'),
+                            'competition1km': asset.meta.get('competition1km'),
+                            'zoning': asset.meta.get('zoning'),
+                            'priceGapPct': asset.meta.get('priceGapPct'),
+                            'expectedPriceRange': asset.meta.get('expectedPriceRange'),
+                            'modelPrice': asset.meta.get('modelPrice'),
+                            'confidencePct': asset.meta.get('confidencePct'),
+                            'capRatePct': asset.meta.get('capRatePct'),
+                            'rentEstimate': asset.meta.get('rentEstimate'),
+                            'riskFlags': asset.meta.get('riskFlags'),
+                            'features': asset.meta.get('features'),
+                            'contactInfo': asset.meta.get('contactInfo'),
+                            'documents': asset.meta.get('documents')
+                        }
+        
+        # Build address from available data
+        if asset.normalized_address:
+            address = asset.normalized_address
+        elif street and number and city:
+            address = f"{street} {number}, {city}"
+        elif street and number:
+            address = f"{street} {number}"
+        else:
+            address = None
+        
         return {
-            'address': asset.normalized_address or f"{asset.street or 'רחוב'} {asset.number or '123'}, {asset.city or 'תל אביב'}",
-            'city': asset.city or 'תל אביב',
-            'neighborhood': asset.neighborhood or 'מרכז העיר',
-            'type': asset.meta.get('type') or 'דירה',
-            'price': asset.meta.get('price') or 2850000,
-            'bedrooms': asset.meta.get('bedrooms') or 3,
-            'bathrooms': asset.meta.get('bathrooms') or 2,
-            'netSqm': asset.meta.get('netSqm') or asset.meta.get('area') or 85,
-            'area': asset.meta.get('area') or 85,
-            'pricePerSqm': asset.meta.get('pricePerSqm') or 33529,
-            'remainingRightsSqm': asset.meta.get('remainingRightsSqm') or 45,
-            'program': asset.meta.get('program') or 'תמ״א 38',
-            'lastPermitQ': asset.meta.get('lastPermitQ') or 'Q2/24',
-            'noiseLevel': asset.meta.get('noiseLevel') or 2,
-            'competition1km': asset.meta.get('competition1km') or 'בינוני',
-            'zoning': asset.meta.get('zoning') or 'מגורים א׳',
-            'priceGapPct': asset.meta.get('priceGapPct') or -5.2,
-            'expectedPriceRange': asset.meta.get('expectedPriceRange') or '2.7M - 3.0M',
-            'modelPrice': asset.meta.get('modelPrice') or 3000000,
-            'confidencePct': asset.meta.get('confidencePct') or 85,
-            'capRatePct': asset.meta.get('capRatePct') or 3.2,
-            'rentEstimate': asset.meta.get('rentEstimate') or 9500,
-            'riskFlags': asset.meta.get('riskFlags') or [],
-            'features': asset.meta.get('features') or ['מעלית', 'חניה', 'מרפסת', 'משופצת'],
-            'contactInfo': asset.meta.get('contactInfo') or {
-                'agent': 'יוסי כהן',
-                'phone': '050-1234567',
-                'email': 'yossi@example.com'
-            },
-            'documents': asset.meta.get('documents') or [
-                {'name': 'נסח טאבו', 'type': 'tabu'},
-                {'name': 'תשריט בית משותף', 'type': 'condo_plan'},
-                {'name': 'היתר בנייה', 'type': 'permit'},
-                {'name': 'זכויות בנייה', 'type': 'rights'},
-                {'name': 'שומת מכרעת', 'type': 'appraisal_decisive'},
-                {'name': 'שומת רמ״י', 'type': 'appraisal_rmi'}
-            ]
+            'address': address,
+            'city': asset.city,
+            'neighborhood': asset.neighborhood,
+            'type': asset.meta.get('type'),
+            'price': asset.meta.get('price'),
+            'bedrooms': asset.meta.get('bedrooms'),
+            'bathrooms': asset.meta.get('bathrooms'),
+            'netSqm': asset.meta.get('netSqm') or asset.meta.get('area'),
+            'area': asset.meta.get('area'),
+            'pricePerSqm': asset.meta.get('pricePerSqm'),
+            'remainingRightsSqm': asset.meta.get('remainingRightsSqm'),
+            'program': asset.meta.get('program'),
+            'lastPermitQ': asset.meta.get('lastPermitQ'),
+            'noiseLevel': asset.meta.get('noiseLevel'),
+            'competition1km': asset.meta.get('competition1km'),
+            'zoning': asset.meta.get('zoning'),
+            'priceGapPct': asset.meta.get('priceGapPct'),
+            'expectedPriceRange': asset.meta.get('expectedPriceRange'),
+            'modelPrice': asset.meta.get('modelPrice'),
+            'confidencePct': asset.meta.get('confidencePct'),
+            'capRatePct': asset.meta.get('capRatePct'),
+            'rentEstimate': asset.meta.get('rentEstimate'),
+            'riskFlags': asset.meta.get('riskFlags'),
+            'features': asset.meta.get('features'),
+            'contactInfo': asset.meta.get('contactInfo'),
+            'documents': asset.meta.get('documents')
         }
     
     def draw_page_header(self, canvas_obj, title: str, y_position: int = 760):
@@ -169,8 +220,8 @@ class HebrewPDFGenerator:
                 'listing': listing,
                 'font_path': Path(self.font_path).as_uri(),
                 'overall_score': listing.get('confidencePct', 0),
-                'extra_rights_pct': int((listing['remainingRightsSqm'] / listing['area']) * 100) if listing.get('area') else 0,
-                'rights_value_k': int(listing['remainingRightsSqm'] * listing['pricePerSqm'] / 1000),
+                'extra_rights_pct': int((listing.get('remainingRightsSqm', 0) / listing.get('area', 1)) * 100) if listing.get('area') and listing.get('area', 0) > 0 else 0,
+                'rights_value_k': int((listing.get('remainingRightsSqm', 0) * listing.get('pricePerSqm', 0)) / 1000) if listing.get('remainingRightsSqm') and listing.get('pricePerSqm') else 0,
             }
 
             html_string = render_to_string('report_asset.html', context)
@@ -226,13 +277,13 @@ class HebrewPDFGenerator:
         """Draw asset details section."""
         x = 450 if self.report_font == "HebrewFont" else 50
         
-        self.draw_hebrew_label(c, 'כתובת', listing['address'], x, y)
+        self.draw_hebrew_label(c, 'כתובת', listing.get('address', ''), x, y)
         y -= 20
-        self.draw_hebrew_label(c, 'עיר', listing['city'], x, y)
+        self.draw_hebrew_label(c, 'עיר', listing.get('city', ''), x, y)
         y -= 20
-        self.draw_hebrew_label(c, 'שכונה', listing['neighborhood'], x, y)
+        self.draw_hebrew_label(c, 'שכונה', listing.get('neighborhood', ''), x, y)
         y -= 20
-        self.draw_hebrew_label(c, 'סוג', listing['type'], x, y)
+        self.draw_hebrew_label(c, 'סוג', listing.get('type', ''), x, y)
         y -= 20
         
         # Price and specifications
@@ -275,9 +326,9 @@ class HebrewPDFGenerator:
         y -= 20
         
         # Recommendation
-        if listing['priceGapPct'] < -10:
+        if listing.get('priceGapPct', 0) < -10:
             hebrew_recommendation = "נכס במחיר אטרקטיבי מתחת לשוק"
-        elif listing['priceGapPct'] > 10:
+        elif listing.get('priceGapPct', 0) > 10:
             hebrew_recommendation = "נכס יקר יחסית לשוק"
         else:
             hebrew_recommendation = "נכס במחיר הוגן בשוק"
@@ -308,32 +359,32 @@ class HebrewPDFGenerator:
         """Draw building plans details."""
         x = 450 if self.report_font == "HebrewFont" else 50
         
-        self.draw_hebrew_label(c, 'תוכנית נוכחית', listing['program'], x, y)
+        self.draw_hebrew_label(c, 'תוכנית נוכחית', listing.get('program', ''), x, y)
         y -= 20
-        self.draw_hebrew_label(c, 'ייעוד קרקע', listing['zoning'], x, y)
+        self.draw_hebrew_label(c, 'ייעוד קרקע', listing.get('zoning', ''), x, y)
         y -= 20
-        self.draw_hebrew_label(c, 'זכויות נוספות', f"+{listing['remainingRightsSqm']} מ\"ר", x, y)
+        self.draw_hebrew_label(c, 'זכויות נוספות', f"+{listing.get('remainingRightsSqm', 0)} מ\"ר", x, y)
         y -= 20
-        self.draw_hebrew_label(c, 'זכויות בנייה עיקריות', f"{listing['netSqm']} מ\"ר", x, y)
+        self.draw_hebrew_label(c, 'זכויות בנייה עיקריות', f"{listing.get('netSqm', 0)} מ\"ר", x, y)
     
     def _draw_rights_summary(self, c, listing: dict, y: int):
         """Draw building rights summary."""
         x = 450 if self.report_font == "HebrewFont" else 50
         
-        self.draw_hebrew_label(c, 'זכויות נוספות', f"{listing['remainingRightsSqm']} מ\"ר", x, y)
+        self.draw_hebrew_label(c, 'זכויות נוספות', f"{listing.get('remainingRightsSqm', 0)} מ\"ר", x, y)
         y -= 20
         
         # Calculate additional rights percentage
         additional_rights_pct = 0
-        if listing['netSqm'] and listing['netSqm'] > 0:
-            additional_rights_pct = round((listing['remainingRightsSqm'] / listing['netSqm']) * 100)
+        if listing.get('netSqm') and listing.get('netSqm', 0) > 0:
+            additional_rights_pct = round((listing.get('remainingRightsSqm', 0) / listing.get('netSqm', 1)) * 100)
         self.draw_hebrew_label(c, 'אחוז זכויות נוספות', f"{additional_rights_pct}%", x, y)
         y -= 20
         
         # Calculate rights value
         rights_value = 0
-        if listing['pricePerSqm'] and listing['remainingRightsSqm']:
-            rights_value = round((listing['pricePerSqm'] * listing['remainingRightsSqm'] * 0.7) / 1000)
+        if listing.get('pricePerSqm') and listing.get('remainingRightsSqm'):
+            rights_value = round((listing.get('pricePerSqm', 0) * listing.get('remainingRightsSqm', 0) * 0.7) / 1000)
         self.draw_hebrew_label(c, 'ערך זכויות משוער', f"₪{rights_value}K", x, y)
     
     def _generate_page_3_environmental_info(self, c, listing: dict):
@@ -360,7 +411,7 @@ class HebrewPDFGenerator:
         """Draw environmental data."""
         x = 450 if self.report_font == "HebrewFont" else 50
         
-        self.draw_hebrew_label(c, 'רמת רעש', f"{listing['noiseLevel']}/5", x, y)
+        self.draw_hebrew_label(c, 'רמת רעש', f"{listing.get('noiseLevel', 0)}/5", x, y)
         y -= 20
         self.draw_hebrew_label(c, 'שטחים ציבוריים', "≤300מ: כן", x, y)
         y -= 20
@@ -370,8 +421,8 @@ class HebrewPDFGenerator:
         """Draw risk factors."""
         x = 450 if self.report_font == "HebrewFont" else 50
         
-        if listing['riskFlags'] and len(listing['riskFlags']) > 0:
-            for flag in listing['riskFlags']:
+        if listing.get('riskFlags') and len(listing.get('riskFlags', [])) > 0:
+            for flag in listing.get('riskFlags', []):
                 c.drawString(x, y, f"• {flag}")
                 y -= 20
         else:
@@ -402,8 +453,8 @@ class HebrewPDFGenerator:
         """Draw documents list."""
         x = 450 if self.report_font == "HebrewFont" else 50
         
-        if listing['documents'] and len(listing['documents']) > 0:
-            for doc in listing['documents']:
+        if listing.get('documents') and len(listing.get('documents', [])) > 0:
+            for doc in listing.get('documents', []):
                 c.drawString(x, y, f"• {doc['name']}")
                 y -= 20
         else:
@@ -416,9 +467,9 @@ class HebrewPDFGenerator:
         """Draw contact information."""
         x = 450 if self.report_font == "HebrewFont" else 50
         
-        if listing['contactInfo']:
-            self.draw_hebrew_label(c, 'סוכן', listing['contactInfo']['agent'], x, y)
+        if listing.get('contactInfo'):
+            self.draw_hebrew_label(c, 'סוכן', listing.get('contactInfo', {}).get('agent', ''), x, y)
             y -= 20
-            self.draw_hebrew_label(c, 'טלפון', listing['contactInfo']['phone'], x, y)
+            self.draw_hebrew_label(c, 'טלפון', listing.get('contactInfo', {}).get('phone', ''), x, y)
             y -= 20
-            self.draw_hebrew_label(c, 'אימייל', listing['contactInfo']['email'], x, y)
+            self.draw_hebrew_label(c, 'אימייל', listing.get('contactInfo', {}).get('email', ''), x, y)

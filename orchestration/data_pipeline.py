@@ -1,5 +1,23 @@
 from __future__ import annotations
 
+from typing import Any, Iterable, List, Optional
+
+from sqlalchemy.orm import Session
+
+from db.database import SQLAlchemyDatabase
+from db.models import Listing, SourceRecord, Transaction
+from yad2.scrapers.yad2_scraper import RealEstateListing
+
+# collector imports
+from orchestration.collectors.yad2_collector import Yad2Collector
+from orchestration.collectors.gis_collector import GISCollector
+from orchestration.collectors.gov_collector import GovCollector
+from orchestration.collectors.rami_collector import RamiCollector
+from orchestration.collectors.mavat_collector import MavatCollector
+
+# alert helpers
+from orchestration.alerts import Notifier, create_notifier_for_user
+
 """High level data collection pipeline for real-estate assets.
 
 This module defines a small object oriented framework that orchestrates
@@ -7,24 +25,6 @@ calls to the various data providers (Yad2, Tel-Aviv GIS, gov.il datasets
 and RAMI plans) and persists the aggregated results in the local
 SQLAlchemy database.
 """
-
-from typing import Any, Dict, Iterable, List, Optional, Tuple
-
-from sqlalchemy.orm import Session
-
-from db.database import SQLAlchemyDatabase
-from db.models import Listing, SourceRecord, Transaction
-
-# service client imports
-from yad2.scrapers.yad2_scraper import Yad2Scraper, RealEstateListing
-from gis.gis_client import TelAvivGS
-from gov.decisive import fetch_decisive_appraisals
-from gov.nadlan.scraper import NadlanDealsScraper
-from rami.rami_client import RamiClient
-from mavat.collector.mavat_collector import MavatCollector
-
-# alert helpers
-from orchestration.alerts import Notifier, create_notifier_for_user
 
 # Import Django Alert model if available
 try:  # pragma: no cover - best effort import
@@ -64,89 +64,6 @@ def _load_user_notifiers() -> List[Notifier]:
     return notifiers
 
 
-# ---------------------------------------------------------------------------
-# Collector classes
-# ---------------------------------------------------------------------------
-
-class Yad2Collector:
-    """Wrapper around :class:`Yad2Scraper` implementing a simple interface."""
-
-    def __init__(self, client: Optional[Yad2Scraper] = None) -> None:
-        self.client = client or Yad2Scraper()
-
-    def fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
-        location = self.client.fetch_location_data(address)
-        if location:
-            city = location.get("cities") or []
-            streets = location.get("streets") or []
-            if city:
-                self.client.set_search_parameters(city=city[0].get("id"))
-            if streets:
-                self.client.set_search_parameters(street=streets[0].get("id"))
-        return self.client.scrape_all_pages(max_pages=max_pages, delay=0)
-
-
-class GISCollector:
-    """Collector for Tel-Aviv GIS data."""
-
-    def __init__(self, client: Optional[TelAvivGS] = None) -> None:
-        self.client = client or TelAvivGS()
-
-    def geocode(self, address: str, house_number: int) -> Tuple[float, float]:
-        return self.client.get_address_coordinates(address, house_number)
-
-    def collect(self, x: float, y: float) -> Dict[str, Any]:
-        return {
-            "blocks": self.client.get_blocks(x, y),
-            "parcels": self.client.get_parcels(x, y),
-            "permits": self.client.get_building_permits(x, y),
-            "rights": self.client.get_land_use_main(x, y),
-            "shelters": self.client.get_shelters(x, y),
-            "green": self.client.get_green_areas(x, y),
-            "noise": self.client.get_noise_levels(x, y),
-        }
-
-    def extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
-        block = data.get("blocks", [{}])[0].get("ms_gush", "")
-        parcel = data.get("parcels", [{}])[0].get("ms_chelka", "")
-        return block, parcel
-
-
-class GovCollector:
-    """Collector for gov.il decisive appraisals and transaction history."""
-
-    def __init__(
-        self,
-        deals_client: Optional[NadlanDealsScraper] = None,
-        decisive_func=fetch_decisive_appraisals,
-    ) -> None:
-        self.deals_client = deals_client or NadlanDealsScraper()
-        self.decisive_func = decisive_func
-
-    def collect_decisive(self, block: str, parcel: str) -> List[Any]:
-        if block and parcel:
-            return self.decisive_func(block=block, plot=parcel) or []
-        return []
-
-    def collect_transactions(self, address: str) -> Iterable[Any]:
-        try:
-            return self.deals_client.get_deals_by_address(address) or []
-        except Exception:
-            return []
-
-
-class RamiCollector:
-    """Collector for RAMI plans."""
-
-    def __init__(self, client: Optional[RamiClient] = None) -> None:
-        self.client = client or RamiClient()
-
-    def collect(self, block: str, parcel: str) -> List[Dict[str, Any]]:
-        try:
-            df = self.client.fetch_plans({"gush": block, "helka": parcel})
-            return df.to_dict(orient="records") if hasattr(df, "to_dict") else []
-        except Exception:
-            return []
 
 
 # ---------------------------------------------------------------------------

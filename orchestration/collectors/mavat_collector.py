@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from orchestration.collectors.base_collector import BaseCollector
-
-from ..scrapers.mavat_api_client import MavatAPIClient
+from mavat.scrapers.mavat_api_client import MavatAPIClient
 
 
 class MavatCollector(BaseCollector):
@@ -311,3 +310,8 @@ class MavatCollector(BaseCollector):
             return formatted_tables
         except Exception:
             return {}
+
+    def validate_parameters(self, **kwargs) -> bool:
+        """Validate the parameters for Mavat collection."""
+        required_params = ['block', 'parcel']
+        return all(param in kwargs for param in required_params)

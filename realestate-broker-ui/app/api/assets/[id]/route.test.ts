@@ -105,7 +105,7 @@ describe('/api/assets/[id]', () => {
       
       // Verify backend was called
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/assets/101'
+        'http://127.0.0.1:8000/api/assets/101'
       )
     })
 

@@ -18,11 +18,14 @@ class ReportService:
     
     def create_report(self, asset_id: int) -> Optional[Report]:
         """Create a new report for an asset."""
+        asset: Optional[Asset]
         try:
-            # Get the asset
             asset = Asset.objects.get(id=asset_id)
-            
-            # Create report record
+        except Asset.DoesNotExist:
+            asset = None
+            print(f"Asset {asset_id} not found, generating placeholder report")
+
+        try:
             listing = self.pdf_generator.create_asset_listing(asset)
             report = Report.objects.create(
                 asset=asset,
@@ -32,24 +35,18 @@ class ReportService:
                 file_path='',
                 title=listing['address'],
                 description=f'Asset report for {listing["address"]}',
-                pages=4,
+                pages=1,
             )
-            
-            # Generate filename and file path
+
             filename = f"r{report.id}.pdf"
             os.makedirs(self.reports_dir, exist_ok=True)
             file_path = os.path.join(self.reports_dir, filename)
-            
-            # Update report with file information
+
             report.filename = filename
             report.file_path = file_path
             report.save()
-            
+
             return report
-            
-        except Asset.DoesNotExist:
-            print(f"Asset {asset_id} not found")
-            return None
         except Exception as e:
             print(f"Error creating report: {e}")
             return None
@@ -57,19 +54,12 @@ class ReportService:
     def generate_pdf(self, report: Report) -> bool:
         """Generate the PDF file for a report."""
         try:
-            if not report.asset:
-                print(f"Report {report.id} has no linked asset")
-                return False
-            
-            # Generate PDF using the generator
             success = self.pdf_generator.generate_report(
                 asset=report.asset,
                 report=report,
                 file_path=report.file_path
             )
-            
             return success
-            
         except Exception as e:
             print(f"Error generating PDF for report {report.id}: {e}")
             report.mark_failed(str(e))

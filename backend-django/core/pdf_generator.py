@@ -1,10 +1,16 @@
 import os
 import time
 from pathlib import Path
+from typing import Optional
+
+from django.template.loader import render_to_string
+from weasyprint import HTML
+from PyPDF2 import PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.pagesizes import A4
+
 from .models import Asset, Report
 
 
@@ -56,8 +62,9 @@ class HebrewPDFGenerator:
         else:
             canvas_obj.drawString(x, y, f"{label}: {value}")
     
-    def create_asset_listing(self, asset: Asset) -> dict:
+    def create_asset_listing(self, asset: Optional[Asset]) -> dict:
         """Create a listing dictionary from an Asset model with fallbacks."""
+        asset = asset or Asset(scope_type='address', meta={})
         return {
             'address': asset.normalized_address or f"{asset.street or 'רחוב'} {asset.number or '123'}, {asset.city or 'תל אביב'}",
             'city': asset.city or 'תל אביב',
@@ -112,31 +119,31 @@ class HebrewPDFGenerator:
         else:
             canvas_obj.drawString(x, y, header)
     
-    def generate_report(self, asset: Asset, report: Report, file_path: str) -> bool:
-        """Generate the complete PDF report."""
+    def _generate_report_canvas(self, asset: Optional[Asset], report: Report, file_path: str) -> bool:
+        """Generate the PDF report using ReportLab primitives."""
         start_time = time.time()
-        
+
         try:
             # Create listing data
             listing = self.create_asset_listing(asset)
-            
+
             # Debug output
             print(f"Debug - Listing data: {listing}")
             print(f"Debug - Address: {listing.get('address', 'NOT_FOUND')}")
             print(f"Debug - City: {listing.get('city', 'NOT_FOUND')}")
-            
+
             # Create PDF canvas
             c = canvas.Canvas(file_path, pagesize=A4)
-            
+
             # Generate all pages
             self._generate_page_1_general_analysis(c, listing)
             self._generate_page_2_building_plans(c, listing)
             self._generate_page_3_environmental_info(c, listing)
             self._generate_page_4_documents_summary(c, listing)
-            
+
             # Save PDF
             c.save()
-            
+
             # Update report status
             generation_time = time.time() - start_time
             file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
@@ -145,13 +152,45 @@ class HebrewPDFGenerator:
                 pages=4,
                 generation_time=generation_time
             )
-            
+
             return True
-            
+
         except Exception as e:
             report.mark_failed(str(e))
             print(f"PDF generation failed: {e}")
             return False
+
+    def _generate_report_from_template(self, asset: Optional[Asset], report: Report, file_path: str) -> bool:
+        """Generate the PDF report using the HTML template and WeasyPrint."""
+        start_time = time.time()
+        try:
+            listing = self.create_asset_listing(asset)
+            context = {
+                'listing': listing,
+                'font_path': Path(self.font_path).as_uri(),
+                'overall_score': listing.get('confidencePct', 0),
+                'extra_rights_pct': int((listing['remainingRightsSqm'] / listing['area']) * 100) if listing.get('area') else 0,
+                'rights_value_k': int(listing['remainingRightsSqm'] * listing['pricePerSqm'] / 1000),
+            }
+
+            html_string = render_to_string('report_asset.html', context)
+            HTML(string=html_string, base_url=str(self.base_dir)).write_pdf(file_path)
+
+            generation_time = time.time() - start_time
+            pages = len(PdfReader(file_path).pages)
+            file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+            report.mark_completed(file_size=file_size, pages=pages, generation_time=generation_time)
+            return True
+        except Exception as e:
+            report.mark_failed(str(e))
+            print(f"PDF generation failed: {e}")
+            return False
+
+    def generate_report(self, asset: Optional[Asset], report: Report, file_path: str, use_template: bool = True) -> bool:
+        """Generate a report using either the HTML template or the legacy canvas method."""
+        if use_template:
+            return self._generate_report_from_template(asset, report, file_path)
+        return self._generate_report_canvas(asset, report, file_path)
     
     def _generate_page_1_general_analysis(self, c, listing: dict):
         """Generate page 1: General Analysis."""

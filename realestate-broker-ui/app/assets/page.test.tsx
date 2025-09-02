@@ -72,7 +72,7 @@ describe('AssetsPage', () => {
                 price: 3000000,
                 city: 'תל אביב',
                 type: 'דירה',
-                asset_status: 'active'
+                assetStatus: 'active'
               },
               {
                 id: 'asset2',
@@ -80,7 +80,7 @@ describe('AssetsPage', () => {
                 price: 4200000,
                 city: 'תל אביב',
                 type: 'בית',
-                asset_status: 'pending'
+                assetStatus: 'pending'
               }
             ]
           })
@@ -266,7 +266,7 @@ describe('AssetsPage', () => {
             price: 3000000,
             city: 'חיפה',
             type: 'דירה',
-            asset_status: 'active'
+            assetStatus: 'active'
           },
           {
             id: 'asset2',
@@ -274,7 +274,7 @@ describe('AssetsPage', () => {
             price: 4200000,
             city: 'תל אביב',
             type: 'בית',
-            asset_status: 'pending'
+            assetStatus: 'pending'
           }
         ]
       })

@@ -10,7 +10,7 @@ export interface Asset {
   images: string[]
   description: string
   features: string[]
-  contact_info: {
+  contactInfo: {
     agent: string
     phone: string
     email: string
@@ -26,82 +26,82 @@ export interface Asset {
   subhelka?: string
   lat?: number
   lon?: number
-  normalized_address?: string
+  normalizedAddress?: string
   
   // Building details
-  building_type?: string
+  buildingType?: string
   floor?: number
-  total_floors?: number
+  totalFloors?: number
   rooms?: number
-  total_area?: number
-  balcony_area?: number
-  parking_spaces?: number
-  storage_room?: boolean
+  totalArea?: number
+  balconyArea?: number
+  parkingSpaces?: number
+  storageRoom?: boolean
   elevator?: boolean
-  air_conditioning?: boolean
+  airConditioning?: boolean
   furnished?: boolean
   renovated?: boolean
-  year_built?: number
-  last_renovation?: number
+  yearBuilt?: number
+  lastRenovation?: number
   
   // Financial fields
-  price_per_sqm?: number
-  rent_estimate?: number
+  pricePerSqm?: number
+  rentEstimate?: number
   
   // Legal/Planning fields
-  building_rights?: string
-  permit_status?: string
-  permit_date?: string
+  buildingRights?: string
+  permitStatus?: string
+  permitDate?: string
   zoning?: string
   
   // Additional properties for table display
-  net_sqm?: number
-  price_per_sqm_display?: number
-  delta_vs_area_pct?: number
-  dom_percentile?: number
-  competition_1km?: string
-  risk_flags?: string[]
-  price_gap_pct?: number
-  expected_price_range?: string
-  remaining_rights_sqm?: number
+  netSqm?: number
+  pricePerSqmDisplay?: number
+  deltaVsAreaPct?: number
+  domPercentile?: number
+  competition1km?: string
+  riskFlags?: string[]
+  priceGapPct?: number
+  expectedPriceRange?: string
+  remainingRightsSqm?: number
   program?: string
-  last_permit_q?: string
-  noise_level?: number
-  green_within_300m?: boolean
-  schools_within_500m?: boolean
-  model_price?: number
-  confidence_pct?: number
-  cap_rate_pct?: number
-  antenna_distance_m?: number
-  shelter_distance_m?: number
+  lastPermitQ?: string
+  noiseLevel?: number
+  greenWithin300m?: boolean
+  schoolsWithin500m?: boolean
+  modelPrice?: number
+  confidencePct?: number
+  capRatePct?: number
+  antennaDistanceM?: number
+  shelterDistanceM?: number
   documents?: { name: string; url: string; type?: string }[]
   
   // Asset enrichment fields
-  asset_id?: number
-  asset_status?: string
+  assetId?: number
+  assetStatus?: string
   sources?: string[]
-  primary_source?: string
-  permit_date_display?: string
-  permit_status_display?: string
-  permit_details?: string
-  permit_main_area?: number
-  permit_service_area?: number
-  permit_applicant?: string
-  permit_doc_url?: string
-  main_rights_sqm?: number
-  service_rights_sqm?: number
-  additional_plan_rights?: string
-  plan_status?: string
-  public_obligations?: string
-  public_transport?: string
-  open_spaces_nearby?: string
-  public_buildings?: string
+  primarySource?: string
+  permitDateDisplay?: string
+  permitStatusDisplay?: string
+  permitDetails?: string
+  permitMainArea?: number
+  permitServiceArea?: number
+  permitApplicant?: string
+  permitDocUrl?: string
+  mainRightsSqm?: number
+  serviceRightsSqm?: number
+  additionalPlanRights?: string
+  planStatus?: string
+  publicObligations?: string
+  publicTransport?: string
+  openSpacesNearby?: string
+  publicBuildings?: string
   parking?: string
-  nearby_projects?: string
-  rights_usage_pct?: number
-  legal_restrictions?: string
-  urban_renewal_potential?: string
-  betterment_levy?: string
+  nearbyProjects?: string
+  rightsUsagePct?: number
+  legalRestrictions?: string
+  urbanRenewalPotential?: string
+  bettermentLevy?: string
 }
 
 export const assets: Asset[] = [
@@ -117,7 +117,7 @@ export const assets: Asset[] = [
     images: ["/placeholder-home.jpg"],
     description: "דירה מקסימה במרכז תל אביב עם נוף לים",
     features: ["מעלית", "חניה", "מרפסת", "משופצת"],
-    contact_info: {
+    contactInfo: {
       agent: "יוסי כהן",
       phone: "050-1234567",
       email: "yossi@example.com"
@@ -133,33 +133,33 @@ export const assets: Asset[] = [
     subhelka: "1",
     lat: 32.0853,
     lon: 34.7818,
-    normalized_address: "רחוב הרצל 123, תל אביב",
+    normalizedAddress: "רחוב הרצל 123, תל אביב",
     
     // Building details
-    building_type: "דירה",
+    buildingType: "דירה",
     floor: 3,
-    total_floors: 6,
+    totalFloors: 6,
     rooms: 4,
-    total_area: 95,
-    balcony_area: 10,
-    parking_spaces: 1,
-    storage_room: true,
+    totalArea: 95,
+    balconyArea: 10,
+    parkingSpaces: 1,
+    storageRoom: true,
     elevator: true,
-    air_conditioning: true,
+    airConditioning: true,
     furnished: false,
     renovated: true,
-    year_built: 2015,
-    last_renovation: 2022,
+    yearBuilt: 2015,
+    lastRenovation: 2022,
     
     // Financial fields
-    price_per_sqm: 33529,
-    rent_estimate: 9500,
+    pricePerSqm: 33529,
+    rentEstimate: 9500,
     
     // Legal/Planning fields
     zoning: "מגורים א'",
-    building_rights: "4 קומות + גג",
-    permit_status: "מאושר",
-    permit_date: "2024-01-15",
+    buildingRights: "4 קומות + גג",
+    permitStatus: "מאושר",
+    permitDate: "2024-01-15",
     documents: [
       { name: "נסח טאבו", url: "/docs/1/tabu.pdf", type: "tabu" },
       { name: "תשריט בית משותף", url: "/docs/1/condo-plan.pdf", type: "condo_plan" },
@@ -168,46 +168,50 @@ export const assets: Asset[] = [
       { name: "שומת מכרעת", url: "/docs/1/decisive-appraisal.pdf", type: "appraisal_decisive" },
       { name: "שומת רמ״י", url: "/docs/1/rmi-appraisal.pdf", type: "appraisal_rmi" }
     ],
-    net_sqm: 85,
-    price_per_sqm_display: 33529,
-    delta_vs_area_pct: 2.5,
-    dom_percentile: 75,
-    competition_1km: "בינוני",
-    risk_flags: [],
-    price_gap_pct: -5.2,
-    expected_price_range: "2.7M - 3.0M",
-    remaining_rights_sqm: 45,
+    netSqm: 85,
+    pricePerSqmDisplay: 33529,
+    deltaVsAreaPct: 2.5,
+    domPercentile: 75,
+    competition1km: "בינוני",
+    riskFlags: [],
+    priceGapPct: -5.2,
+    expectedPriceRange: "2.7M - 3.0M",
+    remainingRightsSqm: 45,
     program: "תמ״א 38",
-    last_permit_q: "Q2/24",
-    noise_level: 2,
-    green_within_300m: true,
-    schools_within_500m: true,
-    model_price: 3000000,
-    confidence_pct: 85,
-    cap_rate_pct: 3.2,
-    antenna_distance_m: 150,
-    shelter_distance_m: 80,
-    permit_date_display: '2024-01-15',
-    permit_status_display: 'מאושר',
-    permit_details: 'תוספת קומה',
-    permit_main_area: 120,
-    permit_service_area: 30,
-    permit_applicant: 'בעלים',
-    permit_doc_url: '/docs/1/permit.pdf',
-    main_rights_sqm: 150,
-    service_rights_sqm: 40,
-    additional_plan_rights: 'תב"ע 1234',
-    plan_status: 'בתוקף',
-    public_obligations: 'הקצאת שטח ציבורי',
-    public_transport: "5 דק' הליכה לרכבת הקלה",
-    open_spaces_nearby: 'גן מאיר',
-    public_buildings: 'בית ספר יסודי, גני ילדים',
+    lastPermitQ: "Q2/24",
+    noiseLevel: 2,
+    greenWithin300m: true,
+    schoolsWithin500m: true,
+    modelPrice: 3000000,
+    confidencePct: 85,
+    capRatePct: 3.2,
+    antennaDistanceM: 150,
+    shelterDistanceM: 80,
+    permitDateDisplay: '2024-01-15',
+    permitStatusDisplay: 'מאושר',
+    permitDetails: 'תוספת קומה',
+    permitMainArea: 120,
+    permitServiceArea: 30,
+    permitApplicant: 'בעלים',
+    permitDocUrl: '/docs/1/permit.pdf',
+    mainRightsSqm: 150,
+    serviceRightsSqm: 40,
+    additionalPlanRights: 'תב"ע 1234',
+    planStatus: 'בתוקף',
+    publicObligations: 'הקצאת שטח ציבורי',
+    publicTransport: "5 דק' הליכה לרכבת הקלה",
+    openSpacesNearby: 'גן מאיר',
+    publicBuildings: 'בית ספר יסודי, גני ילדים',
     parking: 'מצוקת חניה בינונית',
-    nearby_projects: 'פרויקט תמ"א ברח\' הרצל 150',
-    rights_usage_pct: 70,
-    legal_restrictions: 'הערת אזהרה לטובת בנק',
-    urban_renewal_potential: 'תמ"א 38/2',
-    betterment_levy: 'היטל צפוי כ-50 אלף ₪'
+    nearbyProjects: 'פרויקט תמ"א ברח\' הרצל 150',
+    rightsUsagePct: 70,
+    legalRestrictions: 'הערת אזהרה לטובת בנק',
+    urbanRenewalPotential: 'תמ"א 38/2',
+    bettermentLevy: 'היטל צפוי כ-50 אלף ₪',
+    assetId: 1,
+    assetStatus: 'ready',
+    sources: ['yad2', 'gis_permit', 'gis_rights', 'tabu'],
+    primarySource: 'yad2'
   },
   {
     id: 2,
@@ -221,7 +225,7 @@ export const assets: Asset[] = [
     images: ["/placeholder-home.jpg"],
     description: "דירת פנטהאוס מפוארת עם מרפסת גדולה",
     features: ["מעלית", "חניה", "מרפסת גדולה", "חדר עבודה"],
-    contact_info: {
+    contactInfo: {
       agent: "דנה לוי",
       phone: "052-7654321",
       email: "dana@example.com"
@@ -237,57 +241,82 @@ export const assets: Asset[] = [
     subhelka: "3",
     lat: 32.0668,
     lon: 34.7778,
-    normalized_address: "שדרות רוטשילד 45, תל אביב",
+    normalizedAddress: "שדרות רוטשילד 45, תל אביב",
     
     // Building details
-    building_type: "דירה",
+    buildingType: "דירה",
     floor: 8,
-    total_floors: 8,
+    totalFloors: 8,
     rooms: 5,
-    total_area: 140,
-    balcony_area: 25,
-    parking_spaces: 2,
-    storage_room: true,
+    totalArea: 140,
+    balconyArea: 25,
+    parkingSpaces: 2,
+    storageRoom: true,
     elevator: true,
-    air_conditioning: true,
+    airConditioning: true,
     furnished: false,
     renovated: false,
-    year_built: 2020,
-    last_renovation: undefined,
+    yearBuilt: 2020,
+    lastRenovation: undefined,
     
     // Financial fields
-    price_per_sqm: 35000,
+    pricePerSqm: 35000,
     
     // Legal/Planning fields
     zoning: "מגורים א' מיוחד",
-    building_rights: "8 קומות + גג",
-    permit_status: "בטיפול",
-    permit_date: "2024-02-01",
+    buildingRights: "8 קומות + גג",
+    permitStatus: "בטיפול",
+    permitDate: "2024-02-01",
     documents: [
       { name: "נסח טאבו", url: "/docs/2/tabu.pdf", type: "tabu" },
       { name: "היתר בנייה", url: "/docs/2/permit.pdf", type: "permit" },
       { name: "שומת רמ״י", url: "/docs/2/rmi-appraisal.pdf", type: "appraisal_rmi" }
     ],
-    net_sqm: 120,
-    price_per_sqm_display: 35000,
-    delta_vs_area_pct: 8.3,
-    dom_percentile: 90,
-    competition_1km: "גבוה",
-    risk_flags: ["אנטנה סלולרית"],
-    price_gap_pct: 12.1,
-    expected_price_range: "3.8M - 4.3M",
-    remaining_rights_sqm: 80,
+    netSqm: 120,
+    pricePerSqmDisplay: 35000,
+    deltaVsAreaPct: 8.3,
+    domPercentile: 90,
+    competition1km: "גבוה",
+    riskFlags: ["אנטנה סלולרית"],
+    priceGapPct: 12.1,
+    expectedPriceRange: "3.8M - 4.3M",
+    remainingRightsSqm: 80,
     program: "פינוי בינוי",
-    last_permit_q: "Q1/24",
-    noise_level: 4,
-    green_within_300m: false,
-    schools_within_500m: true,
-    model_price: 3750000,
-    confidence_pct: 92,
-    cap_rate_pct: 2.8,
-    antenna_distance_m: 80,
-    shelter_distance_m: 120,
-    rent_estimate: 12000
+    lastPermitQ: "Q1/24",
+    noiseLevel: 4,
+    greenWithin300m: false,
+    schoolsWithin500m: true,
+    modelPrice: 3750000,
+    confidencePct: 92,
+    capRatePct: 2.8,
+    antennaDistanceM: 80,
+    shelterDistanceM: 120,
+    rentEstimate: 12000,
+    permitDateDisplay: '2024-02-01',
+    permitStatusDisplay: 'בטיפול',
+    permitDetails: 'תוספת מרפסת',
+    permitMainArea: 160,
+    permitServiceArea: 40,
+    permitApplicant: 'יזמים',
+    permitDocUrl: '/docs/2/permit.pdf',
+    mainRightsSqm: 180,
+    serviceRightsSqm: 50,
+    additionalPlanRights: 'תב"ע 5678',
+    planStatus: 'בתהליך',
+    publicObligations: 'שביל ציבורי',
+    publicTransport: "2 דק' הליכה לרכבת הקלה",
+    openSpacesNearby: 'פארק רוטשילד',
+    publicBuildings: 'ספרייה עירונית, מוזיאון',
+    parking: 'חניה תת קרקעית',
+    nearbyProjects: 'מגדל משרדים סמוך',
+    rightsUsagePct: 55,
+    legalRestrictions: 'שעבוד לטובת בנק',
+    urbanRenewalPotential: 'פינוי בינוי',
+    bettermentLevy: 'היטל צפוי כ-80 אלף ₪',
+    assetId: 2,
+    assetStatus: 'pending',
+    sources: ['yad2'],
+    primarySource: 'yad2'
   }
 ]
 

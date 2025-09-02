@@ -68,12 +68,12 @@ export function useDashboardData() {
 
           assets.forEach((asset: any) => {
             // Count property types
-            const type = asset.property_type || asset.type || 'לא ידוע'
+            const type = asset.propertyType || asset.type || 'לא ידוע'
             typeCounts[type] = (typeCounts[type] || 0) + 1
 
             // Calculate individual property return
             const price = asset.price || 0
-            const rent = asset.monthly_rent || asset.rent || 0
+            const rent = asset.monthlyRent || asset.rent || 0
             
             if (price > 0 && rent > 0) {
               // Annual return for this property = (Monthly Rent * 12) / Property Price * 100

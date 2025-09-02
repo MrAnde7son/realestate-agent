@@ -197,17 +197,17 @@ describe('/api/assets/[id]', () => {
       expect(asset.images).toEqual(['/image1.jpg', '/image2.jpg'])
       expect(asset.description).toBe('Nice apartment')
       expect(asset.features).toEqual(['balcony', 'parking'])
-      expect(asset.contact_info).toEqual({
+      expect(asset.contactInfo).toEqual({
         name: 'Agent Name',
         phone: '050-1234567',
         email: 'agent@example.com'
       })
       
       // Check calculated fields
-      expect(asset.price_per_sqm_display).toBe(Math.round(2500000 / 75))
+      expect(asset.pricePerSqmDisplay).toBe(Math.round(2500000 / 75))
       expect(asset.city).toBe('תל אביב') // Default fallback
       expect(asset.neighborhood).toBe('מרכז העיר') // Default fallback
-      expect(asset.net_sqm).toBe(75)
+      expect(asset.netSqm).toBe(75)
     })
 
     it('uses external_id when id is not available in backend data', async () => {

@@ -381,7 +381,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">הערכת שכירות:</span>
-                    <span>₪{asset.rent_estimate?.toLocaleString('he-IL')}</span>
+                    <span>₪{asset.rentEstimate?.toLocaleString('he-IL')}</span>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תשואה שנתית:</span>

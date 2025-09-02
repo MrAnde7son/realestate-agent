@@ -141,6 +141,11 @@ describe('Utils', () => {
       expect(fmtPct(-50)).toBe('-50.0%')
       expect(fmtPct(250.75)).toBe('+250.8%')
     })
+
+    it('handles undefined input', () => {
+      // @ts-expect-error testing runtime behaviour with undefined
+      expect(fmtPct(undefined)).toBe('—')
+    })
   })
 
 })

@@ -18,6 +18,7 @@ export function fmtNumber(num: number): string {
   return new Intl.NumberFormat('he-IL').format(num)
 }
 
-export function fmtPct(num: number): string {
+export function fmtPct(num?: number | null): string {
+  if (typeof num !== 'number') return '—'
   return `${num >= 0 ? '+' : ''}${num.toFixed(1)}%`
 }

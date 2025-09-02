@@ -52,6 +52,7 @@ export interface Asset {
   building_rights?: string
   permit_status?: string
   permit_date?: string
+  zoning?: string
   
   // Additional properties for table display
   netSqm?: number

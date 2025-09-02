@@ -127,6 +127,16 @@ class Asset(models.Model):
     def __str__(self):
         return f"Asset({self.id}, {self.scope_type}, {self.status})"
 
+    def delete_asset(self):
+        """Delete the asset and its related records."""
+        try:
+            self.delete()
+            return True
+        except Exception as e:
+            # Log the error but don't fail the deletion
+            print(f"Error deleting asset {self.id}: {e}")
+            return False
+
 class SourceRecord(models.Model):
     """Source record model for storing data from external sources."""
     SOURCE_CHOICES = [

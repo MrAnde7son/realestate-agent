@@ -742,7 +742,28 @@ def assets(request):
     if request.method == 'GET':
         # Return all assets in listing format
         return _get_assets_list()
-    
+
+    if request.method == 'DELETE':
+        data = parse_json(request)
+        if not data or not data.get('assetId'):
+            return JsonResponse({'error': 'assetId required'}, status=400)
+
+        try:
+            asset_id = int(data['assetId'])
+            asset = Asset.objects.get(id=asset_id)
+
+            if asset.delete_asset():
+                return JsonResponse({'message': f'Asset {asset_id} deleted successfully'}, status=200)
+            else:
+                return JsonResponse({'error': 'Failed to delete asset'}, status=500)
+
+        except Asset.DoesNotExist:
+            return JsonResponse({'error': 'Asset not found'}, status=404)
+        except ValueError:
+            return JsonResponse({'error': 'Invalid asset ID'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': 'Error deleting asset', 'details': str(e)}, status=500)
+
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
     

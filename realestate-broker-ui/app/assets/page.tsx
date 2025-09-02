@@ -43,6 +43,7 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [city, setCity] = useState<string>(() => searchParams.get("city") ?? "all");
@@ -196,6 +197,34 @@ export default function AssetsPage() {
       console.error("Error fetching assets:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteAsset = async (assetId: number) => {
+    if (!confirm("האם אתה בטוח שברצונך למחוק נכס זה?")) {
+      return;
+    }
+
+    setDeleting(assetId);
+    try {
+      const response = await fetch("/api/assets", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId }),
+      });
+
+      if (response.ok) {
+        setAssets(prev => prev.filter(a => a.id !== assetId));
+        alert("הנכס נמחק בהצלחה");
+      } else {
+        const error = await response.json();
+        alert(`שגיאה במחיקת הנכס: ${error.error}`);
+      }
+    } catch (error) {
+      console.error("Error deleting asset:", error);
+      alert("שגיאה במחיקת הנכס");
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -633,7 +662,7 @@ export default function AssetsPage() {
                 <span className="ml-2">טוען נכסים...</span>
               </div>
             ) : (
-              <AssetsTable data={filteredAssets} />
+              <AssetsTable data={filteredAssets} loading={loading} onDelete={handleDeleteAsset} />
             )}
           </CardContent>
         </Card>

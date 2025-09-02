@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { POST } from './route'
 import { NextRequest } from 'next/server'
 
+process.env.BACKEND_URL = 'http://localhost:8000'
+
 const originalFetch = global.fetch
 
 describe('/api/assets/[id]/share-message', () => {

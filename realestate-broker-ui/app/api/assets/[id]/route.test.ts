@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from './route'
 import { NextRequest } from 'next/server'
 
+process.env.BACKEND_URL = 'http://localhost:8000'
+
 // Mock the data import
 vi.mock('@/lib/data', () => ({
   assets: [

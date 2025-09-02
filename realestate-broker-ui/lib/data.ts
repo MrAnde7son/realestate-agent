@@ -428,3 +428,11 @@ export function getActiveAssetsCount(): number {
 export function addAsset(asset: Asset): void {
   assets.push(asset)
 }
+
+export function deleteAsset(id: number): Asset | null {
+  const index = assets.findIndex(a => a.id === id)
+  if (index !== -1) {
+    return assets.splice(index, 1)[0]
+  }
+  return null
+}

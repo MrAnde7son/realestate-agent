@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
-import { assets, addAsset } from '@/lib/data'
+import { assets, addAsset, deleteAsset } from '@/lib/data'
 import type { Asset } from '@/lib/data'
 import { z } from 'zod'
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
 // Schema for new asset creation. The backend accepts various combinations of
 // fields depending on the scope type, so most fields are optional here. Basic
@@ -77,6 +79,67 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching assets:', error)
     return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const contentType = req.headers.get('content-type')
+    let assetId: number | null = null
+
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        const body = await req.json()
+        assetId = body.assetId
+      } catch (err) {
+        console.error('Error parsing JSON body:', err)
+        return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+      }
+    } else {
+      const url = new URL(req.url)
+      assetId = url.searchParams.get('assetId') ? parseInt(url.searchParams.get('assetId')!) : null
+    }
+
+    if (!assetId) {
+      return NextResponse.json({ error: 'assetId required' }, { status: 400 })
+    }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/assets/`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        return NextResponse.json(data, { status: res.status })
+      } else {
+        const deleted = deleteAsset(assetId)
+        if (deleted) {
+          return NextResponse.json({
+            message: `Asset ${assetId} deleted successfully from local storage`,
+            deletedAsset: deleted,
+          }, { status: 200 })
+        } else {
+          return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
+        }
+      }
+    } catch (err) {
+      console.error('Error connecting to backend for delete:', err)
+      const deleted = deleteAsset(assetId)
+      if (deleted) {
+        return NextResponse.json({
+          message: `Asset ${assetId} deleted successfully from local storage`,
+          deletedAsset: deleted,
+        }, { status: 200 })
+      } else {
+        return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
+      }
+    }
+  } catch (err) {
+    console.error('Error in DELETE handler:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 

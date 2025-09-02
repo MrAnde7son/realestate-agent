@@ -7,13 +7,15 @@ import { Badge } from '@/components/ui/badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Trash2 } from 'lucide-react'
 
 function RiskCell({ flags }: { flags?: string[] }){ 
   if(!flags || flags.length===0) return <Badge variant='good'>ללא</Badge>; 
   return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'bad':f.includes('אנטנה')?'warn':'default'}>{f}</Badge>)}</div> 
 }
 
-const columns: ColumnDef<Asset>[] = [
+function createColumns(onDelete?: (id: number) => void): ColumnDef<Asset>[] {
+  return [
   { 
     header:'נכס', 
     accessorKey:'address', 
@@ -54,22 +56,30 @@ const columns: ColumnDef<Asset>[] = [
   { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => <Badge variant={(info.getValue() as number)>0?'warn':'good'}>{fmtPct(info.getValue() as number)}</Badge> },
   { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => <Badge>{`${info.getValue()}%`}</Badge> },
   { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
-  { header:'תשואה', accessorKey:'capRatePct', cell: info => <Badge>{`${(info.getValue() as number)?.toFixed(1)}%`}</Badge> },
-  { header:'—', id:'actions', cell: ({ row }) => (
-    <div className="flex gap-2">
-      <Link className="underline" href={`/assets/${row.original.id}`}>👁️</Link>
-      <a className="underline" href="/alerts">🔔</a>
-    </div>
-  ) }
-]
-
-interface AssetsTableProps {
-  data?: Asset[]
-  loading?: boolean
+    { header:'תשואה', accessorKey:'capRatePct', cell: info => <Badge>{`${(info.getValue() as number)?.toFixed(1)}%`}</Badge> },
+    { header:'—', id:'actions', cell: ({ row }) => (
+      <div className="flex gap-2">
+        <Link className="underline" href={`/assets/${row.original.id}`}>👁️</Link>
+        <a className="underline" href="/alerts">🔔</a>
+        {onDelete && (
+          <button onClick={e => { e.stopPropagation(); onDelete(row.original.id) }} className="underline">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    ) }
+  ]
 }
 
-export default function AssetsTable({ data = [], loading = false }: AssetsTableProps){
+interface AssetsTableProps {
+    data?: Asset[]
+    loading?: boolean
+    onDelete?: (id: number) => void
+  }
+
+export default function AssetsTable({ data = [], loading = false, onDelete }: AssetsTableProps){
   const router = useRouter()
+  const columns = React.useMemo(() => createColumns(onDelete), [onDelete])
   const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() })
   
   const handleRowClick = (asset: Asset) => {

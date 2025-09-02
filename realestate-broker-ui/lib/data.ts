@@ -207,7 +207,11 @@ export const assets: Asset[] = [
     rights_usage_pct: 70,
     legal_restrictions: 'הערת אזהרה לטובת בנק',
     urban_renewal_potential: 'תמ"א 38/2',
-    betterment_levy: 'היטל צפוי כ-50 אלף ₪'
+    betterment_levy: 'היטל צפוי כ-50 אלף ₪',
+    asset_id: 1,
+    asset_status: 'ready',
+    sources: ['yad2', 'gis_permit', 'gis_rights', 'tabu'],
+    primary_source: 'yad2'
   },
   {
     id: 2,
@@ -287,7 +291,32 @@ export const assets: Asset[] = [
     cap_rate_pct: 2.8,
     antenna_distance_m: 80,
     shelter_distance_m: 120,
-    rent_estimate: 12000
+    rent_estimate: 12000,
+    permit_date_display: '2024-02-01',
+    permit_status_display: 'בטיפול',
+    permit_details: 'תוספת מרפסת',
+    permit_main_area: 160,
+    permit_service_area: 40,
+    permit_applicant: 'יזמים',
+    permit_doc_url: '/docs/2/permit.pdf',
+    main_rights_sqm: 180,
+    service_rights_sqm: 50,
+    additional_plan_rights: 'תב"ע 5678',
+    plan_status: 'בתהליך',
+    public_obligations: 'שביל ציבורי',
+    public_transport: "2 דק' הליכה לרכבת הקלה",
+    open_spaces_nearby: 'פארק רוטשילד',
+    public_buildings: 'ספרייה עירונית, מוזיאון',
+    parking: 'חניה תת קרקעית',
+    nearby_projects: 'מגדל משרדים סמוך',
+    rights_usage_pct: 55,
+    legal_restrictions: 'שעבוד לטובת בנק',
+    urban_renewal_potential: 'פינוי בינוי',
+    betterment_levy: 'היטל צפוי כ-80 אלף ₪',
+    asset_id: 2,
+    asset_status: 'pending',
+    sources: ['yad2'],
+    primary_source: 'yad2'
   }
 ]
 

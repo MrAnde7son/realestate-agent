@@ -105,7 +105,7 @@ describe('/api/assets/[id]', () => {
       
       // Verify backend was called
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://127.0.0.1:8000/api/assets/101'
+        'http://localhost:8000/api/assets/101'
       )
     })
 
@@ -197,17 +197,17 @@ describe('/api/assets/[id]', () => {
       expect(asset.images).toEqual(['/image1.jpg', '/image2.jpg'])
       expect(asset.description).toBe('Nice apartment')
       expect(asset.features).toEqual(['balcony', 'parking'])
-      expect(asset.contactInfo).toEqual({
+      expect(asset.contact_info).toEqual({
         name: 'Agent Name',
         phone: '050-1234567',
         email: 'agent@example.com'
       })
       
       // Check calculated fields
-      expect(asset.pricePerSqm).toBe(Math.round(2500000 / 75))
+      expect(asset.price_per_sqm_display).toBe(Math.round(2500000 / 75))
       expect(asset.city).toBe('תל אביב') // Default fallback
       expect(asset.neighborhood).toBe('מרכז העיר') // Default fallback
-      expect(asset.netSqm).toBe(75)
+      expect(asset.net_sqm).toBe(75)
     })
 
     it('uses external_id when id is not available in backend data', async () => {

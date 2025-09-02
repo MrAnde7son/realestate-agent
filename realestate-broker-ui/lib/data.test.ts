@@ -29,7 +29,7 @@ describe('Data Module', () => {
       expect(firstAsset).toHaveProperty('area')
       expect(firstAsset).toHaveProperty('type')
       expect(firstAsset).toHaveProperty('status')
-      expect(firstAsset).toHaveProperty('contact_info')
+      expect(firstAsset).toHaveProperty('contactInfo')
     })
 
     it('exports alerts array with correct structure', () => {
@@ -55,12 +55,12 @@ describe('Data Module', () => {
 
     it('has assets with valid contact info', () => {
       assets.forEach(asset => {
-        expect(asset.contact_info).toHaveProperty('agent')
-        expect(asset.contact_info).toHaveProperty('phone')
-        expect(asset.contact_info).toHaveProperty('email')
-        expect(typeof asset.contact_info.agent).toBe('string')
-        expect(typeof asset.contact_info.phone).toBe('string')
-        expect(typeof asset.contact_info.email).toBe('string')
+        expect(asset.contactInfo).toHaveProperty('agent')
+        expect(asset.contactInfo).toHaveProperty('phone')
+        expect(asset.contactInfo).toHaveProperty('email')
+        expect(typeof asset.contactInfo.agent).toBe('string')
+        expect(typeof asset.contactInfo.phone).toBe('string')
+        expect(typeof asset.contactInfo.email).toBe('string')
       })
     })
   })

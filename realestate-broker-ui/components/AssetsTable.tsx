@@ -25,7 +25,7 @@ function createColumns(onDelete?: (id: number) => void): ColumnDef<Asset>[] {
           <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
         </div>
         <div className="text-xs text-sub">
-            {row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type ?? '—'} · {row.original.net_sqm??'—'} מ&quot;ר נטו
+            {row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type ?? '—'} · {row.original.netSqm??'—'} מ&quot;ר נטו
         </div>
       </div>
     ) 
@@ -45,7 +45,7 @@ function createColumns(onDelete?: (id: number) => void): ColumnDef<Asset>[] {
   { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => <Badge variant={(info.getValue() as boolean)?'good':'bad'}>{(info.getValue() as boolean)?'כן':'לא'}</Badge> },
   { header:'מקלט (מ")', accessorKey:'shelterDistanceM', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
   { header:'סיכון', accessorKey:'riskFlags', cell: info => <RiskCell flags={info.getValue() as string[]}/> },
-  { header:'סטטוס נכס', accessorKey:'asset_status', cell: info => {
+  { header:'סטטוס נכס', accessorKey:'assetStatus', cell: info => {
     const status = info.getValue() as string
     if (!status) return <Badge variant="default">—</Badge>
     const variant = status === 'ready' ? 'good' : status === 'error' ? 'bad' : 'warn'
@@ -55,7 +55,7 @@ function createColumns(onDelete?: (id: number) => void): ColumnDef<Asset>[] {
   { header:'מחיר מודל', accessorKey:'modelPrice', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => <Badge variant={(info.getValue() as number)>0?'warn':'good'}>{fmtPct(info.getValue() as number)}</Badge> },
   { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => <Badge>{`${info.getValue()}%`}</Badge> },
-  { header:'שכ"ד', accessorKey:'rent_estimate', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
+  { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
     { header:'תשואה', accessorKey:'capRatePct', cell: info => <Badge>{`${(info.getValue() as number)?.toFixed(1)}%`}</Badge> },
     { header:'—', id:'actions', cell: ({ row }) => (
       <div className="flex gap-2">

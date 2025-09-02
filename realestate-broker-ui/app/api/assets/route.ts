@@ -27,7 +27,7 @@ const newAssetSchema = z.object({
 })
 
 function determineAssetType(asset: any): string {
-  return asset?.type || asset?.property_type || asset?.propertyType || 'לא ידוע'
+  return asset?.propertyType || asset?.property_type || asset?.type || 'לא ידוע'
 }
 
 export async function GET() {
@@ -45,34 +45,34 @@ export async function GET() {
       images: asset.images || [],
       description: asset.description || '',
       features: asset.features || [],
-      contact_info: asset.contact_info || { agent: '', phone: '', email: '' },
+      contactInfo: asset.contactInfo || { agent: '', phone: '', email: '' },
       city: asset.city || 'תל אביב',
       neighborhood: asset.neighborhood || '',
-      net_sqm: asset.net_sqm || 0,
-      price_per_sqm_display: asset.price_per_sqm_display || 0,
-      delta_vs_area_pct: asset.delta_vs_area_pct || 0, // Calculate if needed
-      dom_percentile: asset.dom_percentile || 50, // Default
-      competition_1km: asset.competition_1km || 'בינוני',
+      netSqm: asset.netSqm || 0,
+      pricePerSqmDisplay: asset.pricePerSqmDisplay || 0,
+      deltaVsAreaPct: asset.deltaVsAreaPct || 0, // Calculate if needed
+      domPercentile: asset.domPercentile || 50, // Default
+      competition1km: asset.competition1km || 'בינוני',
       zoning: asset.zoning || 'מגורים א\'',
-      risk_flags: asset.risk_flags || [],
-      price_gap_pct: asset.price_gap_pct || 0,
-      expected_price_range: asset.expected_price_range || '',
-      remaining_rights_sqm: asset.remaining_rights_sqm || 0,
+      riskFlags: asset.riskFlags || [],
+      priceGapPct: asset.priceGapPct || 0,
+      expectedPriceRange: asset.expectedPriceRange || '',
+      remainingRightsSqm: asset.remainingRightsSqm || 0,
       program: asset.program || '',
-      last_permit_q: asset.last_permit_q || '',
-      noise_level: asset.noise_level || 2,
-      green_within_300m: asset.green_within_300m || true,
-      schools_within_500m: asset.schools_within_500m || true,
-      model_price: asset.model_price || 0,
-      confidence_pct: asset.confidence_pct || 75, // Default
-      cap_rate_pct: asset.cap_rate_pct || 3.0,
-      antenna_distance_m: asset.antenna_distance_m || 150,
-      shelter_distance_m: asset.shelter_distance_m || 100,
-      rent_estimate: asset.rent_estimate || 0,
-      asset_id: asset.asset_id || asset.id,
-      asset_status: asset.asset_status || 'active',
+      lastPermitQ: asset.lastPermitQ || '',
+      noiseLevel: asset.noiseLevel || 2,
+      greenWithin300m: asset.greenWithin300m || true,
+      schoolsWithin500m: asset.schoolsWithin500m || true,
+      modelPrice: asset.modelPrice || 0,
+      confidencePct: asset.confidencePct || 75, // Default
+      capRatePct: asset.capRatePct || 3.0,
+      antennaDistanceM: asset.antennaDistanceM || 150,
+      shelterDistanceM: asset.shelterDistanceM || 100,
+      rentEstimate: asset.rentEstimate || 0,
+      assetId: asset.assetId || asset.id,
+      assetStatus: asset.assetStatus || 'active',
       sources: asset.sources || [],
-      primary_source: asset.primary_source || 'manual'
+      primarySource: asset.primarySource || 'manual'
     })) || []
 
     return NextResponse.json({ rows: transformedRows })
@@ -174,38 +174,38 @@ export async function POST(req: Request) {
       images: [],
       description: `נכס ${validatedData.scope.type} - ${derivedCity}`,
       features: [],
-      contact_info: {
+      contactInfo: {
         agent: '',
         phone: '',
         email: ''
       },
       city: derivedCity,
       neighborhood: '',
-      net_sqm: 0,
-      price_per_sqm_display: 0,
-      delta_vs_area_pct: 0,
-      dom_percentile: 50,
-      competition_1km: 'בינוני',
+      netSqm: 0,
+      pricePerSqmDisplay: 0,
+      deltaVsAreaPct: 0,
+      domPercentile: 50,
+      competition1km: 'בינוני',
       zoning: 'מגורים א\'',
-      risk_flags: [],
-      price_gap_pct: 0,
-      expected_price_range: '',
-      remaining_rights_sqm: 0,
+      riskFlags: [],
+      priceGapPct: 0,
+      expectedPriceRange: '',
+      remainingRightsSqm: 0,
       program: '',
-      last_permit_q: '',
-      noise_level: 2,
-      green_within_300m: true,
-      schools_within_500m: true,
-      model_price: 0,
-      confidence_pct: 75,
-      cap_rate_pct: 3.0,
-      antenna_distance_m: 150,
-      shelter_distance_m: 100,
-      rent_estimate: 0,
-      asset_id: id,
-      asset_status: 'pending',
+      lastPermitQ: '',
+      noiseLevel: 2,
+      greenWithin300m: true,
+      schoolsWithin500m: true,
+      modelPrice: 0,
+      confidencePct: 75,
+      capRatePct: 3.0,
+      antennaDistanceM: 150,
+      shelterDistanceM: 100,
+      rentEstimate: 0,
+      assetId: id,
+      assetStatus: 'pending',
       sources: [],
-      primary_source: 'manual'
+      primarySource: 'manual'
     }
     
     // Add to in-memory store

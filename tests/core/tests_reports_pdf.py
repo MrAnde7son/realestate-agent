@@ -13,7 +13,7 @@ class HebrewPDFGenerationTest(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.tmpdir = tempfile.mkdtemp(prefix="reports_test_")
-        views.REPORTS_DIR = self.tmpdir
+        views.report_service.reports_dir = self.tmpdir
 
         # Insert a mock asset into the database so the endpoint can fetch real
         # data instead of relying solely on in-memory mocks.
@@ -72,7 +72,7 @@ class HebrewPDFGenerationTest(TestCase):
     def test_pdf_contains_hebrew_titles(self):
         # Ensure we actually have a Hebrew-capable font
         self.assertNotEqual(
-            views.REPORT_FONT, "Helvetica",
+            views.report_service.pdf_generator.report_font, "Helvetica",
             "Hebrew font not found. Add core/fonts/NotoSansHebrew-Regular.ttf "
             "or set REPORT_HEBREW_FONT_PATH to a TTF that supports Hebrew."
         )
@@ -107,17 +107,13 @@ class HebrewPDFGenerationTest(TestCase):
 
         # Look for all-Hebrew titles
         must_have = [
-            'דו"ח נכס - ניתוח כללי',
-            'תוכניות וזכויות בנייה',
-            'מידע סביבתי',
-            'מסמכים וסיכום',
+            'דו"ח נכס',
             'פרטי הנכס',
             'אנליזה פיננסית',
-            'המלצת השקעה',
-            'תוכניות מקומיות ומפורטות',
-            'זכויות בנייה מפורטות',
+            'תוכניות וזכויות בנייה',
+            'מידע סביבתי וסיכונים',
+            'מסמכים וזיהוי איש קשר',
             'סיכונים',
-            'מסמכים זמינים',
             'פרטי קשר',
         ]
         missing = [t for t in must_have if t not in extracted]

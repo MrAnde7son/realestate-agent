@@ -7,11 +7,13 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc g++ libpq-dev supervisor \
     libnss3 libatk-bridge2.0-0 libxcb1 libxcomposite1 libxdamage1 libxfixes3 \
-    libxrender1 libxtst6 libxi6 libdbus-1-3 libxrandr2 libasound2 \
+    libxrender1 libxtst6 libxi6 libdbus-1-3 libxrandr2 \
     libatk1.0-0 libgtk-3-0 libdrm2 libgbm1 \
     libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
     libatspi2.0-0 libgobject-2.0-0 libglib2.0-0 libgdk-pixbuf2.0-0 \
-    libffi-dev libfreetype6 fontconfig libjpeg62-turbo fonts-noto-core \
+    libffi-dev libfreetype6 fontconfig fonts-noto-core \
+    && (apt-get install -y libasound2 || apt-get install -y libasound2t64) \
+    && (apt-get install -y libjpeg62-turbo || apt-get install -y libjpeg-turbo8) \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies

@@ -16,7 +16,7 @@ from rest_framework import status
 from openai import OpenAI
 
 # Import Django models
-from .models import Alert, Asset, SourceRecord, RealEstateTransaction, Report
+from .models import Alert, Asset, SourceRecord, RealEstateTransaction, Report, OnboardingProgress
 
 # Import utility functions
 try:
@@ -42,6 +42,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Initialize services
 auth_service = AuthenticationService(None)  # Will be set in views
 report_service = ReportService(BASE_DIR)
+
+
+def _update_onboarding(user, step):
+    if not user or not user.is_authenticated:
+        return
+    progress, _ = OnboardingProgress.objects.get_or_create(user=user)
+    if not getattr(progress, step):
+        setattr(progress, step, True)
+        progress.save()
 
 # Authentication views
 @api_view(['POST'])
@@ -437,11 +446,12 @@ def alerts(request):
         
         alert = Alert.objects.create(
             user=request.user,
-            criteria=data.get('criteria') or {}, 
+            criteria=data.get('criteria') or {},
             notify=data.get('notify') or []
         )
+        _update_onboarding(getattr(request, 'user', None), 'set_one_alert')
         return Response({
-            'id': alert.id, 
+            'id': alert.id,
             'created_at': alert.created_at.isoformat()
         }, status=status.HTTP_201_CREATED)
     
@@ -461,6 +471,28 @@ def alerts(request):
         return Response({'rows': rows})
     
     return Response({'error': 'Unsupported method'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def onboarding_status(request):
+    progress, _ = OnboardingProgress.objects.get_or_create(user=request.user)
+    return Response({
+        'steps': {
+            'connect_payment': progress.connect_payment,
+            'add_first_asset': progress.add_first_asset,
+            'generate_first_report': progress.generate_first_report,
+            'set_one_alert': progress.set_one_alert,
+        },
+        'completed': progress.is_complete(),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def connect_payment(request):
+    _update_onboarding(getattr(request, 'user', None), 'connect_payment')
+    return Response({'status': 'ok'})
 
 
 @csrf_exempt
@@ -609,10 +641,12 @@ def reports(request):
         
         # Generate PDF using service
         success = report_service.generate_pdf(report)
-        
+
         if not success:
             return JsonResponse({'error': 'PDF generation failed'}, status=500)
-        
+
+        _update_onboarding(getattr(request, 'user', None), 'generate_first_report')
+
         # Return success response
         return JsonResponse({
             'report': {
@@ -799,6 +833,7 @@ def assets(request):
         # Save to Django database
         asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
+        _update_onboarding(getattr(request, 'user', None), 'add_first_asset')
         
         # Enqueue Celery task if available
         try:

@@ -220,6 +220,12 @@ class DataPipeline:
                     self._add_source_record(session, db_listing.id, "rami", plans)
                     results.append({"source": "rami", "data": plans})
 
+                # ---------------- Mavat plans ----------------
+                mavat_plans = self.mavat.collect(block, parcel)
+                if mavat_plans:
+                    self._add_source_record(session, db_listing.id, "mavat", mavat_plans)
+                    results.append({"source": "mavat", "data": mavat_plans})
+
                 # ---------------- Alerts ----------------
                 for notifier in notifiers:
                     notifier.notify(db_listing)

@@ -9,11 +9,11 @@ RUN apt-get update && apt-get install -y \
     g++ \
     libxml2-dev \
     libxslt-dev \
-    libffi-dev \
     libssl-dev \
     libpq-dev \
-    libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-    libgdk-pixbuf2.0-0 libjpeg62-turbo libfreetype6 fontconfig fonts-noto-core \
+    libcairo2 libcairo2-dev libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+    libpango1.0-dev libgobject-2.0-0 libglib2.0-0 libgdk-pixbuf-2.0-0 \
+    libffi-dev libjpeg-turbo8 libfreetype6 fontconfig fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies

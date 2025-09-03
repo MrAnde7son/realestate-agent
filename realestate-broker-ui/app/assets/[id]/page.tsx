@@ -20,7 +20,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [syncMessage, setSyncMessage] = useState<string>('')
   const [creatingMessage, setCreatingMessage] = useState(false)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
-  const [shareError, setShareError] = useState<string | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [language, setLanguage] = useState('he')
   const router = useRouter()
   const { id } = params
@@ -131,7 +131,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     if (!id) return
     setCreatingMessage(true)
     setShareMessage(null)
-    setShareError(null)
+    setShareUrl(null)
     try {
       const res = await fetch(`/api/assets/${id}/share-message`, {
         method: 'POST',
@@ -140,14 +140,15 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       })
       if (res.ok) {
         const data = await res.json()
-        setShareMessage(data.message)
+        setShareMessage(data.text)
+        setShareUrl(data.share_url)
       } else {
         const errorData = await res.json().catch(() => ({}))
-        setShareError(errorData.details || errorData.error || 'שגיאה ביצירת הודעה')
+        alert(errorData.details || errorData.error || 'שגיאה ביצירת הודעה')
       }
     } catch (err) {
       console.error('Message generation failed:', err)
-      setShareError('שגיאה ביצירת הודעה')
+      alert('שגיאה ביצירת הודעה')
     } finally {
       setCreatingMessage(false)
     }
@@ -276,17 +277,29 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   readOnly
                   value={shareMessage}
                 />
-                <Button
-                  size="sm"
-                  onClick={() => navigator.clipboard.writeText(shareMessage)}
-                >
-                  העתק הודעה
-                </Button>
-              </div>
-            )}
-            {shareError && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
-                {shareError}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareMessage)
+                      alert('Copied!')
+                    }}
+                  >
+                    העתק הודעה
+                  </Button>
+                  {shareUrl && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const fullUrl = `${window.location.origin}${shareUrl}`
+                        navigator.clipboard.writeText(fullUrl)
+                        alert('Copied!')
+                      }}
+                    >
+                      העתק קישור
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>

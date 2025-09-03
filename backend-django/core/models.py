@@ -348,3 +348,20 @@ class Plan(models.Model):
 
     def __str__(self):
         return f"Plan({self.plan_number})"
+
+
+class ShareToken(models.Model):
+    """Token allowing read-only access to an asset."""
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='share_tokens')
+    token = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['asset']),
+        ]
+
+    def __str__(self):
+        return f"ShareToken({self.asset_id}, {self.token})"

@@ -53,7 +53,7 @@ export default function OnboardingChecklist() {
   const total = steps.length
 
   return (
-    <Card className="fixed bottom-4 right-4 w-72 z-50 p-4">
+    <Card className="fixed bottom-20 left-4 right-4 z-50 p-4 sm:bottom-4 sm:right-4 sm:left-auto sm:w-72">
       <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-lg font-semibold">Get Started</CardTitle>
         <Button

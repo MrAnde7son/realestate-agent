@@ -211,134 +211,141 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Security Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  הגדרות אבטחה
-                </CardTitle>
-                <CardDescription>
-                  הגדרות אבטחה לחשבון שלך
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">אימות דו-שלבי</p>
-                    <p className="text-sm text-muted-foreground">
-                      הוסף שכבת אבטחה נוספת לחשבון שלך
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות כניסה</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראה בכל כניסה לחשבון
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <Label htmlFor="sessionTimeout">זמן פגירת סשן (דקות)</Label>
-                  <Select defaultValue="30">
-                    <SelectTrigger>
-                      <SelectValue placeholder="בחר זמן" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 דקות</SelectItem>
-                      <SelectItem value="30">30 דקות</SelectItem>
-                      <SelectItem value="60">שעה</SelectItem>
-                      <SelectItem value="120">שעתיים</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Security Settings - disabled until implementation */}
+            {/**
+             * <Card>
+             *   <CardHeader>
+             *     <CardTitle className="flex items-center gap-2">
+             *       <Shield className="h-5 w-5" />
+             *       הגדרות אבטחה
+             *     </CardTitle>
+             *     <CardDescription>
+             *       הגדרות אבטחה לחשבון שלך
+             *     </CardDescription>
+             *   </CardHeader>
+             *   <CardContent className="space-y-4">
+             *     <div className="flex items-center justify-between">
+             *       <div>
+             *         <p className="font-medium">אימות דו-שלבי</p>
+             *         <p className="text-sm text-muted-foreground">
+             *           הוסף שכבת אבטחה נוספת לחשבון שלך
+             *         </p>
+             *       </div>
+             *       <Switch />
+             *     </div>
+             *
+             *     <Separator />
+             *
+             *     <div className="flex items-center justify-between">
+             *       <div>
+             *         <p className="font-medium">התראות כניסה</p>
+             *         <p className="text-sm text-muted-foreground">
+             *           קבל התראה בכל כניסה לחשבון
+             *         </p>
+             *       </div>
+             *       <Switch defaultChecked />
+             *     </div>
+             *
+             *     <Separator />
+             *
+             *     <div className="space-y-2">
+             *       <Label htmlFor="sessionTimeout">זמן פגירת סשן (דקות)</Label>
+             *       <Select defaultValue="30">
+             *         <SelectTrigger>
+             *           <SelectValue placeholder="בחר זמן" />
+             *         </SelectTrigger>
+             *         <SelectContent>
+             *           <SelectItem value="15">15 דקות</SelectItem>
+             *           <SelectItem value="30">30 דקות</SelectItem>
+             *           <SelectItem value="60">שעה</SelectItem>
+             *           <SelectItem value="120">שעתיים</SelectItem>
+             *         </SelectContent>
+             *       </Select>
+             *     </div>
+             *   </CardContent>
+             * </Card>
+             */}
 
-            {/* Data Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  הגדרות נתונים
-                </CardTitle>
-                <CardDescription>
-                  הגדרות לניהול הנתונים שלך
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">גיבוי אוטומטי</p>
-                    <p className="text-sm text-muted-foreground">
-                      גבה את הנתונים שלך אוטומטית
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">סנכרון בין מכשירים</p>
-                    <p className="text-sm text-muted-foreground">
-                      סנכרן נתונים בין כל המכשירים שלך
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <Label htmlFor="backupFrequency">תדירות גיבוי</Label>
-                  <Select defaultValue="daily">
-                    <SelectTrigger>
-                      <SelectValue placeholder="בחר תדירות" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hourly">שעתי</SelectItem>
-                      <SelectItem value="daily">יומי</SelectItem>
-                      <SelectItem value="weekly">שבועי</SelectItem>
-                      <SelectItem value="monthly">חודשי</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Data Settings - disabled until implementation */}
+            {/**
+             * <Card>
+             *   <CardHeader>
+             *     <CardTitle className="flex items-center gap-2">
+             *       <Database className="h-5 w-5" />
+             *       הגדרות נתונים
+             *     </CardTitle>
+             *     <CardDescription>
+             *       הגדרות לניהול הנתונים שלך
+             *     </CardDescription>
+             *   </CardHeader>
+             *   <CardContent className="space-y-4">
+             *     <div className="flex items-center justify-between">
+             *       <div>
+             *         <p className="font-medium">גיבוי אוטומטי</p>
+             *         <p className="text-sm text-muted-foreground">
+             *           גבה את הנתונים שלך אוטומטית
+             *         </p>
+             *       </div>
+             *       <Switch defaultChecked />
+             *     </div>
+             *
+             *     <Separator />
+             *
+             *     <div className="flex items-center justify-between">
+             *       <div>
+             *         <p className="font-medium">סנכרון בין מכשירים</p>
+             *         <p className="text-sm text-muted-foreground">
+             *           סנכרן נתונים בין כל המכשירים שלך
+             *         </p>
+             *       </div>
+             *       <Switch defaultChecked />
+             *     </div>
+             *
+             *     <Separator />
+             *
+             *     <div className="space-y-2">
+             *       <Label htmlFor="backupFrequency">תדירות גיבוי</Label>
+             *       <Select defaultValue="daily">
+             *         <SelectTrigger>
+             *           <SelectValue placeholder="בחר תדירות" />
+             *         </SelectTrigger>
+             *         <SelectContent>
+             *           <SelectItem value="hourly">שעתי</SelectItem>
+             *           <SelectItem value="daily">יומי</SelectItem>
+             *           <SelectItem value="weekly">שבועי</SelectItem>
+             *           <SelectItem value="monthly">חודשי</SelectItem>
+             *         </SelectContent>
+             *       </Select>
+             *     </div>
+             *   </CardContent>
+             * </Card>
+             */}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>פעולות מהירות</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Zap className="h-4 w-4 ml-2" />
-                  ייצא הגדרות
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Database className="h-4 w-4 ml-2" />
-                  ייצא נתונים
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Shield className="h-4 w-4 ml-2" />
-                  היסטוריית אבטחה
-                </Button>
-              </CardContent>
-            </Card>
+            {/* Quick Actions - disabled until implementation */}
+            {/**
+             * <Card>
+             *   <CardHeader>
+             *     <CardTitle>פעולות מהירות</CardTitle>
+             *   </CardHeader>
+             *   <CardContent className="space-y-2">
+             *     <Button variant="outline" size="sm" className="w-full justify-start">
+             *       <Zap className="h-4 w-4 ml-2" />
+             *       ייצא הגדרות
+             *     </Button>
+             *     <Button variant="outline" size="sm" className="w-full justify-start">
+             *       <Database className="h-4 w-4 ml-2" />
+             *       ייצא נתונים
+             *     </Button>
+             *     <Button variant="outline" size="sm" className="w-full justify-start">
+             *       <Shield className="h-4 w-4 ml-2" />
+             *       היסטוריית אבטחה
+             *     </Button>
+             *   </CardContent>
+             * </Card>
+             */}
 
             <Card>
               <CardHeader>

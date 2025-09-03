@@ -288,3 +288,46 @@ class Report(models.Model):
             # Log the error but don't fail the deletion
             print(f"Error deleting report {self.id}: {e}")
             return False
+
+
+class Permit(models.Model):
+    """Building permit associated with an asset."""
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='permits')
+    permit_number = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=50, blank=True)
+    issued_date = models.DateField(blank=True, null=True)
+    expiry_date = models.DateField(blank=True, null=True)
+    file_url = models.CharField(max_length=500, blank=True)
+    raw = models.JSONField(default=dict)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['asset']),
+            models.Index(fields=['permit_number']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f"Permit({self.permit_number})"
+
+
+class Plan(models.Model):
+    """Planning document associated with an asset."""
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='plans')
+    plan_number = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=50, blank=True)
+    effective_date = models.DateField(blank=True, null=True)
+    file_url = models.CharField(max_length=500, blank=True)
+    raw = models.JSONField(default=dict)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['asset']),
+            models.Index(fields=['plan_number']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f"Plan({self.plan_number})"

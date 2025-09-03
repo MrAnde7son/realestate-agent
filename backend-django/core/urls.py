@@ -1,6 +1,14 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from . import views
+from .api import AssetViewSet, PermitViewSet, PlanViewSet
+
+router = DefaultRouter()
+router.register(r'assets', AssetViewSet)
+router.register(r'permits', PermitViewSet)
+router.register(r'plans', PlanViewSet)
 
 urlpatterns = [
     # Core endpoints
@@ -28,4 +36,7 @@ urlpatterns = [
     path('auth/refresh/', views.auth_refresh, name='auth_refresh'),
     path('auth/google/login/', views.auth_google_login, name='auth_google_login'),
     path('auth/google/callback/', views.auth_google_callback, name='auth_google_callback'),
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('', include(router.urls)),
 ]

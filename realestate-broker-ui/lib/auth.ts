@@ -45,7 +45,6 @@ export interface ChangePasswordData {
 
 export interface OnboardingStatus {
   steps: {
-    connect_payment: boolean
     add_first_asset: boolean
     generate_first_report: boolean
     set_one_alert: boolean

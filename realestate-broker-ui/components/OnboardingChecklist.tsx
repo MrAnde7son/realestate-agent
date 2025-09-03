@@ -3,22 +3,24 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import confetti from 'canvas-confetti'
+import { X } from 'lucide-react'
+
 import { useAuth } from '@/lib/auth-context'
 import { authAPI, OnboardingStatus } from '@/lib/auth'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 const steps = [
-  { key: 'connect_payment', label: 'Connect payment', href: '/billing' },
-  { key: 'add_first_asset', label: 'Add first asset', href: '/assets/new' },
-  { key: 'generate_first_report', label: 'Generate first report', href: '/reports/new' },
-  { key: 'set_one_alert', label: 'Set one alert', href: '/alerts/new' },
+  { key: 'add_first_asset', label: 'Add first asset', href: '/assets' },
+  { key: 'generate_first_report', label: 'Generate first report', href: '/reports' },
+  { key: 'set_one_alert', label: 'Set one alert', href: '/alerts' },
 ] as const
-
-type StepKey = typeof steps[number]['key']
 
 export default function OnboardingChecklist() {
   const { isAuthenticated } = useAuth()
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
   const [celebrated, setCelebrated] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -35,43 +37,69 @@ export default function OnboardingChecklist() {
     }
   }, [status, celebrated])
 
-  if (!isAuthenticated || !status || status.completed) return null
+  useEffect(() => {
+    const stored = localStorage.getItem('onboardingDismissed')
+    if (stored === 'true') setDismissed(true)
+  }, [])
 
-  const completedCount = Object.values(status.steps).filter(Boolean).length
+  const handleClose = () => {
+    setDismissed(true)
+    localStorage.setItem('onboardingDismissed', 'true')
+  }
+
+  if (!isAuthenticated || !status || status.completed || dismissed) return null
+
+  const completedCount = steps.filter(step => status.steps[step.key]).length
+  const total = steps.length
 
   return (
-    <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 w-72 z-50">
-      <h3 className="text-lg font-semibold mb-2">Get Started</h3>
-      <div className="text-sm text-gray-600 mb-2">{completedCount} of 4 completed</div>
-      <div className="w-full bg-gray-200 h-2 rounded mb-4">
-        <div
-          className="h-2 bg-blue-500 rounded"
-          style={{ width: `${(completedCount / 4) * 100}%` }}
-        />
-      </div>
-      <ul className="space-y-2">
-        {steps.map(step => (
-          <li key={step.key} className="flex items-center">
-            <input
-              type="checkbox"
-              className="mr-2"
-              checked={status.steps[step.key as StepKey]}
-              readOnly
-            />
-            <Link
-              href={step.href}
-              className={`text-sm ${
-                status.steps[step.key as StepKey]
-                  ? 'line-through text-gray-500'
-                  : ''
-              }`}
-            >
-              {step.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Card className="fixed bottom-20 left-4 right-4 z-50 p-4 sm:bottom-4 sm:right-4 sm:left-auto sm:w-72">
+      <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-lg font-semibold">Get Started</CardTitle>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleClose}
+          className="h-6 w-6"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </Button>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="text-sm text-muted-foreground mb-2">
+          {completedCount} of {total} completed
+        </div>
+        <div className="w-full bg-muted h-2 rounded mb-4">
+          <div
+            className="h-2 bg-primary rounded"
+            style={{ width: `${(completedCount / total) * 100}%` }}
+          />
+        </div>
+        <ul className="space-y-2">
+          {steps.map(step => (
+            <li key={step.key} className="flex items-center">
+              <input
+                type="checkbox"
+                className="mr-2"
+                checked={status.steps[step.key]}
+                readOnly
+              />
+              <Link
+                href={step.href}
+                className={`text-sm ${
+                  status.steps[step.key]
+                    ? 'line-through text-muted-foreground'
+                    : ''
+                }`}
+              >
+                {step.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }
 

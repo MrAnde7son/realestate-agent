@@ -1,9 +1,8 @@
 import os
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AbstractUser
-from django.db import models
 
 
 class User(AbstractUser):
@@ -31,6 +30,24 @@ class User(AbstractUser):
     
     def __str__(self):
         return self.email
+
+class OnboardingProgress(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='onboarding_progress')
+    connect_payment = models.BooleanField(default=False)
+    add_first_asset = models.BooleanField(default=False)
+    generate_first_report = models.BooleanField(default=False)
+    set_one_alert = models.BooleanField(default=False)
+
+    def is_complete(self):
+        return all([
+            self.connect_payment,
+            self.add_first_asset,
+            self.generate_first_report,
+            self.set_one_alert,
+        ])
+
+    def __str__(self):
+        return f"OnboardingProgress({self.user_id})"
 
 class Alert(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='alerts')

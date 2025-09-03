@@ -1,38 +1,18 @@
 import { NextResponse } from 'next/server'
+import { fetchBOIRate, getMortgageScenarios } from '@/lib/mortgage'
 
 // API endpoint to fetch Bank of Israel interest rate
 export async function GET() {
   try {
-    // In a real implementation, this would scrape or call Bank of Israel API
-    // For now, we'll return the current known rate
-    const currentRate = 4.5 // As of latest update
-    
+    const { baseRate, lastUpdated } = await fetchBOIRate()
+
     return NextResponse.json({
       success: true,
       data: {
-        baseRate: currentRate,
-        lastUpdated: new Date().toISOString(),
-        source: "בנק ישראל",
-        scenarios: [
-          {
-            bank: "בנק לאומי",
-            type: "קבוע",
-            margin: 1.8,
-            totalRate: currentRate + 1.8
-          },
-          {
-            bank: "בנק הפועלים", 
-            type: "משתנה",
-            margin: 1.5,
-            totalRate: currentRate + 1.5
-          },
-          {
-            bank: "מזרחי טפחות",
-            type: "פריים",
-            margin: 1.3,
-            totalRate: currentRate + 1.3
-          }
-        ]
+        baseRate,
+        lastUpdated,
+        source: 'בנק ישראל',
+        scenarios: getMortgageScenarios(baseRate)
       }
     })
   } catch (error) {

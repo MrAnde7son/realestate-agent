@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     libxrender1 libxtst6 libxi6 libdbus-1-3 libxrandr2 libasound2t64 \
     libatk1.0-0 libgtk-3-0 libdrm2 libgbm1 \
     libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
-    libatspi2.0-0 libgobject-2.0-0 libglib2.0-0 libgdk-pixbuf-2.0-0 \
+    libatspi2.0-0 libgobject-2.0-0 libglib2.0-0 libgdk-pixbuf-xlib-2.0-0 \
     libffi-dev libfreetype6 fontconfig libjpeg-turbo8 fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 

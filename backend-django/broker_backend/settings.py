@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_spectacular',
     'core'
 ]
 
@@ -131,6 +132,13 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Real Estate API',
+    'DESCRIPTION': 'API schema for assets, permits and plans',
+    'VERSION': '1.0.0',
 }
 
 # JWT settings

@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     libssl-dev \
     libpq-dev \
+    libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 libjpeg62-turbo libfreetype6 fontconfig fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies

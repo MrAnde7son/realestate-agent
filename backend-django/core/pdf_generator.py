@@ -19,7 +19,7 @@ class HebrewPDFGenerator:
     
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
-        self.font_path = str((base_dir.parent / 'backend-django' / 'core' / 'fonts' / 'NotoSansHebrew-Regular.ttf').resolve())
+        self.font_path = str((base_dir / 'core' / 'fonts' / 'NotoSansHebrew-Regular.ttf').resolve())
         self.report_font = self._setup_hebrew_font()
     
     def _setup_hebrew_font(self) -> str:

@@ -43,6 +43,16 @@ export interface ChangePasswordData {
   new_password: string
 }
 
+export interface OnboardingStatus {
+  steps: {
+    connect_payment: boolean
+    add_first_asset: boolean
+    generate_first_report: boolean
+    set_one_alert: boolean
+  }
+  completed: boolean
+}
+
 const API_BASE_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 class AuthAPI {
@@ -153,6 +163,10 @@ class AuthAPI {
       method: 'POST',
       body: JSON.stringify(data),
     })
+  }
+
+  async getOnboardingStatus(): Promise<OnboardingStatus> {
+    return this.request<OnboardingStatus>('/onboarding-status/')
   }
 
   // Token management

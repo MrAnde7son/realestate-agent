@@ -12,7 +12,10 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
 // Mock the fetch function to avoid API calls during tests
 global.fetch = vi.fn(() =>
   Promise.resolve({
-    json: () => Promise.resolve({ rate: 4.5 }),
+    json: () => Promise.resolve({
+      success: true,
+      data: { baseRate: 4.5, lastUpdated: new Date().toISOString() }
+    }),
   } as any)
 ) as any;
 

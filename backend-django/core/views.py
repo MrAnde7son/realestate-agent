@@ -2,12 +2,13 @@ import json
 import statistics
 import re
 import os
+import secrets
 from datetime import datetime
 from pathlib import Path
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -17,7 +18,7 @@ from rest_framework import status
 from openai import OpenAI
 
 # Import Django models
-from .models import Alert, Asset, SourceRecord, RealEstateTransaction, Report, OnboardingProgress
+from .models import Alert, Asset, SourceRecord, RealEstateTransaction, Report, OnboardingProgress, ShareToken
 
 # Import utility functions
 try:
@@ -979,31 +980,69 @@ def asset_share_message(request, asset_id):
         f"size and any selling points from this data: {json.dumps(asset.meta, ensure_ascii=False)}"
     )
 
-    try:
-        # Check if OpenAI API key is configured
-        if not os.environ.get('OPENAI_API_KEY'):
-            return Response(
-                {'error': 'OpenAI API key not configured', 'details': 'OPENAI_API_KEY environment variable is missing'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    message = None
+    if os.environ.get('OPENAI_API_KEY'):
+        try:
+            client = OpenAI()
+            completion = client.chat.completions.create(
+                model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
+                messages=[
+                    {"role": "system", "content": f"You write short real estate marketing messages in {language}."},
+                    {"role": "user", "content": prompt},
+                ],
             )
-        
-        client = OpenAI()
-        completion = client.chat.completions.create(
-            model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
-            messages=[
-                {"role": "system", "content": f"You write short real estate marketing messages in {language}."},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        message = completion.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"Error generating marketing message: {str(e)}")
-        return Response(
-            {'error': 'Failed to generate message', 'details': str(e)}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+            message = completion.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Error generating marketing message: {str(e)}")
+            message = None
 
-    return Response({'message': message})
+    if not message:
+        # Rule-based Hebrew fallback
+        parts = []
+        if asset.neighborhood:
+            parts.append(asset.neighborhood)
+        if asset.city:
+            parts.append(asset.city)
+        location = ' '.join(parts)
+        price = f"₪{asset.price:,}" if asset.price else "מחיר מבוקש בפרטים"
+        rooms = f"{asset.rooms} חדרים" if asset.rooms else "מספר חדרים גמיש"
+        area = f"{asset.area} מ\"ר" if asset.area else "שטח לא ידוע"
+        transit = asset.meta.get('transit') or asset.meta.get('nearest_transit') or asset.meta.get('nearby_transit')
+        transit_part = f" בקרבת {transit}" if transit else ""
+        message = f"למכירה {rooms} בשטח {area} ב{location}. מחיר: {price}.{transit_part}"
+
+    token = secrets.token_urlsafe(16)
+    ShareToken.objects.create(asset=asset, token=token)
+    share_url = f"/r/{token}"
+
+    return Response({'text': message, 'share_url': share_url})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def asset_share_read_only(request, token):
+    """Render a read-only view of an asset for sharing."""
+    from django.utils import timezone
+
+    try:
+        share = ShareToken.objects.select_related('asset').get(token=token)
+        if share.expires_at and share.expires_at < timezone.now():
+            raise ShareToken.DoesNotExist
+    except ShareToken.DoesNotExist:
+        return Response({'error': 'Invalid or expired token'}, status=status.HTTP_404_NOT_FOUND)
+
+    asset = share.asset
+    address = ' '.join(filter(None, [asset.street, str(asset.number or ''), asset.city]))
+    context = {
+        'asset': {
+            'address': address,
+            'price': asset.price,
+            'rooms': asset.rooms,
+            'area': asset.area,
+            'neighborhood': asset.neighborhood,
+        }
+    }
+    return render(request, 'share_asset.html', context)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

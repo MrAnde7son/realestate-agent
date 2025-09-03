@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Globe, Bell, Shield, Palette, Database, Zap } from 'lucide-react'
+import Link from 'next/link'
 
 interface UserSettings {
   language: string
@@ -365,9 +366,16 @@ export default function SettingsPage() {
                 <CardTitle>עזרה ותמיכה</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Globe className="h-4 w-4 ml-2" />
-                  מדריך משתמש
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  asChild
+                >
+                  <Link href="/user-guide">
+                    <Globe className="h-4 w-4 ml-2" />
+                    מדריך משתמש
+                  </Link>
                 </Button>
                 <Button variant="outline" size="sm" className="w-full justify-start">
                   <Bell className="h-4 w-4 ml-2" />

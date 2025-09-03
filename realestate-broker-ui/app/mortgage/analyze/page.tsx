@@ -20,7 +20,7 @@ export default function MortgageAnalyzePage() {
   
   const [monthlyIncome, setMonthlyIncome] = useState<number>(35000)
   const [calculations, setCalculations] = useState<MortgageCalculation[]>([])
-  const [boiRate, setBOIRate] = useState<number>(4.5)
+  const [boiRate, setBOIRate] = useState<number>(0)
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [loadingBoiRate, setLoadingBoiRate] = useState<boolean>(true)
   const [calculating, setCalculating] = useState<boolean>(false)
@@ -28,10 +28,12 @@ export default function MortgageAnalyzePage() {
   useEffect(() => {
     // Fetch current BOI rate on component mount
     fetchBOIRate()
-    // Calculate initial scenarios
-    const results = calculateAllScenarios(input)
+  }, [])
+
+  useEffect(() => {
+    const results = calculateAllScenarios(input, boiRate)
     setCalculations(results)
-  }, [input])
+  }, [input, boiRate])
 
   const fetchBOIRate = async () => {
     setLoadingBoiRate(true)
@@ -53,7 +55,7 @@ export default function MortgageAnalyzePage() {
     setCalculating(true)
     // Add small delay to show loading state
     await new Promise(resolve => setTimeout(resolve, 500))
-    const results = calculateAllScenarios(input)
+    const results = calculateAllScenarios(input, boiRate)
     setCalculations(results)
     setCalculating(false)
   }

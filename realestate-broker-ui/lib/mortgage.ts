@@ -21,33 +21,35 @@ export interface MortgageInput {
   propertyValue: number
 }
 
-// Mock Bank of Israel current interest rate (in real implementation, this would be fetched from BOI API)
-const CURRENT_BOI_RATE = 4.5 // Current base rate as of latest update
+// Fallback Bank of Israel rate in case API call fails
+const DEFAULT_BOI_RATE = 4.5
 
-// Three mortgage scenarios based on different banks and loan terms
-export const MORTGAGE_SCENARIOS: MortgageScenario[] = [
-  {
-    name: "בנק לאומי - קבוע",
-    description: "ריבית קבועה למשך כל תקופת ההלוואה",
-    baseRate: CURRENT_BOI_RATE,
-    bankMargin: 1.8,
-    totalRate: CURRENT_BOI_RATE + 1.8
-  },
-  {
-    name: "בנק הפועלים - משתנה",
-    description: "ריבית משתנה בהתאם לשינויי בנק ישראל",
-    baseRate: CURRENT_BOI_RATE,
-    bankMargin: 1.5,
-    totalRate: CURRENT_BOI_RATE + 1.5
-  },
-  {
-    name: "מזרחי טפחות - פריים",
-    description: "מסלול פריים - ריבית משתנה עם מרווח נמוך",
-    baseRate: CURRENT_BOI_RATE,
-    bankMargin: 1.3,
-    totalRate: CURRENT_BOI_RATE + 1.3
-  }
-]
+// Generate mortgage scenarios based on a given base rate
+export function getMortgageScenarios(baseRate: number): MortgageScenario[] {
+  return [
+    {
+      name: "בנק לאומי - קבוע",
+      description: "ריבית קבועה למשך כל תקופת ההלוואה",
+      baseRate,
+      bankMargin: 1.8,
+      totalRate: baseRate + 1.8
+    },
+    {
+      name: "בנק הפועלים - משתנה",
+      description: "ריבית משתנה בהתאם לשינויי בנק ישראל",
+      baseRate,
+      bankMargin: 1.5,
+      totalRate: baseRate + 1.5
+    },
+    {
+      name: "מזרחי טפחות - פריים",
+      description: "מסלול פריים - ריבית משתנה עם מרווח נמוך",
+      baseRate,
+      bankMargin: 1.3,
+      totalRate: baseRate + 1.3
+    }
+  ]
+}
 
 export function calculateMortgage(input: MortgageInput, scenario: MortgageScenario): MortgageCalculation {
   const { loanAmount, loanTermYears } = input
@@ -70,19 +72,23 @@ export function calculateMortgage(input: MortgageInput, scenario: MortgageScenar
   }
 }
 
-export function calculateAllScenarios(input: MortgageInput): MortgageCalculation[] {
-  return MORTGAGE_SCENARIOS.map(scenario => calculateMortgage(input, scenario))
+export function calculateAllScenarios(input: MortgageInput, baseRate: number): MortgageCalculation[] {
+  return getMortgageScenarios(baseRate).map(scenario => calculateMortgage(input, scenario))
 }
 
 // Function to fetch current Bank of Israel interest rate (for future implementation)
 export async function fetchBOIRate(): Promise<number> {
   try {
-    // In real implementation, this would call Bank of Israel API
-    // For now, return the current known rate
-    return CURRENT_BOI_RATE
+    const res = await fetch('https://www.boi.org.il/PublicApi/GetInterest')
+    const data = await res.json()
+    const rate = data?.currentInterest
+    if (typeof rate === 'number') {
+      return rate
+    }
+    throw new Error('Invalid data from Bank of Israel')
   } catch (error) {
     console.error('Error fetching BOI rate:', error)
-    return CURRENT_BOI_RATE // Fallback to current rate
+    return DEFAULT_BOI_RATE
   }
 }
 

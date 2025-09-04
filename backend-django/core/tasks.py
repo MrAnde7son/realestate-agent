@@ -1,6 +1,9 @@
 import logging
 
 from celery import shared_task
+from datetime import timedelta
+from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 
@@ -34,4 +37,15 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     address = asset.street or asset.city or ""
     house_number = asset.number or 0
     return pipeline.run(address, house_number, max_pages=max_pages)
+
+
+@shared_task
+def cleanup_demo_data():
+    """Delete demo users and assets older than 24 hours."""
+    from .models import Asset
+
+    cutoff = timezone.now() - timedelta(hours=24)
+    User = get_user_model()
+    User.objects.filter(is_demo=True, created_at__lt=cutoff).delete()
+    Asset.objects.filter(is_demo=True, created_at__lt=cutoff).delete()
 

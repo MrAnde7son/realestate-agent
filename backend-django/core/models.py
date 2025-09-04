@@ -1,4 +1,5 @@
 import os
+import uuid
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -12,6 +13,7 @@ class User(AbstractUser):
     company = models.CharField(max_length=100, blank=True, null=True)
     role = models.CharField(max_length=50, blank=True, null=True)  # broker, appraiser, investor, etc.
     is_verified = models.BooleanField(default=False)
+    is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -120,6 +122,7 @@ class Asset(models.Model):
     permit_date = models.DateField(blank=True, null=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    is_demo = models.BooleanField(default=False)
     meta = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -348,3 +351,18 @@ class Plan(models.Model):
 
     def __str__(self):
         return f"Plan({self.plan_number})"
+
+class ShareToken(models.Model):
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='share_tokens')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    expires_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self) -> str:
+        return f"ShareToken({self.token})"

@@ -169,12 +169,20 @@ export default function HomePage() {
                   צור חשבון או התחבר כדי ליצור דוחות, לנתח משכנתאות ולנהל התראות
                 </p>
               </div>
-              <Button
-                onClick={() => router.push("/auth")}
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              >
-                התחבר עכשיו
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => router.push("/demo")}
+                  variant="outline"
+                >
+                  נסה הדגמה
+                </Button>
+                <Button
+                  onClick={() => router.push("/auth")}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                >
+                  התחבר עכשיו
+                </Button>
+              </div>
             </div>
           </div>
         )}

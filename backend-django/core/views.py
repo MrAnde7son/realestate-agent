@@ -9,6 +9,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect
 from django.conf import settings
+from django.utils.crypto import get_random_string
+from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -260,6 +262,71 @@ def auth_google_callback(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+
+# Demo mode
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def demo_start(request):
+    """Create a demo user and seed sample assets."""
+    User = get_user_model()
+    username = f"demo_{get_random_string(8)}"
+    email = f"{username}@demo.local"
+    password = get_random_string(12)
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        password=password,
+        first_name="Demo",
+        last_name="User",
+        is_demo=True,
+    )
+
+    sample_assets = [
+        {
+            'scope_type': 'address',
+            'city': 'Tel Aviv',
+            'street': 'Herzl',
+            'number': 1,
+            'price': 1500000,
+            'rooms': 3,
+        },
+        {
+            'scope_type': 'address',
+            'city': 'Jerusalem',
+            'street': 'King George',
+            'number': 5,
+            'price': 2000000,
+            'rooms': 4,
+        },
+        {
+            'scope_type': 'address',
+            'city': 'Haifa',
+            'street': 'HaNassi',
+            'number': 20,
+            'price': 1200000,
+            'rooms': 2,
+        },
+    ]
+
+    for data in sample_assets:
+        Asset.objects.create(
+            **data,
+            status='ready',
+            is_demo=True,
+            meta={'demo': True},
+        )
+
+    from rest_framework_simplejwt.tokens import RefreshToken
+    refresh = RefreshToken.for_user(user)
+    return Response(
+        {
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+            'user': auth_service._get_user_data(user),
+        }
+    )
 
 
 # Font setup is now handled by the HebrewPDFGenerator class

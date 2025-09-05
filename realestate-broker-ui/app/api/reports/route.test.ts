@@ -120,6 +120,25 @@ describe('reports API', () => {
     fetchMock.mockRestore();
   });
 
+  it('forwards sections to backend', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ report: { id: 1 } }), { status: 201 })
+    )
+    const req = new Request('http://127.0.0.1/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assetId: assets[0].id, sections: ['summary'] }),
+    })
+    await POST(req)
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/reports/'),
+      expect.objectContaining({
+        body: JSON.stringify({ assetId: assets[0].id, sections: ['summary'] }),
+      })
+    )
+    fetchMock.mockRestore()
+  })
+
   it('lists reports', async () => {
     const res = await GET(new Request('http://127.0.0.1/api/reports'));
     const data = await res.json();

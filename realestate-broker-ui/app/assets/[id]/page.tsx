@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import DataBadge from '@/components/DataBadge'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
@@ -24,6 +25,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [language, setLanguage] = useState('he')
   const router = useRouter()
   const { id } = params
+  const renderValue = (value: React.ReactNode, key: string) => (
+    <span className="flex items-center gap-1">
+      {value ?? '—'}
+      <DataBadge source={asset?._meta?.[key]?.source} fetchedAt={asset?._meta?.[key]?.fetched_at} url={asset?._meta?.[key]?.url} />
+    </span>
+  )
 
   useEffect(() => {
     setLoading(true)
@@ -454,37 +461,40 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">תכנית נוכחית:</span>
-                      <span>{asset.program || 'לא זמין'}</span>
+                      {renderValue(asset.program || 'לא זמין', 'program')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">ייעוד:</span>
-                      <Badge variant="outline">{asset.zoning || 'לא צוין'}</Badge>
+                      {renderValue(<Badge variant="outline">{asset.zoning || 'לא צוין'}</Badge>, 'zoning')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">יתרת זכויות:</span>
-                      <Badge variant={asset.remainingRightsSqm > 0 ? 'good' : 'outline'}>
-                        +{asset.remainingRightsSqm} מ״ר
-                      </Badge>
+                      {renderValue(
+                        <Badge variant={asset.remainingRightsSqm > 0 ? 'good' : 'outline'}>
+                          +{asset.remainingRightsSqm} מ״ר
+                        </Badge>,
+                        'remainingRightsSqm'
+                      )}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">זכויות בנייה עיקריות:</span>
-                      <span>{asset.mainRightsSqm ? `${asset.mainRightsSqm} מ״ר` : 'לא זמין'}</span>
+                      {renderValue(asset.mainRightsSqm ? `${asset.mainRightsSqm} מ״ר` : 'לא זמין', 'mainRightsSqm')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">שטחי שירות:</span>
-                      <span>{asset.serviceRightsSqm ? `${asset.serviceRightsSqm} מ״ר` : 'לא זמין'}</span>
+                      {renderValue(asset.serviceRightsSqm ? `${asset.serviceRightsSqm} מ״ר` : 'לא זמין', 'serviceRightsSqm')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">זכויות משלימות:</span>
-                      <span>{asset.additionalPlanRights || 'אין'}</span>
+                      {renderValue(asset.additionalPlanRights || 'אין', 'additionalPlanRights')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">מגבלות/חובות ציבוריות:</span>
-                      <span>{asset.publicObligations || 'אין'}</span>
+                      {renderValue(asset.publicObligations || 'אין', 'publicObligations')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תוכנית:</span>
-                      <span>{asset.planStatus || 'לא ידוע'}</span>
+                      {renderValue(asset.planStatus || 'לא ידוע', 'planStatus')}
                     </div>
                   </div>
                   <div className="pt-2 border-t">
@@ -503,11 +513,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תכנוני:</span>
-                      <Badge variant="good">פעיל</Badge>
+                      {renderValue(<Badge variant="good">פעיל</Badge>, 'planActive')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">הגבלות מיוחדות:</span>
-                      <span>{asset.riskFlags?.length > 0 ? asset.riskFlags.join(', ') : 'אין'}</span>
+                      {renderValue(asset.riskFlags?.length > 0 ? asset.riskFlags.join(', ') : 'אין', 'riskFlags')}
                     </div>
                   </div>
                   <div className="pt-2 border-t">
@@ -550,19 +560,28 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{asset.noiseLevel}/5</div>
+                    <div className="text-2xl font-bold flex items-center justify-center gap-1">
+                      {asset.noiseLevel}/5
+                      <DataBadge source={asset?._meta?.noiseLevel?.source} fetchedAt={asset?._meta?.noiseLevel?.fetched_at} />
+                    </div>
                     <div className="text-sm text-muted-foreground">רמת רעש</div>
                   </div>
-                  
+
                   <div className="text-center">
-                      <Badge variant={asset.greenWithin300m ? 'good' : 'bad'}>
-                        {asset.greenWithin300m ? 'כן' : 'לא'}
-                      </Badge>
+                      {renderValue(
+                        <Badge variant={asset.greenWithin300m ? 'good' : 'bad'}>
+                          {asset.greenWithin300m ? 'כן' : 'לא'}
+                        </Badge>,
+                        'greenWithin300m'
+                      )}
                       <div className="text-sm text-muted-foreground">שטחי ציבור ≤300מ׳</div>
                   </div>
-                  
+
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{asset.antennaDistanceM}מ׳</div>
+                    <div className="text-2xl font-bold flex items-center justify-center gap-1">
+                      {asset.antennaDistanceM}מ׳
+                      <DataBadge source={asset?._meta?.antennaDistanceM?.source} fetchedAt={asset?._meta?.antennaDistanceM?.fetched_at} />
+                    </div>
                     <div className="text-sm text-muted-foreground">מרחק מאנטנה</div>
                   </div>
                 </div>
@@ -592,23 +611,23 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardContent className="space-y-2">
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">תחבורה ציבורית:</span>
-                  <span>{asset.publicTransport || '—'}</span>
+                  {renderValue(asset.publicTransport || '—', 'publicTransport')}
                 </div>
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">שטחים פתוחים בקרבת מקום:</span>
-                  <span>{asset.openSpacesNearby || '—'}</span>
+                  {renderValue(asset.openSpacesNearby || '—', 'openSpacesNearby')}
                 </div>
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">מבני ציבור:</span>
-                  <span>{asset.publicBuildings || '—'}</span>
+                  {renderValue(asset.publicBuildings || '—', 'publicBuildings')}
                 </div>
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">מצב חניה:</span>
-                  <span>{asset.parking || '—'}</span>
+                  {renderValue(asset.parking || '—', 'parking')}
                 </div>
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">פרויקטים סמוכים:</span>
-                  <span>{asset.nearbyProjects || '—'}</span>
+                  {renderValue(asset.nearbyProjects || '—', 'nearbyProjects')}
                 </div>
               </CardContent>
             </Card>
@@ -623,34 +642,37 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardContent className="space-y-2">
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תאריך היתר:</span>
-                    <span>{asset.permitDate || '—'}</span>
+                    {renderValue(asset.permitDate, 'permitDate')}
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">סטטוס:</span>
-                    <span>{asset.permitStatus || '—'}</span>
+                    {renderValue(asset.permitStatus, 'permitStatus')}
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">פירוט:</span>
-                    <span>{asset.permitDetails || '—'}</span>
+                    {renderValue(asset.permitDetails, 'permitDetails')}
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">שטח עיקרי:</span>
-                    <span>{asset.permitMainArea ? `${asset.permitMainArea} מ״ר` : '—'}</span>
+                    {renderValue(asset.permitMainArea ? `${asset.permitMainArea} מ״ר` : '—', 'permitMainArea')}
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">שטחי שירות:</span>
-                    <span>{asset.permitServiceArea ? `${asset.permitServiceArea} מ״ר` : '—'}</span>
+                    {renderValue(asset.permitServiceArea ? `${asset.permitServiceArea} מ״ר` : '—', 'permitServiceArea')}
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מבקש:</span>
-                    <span>{asset.permitApplicant || '—'}</span>
+                    {renderValue(asset.permitApplicant, 'permitApplicant')}
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מסמך:</span>
-                    {asset.permitDocUrl ? (
-                      <a href={asset.permitDocUrl} target="_blank" className="text-blue-500 underline">צפה</a>
-                    ) : (
-                      <span>—</span>
+                    {renderValue(
+                      asset.permitDocUrl ? (
+                        <a href={asset.permitDocUrl} target="_blank" className="text-blue-500 underline">צפה</a>
+                      ) : (
+                        '—'
+                      ),
+                      'permitDocUrl'
                     )}
                   </div>
                 </CardContent>
@@ -664,9 +686,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
-                      <Badge variant={asset.lastPermitQ ? 'good' : 'outline'}>
-                        {asset.lastPermitQ || 'לא זמין'}
-                      </Badge>
+                      {renderValue(
+                        <Badge variant={asset.lastPermitQ ? 'good' : 'outline'}>
+                          {asset.lastPermitQ || 'לא זמין'}
+                        </Badge>,
+                        'lastPermitQ'
+                      )}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">פעילות בנייה באזור:</span>
@@ -689,15 +714,15 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">היתר בתוקף:</span>
-                      <Badge variant="good">כן</Badge>
+                      {renderValue(<Badge variant="good">כן</Badge>, 'permitValid')}
                     </div>
-                    <div className="flex justify_between">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">סוג היתר:</span>
-                      <span>מגורים</span>
+                      {renderValue('מגורים', 'permitType')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">אישורי חיבור:</span>
-                      <Badge variant="good">מאושר</Badge>
+                      {renderValue(<Badge variant="good">מאושר</Badge>, 'utilityApprovals')}
                     </div>
                   </div>
                 </CardContent>
@@ -737,7 +762,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">₪{asset.pricePerSqm?.toLocaleString('he-IL')}</div>
+                    <div className="text-2xl font-bold flex items-center justify-center gap-1">
+                      ₪{asset.pricePerSqm?.toLocaleString('he-IL')}
+                      <DataBadge source={asset?._meta?.pricePerSqm?.source} fetchedAt={asset?._meta?.pricePerSqm?.fetched_at} />
+                    </div>
                     <div className="text-sm text-muted-foreground">מחיר למ״ר - נכס זה</div>
                   </div>
                   <div className="text-center">

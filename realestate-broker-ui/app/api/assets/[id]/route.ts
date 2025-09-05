@@ -22,7 +22,7 @@ export async function GET(
       )
 
       if (backendAsset) {
-        const asset = {
+        const asset: any = {
           id: Number(backendAsset.id ?? backendAsset['external_id']),
           address: backendAsset.address,
           price: backendAsset.price,
@@ -66,8 +66,8 @@ export async function GET(
           // Model and estimates
           modelPrice: backendAsset.price || 3000000,
           rentEstimate: backendAsset.price ? Math.round(backendAsset.price * 0.004) : 9500,
-          permitDateDisplay: backendAsset['permit_date'],
-          permitStatusDisplay: backendAsset['permit_status'],
+          permitDate: backendAsset['permit_date'],
+          permitStatus: backendAsset['permit_status'],
           permitDetails: backendAsset['permit_details'],
           permitMainArea: backendAsset['permit_main_area'],
           permitServiceArea: backendAsset['permit_service_area'],
@@ -88,6 +88,14 @@ export async function GET(
           urbanRenewalPotential: backendAsset['urban_renewal_potential'],
           bettermentLevy: backendAsset['betterment_levy']
         }
+
+        const backendMeta = backendAsset._meta || backendAsset.meta || {}
+        const meta: Record<string, any> = {}
+        for (const [key, value] of Object.entries(backendMeta)) {
+          const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+          meta[camel] = value
+        }
+        asset._meta = meta
 
         return NextResponse.json({ asset })
       }

@@ -30,6 +30,7 @@ class RealEstateListing:
         self.date_posted = None
         self.coordinates = None
         self.scraped_at = datetime.now().isoformat()
+        self.meta = {}
     
     def to_dict(self):
         """Convert to dictionary."""
@@ -50,7 +51,8 @@ class RealEstateListing:
             'listing_id': self.listing_id,
             'date_posted': self.date_posted,
             'coordinates': self.coordinates,
-            'scraped_at': self.scraped_at
+            'scraped_at': self.scraped_at,
+            'meta': self.meta,
         }
     
     def __str__(self):

@@ -11,9 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
 const steps = [
-  { key: 'add_first_asset', label: 'Add first asset', href: '/assets' },
-  { key: 'generate_first_report', label: 'Generate first report', href: '/reports' },
-  { key: 'set_one_alert', label: 'Set one alert', href: '/alerts' },
+  { key: 'add_first_asset', label: 'הוסף נכס ראשון', href: '/assets' },
+  { key: 'generate_first_report', label: 'הפק דוח ראשון', href: '/reports' },
+  { key: 'set_one_alert', label: 'הגדר התראה ראשונה', href: '/alerts' },
 ] as const
 
 export default function OnboardingChecklist() {
@@ -55,7 +55,7 @@ export default function OnboardingChecklist() {
   return (
     <Card className="fixed bottom-20 left-4 right-4 z-50 p-4 sm:bottom-4 sm:right-4 sm:left-auto sm:w-72">
       <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-lg font-semibold">Get Started</CardTitle>
+        <CardTitle className="text-lg font-semibold">בואו נתחיל</CardTitle>
         <Button
           variant="ghost"
           size="icon"
@@ -63,12 +63,12 @@ export default function OnboardingChecklist() {
           className="h-6 w-6"
         >
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">סגור</span>
         </Button>
       </CardHeader>
       <CardContent className="p-0">
         <div className="text-sm text-muted-foreground mb-2">
-          {completedCount} of {total} completed
+          הושלמו {completedCount} מתוך {total}
         </div>
         <div className="w-full bg-muted h-2 rounded mb-4">
           <div

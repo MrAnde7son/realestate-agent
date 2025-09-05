@@ -10,7 +10,16 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     company = models.CharField(max_length=100, blank=True, null=True)
-    role = models.CharField(max_length=50, blank=True, null=True)  # broker, appraiser, investor, etc.
+    class Role(models.TextChoices):
+        ADMIN = "admin", "Admin"
+        MEMBER = "member", "Member"
+
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.MEMBER,
+        db_index=True,
+    )
     is_verified = models.BooleanField(default=False)
     is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -370,6 +379,49 @@ class ShareToken(models.Model):
     def __str__(self):
         return f"ShareToken({self.asset_id}, {self.token})"
 
+
+class AnalyticsEvent(models.Model):
+    """Raw analytics events for tracking system activity."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    event = models.CharField(max_length=100)
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="analytics_events",
+    )
+    asset_id = models.IntegerField(null=True, blank=True)
+    source = models.CharField(max_length=100, null=True, blank=True)
+    error_code = models.CharField(max_length=100, null=True, blank=True)
+    meta = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["event"]),
+            models.Index(fields=["source"]),
+            models.Index(fields=["error_code"]),
+        ]
+
+
+class AnalyticsDaily(models.Model):
+    """Daily rollups for analytics events."""
+
+    date = models.DateField(unique=True)
+    users = models.IntegerField(default=0)
+    assets = models.IntegerField(default=0)
+    reports = models.IntegerField(default=0)
+    alerts = models.IntegerField(default=0)
+    errors = models.IntegerField(default=0)
+
+    class Meta:
+        indexes = [models.Index(fields=["date"])]
+
+    def __str__(self):
+        return f"AnalyticsDaily({self.date})"
+
 class SupportTicket(models.Model):
     class Kind(models.TextChoices):
         CONTACT = "contact"
@@ -404,3 +456,4 @@ class ConsultationRequest(models.Model):
 
     def __str__(self):
         return f"ConsultationRequest({self.id}, {self.email})"
+

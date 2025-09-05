@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from . import views
+from . import views_analytics as va
 from . import views_support as vs
 from .api import AssetViewSet, PermitViewSet, PlanViewSet
 
@@ -19,6 +20,8 @@ urlpatterns = [
     path('reports/', views.reports, name='reports'),
     path('settings/', views.user_settings, name='user_settings'),
     path('alerts/', views.alerts, name='alerts'),
+    path('analytics/timeseries', va.analytics_timeseries),
+    path('analytics/top-failures', va.analytics_top_failures),
     path('onboarding-status/', views.onboarding_status, name='onboarding_status'),
     path('connect-payment/', views.connect_payment, name='connect_payment'),
     path('demo/start/', views.demo_start, name='demo_start'),
@@ -45,5 +48,6 @@ urlpatterns = [
     path('auth/google/callback/', views.auth_google_callback, name='auth_google_callback'),
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
     path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('me', views.me),
     path('', include(router.urls)),
 ]

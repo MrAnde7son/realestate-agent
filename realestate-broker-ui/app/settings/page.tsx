@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Globe, Bell, Shield, Palette, Database, Zap } from 'lucide-react'
+import { ContactSupportDialog, BugReportDialog } from '@/components/support/dialogs'
 import Link from 'next/link'
 
 interface UserSettings {
@@ -384,14 +385,18 @@ export default function SettingsPage() {
                     מדריך משתמש
                   </Link>
                 </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Bell className="h-4 w-4 ml-2" />
-                  צור קשר עם התמיכה
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Shield className="h-4 w-4 ml-2" />
-                  דווח על באג
-                </Button>
+                <ContactSupportDialog>
+                  <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Bell className="h-4 w-4 ml-2" />
+                    צור קשר עם התמיכה
+                  </Button>
+                </ContactSupportDialog>
+                <BugReportDialog>
+                  <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Shield className="h-4 w-4 ml-2" />
+                    דווח על באג
+                  </Button>
+                </BugReportDialog>
               </CardContent>
             </Card>
           </div>

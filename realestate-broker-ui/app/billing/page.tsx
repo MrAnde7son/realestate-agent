@@ -3,6 +3,7 @@ import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ContactSupportDialog, ConsultationDialog } from '@/components/support/dialogs'
 import { Badge } from '@/components/ui/badge'
 import { Check, Star, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -194,12 +195,16 @@ export default function BillingPage() {
             </CardHeader>
             <CardContent>
               <div className="flex gap-4">
-                <Button variant="outline">
-                  צור קשר עם התמיכה
-                </Button>
-                <Button variant="outline">
-                  הזמן שיחת ייעוץ
-                </Button>
+                <ContactSupportDialog>
+                  <Button variant="outline">
+                    צור קשר עם התמיכה
+                  </Button>
+                </ContactSupportDialog>
+                <ConsultationDialog>
+                  <Button variant="outline">
+                    הזמן שיחת ייעוץ
+                  </Button>
+                </ConsultationDialog>
               </div>
             </CardContent>
           </Card>

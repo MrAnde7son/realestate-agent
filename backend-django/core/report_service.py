@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -5,16 +6,24 @@ from .models import Asset, Report
 from .pdf_generator import HebrewPDFGenerator
 from .constants import DEFAULT_REPORT_SECTIONS
 
+logger = logging.getLogger(__name__)
+
 
 class ReportService:
     """Service class for handling report operations."""
     
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
+
+        # Determine the default reports directory.  To keep the backend
+        # decoupled from the frontend, reports are always written to a
+        # directory relative to the backend project.
+        default_reports_dir = base_dir / 'reports'
+
         self.reports_dir = os.environ.get(
-            'REPORTS_DIR',
-            str((base_dir.parent / 'realestate-broker-ui' / 'public' / 'reports').resolve())
+            'REPORTS_DIR', str(default_reports_dir.resolve())
         )
+        logger.info("Reports directory set to %s", self.reports_dir)
         self.pdf_generator = HebrewPDFGenerator(base_dir)
     
     def create_report(self, asset_id: int, sections: Optional[List[str]] = None) -> Optional[Report]:
@@ -24,7 +33,7 @@ class ReportService:
             asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
             asset = None
-            print(f"Asset {asset_id} not found, generating placeholder report")
+            logger.warning("Asset %s not found, generating placeholder report", asset_id)
 
         try:
             listing = self.pdf_generator.create_asset_listing(asset)
@@ -48,9 +57,10 @@ class ReportService:
             report.file_path = file_path
             report.save()
 
+            logger.info("Created report %s for asset %s at %s", report.id, asset_id, file_path)
             return report
-        except Exception as e:
-            print(f"Error creating report: {e}")
+        except Exception:
+            logger.exception("Error creating report for asset %s", asset_id)
             return None
     
     def generate_pdf(self, report: Report) -> bool:
@@ -63,9 +73,13 @@ class ReportService:
                 sections=report.sections or DEFAULT_REPORT_SECTIONS,
                 use_template=False,
             )
+            if success:
+                logger.info("Generated PDF for report %s", report.id)
+            else:
+                logger.error("PDF generation reported failure for report %s", report.id)
             return success
         except Exception as e:
-            print(f"Error generating PDF for report {report.id}: {e}")
+            logger.exception("Error generating PDF for report %s", report.id)
             report.mark_failed(str(e))
             return False
     
@@ -91,10 +105,10 @@ class ReportService:
             report = Report.objects.get(id=report_id)
             return report.delete_report()
         except Report.DoesNotExist:
-            print(f"Report {report_id} not found")
+            logger.warning("Report %s not found", report_id)
             return False
-        except Exception as e:
-            print(f"Error deleting report {report_id}: {e}")
+        except Exception:
+            logger.exception("Error deleting report %s", report_id)
             return False
     
     def get_report_by_id(self, report_id: int) -> Optional[Report]:

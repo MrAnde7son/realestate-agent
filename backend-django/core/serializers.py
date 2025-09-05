@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Asset, Permit, Plan
+from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -48,3 +48,17 @@ class PlanSerializer(MetaSerializerMixin):
             'id', 'asset', 'plan_number', 'description', 'status',
             'effective_date', 'file_url'
         ]
+
+
+class SupportTicketSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportTicket
+        fields = "__all__"
+        read_only_fields = ("id", "user", "created_at", "status")
+
+
+class ConsultationRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConsultationRequest
+        fields = "__all__"
+        read_only_fields = ("id", "user", "created_at", "status")

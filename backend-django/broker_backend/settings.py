@@ -198,4 +198,7 @@ GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 APPEND_SLASH = True
 
 USE_X_FORWARDED_HOST = True
+
+DEFAULT_FROM_EMAIL = "no-reply@nadlaner.com"
+SUPPORT_SLACK_WEBHOOK = os.getenv("SUPPORT_SLACK_WEBHOOK", "")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

@@ -1,0 +1,16 @@
+from core.models import Asset
+from core.serializers import AssetSerializer
+
+
+def test_asset_serializer_meta_multiple_sources():
+    asset = Asset(
+        city="תל אביב",
+        price=1000000,
+        meta={
+            "city": {"source": "מנהל התכנון", "fetched_at": "2025-09-01", "url": "http://example.com/city"},
+            "price": {"source": "yad2", "fetched_at": "2025-08-20", "url": "http://example.com/price"},
+        },
+    )
+    data = AssetSerializer(asset).data
+    assert data["_meta"]["city"] == {"source": "מנהל התכנון", "fetched_at": "2025-09-01", "url": "http://example.com/city"}
+    assert data["_meta"]["price"] == {"source": "yad2", "fetched_at": "2025-08-20", "url": "http://example.com/price"}

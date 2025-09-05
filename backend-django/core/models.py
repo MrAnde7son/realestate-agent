@@ -34,6 +34,7 @@ class User(AbstractUser):
     notify_whatsapp = models.BooleanField(default=False)
     notify_urgent = models.BooleanField(default=True)
     notification_time = models.CharField(max_length=5, default="09:00")
+    report_sections = models.JSONField(default=list)
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -247,7 +248,7 @@ class Report(models.Model):
     title = models.CharField(max_length=200, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     pages = models.IntegerField(default=1)
-    
+
     # Generation details
     generated_at = models.DateTimeField(auto_now_add=True)
     generation_time = models.FloatField(blank=True, null=True)  # in seconds
@@ -256,6 +257,7 @@ class Report(models.Model):
     error_message = models.TextField(blank=True, null=True)
     
     # Additional metadata
+    sections = models.JSONField(default=list)
     meta = models.JSONField(default=dict)
     
     class Meta:

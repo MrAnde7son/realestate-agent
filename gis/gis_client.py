@@ -19,11 +19,12 @@ import json
 import logging
 import os
 import re
-import time
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
 import requests
+
+from utils.retry import request_with_retry
 from bs4 import BeautifulSoup
 from pyproj import Transformer
 
@@ -76,31 +77,34 @@ class TelAvivGS:
 
     def _query(self, layer: str, params: Dict[str, Any], method: str = "GET", retries: int = 1) -> Dict[str, Any]:
         url = f"{self.BASE}/{layer}/query"
-        for attempt in range(retries + 1):
-            try:
-                self._logger.info("ArcGIS request", extra={"method": method, "url": url, "attempt": attempt})
-                if method == "POST":
-                    r = requests.post(url, data=params, headers=self.HDRS, timeout=30)
-                else:
-                    r = requests.get(url, params=params, headers=self.HDRS, timeout=30)
-                self._logger.debug("ArcGIS response", extra={"status": r.status_code, "content_type": r.headers.get("Content-Type")})
-                r.raise_for_status()
-                data = self._safe_json(r)
-                if "_error" in data:
-                    self._logger.error("ArcGIS _error in payload", extra={"payload": data})
-                    raise ArcGISError(str(data))
-                # ArcGIS error payload
-                if "error" in data:
-                    self._logger.error("ArcGIS error payload", extra={"payload": data.get("error")})
-                    raise ArcGISError(str(data["error"]))
-                return data
-            except (requests.RequestException, ArcGISError) as e:
-                if attempt < retries:
-                    self._logger.warning("ArcGIS request failed, retrying", extra={"attempt": attempt, "error": str(e)})
-                    time.sleep(0.8 * (attempt + 1))
-                    continue
-                self._logger.error("ArcGIS request failed", extra={"error": str(e)})
-                raise
+        self._logger.info("ArcGIS request", extra={"method": method, "url": url})
+        if method == "POST":
+            r = request_with_retry(
+                requests.post,
+                url,
+                data=params,
+                headers=self.HDRS,
+                timeout=30,
+                max_retries=retries + 1,
+            )
+        else:
+            r = request_with_retry(
+                requests.get,
+                url,
+                params=params,
+                headers=self.HDRS,
+                timeout=30,
+                max_retries=retries + 1,
+            )
+        self._logger.debug("ArcGIS response", extra={"status": r.status_code, "content_type": r.headers.get("Content-Type")})
+        data = self._safe_json(r)
+        if "_error" in data:
+            self._logger.error("ArcGIS _error in payload", extra={"payload": data})
+            raise ArcGISError(str(data))
+        if "error" in data:
+            self._logger.error("ArcGIS error payload", extra={"payload": data.get("error")})
+            raise ArcGISError(str(data["error"]))
+        return data
 
     def get_address_coordinates(self, street: str, house_number: int, like: bool = True) -> Tuple[float, float]:
         """

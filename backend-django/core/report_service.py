@@ -14,9 +14,14 @@ class ReportService:
     
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
+
+        # Determine the default reports directory.  To keep the backend
+        # decoupled from the frontend, reports are always written to a
+        # directory relative to the backend project.
+        default_reports_dir = base_dir / 'reports'
+
         self.reports_dir = os.environ.get(
-            'REPORTS_DIR',
-            str((base_dir.parent / 'realestate-broker-ui' / 'public' / 'reports').resolve())
+            'REPORTS_DIR', str(default_reports_dir.resolve())
         )
         logger.info("Reports directory set to %s", self.reports_dir)
         self.pdf_generator = HebrewPDFGenerator(base_dir)

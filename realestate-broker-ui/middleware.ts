@@ -7,10 +7,11 @@ const protectedRoutes = [
   '/alerts',
   '/reports',
   '/profile',
-  '/settings'
+  '/settings',
+  '/admin'
 ]
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Check if the route requires authentication
@@ -48,7 +49,20 @@ export function middleware(request: NextRequest) {
     console.log(`🔄 Redirecting to home: user already authenticated`)
     return NextResponse.redirect(new URL('/', request.url))
   }
-  
+
+  if (pathname.startsWith('/admin')) {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000'}/api/me`, {
+      headers: { cookie: request.headers.get('cookie') || '' },
+    })
+    if (res.status !== 200) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    const me = await res.json()
+    if (me.role !== 'admin') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+  }
+
   return NextResponse.next()
 }
 

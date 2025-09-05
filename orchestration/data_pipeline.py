@@ -15,6 +15,12 @@ from orchestration.collectors.gov_collector import GovCollector
 from orchestration.collectors.rami_collector import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
 
+try:  # pragma: no cover - best effort import
+    from core.analytics import track  # type: ignore
+except Exception:  # pragma: no cover - fallback when Django not configured
+    def track(*args, **kwargs):
+        pass
+
 # alert helpers
 from orchestration.alerts import Notifier, create_notifier_for_user
 
@@ -176,7 +182,12 @@ class DataPipeline:
         x, y = self.gis.geocode(address, house_number)
 
         # Search Yad2 for listings near the location
-        listings = self.yad2.fetch_listings(address, max_pages)
+        try:
+            listings = self.yad2.fetch_listings(address, max_pages)
+            track('collector_success', source='yad2')
+        except Exception as e:
+            track('collector_fail', source='yad2', error_code=str(e))
+            listings = []
 
         # Load user notifiers once per run
         notifiers = _load_user_notifiers()
@@ -195,40 +206,69 @@ class DataPipeline:
                 results.append(listing)
 
                 # ---------------- GIS ----------------
-                gis_data = self.gis.collect(x, y)
+                try:
+                    gis_data = self.gis.collect(x, y)
+                    track('collector_success', source='gis')
+                except Exception as e:
+                    gis_data = {}
+                    track('collector_fail', source='gis', error_code=str(e))
                 self._add_source_record(session, db_listing.id, "gis", gis_data)
                 results.append({"source": "gis", "data": gis_data})
 
                 block, parcel = self.gis.extract_block_parcel(gis_data)
 
                 # ---------------- Gov - decisive ----------------
-                decisives = self.gov.collect_decisive(block, parcel)
+                try:
+                    decisives = self.gov.collect_decisive(block, parcel)
+                    track('collector_success', source='gov')
+                except Exception as e:
+                    decisives = []
+                    track('collector_fail', source='gov', error_code=str(e))
                 if decisives:
                     self._add_source_record(session, db_listing.id, "decisive", decisives)
                     results.append({"source": "decisive", "data": decisives})
 
                 # ---------------- Gov - transactions ----------------
-                deals = list(self.gov.collect_transactions(address))
+                try:
+                    deals = list(self.gov.collect_transactions(address))
+                    track('collector_success', source='gov')
+                except Exception as e:
+                    deals = []
+                    track('collector_fail', source='gov', error_code=str(e))
                 self._add_transactions(session, db_listing.id, deals)
                 if deals:
                     deal_dicts = [d.to_dict() if hasattr(d, "to_dict") else dict(d) for d in deals]
                     results.append({"source": "transactions", "data": deal_dicts})
 
                 # ---------------- RAMI plans ----------------
-                plans = self.rami.collect(block, parcel)
+                try:
+                    plans = self.rami.collect(block, parcel)
+                    track('collector_success', source='rami')
+                except Exception as e:
+                    plans = []
+                    track('collector_fail', source='rami', error_code=str(e))
                 if plans:
                     self._add_source_record(session, db_listing.id, "rami", plans)
                     results.append({"source": "rami", "data": plans})
 
                 # ---------------- Mavat plans ----------------
-                mavat_plans = self.mavat.collect(block, parcel)
+                try:
+                    mavat_plans = self.mavat.collect(block, parcel)
+                    track('collector_success', source='mavat')
+                except Exception as e:
+                    mavat_plans = []
+                    track('collector_fail', source='mavat', error_code=str(e))
                 if mavat_plans:
                     self._add_source_record(session, db_listing.id, "mavat", mavat_plans)
                     results.append({"source": "mavat", "data": mavat_plans})
 
                 # ---------------- Alerts ----------------
                 for notifier in notifiers:
-                    notifier.notify(db_listing)
+                    try:
+                        notifier.notify(db_listing)
+                        track('alert_send', source=notifier.__class__.__name__)
+                    except Exception as e:
+                        track('alert_fail', source=notifier.__class__.__name__, error_code=str(e))
 
             session.commit()
         finally:

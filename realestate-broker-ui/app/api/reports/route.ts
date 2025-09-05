@@ -103,11 +103,13 @@ export async function DELETE(req: Request) {
 
 export async function POST(req: Request) {
   let assetId: number;
+  let sections: string[] | undefined;
   
   // Parse request first
   try {
     const body = await req.json();
     assetId = Number(body.assetId);
+    sections = Array.isArray(body.sections) ? body.sections : undefined;
     
     // Validate assetId
     if (!body.assetId || isNaN(assetId) || assetId <= 0) {
@@ -127,7 +129,7 @@ export async function POST(req: Request) {
     const res = await fetch(`${BACKEND_URL}/api/reports/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetId }),
+      body: JSON.stringify({ assetId, sections }),
     });
     console.log('Backend response status:', res.status);
     if (res.ok) {

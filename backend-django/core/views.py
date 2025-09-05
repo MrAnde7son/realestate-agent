@@ -40,6 +40,7 @@ from .tasks import run_data_pipeline
 # Import services
 from .auth_service import AuthenticationService
 from .report_service import ReportService
+from .constants import DEFAULT_REPORT_SECTIONS
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -351,6 +352,7 @@ def user_settings(request):
             'notify_whatsapp': getattr(user, 'notify_whatsapp', False),
             'notify_urgent': getattr(user, 'notify_urgent', False),
             'notification_time': getattr(user, 'notification_time', ''),
+            'report_sections': getattr(user, 'report_sections', []) or DEFAULT_REPORT_SECTIONS,
         })
 
     if request.method == 'PUT':
@@ -361,7 +363,7 @@ def user_settings(request):
         for field in [
             'language', 'timezone', 'currency', 'date_format',
             'notify_email', 'notify_whatsapp', 'notify_urgent',
-            'notification_time'
+            'notification_time', 'report_sections'
         ]:
             if field in data:
                 setattr(user, field, data[field])
@@ -376,6 +378,7 @@ def user_settings(request):
             'notify_whatsapp': user.notify_whatsapp,
             'notify_urgent': user.notify_urgent,
             'notification_time': user.notification_time,
+            'report_sections': user.report_sections,
         })
 
     return Response({'error': 'Unsupported method'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -575,10 +578,15 @@ def reports(request):
         return JsonResponse({'error': 'assetId required'}, status=400)
 
     asset_id = data['assetId']
+    sections = data.get('sections')
+    if sections is None:
+        sections = DEFAULT_REPORT_SECTIONS
+    elif not sections:
+        return JsonResponse({'error': 'sections required'}, status=400)
     
     try:
         # Create report using service
-        report = report_service.create_report(asset_id)
+        report = report_service.create_report(asset_id, sections)
         
         if not report:
             return JsonResponse({'error': 'Failed to create report'}, status=500)
@@ -602,6 +610,7 @@ def reports(request):
                 'status': report.status,
                 'pages': report.pages,
                 'fileSize': report.file_size,
+                'sections': report.sections,
             }
         }, status=201)
         

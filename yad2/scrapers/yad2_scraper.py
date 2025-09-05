@@ -7,12 +7,13 @@ Essential Yad2 scraper with clean, focused implementation.
 """
 
 import json
-import time
 from datetime import datetime
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+
+from utils.retry import request_with_retry
 
 from ..core import (
     RealEstateListing,
@@ -119,32 +120,21 @@ class Yad2Scraper:
         base_url = self.base_url + self.search_endpoint
         return self.search_params.build_url(base_url)
     
-    def fetch_page(self, url, retries=3, delay=1):
+    def fetch_page(self, url):
         """Fetch a page with retry logic."""
-        for attempt in range(retries):
-            try:
-                response = self.session.get(url, timeout=30)
-                
-                if response.status_code == 200:
-                    return BeautifulSoup(response.content, 'html.parser')
-                elif response.status_code == 429:  # Rate limited
-                    print(f"Rate limited, waiting {delay * (attempt + 1)} seconds...")
-                    time.sleep(delay * (attempt + 1))
-                else:
-                    print(f"Failed to fetch page: {response.status_code}")
-                    
-            except requests.exceptions.RequestException as e:
-                print(f"Error fetching page (attempt {attempt + 1}): {e}")
-                if attempt < retries - 1:
-                    time.sleep(delay)
-        
-        return None
+        try:
+            response = request_with_retry(self.session.get, url, timeout=30)
+            return BeautifulSoup(response.content, 'html.parser')
+        except requests.RequestException as e:
+            print(f"Failed to fetch page: {e}")
+            return None
     
     def extract_listing_info(self, listing_element):
         """Extract information from a listing element."""
         try:
             listing = RealEstateListing()
-            
+            meta_time = datetime.utcnow().isoformat()
+
             # Extract price
             price_elem = listing_element.select_one('[data-testid="price"]')
             if price_elem:
@@ -173,6 +163,13 @@ class Yad2Scraper:
             if link_elem:
                 listing.url = urljoin(self.base_url, link_elem['href'])
                 listing.listing_id = URLUtils.extract_listing_id(listing.url)
+
+            if listing.url:
+                listing.meta['price'] = {
+                    'source': 'yad2',
+                    'fetched_at': meta_time,
+                    'url': listing.url,
+                }
             
             return listing
             

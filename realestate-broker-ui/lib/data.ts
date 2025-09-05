@@ -102,6 +102,7 @@ export interface Asset {
   legalRestrictions?: string
   urbanRenewalPotential?: string
   bettermentLevy?: string
+  _meta?: Record<string, { source: string; fetched_at: string; url?: string }>
 }
 
 export const assets: Asset[] = [
@@ -211,7 +212,35 @@ export const assets: Asset[] = [
     assetId: 1,
     assetStatus: 'ready',
     sources: ['yad2', 'gis_permit', 'gis_rights', 'tabu'],
-    primarySource: 'yad2'
+    primarySource: 'yad2',
+    _meta: {
+      program: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      zoning: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      mainRightsSqm: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      serviceRightsSqm: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      additionalPlanRights: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      publicObligations: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      planStatus: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      planActive: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      remainingRightsSqm: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      riskFlags: { source: 'משרד הפנים', fetched_at: '2025-09-01' },
+      publicTransport: { source: 'משרד התחבורה', fetched_at: '2025-09-01' },
+      openSpacesNearby: { source: 'OpenStreetMap', fetched_at: '2025-09-01' },
+      publicBuildings: { source: 'עיריית תל אביב', fetched_at: '2025-09-01' },
+      parking: { source: 'עיריית תל אביב', fetched_at: '2025-09-01' },
+      nearbyProjects: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitDate: { source: 'מנהל התכנון', fetched_at: '2025-09-01', url: '/docs/1/permit.pdf' },
+      permitStatus: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitDetails: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitMainArea: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitServiceArea: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitApplicant: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitDocUrl: { source: 'מנהל התכנון', fetched_at: '2025-09-01', url: '/docs/1/permit.pdf' },
+      noiseLevel: { source: 'המשרד להגנת הסביבה', fetched_at: '2025-09-01' },
+      greenWithin300m: { source: 'OpenStreetMap', fetched_at: '2025-09-01' },
+      antennaDistanceM: { source: 'משרד התקשורת', fetched_at: '2025-09-01' },
+      pricePerSqm: { source: 'יד2', fetched_at: '2025-09-01' }
+    }
   },
   {
     id: 2,
@@ -316,7 +345,35 @@ export const assets: Asset[] = [
     assetId: 2,
     assetStatus: 'pending',
     sources: ['yad2'],
-    primarySource: 'yad2'
+    primarySource: 'yad2',
+    _meta: {
+      program: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      zoning: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      mainRightsSqm: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      serviceRightsSqm: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      additionalPlanRights: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      publicObligations: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      planStatus: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      planActive: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      remainingRightsSqm: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      riskFlags: { source: 'משרד הפנים', fetched_at: '2025-09-01' },
+      publicTransport: { source: 'משרד התחבורה', fetched_at: '2025-09-01' },
+      openSpacesNearby: { source: 'OpenStreetMap', fetched_at: '2025-09-01' },
+      publicBuildings: { source: 'עיריית תל אביב', fetched_at: '2025-09-01' },
+      parking: { source: 'עיריית תל אביב', fetched_at: '2025-09-01' },
+      nearbyProjects: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitDate: { source: 'מנהל התכנון', fetched_at: '2025-09-01', url: '/docs/2/permit.pdf' },
+      permitStatus: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitDetails: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitMainArea: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitServiceArea: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitApplicant: { source: 'מנהל התכנון', fetched_at: '2025-09-01' },
+      permitDocUrl: { source: 'מנהל התכנון', fetched_at: '2025-09-01', url: '/docs/2/permit.pdf' },
+      noiseLevel: { source: 'המשרד להגנת הסביבה', fetched_at: '2025-09-01' },
+      greenWithin300m: { source: 'OpenStreetMap', fetched_at: '2025-09-01' },
+      antennaDistanceM: { source: 'משרד התקשורת', fetched_at: '2025-09-01' },
+      pricePerSqm: { source: 'יד2', fetched_at: '2025-09-01' }
+    }
   }
 ]
 

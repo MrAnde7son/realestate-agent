@@ -10,7 +10,16 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     company = models.CharField(max_length=100, blank=True, null=True)
-    role = models.CharField(max_length=50, blank=True, null=True)  # broker, appraiser, investor, etc.
+    class Role(models.TextChoices):
+        ADMIN = "admin", "Admin"
+        MEMBER = "member", "Member"
+
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.MEMBER,
+        db_index=True,
+    )
     is_verified = models.BooleanField(default=False)
     is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -25,6 +34,7 @@ class User(AbstractUser):
     notify_whatsapp = models.BooleanField(default=False)
     notify_urgent = models.BooleanField(default=True)
     notification_time = models.CharField(max_length=5, default="09:00")
+    report_sections = models.JSONField(default=list)
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -238,7 +248,7 @@ class Report(models.Model):
     title = models.CharField(max_length=200, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     pages = models.IntegerField(default=1)
-    
+
     # Generation details
     generated_at = models.DateTimeField(auto_now_add=True)
     generation_time = models.FloatField(blank=True, null=True)  # in seconds
@@ -247,6 +257,7 @@ class Report(models.Model):
     error_message = models.TextField(blank=True, null=True)
     
     # Additional metadata
+    sections = models.JSONField(default=list)
     meta = models.JSONField(default=dict)
     
     class Meta:
@@ -367,3 +378,46 @@ class ShareToken(models.Model):
 
     def __str__(self):
         return f"ShareToken({self.asset_id}, {self.token})"
+
+
+class AnalyticsEvent(models.Model):
+    """Raw analytics events for tracking system activity."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    event = models.CharField(max_length=100)
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="analytics_events",
+    )
+    asset_id = models.IntegerField(null=True, blank=True)
+    source = models.CharField(max_length=100, null=True, blank=True)
+    error_code = models.CharField(max_length=100, null=True, blank=True)
+    meta = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["event"]),
+            models.Index(fields=["source"]),
+            models.Index(fields=["error_code"]),
+        ]
+
+
+class AnalyticsDaily(models.Model):
+    """Daily rollups for analytics events."""
+
+    date = models.DateField(unique=True)
+    users = models.IntegerField(default=0)
+    assets = models.IntegerField(default=0)
+    reports = models.IntegerField(default=0)
+    alerts = models.IntegerField(default=0)
+    errors = models.IntegerField(default=0)
+
+    class Meta:
+        indexes = [models.Index(fields=["date"])]
+
+    def __str__(self):
+        return f"AnalyticsDaily({self.date})"

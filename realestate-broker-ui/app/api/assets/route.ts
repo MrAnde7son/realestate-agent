@@ -23,7 +23,26 @@ const newAssetSchema = z.object({
   number: z.number().optional(),
   gush: z.string().optional(),
   helka: z.string().optional(),
-  radius: z.number().default(100)
+  radius: z.number().default(100),
+  deltaVsAreaPct: z.number().optional(),
+  domPercentile: z.number().optional(),
+  competition1km: z.string().optional(),
+  zoning: z.string().optional(),
+  riskFlags: z.array(z.string()).optional(),
+  priceGapPct: z.number().optional(),
+  expectedPriceRange: z.string().optional(),
+  remainingRightsSqm: z.number().optional(),
+  program: z.string().optional(),
+  lastPermitQ: z.string().optional(),
+  noiseLevel: z.number().optional(),
+  greenWithin300m: z.boolean().optional(),
+  schoolsWithin500m: z.boolean().optional(),
+  modelPrice: z.number().optional(),
+  confidencePct: z.number().optional(),
+  capRatePct: z.number().optional(),
+  antennaDistanceM: z.number().optional(),
+  shelterDistanceM: z.number().optional(),
+  rentEstimate: z.number().optional()
 })
 
 function determineAssetType(asset: any): string {
@@ -50,25 +69,25 @@ export async function GET() {
       neighborhood: asset.neighborhood || '',
       netSqm: asset.netSqm || 0,
       pricePerSqmDisplay: asset.pricePerSqmDisplay || 0,
-      deltaVsAreaPct: asset.deltaVsAreaPct || 0, // Calculate if needed
-      domPercentile: asset.domPercentile || 50, // Default
-      competition1km: asset.competition1km || 'בינוני',
-      zoning: asset.zoning || 'מגורים א\'',
-      riskFlags: asset.riskFlags || [],
-      priceGapPct: asset.priceGapPct || 0,
-      expectedPriceRange: asset.expectedPriceRange || '',
-      remainingRightsSqm: asset.remainingRightsSqm || 0,
-      program: asset.program || '',
-      lastPermitQ: asset.lastPermitQ || '',
-      noiseLevel: asset.noiseLevel || 2,
-      greenWithin300m: asset.greenWithin300m || true,
-      schoolsWithin500m: asset.schoolsWithin500m || true,
-      modelPrice: asset.modelPrice || 0,
-      confidencePct: asset.confidencePct || 75, // Default
-      capRatePct: asset.capRatePct || 3.0,
-      antennaDistanceM: asset.antennaDistanceM || 150,
-      shelterDistanceM: asset.shelterDistanceM || 100,
-      rentEstimate: asset.rentEstimate || 0,
+      deltaVsAreaPct: asset.deltaVsAreaPct,
+      domPercentile: asset.domPercentile,
+      competition1km: asset.competition1km,
+      zoning: asset.zoning,
+      riskFlags: asset.riskFlags,
+      priceGapPct: asset.priceGapPct,
+      expectedPriceRange: asset.expectedPriceRange,
+      remainingRightsSqm: asset.remainingRightsSqm,
+      program: asset.program,
+      lastPermitQ: asset.lastPermitQ,
+      noiseLevel: asset.noiseLevel,
+      greenWithin300m: asset.greenWithin300m,
+      schoolsWithin500m: asset.schoolsWithin500m,
+      modelPrice: asset.modelPrice,
+      confidencePct: asset.confidencePct,
+      capRatePct: asset.capRatePct,
+      antennaDistanceM: asset.antennaDistanceM,
+      shelterDistanceM: asset.shelterDistanceM,
+      rentEstimate: asset.rentEstimate,
       assetId: asset.assetId || asset.id,
       assetStatus: asset.assetStatus || 'active',
       sources: asset.sources || [],
@@ -161,6 +180,36 @@ export async function POST(req: Request) {
 
     const id = Date.now() // Generate unique numeric ID once
 
+    // Pull through optional metrics if provided
+    const metricKeys = [
+      'deltaVsAreaPct',
+      'domPercentile',
+      'competition1km',
+      'zoning',
+      'riskFlags',
+      'priceGapPct',
+      'expectedPriceRange',
+      'remainingRightsSqm',
+      'program',
+      'lastPermitQ',
+      'noiseLevel',
+      'greenWithin300m',
+      'schoolsWithin500m',
+      'modelPrice',
+      'confidencePct',
+      'capRatePct',
+      'antennaDistanceM',
+      'shelterDistanceM',
+      'rentEstimate'
+    ] as const
+
+    const extraFields: Partial<Asset> = {}
+    for (const key of metricKeys) {
+      if ((validatedData as any)[key] !== undefined) {
+        ;(extraFields as any)[key] = (validatedData as any)[key]
+      }
+    }
+
     // Create asset with available data, using defaults for missing fields
     const asset: Asset = {
       id,
@@ -183,29 +232,11 @@ export async function POST(req: Request) {
       neighborhood: '',
       netSqm: 0,
       pricePerSqmDisplay: 0,
-      deltaVsAreaPct: 0,
-      domPercentile: 50,
-      competition1km: 'בינוני',
-      zoning: 'מגורים א\'',
-      riskFlags: [],
-      priceGapPct: 0,
-      expectedPriceRange: '',
-      remainingRightsSqm: 0,
-      program: '',
-      lastPermitQ: '',
-      noiseLevel: 2,
-      greenWithin300m: true,
-      schoolsWithin500m: true,
-      modelPrice: 0,
-      confidencePct: 75,
-      capRatePct: 3.0,
-      antennaDistanceM: 150,
-      shelterDistanceM: 100,
-      rentEstimate: 0,
       assetId: id,
       assetStatus: 'pending',
       sources: [],
-      primarySource: 'manual'
+      primarySource: 'manual',
+      ...extraFields
     }
     
     // Add to in-memory store

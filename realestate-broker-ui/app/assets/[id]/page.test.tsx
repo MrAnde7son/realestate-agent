@@ -37,6 +37,12 @@ describe('AssetDetailPage', () => {
           })
         })
       }
+      if (url === '/api/settings') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ report_sections: ['summary', 'plans'] })
+        })
+      }
       if (url === '/api/assets/1/share-message') {
         return Promise.resolve({
           ok: false,

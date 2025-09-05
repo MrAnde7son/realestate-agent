@@ -178,7 +178,32 @@ export async function POST(req: Request) {
 
     const derivedCity = validatedData.city || validatedData.scope.city || ''
 
-    const id = Date.now() // Generate unique numeric ID once
+    // Send asset creation to backend
+    let backendId: number | null = null
+    let backendStatus: string | undefined
+    try {
+      const backendPayload = {
+        ...validatedData,
+        address: derivedAddress,
+        city: derivedCity
+      }
+      const res = await fetch(`${BACKEND_URL}/api/assets/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backendPayload)
+      })
+      if (res.ok) {
+        const data = await res.json()
+        backendId = data.id
+        backendStatus = data.status
+      } else {
+        console.error('Backend asset creation failed:', res.status)
+      }
+    } catch (err) {
+      console.error('Error connecting to backend for asset creation:', err)
+    }
+
+    const id = backendId ?? Date.now() // Fallback to timestamp if backend unavailable
 
     // Pull through optional metrics if provided
     const metricKeys = [
@@ -233,12 +258,12 @@ export async function POST(req: Request) {
       netSqm: 0,
       pricePerSqmDisplay: 0,
       assetId: id,
-      assetStatus: 'pending',
+      assetStatus: backendStatus || 'pending',
       sources: [],
       primarySource: 'manual',
       ...extraFields
     }
-    
+
     // Add to in-memory store
     addAsset(asset)
     return NextResponse.json({ asset }, { status: 201 })

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { GET, POST, DELETE } from './route'
 import { NextRequest } from 'next/server'
 import { addAsset, assets } from '@/lib/data'
@@ -14,6 +14,19 @@ const createMockRequest = (body?: any) => {
   })
   return request
 }
+
+const originalFetch = global.fetch
+
+beforeEach(() => {
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ id: 123, status: 'pending' })
+  })
+})
+
+afterAll(() => {
+  global.fetch = originalFetch
+})
 
 describe('/api/assets', () => {
   describe('GET', () => {
@@ -67,17 +80,21 @@ describe('/api/assets', () => {
         street: 'New St',
         number: 5
       }
-      const request = createMockRequest(mockAsset)
-      
-      const response = await POST(request)
-      const data = await response.json()
-      
-      expect(data.asset).toBeDefined()
-      expect(data.asset.address).toBe('New St 5')
-      expect(data.asset.city).toBe('תל אביב')
-      expect(data.asset.status).toBe('pending')
-      expect(data.asset.type).toBe('לא ידוע')
-    })
+    const request = createMockRequest(mockAsset)
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(data.asset).toBeDefined()
+    expect(data.asset.address).toBe('New St 5')
+    expect(data.asset.city).toBe('תל אביב')
+    expect(data.asset.status).toBe('pending')
+    expect(data.asset.type).toBe('לא ידוע')
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:8000/api/assets/',
+      expect.objectContaining({ method: 'POST' })
+    )
+  })
 
     it('validates required fields', async () => {
       const invalidAsset = { 
@@ -187,6 +204,8 @@ describe('/api/assets', () => {
         contactInfo: { agent: '', phone: '', email: '' },
       }
       addAsset(newAsset as any)
+      // Simulate backend failure so local deletion is used
+      ;(global.fetch as any).mockResolvedValueOnce({ ok: false, status: 500 })
       const req = new Request('http://localhost/api/assets', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },

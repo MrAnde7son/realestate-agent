@@ -1,7 +1,7 @@
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 from django.template.loader import render_to_string
 from weasyprint import HTML
@@ -12,6 +12,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.pagesizes import A4
 
 from .models import Asset, Report
+from .constants import SECTION_TITLES_HE
 
 
 class HebrewPDFGenerator:
@@ -170,8 +171,8 @@ class HebrewPDFGenerator:
         else:
             canvas_obj.drawString(x, y, header)
     
-    def _generate_report_canvas(self, asset: Optional[Asset], report: Report, file_path: str) -> bool:
-        """Generate the PDF report using ReportLab primitives."""
+    def _generate_report_canvas(self, asset: Optional[Asset], report: Report, file_path: str, sections: List[str]) -> bool:
+        """Generate the PDF report using ReportLab primitives for selected sections."""
         start_time = time.time()
 
         try:
@@ -186,11 +187,22 @@ class HebrewPDFGenerator:
             # Create PDF canvas
             c = canvas.Canvas(file_path, pagesize=A4)
 
-            # Generate all pages
-            self._generate_page_1_general_analysis(c, listing)
-            self._generate_page_2_building_plans(c, listing)
-            self._generate_page_3_environmental_info(c, listing)
-            self._generate_page_4_documents_summary(c, listing)
+            # Generate pages based on selected sections
+            for section in sections:
+                if section == 'summary':
+                    self._generate_page_1_general_analysis(c, listing)
+                elif section == 'permits':
+                    self._generate_stub_page(c, SECTION_TITLES_HE['permits'])
+                elif section == 'plans':
+                    self._generate_page_2_building_plans(c, listing)
+                elif section == 'environment':
+                    self._generate_page_3_environmental_info(c, listing)
+                elif section == 'comparables':
+                    self._generate_stub_page(c, SECTION_TITLES_HE['comparables'])
+                elif section == 'mortgage':
+                    self._generate_stub_page(c, SECTION_TITLES_HE['mortgage'])
+                elif section == 'appendix':
+                    self._generate_page_4_documents_summary(c, listing, SECTION_TITLES_HE['appendix'])
 
             # Save PDF
             c.save()
@@ -198,12 +210,8 @@ class HebrewPDFGenerator:
             # Update report status
             generation_time = time.time() - start_time
             file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
-            report.mark_completed(
-                file_size=file_size,
-                pages=4,
-                generation_time=generation_time
-            )
-
+            pages = len(PdfReader(file_path).pages)
+            report.mark_completed(file_size=file_size, pages=pages, generation_time=generation_time)
             return True
 
         except Exception as e:
@@ -211,7 +219,7 @@ class HebrewPDFGenerator:
             print(f"PDF generation failed: {e}")
             return False
 
-    def _generate_report_from_template(self, asset: Optional[Asset], report: Report, file_path: str) -> bool:
+    def _generate_report_from_template(self, asset: Optional[Asset], report: Report, file_path: str, sections: List[str]) -> bool:
         """Generate the PDF report using the HTML template and WeasyPrint."""
         start_time = time.time()
         try:
@@ -237,16 +245,21 @@ class HebrewPDFGenerator:
             print(f"PDF generation failed: {e}")
             return False
 
-    def generate_report(self, asset: Optional[Asset], report: Report, file_path: str, use_template: bool = True) -> bool:
+    def generate_report(self, asset: Optional[Asset], report: Report, file_path: str, sections: List[str], use_template: bool = True) -> bool:
         """Generate a report using either the HTML template or the legacy canvas method."""
         if use_template:
-            return self._generate_report_from_template(asset, report, file_path)
-        return self._generate_report_canvas(asset, report, file_path)
+            return self._generate_report_from_template(asset, report, file_path, sections)
+        return self._generate_report_canvas(asset, report, file_path, sections)
+
+    def _generate_stub_page(self, c, header: str):
+        """Generate a simple page with just a header."""
+        self.draw_page_header(c, header)
+        c.showPage()
     
     def _generate_page_1_general_analysis(self, c, listing: dict):
-        """Generate page 1: General Analysis."""
+        """Generate Summary page."""
         # Page header
-        self.draw_page_header(c, 'דו"ח נכס - ניתוח כללי')
+        self.draw_page_header(c, SECTION_TITLES_HE['summary'])
         
         c.setFont(self.report_font, 12)
         y = 720
@@ -336,8 +349,8 @@ class HebrewPDFGenerator:
         self.draw_hebrew_label(c, 'המלצה', hebrew_recommendation, x, y)
     
     def _generate_page_2_building_plans(self, c, listing: dict):
-        """Generate page 2: Building Plans."""
-        self.draw_page_header(c, 'תוכניות וזכויות בנייה')
+        """Generate Plans page."""
+        self.draw_page_header(c, SECTION_TITLES_HE['plans'])
         
         c.setFont(self.report_font, 12)
         y = 720
@@ -388,8 +401,8 @@ class HebrewPDFGenerator:
         self.draw_hebrew_label(c, 'ערך זכויות משוער', f"₪{rights_value}K", x, y)
     
     def _generate_page_3_environmental_info(self, c, listing: dict):
-        """Generate page 3: Environmental Information."""
-        self.draw_page_header(c, 'מידע סביבתי')
+        """Generate Environment page."""
+        self.draw_page_header(c, SECTION_TITLES_HE['environment'])
         
         c.setFont(self.report_font, 12)
         y = 720
@@ -431,9 +444,9 @@ class HebrewPDFGenerator:
             else:
                 c.drawString(x, y, "No special risks")
     
-    def _generate_page_4_documents_summary(self, c, listing: dict):
-        """Generate page 4: Documents and Summary."""
-        self.draw_page_header(c, 'מסמכים וסיכום')
+    def _generate_page_4_documents_summary(self, c, listing: dict, header: str = SECTION_TITLES_HE['appendix']):
+        """Generate Appendix page."""
+        self.draw_page_header(c, header)
         
         c.setFont(self.report_font, 12)
         y = 720

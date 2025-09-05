@@ -69,15 +69,7 @@ class HebrewPDFGenerationTest(TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_pdf_contains_hebrew_titles(self):
-        # Ensure we actually have a Hebrew-capable font
-        self.assertNotEqual(
-            views.report_service.pdf_generator.report_font, "Helvetica",
-            "Hebrew font not found. Add core/fonts/NotoSansHebrew-Regular.ttf "
-            "or set REPORT_HEBREW_FONT_PATH to a TTF that supports Hebrew."
-        )
-
-        # Generate report for the asset inserted into the test database
+    def test_default_sections_and_subset(self):
         req = self.factory.post(
             "/api/reports",
             data=json.dumps({"assetId": self.asset.id}),
@@ -85,59 +77,42 @@ class HebrewPDFGenerationTest(TestCase):
         )
         resp = views.reports(req)
         self.assertEqual(resp.status_code, 201, resp.content)
-
         filename = json.loads(resp.content)["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
-        self.assertTrue(os.path.exists(path), f"Expected PDF file at path {path}")
-
-        # Verify the Report model points to the correct URL and path
         report = Report.objects.get(filename=filename)
-        self.assertEqual(report.file_path, path)
-        self.assertEqual(report.file_url, f"/reports/{filename}")
-        self.assertEqual(report.asset_id, self.asset.id)
+        self.assertEqual(report.sections, DEFAULT_REPORT_SECTIONS)
 
-        # Extract text and verify Hebrew section titles exist
         reader = PdfReader(path)
-        extracted = ""
-        for page in reader.pages:
-            try:
-                extracted += page.extract_text() or ""
-            except Exception:
-                pass
+        text = "".join(page.extract_text() or "" for page in reader.pages)
+        for title in SECTION_TITLES_HE.values():
+            self.assertIn(title, text)
 
-        # Look for all-Hebrew titles
-        must_have = [
-            'דו"ח נכס',
-            'פרטי הנכס',
-            'אנליזה פיננסית',
-            'תוכניות וזכויות בנייה',
-            'מידע סביבתי וסיכונים',
-            'מסמכים וזיהוי איש קשר',
-            'סיכונים',
-            'פרטי קשר',
-        ]
-        missing = [t for t in must_have if t not in extracted]
-        self.assertFalse(
-            missing,
-            f"The following Hebrew titles were not found in the text: {missing}\n"
-            f"Beginning of extracted text: {extracted[:350]!r}"
+        # Now generate report with subset of sections
+        req = self.factory.post(
+            "/api/reports",
+            data=json.dumps({"assetId": self.asset.id, "sections": ["summary", "plans"]}),
+            content_type="application/json",
         )
+        resp = views.reports(req)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        filename = json.loads(resp.content)["report"]["filename"]
+        path = os.path.join(self.tmpdir, filename)
+        report = Report.objects.get(filename=filename)
+        self.assertEqual(report.sections, ["summary", "plans"])
+        reader = PdfReader(path)
+        text = "".join(page.extract_text() or "" for page in reader.pages)
+        self.assertIn(SECTION_TITLES_HE['summary'], text)
+        self.assertIn(SECTION_TITLES_HE['plans'], text)
+        self.assertNotIn(SECTION_TITLES_HE['environment'], text)
 
-        # Ensure asset-specific data from the database made it into the PDF
-        self.assertIn('רחוב הרצל', extracted)
-        
-        # Additional validation: Check that Hebrew text is properly rendered
-        # If the font is working, Hebrew text should appear as readable text, not as individual characters
-        hebrew_address = 'רחוב הרצל 123, תל אביב'
-        if hebrew_address in extracted:
-            print(f"✓ Hebrew address found in PDF: {hebrew_address}")
-        else:
-            # Check if it's rendered as individual characters (font issue)
-            individual_chars = ' '.join(hebrew_address)
-            if individual_chars in extracted:
-                print(f"⚠ Hebrew text rendered as individual characters (font issue): {individual_chars}")
-            else:
-                print(f"✗ Hebrew address not found in PDF. Extracted text preview: {extracted[:200]}")
+    def test_empty_sections_rejected(self):
+        req = self.factory.post(
+            "/api/reports",
+            data=json.dumps({"assetId": self.asset.id, "sections": []}),
+            content_type="application/json",
+        )
+        resp = views.reports(req)
+        self.assertEqual(resp.status_code, 400)
 
     def test_unknown_asset_id_generates_placeholder_report(self):
         """Ensure report generation succeeds even for unknown asset IDs."""

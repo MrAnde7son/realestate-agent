@@ -2,13 +2,16 @@ import json
 import statistics
 import re
 import os
+import secrets
 from datetime import datetime
 from pathlib import Path
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.conf import settings
+from django.utils.crypto import get_random_string
+from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -17,7 +20,7 @@ from rest_framework import status
 from openai import OpenAI
 
 # Import Django models
-from .models import Alert, Asset, SourceRecord, RealEstateTransaction, Report, OnboardingProgress
+from .models import Alert, Asset, SourceRecord, RealEstateTransaction, Report, OnboardingProgress, ShareToken
 
 # Import utility functions
 try:
@@ -260,6 +263,71 @@ def auth_google_callback(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+
+# Demo mode
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def demo_start(request):
+    """Create a demo user and seed sample assets."""
+    User = get_user_model()
+    username = f"demo_{get_random_string(8)}"
+    email = f"{username}@demo.local"
+    password = get_random_string(12)
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        password=password,
+        first_name="Demo",
+        last_name="User",
+        is_demo=True,
+    )
+
+    sample_assets = [
+        {
+            'scope_type': 'address',
+            'city': 'Tel Aviv',
+            'street': 'Herzl',
+            'number': 1,
+            'price': 1500000,
+            'rooms': 3,
+        },
+        {
+            'scope_type': 'address',
+            'city': 'Jerusalem',
+            'street': 'King George',
+            'number': 5,
+            'price': 2000000,
+            'rooms': 4,
+        },
+        {
+            'scope_type': 'address',
+            'city': 'Haifa',
+            'street': 'HaNassi',
+            'number': 20,
+            'price': 1200000,
+            'rooms': 2,
+        },
+    ]
+
+    for data in sample_assets:
+        Asset.objects.create(
+            **data,
+            status='ready',
+            is_demo=True,
+            meta={'demo': True},
+        )
+
+    from rest_framework_simplejwt.tokens import RefreshToken
+    refresh = RefreshToken.for_user(user)
+    return Response(
+        {
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+            'user': auth_service._get_user_data(user),
+        }
+    )
 
 
 # Font setup is now handled by the HebrewPDFGenerator class
@@ -742,12 +810,12 @@ def _get_assets_list():
     """Helper function to get all assets in listing format."""
     
     try:
-        # Get all assets
-        assets = Asset.objects.all().order_by('-created_at')
-        
+        # Get all assets from database
+        assets_qs = Asset.objects.all().order_by('-created_at')
+
         # Transform assets to listing format
-        assets = []
-        for asset in assets:
+        listings = []
+        for asset in assets_qs:
             # Get source records for this asset
             source_records = SourceRecord.objects.filter(asset_id=asset.id)
             
@@ -809,7 +877,7 @@ def _get_assets_list():
                             'sources': all_sources,
                             'primary_source': source
                         }
-                        assets.append(listing)
+                        listings.append(listing)
             else:
                 # Create a basic listing from asset data when no sources yet
                 listing = {
@@ -854,9 +922,9 @@ def _get_assets_list():
                     'sources': [],
                     'primary_source': 'asset'
                 }
-                assets.append(listing)
-        
-        return JsonResponse({'rows': assets})
+                listings.append(listing)
+
+        return JsonResponse({'rows': listings})
         
     except Exception as e:
         print(f"Error fetching assets: {e}")
@@ -979,31 +1047,69 @@ def asset_share_message(request, asset_id):
         f"size and any selling points from this data: {json.dumps(asset.meta, ensure_ascii=False)}"
     )
 
-    try:
-        # Check if OpenAI API key is configured
-        if not os.environ.get('OPENAI_API_KEY'):
-            return Response(
-                {'error': 'OpenAI API key not configured', 'details': 'OPENAI_API_KEY environment variable is missing'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    message = None
+    if os.environ.get('OPENAI_API_KEY'):
+        try:
+            client = OpenAI()
+            completion = client.chat.completions.create(
+                model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
+                messages=[
+                    {"role": "system", "content": f"You write short real estate marketing messages in {language}."},
+                    {"role": "user", "content": prompt},
+                ],
             )
-        
-        client = OpenAI()
-        completion = client.chat.completions.create(
-            model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
-            messages=[
-                {"role": "system", "content": f"You write short real estate marketing messages in {language}."},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        message = completion.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"Error generating marketing message: {str(e)}")
-        return Response(
-            {'error': 'Failed to generate message', 'details': str(e)}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+            message = completion.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Error generating marketing message: {str(e)}")
+            message = None
 
-    return Response({'message': message})
+    if not message:
+        # Rule-based Hebrew fallback
+        parts = []
+        if asset.neighborhood:
+            parts.append(asset.neighborhood)
+        if asset.city:
+            parts.append(asset.city)
+        location = ' '.join(parts)
+        price = f"₪{asset.price:,}" if asset.price else "מחיר מבוקש בפרטים"
+        rooms = f"{asset.rooms} חדרים" if asset.rooms else "מספר חדרים גמיש"
+        area = f"{asset.area} מ\"ר" if asset.area else "שטח לא ידוע"
+        transit = asset.meta.get('transit') or asset.meta.get('nearest_transit') or asset.meta.get('nearby_transit')
+        transit_part = f" בקרבת {transit}" if transit else ""
+        message = f"למכירה {rooms} בשטח {area} ב{location}. מחיר: {price}.{transit_part}"
+
+    token = secrets.token_urlsafe(16)
+    ShareToken.objects.create(asset=asset, token=token)
+    share_url = f"/r/{token}"
+
+    return Response({'text': message, 'share_url': share_url})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def asset_share_read_only(request, token):
+    """Render a read-only view of an asset for sharing."""
+    from django.utils import timezone
+
+    try:
+        share = ShareToken.objects.select_related('asset').get(token=token)
+        if share.expires_at and share.expires_at < timezone.now():
+            raise ShareToken.DoesNotExist
+    except ShareToken.DoesNotExist:
+        return Response({'error': 'Invalid or expired token'}, status=status.HTTP_404_NOT_FOUND)
+
+    asset = share.asset
+    address = ' '.join(filter(None, [asset.street, str(asset.number or ''), asset.city]))
+    context = {
+        'asset': {
+            'address': address,
+            'price': asset.price,
+            'rooms': asset.rooms,
+            'area': asset.area,
+            'neighborhood': asset.neighborhood,
+        }
+    }
+    return render(request, 'share_asset.html', context)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

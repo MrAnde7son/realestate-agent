@@ -18,6 +18,9 @@ describe('AssetDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     ;(useRouter as any).mockReturnValue(mockUseRouter)
+    // Stub alert for tests
+    // @ts-ignore
+    global.alert = vi.fn()
     global.fetch = vi.fn((url: string, options?: any) => {
       if (url === '/api/assets/1') {
         return Promise.resolve({
@@ -59,7 +62,7 @@ describe('AssetDetailPage', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Quota exceeded')).toBeInTheDocument()
+      expect(global.alert).toHaveBeenCalledWith('Quota exceeded')
     })
   })
 })

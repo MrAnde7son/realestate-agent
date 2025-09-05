@@ -2,7 +2,28 @@ from rest_framework import serializers
 from .models import Asset, Permit, Plan
 
 
-class AssetSerializer(serializers.ModelSerializer):
+class MetaSerializerMixin(serializers.ModelSerializer):
+    """Adds _meta section with field lineage information."""
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        meta = getattr(instance, "meta", {}) or {}
+        field_meta = {}
+        for key, value in meta.items():
+            if isinstance(value, dict):
+                source = value.get("source")
+                fetched = value.get("fetched_at") or value.get("fetchedAt")
+                url = value.get("url")
+                if source and fetched and url:
+                    field_meta[key] = {"source": source, "fetched_at": fetched, "url": url}
+                elif source and fetched:
+                    field_meta[key] = {"source": source, "fetched_at": fetched}
+        if field_meta:
+            data["_meta"] = field_meta
+        return data
+
+
+class AssetSerializer(MetaSerializerMixin):
     class Meta:
         model = Asset
         fields = [
@@ -11,7 +32,7 @@ class AssetSerializer(serializers.ModelSerializer):
         ]
 
 
-class PermitSerializer(serializers.ModelSerializer):
+class PermitSerializer(MetaSerializerMixin):
     class Meta:
         model = Permit
         fields = [
@@ -20,7 +41,7 @@ class PermitSerializer(serializers.ModelSerializer):
         ]
 
 
-class PlanSerializer(serializers.ModelSerializer):
+class PlanSerializer(MetaSerializerMixin):
     class Meta:
         model = Plan
         fields = [

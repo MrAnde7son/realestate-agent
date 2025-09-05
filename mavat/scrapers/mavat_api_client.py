@@ -18,6 +18,8 @@ from urllib.parse import quote
 
 import requests
 
+from utils.retry import request_with_retry
+
 
 @dataclass
 class MavatSearchHit:
@@ -105,8 +107,7 @@ class MavatAPIClient:
             return self._lookup_cache
         
         try:
-            response = self.session.get(self.LOOKUP_URL, timeout=30)
-            response.raise_for_status()
+            response = request_with_retry(self.session.get, self.LOOKUP_URL, timeout=30)
             
             data = response.json()
             lookup_tables = {}

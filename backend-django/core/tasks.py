@@ -5,6 +5,8 @@ from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
+from .analytics import track
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,13 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     pipeline = DataPipeline()
     address = asset.street or asset.city or ""
     house_number = asset.number or 0
-    return pipeline.run(address, house_number, max_pages=max_pages)
+    try:
+        result = pipeline.run(address, house_number, max_pages=max_pages)
+        track('asset_sync', asset_id=asset_id)
+        return result
+    except Exception as e:
+        track('asset_sync_fail', asset_id=asset_id, error_code=str(e))
+        raise
 
 
 @shared_task
@@ -48,4 +56,35 @@ def cleanup_demo_data():
     User = get_user_model()
     User.objects.filter(is_demo=True, created_at__lt=cutoff).delete()
     Asset.objects.filter(is_demo=True, created_at__lt=cutoff).delete()
+
+
+@shared_task
+def rollup_analytics():
+    """Aggregate raw analytics events into daily rollups."""
+    from django.utils import timezone
+    from .analytics import rollup_day
+
+    today = timezone.now().date()
+    rollup_day(today)
+
+
+@shared_task
+def alert_on_spikes():
+    """Send an alert if today's errors exceed twice the 7-day average."""
+    from django.utils import timezone
+    from .models import AnalyticsDaily
+
+    today = timezone.now().date()
+    daily = AnalyticsDaily.objects.filter(date=today).first()
+    if not daily:
+        return False
+    errors_today = daily.errors
+    window = AnalyticsDaily.objects.filter(date__lt=today).order_by('-date')[:7]
+    if not window:
+        return False
+    avg = sum(d.errors for d in window) / len(window)
+    if errors_today > 2 * avg and errors_today > 0:
+        track('error_spike', meta={'today': errors_today, 'avg': avg})
+        return True
+    return False
 

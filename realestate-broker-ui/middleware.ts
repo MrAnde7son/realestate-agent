@@ -7,7 +7,8 @@ const protectedRoutes = [
   '/alerts',
   '/reports',
   '/profile',
-  '/settings'
+  '/settings',
+  '/admin'
 ]
 
 export function middleware(request: NextRequest) {

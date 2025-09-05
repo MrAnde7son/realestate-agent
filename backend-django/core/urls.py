@@ -18,6 +18,7 @@ urlpatterns = [
     path('reports/', views.reports, name='reports'),
     path('settings/', views.user_settings, name='user_settings'),
     path('alerts/', views.alerts, name='alerts'),
+    path('analytics/', views.analytics_dashboard, name='analytics_dashboard'),
     path('onboarding-status/', views.onboarding_status, name='onboarding_status'),
     path('connect-payment/', views.connect_payment, name='connect_payment'),
     path('demo/start/', views.demo_start, name='demo_start'),

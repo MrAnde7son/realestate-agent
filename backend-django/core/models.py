@@ -266,17 +266,13 @@ class Report(models.Model):
     
     @property
     def file_url(self):
-        """Return the URL to access the report file.
+        """Return the API URL to download the report's PDF.
 
-        Reports are stored in the front-end ``public/reports`` directory which
-        is served directly at ``/reports``.  The previous implementation
-        returned a URL under ``/media`` which does not exist in the Next.js
-        application, causing generated reports to return 404 when users tried
-        to open them.  By pointing to ``/reports`` we align the URL with the
-        actual file location.
+        Reports are stored on the backend and served through a dedicated
+        endpoint so the front-end does not need direct filesystem access.
         """
 
-        return f"/reports/{self.filename}"
+        return f"/api/reports/file/{self.filename}"
     
     def mark_completed(self, file_size=None, pages=None, generation_time=None):
         """Mark the report as completed with metadata."""

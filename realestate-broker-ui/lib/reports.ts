@@ -4,6 +4,8 @@ export interface Report {
   address: string;
   filename: string;
   createdAt: string;
+  /** API URL to download the report PDF */
+  url: string;
   status?: string;
 }
 
@@ -15,5 +17,9 @@ export const mockReports: Report[] = [
     address: 'רחוב הרצל 123, תל אביב',
     filename: 'r1.pdf',
     createdAt: '2024-01-15T08:00:00.000Z',
+    url: '/api/reports/file/r1.pdf',
   },
 ];
+
+// Export alias used by tests
+export const reports = mockReports;

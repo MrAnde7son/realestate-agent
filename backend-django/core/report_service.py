@@ -15,14 +15,14 @@ class ReportService:
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
 
-        # Determine the default reports directory.  To keep the backend
-        # decoupled from the frontend, reports are always written to a
-        # directory relative to the backend project.
-        default_reports_dir = base_dir / 'reports'
+        # Reports are stored on the backend.  Deployments can override the
+        # location via the ``REPORTS_DIR`` environment variable, but by default
+        # we keep them inside the backend's own ``reports`` directory.  This
+        # avoids relying on shared volumes with the front-end which may not be
+        # available in production.
 
-        self.reports_dir = os.environ.get(
-            'REPORTS_DIR', str(default_reports_dir.resolve())
-        )
+        backend_reports_dir = base_dir / "reports"
+        self.reports_dir = os.environ.get("REPORTS_DIR", str(backend_reports_dir.resolve()))
         logger.info("Reports directory set to %s", self.reports_dir)
         self.pdf_generator = HebrewPDFGenerator(base_dir)
     
@@ -96,6 +96,7 @@ class ReportService:
                 'status': report.status,
                 'pages': report.pages,
                 'fileSize': report.file_size,
+                'url': report.file_url,
             })
         return reports_list
     

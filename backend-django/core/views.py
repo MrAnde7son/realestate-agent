@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime
 from pathlib import Path
 
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
 from django.conf import settings
@@ -611,11 +611,21 @@ def reports(request):
                 'pages': report.pages,
                 'fileSize': report.file_size,
                 'sections': report.sections,
+                'url': report.file_url,
             }
         }, status=201)
         
     except Exception as e:
         return JsonResponse({'error': 'Report generation failed', 'details': str(e)}, status=500)
+
+
+def report_file(request, filename):
+    """Serve a generated report PDF from the backend."""
+    report = report_service.get_report_by_filename(filename)
+    if not report or not os.path.exists(report.file_path):
+        raise Http404("Report not found")
+    return FileResponse(open(report.file_path, 'rb'), content_type='application/pdf')
+
 
 def _group_by_month(transactions):
     months = {}

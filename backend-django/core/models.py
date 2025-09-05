@@ -369,3 +369,38 @@ class ShareToken(models.Model):
 
     def __str__(self):
         return f"ShareToken({self.asset_id}, {self.token})"
+
+class SupportTicket(models.Model):
+    class Kind(models.TextChoices):
+        CONTACT = "contact"
+        BUG = "bug"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    subject = models.CharField(max_length=200, blank=True)
+    message = models.TextField()
+    severity = models.CharField(max_length=16, blank=True)
+    url = models.URLField(blank=True)
+    user_agent = models.TextField(blank=True)
+    app_version = models.CharField(max_length=64, blank=True)
+    attachment = models.FileField(upload_to="support/", blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=16, default="open", db_index=True)
+
+    def __str__(self):
+        return f"SupportTicket({self.id}, {self.kind})"
+
+
+class ConsultationRequest(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    full_name = models.CharField(max_length=120)
+    email = models.EmailField()
+    phone = models.CharField(max_length=40)
+    preferred_time = models.CharField(max_length=200)
+    channel = models.CharField(max_length=16)
+    topic = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=16, default="new", db_index=True)
+
+    def __str__(self):
+        return f"ConsultationRequest({self.id}, {self.email})"

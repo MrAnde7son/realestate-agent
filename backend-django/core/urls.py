@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from . import views
+from . import views_support as vs
 from .api import AssetViewSet, PermitViewSet, PlanViewSet
 
 router = DefaultRouter()
@@ -21,6 +22,9 @@ urlpatterns = [
     path('onboarding-status/', views.onboarding_status, name='onboarding_status'),
     path('connect-payment/', views.connect_payment, name='connect_payment'),
     path('demo/start/', views.demo_start, name='demo_start'),
+    path('support/contact', vs.support_contact),
+    path('support/bug', vs.support_bug),
+    path('support/consultation', vs.support_consultation),
     
     # Asset enrichment endpoints
     path('assets/', views.assets, name='assets'),

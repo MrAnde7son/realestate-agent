@@ -3,7 +3,7 @@ import statistics
 import re
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from django.http import JsonResponse
@@ -11,6 +11,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
 from django.conf import settings
 from django.utils.crypto import get_random_string
+from django.utils import timezone
+from django.db import models
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -20,7 +22,15 @@ from rest_framework import status
 from openai import OpenAI
 
 # Import Django models
-from .models import Alert, Asset, SourceRecord, RealEstateTransaction, Report, OnboardingProgress, ShareToken
+from .models import (
+    Alert,
+    Asset,
+    SourceRecord,
+    RealEstateTransaction,
+    Report,
+    OnboardingProgress,
+    ShareToken,
+)
 
 # Import utility functions
 try:
@@ -36,6 +46,7 @@ except ImportError:
 
 # Import tasks
 from .tasks import run_data_pipeline
+from .analytics import track
 
 # Import services
 from .auth_service import AuthenticationService
@@ -74,8 +85,16 @@ def auth_login(request):
         
         # Use authentication service
         result = auth_service.authenticate_user(email, password)
-        return Response(result['data'] if result['success'] else {'error': result['error']}, 
-                       status=result['status'])
+        if result['success']:
+            try:
+                user = get_user_model().objects.get(email=email)
+            except Exception:
+                user = None
+            track('user_login', user=user)
+        return Response(
+            result['data'] if result['success'] else {'error': result['error']},
+            status=result['status']
+        )
         
     except json.JSONDecodeError:
         return Response(
@@ -97,8 +116,16 @@ def auth_register(request):
         
         # Use authentication service
         result = auth_service.register_user(data)
-        return Response(result['data'] if result['success'] else {'error': result['error']}, 
-                       status=result['status'])
+        if result['success']:
+            try:
+                user = get_user_model().objects.get(email=data.get('email'))
+            except Exception:
+                user = None
+            track('user_signup', user=user)
+        return Response(
+            result['data'] if result['success'] else {'error': result['error']},
+            status=result['status']
+        )
         
     except json.JSONDecodeError:
         return Response(
@@ -263,6 +290,16 @@ def auth_google_callback(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(["GET"])
+def me(request):
+    u = request.user
+    if not u.is_authenticated:
+        return Response({"authenticated": False}, status=401)
+    return Response({
+        "authenticated": True,
+        "email": u.email,
+        "role": getattr(u, "role", "member"),
+    })
 
 
 # Demo mode
@@ -412,8 +449,8 @@ def alerts(request):
             }
             for alert in alerts
         ]
-        return Response({'rows': rows})
-    
+    return Response({'rows': rows})
+
     return Response({'error': 'Unsupported method'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
@@ -575,7 +612,8 @@ def reports(request):
         return JsonResponse({'error': 'assetId required'}, status=400)
 
     asset_id = data['assetId']
-    
+    track('report_request', user=getattr(request, 'user', None), asset_id=asset_id)
+
     try:
         # Create report using service
         report = report_service.create_report(asset_id)
@@ -590,6 +628,7 @@ def reports(request):
             return JsonResponse({'error': 'PDF generation failed'}, status=500)
 
         _update_onboarding(getattr(request, 'user', None), 'generate_first_report')
+        track('report_success', user=getattr(request, 'user', None), asset_id=asset_id)
 
         # Return success response
         return JsonResponse({
@@ -606,6 +645,7 @@ def reports(request):
         }, status=201)
         
     except Exception as e:
+        track('report_fail', user=getattr(request, 'user', None), asset_id=asset_id, error_code=str(e))
         return JsonResponse({'error': 'Report generation failed', 'details': str(e)}, status=500)
 
 def _group_by_month(transactions):
@@ -777,7 +817,12 @@ def assets(request):
         # Save to Django database
         asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
-        _update_onboarding(getattr(request, 'user', None), 'add_first_asset')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            track('asset_create', user=user, asset_id=asset_id)
+        else:
+            track('asset_create', asset_id=asset_id)
+        _update_onboarding(user, 'add_first_asset')
         
         # Enqueue Celery task if available
         try:

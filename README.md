@@ -19,6 +19,7 @@ Nadlaner™ is a trademark of MrAnde7son.
 - **🚨 Real-time Alerts**: Email and WhatsApp notifications with Celery task scheduling
 - **💰 Mortgage Calculator**: Advanced affordability analysis and Bank of Israel rate integration
 - **📊 Visual Analytics**: Interactive charts and market insights with Recharts
+- **🛡️ Role-Based Access**: Admin-only analytics dashboard for monitoring users, assets, reports, alerts, and errors
 - **🗺️ Map Integration**: Mapbox GL integration for property visualization
 - **📱 Responsive Design**: Mobile-friendly interface with dark/light theme support
 

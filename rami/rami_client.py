@@ -14,6 +14,8 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import pandas as pd
 import requests
 
+from utils.retry import request_with_retry
+
 
 class RamiClient:
     """Simple client for the RAMI TabaSearch API."""
@@ -65,7 +67,8 @@ class RamiClient:
             payload[self.page_param] = page
         if self.size_param:
             payload[self.size_param] = self.page_size
-        response = self.session.post(
+        response = request_with_retry(
+            self.session.post,
             self.endpoint,
             json=payload,
             headers=self.headers,
@@ -74,7 +77,6 @@ class RamiClient:
         )
         if response.status_code == 401:
             raise RuntimeError("401 Unauthorized – missing Cookie/Authorization headers?")
-        response.raise_for_status()
         return response.json()
 
     @staticmethod
@@ -117,17 +119,17 @@ class RamiClient:
         """Fetch all plan results for a given search parameters."""
         # For RAMI API, pagination doesn't work as expected
         # The API returns all results in a single request
-        response = self.session.post(
+        response = request_with_retry(
+            self.session.post,
             self.endpoint,
-            json=search_params,  # Don't add pagination params
+            json=search_params,
             headers=self.headers,
             cookies=self.cookies,
             timeout=60,
         )
         if response.status_code == 401:
             raise RuntimeError("401 Unauthorized – missing Cookie/Authorization headers?")
-        response.raise_for_status()
-        
+
         data = response.json()
         rows = list(self._extract_results(data))
         return pd.DataFrame(rows)

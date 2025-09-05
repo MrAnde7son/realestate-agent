@@ -134,7 +134,7 @@ class HebrewPDFGenerationTest(TestCase):
         self.assertTrue(os.path.exists(path), f"Expected PDF file at path {path}")
 
         report = Report.objects.get(filename=filename)
-        self.assertEqual(report.file_url, f"/reports/{filename}")
+        self.assertEqual(report.file_url, f"/api/reports/file/{filename}")
         self.assertIsNone(report.asset_id)
 
     def test_hebrew_font_registration(self):

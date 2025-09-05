@@ -325,6 +325,7 @@ export async function POST(req: Request) {
       address: asset.address,
       filename,
       createdAt: new Date().toISOString(),
+      url: `/api/reports/file/${filename}`,
     };
     mockReports.push(report);
     return NextResponse.json({ report }, { status: 201 });

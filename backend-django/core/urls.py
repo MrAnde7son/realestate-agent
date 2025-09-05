@@ -18,6 +18,7 @@ urlpatterns = [
     path('sync-address/', views.sync_address, name='sync_address'),
     path('tabu/', views.tabu, name='tabu'),
     path('reports/', views.reports, name='reports'),
+    path('reports/file/<str:filename>', views.report_file, name='report_file'),
     path('settings/', views.user_settings, name='user_settings'),
     path('alerts/', views.alerts, name='alerts'),
     path('analytics/timeseries', va.analytics_timeseries),

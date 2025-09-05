@@ -18,6 +18,7 @@ type Report = {
   createdAt: string
   type?: string
   status?: string
+  url: string
 }
 
 // Status mapping function
@@ -60,7 +61,7 @@ export default function ReportsPage() {
   const handleRowClick = (report: Report) => {
     setClickedRow(report.id)
     // Open the report in a new tab
-    window.open(`/reports/${report.filename}`, '_blank')
+    window.open(report.url, '_blank')
     // Reset the clicked state after a short delay
     setTimeout(() => setClickedRow(null), 300)
   }
@@ -214,13 +215,13 @@ export default function ReportsPage() {
                             <TableCell>
                               <div className="flex gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
                                 <Button variant="ghost" size="sm" asChild>
-                                  <Link href={`/reports/${report.filename}`} target="_blank">
+                                  <Link href={report.url} target="_blank">
                                     <Eye className="h-4 w-4 ml-2" />
                                     תצוגה
                                   </Link>
                                 </Button>
                                 <Button variant="outline" size="sm" asChild>
-                                  <a href={`/reports/${report.filename}`} download>
+                                  <a href={report.url} download>
                                     <Download className="h-4 w-4 ml-2" />
                                     הורדה
                                   </a>

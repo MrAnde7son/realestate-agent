@@ -7,6 +7,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
+from core.constants import DEFAULT_REPORT_SECTIONS
 
 
 @pytest.mark.django_db
@@ -27,12 +28,14 @@ def test_user_settings_get_and_update():
     data = resp.json()
     assert data["timezone"] == "UTC"
     assert data["language"] == "en"
+    assert data["report_sections"] == DEFAULT_REPORT_SECTIONS
 
     # Update some settings
     payload = {
         "timezone": "Asia/Jerusalem",
         "language": "he",
         "notify_email": False,
+        "report_sections": ["summary", "plans"],
     }
     resp = client.put("/api/settings/", payload, format="json")
     assert resp.status_code == 200
@@ -41,4 +44,5 @@ def test_user_settings_get_and_update():
     assert user.timezone == "Asia/Jerusalem"
     assert user.language == "he"
     assert user.notify_email is False
+    assert user.report_sections == ["summary", "plans"]
 

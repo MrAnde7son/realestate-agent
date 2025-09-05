@@ -8,9 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import DataBadge from '@/components/DataBadge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
+
+const ALL_SECTIONS = ['summary','permits','plans','environment','comparables','mortgage','appendix']
 
 export default function AssetDetail({ params }: { params: { id: string } }) {
   const [asset, setAsset] = useState<any>(null)
@@ -21,8 +26,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [syncMessage, setSyncMessage] = useState<string>('')
   const [creatingMessage, setCreatingMessage] = useState(false)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
-  const [shareError, setShareError] = useState<string | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [language, setLanguage] = useState('he')
+  const [sectionsModal, setSectionsModal] = useState(false)
+  const [sections, setSections] = useState<string[]>(ALL_SECTIONS)
   const router = useRouter()
   const { id } = params
   const renderValue = (value: React.ReactNode, key: string) => (
@@ -40,6 +47,18 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .catch(err => console.error('Error loading asset:', err))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
+    if (stored) {
+      try { setSections(JSON.parse(stored)) } catch {}
+    } else {
+      fetch('/api/settings')
+        .then(res => res.json())
+        .then(data => setSections(data.report_sections || ALL_SECTIONS))
+        .catch(() => setSections(ALL_SECTIONS))
+    }
+  }, [])
 
   const handleSyncData = async () => {
     if (!id || !asset?.address) return
@@ -108,7 +127,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const rmiDocs =
     asset.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = async (selected: string[]) => {
     if (!id) return
 
     setGeneratingReport(true)
@@ -117,7 +136,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: Number(id) })
+        body: JSON.stringify({ assetId: Number(id), sections: selected })
       })
 
       if (!res.ok) {
@@ -138,7 +157,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     if (!id) return
     setCreatingMessage(true)
     setShareMessage(null)
-    setShareError(null)
+    setShareUrl(null)
     try {
       const res = await fetch(`/api/assets/${id}/share-message`, {
         method: 'POST',
@@ -147,17 +166,38 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       })
       if (res.ok) {
         const data = await res.json()
-        setShareMessage(data.message)
+        setShareMessage(data.text)
+        setShareUrl(data.share_url)
       } else {
         const errorData = await res.json().catch(() => ({}))
-        setShareError(errorData.details || errorData.error || 'שגיאה ביצירת הודעה')
+        alert(errorData.details || errorData.error || 'שגיאה ביצירת הודעה')
       }
     } catch (err) {
       console.error('Message generation failed:', err)
-      setShareError('שגיאה ביצירת הודעה')
+      alert('שגיאה ביצירת הודעה')
     } finally {
       setCreatingMessage(false)
     }
+  }
+
+  const toggleSection = (key: string, checked: boolean) => {
+    setSections(prev => checked ? [...prev, key] : prev.filter(s => s !== key))
+  }
+
+  const handleConfirmSections = async () => {
+    if (sections.length === 0) return
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('reportSections', JSON.stringify(sections))
+    }
+    try {
+      fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_sections: sections })
+      }).catch(() => {})
+    } catch {}
+    await handleGenerateReport(sections)
+    setSectionsModal(false)
   }
 
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -241,7 +281,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </Select>
               <Button
                 size="sm"
-                onClick={handleGenerateReport}
+                onClick={() => setSectionsModal(true)}
                 disabled={generatingReport}
               >
                 {generatingReport ? (
@@ -256,6 +296,42 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </>
                 )}
               </Button>
+              <Dialog open={sectionsModal} onOpenChange={setSectionsModal}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>בחירת חלקים לדוח</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-2">
+                    {[
+                      ['summary','סיכום'],
+                      ['permits','היתרים'],
+                      ['plans','תוכניות'],
+                      ['environment','סביבה'],
+                      ['comparables','השוואות'],
+                      ['mortgage','תרחישי משכנתא'],
+                      ['appendix','נספח'],
+                    ].map(([key,label]) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <Label htmlFor={key}>{label}</Label>
+                        <Switch id={key} checked={sections.includes(key)} onCheckedChange={(c) => toggleSection(key, c)} />
+                      </div>
+                    ))}
+                  </div>
+                  <DialogFooter className="mt-4">
+                    <Button variant="outline" onClick={() => setSectionsModal(false)}>בטל</Button>
+                    <Button onClick={handleConfirmSections} disabled={generatingReport}>
+                      {generatingReport ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          יוצר דוח...
+                        </>
+                      ) : (
+                        'צור דוח'
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
               <Button
                 size="sm"
                 variant="outline"
@@ -283,17 +359,29 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   readOnly
                   value={shareMessage}
                 />
-                <Button
-                  size="sm"
-                  onClick={() => navigator.clipboard.writeText(shareMessage)}
-                >
-                  העתק הודעה
-                </Button>
-              </div>
-            )}
-            {shareError && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
-                {shareError}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareMessage)
+                      alert('Copied!')
+                    }}
+                  >
+                    העתק הודעה
+                  </Button>
+                  {shareUrl && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const fullUrl = `${window.location.origin}${shareUrl}`
+                        navigator.clipboard.writeText(fullUrl)
+                        alert('Copied!')
+                      }}
+                    >
+                      העתק קישור
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>

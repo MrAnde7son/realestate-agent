@@ -12,6 +12,7 @@ class User(AbstractUser):
     company = models.CharField(max_length=100, blank=True, null=True)
     role = models.CharField(max_length=50, blank=True, null=True)  # broker, appraiser, investor, etc.
     is_verified = models.BooleanField(default=False)
+    is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -24,6 +25,7 @@ class User(AbstractUser):
     notify_whatsapp = models.BooleanField(default=False)
     notify_urgent = models.BooleanField(default=True)
     notification_time = models.CharField(max_length=5, default="09:00")
+    report_sections = models.JSONField(default=list)
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -120,6 +122,7 @@ class Asset(models.Model):
     permit_date = models.DateField(blank=True, null=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    is_demo = models.BooleanField(default=False)
     meta = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -236,7 +239,7 @@ class Report(models.Model):
     title = models.CharField(max_length=200, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     pages = models.IntegerField(default=1)
-    
+
     # Generation details
     generated_at = models.DateTimeField(auto_now_add=True)
     generation_time = models.FloatField(blank=True, null=True)  # in seconds
@@ -245,6 +248,7 @@ class Report(models.Model):
     error_message = models.TextField(blank=True, null=True)
     
     # Additional metadata
+    sections = models.JSONField(default=list)
     meta = models.JSONField(default=dict)
     
     class Meta:
@@ -348,3 +352,20 @@ class Plan(models.Model):
 
     def __str__(self):
         return f"Plan({self.plan_number})"
+
+
+class ShareToken(models.Model):
+    """Token allowing read-only access to an asset."""
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='share_tokens')
+    token = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['asset']),
+        ]
+
+    def __str__(self):
+        return f"ShareToken({self.asset_id}, {self.token})"

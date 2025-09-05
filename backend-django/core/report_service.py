@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from .models import Asset, Report
 from .pdf_generator import HebrewPDFGenerator
+from .constants import DEFAULT_REPORT_SECTIONS
 
 
 class ReportService:
@@ -16,7 +17,7 @@ class ReportService:
         )
         self.pdf_generator = HebrewPDFGenerator(base_dir)
     
-    def create_report(self, asset_id: int) -> Optional[Report]:
+    def create_report(self, asset_id: int, sections: Optional[List[str]] = None) -> Optional[Report]:
         """Create a new report for an asset."""
         asset: Optional[Asset]
         try:
@@ -36,6 +37,7 @@ class ReportService:
                 title=listing['address'],
                 description=f'Asset report for {listing["address"]}',
                 pages=1,
+                sections=sections or DEFAULT_REPORT_SECTIONS,
             )
 
             filename = f"r{report.id}.pdf"
@@ -57,7 +59,9 @@ class ReportService:
             success = self.pdf_generator.generate_report(
                 asset=report.asset,
                 report=report,
-                file_path=report.file_path
+                file_path=report.file_path,
+                sections=report.sections or DEFAULT_REPORT_SECTIONS,
+                use_template=False,
             )
             return success
         except Exception as e:

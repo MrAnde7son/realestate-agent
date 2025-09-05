@@ -20,6 +20,7 @@ urlpatterns = [
     path('alerts/', views.alerts, name='alerts'),
     path('onboarding-status/', views.onboarding_status, name='onboarding_status'),
     path('connect-payment/', views.connect_payment, name='connect_payment'),
+    path('demo/start/', views.demo_start, name='demo_start'),
     
     # Asset enrichment endpoints
     path('assets/', views.assets, name='assets'),

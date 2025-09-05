@@ -116,6 +116,13 @@ if os.getenv('USE_CELERY', 'false').lower() == 'true':
     CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
     CELERY_WORKER_PREFETCH_MULTIPLIER = 1
     CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+    from celery.schedules import crontab
+    CELERY_BEAT_SCHEDULE = {
+        'cleanup-demo-data': {
+            'task': 'core.tasks.cleanup_demo_data',
+            'schedule': crontab(hour=0, minute=0),
+        },
+    }
 else:
     # Disable Celery for development
     CELERY_BROKER_URL = None

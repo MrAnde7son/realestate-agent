@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import DataBadge from '@/components/DataBadge'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -518,7 +519,22 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
             <Card>
               <CardHeader>
-                <CardTitle>המלצת השקעה</CardTitle>
+                <Tooltip.Provider delayDuration={0}>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger asChild>
+                      <CardTitle>מדד אטרקטיביות</CardTitle>
+                    </Tooltip.Trigger>
+                    <Tooltip.Portal>
+                      <Tooltip.Content
+                        sideOffset={4}
+                        dir="rtl"
+                        className="rounded bg-gray-900 text-white px-2 py-1 text-xs max-w-xs text-center"
+                      >
+                        המדד מחושב כממוצע של רמת אמון הנתונים, תשואת ההון ופער המחיר מהשוק
+                      </Tooltip.Content>
+                    </Tooltip.Portal>
+                  </Tooltip.Root>
+                </Tooltip.Provider>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">

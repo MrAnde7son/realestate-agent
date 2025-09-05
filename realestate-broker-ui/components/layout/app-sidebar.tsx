@@ -11,6 +11,7 @@ import {
   Calculator,
   FileText,
   BarChart3,
+  LineChart,
   User,
   CreditCard,
   Settings,
@@ -33,7 +34,7 @@ import Logo from "@/components/Logo";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useAuth } from "@/lib/auth-context";
 
-const navigation = [
+const baseNavigation = [
   {
     name: "בית",
     href: "/",
@@ -77,6 +78,11 @@ export default function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+
+  const navigation = [...baseNavigation];
+  if (user?.role === "admin") {
+    navigation.push({ name: "Analytics", href: "/admin/analytics", icon: LineChart });
+  }
 
   const handleLogout = async () => {
     try {

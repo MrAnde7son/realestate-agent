@@ -14,10 +14,24 @@ class ReportService:
     
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
-        self.reports_dir = os.environ.get(
-            'REPORTS_DIR',
-            str((base_dir.parent / 'realestate-broker-ui' / 'public' / 'reports').resolve())
-        )
+
+        # Determine the default reports directory. In development the reports
+        # were written to the frontend's public directory so that the files could
+        # be served directly. When the backend is deployed independently (e.g. in
+        # Docker) that directory may not exist and the previous implementation
+        # would attempt to create "/realestate-broker-ui" at the filesystem
+        # root, which fails with a permission error.  To avoid this, fall back to
+        # a local "reports" directory inside the backend project whenever the
+        # frontend path is missing.
+        default_reports_dir = (base_dir.parent /
+                               'realestate-broker-ui' /
+                               'public' /
+                               'reports')
+        if not default_reports_dir.exists():
+            default_reports_dir = base_dir / 'reports'
+
+        self.reports_dir = os.environ.get('REPORTS_DIR',
+                                          str(default_reports_dir.resolve()))
         logger.info("Reports directory set to %s", self.reports_dir)
         self.pdf_generator = HebrewPDFGenerator(base_dir)
     

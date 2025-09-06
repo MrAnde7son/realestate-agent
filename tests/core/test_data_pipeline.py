@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from db.database import SQLAlchemyDatabase
-from gov.nadlan.models import Deal
 from orchestration.collectors import (
     GISCollector,
     GovCollector,
@@ -17,7 +16,7 @@ class FakeYad2Collector(Yad2Collector):
     def __init__(self):
         pass
 
-    def fetch_listings(self, address, max_pages):
+    def collect(self, address, max_pages=1):
         listing = RealEstateListing()
         listing.title = "test"
         listing.price = 1_000_000
@@ -37,10 +36,7 @@ class FakeGISCollector(GISCollector):
     def __init__(self):
         pass
 
-    def geocode(self, address, house_number):
-        return 100.0, 200.0
-
-    def collect(self, x, y):
+    def collect(self, address, house_number):
         return {
             "blocks": [{"ms_gush": "1"}],
             "parcels": [{"ms_chelka": "2"}],
@@ -49,6 +45,8 @@ class FakeGISCollector(GISCollector):
             "shelters": [{"shelter": 1}],
             "green": [{"green": 1}],
             "noise": [{"noise": 1}],
+            "block": "1",
+            "parcel": "2",
         }
 
 
@@ -56,22 +54,21 @@ class FakeGovCollector(GovCollector):
     def __init__(self):
         pass
 
-    def collect_decisive(self, block, parcel):
-        return [{"title": "dec1"}]
-
-    def collect_transactions(self, address):
-        return [
-            Deal(
-                address="Fake st 1",
-                deal_date="2024-01-01",
-                deal_amount=100,
-                rooms="3",
-                floor="1",
-                asset_type="apt",
-                year_built="2000",
-                area=80,
-            )
-        ]
+    def collect(self, block, parcel, address):
+        return {
+            "decisive": [{"title": "dec1"}],
+            "transactions": [
+                {
+                    "deal_date": "2024-01-01",
+                    "deal_amount": 100,
+                    "rooms": "3",
+                    "floor": "1",
+                    "asset_type": "apt",
+                    "year_built": "2000",
+                    "area": 80,
+                }
+            ],
+        }
 
 
 class FakeRamiCollector(RamiCollector):

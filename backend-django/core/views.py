@@ -19,6 +19,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
+import logging
+
 from openai import OpenAI
 
 # Import Django models
@@ -63,6 +65,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 auth_service = AuthenticationService(settings)
 report_service = ReportService(BASE_DIR)
 
+logger = logging.getLogger(__name__)
+
 
 def _update_onboarding(user, step):
     if not user or not user.is_authenticated:
@@ -90,6 +94,7 @@ def auth_login(request):
             )
 
         # Use authentication service
+        logger.info("Login attempt for %s", email)
         result = auth_service.authenticate_user(email, password)
         if result["success"]:
             try:
@@ -97,6 +102,9 @@ def auth_login(request):
             except Exception:
                 user = None
             track("user_login", user=user)
+            logger.info("Login succeeded for %s", email)
+        else:
+            logger.warning("Login failed for %s: %s", email, result.get("error"))
         return Response(
             result["data"] if result["success"] else {"error": result["error"]},
             status=result["status"],
@@ -105,6 +113,7 @@ def auth_login(request):
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+        logger.exception("Unexpected error during login for %s", locals().get("email"))
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -114,15 +123,20 @@ def auth_register(request):
     """User registration endpoint."""
     try:
         data = json.loads(request.body.decode("utf-8"))
+        email = data.get("email")
+        logger.info("Registration attempt for %s", email)
 
         # Use authentication service
         result = auth_service.register_user(data)
         if result["success"]:
             try:
-                user = get_user_model().objects.get(email=data.get("email"))
+                user = get_user_model().objects.get(email=email)
             except Exception:
                 user = None
             track("user_signup", user=user)
+            logger.info("Registration succeeded for %s", email)
+        else:
+            logger.warning("Registration failed for %s: %s", email, result.get("error"))
         return Response(
             result["data"] if result["success"] else {"error": result["error"]},
             status=result["status"],
@@ -131,6 +145,7 @@ def auth_register(request):
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+        logger.exception("Unexpected error during registration for %s", locals().get("email"))
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -665,22 +680,26 @@ def reports(request):
     elif not sections:
         return JsonResponse({"error": "sections required"}, status=400)
 
+    logger.info("Report generation requested for asset %s", asset_id)
     track("report_request", user=getattr(request, "user", None), asset_id=asset_id)
     try:
         # Create report using service
         report = report_service.create_report(asset_id, sections)
 
         if not report:
+            logger.error("Failed to create report for asset %s", asset_id)
             return JsonResponse({"error": "Failed to create report"}, status=500)
 
         # Generate PDF using service
         success = report_service.generate_pdf(report)
 
         if not success:
+            logger.error("PDF generation failed for report %s", report.id)
             return JsonResponse({"error": "PDF generation failed"}, status=500)
 
         _update_onboarding(getattr(request, "user", None), "generate_first_report")
         track("report_success", user=getattr(request, "user", None), asset_id=asset_id)
+        logger.info("Report %s successfully generated for asset %s", report.id, asset_id)
 
         # Return success response
         return JsonResponse(
@@ -708,6 +727,7 @@ def reports(request):
             asset_id=asset_id,
             error_code=str(e),
         )
+        logger.exception("Report generation failed for asset %s", asset_id)
         return JsonResponse(
             {"error": "Report generation failed", "details": str(e)}, status=500
         )
@@ -769,6 +789,13 @@ def mortgage_analyze(request):
     savings = float(data.get("savings_total") or 0)
     annual_rate_pct = float(data.get("annual_rate_pct") or 4.5)
     term_years = int(data.get("term_years") or 25)
+    logger.info(
+        "Mortgage analysis requested: price=%s savings=%s rate=%s term=%s",
+        price,
+        savings,
+        annual_rate_pct,
+        term_years,
+    )
     transactions = data.get("transactions") or []
     months = _group_by_month(transactions)
     keys = sorted(months.keys())[-6:]
@@ -794,6 +821,9 @@ def mortgage_analyze(request):
     approved_loan_ceiling = min(max_loan_from_payment, max_loan_by_ltv)
     cash_needed = max(0.0, price - approved_loan_ceiling)
     cash_gap = max(0.0, cash_needed - savings)
+    logger.info(
+        "Mortgage analysis completed for price %s with loan ceiling %s", price, approved_loan_ceiling
+    )
     return JsonResponse(
         {
             "metrics": {
@@ -1112,6 +1142,11 @@ def asset_share_message(request, asset_id):
 
     srcs = SourceRecord.objects.filter(asset_id=asset.id).order_by("-fetched_at")
     listing = build_listing(asset, srcs)
+    logger.info(
+        "Generating marketing message for asset %s in %s",
+        asset_id,
+        language,
+    )
 
     data_json = json.dumps(listing, ensure_ascii=False)
     prompt = (
@@ -1135,7 +1170,7 @@ def asset_share_message(request, asset_id):
             )
             message = completion.choices[0].message.content.strip()
         except Exception as e:
-            print(f"Error generating marketing message: {str(e)}")
+            logger.exception("Error generating marketing message for asset %s", asset_id)
             message = None
 
     if not message:
@@ -1147,6 +1182,8 @@ def asset_share_message(request, asset_id):
         rooms_s = f"{int(rooms)} חדרים" if rooms else "דירה"
         area_s = f' {int(area)} מ"ר' if area else ""
         message = f"למכירה {rooms_s}{area_s} ב{addr}{price_s}."
+
+    logger.info("Marketing message generated for asset %s", asset_id)
 
     token = secrets.token_urlsafe(16)
     ShareToken.objects.create(asset=asset, token=token)

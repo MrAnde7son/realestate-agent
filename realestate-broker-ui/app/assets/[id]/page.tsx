@@ -40,6 +40,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     </span>
   )
 
+  const formatNumber = (value?: number, options?: Intl.NumberFormatOptions) =>
+    value !== undefined && value !== null
+      ? value.toLocaleString('he-IL', options)
+      : null
+
+  const formatCurrency = (value?: number) =>
+    value !== undefined && value !== null
+      ? `₪${value.toLocaleString('he-IL')}`
+      : null
+
+  const formatPercent = (value?: number, digits = 0) =>
+    value !== undefined && value !== null
+      ? `${value.toFixed(digits)}%`
+      : null
+
   useEffect(() => {
     setLoading(true)
     fetch(`/api/assets/${id}`)
@@ -241,13 +256,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <div>
               <h1 className="text-3xl font-bold">{asset.address}</h1>
               <p className="text-muted-foreground">
-                {asset.city}{asset.neighborhood ? ` · ${asset.neighborhood}` : ''} · {asset.type ?? '—'} · {asset.netSqm} מ״ר נטו
+                {asset.city}
+                {asset.neighborhood ? ` · ${asset.neighborhood}` : ''} · {asset.type ?? '—'} ·{' '}
+                {formatNumber(asset.netSqm) ? `${formatNumber(asset.netSqm)} מ״ר נטו` : '—'}
               </p>
             </div>
           </div>
           <div className="w-full text-right space-y-2 md:w-auto">
-            <div className="text-3xl font-bold">₪{asset.price?.toLocaleString('he-IL')}</div>
-            <div className="text-muted-foreground">₪{asset.pricePerSqm?.toLocaleString('he-IL')}/מ״ר</div>
+            <div className="text-3xl font-bold">{formatCurrency(asset.price) ?? '—'}</div>
+            <div className="text-muted-foreground">
+              {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
+                ? `${formatCurrency(asset.pricePerSqm)}/מ״ר`
+                : '—'}
+            </div>
             <div className="flex flex-wrap gap-2 items-center justify-end md:justify-start">
               <Button
                 size="sm"
@@ -393,25 +414,33 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <Card>
             <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">רמת ביטחון</div>
-              <div className="text-2xl font-bold">{asset.confidencePct}%</div>
+              <div className="text-2xl font-bold">{formatPercent(asset.confidencePct) ?? '—'}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
                 <div className="text-sm text-muted-foreground">תשואה</div>
-              <div className="text-2xl font-bold">{asset.capRatePct?.toFixed(1)}%</div>
+              <div className="text-2xl font-bold">{formatPercent(asset.capRatePct, 1) ?? '—'}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">יתרת זכויות</div>
-              <div className="text-2xl font-bold">+{asset.remainingRightsSqm} מ״ר</div>
+              <div className="text-2xl font-bold">
+                {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null
+                  ? `+${formatNumber(asset.remainingRightsSqm)} מ״ר`
+                  : '—'}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">רמת רעש</div>
-              <div className="text-2xl font-bold">{asset.noiseLevel}/5</div>
+              <div className="text-2xl font-bold">
+                {asset.noiseLevel !== undefined && asset.noiseLevel !== null
+                  ? `${asset.noiseLevel}/5`
+                  : '—'}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -441,7 +470,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מ״ר נטו:</span>
-                    <span>{asset.netSqm}</span>
+                    <span>{formatNumber(asset.netSqm) ?? '—'}</span>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">חדרים:</span>
@@ -467,22 +496,22 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardContent className="space-y-2">
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">מחיר מודל:</span>
-                    <span>₪{asset.modelPrice?.toLocaleString('he-IL')}</span>
+                    <span>{formatCurrency(asset.modelPrice) ?? '—'}</span>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">פער למחיר:</span>
-                    <Badge variant={asset.priceGapPct > 0 ? 'warn' : 'good'}>
-                      {asset.priceGapPct?.toFixed(1)}%
+                    <Badge variant={asset.priceGapPct !== undefined && asset.priceGapPct !== null && asset.priceGapPct > 0 ? 'warn' : 'good'}>
+                      {formatPercent(asset.priceGapPct, 1) ?? '—'}
                     </Badge>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">הערכת שכירות:</span>
-                    <span>₪{asset.rentEstimate?.toLocaleString('he-IL')}</span>
+                    <span>{formatCurrency(asset.rentEstimate) ?? '—'}</span>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תשואה שנתית:</span>
-                    <Badge variant={asset.capRatePct >= 3 ? 'good' : 'warn'}>
-                      {asset.capRatePct?.toFixed(1)}%
+                    <Badge variant={asset.capRatePct !== undefined && asset.capRatePct !== null && asset.capRatePct >= 3 ? 'good' : 'warn'}>
+                      {formatPercent(asset.capRatePct, 1) ?? '—'}
                     </Badge>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
@@ -541,7 +570,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="flex items-center justify-between rtl:flex-row-reverse">
                     <span>ציון כללי:</span>
                     <div className="flex items-center gap-2">
-                      <div className="text-2xl font-bold">{Math.round((asset.confidencePct + (asset.capRatePct * 20) + (asset.priceGapPct < 0 ? 100 + asset.priceGapPct : 100 - asset.priceGapPct)) / 3)}</div>
+                      <div className="text-2xl font-bold">
+                        {asset.confidencePct !== undefined && asset.confidencePct !== null &&
+                        asset.capRatePct !== undefined && asset.capRatePct !== null &&
+                        asset.priceGapPct !== undefined && asset.priceGapPct !== null
+                          ? Math.round(
+                              (asset.confidencePct + asset.capRatePct * 20 +
+                                (asset.priceGapPct < 0
+                                  ? 100 + asset.priceGapPct
+                                  : 100 - asset.priceGapPct)) /
+                                3
+                            )
+                          : '—'}
+                      </div>
                       <div className="text-sm text-muted-foreground">/100</div>
                     </div>
                   </div>
@@ -574,8 +615,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">יתרת זכויות:</span>
                       {renderValue(
-                        <Badge variant={asset.remainingRightsSqm > 0 ? 'good' : 'outline'}>
-                          +{asset.remainingRightsSqm} מ״ר
+                        <Badge variant={asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null && asset.remainingRightsSqm > 0 ? 'good' : 'outline'}>
+                          {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null ? `+${asset.remainingRightsSqm} מ״ר` : '—'}
                         </Badge>,
                         'remainingRightsSqm'
                       )}
@@ -640,15 +681,23 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{asset.remainingRightsSqm}</div>
+                    <div className="text-2xl font-bold">{formatNumber(asset.remainingRightsSqm) ?? '—'}</div>
                     <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{Math.round((asset.remainingRightsSqm / asset.netSqm) * 100)}%</div>
+                    <div className="text-2xl font-bold">
+                      {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null && asset.netSqm !== undefined && asset.netSqm !== null
+                        ? `${Math.round((asset.remainingRightsSqm / asset.netSqm) * 100)}%`
+                        : '—'}
+                    </div>
                     <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">₪{Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K</div>
+                    <div className="text-2xl font-bold">
+                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null && asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null
+                        ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
+                        : '—'}
+                    </div>
                     <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
                   </div>
                 </div>
@@ -665,7 +714,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {asset.noiseLevel}/5
+                      {asset.noiseLevel !== undefined && asset.noiseLevel !== null ? `${asset.noiseLevel}/5` : '—'}
                       <DataBadge source={asset?._meta?.noiseLevel?.source} fetchedAt={asset?._meta?.noiseLevel?.fetched_at} />
                     </div>
                     <div className="text-sm text-muted-foreground">רמת רעש</div>
@@ -683,7 +732,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {asset.antennaDistanceM}מ׳
+                      {asset.antennaDistanceM !== undefined && asset.antennaDistanceM !== null ? `${asset.antennaDistanceM}מ׳` : '—'}
                       <DataBadge source={asset?._meta?.antennaDistanceM?.source} fetchedAt={asset?._meta?.antennaDistanceM?.fetched_at} />
                     </div>
                     <div className="text-sm text-muted-foreground">מרחק מאנטנה</div>
@@ -867,17 +916,27 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      ₪{asset.pricePerSqm?.toLocaleString('he-IL')}
+                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
+                        ? formatCurrency(asset.pricePerSqm)
+                        : '—'}
                       <DataBadge source={asset?._meta?.pricePerSqm?.source} fetchedAt={asset?._meta?.pricePerSqm?.fetched_at} />
                     </div>
                     <div className="text-sm text-muted-foreground">מחיר למ״ר - נכס זה</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">₪{Math.round(asset.pricePerSqm * 0.95).toLocaleString('he-IL')}</div>
+                    <div className="text-2xl font-bold">
+                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
+                        ? formatCurrency(Math.round(asset.pricePerSqm * 0.95))
+                        : '—'}
+                    </div>
                     <div className="text-sm text-muted-foreground">ממוצע באזור</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{Math.round(((asset.pricePerSqm / (asset.pricePerSqm * 0.95)) - 1) * 100)}%</div>
+                    <div className="text-2xl font-bold">
+                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
+                        ? `${Math.round(((asset.pricePerSqm / (asset.pricePerSqm * 0.95)) - 1) * 100)}%`
+                        : '—'}
+                    </div>
                     <div className="text-sm text-muted-foreground">פער מהאזור</div>
                   </div>
                 </div>
@@ -975,11 +1034,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         <div className="text-sm text-muted-foreground">הכרעת שמאי</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold">₪{Math.round(asset.netSqm * 30500 / 1000000 * 100) / 100}M</div>
+                        <div className="text-2xl font-bold">
+                          {asset.netSqm !== undefined && asset.netSqm !== null
+                            ? `₪${Math.round(asset.netSqm * 30500 / 1000000 * 100) / 100}M`
+                            : '—'}
+                        </div>
                         <div className="text-sm text-muted-foreground">שומת רמ״י</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold">₪{(asset.price / 1000000).toFixed(1)}M</div>
+                        <div className="text-2xl font-bold">
+                          {asset.price !== undefined && asset.price !== null
+                            ? `₪${(asset.price / 1000000).toFixed(1)}M`
+                            : '—'}
+                        </div>
                         <div className="text-sm text-muted-foreground">מחיר מבוקש</div>
                       </div>
                     </div>

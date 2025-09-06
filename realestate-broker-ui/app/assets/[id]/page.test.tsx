@@ -37,6 +37,12 @@ describe('AssetDetailPage', () => {
           })
         })
       }
+      if (url === '/api/assets/2') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: '2', address: 'Empty', documents: [] })
+        })
+      }
       if (url === '/api/settings') {
         return Promise.resolve({
           ok: true,
@@ -70,5 +76,18 @@ describe('AssetDetailPage', () => {
     await waitFor(() => {
       expect(global.alert).toHaveBeenCalledWith('Quota exceeded')
     })
+  })
+
+  it('renders placeholders for missing optional fields', async () => {
+    await act(async () => {
+      render(<AssetDetailPage params={{ id: '2' }} />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('חזרה לרשימה')).toBeInTheDocument()
+    })
+
+    expect(document.body.textContent).not.toContain('undefined')
+    expect(document.body.textContent).not.toContain('NaN')
   })
 })

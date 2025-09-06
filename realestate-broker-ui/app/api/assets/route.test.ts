@@ -3,6 +3,8 @@ import { GET, POST, DELETE } from './route'
 import { NextRequest } from 'next/server'
 import { addAsset, assets } from '@/lib/data'
 
+const originalFetch = global.fetch
+
 // Mock NextRequest
 const createMockRequest = (body?: any) => {
   const request = new NextRequest('http://127.0.0.1:3000/api/assets', {
@@ -16,6 +18,12 @@ const createMockRequest = (body?: any) => {
 }
 
 describe('/api/assets', () => {
+  process.env.BACKEND_URL = 'http://127.0.0.1:8000'
+
+  afterAll(() => {
+    global.fetch = originalFetch
+  })
+
   describe('GET', () => {
     it('returns assets list', async () => {
       const response = await GET()
@@ -55,6 +63,14 @@ describe('/api/assets', () => {
   })
 
   describe('POST', () => {
+    beforeEach(() => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ id: 999, status: 'pending', message: 'ok' })
+      })
+    })
+
     it('adds a new asset', async () => {
       const mockAsset = {
         scope: {
@@ -68,15 +84,23 @@ describe('/api/assets', () => {
         number: 5
       }
       const request = createMockRequest(mockAsset)
-      
+
       const response = await POST(request)
       const data = await response.json()
-      
+
       expect(data.asset).toBeDefined()
       expect(data.asset.address).toBe('New St 5')
       expect(data.asset.city).toBe('תל אביב')
       expect(data.asset.status).toBe('pending')
+      expect(data.asset.id).toBe(999)
       expect(data.asset.type).toBe('לא ידוע')
+
+      // Ensure backend receives identical asset payload (minus backend id fields)
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+      const [, fetchOptions] = (global.fetch as any).mock.calls[0]
+      const sentBody = JSON.parse(fetchOptions.body)
+      const { id, assetId, ...expectedPayload } = data.asset
+      expect(sentBody).toEqual(expectedPayload)
     })
 
     it('validates required fields', async () => {
@@ -148,7 +172,7 @@ describe('/api/assets', () => {
 
     it('handles server errors gracefully', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      
+
       // Create invalid request to trigger error
       const request = new NextRequest('http://127.0.0.1:3000/api/assets', {
         method: 'POST',
@@ -157,11 +181,11 @@ describe('/api/assets', () => {
         },
         body: 'invalid json',
       })
-      
+
       try {
         const response = await POST(request)
         const data = await response.json()
-        
+
         expect(response.status).toBe(500)
         expect(data.error).toBe('Failed to create asset')
       } finally {
@@ -171,6 +195,10 @@ describe('/api/assets', () => {
   })
 
   describe('DELETE', () => {
+    beforeEach(() => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('backend unavailable'))
+    })
+
     it('deletes an asset', async () => {
       const newAsset = {
         id: 1234,

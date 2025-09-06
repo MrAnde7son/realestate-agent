@@ -178,8 +178,6 @@ export async function POST(req: Request) {
 
     const derivedCity = validatedData.city || validatedData.scope.city || ''
 
-    const id = Date.now() // Generate unique numeric ID once
-
     // Pull through optional metrics if provided
     const metricKeys = [
       'deltaVsAreaPct',
@@ -210,9 +208,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Create asset with available data, using defaults for missing fields
-    const asset: Asset = {
-      id,
+    // Prepare asset data matching frontend contract (without id yet)
+    const assetPayload: Omit<Asset, 'id'> = {
       address: derivedAddress,
       price: 0, // Will be populated by enrichment pipeline
       bedrooms: 0,
@@ -232,13 +229,40 @@ export async function POST(req: Request) {
       neighborhood: '',
       netSqm: 0,
       pricePerSqmDisplay: 0,
-      assetId: id,
       assetStatus: 'pending',
       sources: [],
       primarySource: 'manual',
       ...extraFields
     }
-    
+
+    // Send full asset to backend to ensure contract parity
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    const backendResponse = await fetch(`${backendUrl}/api/assets/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(assetPayload)
+    })
+
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text()
+      console.error('Backend asset creation failed:', backendResponse.status, errorText)
+      return NextResponse.json(
+        { error: 'Failed to create asset in backend' },
+        { status: backendResponse.status }
+      )
+    }
+
+    const backendData = await backendResponse.json()
+    const id = backendData.id
+
+    // Final asset with backend-generated id
+    const asset: Asset = {
+      id,
+      ...assetPayload,
+      assetId: id,
+      assetStatus: backendData.status || assetPayload.assetStatus
+    }
+
     // Add to in-memory store
     addAsset(asset)
     return NextResponse.json({ asset }, { status: 201 })

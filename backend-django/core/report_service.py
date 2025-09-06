@@ -37,14 +37,15 @@ class ReportService:
 
         try:
             listing = self.pdf_generator.create_asset_listing(asset)
+            address = listing.get("address", f"Asset {asset_id}")
             report = Report.objects.create(
                 asset=asset,
                 report_type='asset',
                 status='generating',
                 filename='',
                 file_path='',
-                title=listing['address'],
-                description=f'Asset report for {listing["address"]}',
+                title=address,
+                description=f'Asset report for {address}',
                 pages=1,
                 sections=sections or DEFAULT_REPORT_SECTIONS,
             )

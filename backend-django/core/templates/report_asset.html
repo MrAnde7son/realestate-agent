@@ -108,6 +108,7 @@
   <main class="grid">
 
     <!-- Left column -->
+    {% if 'summary' in sections %}
     <section class="card">
       <h2>פרטי הנכס</h2>
       <div class="kv">
@@ -167,8 +168,10 @@
         </div>
       </div>
     </section>
+    {% endif %}
 
     <!-- Right column -->
+    {% if 'plans' in sections %}
     <section class="card">
       <h2>תוכניות וזכויות בנייה</h2>
       <div class="kv">
@@ -194,7 +197,9 @@
         </div>
       </div>
     </section>
+    {% endif %}
 
+    {% if 'environment' in sections %}
     <section class="card">
       <h2>מידע סביבתי וסיכונים</h2>
       <div class="two">
@@ -220,7 +225,9 @@
         </div>
       </div>
     </section>
+    {% endif %}
 
+    {% if 'appendix' in sections %}
     <section class="card">
       <h2>מסמכים וזיהוי איש קשר</h2>
       <div class="two">
@@ -247,6 +254,7 @@
         </div>
       </div>
     </section>
+    {% endif %}
 
   </main>
 </body>

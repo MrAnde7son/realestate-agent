@@ -190,6 +190,7 @@ class HebrewPDFGenerator:
                     if listing.get("remainingRightsSqm") and listing.get("pricePerSqm")
                     else 0
                 ),
+                "sections": sections,
             }
 
             html_string = render_to_string("report_asset.html", context)

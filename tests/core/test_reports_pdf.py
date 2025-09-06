@@ -94,8 +94,7 @@ class HebrewPDFGenerationTest(TestCase):
             "מסמכים וזיהוי איש קשר",
         ]:
             self.assertIn(title, text)
-
-        # Ensure API accepts custom sections parameter without error
+        # Ensure custom sections only include requested content
         req = self.factory.post(
             "/api/reports",
             data=json.dumps({"assetId": self.asset.id, "sections": ["summary", "plans"]}),
@@ -105,7 +104,14 @@ class HebrewPDFGenerationTest(TestCase):
         self.assertEqual(resp.status_code, 201, resp.content)
         filename = json.loads(resp.content)["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
-        self.assertTrue(os.path.exists(path))
+        report = Report.objects.get(filename=filename)
+        self.assertEqual(report.sections, ["summary", "plans"])
+        reader = PdfReader(path)
+        text = "".join(page.extract_text() or "" for page in reader.pages)
+        self.assertIn("פרטי הנכס", text)
+        self.assertIn("תוכניות וזכויות בנייה", text)
+        self.assertNotIn("מידע סביבתי וסיכונים", text)
+        self.assertNotIn("מסמכים וזיהוי איש קשר", text)
 
     def test_empty_sections_rejected(self):
         req = self.factory.post(

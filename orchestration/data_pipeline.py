@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any, Iterable, List, Optional
+import os
+import time
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,13 @@ from orchestration.collectors.gis_collector import GISCollector
 from orchestration.collectors.gov_collector import GovCollector
 from orchestration.collectors.rami_collector import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
+from orchestration.observability import (
+    COLLECTOR_FAILURE,
+    COLLECTOR_LATENCY,
+    COLLECTOR_SUCCESS,
+    start_metrics_server,
+    tracer,
+)
 
 try:  # pragma: no cover - best effort import
     from core.analytics import track  # type: ignore
@@ -35,7 +44,6 @@ SQLAlchemy database.
 # Import Django Alert model if available
 try:  # pragma: no cover - best effort import
     import sys
-    import os
 
     backend_path = os.path.join(os.path.dirname(__file__), "..", "backend-django")
     if backend_path not in sys.path:
@@ -116,6 +124,9 @@ class DataPipeline:
         self.rami = rami or RamiCollector()
         self.mavat = mavat or MavatCollector()
 
+        # Expose Prometheus metrics endpoint
+        start_metrics_server(int(os.getenv("METRICS_PORT", "8000")))
+
         # Ensure database is ready when we manage it ourselves.
         if self.db is not None:
             self.db.init_db()
@@ -124,6 +135,21 @@ class DataPipeline:
             except Exception:
                 # Tables might already exist – ignore
                 pass
+
+    def _collect_with_observability(self, source: str, func, *args, **kwargs):
+        """Wrap collector calls with metrics and tracing."""
+        with tracer.start_as_current_span(source):
+            start_time = time.perf_counter()
+            try:
+                result = func(*args, **kwargs)
+                COLLECTOR_SUCCESS.labels(source=source).inc()
+                return result
+            except Exception:
+                COLLECTOR_FAILURE.labels(source=source).inc()
+                raise
+            finally:
+                duration = time.perf_counter() - start_time
+                COLLECTOR_LATENCY.labels(source=source).observe(duration)
 
     # ------------------------------------------------------------------
     def _store_listing(self, session, listing: RealEstateListing) -> Listing:
@@ -178,104 +204,135 @@ class DataPipeline:
         makes the pipeline easier to test in isolation.
         """
 
-        # Geocode address via GIS first
-        x, y = self.gis.geocode(address, house_number)
+        with tracer.start_as_current_span(
+            "data_pipeline.run", attributes={"address": address, "house_number": house_number}
+        ):
+            # Geocode address via GIS first
+            x, y = self._collect_with_observability(
+                "gis_geocode", self.gis.geocode, address, house_number
+            )
 
-        # Search Yad2 for listings near the location
-        try:
-            listings = self.yad2.fetch_listings(address, max_pages)
-            track('collector_success', source='yad2')
-        except Exception as e:
-            track('collector_fail', source='yad2', error_code=str(e))
-            listings = []
+            # Search Yad2 for listings near the location
+            try:
+                listings = self._collect_with_observability(
+                    "yad2", self.yad2.fetch_listings, address, max_pages
+                )
+                track("collector_success", source="yad2")
+            except Exception as e:
+                track("collector_fail", source="yad2", error_code=str(e))
+                listings = []
 
-        # Load user notifiers once per run
-        notifiers = _load_user_notifiers()
+            # Load user notifiers once per run
+            notifiers = _load_user_notifiers()
 
-        # Decide which session to use
-        session_provided = self.session is not None
-        session = self.session or (self.db.get_session() if self.db else None)
-        if session is None:
-            raise RuntimeError("No database session available")
+            # Decide which session to use
+            session_provided = self.session is not None
+            session = self.session or (self.db.get_session() if self.db else None)
+            if session is None:
+                raise RuntimeError("No database session available")
 
-        results: List[Any] = []
-        try:
-            for listing in listings:
-                # Store listing in DB and add to return list
-                db_listing = self._store_listing(session, listing)
-                results.append(listing)
+            results: List[Any] = []
+            try:
+                for listing in listings:
+                    # Store listing in DB and add to return list
+                    db_listing = self._store_listing(session, listing)
+                    results.append(listing)
 
-                # ---------------- GIS ----------------
-                try:
-                    gis_data = self.gis.collect(x, y)
-                    track('collector_success', source='gis')
-                except Exception as e:
-                    gis_data = {}
-                    track('collector_fail', source='gis', error_code=str(e))
-                self._add_source_record(session, db_listing.id, "gis", gis_data)
-                results.append({"source": "gis", "data": gis_data})
-
-                block, parcel = self.gis.extract_block_parcel(gis_data)
-
-                # ---------------- Gov - decisive ----------------
-                try:
-                    decisives = self.gov.collect_decisive(block, parcel)
-                    track('collector_success', source='gov')
-                except Exception as e:
-                    decisives = []
-                    track('collector_fail', source='gov', error_code=str(e))
-                if decisives:
-                    self._add_source_record(session, db_listing.id, "decisive", decisives)
-                    results.append({"source": "decisive", "data": decisives})
-
-                # ---------------- Gov - transactions ----------------
-                try:
-                    deals = list(self.gov.collect_transactions(address))
-                    track('collector_success', source='gov')
-                except Exception as e:
-                    deals = []
-                    track('collector_fail', source='gov', error_code=str(e))
-                self._add_transactions(session, db_listing.id, deals)
-                if deals:
-                    deal_dicts = [d.to_dict() if hasattr(d, "to_dict") else dict(d) for d in deals]
-                    results.append({"source": "transactions", "data": deal_dicts})
-
-                # ---------------- RAMI plans ----------------
-                try:
-                    plans = self.rami.collect(block, parcel)
-                    track('collector_success', source='rami')
-                except Exception as e:
-                    plans = []
-                    track('collector_fail', source='rami', error_code=str(e))
-                if plans:
-                    self._add_source_record(session, db_listing.id, "rami", plans)
-                    results.append({"source": "rami", "data": plans})
-
-                # ---------------- Mavat plans ----------------
-                try:
-                    mavat_plans = self.mavat.collect(block, parcel)
-                    track('collector_success', source='mavat')
-                except Exception as e:
-                    mavat_plans = []
-                    track('collector_fail', source='mavat', error_code=str(e))
-                if mavat_plans:
-                    self._add_source_record(session, db_listing.id, "mavat", mavat_plans)
-                    results.append({"source": "mavat", "data": mavat_plans})
-
-                # ---------------- Alerts ----------------
-                for notifier in notifiers:
+                    # ---------------- GIS ----------------
                     try:
-                        notifier.notify(db_listing)
-                        track('alert_send', source=notifier.__class__.__name__)
+                        gis_data = self._collect_with_observability(
+                            "gis", self.gis.collect, x, y
+                        )
+                        track("collector_success", source="gis")
                     except Exception as e:
-                        track('alert_fail', source=notifier.__class__.__name__, error_code=str(e))
+                        gis_data = {}
+                        track("collector_fail", source="gis", error_code=str(e))
+                    self._add_source_record(session, db_listing.id, "gis", gis_data)
+                    results.append({"source": "gis", "data": gis_data})
 
-            session.commit()
-        finally:
-            if not session_provided:
-                session.close()
+                    block, parcel = self.gis.extract_block_parcel(gis_data)
 
-        return results
+                    # ---------------- Gov - decisive ----------------
+                    try:
+                        decisives = self._collect_with_observability(
+                            "gov_decisive", self.gov.collect_decisive, block, parcel
+                        )
+                        track("collector_success", source="gov")
+                    except Exception as e:
+                        decisives = []
+                        track("collector_fail", source="gov", error_code=str(e))
+                    if decisives:
+                        self._add_source_record(
+                            session, db_listing.id, "decisive", decisives
+                        )
+                        results.append({"source": "decisive", "data": decisives})
+
+                    # ---------------- Gov - transactions ----------------
+                    try:
+                        deals = list(
+                            self._collect_with_observability(
+                                "gov_transactions",
+                                self.gov.collect_transactions,
+                                address,
+                            )
+                        )
+                        track("collector_success", source="gov")
+                    except Exception as e:
+                        deals = []
+                        track("collector_fail", source="gov", error_code=str(e))
+                    self._add_transactions(session, db_listing.id, deals)
+                    if deals:
+                        deal_dicts = [
+                            d.to_dict() if hasattr(d, "to_dict") else dict(d) for d in deals
+                        ]
+                        results.append({"source": "transactions", "data": deal_dicts})
+
+                    # ---------------- RAMI plans ----------------
+                    try:
+                        plans = self._collect_with_observability(
+                            "rami", self.rami.collect, block, parcel
+                        )
+                        track("collector_success", source="rami")
+                    except Exception as e:
+                        plans = []
+                        track("collector_fail", source="rami", error_code=str(e))
+                    if plans:
+                        self._add_source_record(session, db_listing.id, "rami", plans)
+                        results.append({"source": "rami", "data": plans})
+
+                    # ---------------- Mavat plans ----------------
+                    try:
+                        mavat_plans = self._collect_with_observability(
+                            "mavat", self.mavat.collect, block, parcel
+                        )
+                        track("collector_success", source="mavat")
+                    except Exception as e:
+                        mavat_plans = []
+                        track("collector_fail", source="mavat", error_code=str(e))
+                    if mavat_plans:
+                        self._add_source_record(
+                            session, db_listing.id, "mavat", mavat_plans
+                        )
+                        results.append({"source": "mavat", "data": mavat_plans})
+
+                    # ---------------- Alerts ----------------
+                    for notifier in notifiers:
+                        try:
+                            notifier.notify(db_listing)
+                            track("alert_send", source=notifier.__class__.__name__)
+                        except Exception as e:
+                            track(
+                                "alert_fail",
+                                source=notifier.__class__.__name__,
+                                error_code=str(e),
+                            )
+
+                session.commit()
+            finally:
+                if not session_provided:
+                    session.close()
+
+            return results
 
 
 __all__ = [

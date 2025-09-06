@@ -22,18 +22,18 @@ class GovCollector(BaseCollector):
     def collect(self, block: str, parcel: str, address: str) -> Dict[str, Any]:
         """Collect government data for a given block/parcel and address."""
         return {
-            "decisive": self.collect_decisive(block, parcel),
-            "transactions": self.collect_transactions(address),
+            "decisive": self._collect_decisive(block, parcel),
+            "transactions": self._collect_transactions(address),
         }
 
-    def collect_decisive(self, block: str, parcel: str) -> List[Dict[str, Any]]:
+    def _collect_decisive(self, block: str, parcel: str) -> List[Dict[str, Any]]:
         """Collect decisive appraisals for a given block/parcel."""
         try:
             return self.decisive_func(block=block, plot=parcel)
         except Exception:
             return []
 
-    def collect_transactions(self, address: str) -> List[Dict[str, Any]]:
+    def _collect_transactions(self, address: str) -> List[Dict[str, Any]]:
         """Collect transaction history for a given address."""
         try:
             deals = self.deals_client.get_deals_by_address(address)

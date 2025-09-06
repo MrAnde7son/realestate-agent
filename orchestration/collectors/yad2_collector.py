@@ -15,13 +15,14 @@ class Yad2Collector(BaseCollector):
 
     def collect(self, address: str, max_pages: int = 1) -> List[RealEstateListing]:
         """Collect Yad2 listings for a given address.
-        
-        This method implements the base collect interface and provides
-        backward compatibility with the existing fetch_listings method.
-        """
-        return self.fetch_listings(address, max_pages)
 
-    def fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
+        This method implements the base collect interface and provides
+        backward compatibility with the existing ``fetch_listings`` helper
+        which is now considered internal.
+        """
+        return self._fetch_listings(address, max_pages)
+
+    def _fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
         """Fetch Yad2 listings for a given address."""
         location = self.client.fetch_location_data(address)
         if location:

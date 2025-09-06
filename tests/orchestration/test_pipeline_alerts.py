@@ -47,7 +47,7 @@ def test_load_user_notifiers_initializes_for_each_active_alert(monkeypatch):
 
 def test_pipeline_sends_alerts(monkeypatch):
     class DummyYad2:
-        def fetch_listings(self, address, max_pages):
+        def collect(self, address, max_pages):
             return [types.SimpleNamespace(
                 title="t", price=1, address="Fake 1", rooms=1,
                 floor=1, size=10, property_type="apt", description="",
@@ -55,21 +55,17 @@ def test_pipeline_sends_alerts(monkeypatch):
             )]
 
     class DummyGIS:
-        def geocode(self, address, house_number):
-            return 0.0, 0.0
-
-        def collect(self, x, y):
-            return {"blocks": [{"ms_gush": "1"}], "parcels": [{"ms_chelka": "2"}]}
-
-        def extract_block_parcel(self, data):
-            return "1", "2"
+        def collect(self, address, house_number):
+            return {
+                "blocks": [{"ms_gush": "1"}],
+                "parcels": [{"ms_chelka": "2"}],
+                "block": "1",
+                "parcel": "2",
+            }
 
     class DummyGov:
-        def collect_decisive(self, block, parcel):
-            return []
-
-        def collect_transactions(self, address):
-            return []
+        def collect(self, block, parcel, address):
+            return {"decisive": [], "transactions": []}
 
     class DummyRami:
         def collect(self, block, parcel):

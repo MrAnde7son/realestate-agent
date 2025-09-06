@@ -71,7 +71,7 @@ class ReportService:
                 report=report,
                 file_path=report.file_path,
                 sections=report.sections or DEFAULT_REPORT_SECTIONS,
-                use_template=False,
+                use_template=True,
             )
             if success:
                 logger.info("Generated PDF for report %s", report.id)

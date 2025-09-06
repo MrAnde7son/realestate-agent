@@ -233,7 +233,8 @@ class HebrewPDFGenerator:
             }
 
             html_string = render_to_string('report_asset.html', context)
-            HTML(string=html_string, base_url=str(self.base_dir)).write_pdf(file_path)
+            # Use WeasyPrint with the backend base directory to resolve static assets
+            HTML(string=html_string).write_pdf(file_path, base_url=str(self.base_dir))
 
             generation_time = time.time() - start_time
             pages = len(PdfReader(file_path).pages)

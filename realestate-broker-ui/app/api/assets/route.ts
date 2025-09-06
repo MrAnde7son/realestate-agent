@@ -178,7 +178,25 @@ export async function POST(req: Request) {
 
     const derivedCity = validatedData.city || validatedData.scope.city || ''
 
-    const id = Date.now() // Generate unique numeric ID once
+    // Send asset creation request to backend first
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    const backendResponse = await fetch(`${backendUrl}/api/assets/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validatedData)
+    })
+
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text()
+      console.error('Backend asset creation failed:', backendResponse.status, errorText)
+      return NextResponse.json(
+        { error: 'Failed to create asset in backend' },
+        { status: backendResponse.status }
+      )
+    }
+
+    const backendData = await backendResponse.json()
+    const id = backendData.id
 
     // Pull through optional metrics if provided
     const metricKeys = [

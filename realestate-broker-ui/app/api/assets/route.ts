@@ -284,14 +284,25 @@ export async function POST(req: Request) {
       ...extraFields
     }
 
-    console.log('Attempting to create asset with payload:', assetPayload)
+    // Prepare payload for backend API including scope information
+    const backendPayload = {
+      scope: validatedData.scope,
+      city: derivedCity,
+      street: validatedData.street,
+      number: validatedData.number,
+      gush: validatedData.gush,
+      helka: validatedData.helka,
+      radius: validatedData.radius
+    }
+
+    console.log('Attempting to create asset with backend payload:', backendPayload)
 
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
     try {
       const backendResponse = await fetch(`${backendUrl}/api/assets/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(assetPayload)
+        body: JSON.stringify(backendPayload)
       })
 
       if (!backendResponse.ok) {

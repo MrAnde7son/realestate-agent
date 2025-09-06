@@ -164,6 +164,30 @@ describe('AssetsPage', () => {
     expect(screen.getByText('הזן פרטי הנכס כדי להתחיל תהליך העשרת מידע')).toBeInTheDocument()
   })
 
+  it('toggles filter section visibility on mobile', async () => {
+    const originalWidth = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 500 })
+
+    await act(async () => {
+      render(<AssetsPage />)
+    })
+
+    expect(
+      screen.queryByPlaceholderText('חיפוש בכתובת או עיר...')
+    ).toBeNull()
+
+    const toggleButton = screen.getByRole('button', { name: /toggle filters/i })
+    await act(async () => {
+      fireEvent.click(toggleButton)
+    })
+
+    expect(
+      screen.getByPlaceholderText('חיפוש בכתובת או עיר...')
+    ).toBeVisible()
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth })
+  })
+
   it('redirects to auth when unauthenticated user tries to add asset', async () => {
     mockUseAuth.isAuthenticated = false
 

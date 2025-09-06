@@ -30,7 +30,14 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, RefreshCw, Search, Filter } from "lucide-react";
+import {
+  Plus,
+  RefreshCw,
+  Search,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Asset } from "@/lib/data";
 import AssetsTable from "@/components/AssetsTable";
@@ -44,6 +51,7 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [city, setCity] = useState<string>(() => searchParams.get("city") ?? "all");
@@ -344,6 +352,13 @@ export default function AssetsPage() {
     fetchAssets();
   }, []);
 
+  // Show filters by default on desktop, hide on mobile
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 768) {
+      setFiltersOpen(true);
+    }
+  }, []);
+
   const cityOptions = React.useMemo(
     () =>
       Array.from(
@@ -558,14 +573,28 @@ export default function AssetsPage() {
 
         {/* Filters */}
         <Card className="border-0 shadow-sm bg-gray-50/50">
-          <CardHeader className="pb-4">
+          <CardHeader className="pb-4 flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-4 w-4" />
               סינון נכסים
             </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setFiltersOpen((prev) => !prev)}
+            >
+              {filtersOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+              <span className="sr-only">Toggle filters</span>
+            </Button>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {filtersOpen && (
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="search">חיפוש</Label>
                 <div className="relative">
@@ -644,7 +673,8 @@ export default function AssetsPage() {
                 />
               </div>
             </div>
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
 
         {/* Assets Table */}

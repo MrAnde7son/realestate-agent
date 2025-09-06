@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { GET, POST, DELETE } from './route'
 import { NextRequest } from 'next/server'
-import { addAsset, assets } from '@/lib/data'
+import { assets } from '@/lib/data'
+
+const originalFetch = global.fetch
 
 // Mock NextRequest
 const createMockRequest = (body?: any) => {
@@ -16,45 +18,68 @@ const createMockRequest = (body?: any) => {
 }
 
 describe('/api/assets', () => {
+  process.env.BACKEND_URL = 'http://127.0.0.1:8000'
+
+  afterAll(() => {
+    global.fetch = originalFetch
+  })
+
   describe('GET', () => {
-    it('returns assets list', async () => {
+    it('fetches assets from backend', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          rows: [
+            {
+              id: 1,
+              address: 'Backend Asset',
+              price: 0,
+              bedrooms: 0,
+              bathrooms: 1,
+              area: 0,
+              type: 'דירה',
+              status: 'active',
+              images: [],
+              description: '',
+              features: [],
+              contactInfo: { agent: '', phone: '', email: '' },
+              city: 'תל אביב',
+              assetId: 1,
+              assetStatus: 'active'
+            }
+          ]
+        })
+      } as any)
+
       const response = await GET()
       const data = await response.json()
-      
+
+      expect(global.fetch).toHaveBeenCalledTimes(1)
       expect(response.status).toBe(200)
-      expect(data.rows).toBeDefined()
-      expect(Array.isArray(data.rows)).toBe(true)
-      expect(data.rows.length).toBeGreaterThan(0)
-      
-      // Check asset structure
-      const firstAsset = data.rows[0]
-      expect(firstAsset).toHaveProperty('id')
-      expect(firstAsset).toHaveProperty('address')
-      expect(firstAsset).toHaveProperty('price')
-      expect(firstAsset).toHaveProperty('city')
-      expect(firstAsset).toHaveProperty('assetId')
-      expect(firstAsset).toHaveProperty('assetStatus')
+      expect(data.rows[0].address).toBe('Backend Asset')
     })
 
-    it('handles errors gracefully', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      
-      // This test verifies the normal flow with mocked data
-      // Error simulation is complex in this test environment
-      try {
-        const response = await GET()
-        const data = await response.json()
-        
-        expect(response.status).toBe(200)
-        expect(data.rows).toBeDefined()
-      } finally {
-        consoleSpy.mockRestore()
-        vi.clearAllMocks()
-      }
+    it('falls back to mock assets on error', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('fail'))
+
+      const response = await GET()
+      const data = await response.json()
+
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+      expect(Array.isArray(data.rows)).toBe(true)
+      expect(data.rows.length).toBe(assets.length)
     })
   })
 
   describe('POST', () => {
+    beforeEach(() => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ id: 999, status: 'pending', message: 'ok' })
+      })
+    })
+
     it('adds a new asset', async () => {
       const mockAsset = {
         scope: {
@@ -68,15 +93,23 @@ describe('/api/assets', () => {
         number: 5
       }
       const request = createMockRequest(mockAsset)
-      
+
       const response = await POST(request)
       const data = await response.json()
-      
+
       expect(data.asset).toBeDefined()
       expect(data.asset.address).toBe('New St 5')
       expect(data.asset.city).toBe('תל אביב')
       expect(data.asset.status).toBe('pending')
+      expect(data.asset.id).toBe(999)
       expect(data.asset.type).toBe('לא ידוע')
+
+      // Ensure backend receives identical asset payload (minus backend id fields)
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+      const [, fetchOptions] = (global.fetch as any).mock.calls[0]
+      const sentBody = JSON.parse(fetchOptions.body)
+      const { id, assetId, ...expectedPayload } = data.asset
+      expect(sentBody).toEqual(expectedPayload)
     })
 
     it('validates required fields', async () => {
@@ -148,7 +181,7 @@ describe('/api/assets', () => {
 
     it('handles server errors gracefully', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      
+
       // Create invalid request to trigger error
       const request = new NextRequest('http://127.0.0.1:3000/api/assets', {
         method: 'POST',
@@ -157,11 +190,11 @@ describe('/api/assets', () => {
         },
         body: 'invalid json',
       })
-      
+
       try {
         const response = await POST(request)
         const data = await response.json()
-        
+
         expect(response.status).toBe(500)
         expect(data.error).toBe('Failed to create asset')
       } finally {
@@ -171,6 +204,10 @@ describe('/api/assets', () => {
   })
 
   describe('DELETE', () => {
+    beforeEach(() => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('backend unavailable'))
+    })
+
     it('deletes an asset', async () => {
       const newAsset = {
         id: 1234,
@@ -186,7 +223,7 @@ describe('/api/assets', () => {
         features: [],
         contactInfo: { agent: '', phone: '', email: '' },
       }
-      addAsset(newAsset as any)
+      assets.push(newAsset as any)
       const req = new Request('http://localhost/api/assets', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },

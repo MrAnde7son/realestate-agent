@@ -8,7 +8,6 @@ import {
   getActiveAlerts,
   getActiveAlertsCount,
   getActiveAssetsCount,
-  addAsset,
   deleteAsset,
   type Asset,
   type Alert
@@ -195,70 +194,6 @@ describe('Data Module', () => {
     })
   })
 
-  describe('addAsset', () => {
-    let originalLength: number
-
-    beforeEach(() => {
-      originalLength = assets.length
-    })
-
-    it('adds a new asset to the assets array', () => {
-      const newAsset: Asset = {
-        id: 999,
-        address: 'Test Street 123',
-        price: 2000000,
-        bedrooms: 3,
-        bathrooms: 2,
-        area: 90,
-        type: 'דירה',
-        status: 'pending',
-        images: [],
-        description: 'Test asset',
-        features: [],
-        contactInfo: {
-          agent: 'Test Agent',
-          phone: '050-1234567',
-          email: 'test@example.com'
-        }
-      }
-
-      addAsset(newAsset)
-      
-      expect(assets.length).toBe(originalLength + 1)
-      expect(assets[assets.length - 1]).toEqual(newAsset)
-    })
-
-    it('maintains asset array structure after adding', () => {
-      const newAsset: Asset = {
-        id: 1000,
-        address: 'Another Test Street 456',
-        price: 3500000,
-        bedrooms: 4,
-        bathrooms: 3,
-        area: 120,
-        type: 'בית',
-        status: 'active',
-        images: ['/test-image.jpg'],
-        description: 'Another test asset',
-        features: ['garden', 'garage'],
-        contactInfo: {
-          agent: 'Another Agent',
-          phone: '052-7654321',
-          email: 'another@example.com'
-        },
-        city: 'תל אביב',
-        neighborhood: 'מרכז העיר'
-      }
-
-      addAsset(newAsset)
-      
-      const addedAsset = assets[assets.length - 1]
-      expect(addedAsset).toHaveProperty('id', 1000)
-      expect(addedAsset).toHaveProperty('city', 'תל אביב')
-      expect(addedAsset).toHaveProperty('neighborhood', 'מרכז העיר')
-      expect(addedAsset.features).toEqual(['garden', 'garage'])
-    })
-  })
 
   describe('Data Integrity', () => {
     it('has unique asset IDs', () => {
@@ -303,7 +238,7 @@ describe('Data Module', () => {
   describe('deleteAsset', () => {
     it('removes asset by id', () => {
       const newAsset: Asset = { id: 1010, address: 'Del St', price: 1, bedrooms: 1, bathrooms: 1, area: 1, type: 'דירה', status: 'active', images: [], description: '', features: [], contactInfo: { agent: '', phone: '', email: '' } }
-      addAsset(newAsset)
+      assets.push(newAsset)
       const removed = deleteAsset(1010)
       expect(removed?.id).toBe(1010)
       expect(assets.find(a => a.id === 1010)).toBeUndefined()

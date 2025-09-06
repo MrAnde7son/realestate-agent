@@ -503,11 +503,6 @@ export function getActiveAssetsCount(): number {
   return assets.filter(asset => asset.status === "active").length
 }
 
-// Add a new asset to the in-memory store
-export function addAsset(asset: Asset): void {
-  assets.push(asset)
-}
-
 export function deleteAsset(id: number): Asset | null {
   const index = assets.findIndex(a => a.id === id)
   if (index !== -1) {

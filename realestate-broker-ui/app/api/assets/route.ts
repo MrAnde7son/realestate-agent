@@ -55,7 +55,49 @@ export async function GET() {
     const res = await fetch(`${backendUrl}/api/assets/`)
     if (res.ok) {
       const data = await res.json()
-      return NextResponse.json(data)
+      // Normalize backend response to the Asset contract used by the UI
+      const rows = (data.rows || data || []).map((asset: any) => ({
+        id: asset.id ?? asset.external_id,
+        address: asset.address,
+        price: asset.price,
+        bedrooms: asset.rooms || asset.bedrooms || 0,
+        bathrooms: asset.bathrooms || 1,
+        area: asset.size || asset.area,
+        type: determineAssetType(asset),
+        status: 'active',
+        images: asset.images || [],
+        description: asset.description || '',
+        features: asset.features || [],
+        contactInfo: asset.contact_info || asset.contactInfo || { agent: '', phone: '', email: '' },
+        city: asset.address?.split(',')[1]?.trim() || asset.city || 'תל אביב',
+        neighborhood: asset.address?.split(',')[2]?.trim() || asset.neighborhood || '',
+        netSqm: asset.size || asset.netSqm || 0,
+        pricePerSqmDisplay: asset.price && (asset.size || asset.netSqm) ? Math.round(asset.price / (asset.size || asset.netSqm)) : 0,
+        deltaVsAreaPct: asset.deltaVsAreaPct,
+        domPercentile: asset.domPercentile,
+        competition1km: asset.competition1km,
+        zoning: asset.zoning,
+        riskFlags: asset.riskFlags,
+        priceGapPct: asset.priceGapPct,
+        expectedPriceRange: asset.expectedPriceRange,
+        remainingRightsSqm: asset.remainingRightsSqm,
+        program: asset.program,
+        lastPermitQ: asset.lastPermitQ,
+        noiseLevel: asset.noiseLevel,
+        greenWithin300m: asset.greenWithin300m,
+        schoolsWithin500m: asset.schoolsWithin500m,
+        modelPrice: asset.modelPrice,
+        confidencePct: asset.confidencePct,
+        capRatePct: asset.capRatePct,
+        antennaDistanceM: asset.antennaDistanceM,
+        shelterDistanceM: asset.shelterDistanceM,
+        rentEstimate: asset.rentEstimate,
+        assetId: asset.id ?? asset.external_id,
+        assetStatus: asset.status || asset.assetStatus || 'active',
+        sources: asset.sources || [],
+        primarySource: asset.primarySource || 'manual'
+      }))
+      return NextResponse.json({ rows })
     }
   } catch (error) {
     console.error('Error fetching assets from backend:', error)
@@ -242,35 +284,45 @@ export async function POST(req: Request) {
       ...extraFields
     }
 
-    // Send full asset to backend to ensure contract parity
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
-    const backendResponse = await fetch(`${backendUrl}/api/assets/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(assetPayload)
-    })
+    console.log('Attempting to create asset with payload:', assetPayload)
 
-    if (!backendResponse.ok) {
-      const errorText = await backendResponse.text()
-      console.error('Backend asset creation failed:', backendResponse.status, errorText)
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    try {
+      const backendResponse = await fetch(`${backendUrl}/api/assets/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assetPayload)
+      })
+
+      if (!backendResponse.ok) {
+        const errorText = await backendResponse.text()
+        console.error('Backend asset creation failed:', backendResponse.status, errorText)
+        return NextResponse.json(
+          { error: 'Failed to create asset in backend', details: errorText },
+          { status: backendResponse.status }
+        )
+      }
+
+      const backendData = await backendResponse.json()
+      console.log('Backend asset creation succeeded:', backendData)
+
+      const id = backendData.id
+
+      const asset: Asset = {
+        id,
+        ...assetPayload,
+        assetId: id,
+        assetStatus: backendData.status || assetPayload.assetStatus
+      }
+
+      return NextResponse.json({ asset }, { status: 201 })
+    } catch (err) {
+      console.error('Error connecting to backend for asset creation:', err)
       return NextResponse.json(
-        { error: 'Failed to create asset in backend' },
-        { status: backendResponse.status }
+        { error: 'Failed to connect to backend for asset creation' },
+        { status: 500 }
       )
     }
-
-    const backendData = await backendResponse.json()
-    const id = backendData.id
-
-    // Final asset with backend-generated id
-    const asset: Asset = {
-      id,
-      ...assetPayload,
-      assetId: id,
-      assetStatus: backendData.status || assetPayload.assetStatus
-    }
-
-    return NextResponse.json({ asset }, { status: 201 })
     
   } catch (error) {
     if (error instanceof z.ZodError) {

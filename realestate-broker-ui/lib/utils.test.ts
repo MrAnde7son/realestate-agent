@@ -73,6 +73,11 @@ describe('Utils', () => {
       expect(result).toContain('100')
       expect(result).not.toContain('.25')
     })
+
+    it('handles undefined input', () => {
+      // @ts-expect-error testing runtime behaviour with undefined
+      expect(fmtCurrency(undefined)).toBe('—')
+    })
   })
 
   describe('fmtNumber', () => {
@@ -105,6 +110,11 @@ describe('Utils', () => {
       expect(fmtNumber(123)).toBe('123')
       expect(fmtNumber(45)).toBe('45')
       expect(fmtNumber(7)).toBe('7')
+    })
+
+    it('handles undefined input', () => {
+      // @ts-expect-error testing runtime behaviour with undefined
+      expect(fmtNumber(undefined)).toBe('—')
     })
   })
 

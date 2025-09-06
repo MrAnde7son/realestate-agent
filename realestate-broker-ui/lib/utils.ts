@@ -5,7 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function fmtCurrency(amount: number): string {
+export function fmtCurrency(amount?: number | null): string {
+  if (typeof amount !== 'number' || isNaN(amount)) return '—'
   return new Intl.NumberFormat('he-IL', {
     style: 'currency',
     currency: 'ILS',
@@ -14,7 +15,8 @@ export function fmtCurrency(amount: number): string {
   }).format(amount)
 }
 
-export function fmtNumber(num: number): string {
+export function fmtNumber(num?: number | null): string {
+  if (typeof num !== 'number' || isNaN(num)) return '—'
   return new Intl.NumberFormat('he-IL').format(num)
 }
 

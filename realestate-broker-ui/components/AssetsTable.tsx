@@ -25,24 +25,54 @@ function createColumns(onDelete?: (id: number) => void): ColumnDef<Asset>[] {
           <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
         </div>
         <div className="text-xs text-sub">
-            {row.original.city}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type ?? '—'} · {row.original.netSqm??'—'} מ&quot;ר נטו
+            {row.original.city ?? '—'}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type ?? '—'} · {row.original.netSqm !== undefined && row.original.netSqm !== null ? `${fmtNumber(row.original.netSqm)} מ"ר נטו` : '—'}
         </div>
       </div>
-    ) 
+    )
   },
   { header:'₪', accessorKey:'price', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'₪/מ"ר', accessorKey:'pricePerSqm', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
-  { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', cell: info => <Badge variant={(info.getValue() as number)>=0?'default':'bad'}>{fmtPct(info.getValue() as number)}</Badge> },
-  { header:'ימי שוק (אחוזון)', accessorKey:'domPercentile', cell: info => <Badge>{`P${info.getValue()}`}</Badge> },
-  { header:'תחרות (1ק"מ)', accessorKey:'competition1km', cell: info => <Badge>{info.getValue() as string}</Badge> },
-  { header:'ייעוד', accessorKey:'zoning', cell: info => <Badge>{info.getValue() as string}</Badge> },
-  { header:'יתרת זכויות', accessorKey:'remainingRightsSqm', cell: info => <Badge>{`~+${fmtNumber(info.getValue() as number)} מ"ר`}</Badge> },
-  { header:'תכנית', accessorKey:'program', cell: info => <Badge>{info.getValue() as string}</Badge> },
-  { header:'היתר עדכני', accessorKey:'lastPermitQ', cell: info => <Badge>{info.getValue() as string}</Badge> },
-  { header:'קבצים', id:'docsCount', accessorFn: row => row.documents?.length ?? 0, cell: info => <Badge>{fmtNumber(info.getValue() as number)}</Badge> },
-  { header:'רעש', accessorKey:'noiseLevel', cell: info => <Badge>{`${info.getValue()}/5`}</Badge> },
+  { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge variant={typeof value === 'number' && value < 0 ? 'bad' : 'default'}>{fmtPct(value)}</Badge>
+    } },
+  { header:'ימי שוק (אחוזון)', accessorKey:'domPercentile', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{value !== undefined ? `P${value}` : '—'}</Badge>
+    } },
+  { header:'תחרות (1ק"מ)', accessorKey:'competition1km', cell: info => {
+      const value = info.getValue() as string | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'ייעוד', accessorKey:'zoning', cell: info => {
+      const value = info.getValue() as string | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'יתרת זכויות', accessorKey:'remainingRightsSqm', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{value !== undefined && value !== null ? `~+${fmtNumber(value)} מ"ר` : '—'}</Badge>
+    } },
+  { header:'תכנית', accessorKey:'program', cell: info => {
+      const value = info.getValue() as string | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'היתר עדכני', accessorKey:'lastPermitQ', cell: info => {
+      const value = info.getValue() as string | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'קבצים', id:'docsCount', accessorFn: row => row.documents?.length ?? 0, cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{fmtNumber(value)}</Badge>
+    } },
+  { header:'רעש', accessorKey:'noiseLevel', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{value !== undefined ? `${value}/5` : '—'}</Badge>
+    } },
   { header:'אנטנה (מ")', accessorKey:'antennaDistanceM', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
-  { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => <Badge variant={(info.getValue() as boolean)?'good':'bad'}>{(info.getValue() as boolean)?'כן':'לא'}</Badge> },
+  { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => {
+      const value = info.getValue() as boolean | undefined
+      return <Badge variant={value === undefined ? 'default' : value ? 'good' : 'bad'}>{value === undefined ? '—' : value ? 'כן' : 'לא'}</Badge>
+    } },
   { header:'מקלט (מ")', accessorKey:'shelterDistanceM', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
   { header:'סיכון', accessorKey:'riskFlags', cell: info => <RiskCell flags={info.getValue() as string[]}/> },
   { header:'סטטוס נכס', accessorKey:'assetStatus', cell: info => {
@@ -53,10 +83,19 @@ function createColumns(onDelete?: (id: number) => void): ColumnDef<Asset>[] {
     return <Badge variant={variant}>{label}</Badge>
   }},
   { header:'מחיר מודל', accessorKey:'modelPrice', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
-  { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => <Badge variant={(info.getValue() as number)>0?'warn':'good'}>{fmtPct(info.getValue() as number)}</Badge> },
-  { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => <Badge>{`${info.getValue()}%`}</Badge> },
+  { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge variant={typeof value === 'number' && value > 0 ? 'warn' : 'good'}>{fmtPct(value)}</Badge>
+    } },
+  { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{value !== undefined ? `${value}%` : '—'}</Badge>
+    } },
   { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
-    { header:'תשואה', accessorKey:'capRatePct', cell: info => <Badge>{`${(info.getValue() as number)?.toFixed(1)}%`}</Badge> },
+    { header:'תשואה', accessorKey:'capRatePct', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{typeof value === 'number' ? `${value.toFixed(1)}%` : '—'}</Badge>
+    } },
     { header:'—', id:'actions', cell: ({ row }) => (
       <div className="flex gap-2">
         <Link className="underline" href={`/assets/${row.original.id}`}>👁️</Link>

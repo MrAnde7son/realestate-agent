@@ -74,11 +74,20 @@ class NadlanDealsScraper:
         Raises:
             NadlanAPIError: If the API call fails
         """
+        logger.info("Fetching deals for neighborhood %s", neighbourhood_id)
         try:
             deals = asyncio.run(self._fetch_deals_by_neighborhood(neighbourhood_id))
+            logger.info(
+                "Fetched %s deals for neighborhood %s", len(deals), neighbourhood_id
+            )
             return deals
         except Exception as e:
-            raise NadlanAPIError(f"Failed to fetch deals for neighborhood {neighbourhood_id}: {e}")
+            logger.exception(
+                "Failed to fetch deals for neighborhood %s", neighbourhood_id
+            )
+            raise NadlanAPIError(
+                f"Failed to fetch deals for neighborhood {neighbourhood_id}: {e}"
+            )
 
     def search_address(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Search for addresses using the govmap autocomplete API.
@@ -90,10 +99,13 @@ class NadlanDealsScraper:
         Returns:
             List of address suggestions with IDs and names
         """
+        logger.info("Searching for address '%s'", query)
         try:
             results = asyncio.run(self._search_address_async(query, limit))
+            logger.info("Found %s results for '%s'", len(results), query)
             return results
         except Exception as e:
+            logger.exception("Address search failed for '%s'", query)
             raise NadlanAPIError(f"Failed to search for address '{query}': {e}")
 
     def get_deals_by_address(self, address_query: str) -> List[Deal]:
@@ -108,25 +120,36 @@ class NadlanDealsScraper:
         Raises:
             NadlanAPIError: If the search or fetch fails
         """
+        logger.info("Fetching deals for address '%s'", address_query)
         try:
             # First search for the address
             search_results = self.search_address(address_query, limit=5)
-            
+
             if not search_results:
                 raise NadlanAPIError(f"No addresses found for query: {address_query}")
-            
+
             # Get the first (most relevant) result
             best_match = search_results[0]
             neighborhood_id = best_match.get('neighborhood_id')
-            
+
             if not neighborhood_id:
                 raise NadlanAPIError(f"Could not determine neighborhood ID for: {best_match['value']}")
-            
+
+            logger.info(
+                "Using neighborhood %s for address '%s'", neighborhood_id, address_query
+            )
             # Fetch deals using the neighborhood ID
-            return self.get_deals_by_neighborhood_id(neighborhood_id)
-            
+            deals = self.get_deals_by_neighborhood_id(neighborhood_id)
+            logger.info(
+                "Fetched %s deals for address '%s'", len(deals), address_query
+            )
+            return deals
+
         except Exception as e:
-            raise NadlanAPIError(f"Failed to get deals for address '{address_query}': {e}")
+            logger.exception("Failed to get deals for address '%s'", address_query)
+            raise NadlanAPIError(
+                f"Failed to get deals for address '{address_query}': {e}"
+            )
 
     def get_neighborhood_info(self, neighbourhood_id: str) -> Dict[str, Any]:
         """Get information about a neighborhood.
@@ -140,11 +163,18 @@ class NadlanDealsScraper:
         Raises:
             NadlanAPIError: If the API call fails
         """
+        logger.info("Fetching neighborhood info for %s", neighbourhood_id)
         try:
             info = asyncio.run(self._fetch_neighborhood_info(neighbourhood_id))
+            logger.info("Fetched neighborhood info for %s", neighbourhood_id)
             return info
         except Exception as e:
-            raise NadlanAPIError(f"Failed to fetch neighborhood info for {neighbourhood_id}: {e}")
+            logger.exception(
+                "Failed to fetch neighborhood info for %s", neighbourhood_id
+            )
+            raise NadlanAPIError(
+                f"Failed to fetch neighborhood info for {neighbourhood_id}: {e}"
+            )
 
     async def _fetch_neighborhood_info(self, neigh_id: str) -> Dict[str, Any]:
         """Fetch neighborhood information using Playwright."""

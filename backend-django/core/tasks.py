@@ -38,12 +38,19 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     pipeline = DataPipeline()
     address = asset.street or asset.city or ""
     house_number = asset.number or 0
+    logger.info("Starting data pipeline for asset %s", asset_id)
     try:
         result = pipeline.run(address, house_number, max_pages=max_pages)
         track('asset_sync', asset_id=asset_id)
+        logger.info(
+            "Data pipeline completed for asset %s with %s listings",
+            asset_id,
+            len(result) if hasattr(result, '__len__') else result,
+        )
         return result
     except Exception as e:
         track('asset_sync_fail', asset_id=asset_id, error_code=str(e))
+        logger.exception("Data pipeline failed for asset %s", asset_id)
         raise
 
 

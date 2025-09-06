@@ -103,13 +103,18 @@ describe('/api/assets', () => {
       expect(data.asset.status).toBe('pending')
       expect(data.asset.id).toBe(999)
       expect(data.asset.type).toBe('לא ידוע')
-
-      // Ensure backend receives identical asset payload (minus backend id fields)
+      
+      // Ensure backend receives payload with scope information
       expect(global.fetch).toHaveBeenCalledTimes(1)
       const [, fetchOptions] = (global.fetch as any).mock.calls[0]
       const sentBody = JSON.parse(fetchOptions.body)
-      const { id, assetId, ...expectedPayload } = data.asset
-      expect(sentBody).toEqual(expectedPayload)
+      expect(sentBody).toEqual({
+        scope: mockAsset.scope,
+        city: mockAsset.city,
+        street: mockAsset.street,
+        number: mockAsset.number,
+        radius: 100
+      })
     })
 
     it('validates required fields', async () => {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { assets, addAsset, deleteAsset } from '@/lib/data'
+import { assets, deleteAsset } from '@/lib/data'
 import type { Asset } from '@/lib/data'
 import { z } from 'zod'
 
@@ -50,9 +50,20 @@ function determineAssetType(asset: any): string {
 }
 
 export async function GET() {
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
   try {
-    // Return mock data for now
-    const transformedRows = assets.map((asset: any) => ({
+    const res = await fetch(`${backendUrl}/api/assets/`)
+    if (res.ok) {
+      const data = await res.json()
+      return NextResponse.json(data)
+    }
+  } catch (error) {
+    console.error('Error fetching assets from backend:', error)
+  }
+
+  // Fallback to mock data
+  const transformedRows =
+    assets.map((asset: any) => ({
       id: asset.id,
       address: asset.address,
       price: asset.price,
@@ -94,11 +105,7 @@ export async function GET() {
       primarySource: asset.primarySource || 'manual'
     })) || []
 
-    return NextResponse.json({ rows: transformedRows })
-  } catch (error) {
-    console.error('Error fetching assets:', error)
-    return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500 })
-  }
+  return NextResponse.json({ rows: transformedRows })
 }
 
 export async function DELETE(req: Request) {
@@ -178,8 +185,6 @@ export async function POST(req: Request) {
 
     const derivedCity = validatedData.city || validatedData.scope.city || ''
 
-    const id = Date.now() // Generate unique numeric ID once
-
     // Pull through optional metrics if provided
     const metricKeys = [
       'deltaVsAreaPct',
@@ -210,9 +215,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Create asset with available data, using defaults for missing fields
-    const asset: Asset = {
-      id,
+    // Prepare asset data matching frontend contract (without id yet)
+    const assetPayload: Omit<Asset, 'id'> = {
       address: derivedAddress,
       price: 0, // Will be populated by enrichment pipeline
       bedrooms: 0,
@@ -232,15 +236,40 @@ export async function POST(req: Request) {
       neighborhood: '',
       netSqm: 0,
       pricePerSqmDisplay: 0,
-      assetId: id,
       assetStatus: 'pending',
       sources: [],
       primarySource: 'manual',
       ...extraFields
     }
-    
-    // Add to in-memory store
-    addAsset(asset)
+
+    // Send full asset to backend to ensure contract parity
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    const backendResponse = await fetch(`${backendUrl}/api/assets/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(assetPayload)
+    })
+
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text()
+      console.error('Backend asset creation failed:', backendResponse.status, errorText)
+      return NextResponse.json(
+        { error: 'Failed to create asset in backend' },
+        { status: backendResponse.status }
+      )
+    }
+
+    const backendData = await backendResponse.json()
+    const id = backendData.id
+
+    // Final asset with backend-generated id
+    const asset: Asset = {
+      id,
+      ...assetPayload,
+      assetId: id,
+      assetStatus: backendData.status || assetPayload.assetStatus
+    }
+
     return NextResponse.json({ asset }, { status: 201 })
     
   } catch (error) {

@@ -991,6 +991,7 @@ def assets(request):
             "number": data.get("number"),
             "gush": data.get("gush"),
             "helka": data.get("helka"),
+            "subhelka": data.get("subhelka"),
             "status": "pending",
             "meta": {
                 "scope": scope,
@@ -1126,6 +1127,7 @@ def asset_detail(request, asset_id):
                 "number": asset.number,
                 "gush": asset.gush,
                 "helka": asset.helka,
+                "subhelka": asset.subhelka,
                 "lat": asset.lat,
                 "lon": asset.lon,
                 "normalized_address": asset.normalized_address,

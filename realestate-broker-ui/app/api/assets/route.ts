@@ -23,6 +23,7 @@ const newAssetSchema = z.object({
   number: z.number().optional(),
   gush: z.string().optional(),
   helka: z.string().optional(),
+  subhelka: z.string().optional(),
   radius: z.number().default(100),
   deltaVsAreaPct: z.number().optional(),
   domPercentile: z.number().optional(),
@@ -157,6 +158,11 @@ export async function POST(req: Request) {
     const assetPayload: Omit<Asset, 'id'> = {
       address: derivedAddress,
       city: derivedCity,
+      street: validatedData.street,
+      number: validatedData.number,
+      gush: validatedData.gush,
+      helka: validatedData.helka,
+      subhelka: validatedData.subhelka,
       type: determineAssetType(body),
       assetStatus: 'pending',
       ...extraFields
@@ -170,6 +176,7 @@ export async function POST(req: Request) {
       number: validatedData.number,
       gush: validatedData.gush,
       helka: validatedData.helka,
+      subhelka: validatedData.subhelka,
       radius: validatedData.radius
     }
 

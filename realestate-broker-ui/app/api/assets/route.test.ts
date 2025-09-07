@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { GET, POST, DELETE } from './route'
 import { NextRequest } from 'next/server'
-import { assets } from '@/lib/data'
 
 const originalFetch = global.fetch
 
@@ -44,8 +43,7 @@ describe('/api/assets', () => {
               features: [],
               contactInfo: { agent: '', phone: '', email: '' },
               city: 'תל אביב',
-              assetId: 1,
-              assetStatus: 'active'
+              assetId: 1
             }
           ]
         })
@@ -59,15 +57,15 @@ describe('/api/assets', () => {
       expect(data.rows[0].address).toBe('Backend Asset')
     })
 
-    it('falls back to mock assets on error', async () => {
+    it('returns error when backend fetch fails', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('fail'))
 
       const response = await GET()
       const data = await response.json()
 
       expect(global.fetch).toHaveBeenCalledTimes(1)
-      expect(Array.isArray(data.rows)).toBe(true)
-      expect(data.rows.length).toBe(assets.length)
+      expect(response.status).toBe(500)
+      expect(data.error).toBeDefined()
     })
   })
 
@@ -100,9 +98,9 @@ describe('/api/assets', () => {
       expect(data.asset).toBeDefined()
       expect(data.asset.address).toBe('New St 5')
       expect(data.asset.city).toBe('תל אביב')
-      expect(data.asset.status).toBe('pending')
+      expect(data.asset.assetStatus).toBe('pending')
       expect(data.asset.id).toBe(999)
-      expect(data.asset.type).toBe('לא ידוע')
+      expect(data.asset.type).toBeNull()
       
       // Ensure backend receives payload with scope information
       expect(global.fetch).toHaveBeenCalledTimes(1)
@@ -209,30 +207,17 @@ describe('/api/assets', () => {
   })
 
   describe('DELETE', () => {
-    beforeEach(() => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('backend unavailable'))
-    })
-
     it('deletes an asset', async () => {
-      const newAsset = {
-        id: 1234,
-        address: 'Temp',
-        price: 0,
-        bedrooms: 0,
-        bathrooms: 1,
-        area: 0,
-        type: 'דירה',
-        status: 'active',
-        images: [],
-        description: '',
-        features: [],
-        contactInfo: { agent: '', phone: '', email: '' },
-      }
-      assets.push(newAsset as any)
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ message: 'deleted' })
+      })
+
       const req = new Request('http://localhost/api/assets', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: newAsset.id }),
+        body: JSON.stringify({ assetId: 1234 }),
       })
 
       const res = await DELETE(req)
@@ -240,7 +225,7 @@ describe('/api/assets', () => {
 
       expect(res.status).toBe(200)
       expect(data.message).toBeDefined()
-      expect(assets.find(a => a.id === newAsset.id)).toBeUndefined()
+      expect(global.fetch).toHaveBeenCalledTimes(1)
     })
   })
 })

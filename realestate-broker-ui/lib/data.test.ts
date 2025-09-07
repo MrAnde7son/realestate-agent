@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { 
-  assets, 
-  alerts, 
-  appraisalByAsset, 
-  compsByAsset, 
+import {
+  assets,
+  alerts,
+  appraisalByAsset,
+  compsByAsset,
   rightsByAsset,
   getActiveAlerts,
   getActiveAlertsCount,
   getActiveAssetsCount,
   deleteAsset,
-  type Asset,
   type Alert
 } from './data'
+import type { Asset } from './normalizers/asset'
 
 describe('Data Module', () => {
   describe('Static Data', () => {
@@ -27,7 +27,7 @@ describe('Data Module', () => {
       expect(firstAsset).toHaveProperty('bathrooms')
       expect(firstAsset).toHaveProperty('area')
       expect(firstAsset).toHaveProperty('type')
-      expect(firstAsset).toHaveProperty('status')
+      expect(firstAsset).toHaveProperty('assetStatus')
       expect(firstAsset).toHaveProperty('contactInfo')
     })
 
@@ -186,7 +186,7 @@ describe('Data Module', () => {
 
     it('getActiveAssetsCount returns correct count', () => {
       const count = getActiveAssetsCount()
-      const activeAssets = assets.filter(asset => asset.status === 'active')
+      const activeAssets = assets.filter(asset => asset.assetStatus === 'active')
       
       expect(count).toBe(activeAssets.length)
       expect(typeof count).toBe('number')
@@ -211,10 +211,10 @@ describe('Data Module', () => {
     })
 
     it('has valid asset status values', () => {
-      const validStatuses = ['active', 'pending', 'sold']
-      
+      const validStatuses = ['pending', 'enriching', 'done', 'failed']
+
       assets.forEach(asset => {
-        expect(validStatuses).toContain(asset.status)
+        expect(validStatuses).toContain(asset.assetStatus)
       })
     })
 
@@ -237,7 +237,7 @@ describe('Data Module', () => {
 
   describe('deleteAsset', () => {
     it('removes asset by id', () => {
-      const newAsset: Asset = { id: 1010, address: 'Del St', price: 1, bedrooms: 1, bathrooms: 1, area: 1, type: 'דירה', status: 'active', images: [], description: '', features: [], contactInfo: { agent: '', phone: '', email: '' } }
+      const newAsset: Asset = { id: 1010, address: 'Del St', price: 1, rooms: 1, bathrooms: 1, area: 1, type: 'דירה', assetStatus: 'active' }
       assets.push(newAsset)
       const removed = deleteAsset(1010)
       expect(removed?.id).toBe(1010)

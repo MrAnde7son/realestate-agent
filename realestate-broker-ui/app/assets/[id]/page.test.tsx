@@ -30,7 +30,7 @@ describe('AssetDetailPage', () => {
             address: 'Test Street 1',
             city: 'Tel Aviv',
             type: 'house',
-            netSqm: 80,
+            area: 80,
             price: 1000000,
             pricePerSqm: 12500,
             documents: [],

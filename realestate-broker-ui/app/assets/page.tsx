@@ -39,7 +39,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { Asset } from "@/lib/data";
+import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -377,12 +377,13 @@ export default function AssetsPage() {
   const filteredAssets = React.useMemo(
     () =>
       assets.filter((l) => {
-        if (
-          search &&
-          !l.address.toLowerCase().includes(search.toLowerCase()) &&
-          !l.city?.toLowerCase().includes(search.toLowerCase())
-        ) {
-          return false;
+        if (search) {
+          const lower = search.toLowerCase();
+          const addressLower = l.address?.toLowerCase();
+          const cityLower = l.city?.toLowerCase();
+          if (!(addressLower?.includes(lower) || cityLower?.includes(lower))) {
+            return false;
+          }
         }
         if (city && city !== "all" && l.city !== city) {
           return false;
@@ -390,10 +391,10 @@ export default function AssetsPage() {
         if (typeFilter && typeFilter !== "all" && l.type !== typeFilter) {
           return false;
         }
-        if (priceMin && l.price < priceMin) {
+        if (priceMin != null && l.price != null && l.price < priceMin) {
           return false;
         }
-        if (priceMax && l.price > priceMax) {
+        if (priceMax != null && l.price != null && l.price > priceMax) {
           return false;
         }
         return true;

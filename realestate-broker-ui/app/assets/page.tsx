@@ -700,8 +700,7 @@ export default function AssetsPage() {
         {/* Summary */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            מציג {filteredAssets.length} מתוך {assets.length} נכסים עם נתוני
-            שמאות מלאים
+            מציג {filteredAssets.length} מתוך {assets.length} נכסים 
           </p>
         </div>
       </div>

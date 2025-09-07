@@ -31,6 +31,23 @@ export default function OnboardingChecklist() {
   }, [isAuthenticated])
 
   useEffect(() => {
+    const handleUpdate = () => {
+      if (!isAuthenticated) return
+      authAPI
+        .getOnboardingStatus()
+        .then(newStatus => {
+          setStatus(newStatus)
+          setDismissed(false)
+          localStorage.removeItem('onboardingDismissed')
+        })
+        .catch(err => console.error('Failed to load onboarding status', err))
+    }
+
+    window.addEventListener('onboardingUpdate', handleUpdate)
+    return () => window.removeEventListener('onboardingUpdate', handleUpdate)
+  }, [isAuthenticated])
+
+  useEffect(() => {
     if (status?.completed && !celebrated) {
       confetti({ spread: 70, origin: { y: 0.6 } })
       setCelebrated(true)

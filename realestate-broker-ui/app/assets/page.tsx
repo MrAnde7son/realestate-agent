@@ -322,7 +322,7 @@ export default function AssetsPage() {
               },
               gush: data.gush,
               helka: data.helka,
-              subHelka: data.subHelka,
+              subhelka: data.subHelka,
               radius: data.radius,
             };
 

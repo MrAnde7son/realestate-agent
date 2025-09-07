@@ -115,6 +115,33 @@ describe('/api/assets', () => {
       })
     })
 
+    it('passes parcel information through DTO', async () => {
+      const mockParcelAsset = {
+        scope: {
+          type: 'parcel' as const,
+          value: '1/2'
+        },
+        gush: '1',
+        helka: '2',
+        subhelka: '3'
+      }
+      const request = createMockRequest(mockParcelAsset)
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(201)
+      expect(data.asset.gush).toBe('1')
+      expect(data.asset.helka).toBe('2')
+      expect(data.asset.subhelka).toBe('3')
+
+      const [, fetchOptions] = (global.fetch as any).mock.calls[0]
+      const sentBody = JSON.parse(fetchOptions.body)
+      expect(sentBody.gush).toBe('1')
+      expect(sentBody.helka).toBe('2')
+      expect(sentBody.subhelka).toBe('3')
+    })
+
     it('validates required fields', async () => {
       const invalidAsset = { 
         address: '', 

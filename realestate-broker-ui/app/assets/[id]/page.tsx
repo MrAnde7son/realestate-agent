@@ -28,6 +28,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [creatingMessage, setCreatingMessage] = useState(false)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [shareModal, setShareModal] = useState(false)
   const [language, setLanguage] = useState('he')
   const [sectionsModal, setSectionsModal] = useState(false)
   const [sections, setSections] = useState<string[]>(ALL_SECTIONS)
@@ -357,7 +358,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={handleCreateMessage}
+                onClick={() => {
+                  setShareModal(true)
+                  handleCreateMessage()
+                }}
                 disabled={creatingMessage}
               >
                 {creatingMessage ? (
@@ -369,42 +373,63 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   'צור הודעת פרסום'
                 )}
               </Button>
+              <Dialog
+                open={shareModal}
+                onOpenChange={(open) => {
+                  setShareModal(open)
+                  if (!open) {
+                    setShareMessage(null)
+                    setShareUrl(null)
+                  }
+                }}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>הודעת פרסום</DialogTitle>
+                  </DialogHeader>
+                  {creatingMessage ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      יוצר הודעה...
+                    </div>
+                  ) : shareMessage ? (
+                    <div className="space-y-2">
+                      <textarea
+                        className="w-full border rounded p-2 text-sm"
+                        rows={4}
+                        readOnly
+                        value={shareMessage}
+                      />
+                      <DialogFooter className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(shareMessage)
+                            alert('Copied!')
+                          }}
+                        >
+                          העתק הודעה
+                        </Button>
+                        {shareUrl && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const fullUrl = `${window.location.origin}${shareUrl}`
+                              navigator.clipboard.writeText(fullUrl)
+                              alert('Copied!')
+                            }}
+                          >
+                            העתק קישור
+                          </Button>
+                        )}
+                      </DialogFooter>
+                    </div>
+                  ) : null}
+                </DialogContent>
+              </Dialog>
             </div>
             {syncMessage && (
               <div className="text-sm text-muted-foreground">{syncMessage}</div>
-            )}
-            {shareMessage && (
-              <div className="space-y-2">
-                <textarea
-                  className="w-full border rounded p-2 text-sm"
-                  rows={4}
-                  readOnly
-                  value={shareMessage}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(shareMessage)
-                      alert('Copied!')
-                    }}
-                  >
-                    העתק הודעה
-                  </Button>
-                  {shareUrl && (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const fullUrl = `${window.location.origin}${shareUrl}`
-                        navigator.clipboard.writeText(fullUrl)
-                        alert('Copied!')
-                      }}
-                    >
-                      העתק קישור
-                    </Button>
-                  )}
-                </div>
-              </div>
             )}
           </div>
         </div>

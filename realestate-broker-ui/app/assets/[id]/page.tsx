@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card as SimpleCard, CardHeader as SimpleCardHeader, CardBody as SimpleCardBody, CardFooter as SimpleCardFooter } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -511,11 +512,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
           <TabsContent value="analysis" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>פרטי הנכס</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+              <SimpleCard>
+                <SimpleCardHeader>פרטי הנכס</SimpleCardHeader>
+                <SimpleCardBody className="space-y-2">
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">סוג:</span>
                     <span>{asset.type ?? '—'}</span>
@@ -538,8 +537,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       {asset.confidencePct}%
                     </Badge>
                   </div>
-                </CardContent>
-              </Card>
+                </SimpleCardBody>
+              </SimpleCard>
 
               <Card>
                 <CardHeader>
@@ -791,23 +790,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                 </div>
 
-                {asset.riskFlags && asset.riskFlags.length > 0 && (
-                  <div>
-                    <h3 className="font-medium mb-2">סיכונים</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {asset.riskFlags.map((flag: string, i: number) => (
-                        <Badge 
-                          key={i} 
-                          variant={flag.includes('שימור') ? 'bad' : 'warn'}
-                        >
-                          {flag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
+
+            {asset.riskFlags && asset.riskFlags.length > 0 && (
+              <SimpleCard>
+                <SimpleCardHeader>סיכונים</SimpleCardHeader>
+                <SimpleCardBody className="flex flex-wrap gap-2">
+                  {asset.riskFlags.map((flag: string, i: number) => (
+                    <Badge key={i} variant={flag.includes('שימור') ? 'bad' : 'warn'}>
+                      {flag}
+                    </Badge>
+                  ))}
+                </SimpleCardBody>
+              </SimpleCard>
+            )}
 
             <Card>
               <CardHeader>
@@ -840,11 +837,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
           <TabsContent value="permits" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle>פרטי היתר</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+              <SimpleCard>
+                <SimpleCardHeader>פרטי היתר</SimpleCardHeader>
+                <SimpleCardBody className="space-y-2">
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תאריך היתר:</span>
                     {renderValue(asset.permitDate, 'permitDate')}
@@ -880,8 +875,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       'permitDocUrl'
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </SimpleCardBody>
+              </SimpleCard>
 
               <Card>
                 <CardHeader>
@@ -960,11 +955,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </TabsContent>
 
           <TabsContent value="transactions" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>עיסקאות השוואה</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <SimpleCard>
+              <SimpleCardHeader>עיסקאות השוואה</SimpleCardHeader>
+              <SimpleCardBody className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
@@ -991,9 +984,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     </div>
                     <div className="text-sm text-muted-foreground">פער מהאזור</div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </SimpleCardBody>
+              </SimpleCard>
 
             <Card>
               <CardHeader>

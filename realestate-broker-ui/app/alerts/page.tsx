@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/legacy-card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/Badge'
 import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer } from 'lucide-react'

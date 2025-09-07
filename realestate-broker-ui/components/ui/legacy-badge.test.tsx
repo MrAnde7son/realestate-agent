@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import { Badge } from './badge'
+import { Badge } from './legacy-badge'
 import { describe, it, expect, vi } from 'vitest'
 import Link from 'next/link'
 

@@ -12,9 +12,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/legacy-card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/legacy-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Calculator,

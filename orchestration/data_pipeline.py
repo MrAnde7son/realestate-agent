@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Iterable, List, Optional
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 from sqlalchemy.orm import Session
 
@@ -87,6 +88,23 @@ def _load_user_notifiers() -> List[Notifier]:
 class DataPipeline:
     """Collect data from external services and persist it to the database."""
 
+    # Per-collector configuration for timeouts and retry counts. These can
+    # be overridden via environment variables if needed.
+    TIMEOUTS = {
+        "yad2": float(os.getenv("YAD2_TIMEOUT", "30")),
+        "gis": float(os.getenv("GIS_TIMEOUT", "30")),
+        "gov": float(os.getenv("GOV_TIMEOUT", "60")),
+        "rami": float(os.getenv("RAMI_TIMEOUT", "60")),
+        "mavat": float(os.getenv("MAVAT_TIMEOUT", "60")),
+    }
+    RETRIES = {
+        "yad2": int(os.getenv("YAD2_RETRIES", "0")),
+        "gis": int(os.getenv("GIS_RETRIES", "0")),
+        "gov": int(os.getenv("GOV_RETRIES", "0")),
+        "rami": int(os.getenv("RAMI_RETRIES", "0")),
+        "mavat": int(os.getenv("MAVAT_RETRIES", "0")),
+    }
+
     def __init__(
         self,
         db: Optional[SQLAlchemyDatabase] = None,
@@ -136,17 +154,41 @@ class DataPipeline:
                 # Tables might already exist – ignore
                 pass
 
-    def _collect_with_observability(self, source: str, func, *args, **kwargs):
-        """Wrap collector calls with metrics and tracing."""
+    def _collect_with_observability(
+        self,
+        source: str,
+        func,
+        *args,
+        timeout: Optional[float] = None,
+        retries: int = 0,
+        retry_delay: float = 0,
+        **kwargs,
+    ):
+        """Wrap collector calls with metrics, tracing, timeouts and retries."""
         with tracer.start_as_current_span(source):
             start_time = time.perf_counter()
+            last_exc: Optional[Exception] = None
             try:
-                result = func(*args, **kwargs)
-                COLLECTOR_SUCCESS.labels(source=source).inc()
-                return result
-            except Exception:
+                for attempt in range(retries + 1):
+                    try:
+                        with ThreadPoolExecutor(max_workers=1) as executor:
+                            future = executor.submit(func, *args, **kwargs)
+                            result = future.result(timeout=timeout)
+                        COLLECTOR_SUCCESS.labels(source=source).inc()
+                        return result
+                    except FuturesTimeoutError as e:
+                        last_exc = TimeoutError(
+                            f"{source} collector timed out after {timeout}s"
+                        )
+                    except Exception as e:  # pragma: no cover - propagate
+                        last_exc = e
+                    if attempt < retries:
+                        if retry_delay:
+                            time.sleep(retry_delay)
                 COLLECTOR_FAILURE.labels(source=source).inc()
-                raise
+                if last_exc:
+                    raise last_exc
+                raise RuntimeError(f"{source} collector failed")
             finally:
                 duration = time.perf_counter() - start_time
                 COLLECTOR_LATENCY.labels(source=source).observe(duration)
@@ -210,7 +252,12 @@ class DataPipeline:
             # Search Yad2 for listings
             try:
                 listings = self._collect_with_observability(
-                    "yad2", self.yad2.collect, address=address, max_pages=max_pages
+                    "yad2",
+                    self.yad2.collect,
+                    address=address,
+                    max_pages=max_pages,
+                    timeout=self.TIMEOUTS.get("yad2"),
+                    retries=self.RETRIES.get("yad2", 0),
                 )
                 track("collector_success", source="yad2")
             except Exception as e:
@@ -236,7 +283,12 @@ class DataPipeline:
                     # ---------------- GIS ----------------
                     try:
                         gis_data = self._collect_with_observability(
-                            "gis", self.gis.collect, address=address, house_number=house_number
+                            "gis",
+                            self.gis.collect,
+                            address=address,
+                            house_number=house_number,
+                            timeout=self.TIMEOUTS.get("gis"),
+                            retries=self.RETRIES.get("gis", 0),
                         )
                         track("collector_success", source="gis")
                     except Exception as e:
@@ -256,6 +308,8 @@ class DataPipeline:
                             block=block,
                             parcel=parcel,
                             address=address,
+                            timeout=self.TIMEOUTS.get("gov"),
+                            retries=self.RETRIES.get("gov", 0),
                         )
                         track("collector_success", source="gov")
                     except Exception as e:
@@ -277,7 +331,12 @@ class DataPipeline:
                     # ---------------- RAMI plans ----------------
                     try:
                         plans = self._collect_with_observability(
-                            "rami", self.rami.collect, block=block, parcel=parcel
+                            "rami",
+                            self.rami.collect,
+                            block=block,
+                            parcel=parcel,
+                            timeout=self.TIMEOUTS.get("rami"),
+                            retries=self.RETRIES.get("rami", 0),
                         )
                         track("collector_success", source="rami")
                     except Exception as e:
@@ -290,7 +349,12 @@ class DataPipeline:
                     # ---------------- Mavat plans ----------------
                     try:
                         mavat_plans = self._collect_with_observability(
-                            "mavat", self.mavat.collect, block=block, parcel=parcel
+                            "mavat",
+                            self.mavat.collect,
+                            block=block,
+                            parcel=parcel,
+                            timeout=self.TIMEOUTS.get("mavat"),
+                            retries=self.RETRIES.get("mavat", 0),
                         )
                         track("collector_success", source="mavat")
                     except Exception as e:

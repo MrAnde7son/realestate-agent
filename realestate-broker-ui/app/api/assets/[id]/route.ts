@@ -13,13 +13,16 @@ export async function GET(
 
   try {
     // Try to fetch from backend first
-    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${id}`)
-    
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
+    const backendResponse = await fetch(`${backendUrl}/api/assets/${id}`)
+
     if (backendResponse.ok) {
       const data = await backendResponse.json()
-      const backendAsset = data.rows?.find((l: any) =>
-        l.id?.toString() === id || l['external_id']?.toString() === id
-      )
+      const backendAsset = Array.isArray((data as any)?.rows)
+        ? (data as any).rows.find(
+            (l: any) => l.id?.toString() === id || l['external_id']?.toString() === id
+          )
+        : data
 
       if (backendAsset) {
         const asset: any = {

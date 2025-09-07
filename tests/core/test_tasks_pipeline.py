@@ -10,8 +10,8 @@ class DummyPipeline:
     def __init__(self):
         self.calls = []
 
-    def run(self, address, number, max_pages=1):
-        self.calls.append((address, number, max_pages))
+    def run(self, address, number, max_pages=1, asset_id=None):
+        self.calls.append((address, number, max_pages, asset_id))
         return [42]
 
 
@@ -26,4 +26,4 @@ def test_run_data_pipeline_task(monkeypatch):
         result = tasks.run_data_pipeline.run(1)
 
     assert result == [42]
-    assert dummy.calls == [('Main', 5, 1)]
+    assert dummy.calls == [('Main', 5, 1, 1)]

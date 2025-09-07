@@ -88,6 +88,6 @@ def test_pipeline_sends_alerts(monkeypatch):
     notifier = DummyNotifier()
     monkeypatch.setattr(data_pipeline, "_load_user_notifiers", lambda: [notifier])
 
-    pipeline.run("Fake", 1)
+    pipeline.run("Fake", 1, asset_id=123)
 
     assert notifier.calls == ["t"]

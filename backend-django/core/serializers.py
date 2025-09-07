@@ -24,11 +24,48 @@ class MetaSerializerMixin(serializers.ModelSerializer):
 
 
 class AssetSerializer(MetaSerializerMixin):
+    size = serializers.SerializerMethodField()
+    rights = serializers.SerializerMethodField()
+    permits = serializers.SerializerMethodField()
+    comps = serializers.SerializerMethodField()
+
+    KEY_FIELDS = ["city", "size", "rights", "permits", "comps"]
+
+    def _get_meta_value(self, obj, field):
+        meta = getattr(obj, "meta", {}) or {}
+        value = meta.get(field)
+        if isinstance(value, dict):
+            return value.get("value")
+        return None
+
+    def get_size(self, obj):
+        return self._get_meta_value(obj, "size")
+
+    def get_rights(self, obj):
+        return self._get_meta_value(obj, "rights")
+
+    def get_permits(self, obj):
+        return self._get_meta_value(obj, "permits")
+
+    def get_comps(self, obj):
+        return self._get_meta_value(obj, "comps")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Override key field values from meta if provided
+        meta = getattr(instance, "meta", {}) or {}
+        for field in self.KEY_FIELDS:
+            meta_val = meta.get(field)
+            if isinstance(meta_val, dict) and meta_val.get("value") is not None:
+                data[field] = meta_val["value"]
+        return data
+
     class Meta:
         model = Asset
         fields = [
             'id', 'scope_type', 'city', 'neighborhood', 'street', 'number',
-            'gush', 'helka', 'lat', 'lon', 'normalized_address', 'status'
+            'gush', 'helka', 'lat', 'lon', 'normalized_address', 'status',
+            'size', 'rights', 'permits', 'comps'
         ]
 
 

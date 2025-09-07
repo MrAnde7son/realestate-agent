@@ -199,7 +199,7 @@ export async function POST(req: Request) {
     doc.text(`Price: ₪${asset.price?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
     doc.text(`Bedrooms: ${asset.bedrooms || 'N/A'}`, 20, y); y += 10;
     doc.text(`Bathrooms: ${asset.bathrooms || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Area: ${asset.netSqm || asset.area || 'N/A'} sqm`, 20, y); y += 10;
+    doc.text(`Area: ${asset.area ?? 'N/A'} sqm`, 20, y); y += 10;
     doc.text(`Price per sqm: ₪${asset.pricePerSqmDisplay?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
     
     // Financial Analysis Section
@@ -244,14 +244,14 @@ export async function POST(req: Request) {
     doc.text(`Current Plan: ${asset.program || 'N/A'}`, 20, y); y += 10;
     doc.text(`Zoning: ${asset.zoning || 'N/A'}`, 20, y); y += 10;
     doc.text(`Remaining Rights: +${asset.remainingRightsSqm || 'N/A'} sqm`, 20, y); y += 10;
-    doc.text(`Main Building Rights: ${asset.netSqm || asset.area || 'N/A'} sqm`, 20, y); y += 10;
+    doc.text(`Main Building Rights: ${asset.area ?? 'N/A'} sqm`, 20, y); y += 10;
     
     y += 20;
     doc.setFontSize(14);
     doc.text('Building Rights Details', 20, y); y += 15;
     doc.setFontSize(12);
     doc.text(`Remaining Rights: ${asset.remainingRightsSqm || 'N/A'} sqm`, 20, y); y += 10;
-    const rightsPercentage = asset.remainingRightsSqm && asset.netSqm ? Math.round((asset.remainingRightsSqm / asset.netSqm) * 100) : 0;
+    const rightsPercentage = asset.remainingRightsSqm && asset.area ? Math.round((asset.remainingRightsSqm / asset.area) * 100) : 0;
     doc.text(`Additional Rights Percentage: ${rightsPercentage}%`, 20, y); y += 10;
     const rightsValue = asset.pricePerSqmDisplay && asset.remainingRightsSqm ? Math.round((asset.pricePerSqmDisplay * asset.remainingRightsSqm * 0.7) / 1000) : 0;
     doc.text(`Estimated Rights Value: ₪${rightsValue}K`, 20, y);

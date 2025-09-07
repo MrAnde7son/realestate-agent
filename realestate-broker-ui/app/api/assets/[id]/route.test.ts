@@ -4,35 +4,7 @@ import { NextRequest } from 'next/server'
 
 process.env.BACKEND_URL = 'http://127.0.0.1:8000'
 
-// Mock the data import
-vi.mock('@/lib/data', () => ({
-  assets: [
-    {
-      id: 1,
-      address: 'Test Street 123',
-      price: 3000000,
-      bedrooms: 3,
-      bathrooms: 2,
-      area: 85,
-      type: 'דירה',
-      status: 'active',
-      city: 'תל אביב',
-      neighborhood: 'מרכז העיר',
-    },
-    {
-      id: 2,
-      address: 'Another Street 456',
-      price: 4200000,
-      bedrooms: 4,
-      bathrooms: 3,
-      area: 120,
-      type: 'דירה',
-      status: 'pending',
-      city: 'תל אביב',
-      neighborhood: 'רוטשילד',
-    }
-  ]
-}))
+// No local data mock needed
 
 // Mock fetch for backend calls
 global.fetch = vi.fn()
@@ -48,21 +20,6 @@ describe('/api/assets/[id]', () => {
   })
 
   describe('GET', () => {
-    it('returns asset when found in mock data', async () => {
-      const request = new NextRequest('http://127.0.0.1:3000/api/assets/1')
-      const params = { id: '1' }
-      
-      const response = await GET(request, { params })
-      const data = await response.json()
-      
-      expect(response.status).toBe(200)
-      expect(data.asset).toBeDefined()
-      expect(data.asset.id).toBe(1)
-      expect(data.asset.address).toBe('Test Street 123')
-      expect(data.asset.price).toBe(3000000)
-      expect(data.asset.city).toBe('תל אביב')
-    })
-
     it('returns 404 when asset not found', async () => {
       const request = new NextRequest('http://127.0.0.1:3000/api/assets/999')
       const params = { id: '999' }
@@ -107,42 +64,29 @@ describe('/api/assets/[id]', () => {
       )
     })
 
-    it('falls back to mock data when backend fails', async () => {
-      // Mock backend failure
+    it('returns 404 when backend fails', async () => {
       ;(global.fetch as any).mockRejectedValue(new Error('Backend unavailable'))
 
       const request = new NextRequest('http://127.0.0.1:3000/api/assets/1')
       const params = { id: '1' }
-      
+
       const response = await GET(request, { params })
-      const data = await response.json()
-      
-      expect(response.status).toBe(200)
-      expect(data.asset).toBeDefined()
-      expect(data.asset.id).toBe(1)
-      expect(data.asset.address).toBe('Test Street 123')
+      expect(response.status).toBe(404)
     })
 
     it('handles backend timeout gracefully', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      
-      // Mock backend timeout
-      ;(global.fetch as any).mockImplementation(() => 
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 100)
-        )
+
+      ;(global.fetch as any).mockImplementation(() =>
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 100))
       )
 
       const request = new NextRequest('http://127.0.0.1:3000/api/assets/1')
       const params = { id: '1' }
-      
+
       try {
         const response = await GET(request, { params })
-        const data = await response.json()
-        
-        expect(response.status).toBe(200)
-        expect(data.asset).toBeDefined()
-        expect(data.asset.id).toBe(1)
+        expect(response.status).toBe(404)
       } finally {
         consoleSpy.mockRestore()
       }
@@ -154,18 +98,11 @@ describe('/api/assets/[id]', () => {
         external_id: 202,
         address: 'Transform Street 999',
         price: 2500000,
-        size: 75,
+        area: 75,
         rooms: 2.5,
         bathrooms: 1,
         property_type: 'דירה',
-        images: ['/image1.jpg', '/image2.jpg'],
-        description: 'Nice apartment',
-        features: ['balcony', 'parking'],
-        contact_info: {
-          name: 'Agent Name',
-          phone: '050-1234567',
-          email: 'agent@example.com'
-        }
+        pricePerSqm: Math.round(2500000 / 75)
       }
 
       ;(global.fetch as any).mockResolvedValue({
@@ -186,24 +123,11 @@ describe('/api/assets/[id]', () => {
       expect(asset.id).toBe(102)
       expect(asset.address).toBe('Transform Street 999')
       expect(asset.price).toBe(2500000)
-      expect(asset.bedrooms).toBe(2.5)
+      expect(asset.rooms).toBe(2.5)
       expect(asset.bathrooms).toBe(1)
       expect(asset.area).toBe(75)
       expect(asset.type).toBe('דירה')
-      expect(asset.images).toEqual(['/image1.jpg', '/image2.jpg'])
-      expect(asset.description).toBe('Nice apartment')
-      expect(asset.features).toEqual(['balcony', 'parking'])
-      expect(asset.contactInfo).toEqual({
-        name: 'Agent Name',
-        phone: '050-1234567',
-        email: 'agent@example.com'
-      })
-      
-      // Check calculated fields
-      expect(asset.pricePerSqmDisplay).toBe(Math.round(2500000 / 75))
-      expect(asset.city).toBe('תל אביב') // Default fallback
-      expect(asset.neighborhood).toBe('מרכז העיר') // Default fallback
-      expect(asset.netSqm).toBe(75)
+      expect(asset.pricePerSqm).toBe(Math.round(2500000 / 75))
     })
 
     it('uses external_id when id is not available in backend data', async () => {

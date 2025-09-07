@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react'
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { Asset } from '@/lib/data'
+import type { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
@@ -72,13 +72,19 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
           <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
         </div>
         <div className="text-xs text-sub">
-            {row.original.city ?? '—'}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type ?? '—'} · {row.original.netSqm !== undefined && row.original.netSqm !== null ? `${fmtNumber(row.original.netSqm)} מ"ר נטו` : '—'}
+            {row.original.city ?? '—'}{row.original.neighborhood?` · ${row.original.neighborhood}`:''} · {row.original.type ?? '—'} · {row.original.area !== undefined && row.original.area !== null ? `${fmtNumber(row.original.area)} מ"ר נטו` : '—'}
         </div>
       </div>
     )
   },
-  { header:'₪', accessorKey:'price', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
-  { header:'₪/מ"ר', accessorKey:'pricePerSqm', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
+  { header:'₪', accessorKey:'price', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
+    } },
+  { header:'₪/מ"ר', accessorKey:'pricePerSqm', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
+    } },
   { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge variant={typeof value === 'number' && value < 0 ? 'bad' : 'default'}>{fmtPct(value)}</Badge>
@@ -115,12 +121,18 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       const value = info.getValue() as number | undefined
       return <Badge>{value !== undefined ? `${value}/5` : '—'}</Badge>
     } },
-  { header:'אנטנה (מ")', accessorKey:'antennaDistanceM', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
+  { header:'אנטנה (מ")', accessorKey:'antennaDistanceM', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
+    } },
   { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => {
       const value = info.getValue() as boolean | undefined
       return <Badge variant={value === undefined ? 'default' : value ? 'good' : 'bad'}>{value === undefined ? '—' : value ? 'כן' : 'לא'}</Badge>
     } },
-  { header:'מקלט (מ")', accessorKey:'shelterDistanceM', cell: info => <span className="font-mono">{fmtNumber(info.getValue() as number)}</span> },
+  { header:'מקלט (מ")', accessorKey:'shelterDistanceM', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
+    } },
   { header:'סיכון', accessorKey:'riskFlags', cell: info => <RiskCell flags={info.getValue() as string[]}/> },
   { header:'סטטוס נכס', accessorKey:'assetStatus', cell: info => {
     const status = info.getValue() as string
@@ -138,7 +150,10 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       const value = info.getValue() as number | undefined
       return <Badge>{value !== undefined ? `${value}%` : '—'}</Badge>
     } },
-  { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
+  { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
+    } },
     { header:'תשואה', accessorKey:'capRatePct', cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge>{typeof value === 'number' ? `${value.toFixed(1)}%` : '—'}</Badge>

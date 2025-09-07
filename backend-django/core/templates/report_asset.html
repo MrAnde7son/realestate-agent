@@ -1,5 +1,5 @@
 <!doctype html>
-{% load humanize %}
+{% load static humanize %}
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
@@ -29,17 +29,33 @@
       --card:#ffffff;        /* card surface */
       --ink:#0f172a;         /* text */
       --muted:#475569;       /* secondary text */
-      --brand:#2563eb;       /* primary */
+      --brand:#1e3a8a;       /* primary */
       --brand-ink:#ffffff;   /* on-brand text */
       --chip-bg:#e2e8f0;     /* pill bg */
       --chip-ink:#0f172a;    /* pill text */
       --divider:#e5e7eb;
     }
-    body { background: var(--bg); color: var(--ink); }
+    body { background: var(--bg); color: var(--ink); position: relative; }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: url('{% static "core/nadlaner-logo.svg" %}') center/300px 80px no-repeat;
+      opacity: 0.05;
+      z-index: -1;
+    }    
     .header{
       margin-bottom: 12mm;
       padding-bottom: 6mm;
       border-bottom: 1px solid var(--divider);
+      display: flex;
+      gap: 10mm;
+      align-items: center;
+    }
+    .logo{
+      height: 40px;
+      width: auto;
     }
     .title{
       font-size: 20pt; font-weight: 700; margin: 0 0 4mm 0;
@@ -87,21 +103,31 @@
       border-bottom: 2px solid var(--divider);
       padding-bottom: 3mm;
     }
+    footer{
+      position: fixed;
+      bottom: 5mm;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 9pt;
+      color: var(--brand);
+    }
   </style>
 </head>
 <body>
 
   <header class="header">
-    <div class="title">דו"ח נכס</div>
-    <div class="subtitle">
-      {{ listing.address }} <span class="badge">{{ listing.city }}</span>
-      {% if listing.neighborhood %}<span class="badge">{{ listing.neighborhood }}</span>{% endif %}
-    </div>
-    <div class="chips">
-      <span class="chip">{{ listing.type }}</span>
-      <span class="chip">מחיר: ₪{{ listing.price|intcomma }}</span>
-      <span class="chip">שטח: {{ listing.netSqm }} מ"ר</span>
-      <span class="chip">מחיר למ"ר: ₪{{ listing.pricePerSqm|intcomma }}</span>
+    <img src="{% static 'core/nadlaner-logo.svg' %}" class="logo" alt="Nadlaner logo" />
+    <div>
+      <div class="title">דו"ח נכס</div>
+      <div class="subtitle">
+        {{ listing.address }} <span class="badge">{{ listing.city }}</span>
+        {% if listing.neighborhood %}<span class="badge">{{ listing.neighborhood }}</span>{% endif %}
+      </div>
+      <div class="chips">
+        <span class="chip">{{ listing.type }}</span>
+        <span class="chip">מחיר: ₪{{ listing.price|intcomma }}</span>
+        <span class="chip">שטח: {{ listing.netSqm }} מ"ר</span>
+        <span class="chip">מחיר למ"ר: ₪{{ listing.pricePerSqm|intcomma }}</span>
     </div>
   </header>
 
@@ -257,5 +283,6 @@
     {% endif %}
 
   </main>
+  <footer>Created with Nadlaner (c)</footer>
 </body>
 </html>

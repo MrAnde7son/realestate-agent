@@ -128,6 +128,9 @@ else:
     CELERY_BROKER_URL = None
     CELERY_RESULT_BACKEND = None
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    BASE_DIR / "core" / "static",
+]
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 

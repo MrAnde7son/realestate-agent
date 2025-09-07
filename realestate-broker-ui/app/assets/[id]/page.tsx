@@ -24,6 +24,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [syncMessage, setSyncMessage] = useState<string>('')
   const [creatingMessage, setCreatingMessage] = useState(false)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
@@ -59,9 +60,15 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   useEffect(() => {
     setLoading(true)
     fetch(`/api/assets/${id}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load asset')
+        return res.json()
+      })
       .then(data => setAsset(data.asset || data))
-      .catch(err => console.error('Error loading asset:', err))
+      .catch(err => {
+        console.error('Error loading asset:', err)
+        setError('שגיאה בטעינת הנכס')
+      })
       .finally(() => setLoading(false))
   }, [id])
 
@@ -113,7 +120,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     }
   }
 
-  if (loading || !asset) {
+  if (loading) {
     return (
       <DashboardLayout>
         <div className="p-6">
@@ -126,6 +133,24 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </Button>
           </div>
           <PageLoader message="טוען נתוני נכס..." showLogo={false} />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (error || !asset) {
+    return (
+      <DashboardLayout>
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/assets">
+                <ArrowLeft className="h-4 w-4" />
+                חזרה לרשימה
+              </Link>
+            </Button>
+          </div>
+          <p>{error || 'לא הצלחנו לטעון את פרטי הנכס המבוקש.'}</p>
         </div>
       </DashboardLayout>
     )

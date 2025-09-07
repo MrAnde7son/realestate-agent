@@ -85,9 +85,7 @@ describe('/api/assets/[id]', () => {
       // Mock successful backend response
       ;(global.fetch as any).mockResolvedValue({
         ok: true,
-        json: async () => ({
-          rows: [mockBackendAsset]
-        })
+        json: async () => mockBackendAsset
       })
 
       const request = new NextRequest('http://127.0.0.1:3000/api/assets/101')
@@ -172,9 +170,7 @@ describe('/api/assets/[id]', () => {
 
       ;(global.fetch as any).mockResolvedValue({
         ok: true,
-        json: async () => ({
-          rows: [mockBackendAsset]
-        })
+        json: async () => mockBackendAsset
       })
 
       const request = new NextRequest('http://127.0.0.1:3000/api/assets/102')
@@ -221,9 +217,7 @@ describe('/api/assets/[id]', () => {
 
       ;(global.fetch as any).mockResolvedValue({
         ok: true,
-        json: async () => ({
-          rows: [mockBackendAsset]
-        })
+        json: async () => mockBackendAsset
       })
 
       const request = new NextRequest('http://127.0.0.1:3000/api/assets/103')

@@ -22,6 +22,8 @@ Nadlaner™ is a trademark of MrAnde7son.
 - **🛡️ Role-Based Access**: Admin-only analytics dashboard for monitoring users, assets, reports, alerts, and errors
 - **🗺️ Map Integration**: Mapbox GL integration for property visualization
 - **📱 Responsive Design**: Mobile-friendly interface with dark/light theme support
+- **⏱️ Rate-Limited Asset Creation**: API endpoint enforces rate limits and returns a job ID for asynchronous processing
+- **📝 Per-Field Provenance**: Track the source of each property attribute for transparency
 
 ### 🏛️ Planning & Government Data (RAMI)
 - **📄 Israeli Planning Documents**: Direct access to land.gov.il TabaSearch API

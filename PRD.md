@@ -56,11 +56,13 @@
 - `RealEstateAsset`: שדות כמו זיהוי, כותרת, מחיר, כתובת, מאפיינים, תמונות, מקור.
 - שמירת תאריך איסוף, URL מקורי, סטטוס העדכון.
 - נתוני מטה על החיפוש: פרמטרים, תיאור, תוצאות.
+- תיעוד מקור לכל שדה (provenance) לצורך שקיפות ואימות נתונים.
 
 #### 6.3 שכבת לוגיקה וממשק CLI/MCP
 - CLI אינטראקטיבי: ניווט לפי תפריטים, הגדרת פרמטרים, ביצוע חיפוש, תצוגת תוצאות.
 - MCP server (FastAPI/FastMCP): כלים כמו `search_properties`, `get_search_parameters_reference`, `analyze_search_results`, `save_search_results`, `build_search_url`.
 - הדגמת שימוש (yad2/examples/demo.py).
+- קצה API ליצירת נכסים: כולל הגבלת קצב (rate limiting) והחזרת מזהה משימה (job ID) לעיבוד אסינכרוני.
 
 #### 6.4 ממשק ניהול – Broker Dashboard UI
 - מבוסס Next.js.

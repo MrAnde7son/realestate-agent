@@ -102,7 +102,7 @@ def test_data_pipeline_integration():
     )
 
     # Run the pipeline - it should return collected data, not save to database
-    results = pipeline.run("Fake", 1)
+    results = pipeline.run("Fake", 1, asset_id=123)
     
     # Verify that the pipeline returned results
     assert results, "Pipeline did not return any results"

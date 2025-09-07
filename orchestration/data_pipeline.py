@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Iterable, List, Optional
 import os
 import time
+import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 from sqlalchemy.orm import Session
@@ -33,6 +34,8 @@ except Exception:  # pragma: no cover - fallback when Django not configured
 
 # alert helpers
 from orchestration.alerts import Notifier, create_notifier_for_user
+
+logger = logging.getLogger(__name__)
 
 """High level data collection pipeline for real-estate assets.
 
@@ -162,18 +165,22 @@ class DataPipeline:
         timeout: Optional[float] = None,
         retries: int = 0,
         retry_delay: float = 0,
+        asset_id: Optional[int] = None,
         **kwargs,
     ):
         """Wrap collector calls with metrics, tracing, timeouts and retries."""
         with tracer.start_as_current_span(source):
             start_time = time.perf_counter()
             last_exc: Optional[Exception] = None
+            result: Any = None
+            items_count = 0
             try:
                 for attempt in range(retries + 1):
                     try:
                         with ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(func, *args, **kwargs)
                             result = future.result(timeout=timeout)
+                        items_count = self._count_items(result)
                         COLLECTOR_SUCCESS.labels(source=source).inc()
                         return result
                     except FuturesTimeoutError as e:
@@ -192,6 +199,28 @@ class DataPipeline:
             finally:
                 duration = time.perf_counter() - start_time
                 COLLECTOR_LATENCY.labels(source=source).observe(duration)
+                logger.info(
+                    "collector_run",
+                    extra={
+                        "asset_id": asset_id,
+                        "collector": source,
+                        "duration_ms": int(duration * 1000),
+                        "items_count": items_count,
+                    },
+                )
+
+    def _count_items(self, data: Any) -> int:
+        """Best-effort count of items returned by a collector."""
+        try:
+            if isinstance(data, dict):
+                return sum(
+                    len(v) for v in data.values() if hasattr(v, "__len__")
+                )
+            if hasattr(data, "__len__"):
+                return len(data)
+            return 1 if data is not None else 0
+        except Exception:
+            return 0
 
     # ------------------------------------------------------------------
     def _store_listing(self, session, listing: RealEstateListing) -> Listing:
@@ -238,7 +267,9 @@ class DataPipeline:
             )
 
     # ------------------------------------------------------------------
-    def run(self, address: str, house_number: int, max_pages: int = 1) -> List[Any]:
+    def run(
+        self, address: str, house_number: int, max_pages: int = 1, asset_id: Optional[int] = None
+    ) -> List[Any]:
         """Run the pipeline for a given address.
 
         The function still persists results to the database but also returns a
@@ -247,7 +278,8 @@ class DataPipeline:
         """
 
         with tracer.start_as_current_span(
-            "data_pipeline.run", attributes={"address": address, "house_number": house_number}
+            "data_pipeline.run",
+            attributes={"address": address, "house_number": house_number},
         ):
             # Search Yad2 for listings
             try:
@@ -258,6 +290,7 @@ class DataPipeline:
                     max_pages=max_pages,
                     timeout=self.TIMEOUTS.get("yad2"),
                     retries=self.RETRIES.get("yad2", 0),
+                    asset_id=asset_id,
                 )
                 track("collector_success", source="yad2")
             except Exception as e:
@@ -289,6 +322,7 @@ class DataPipeline:
                             house_number=house_number,
                             timeout=self.TIMEOUTS.get("gis"),
                             retries=self.RETRIES.get("gis", 0),
+                            asset_id=asset_id,
                         )
                         track("collector_success", source="gis")
                     except Exception as e:
@@ -310,6 +344,7 @@ class DataPipeline:
                             address=address,
                             timeout=self.TIMEOUTS.get("gov"),
                             retries=self.RETRIES.get("gov", 0),
+                            asset_id=asset_id,
                         )
                         track("collector_success", source="gov")
                     except Exception as e:
@@ -337,6 +372,7 @@ class DataPipeline:
                             parcel=parcel,
                             timeout=self.TIMEOUTS.get("rami"),
                             retries=self.RETRIES.get("rami", 0),
+                            asset_id=asset_id,
                         )
                         track("collector_success", source="rami")
                     except Exception as e:
@@ -355,6 +391,7 @@ class DataPipeline:
                             parcel=parcel,
                             timeout=self.TIMEOUTS.get("mavat"),
                             retries=self.RETRIES.get("mavat", 0),
+                            asset_id=asset_id,
                         )
                         track("collector_success", source="mavat")
                     except Exception as e:

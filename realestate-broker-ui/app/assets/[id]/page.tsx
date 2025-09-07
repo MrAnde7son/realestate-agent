@@ -497,6 +497,39 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </Card>
         </div>
 
+        {/* Address Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle>פרטי כתובת</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <div>
+              <div className="text-sm text-muted-foreground">עיר</div>
+              <div className="font-medium">{renderValue(asset.city, 'city')}</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">רחוב</div>
+              <div className="font-medium">{renderValue(asset.street, 'street')}</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">מס'</div>
+              <div className="font-medium">{renderValue(asset.number, 'number')}</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">גוש</div>
+              <div className="font-medium">{renderValue(asset.gush, 'gush')}</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">חלקה</div>
+              <div className="font-medium">{renderValue(asset.helka, 'helka')}</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">תת חלקה</div>
+              <div className="font-medium">{renderValue(asset.subhelka, 'subhelka')}</div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Main Content Tabs */}
         <Tabs defaultValue="analysis" className="space-y-4">
           <TabsList className="flex flex-wrap md:flex-nowrap">

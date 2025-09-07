@@ -3,10 +3,9 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
+import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/Badge'
 import { FileText, Download, Eye, Calendar, MapPin, Trash2, ExternalLink, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -120,139 +119,108 @@ export default function ReportsPage() {
           text={`${reports.length} דוחות שנוצרו עבור נכסים`}
         />
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              דוחות נכסים
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="w-full overflow-x-auto">
-              <Table className="min-w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right whitespace-nowrap">נכס</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">סוג דוח</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">סטטוס</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">נוצר ב</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">פעולות</TableHead>
-                  </TableRow>
-                </TableHeader>
-                    <TableBody>
-                      {displayReports.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                            <div className="flex flex-col items-center gap-2">
-                              <FileText className="h-8 w-8 opacity-50" />
-                              <p>אין דוחות זמינים</p>
-                              <p className="text-sm">דוחות יופיעו כאן לאחר שייווצרו</p>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        displayReports.map(report => (
-                          <TableRow 
-                            key={report.id} 
-                            className={`hover:bg-blue-50/50 hover:shadow-sm cursor-pointer transition-all duration-200 group border-l-4 transition-colors ${
-                              clickedRow === report.id 
-                                ? 'bg-blue-100/70 border-l-blue-600 shadow-md' 
-                                : 'border-l-transparent hover:border-l-blue-500'
-                            }`}
-                            onClick={() => handleRowClick(report)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                handleRowClick(report)
-                              }
-                            }}
-                            tabIndex={0}
-                            role="button"
-                            aria-label={`צפה בדוח עבור ${report.address}`}
-                          >
-                            <TableCell>
-                              <div>
-                                <div className="font-semibold group-hover:text-primary transition-colors">
-                                  {report.address}
-                                </div>
-                                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  <span>
-                                    {clickedRow === report.id ? 'פותח דוח...' : 'לחץ לצפייה בדוח'}
-                                  </span>
-                                  {clickedRow === report.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                                  ) : (
-                                    <ExternalLink className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
-                                  )}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {report.type || 'דוח כללי'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="good">
-                                {report.status ? getStatusHebrew(report.status) : 'הושלם'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm">
-                                  {new Date(report.createdAt).toLocaleDateString('he-IL', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
-                                <Button variant="ghost" size="sm" asChild>
-                                  <Link href={report.url} target="_blank">
-                                    <Eye className="h-4 w-4 ml-2" />
-                                    תצוגה
-                                  </Link>
-                                </Button>
-                                <Button variant="outline" size="sm" asChild>
-                                  <a href={report.url} download>
-                                    <Download className="h-4 w-4 ml-2" />
-                                    הורדה
-                                  </a>
-                                </Button>
-                                <Button 
-                                  variant="destructive" 
-                                  size="sm"
-                                  onClick={() => handleDeleteReport(report.id)}
-                                  disabled={deleting === report.id}
-                                >
-                                  <Trash2 className="h-4 w-4 ml-2" />
-                                  {deleting === report.id ? 'מוחק...' : 'מחיקה'}
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
+        <div className="space-y-4">
+          {displayReports.length === 0 ? (
+            <Card>
+              <CardBody className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                <FileText className="h-8 w-8 opacity-50" />
+                <p>אין דוחות זמינים</p>
+                <p className="text-sm">דוחות יופיעו כאן לאחר שייווצרו</p>
+              </CardBody>
             </Card>
+          ) : (
+            displayReports.map(report => (
+              <Card
+                key={report.id}
+                className={`cursor-pointer border-l-4 transition-colors ${
+                  clickedRow === report.id
+                    ? 'border-l-primary bg-blue-50'
+                    : 'border-l-transparent hover:border-l-primary'
+                }`}
+                onClick={() => handleRowClick(report)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleRowClick(report)
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label={`צפה בדוח עבור ${report.address}`}
+              >
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <div className="font-semibold flex items-center gap-2">
+                      {report.address}
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      <span>
+                        {clickedRow === report.id ? 'פותח דוח...' : 'לחץ לצפייה בדוח'}
+                      </span>
+                      {clickedRow === report.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      ) : (
+                        <ExternalLink className="h-3 w-3 opacity-60" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="accent">{report.type || 'דוח כללי'}</Badge>
+                    <Badge variant="success">
+                      {report.status ? getStatusHebrew(report.status) : 'הושלם'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardBody className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>
+                      {new Date(report.createdAt).toLocaleDateString('he-IL', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 sm:ml-auto" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={report.url} target="_blank">
+                        <Eye className="h-4 w-4 ml-2" />
+                        תצוגה
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={report.url} download>
+                        <Download className="h-4 w-4 ml-2" />
+                        הורדה
+                      </a>
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteReport(report.id)}
+                      disabled={deleting === report.id}
+                    >
+                      <Trash2 className="h-4 w-4 ml-2" />
+                      {deleting === report.id ? 'מוחק...' : 'מחיקה'}
+                    </Button>
+                  </div>
+                </CardBody>
+              </Card>
+            ))
+          )}
+        </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between mt-6">
-              <p className="text-sm text-muted-foreground">
-                מציג {displayReports.length} דוחות עם נתונים מלאים
-              </p>
-            </div>
-          </DashboardShell>
-        </DashboardLayout>
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-6">
+          <p className="text-sm text-muted-foreground">
+            מציג {displayReports.length} דוחות עם נתונים מלאים
+          </p>
+        </div>
+      </DashboardShell>
+    </DashboardLayout>
   )
 }

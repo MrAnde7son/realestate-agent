@@ -7,7 +7,7 @@ import { X } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth-context'
 import { authAPI, OnboardingStatus } from '@/lib/auth'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 
 const steps = [

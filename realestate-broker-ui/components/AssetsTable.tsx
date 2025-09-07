@@ -3,16 +3,16 @@ import * as React from 'react'
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import type { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Trash2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-function RiskCell({ flags }: { flags?: string[] }){ 
-  if(!flags || flags.length===0) return <Badge variant='good'>ללא</Badge>; 
-  return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'bad':f.includes('אנטנה')?'warn':'default'}>{f}</Badge>)}</div> 
+function RiskCell({ flags }: { flags?: string[] }){
+  if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
+  return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'error':f.includes('אנטנה')?'warning':'neutral'}>{f}</Badge>)}</div>
 }
 
 function exportAssetsCsv(assets: Asset[]) {
@@ -87,7 +87,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     } },
   { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', cell: info => {
       const value = info.getValue() as number | undefined
-      return <Badge variant={typeof value === 'number' && value < 0 ? 'bad' : 'default'}>{fmtPct(value)}</Badge>
+      return <Badge variant={typeof value === 'number' && value < 0 ? 'error' : 'neutral'}>{fmtPct(value)}</Badge>
     } },
   { header:'ימי שוק (אחוזון)', accessorKey:'domPercentile', cell: info => {
       const value = info.getValue() as number | undefined
@@ -127,7 +127,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     } },
   { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => {
       const value = info.getValue() as boolean | undefined
-      return <Badge variant={value === undefined ? 'default' : value ? 'good' : 'bad'}>{value === undefined ? '—' : value ? 'כן' : 'לא'}</Badge>
+      return <Badge variant={value === undefined ? 'neutral' : value ? 'success' : 'error'}>{value === undefined ? '—' : value ? 'כן' : 'לא'}</Badge>
     } },
   { header:'מקלט (מ")', accessorKey:'shelterDistanceM', cell: info => {
       const v = info.getValue() as number | null | undefined
@@ -136,15 +136,15 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
   { header:'סיכון', accessorKey:'riskFlags', cell: info => <RiskCell flags={info.getValue() as string[]}/> },
   { header:'סטטוס נכס', accessorKey:'assetStatus', cell: info => {
     const status = info.getValue() as string
-    if (!status) return <Badge variant="default">—</Badge>
-    const variant = status === 'done' ? 'good' : status === 'failed' ? 'bad' : 'warn'
+    if (!status) return <Badge variant="neutral">—</Badge>
+    const variant = status === 'done' ? 'success' : status === 'failed' ? 'error' : 'warning'
     const label = status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
     return <Badge variant={variant}>{label}</Badge>
   }},
   { header:'מחיר מודל', accessorKey:'modelPrice', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
   { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => {
       const value = info.getValue() as number | undefined
-      return <Badge variant={typeof value === 'number' && value > 0 ? 'warn' : 'good'}>{fmtPct(value)}</Badge>
+      return <Badge variant={typeof value === 'number' && value > 0 ? 'warning' : 'success'}>{fmtPct(value)}</Badge>
     } },
   { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => {
       const value = info.getValue() as number | undefined

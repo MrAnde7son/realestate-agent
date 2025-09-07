@@ -12,9 +12,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/Card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Calculator,
@@ -365,10 +365,10 @@ export default function HomePage() {
                     <Badge
                       variant={
                         area.trend > 5
-                          ? "default"
+                          ? 'primary'
                           : area.trend > 3
-                          ? "secondary"
-                          : "outline"
+                          ? 'accent'
+                          : 'neutral'
                       }
                     >
                       {area.trend > 0 ? "+" : ""}

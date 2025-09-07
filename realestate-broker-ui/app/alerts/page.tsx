@@ -2,9 +2,9 @@
 import React, { useState } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/Badge'
 import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer } from 'lucide-react'
 import { alerts, type Alert } from '@/lib/data'
 
@@ -28,13 +28,13 @@ const getAlertIcon = (type: Alert['type']) => {
 const getPriorityColor = (priority: Alert['priority']) => {
   switch (priority) {
     case 'high':
-      return 'destructive'
+      return 'error'
     case 'medium':
-      return 'default'
+      return 'warning'
     case 'low':
-      return 'secondary'
+      return 'neutral'
     default:
-      return 'outline'
+      return 'neutral'
   }
 }
 
@@ -128,7 +128,7 @@ export default function AlertsPage() {
               <CardHeader>
                 <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <span>התראות אחרונות</span>
-                  <Badge variant="outline" className="w-fit">{unreadCount} לא נקראו</Badge>
+                  <Badge variant="accent" className="w-fit">{unreadCount} לא נקראו</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -241,10 +241,10 @@ export default function AlertsPage() {
                         key={priority}
                         variant={
                           selectedPriorities.includes(priority as Alert['priority'])
-                            ? 'default'
-                            : 'outline'
+                            ? 'primary'
+                            : 'neutral'
                         }
-                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                        className="cursor-pointer"
                         onClick={() => togglePriority(priority as Alert['priority'])}
                       >
                         {getPriorityText(priority as Alert['priority'])}
@@ -261,10 +261,10 @@ export default function AlertsPage() {
                         key={type}
                         variant={
                           selectedTypes.includes(type as Alert['type'])
-                            ? 'default'
-                            : 'outline'
+                            ? 'primary'
+                            : 'neutral'
                         }
-                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                        className="cursor-pointer"
                         onClick={() => toggleType(type as Alert['type'])}
                       >
                         {type === 'price_drop' && 'ירידת מחיר'}

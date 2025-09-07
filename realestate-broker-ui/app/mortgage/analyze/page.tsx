@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { calculateAllScenarios, calculateLTV, calculateAffordability, type MortgageInput, type MortgageCalculation } from '@/lib/mortgage'
@@ -89,7 +89,7 @@ export default function MortgageAnalyzePage() {
               {loadingBoiRate ? (
                 <Skeleton className="h-6 w-40" />
               ) : (
-                <Badge variant="outline">עדכון אחרון: {new Date(lastUpdated).toLocaleDateString('he-IL')}</Badge>
+                <Badge variant="neutral">עדכון אחרון: {new Date(lastUpdated).toLocaleDateString('he-IL')}</Badge>
               )}
               <div className="text-xs text-muted-foreground mt-1">
                 <a href="https://www.boi.org.il/" target="_blank" rel="noopener noreferrer" className="underline">
@@ -148,7 +148,7 @@ export default function MortgageAnalyzePage() {
               <div className="p-3 bg-muted rounded-lg">
                 <div className="text-sm text-muted-foreground">יחס המימון (LTV)</div>
                 <div className="text-lg font-semibold">{ltv.toFixed(1)}%</div>
-                <Badge variant={ltv <= 75 ? 'good' : ltv <= 85 ? 'warn' : 'bad'}>
+                <Badge variant={ltv <= 75 ? 'success' : ltv <= 85 ? 'warning' : 'error'}>
                   {ltv <= 75 ? 'יחס טוב' : ltv <= 85 ? 'יחס בינוני' : 'יחס גבוה'}
                 </Badge>
               </div>
@@ -189,7 +189,7 @@ export default function MortgageAnalyzePage() {
                             <CardTitle className="text-base">{calc.scenario.name}</CardTitle>
                             <p className="text-sm text-muted-foreground">{calc.scenario.description}</p>
                           </div>
-                          <Badge variant={index === 0 ? 'default' : index === 1 ? 'secondary' : 'outline'}>
+                          <Badge variant={index === 0 ? 'primary' : index === 1 ? 'accent' : 'neutral'}>
                             {calc.scenario.totalRate.toFixed(2)}%
                           </Badge>
                         </div>
@@ -223,7 +223,7 @@ export default function MortgageAnalyzePage() {
                             <span className="text-sm text-muted-foreground">
                               יחס תשלום להכנסה: {affordability.ratio.toFixed(1)}%
                             </span>
-                            <Badge variant={affordability.isAffordable ? 'good' : 'bad'}>
+                            <Badge variant={affordability.isAffordable ? 'success' : 'error'}>
                               {affordability.isAffordable ? 'בר השגה' : 'מעבר ליכולת'}
                             </Badge>
                           </div>

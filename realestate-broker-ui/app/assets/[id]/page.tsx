@@ -2,8 +2,15 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardBody,
+  CardFooter,
+} from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -545,10 +552,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="analysis" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
-                <CardHeader>
-                  <CardTitle>פרטי הנכס</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+                <CardHeader>פרטי הנכס</CardHeader>
+                <CardBody className="space-y-2">
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">סוג:</span>
                     <span>{asset.type ?? '—'}</span>
@@ -567,11 +572,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">רמת ביטחון:</span>
-                    <Badge variant={asset.confidencePct >= 80 ? 'good' : 'warn'}>
+                    <Badge variant={asset.confidencePct >= 80 ? 'success' : 'warning'}>
                       {asset.confidencePct}%
                     </Badge>
                   </div>
-                </CardContent>
+                </CardBody>
               </Card>
 
               <Card>
@@ -585,7 +590,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">פער למחיר:</span>
-                    <Badge variant={asset.priceGapPct !== undefined && asset.priceGapPct !== null && asset.priceGapPct > 0 ? 'warn' : 'good'}>
+                    <Badge variant={asset.priceGapPct !== undefined && asset.priceGapPct !== null && asset.priceGapPct > 0 ? 'warning' : 'success'}>
                       {formatPercent(asset.priceGapPct, 1) ?? '—'}
                     </Badge>
                   </div>
@@ -595,7 +600,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תשואה שנתית:</span>
-                    <Badge variant={asset.capRatePct !== undefined && asset.capRatePct !== null && asset.capRatePct >= 3 ? 'good' : 'warn'}>
+                    <Badge variant={asset.capRatePct !== undefined && asset.capRatePct !== null && asset.capRatePct >= 3 ? 'success' : 'warning'}>
                       {formatPercent(asset.capRatePct, 1) ?? '—'}
                     </Badge>
                   </div>
@@ -695,12 +700,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">ייעוד:</span>
-                      {renderValue(<Badge variant="outline">{asset.zoning ?? 'לא צוין'}</Badge>, 'zoning')}
+                      {renderValue(<Badge variant="neutral">{asset.zoning ?? 'לא צוין'}</Badge>, 'zoning')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">יתרת זכויות:</span>
                       {renderValue(
-                        <Badge variant={asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null && asset.remainingRightsSqm > 0 ? 'good' : 'outline'}>
+                        <Badge variant={asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null && asset.remainingRightsSqm > 0 ? 'success' : 'neutral'}>
                           {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null ? `+${asset.remainingRightsSqm} מ״ר` : '—'}
                         </Badge>,
                         'remainingRightsSqm'
@@ -743,7 +748,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תכנוני:</span>
-                      {renderValue(<Badge variant="good">פעיל</Badge>, 'planActive')}
+                      {renderValue(<Badge variant="success">פעיל</Badge>, 'planActive')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">הגבלות מיוחדות:</span>
@@ -807,7 +812,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
                   <div className="text-center">
                       {renderValue(
-                        <Badge variant={asset.greenWithin300m ? 'good' : 'bad'}>
+                        <Badge variant={asset.greenWithin300m ? 'success' : 'error'}>
                           {asset.greenWithin300m ? 'כן' : 'לא'}
                         </Badge>,
                         'greenWithin300m'
@@ -824,23 +829,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                 </div>
 
-                {asset.riskFlags && asset.riskFlags.length > 0 && (
-                  <div>
-                    <h3 className="font-medium mb-2">סיכונים</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {asset.riskFlags.map((flag: string, i: number) => (
-                        <Badge 
-                          key={i} 
-                          variant={flag.includes('שימור') ? 'bad' : 'warn'}
-                        >
-                          {flag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
+
+            {asset.riskFlags && asset.riskFlags.length > 0 && (
+              <Card>
+                <CardHeader>סיכונים</CardHeader>
+                <CardBody className="flex flex-wrap gap-2">
+                  {asset.riskFlags.map((flag: string, i: number) => (
+                    <Badge key={i} variant={flag.includes('שימור') ? 'error' : 'warning'}>
+                      {flag}
+                    </Badge>
+                  ))}
+                </CardBody>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
@@ -874,10 +877,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="permits" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
-                <CardHeader>
-                  <CardTitle>פרטי היתר</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+                <CardHeader>פרטי היתר</CardHeader>
+                <CardBody className="space-y-2">
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">תאריך היתר:</span>
                     {renderValue(asset.permitDate, 'permitDate')}
@@ -913,7 +914,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       'permitDocUrl'
                     )}
                   </div>
-                </CardContent>
+                </CardBody>
               </Card>
 
               <Card>
@@ -925,7 +926,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
                       {renderValue(
-                        <Badge variant={asset.lastPermitQ ? 'good' : 'outline'}>
+                        <Badge variant={asset.lastPermitQ ? 'success' : 'neutral'}>
                           {asset.lastPermitQ ?? 'לא זמין'}
                         </Badge>,
                         'lastPermitQ'
@@ -952,7 +953,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">היתר בתוקף:</span>
-                      {renderValue(<Badge variant="good">כן</Badge>, 'permitValid')}
+                      {renderValue(<Badge variant="success">כן</Badge>, 'permitValid')}
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">סוג היתר:</span>
@@ -960,7 +961,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">אישורי חיבור:</span>
-                      {renderValue(<Badge variant="good">מאושר</Badge>, 'utilityApprovals')}
+                      {renderValue(<Badge variant="success">מאושר</Badge>, 'utilityApprovals')}
                     </div>
                   </div>
                 </CardContent>
@@ -994,10 +995,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
           <TabsContent value="transactions" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>עיסקאות השוואה</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              <CardHeader>עיסקאות השוואה</CardHeader>
+              <CardBody className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
@@ -1024,9 +1023,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     </div>
                     <div className="text-sm text-muted-foreground">פער מהאזור</div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </CardBody>
+              </Card>
 
             <Card>
               <CardHeader>

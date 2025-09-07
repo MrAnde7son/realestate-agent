@@ -289,19 +289,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </>
                 )}
               </Button>
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="שפה" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="he">עברית</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="ru">Русский</SelectItem>
-                  <SelectItem value="fr">Français</SelectItem>
-                  <SelectItem value="es">Español</SelectItem>
-                  <SelectItem value="ar">العربية</SelectItem>
-                </SelectContent>
-              </Select>
               <Button
                 size="sm"
                 onClick={() => setSectionsModal(true)}
@@ -358,20 +345,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  setShareModal(true)
-                  handleCreateMessage()
-                }}
-                disabled={creatingMessage}
+                onClick={() => setShareModal(true)}
               >
-                {creatingMessage ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    יוצר הודעה...
-                  </>
-                ) : (
-                  'צור הודעת פרסום'
-                )}
+                {'צור הודעת פרסום'}
               </Button>
               <Dialog
                 open={shareModal}
@@ -387,44 +363,69 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <DialogHeader>
                     <DialogTitle>הודעת פרסום</DialogTitle>
                   </DialogHeader>
-                  {creatingMessage ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      יוצר הודעה...
+                  <div className="space-y-4">
+                    <div>
+                      <Label>שפה</Label>
+                      <Select value={language} onValueChange={setLanguage}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="בחר שפה" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="he">עברית</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="ru">Русский</SelectItem>
+                          <SelectItem value="fr">Français</SelectItem>
+                          <SelectItem value="es">Español</SelectItem>
+                          <SelectItem value="ar">العربية</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ) : shareMessage ? (
-                    <div className="space-y-2">
-                      <textarea
-                        className="w-full border rounded p-2 text-sm"
-                        rows={4}
-                        readOnly
-                        value={shareMessage}
-                      />
-                      <DialogFooter className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(shareMessage)
-                            alert('Copied!')
-                          }}
-                        >
-                          העתק הודעה
-                        </Button>
-                        {shareUrl && (
+                    {creatingMessage ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        יוצר הודעה...
+                      </div>
+                    ) : shareMessage ? (
+                      <div className="space-y-2">
+                        <textarea
+                          className="w-full border rounded p-2 text-sm"
+                          rows={4}
+                          readOnly
+                          value={shareMessage}
+                        />
+                        <DialogFooter className="flex gap-2">
                           <Button
                             size="sm"
                             onClick={() => {
-                              const fullUrl = `${window.location.origin}${shareUrl}`
-                              navigator.clipboard.writeText(fullUrl)
+                              navigator.clipboard.writeText(shareMessage)
                               alert('Copied!')
                             }}
                           >
-                            העתק קישור
+                            העתק הודעה
                           </Button>
-                        )}
+                          {shareUrl && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                const fullUrl = `${window.location.origin}${shareUrl}`
+                                navigator.clipboard.writeText(fullUrl)
+                                alert('Copied!')
+                              }}
+                            >
+                              העתק קישור
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={handleCreateMessage}>
+                            צור מחדש
+                          </Button>
+                        </DialogFooter>
+                      </div>
+                    ) : (
+                      <DialogFooter className="mt-4">
+                        <Button onClick={handleCreateMessage}>צור הודעה</Button>
                       </DialogFooter>
-                    </div>
-                  ) : null}
+                    )}
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>

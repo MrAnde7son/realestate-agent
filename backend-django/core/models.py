@@ -98,8 +98,8 @@ class Asset(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("enriching", "Enriching"),
-        ("ready", "Ready"),
-        ("error", "Error"),
+        ("done", "Done"),
+        ("failed", "Failed"),
     ]
 
     scope_type = models.CharField(max_length=50, choices=SCOPE_TYPE_CHOICES)
@@ -149,6 +149,8 @@ class Asset(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     is_demo = models.BooleanField(default=False)
     meta = models.JSONField(default=dict)
+    last_enriched_at = models.DateTimeField(blank=True, null=True)
+    last_enrich_error = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

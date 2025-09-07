@@ -210,7 +210,7 @@ export const assets: Asset[] = [
     urbanRenewalPotential: 'תמ"א 38/2',
     bettermentLevy: 'היטל צפוי כ-50 אלף ₪',
     assetId: 1,
-    assetStatus: 'ready',
+    assetStatus: 'done',
     sources: ['yad2', 'gis_permit', 'gis_rights', 'tabu'],
     primarySource: 'yad2',
     _meta: {

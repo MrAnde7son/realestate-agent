@@ -365,7 +365,7 @@ def demo_start(request):
     for data in sample_assets:
         Asset.objects.create(
             **data,
-            status="ready",
+            status="done",
             is_demo=True,
             meta={"demo": True},
         )
@@ -988,7 +988,7 @@ def assets(request):
             # Update asset status to error
             try:
                 asset = Asset.objects.get(id=asset_id)
-                asset.status = "error"
+                asset.status = "failed"
                 asset.meta["error"] = str(e)
                 asset.save()
             except Exception as save_error:

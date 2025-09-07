@@ -64,7 +64,7 @@ def _store_assets(
                     scope_type='address',
                     street=item.address.split()[0] if item.address else None,
                     number=item.address.split()[-1] if item.address else None,
-                    status='ready',
+                    status='done',
                     meta={
                         'yad2_data': {
                             'listing_id': item.listing_id,

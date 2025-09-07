@@ -166,10 +166,18 @@ class Yad2Scraper:
 
             if listing.url:
                 listing.meta['price'] = {
+                    'value': listing.price,
                     'source': 'yad2',
                     'fetched_at': meta_time,
                     'url': listing.url,
                 }
+                if listing.size:
+                    listing.meta['size'] = {
+                        'value': listing.size,
+                        'source': 'yad2',
+                        'fetched_at': meta_time,
+                        'url': listing.url,
+                    }
             
             return listing
             

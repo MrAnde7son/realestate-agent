@@ -7,18 +7,65 @@ import { Badge } from '@/components/ui/badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Download } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 function RiskCell({ flags }: { flags?: string[] }){ 
   if(!flags || flags.length===0) return <Badge variant='good'>ללא</Badge>; 
   return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'bad':f.includes('אנטנה')?'warn':'default'}>{f}</Badge>)}</div> 
 }
 
-function createColumns(onDelete?: (id: number) => void): ColumnDef<Asset>[] {
+function exportAssetsCsv(assets: Asset[]) {
+  if (assets.length === 0) return
+  const headers = ['id', 'address', 'city', 'type', 'price', 'pricePerSqm'] as const
+  const csv = [
+    headers.join(','),
+    ...assets.map(a =>
+      headers
+        .map(k => JSON.stringify((a as any)[k] ?? ''))
+        .join(',')
+    )
+  ].join('\n')
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'assets.csv')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset) => void): ColumnDef<Asset>[] {
   return [
-  { 
-    header:'נכס', 
-    accessorKey:'address', 
+  {
+    id: 'select',
+    header: ({ table }) => (
+      <input
+        type="checkbox"
+        checked={table.getIsAllRowsSelected()}
+        onChange={table.getToggleAllRowsSelectedHandler()}
+        aria-label="Select all"
+        className="size-4"
+      />
+    ),
+    cell: ({ row }) => (
+      <input
+        type="checkbox"
+        checked={row.getIsSelected()}
+        onClick={e => e.stopPropagation()}
+        onChange={row.getToggleSelectedHandler()}
+        aria-label="Select row"
+        className="size-4"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false
+  },
+  {
+    header:'נכס',
+    accessorKey:'address',
     cell: ({ row }) => (
       <div>
         <div className="font-semibold">
@@ -100,6 +147,13 @@ function createColumns(onDelete?: (id: number) => void): ColumnDef<Asset>[] {
       <div className="flex gap-2">
         <Link className="underline" href={`/assets/${row.original.id}`}>👁️</Link>
         <a className="underline" href="/alerts">🔔</a>
+        {onExport && (
+          <button
+            onClick={e => { e.stopPropagation(); onExport(row.original) }}
+            className="underline">
+            <Download className="h-4 w-4" />
+          </button>
+        )}
         {onDelete && (
           <button onClick={e => { e.stopPropagation(); onDelete(row.original.id) }} className="underline">
             <Trash2 className="h-4 w-4" />
@@ -118,20 +172,44 @@ interface AssetsTableProps {
 
 export default function AssetsTable({ data = [], loading = false, onDelete }: AssetsTableProps){
   const router = useRouter()
-  const columns = React.useMemo(() => createColumns(onDelete), [onDelete])
-  const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() })
-  
+  const [rowSelection, setRowSelection] = React.useState({})
+
+  const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset])
+
+  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle), [onDelete])
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { rowSelection },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
+    getCoreRowModel: getCoreRowModel()
+  })
+
   const handleRowClick = (asset: Asset) => {
     router.push(`/assets/${asset.id}`)
   }
-  
+
+  const handleExportSelected = () => {
+    const selected = table.getSelectedRowModel().rows.map(r => r.original)
+    exportAssetsCsv(selected)
+  }
+
+  const anySelected = table.getSelectedRowModel().rows.length > 0
+
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[linear-gradient(180deg,var(--panel),var(--card))] overflow-x-auto">
+      <div className="p-2 flex justify-end">
+        <Button onClick={handleExportSelected} disabled={!anySelected} variant="outline">
+          <Download className="h-4 w-4" /> ייצוא נבחרים
+        </Button>
+      </div>
       <Table>
         <THead>
           <TR>
-            {table.getFlatHeaders().map((h,idx)=>(
-              <TH key={h.id} className={idx===0?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
+            {table.getFlatHeaders().map(h=>(
+              <TH key={h.id} className={h.column.id==='address'?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
                 {flexRender(h.column.columnDef.header, h.getContext())}
               </TH>
             ))}
@@ -140,8 +218,8 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
         <TBody>
           {table.getRowModel().rows.map(row=>(
             <TR key={row.id} className="cursor-pointer hover:bg-blue-50/50 hover:shadow-sm transition-all duration-200 !hover:bg-blue-50" onClick={() => handleRowClick(row.original)}>
-              {row.getVisibleCells().map((cell,idx)=>(
-                <TD key={cell.id} className={idx===0?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
+              {row.getVisibleCells().map(cell=>(
+                <TD key={cell.id} className={cell.column.id==='address'?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TD>
               ))}

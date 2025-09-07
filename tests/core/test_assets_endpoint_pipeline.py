@@ -9,9 +9,11 @@ import pytest
 class DummyTask:
     def __init__(self):
         self.calls = []
+        self.job_id = "job-123"
 
     def delay(self, asset_id, max_pages=1):
         self.calls.append((asset_id, max_pages))
+        return type("AsyncResult", (), {"id": self.job_id})()
 
 
 def test_assets_post_triggers_pipeline(monkeypatch):
@@ -37,6 +39,8 @@ def test_assets_post_triggers_pipeline(monkeypatch):
     assert response.status_code == 201
     # Ensure the Celery task was called with the new asset ID
     assert dummy.calls == [(dummy_asset.id, 1)]
+    data = json.loads(response.content)
+    assert data["job_id"] == dummy.job_id
 
 
 @pytest.mark.django_db

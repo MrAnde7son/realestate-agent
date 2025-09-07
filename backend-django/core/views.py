@@ -981,8 +981,10 @@ def assets(request):
         _update_onboarding(user, "add_first_asset")
 
         # Enqueue Celery task if available
+        job_id = None
         try:
-            run_data_pipeline.delay(asset_id)
+            result = run_data_pipeline.delay(asset_id)
+            job_id = result.id
         except Exception as e:
             print(f"Failed to enqueue enrichment task: {e}")
             # Update asset status to error
@@ -998,6 +1000,7 @@ def assets(request):
             {
                 "id": asset_id,
                 "status": asset_data["status"],
+                "job_id": job_id,
                 "message": "Asset created successfully, enrichment pipeline started",
             },
             status=201,

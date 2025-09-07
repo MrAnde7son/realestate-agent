@@ -185,7 +185,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         console.error('Report generation failed:', await res.text())
         return
       }
-
+      localStorage.removeItem('onboardingDismissed')
+      window.dispatchEvent(new Event('onboardingUpdate'))
       router.push('/reports')
     } catch (err) {
       console.error('Report generation failed:', err)

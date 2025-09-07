@@ -14,6 +14,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -67,6 +68,11 @@ report_service = ReportService(BASE_DIR)
 
 logger = logging.getLogger(__name__)
 
+
+# Rate limiting for asset creation to avoid abuse
+ASSETS_POST_LIMIT = 5  # max POST requests per window
+ASSETS_POST_WINDOW = 60  # window size in seconds
+_assets_rate_limit = {}
 
 def _update_onboarding(user, step):
     if not user or not user.is_authenticated:
@@ -940,6 +946,29 @@ def assets(request):
 
     if request.method != "POST":
         return JsonResponse({"error": "POST method required"}, status=405)
+
+    # Rate limiting per IP to prevent abuse
+    ip = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if ip:
+        ip = ip.split(",")[0].strip()
+    else:
+        ip = request.META.get("REMOTE_ADDR", "")
+    now = timezone.now()
+    entry = _assets_rate_limit.get(ip)
+    if entry and entry["expires"] > now and entry["count"] >= ASSETS_POST_LIMIT:
+        return JsonResponse({"error": "Too many requests"}, status=429)
+    if not entry or entry["expires"] <= now:
+        _assets_rate_limit[ip] = {
+            "count": 1,
+            "expires": now + timedelta(seconds=ASSETS_POST_WINDOW),
+        }
+    else:
+        entry["count"] += 1
+    cache_key = f"assets_post_{ip}"
+    cache_count = cache.get(cache_key, 0)
+    if cache_count >= ASSETS_POST_LIMIT:
+        return JsonResponse({"error": "Too many requests"}, status=429)
+    cache.set(cache_key, cache_count + 1, ASSETS_POST_WINDOW)
 
     # Parse JSON with error handling
     data = parse_json(request)

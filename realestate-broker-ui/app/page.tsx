@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import {
   DashboardShell,
@@ -16,6 +16,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader as ModalHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Calculator,
   Building,
@@ -64,6 +71,22 @@ export default function HomePage() {
   const { data: dashboardData, loading, error } = useDashboardData();
   const router = useRouter();
 
+  const [marketingOpen, setMarketingOpen] = useState(true);
+
+  const marketingModal = (
+    <Dialog open={marketingOpen} onOpenChange={setMarketingOpen}>
+      <DialogContent>
+        <ModalHeader>
+          <DialogTitle>ברוכים הבאים לנדל״נר</DialogTitle>
+          <DialogDescription>
+            פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים,
+            שמאים ומשקיעים
+          </DialogDescription>
+        </ModalHeader>
+      </DialogContent>
+    </Dialog>
+  );
+
   const handleProtectedAction = (action: string) => {
     if (!isAuthenticated) {
       router.push(
@@ -75,11 +98,9 @@ export default function HomePage() {
   if (loading) {
     return (
       <DashboardLayout>
+        {marketingModal}
         <DashboardShell>
-          <DashboardHeader
-            heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
-          />
+          <DashboardHeader heading="ברוכים הבאים לנדל״נר" />
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
               <Card key={i}>
@@ -102,11 +123,9 @@ export default function HomePage() {
   if (!dashboardData) {
     return (
       <DashboardLayout>
+        {marketingModal}
         <DashboardShell>
-          <DashboardHeader
-            heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
-          />
+          <DashboardHeader heading="ברוכים הבאים לנדל״נר" />
           <div className="text-center py-12">
             <p className="text-muted-foreground">
               לא ניתן לטעון נתוני לוח הבקרה
@@ -120,11 +139,9 @@ export default function HomePage() {
   if (error) {
     return (
       <DashboardLayout>
+        {marketingModal}
         <DashboardShell>
-          <DashboardHeader
-            heading="ברוכים הבאים לנדל״נר"
-            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
-          />
+          <DashboardHeader heading="ברוכים הבאים לנדל״נר" />
           <div className="text-center py-12">
             <div className="bg-destructive/10 text-destructive p-4 rounded-lg max-w-md mx-auto">
               <p className="font-medium mb-2">שגיאה בטעינת נתונים</p>
@@ -147,6 +164,7 @@ export default function HomePage() {
 
   return (
     <DashboardLayout>
+      {marketingModal}
       <DashboardShell>
         <DashboardHeader
           heading={
@@ -154,7 +172,6 @@ export default function HomePage() {
               ? `ברוכים הבאים, ${user?.first_name || "משתמש"}!`
               : "ברוכים הבאים לנדל״נר"
           }
-          text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
         />
 
         {/* Login Prompt for Guests */}

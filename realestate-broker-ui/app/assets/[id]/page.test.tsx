@@ -73,6 +73,11 @@ describe('AssetDetailPage', () => {
       fireEvent.click(button)
     })
 
+    const createButton = await screen.findByText('צור הודעה')
+    await act(async () => {
+      fireEvent.click(createButton)
+    })
+
     await waitFor(() => {
       expect(global.alert).toHaveBeenCalledWith('Quota exceeded')
     })

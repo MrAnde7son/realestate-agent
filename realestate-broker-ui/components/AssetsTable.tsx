@@ -125,8 +125,8 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
   { header:'סטטוס נכס', accessorKey:'assetStatus', cell: info => {
     const status = info.getValue() as string
     if (!status) return <Badge variant="default">—</Badge>
-    const variant = status === 'ready' ? 'good' : status === 'error' ? 'bad' : 'warn'
-    const label = status === 'ready' ? 'מוכן' : status === 'error' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
+    const variant = status === 'done' ? 'good' : status === 'failed' ? 'bad' : 'warn'
+    const label = status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
     return <Badge variant={variant}>{label}</Badge>
   }},
   { header:'מחיר מודל', accessorKey:'modelPrice', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },

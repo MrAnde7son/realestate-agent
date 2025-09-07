@@ -16,8 +16,9 @@ class DummyPipeline:
 
 
 def test_run_data_pipeline_task(monkeypatch):
-    asset = Asset(scope_type='address', city='City', street='Main', number=5)
+    asset = Asset(id=1, scope_type='address', city='City', street='Main', number=5)
     monkeypatch.setattr(Asset.objects, 'get', lambda id: asset)
+    monkeypatch.setattr(asset, 'save', lambda *args, **kwargs: None)
     dummy = DummyPipeline()
     
     # Mock the orchestration import at the module level where it's imported from

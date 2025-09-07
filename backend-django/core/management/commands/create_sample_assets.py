@@ -14,7 +14,7 @@ class Command(BaseCommand):
                 'scope_type': 'neighborhood',
                 'city': 'תל אביב',
                 'neighborhood': 'רמת החייל',
-                'status': 'ready',
+                'status': 'done',
                 'meta': {
                     'scope': {'type': 'neighborhood', 'value': 'רמת החייל', 'city': 'תל אביב'},
                     'radius': 250
@@ -25,7 +25,7 @@ class Command(BaseCommand):
                 'city': 'תל אביב',
                 'street': 'הגולן',
                 'number': 32,
-                'status': 'ready',
+                'status': 'done',
                 'meta': {
                     'scope': {'type': 'address', 'value': 'הגולן 32, תל אביב', 'city': 'תל אביב'},
                     'radius': 150

@@ -26,7 +26,7 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
         logger.error("Failed to import orchestration module: %s", e)
         logger.error("Make sure the orchestration module is available in the Python path")
         raise ImportError("Orchestration module is required but not available") from e
-    
+
     try:
         from .models import Asset
 
@@ -35,6 +35,11 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
         logger.error("Asset %s not found", asset_id)
         return []
 
+    # Mark asset as enriching
+    asset.status = "enriching"
+    asset.last_enrich_error = None
+    asset.save(update_fields=["status", "last_enrich_error"])
+
     pipeline = DataPipeline()
     address = asset.street or asset.city or ""
     house_number = asset.number or 0
@@ -42,6 +47,9 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     try:
         result = pipeline.run(address, house_number, max_pages=max_pages)
         track('asset_sync', asset_id=asset_id)
+        asset.status = "done"
+        asset.last_enriched_at = timezone.now()
+        asset.save(update_fields=["status", "last_enriched_at", "last_enrich_error"])
         logger.info(
             "Data pipeline completed for asset %s with %s listings",
             asset_id,
@@ -50,6 +58,9 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
         return result
     except Exception as e:
         track('asset_sync_fail', asset_id=asset_id, error_code=str(e))
+        asset.status = "failed"
+        asset.last_enrich_error = str(e)
+        asset.save(update_fields=["status", "last_enrich_error"])
         logger.exception("Data pipeline failed for asset %s", asset_id)
         raise
 

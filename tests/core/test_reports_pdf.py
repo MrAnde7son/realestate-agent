@@ -24,7 +24,7 @@ class HebrewPDFGenerationTest(TestCase):
             neighborhood='מרכז העיר',
             street='הרצל',
             number=123,
-            status='ready',
+            status='done',
             normalized_address='רחוב הרצל 123, תל אביב',
             meta={
                 'address': 'רחוב הרצל 123, תל אביב',

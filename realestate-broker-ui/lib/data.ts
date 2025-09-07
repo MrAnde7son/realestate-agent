@@ -1,111 +1,6 @@
-export interface Asset {
-  id: number
-  address: string
-  price: number
-  bedrooms: number
-  bathrooms: number
-  area: number
-  type: string
-  status: "active" | "pending" | "sold"
-  images: string[]
-  description: string
-  features: string[]
-  contactInfo: {
-    agent: string
-    phone: string
-    email: string
-  }
-  
-  // Basic address fields
-  city?: string
-  neighborhood?: string
-  street?: string
-  number?: number
-  gush?: string
-  helka?: string
-  subhelka?: string
-  lat?: number
-  lon?: number
-  normalizedAddress?: string
-  
-  // Building details
-  buildingType?: string
-  floor?: number
-  totalFloors?: number
-  rooms?: number
-  totalArea?: number
-  balconyArea?: number
-  parkingSpaces?: number
-  storageRoom?: boolean
-  elevator?: boolean
-  airConditioning?: boolean
-  furnished?: boolean
-  renovated?: boolean
-  yearBuilt?: number
-  lastRenovation?: number
-  
-  // Financial fields
-  pricePerSqm?: number
-  rentEstimate?: number
-  
-  // Legal/Planning fields
-  buildingRights?: string
-  permitStatus?: string
-  permitDate?: string
-  zoning?: string
-  
-  // Additional properties for table display
-  netSqm?: number
-  pricePerSqmDisplay?: number
-  deltaVsAreaPct?: number
-  domPercentile?: number
-  competition1km?: string
-  riskFlags?: string[]
-  priceGapPct?: number
-  expectedPriceRange?: string
-  remainingRightsSqm?: number
-  program?: string
-  lastPermitQ?: string
-  noiseLevel?: number
-  greenWithin300m?: boolean
-  schoolsWithin500m?: boolean
-  modelPrice?: number
-  confidencePct?: number
-  capRatePct?: number
-  antennaDistanceM?: number
-  shelterDistanceM?: number
-  documents?: { name: string; url: string; type?: string }[]
-  
-  // Asset enrichment fields
-  assetId?: number
-  assetStatus?: string
-  sources?: string[]
-  primarySource?: string
-  permitDateDisplay?: string
-  permitStatusDisplay?: string
-  permitDetails?: string
-  permitMainArea?: number
-  permitServiceArea?: number
-  permitApplicant?: string
-  permitDocUrl?: string
-  mainRightsSqm?: number
-  serviceRightsSqm?: number
-  additionalPlanRights?: string
-  planStatus?: string
-  publicObligations?: string
-  publicTransport?: string
-  openSpacesNearby?: string
-  publicBuildings?: string
-  parking?: string
-  nearbyProjects?: string
-  rightsUsagePct?: number
-  legalRestrictions?: string
-  urbanRenewalPotential?: string
-  bettermentLevy?: string
-  _meta?: Record<string, { source: string; fetched_at: string; url?: string }>
-}
+import type { Asset } from './normalizers/asset'
 
-export const assets: Asset[] = [
+export const assets = [
   {
     id: 1,
     address: "רחוב הרצל 123, תל אביב",
@@ -114,7 +9,6 @@ export const assets: Asset[] = [
     bathrooms: 2,
     area: 85,
     type: "דירה",
-    status: "active",
     images: ["/placeholder-home.jpg"],
     description: "דירה מקסימה במרכז תל אביב עם נוף לים",
     features: ["מעלית", "חניה", "מרפסת", "משופצת"],
@@ -250,7 +144,6 @@ export const assets: Asset[] = [
     bathrooms: 3,
     area: 120,
     type: "דירה",
-    status: "pending",
     images: ["/placeholder-home.jpg"],
     description: "דירת פנטהאוס מפוארת עם מרפסת גדולה",
     features: ["מעלית", "חניה", "מרפסת גדולה", "חדר עבודה"],
@@ -500,7 +393,7 @@ export function getActiveAlertsCount(): number {
 }
 
 export function getActiveAssetsCount(): number {
-  return assets.filter(asset => asset.status === "active").length
+  return assets.filter(asset => asset.assetStatus === "active").length
 }
 
 export function deleteAsset(id: number): Asset | null {

@@ -39,7 +39,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { Asset } from "@/lib/data";
+import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";

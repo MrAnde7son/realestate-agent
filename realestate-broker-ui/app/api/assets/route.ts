@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { assets, deleteAsset } from '@/lib/data'
-import type { Asset } from '@/lib/data'
+import type { Asset } from '@/lib/normalizers/asset'
 import { z } from 'zod'
+import { normalizeFromBackend, determineAssetType } from '@/lib/normalizers/asset'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
@@ -45,109 +45,20 @@ const newAssetSchema = z.object({
   rentEstimate: z.number().optional()
 })
 
-function determineAssetType(asset: any): string {
-  return asset?.propertyType || asset?.property_type || asset?.type || 'לא ידוע'
-}
-
 export async function GET() {
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
   try {
     const res = await fetch(`${backendUrl}/api/assets/`)
-    if (res.ok) {
-      const data = await res.json()
-      // Normalize backend response to the Asset contract used by the UI
-      const rows = (data.rows || data || []).map((asset: any) => ({
-        id: asset.id ?? asset.external_id,
-        address: asset.address,
-        price: asset.price,
-        bedrooms: asset.rooms || asset.bedrooms || 0,
-        bathrooms: asset.bathrooms || 1,
-        area: asset.size || asset.area,
-        type: determineAssetType(asset),
-        status: 'active',
-        images: asset.images || [],
-        description: asset.description || '',
-        features: asset.features || [],
-        contactInfo: asset.contact_info || asset.contactInfo || { agent: '', phone: '', email: '' },
-        city: asset.address?.split(',')[1]?.trim() || asset.city || 'תל אביב',
-        neighborhood: asset.address?.split(',')[2]?.trim() || asset.neighborhood || '',
-        netSqm: asset.size || asset.netSqm || 0,
-        pricePerSqmDisplay: asset.price && (asset.size || asset.netSqm) ? Math.round(asset.price / (asset.size || asset.netSqm)) : 0,
-        deltaVsAreaPct: asset.deltaVsAreaPct,
-        domPercentile: asset.domPercentile,
-        competition1km: asset.competition1km,
-        zoning: asset.zoning,
-        riskFlags: asset.riskFlags,
-        priceGapPct: asset.priceGapPct,
-        expectedPriceRange: asset.expectedPriceRange,
-        remainingRightsSqm: asset.remainingRightsSqm,
-        program: asset.program,
-        lastPermitQ: asset.lastPermitQ,
-        noiseLevel: asset.noiseLevel,
-        greenWithin300m: asset.greenWithin300m,
-        schoolsWithin500m: asset.schoolsWithin500m,
-        modelPrice: asset.modelPrice,
-        confidencePct: asset.confidencePct,
-        capRatePct: asset.capRatePct,
-        antennaDistanceM: asset.antennaDistanceM,
-        shelterDistanceM: asset.shelterDistanceM,
-        rentEstimate: asset.rentEstimate,
-        assetId: asset.id ?? asset.external_id,
-        assetStatus: asset.status || asset.assetStatus || 'active',
-        sources: asset.sources || [],
-        primarySource: asset.primarySource || 'manual'
-      }))
-      return NextResponse.json({ rows })
+    if (!res.ok) {
+      return NextResponse.json({ error: 'Failed to fetch assets' }, { status: res.status })
     }
+    const data = await res.json()
+    const rows = (data.rows || data || []).map((asset: any) => normalizeFromBackend(asset))
+    return NextResponse.json({ rows })
   } catch (error) {
     console.error('Error fetching assets from backend:', error)
+    return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500 })
   }
-
-  // Fallback to mock data
-  const transformedRows =
-    assets.map((asset: any) => ({
-      id: asset.id,
-      address: asset.address,
-      price: asset.price,
-      bedrooms: asset.bedrooms || 0,
-      bathrooms: asset.bathrooms || 1, // Default since not in backend
-      area: asset.area,
-      type: determineAssetType(asset),
-      status: asset.status || 'active',
-      images: asset.images || [],
-      description: asset.description || '',
-      features: asset.features || [],
-      contactInfo: asset.contactInfo || { agent: '', phone: '', email: '' },
-      city: asset.city || 'תל אביב',
-      neighborhood: asset.neighborhood || '',
-      netSqm: asset.netSqm || 0,
-      pricePerSqmDisplay: asset.pricePerSqmDisplay || 0,
-      deltaVsAreaPct: asset.deltaVsAreaPct,
-      domPercentile: asset.domPercentile,
-      competition1km: asset.competition1km,
-      zoning: asset.zoning,
-      riskFlags: asset.riskFlags,
-      priceGapPct: asset.priceGapPct,
-      expectedPriceRange: asset.expectedPriceRange,
-      remainingRightsSqm: asset.remainingRightsSqm,
-      program: asset.program,
-      lastPermitQ: asset.lastPermitQ,
-      noiseLevel: asset.noiseLevel,
-      greenWithin300m: asset.greenWithin300m,
-      schoolsWithin500m: asset.schoolsWithin500m,
-      modelPrice: asset.modelPrice,
-      confidencePct: asset.confidencePct,
-      capRatePct: asset.capRatePct,
-      antennaDistanceM: asset.antennaDistanceM,
-      shelterDistanceM: asset.shelterDistanceM,
-      rentEstimate: asset.rentEstimate,
-      assetId: asset.assetId || asset.id,
-      assetStatus: asset.assetStatus || 'active',
-      sources: asset.sources || [],
-      primarySource: asset.primarySource || 'manual'
-    })) || []
-
-  return NextResponse.json({ rows: transformedRows })
 }
 
 export async function DELETE(req: Request) {
@@ -183,27 +94,12 @@ export async function DELETE(req: Request) {
         const data = await res.json()
         return NextResponse.json(data, { status: res.status })
       } else {
-        const deleted = deleteAsset(assetId)
-        if (deleted) {
-          return NextResponse.json({
-            message: `Asset ${assetId} deleted successfully from local storage`,
-            deletedAsset: deleted,
-          }, { status: 200 })
-        } else {
-          return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
-        }
+        const errorText = await res.text()
+        return NextResponse.json({ error: errorText || 'Failed to delete asset' }, { status: res.status })
       }
     } catch (err) {
       console.error('Error connecting to backend for delete:', err)
-      const deleted = deleteAsset(assetId)
-      if (deleted) {
-        return NextResponse.json({
-          message: `Asset ${assetId} deleted successfully from local storage`,
-          deletedAsset: deleted,
-        }, { status: 200 })
-      } else {
-        return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
-      }
+      return NextResponse.json({ error: 'Failed to connect to backend for delete' }, { status: 500 })
     }
   } catch (err) {
     console.error('Error in DELETE handler:', err)
@@ -260,27 +156,9 @@ export async function POST(req: Request) {
     // Prepare asset data matching frontend contract (without id yet)
     const assetPayload: Omit<Asset, 'id'> = {
       address: derivedAddress,
-      price: 0, // Will be populated by enrichment pipeline
-      bedrooms: 0,
-      bathrooms: 1,
-      area: 0,
-      type: determineAssetType(body),
-      status: 'pending',
-      images: [],
-      description: `נכס ${validatedData.scope.type} - ${derivedCity}`,
-      features: [],
-      contactInfo: {
-        agent: '',
-        phone: '',
-        email: ''
-      },
       city: derivedCity,
-      neighborhood: '',
-      netSqm: 0,
-      pricePerSqmDisplay: 0,
+      type: determineAssetType(body),
       assetStatus: 'pending',
-      sources: [],
-      primarySource: 'manual',
       ...extraFields
     }
 
@@ -322,7 +200,6 @@ export async function POST(req: Request) {
       const asset: Asset = {
         id,
         ...assetPayload,
-        assetId: id,
         assetStatus: backendData.status || assetPayload.assetStatus
       }
 

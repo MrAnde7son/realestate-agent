@@ -41,8 +41,8 @@
       position: fixed;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      background: url('{% static "core/nadlaner-logo.svg" %}') center/300px 80px no-repeat;
-      opacity: 0.05;
+      background: url('{{ logo_path }}') center/150px 40px no-repeat;
+      opacity: 0.03;
       z-index: -1;
     }    
     .header{
@@ -50,15 +50,20 @@
       padding-bottom: 6mm;
       border-bottom: 1px solid var(--divider);
       display: flex;
-      gap: 10mm;
-      align-items: center;
+      gap: 15mm;
+      align-items: flex-start;
+      min-height: 50px;
     }
     .logo{
-      height: 40px;
+      height: 25px;
       width: auto;
+      max-width: 100px;
+      flex-shrink: 0;
+      margin-right: 5mm;
     }
     .title{
       font-size: 20pt; font-weight: 700; margin: 0 0 4mm 0;
+      margin-left: 2mm;
     }
     .subtitle{ color: var(--muted); font-size: 11pt; }
     .chips{ margin-top: 4mm; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -116,8 +121,8 @@
 <body>
 
   <header class="header">
-    <img src="{% static 'core/nadlaner-logo.svg' %}" class="logo" alt="Nadlaner logo" />
     <div>
+      <img src="{{ logo_path }}" class="logo" alt="Nadlaner logo" />
       <div class="title">דו"ח נכס</div>
       <div class="subtitle">
         {{ listing.address }} <span class="badge">{{ listing.city }}</span>

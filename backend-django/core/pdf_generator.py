@@ -195,6 +195,10 @@ class HebrewPDFGenerator:
                 "sections": sections,
             }
 
+            # Prepare context with absolute paths for static assets
+            logo_path = (self.base_dir / "core" / "static" / "core" / "nadlaner-logo.svg").resolve()
+            context["logo_path"] = logo_path.as_uri()
+            
             html_string = render_to_string("report_asset.html", context)
             # Use the static files directory as base_url for WeasyPrint to resolve static assets
             static_dir = self.base_dir / "core" / "static"

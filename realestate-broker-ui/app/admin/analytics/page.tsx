@@ -69,9 +69,14 @@ export default async function AdminAnalyticsPage() {
   }
   const data = await getAnalytics();
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Analytics</h1>
-      <AnalyticsClient daily={data.series} topFailures={data.top} />
-    </div>
+    <DashboardLayout>
+      <DashboardShell>
+        <DashboardHeader
+          heading="מעקב ואנליטיקה"
+          text="נתונים וסטטיסטיקות על פעילות המערכת"
+        />
+        <AnalyticsClient daily={data.series} topFailures={data.top} />
+      </DashboardShell>
+    </DashboardLayout>
   );
 }

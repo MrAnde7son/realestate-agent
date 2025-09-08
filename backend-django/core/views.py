@@ -1352,12 +1352,10 @@ def alert_rules(request):
         if not data:
             return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Set user from request
-        data['user'] = request.user.id
-        
         serializer = AlertRuleSerializer(data=data)
         if serializer.is_valid():
-            serializer.save()
+            # Save with user from request - pass user object to save method
+            serializer.save(user=request.user)
             _update_onboarding(request.user, "set_one_alert")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

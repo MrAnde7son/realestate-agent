@@ -1,20 +1,43 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 async function fetchFromBackend(endpoint: string, options: RequestInit = {}) {
   const url = `${BACKEND_URL}${endpoint}`
+  const token = cookies().get('access_token')?.value
+  
+  // Debug logging
+  console.log('🔍 Alerts API - Backend request:', {
+    backendUrl: BACKEND_URL,
+    endpoint,
+    fullUrl: url,
+    hasToken: !!token,
+    tokenLength: token?.length || 0,
+    allCookies: cookies().getAll().map(c => c.name)
+  })
   
   const defaultOptions: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     },
-    credentials: 'include',
     cache: 'no-store',
   }
   
-  return fetch(url, { ...defaultOptions, ...options })
+  const response = await fetch(url, { ...defaultOptions, ...options })
+  
+  // Debug logging for response
+  console.log('🔍 Alerts API - Backend response:', {
+    url,
+    status: response.status,
+    statusText: response.statusText,
+    contentType: response.headers.get('content-type'),
+    ok: response.ok
+  })
+  
+  return response
 }
 
 export async function GET(req: Request) {
@@ -50,6 +73,11 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     
+    console.log('🔍 Alerts API - POST request:', {
+      body: body,
+      hasTest: !!body.test
+    })
+    
     // Check if this is a test request
     if (body.test) {
       const response = await fetchFromBackend('/api/alert-test/', {
@@ -74,6 +102,10 @@ export async function POST(req: Request) {
       method: 'POST',
       body: JSON.stringify(body),
     })
+    
+    if (response.status === 401) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     
     if (!response.ok) {
       const errorData = await response.json()

@@ -37,15 +37,31 @@ export async function middleware(request: NextRequest) {
   
   // Check if we have a valid token (either access or refresh token)
   const hasValidToken = accessToken || refreshToken
+
+  // If we have an access token, check if it's expired
+  let isTokenExpired = false
+  if (accessToken) {
+    try {
+      const parts = accessToken.split('.')
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]))
+        const currentTime = Math.floor(Date.now() / 1000)
+        isTokenExpired = payload.exp < currentTime
+      }
+    } catch (error) {
+      console.error('Error checking token expiration in middleware:', error)
+      isTokenExpired = true
+    }
+  }
   
-  // If it's a protected route and no valid token, redirect to auth
-  if (isProtectedRoute && !hasValidToken) {
-    console.log(`🔒 Redirecting to auth: ${pathname} requires authentication`)
+  // If it's a protected route and no valid token or token is expired, redirect to auth
+  if (isProtectedRoute && (!hasValidToken || isTokenExpired)) {
+    console.log(`🔒 Redirecting to auth: ${pathname} requires authentication (expired: ${isTokenExpired})`)
     return NextResponse.redirect(new URL('/auth', request.url))
   }
   
-  // If it's the auth page and user has valid token, redirect to home
-  if (isAuthRoute && hasValidToken) {
+  // If it's the auth page and user has valid non-expired token, redirect to home
+  if (isAuthRoute && hasValidToken && !isTokenExpired) {
     console.log(`🔄 Redirecting to home: user already authenticated`)
     return NextResponse.redirect(new URL('/', request.url))
   }
@@ -54,8 +70,8 @@ export async function middleware(request: NextRequest) {
     // Get the access token from cookies
     const accessToken = request.cookies.get('access_token')?.value
     
-    if (!accessToken) {
-      console.log(`🔒 No access token found for admin route: ${pathname}`)
+    if (!accessToken || isTokenExpired) {
+      console.log(`🔒 No valid access token for admin route: ${pathname} (expired: ${isTokenExpired})`)
       return NextResponse.redirect(new URL('/', request.url))
     }
     

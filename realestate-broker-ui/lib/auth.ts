@@ -61,6 +61,9 @@ export interface OnboardingStatus {
 const API_BASE_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 class AuthAPI {
+  private isRefreshing = false
+  private refreshPromise: Promise<string | null> | null = null
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -91,6 +94,40 @@ class AuthAPI {
       const response = await fetch(url, config)
       console.log('📨 Response status:', response.status)
       console.log('📨 Response headers:', Object.fromEntries(response.headers.entries()))
+      
+      // Handle token expiration (401 Unauthorized)
+      if (response.status === 401 && token) {
+        console.log('🔄 Access token expired, attempting refresh...')
+        const newToken = await this.refreshAccessToken()
+        
+        if (newToken) {
+          // Retry the request with the new token
+          config.headers = {
+            ...config.headers,
+            Authorization: `Bearer ${newToken}`,
+          }
+          console.log('🔄 Retrying request with new token...')
+          const retryResponse = await fetch(url, config)
+          
+          if (!retryResponse.ok) {
+            const errorData = await retryResponse.json().catch(() => ({}))
+            console.error('❌ Retry response not OK:', errorData)
+            throw new Error(errorData.error || `HTTP error! status: ${retryResponse.status}`)
+          }
+          
+          const data = await retryResponse.json()
+          console.log('📥 Retry response data:', data)
+          return data
+        } else {
+          // Refresh failed, clear tokens and redirect to login
+          console.log('❌ Token refresh failed, logging out user')
+          this.clearTokens()
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth'
+          }
+          throw new Error('Session expired. Please log in again.')
+        }
+      }
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -153,6 +190,48 @@ class AuthAPI {
       method: 'POST',
       body: JSON.stringify({ refresh_token: refreshToken }),
     })
+  }
+
+  private async refreshAccessToken(): Promise<string | null> {
+    // Prevent multiple simultaneous refresh attempts
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise
+    }
+
+    this.isRefreshing = true
+    this.refreshPromise = this.performTokenRefresh()
+
+    try {
+      const result = await this.refreshPromise
+      return result
+    } finally {
+      this.isRefreshing = false
+      this.refreshPromise = null
+    }
+  }
+
+  private async performTokenRefresh(): Promise<string | null> {
+    try {
+      const refreshToken = this.getRefreshToken()
+      if (!refreshToken) {
+        console.log('❌ No refresh token available')
+        return null
+      }
+
+      console.log('🔄 Refreshing access token...')
+      const response = await this.refreshToken(refreshToken)
+      
+      // Update stored tokens
+      this.setTokens(response.access_token, response.refresh_token)
+      console.log('✅ Access token refreshed successfully')
+      
+      return response.access_token
+    } catch (error) {
+      console.error('❌ Token refresh failed:', error)
+      // Clear tokens on refresh failure
+      this.clearTokens()
+      return null
+    }
   }
 
   async googleLogin(): Promise<{ auth_url: string }> {
@@ -253,6 +332,38 @@ class AuthAPI {
       return cookies.some(cookie => cookie.trim().startsWith('access_token='))
     }
     return false
+  }
+
+  isTokenExpired(token: string): boolean {
+    try {
+      // JWT tokens have 3 parts separated by dots
+      const parts = token.split('.')
+      if (parts.length !== 3) return true
+
+      // Decode the payload (second part)
+      const payload = JSON.parse(atob(parts[1]))
+      const currentTime = Math.floor(Date.now() / 1000)
+      
+      // Check if token is expired (exp claim is in seconds)
+      return payload.exp < currentTime
+    } catch (error) {
+      console.error('Error checking token expiration:', error)
+      return true // Assume expired if we can't parse
+    }
+  }
+
+  async validateToken(): Promise<boolean> {
+    const token = this.getAccessToken()
+    if (!token) return false
+
+    // Check if token is expired
+    if (this.isTokenExpired(token)) {
+      console.log('🔄 Access token is expired, attempting refresh...')
+      const newToken = await this.refreshAccessToken()
+      return !!newToken
+    }
+
+    return true
   }
 }
 

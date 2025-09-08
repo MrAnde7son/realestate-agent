@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/Badge'
 import { Separator } from '@/components/ui/separator'
 import { Plus, Trash2, TestTube, Bell } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 import { 
   ALERT_TYPES, 
   ALERT_TYPE_LABELS, 
@@ -34,7 +35,7 @@ interface AlertRule {
   channels: AlertChannel[]
   frequency: AlertFrequency
   scope: AlertScope
-  asset_id?: number
+  asset?: number // Backend expects 'asset', not 'asset_id'
   active: boolean
 }
 
@@ -43,6 +44,7 @@ interface AlertRulesManagerProps {
 }
 
 export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
+  const { refreshUser } = useAuth()
   const [rules, setRules] = useState<AlertRule[]>([])
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -73,7 +75,7 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
       channels: [ALERT_CHANNELS.EMAIL],
       frequency: ALERT_FREQUENCIES.IMMEDIATE,
       scope: assetId ? ALERT_SCOPES.ASSET : ALERT_SCOPES.GLOBAL,
-      asset_id: assetId,
+      asset: assetId, // Backend expects 'asset', not 'asset_id'
       active: true
     }
     setRules([...rules, newRule])
@@ -85,7 +87,7 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
     
     // Update params when trigger type changes
     if (updates.trigger_type) {
-      updatedRules[index].params = ALERT_DEFAULT_PARAMS[updates.trigger_type] || {}
+      updatedRules[index].params = ALERT_DEFAULT_PARAMS[updates.trigger_type as keyof typeof ALERT_DEFAULT_PARAMS] || {}
     }
     
     setRules(updatedRules)
@@ -99,6 +101,10 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
   const saveRule = async (rule: AlertRule, index: number) => {
     try {
       setLoading(true)
+      
+      // Debug logging
+      console.log('🔍 Frontend - Sending alert rule:', rule)
+      
       const response = await fetch('/api/alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -110,6 +116,9 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
         const updatedRules = [...rules]
         updatedRules[index] = { ...rule, id: data.id }
         setRules(updatedRules)
+        
+        // Refresh user data to update onboarding progress
+        await refreshUser()
       } else {
         const errorData = await response.json()
         alert(`Failed to save rule: ${errorData.error || 'Unknown error'}`)
@@ -230,7 +239,7 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
           <div className="text-center py-8 text-muted-foreground">
             <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>אין כללי התראות מוגדרים</p>
-            <p className="text-sm">לחץ על "הוסף כלל" כדי להתחיל</p>
+            <p className="text-sm">לחץ על &quot;הוסף כלל&quot; כדי להתחיל</p>
           </div>
         ) : (
           rules.map((rule, index) => (
@@ -349,15 +358,15 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
                   </div>
 
                   {/* Parameters */}
-                  {ALERT_PARAM_VALIDATION[rule.trigger_type] && (
+                  {ALERT_PARAM_VALIDATION[rule.trigger_type as keyof typeof ALERT_PARAM_VALIDATION] && (
                     <div className="space-y-4">
                       <Separator />
                       <h4 className="font-medium">פרמטרים</h4>
                       <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                        {Object.entries(ALERT_PARAM_VALIDATION[rule.trigger_type]).map(([paramKey, paramConfig]) => (
+                        {Object.entries(ALERT_PARAM_VALIDATION[rule.trigger_type as keyof typeof ALERT_PARAM_VALIDATION]).map(([paramKey, paramConfig]) => (
                           <div key={paramKey} className="space-y-2">
-                            <Label>{paramConfig.label || ALERT_PARAM_LABELS[paramKey as keyof typeof ALERT_PARAM_LABELS] || paramKey}</Label>
-                            {renderParameterInput(rule, paramKey, paramConfig)}
+                            <Label>{(paramConfig as any).label || ALERT_PARAM_LABELS[paramKey as keyof typeof ALERT_PARAM_LABELS] || paramKey}</Label>
+                            {renderParameterInput(rule, paramKey, paramConfig as any)}
                           </div>
                         ))}
                       </div>

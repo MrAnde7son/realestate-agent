@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer, RefreshCw } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer, RefreshCw, Plus, Settings } from 'lucide-react'
 import { ALERT_TYPE_LABELS } from '@/lib/alert-constants'
+import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 
 interface AlertEvent {
   id: number
@@ -60,6 +62,7 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [alertRulesModalOpen, setAlertRulesModalOpen] = useState(false)
 
   // Fetch alerts from API
   useEffect(() => {
@@ -184,12 +187,21 @@ export default function AlertsPage() {
           heading="התראות" 
           text="קבל עדכונים על שינויים בנכסים ובשוק הנדל״ן"
         >
-          {unreadCount > 0 && (
-            <Button onClick={markAllAsRead} variant="outline" className="w-full sm:w-auto">
-              <CheckCircle className="h-4 w-4 ms-2" />
-              סמן הכל כנקרא ({unreadCount})
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button 
+              onClick={() => setAlertRulesModalOpen(true)} 
+              className="w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4 ms-2" />
+              הוסף כלל התראה
             </Button>
-          )}
+            {unreadCount > 0 && (
+              <Button onClick={markAllAsRead} variant="outline" className="w-full sm:w-auto">
+                <CheckCircle className="h-4 w-4 ms-2" />
+                סמן הכל כנקרא ({unreadCount})
+              </Button>
+            )}
+          </div>
         </DashboardHeader>
 
         {/* Main Content Grid */}
@@ -218,17 +230,26 @@ export default function AlertsPage() {
                           ? 'לא נמצאו התראות לפי הסינון שנבחר'
                           : 'אין התראות זמינות כרגע'}
                       </p>
-                      {selectedTypes.length > 0 && (
-                        <Button 
-                          variant="outline" 
-                          className="mt-4"
-                          onClick={() => {
-                            setSelectedTypes([])
-                          }}
-                        >
-                          נקה סינון
-                        </Button>
-                      )}
+                      <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                        {selectedTypes.length > 0 ? (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => {
+                              setSelectedTypes([])
+                            }}
+                          >
+                            נקה סינון
+                          </Button>
+                        ) : (
+                          <Button 
+                            onClick={() => setAlertRulesModalOpen(true)}
+                            className="w-full sm:w-auto"
+                          >
+                            <Plus className="h-4 w-4 ms-2" />
+                            הגדר התראות חדשות
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -376,6 +397,19 @@ export default function AlertsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Alert Rules Modal */}
+        <Dialog open={alertRulesModalOpen} onOpenChange={setAlertRulesModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                ניהול כללי התראות
+              </DialogTitle>
+            </DialogHeader>
+            <AlertRulesManager />
+          </DialogContent>
+        </Dialog>
       </DashboardShell>
     </DashboardLayout>
   )

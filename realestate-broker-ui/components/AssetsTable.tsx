@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download } from 'lucide-react'
+import { Trash2, Download, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import AssetCard from './AssetCard'
+import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 
 function RiskCell({ flags }: { flags?: string[] }){
   if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
@@ -38,7 +40,7 @@ function exportAssetsCsv(assets: Asset[]) {
   document.body.removeChild(link)
 }
 
-function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset) => void): ColumnDef<Asset>[] {
+function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset) => void, onOpenAlert?: (assetId: number) => void): ColumnDef<Asset>[] {
   return [
   {
     id: 'select',
@@ -167,7 +169,14 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     { header:'—', id:'actions', cell: ({ row }) => (
       <div className="flex gap-2">
         <Link className="underline" href={`/assets/${row.original.id}`}>👁️</Link>
-        <a className="underline" href="/alerts">🔔</a>
+        {onOpenAlert && (
+          <button
+            onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
+            className="underline"
+            title="הגדר התראות לנכס זה">
+            <Bell className="h-4 w-4" />
+          </button>
+        )}
         {onExport && (
           <button
             onClick={e => { e.stopPropagation(); onExport(row.original) }}
@@ -194,10 +203,17 @@ interface AssetsTableProps {
 export default function AssetsTable({ data = [], loading = false, onDelete }: AssetsTableProps){
   const router = useRouter()
   const [rowSelection, setRowSelection] = React.useState({})
+  const [alertModalOpen, setAlertModalOpen] = React.useState(false)
+  const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
 
   const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset])
 
-  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle), [onDelete])
+  const handleOpenAlertModal = (assetId: number) => {
+    setSelectedAssetId(assetId)
+    setAlertModalOpen(true)
+  }
+
+  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete])
 
   const table = useReactTable({
     data,
@@ -257,6 +273,18 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
           <AssetCard key={asset.id} asset={asset} />
         ))}
       </div>
+
+      {/* Alert Modal */}
+      <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>הגדרת התראות לנכס</DialogTitle>
+          </DialogHeader>
+          {selectedAssetId && (
+            <AlertRulesManager assetId={selectedAssetId} />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

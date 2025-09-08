@@ -3,7 +3,7 @@ import type { Asset } from '@/lib/normalizers/asset'
 import { z } from 'zod'
 import { normalizeFromBackend, determineAssetType } from '@/lib/normalizers/asset'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 // Schema for new asset creation. The backend accepts various combinations of
 // fields depending on the scope type, so most fields are optional here. Basic
@@ -47,7 +47,7 @@ const newAssetSchema = z.object({
 })
 
 export async function GET() {
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+  const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
   try {
     const res = await fetch(`${backendUrl}/api/assets/`)
     if (!res.ok) {
@@ -182,7 +182,7 @@ export async function POST(req: Request) {
 
     console.log('Attempting to create asset with backend payload:', backendPayload)
 
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
     try {
       const backendResponse = await fetch(`${backendUrl}/api/assets/`, {
         method: 'POST',

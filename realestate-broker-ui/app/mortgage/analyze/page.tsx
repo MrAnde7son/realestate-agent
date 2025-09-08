@@ -189,7 +189,7 @@ export default function MortgageAnalyzePage() {
                             <CardTitle className="text-base">{calc.scenario.name}</CardTitle>
                             <p className="text-sm text-muted-foreground">{calc.scenario.description}</p>
                           </div>
-                          <Badge variant={index === 0 ? 'primary' : index === 1 ? 'accent' : 'neutral'}>
+                          <Badge variant={index === 0 ? 'default' : index === 1 ? 'accent' : 'neutral'}>
                             {calc.scenario.totalRate.toFixed(2)}%
                           </Badge>
                         </div>

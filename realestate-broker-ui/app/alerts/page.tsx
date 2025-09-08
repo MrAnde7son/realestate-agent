@@ -1,12 +1,13 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/Badge'
-import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer } from 'lucide-react'
-import { alerts, type Alert } from '@/lib/data'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer, RefreshCw } from 'lucide-react'
+import type { Alert } from '@/lib/data'
 
 const getAlertIcon = (type: Alert['type']) => {
   switch (type) {
@@ -63,12 +64,34 @@ const formatDate = (dateString: string) => {
 }
 
 export default function AlertsPage() {
-  const [email, setEmail] = useState('user@example.com')
-  const [phone, setPhone] = useState('+972-50-123-4567')
-  const [priceThreshold, setPriceThreshold] = useState(50000)
-  const [alertsData, setAlertsData] = useState(alerts)
+  const [alertsData, setAlertsData] = useState<Alert[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedPriorities, setSelectedPriorities] = useState<Alert['priority'][]>([])
   const [selectedTypes, setSelectedTypes] = useState<Alert['type'][]>([])
+
+  // Fetch alerts from API
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/alerts')
+        if (response.ok) {
+          const data = await response.json()
+          setAlertsData(data.alerts || data || [])
+        } else {
+          setError('שגיאה בטעינת ההתראות')
+        }
+      } catch (err) {
+        console.error('Error fetching alerts:', err)
+        setError('שגיאה בטעינת ההתראות')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAlerts()
+  }, [])
 
   const togglePriority = (priority: Alert['priority']) => {
     setSelectedPriorities(prev =>
@@ -82,18 +105,42 @@ export default function AlertsPage() {
     )
   }
 
-  const markAsRead = (alertId: number) => {
-    setAlertsData(prev =>
-      prev.map(alert =>
-        alert.id === alertId ? { ...alert, isRead: true } : alert
-      )
-    )
+  const markAsRead = async (alertId: number) => {
+    try {
+      const response = await fetch('/api/alerts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alertId, isRead: true })
+      })
+      
+      if (response.ok) {
+        setAlertsData(prev =>
+          prev.map(alert =>
+            alert.id === alertId ? { ...alert, isRead: true } : alert
+          )
+        )
+      }
+    } catch (err) {
+      console.error('Error marking alert as read:', err)
+    }
   }
 
-  const markAllAsRead = () => {
-    setAlertsData(prev =>
-      prev.map(alert => ({ ...alert, isRead: true }))
-    )
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/alerts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAllAsRead: true })
+      })
+      
+      if (response.ok) {
+        setAlertsData(prev =>
+          prev.map(alert => ({ ...alert, isRead: true }))
+        )
+      }
+    } catch (err) {
+      console.error('Error marking all alerts as read:', err)
+    }
   }
 
   const filteredAlerts = alertsData.filter(alert => {
@@ -104,6 +151,62 @@ export default function AlertsPage() {
   })
 
   const unreadCount = filteredAlerts.filter(alert => !alert.isRead).length
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <DashboardShell>
+          <DashboardHeader 
+            heading="התראות" 
+            text="טוען התראות..."
+          />
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <div className="space-y-3">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DashboardShell>
+      </DashboardLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <DashboardShell>
+          <DashboardHeader 
+            heading="התראות" 
+            text="שגיאה בטעינת ההתראות"
+          />
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="space-y-4">
+                <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mx-auto">
+                  <Bell className="h-8 w-8 text-error" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">שגיאה בטעינת ההתראות</h3>
+                  <p className="text-muted-foreground">{error}</p>
+                </div>
+                <Button onClick={() => window.location.reload()} variant="outline">
+                  <RefreshCw className="h-4 w-4 ms-2" />
+                  נסה שוב
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </DashboardShell>
+      </DashboardLayout>
+    )
+  }
   
   return (
     <DashboardLayout>
@@ -114,7 +217,7 @@ export default function AlertsPage() {
         >
           {unreadCount > 0 && (
             <Button onClick={markAllAsRead} variant="outline" className="w-full sm:w-auto">
-              <CheckCircle className="h-4 w-4 ml-2" />
+              <CheckCircle className="h-4 w-4 ms-2" />
               סמן הכל כנקרא ({unreadCount})
             </Button>
           )}
@@ -128,72 +231,102 @@ export default function AlertsPage() {
               <CardHeader>
                 <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <span>התראות אחרונות</span>
-                  <Badge variant="accent" className="w-fit">{unreadCount} לא נקראו</Badge>
+                  {unreadCount > 0 && (
+                    <Badge variant="accent" className="w-fit">{unreadCount} לא נקראו</Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {filteredAlerts.map((alert) => (
-                    <div 
-                      key={alert.id} 
-                      className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 border rounded-lg transition-colors ${
-                        alert.isRead ? 'bg-muted/50' : 'bg-card hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className="flex-shrink-0 flex justify-center sm:justify-start">
-                        {getAlertIcon(alert.type)}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0 space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <h3 className={`font-medium text-sm sm:text-base ${!alert.isRead ? 'text-primary' : 'text-muted-foreground'}`}>
-                              {alert.title}
-                            </h3>
-                            <div className="flex items-center gap-2">
-                              <Badge variant={getPriorityColor(alert.priority)} className="text-xs">
-                                {getPriorityText(alert.priority)}
-                              </Badge>
-                              {!alert.isRead && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                              )}
+                {filteredAlerts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                      <Bell className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold text-foreground">אין התראות</h3>
+                      <p className="text-muted-foreground">
+                        {selectedPriorities.length > 0 || selectedTypes.length > 0
+                          ? 'לא נמצאו התראות לפי הסינון שנבחר'
+                          : 'אין התראות זמינות כרגע'}
+                      </p>
+                      {(selectedPriorities.length > 0 || selectedTypes.length > 0) && (
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={() => {
+                            setSelectedPriorities([])
+                            setSelectedTypes([])
+                          }}
+                        >
+                          נקה סינון
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredAlerts.map((alert) => (
+                      <div 
+                        key={alert.id} 
+                        className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 border rounded-lg transition-colors ${
+                          alert.isRead ? 'bg-muted/50' : 'bg-card hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex-shrink-0 flex justify-center sm:justify-start">
+                          {getAlertIcon(alert.type)}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0 space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                              <h3 className={`font-medium text-sm sm:text-base ${!alert.isRead ? 'text-primary' : 'text-muted-foreground'}`}>
+                                {alert.title}
+                              </h3>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={getPriorityColor(alert.priority)} className="text-xs">
+                                  {getPriorityText(alert.priority)}
+                                </Badge>
+                                {!alert.isRead && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span>{formatDate(alert.createdAt)}</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{formatDate(alert.createdAt)}</span>
+                          
+                          <p className="text-sm text-muted-foreground">{alert.message}</p>
+                          
+                          {alert.assetAddress && (
+                            <p className="text-xs text-muted-foreground">
+                              📍 {alert.assetAddress}
+                            </p>
+                          )}
+                          
+                          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            {alert.actionUrl && (
+                              <Button size="sm" variant="outline" asChild className="w-full sm:w-auto">
+                                <a href={alert.actionUrl}>צפה בנכס</a>
+                              </Button>
+                            )}
+                            {!alert.isRead && (
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => markAsRead(alert.id)}
+                                className="w-full sm:w-auto"
+                              >
+                                סמן כנקרא
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        
-                        <p className="text-sm text-muted-foreground">{alert.message}</p>
-                        
-                        {alert.assetAddress && (
-                          <p className="text-xs text-muted-foreground">
-                            📍 {alert.assetAddress}
-                          </p>
-                        )}
-                        
-                        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                          {alert.actionUrl && (
-                            <Button size="sm" variant="outline" asChild className="w-full sm:w-auto">
-                              <a href={alert.actionUrl}>צפה בנכס</a>
-                            </Button>
-                          )}
-                          {!alert.isRead && (
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => markAsRead(alert.id)}
-                              className="w-full sm:w-auto"
-                            >
-                              סמן כנקרא
-                            </Button>
-                          )}
-                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -241,7 +374,7 @@ export default function AlertsPage() {
                         key={priority}
                         variant={
                           selectedPriorities.includes(priority as Alert['priority'])
-                            ? 'primary'
+                            ? 'default'
                             : 'neutral'
                         }
                         className="cursor-pointer"
@@ -261,7 +394,7 @@ export default function AlertsPage() {
                         key={type}
                         variant={
                           selectedTypes.includes(type as Alert['type'])
-                            ? 'primary'
+                            ? 'default'
                             : 'neutral'
                         }
                         className="cursor-pointer"

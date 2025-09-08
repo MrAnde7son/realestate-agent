@@ -51,14 +51,14 @@ const baseNavigation = [
     icon: AlertCircle,
   },
   {
-    name: "מחשבון משכנתא",
-    href: "/mortgage/analyze",
-    icon: Calculator,
-  },
-  {
     name: "דוחות",
     href: "/reports",
     icon: BarChart3,
+  },
+  {
+    name: "מחשבון משכנתא",
+    href: "/mortgage/analyze",
+    icon: Calculator,
   },
 ];
 
@@ -81,7 +81,7 @@ export default function AppSidebar({
 
   const navigation = [...baseNavigation];
   if (user?.role === "admin") {
-    navigation.push({ name: "Analytics", href: "/admin/analytics", icon: LineChart });
+    navigation.push({ name: "מעקב", href: "/admin/analytics", icon: LineChart });
   }
 
   const handleLogout = async () => {

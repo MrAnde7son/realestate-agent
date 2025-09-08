@@ -8,10 +8,10 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { OnboardingState, getCompletionPct } from '@/onboarding/selectors'
 
 const steps = [
-  // { key: 'connectPayment', label: 'Connect Payment', href: '/billing' },
-  { key: 'addAsset', label: 'Add First Asset', href: '/assets' },
-  { key: 'generateReport', label: 'Generate First Report', href: '/reports' },
-  { key: 'createAlert', label: 'Create One Alert', href: '/alerts' },
+  // { key: 'connectPayment', label: 'חיבור תשלום', href: '/billing' },
+  { key: 'addAsset', label: 'הוסף נכס ראשון', href: '/assets' },
+  { key: 'generateReport', label: 'צור דוח ראשון', href: '/reports' },
+  { key: 'createAlert', label: 'צור התראה אחת', href: '/alerts' },
 ] as const
 
 type Props = { state: OnboardingState }
@@ -23,7 +23,7 @@ export default function OnboardingChecklist({ state }: Props) {
   return (
     <Card className="mb-6">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg font-semibold">Get started</CardTitle>
+        <CardTitle className="text-lg font-semibold">בוא נתחיל</CardTitle>
         {pct === 100 && (
           <Button
             variant="ghost"
@@ -32,7 +32,7 @@ export default function OnboardingChecklist({ state }: Props) {
             className="h-6 w-6"
           >
             {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            <span className="sr-only">Toggle checklist</span>
+            <span className="sr-only">הצג/הסתר רשימת משימות</span>
           </Button>
         )}
       </CardHeader>
@@ -61,7 +61,7 @@ export default function OnboardingChecklist({ state }: Props) {
             className="p-0 h-auto"
             onClick={() => setOpen(true)}
           >
-            View completed steps
+            הצג צעדים שהושלמו
           </Button>
         </CardContent>
       )}

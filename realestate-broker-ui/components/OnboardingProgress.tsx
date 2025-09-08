@@ -14,27 +14,27 @@ interface Step {
 }
 
 const steps: Step[] = [
-  // { key: 'connectPayment', label: 'Connect Payment', icon: CreditCard },
+  // { key: 'connectPayment', label: 'חיבור תשלום', icon: CreditCard },
   {
     key: 'addAsset',
-    label: 'Add First Asset',
+    label: 'הוסף נכס ראשון',
     icon: Building2,
-    tooltip: 'Start by adding your first property',
+    tooltip: 'התחל בהוספת הנכס הראשון שלך',
   },
   {
     key: 'generateReport',
-    label: 'Generate First Report',
+    label: 'צור דוח ראשון',
     icon: FileText,
-    tooltip: 'Click here to create your first report',
+    tooltip: 'לחץ כאן כדי ליצור את הדוח הראשון שלך',
   },
-  { key: 'createAlert', label: 'Create One Alert', icon: Bell },
+  { key: 'createAlert', label: 'צור התראה אחת', icon: Bell },
 ]
 interface Props { state: OnboardingState }
 
 export default function OnboardingProgress({ state }: Props) {
   const pct = getCompletionPct(state)
   if (pct === 100) {
-    return <div className="mb-6 text-sm font-medium">All set ✅</div>
+    return <div className="mb-6 text-sm font-medium">הכל מוכן ✅</div>
   }
 
   const firstIncomplete = steps.findIndex(s => !state[s.key])

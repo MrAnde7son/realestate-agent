@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { ReactNode } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/auth-context'
-import OnboardingChecklist from '@/components/OnboardingChecklist'
 import './globals.css'
 
 export const metadata: Metadata = { 
@@ -28,7 +27,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           <AuthProvider>
             {children}
-            <OnboardingChecklist />
           </AuthProvider>
         </ThemeProvider>
       </body>

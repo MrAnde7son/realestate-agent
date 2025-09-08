@@ -1,122 +1,70 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import confetti from 'canvas-confetti'
-import { X } from 'lucide-react'
-
-import { useAuth } from '@/lib/auth-context'
-import { authAPI, OnboardingStatus } from '@/lib/auth'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { OnboardingState, getCompletionPct } from '@/onboarding/selectors'
 
 const steps = [
-  { key: 'add_first_asset', label: 'הוסף נכס ראשון', href: '/assets' },
-  { key: 'generate_first_report', label: 'הפק דוח ראשון', href: '/reports' },
-  { key: 'set_one_alert', label: 'הגדר התראה ראשונה', href: '/alerts' },
+  // { key: 'connectPayment', label: 'Connect Payment', href: '/billing' },
+  { key: 'addAsset', label: 'Add First Asset', href: '/assets' },
+  { key: 'generateReport', label: 'Generate First Report', href: '/reports' },
+  { key: 'createAlert', label: 'Create One Alert', href: '/alerts' },
 ] as const
 
-export default function OnboardingChecklist() {
-  const { isAuthenticated } = useAuth()
-  const [status, setStatus] = useState<OnboardingStatus | null>(null)
-  const [celebrated, setCelebrated] = useState(false)
-  const [dismissed, setDismissed] = useState(false)
+type Props = { state: OnboardingState }
 
-  useEffect(() => {
-    if (!isAuthenticated) return
-    authAPI
-      .getOnboardingStatus()
-      .then(setStatus)
-      .catch(err => console.error('Failed to load onboarding status', err))
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      if (!isAuthenticated) return
-      authAPI
-        .getOnboardingStatus()
-        .then(newStatus => {
-          setStatus(newStatus)
-          setDismissed(false)
-          localStorage.removeItem('onboardingDismissed')
-        })
-        .catch(err => console.error('Failed to load onboarding status', err))
-    }
-
-    window.addEventListener('onboardingUpdate', handleUpdate)
-    return () => window.removeEventListener('onboardingUpdate', handleUpdate)
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    if (status?.completed && !celebrated) {
-      confetti({ spread: 70, origin: { y: 0.6 } })
-      setCelebrated(true)
-    }
-  }, [status, celebrated])
-
-  useEffect(() => {
-    const stored = localStorage.getItem('onboardingDismissed')
-    if (stored === 'true') setDismissed(true)
-  }, [])
-
-  const handleClose = () => {
-    setDismissed(true)
-    localStorage.setItem('onboardingDismissed', 'true')
-  }
-
-  if (!isAuthenticated || !status || status.completed || dismissed) return null
-
-  const completedCount = steps.filter(step => status.steps[step.key]).length
-  const total = steps.length
+export default function OnboardingChecklist({ state }: Props) {
+  const pct = getCompletionPct(state)
+  const [open, setOpen] = useState(pct !== 100)
 
   return (
-    <Card className="fixed bottom-20 left-4 right-4 z-50 p-4 sm:bottom-4 sm:right-4 sm:left-auto sm:w-72">
-      <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-lg font-semibold">בואו נתחיל</CardTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleClose}
-          className="h-6 w-6"
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">סגור</span>
-        </Button>
+    <Card className="mb-6">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-lg font-semibold">Get started</CardTitle>
+        {pct === 100 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setOpen(o => !o)}
+            className="h-6 w-6"
+          >
+            {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            <span className="sr-only">Toggle checklist</span>
+          </Button>
+        )}
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="text-sm text-muted-foreground mb-2">
-          הושלמו {completedCount} מתוך {total}
-        </div>
-        <div className="w-full bg-muted h-2 rounded mb-4">
-          <div
-            className="h-2 bg-primary rounded"
-            style={{ width: `${(completedCount / total) * 100}%` }}
-          />
-        </div>
-        <ul className="space-y-2">
-          {steps.map(step => (
-            <li key={step.key} className="flex items-center">
-              <input
-                type="checkbox"
-                className="mr-2"
-                checked={status.steps[step.key]}
-                readOnly
-              />
-              <Link
-                href={step.href}
-                className={`text-sm ${
-                  status.steps[step.key]
-                    ? 'line-through text-muted-foreground'
-                    : ''
-                }`}
-              >
-                {step.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
+      {open && (
+        <CardContent className="pt-0">
+          <ul className="space-y-2">
+            {steps.map(step => (
+              <li key={step.key} className="flex items-center">
+                <input type="checkbox" className="mr-2" checked={state[step.key]} readOnly />
+                <Link
+                  href={step.href}
+                  className={`text-sm ${state[step.key] ? 'line-through text-muted-foreground' : ''}`}
+                >
+                  {step.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      )}
+      {pct === 100 && !open && (
+        <CardContent className="pt-0">
+          <Button
+            variant="link"
+            size="sm"
+            className="p-0 h-auto"
+            onClick={() => setOpen(true)}
+          >
+            View completed steps
+          </Button>
+        </CardContent>
+      )}
     </Card>
   )
 }
-

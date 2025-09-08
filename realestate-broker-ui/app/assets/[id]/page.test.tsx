@@ -3,8 +3,10 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AssetDetailPage from './page'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 
 vi.mock('next/navigation')
+vi.mock('@/lib/auth-context')
 vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
 }))
@@ -14,10 +16,15 @@ vi.mock('@/components/ui/page-loader', () => ({
 
 describe('AssetDetailPage', () => {
   const mockUseRouter = { push: vi.fn() }
+  const mockUseAuth = {
+    isAuthenticated: true,
+    user: { id: '1', onboarding_flags: {} },
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
     ;(useRouter as any).mockReturnValue(mockUseRouter)
+    ;(useAuth as any).mockReturnValue(mockUseAuth)
     // Stub alert for tests
     // @ts-ignore
     global.alert = vi.fn()

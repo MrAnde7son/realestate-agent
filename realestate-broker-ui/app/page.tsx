@@ -58,11 +58,15 @@ import {
 import { chartPalette as C } from "@/lib/chart-palette";
 import { KpiCard } from "@/components/KpiCard";
 import { TrendingUp, FileText, Bell, Building2 } from "lucide-react";
+import OnboardingProgress from "@/components/OnboardingProgress";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
+import { selectOnboardingState } from "@/onboarding/selectors";
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();
   const { data: dashboardData, loading, error } = useDashboardData();
   const router = useRouter();
+  const onboardingState = selectOnboardingState(user);
 
   const handleProtectedAction = (action: string) => {
     if (!isAuthenticated) {
@@ -156,6 +160,13 @@ export default function HomePage() {
           }
           text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
         />
+
+        {isAuthenticated && (
+          <>
+            <OnboardingProgress state={onboardingState} />
+            <OnboardingChecklist state={onboardingState} />
+          </>
+        )}
 
         {/* Login Prompt for Guests */}
         {!isAuthenticated && (

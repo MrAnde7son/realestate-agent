@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Globe, Bell, Shield, Palette, Database, Zap } from 'lucide-react'
 import { ContactSupportDialog, BugReportDialog } from '@/components/support/dialogs'
+import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import Link from 'next/link'
 
 interface UserSettings {
@@ -212,6 +213,9 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Alert Rules Manager */}
+            <AlertRulesManager />
 
             {/* Security Settings - disabled until implementation */}
             {/**

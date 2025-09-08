@@ -27,6 +27,9 @@ from openai import OpenAI
 # Import Django models
 from .models import (
     Alert,
+    AlertRule,
+    AlertEvent,
+    Snapshot,
     Asset,
     SourceRecord,
     RealEstateTransaction,
@@ -35,6 +38,7 @@ from .models import (
 )
 
 from .listing_builder import build_listing
+from .serializers import AlertRuleSerializer, AlertEventSerializer
 
 # Import utility functions
 try:
@@ -1331,3 +1335,110 @@ def change_password(request):
         return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Alert views
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def alert_rules(request):
+    """Handle alert rules - GET (list) or POST (create)."""
+    if request.method == "GET":
+        rules = AlertRule.objects.filter(user=request.user).order_by("-created_at")
+        serializer = AlertRuleSerializer(rules, many=True)
+        return Response({"rules": serializer.data})
+    
+    if request.method == "POST":
+        data = parse_json(request)
+        if not data:
+            return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Set user from request
+        data['user'] = request.user.id
+        
+        serializer = AlertRuleSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            _update_onboarding(request.user, "set_one_alert")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def alert_rule_detail(request, rule_id):
+    """Handle individual alert rule - GET, PATCH, or DELETE."""
+    try:
+        rule = AlertRule.objects.get(id=rule_id, user=request.user)
+    except AlertRule.DoesNotExist:
+        return Response({"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == "GET":
+        serializer = AlertRuleSerializer(rule)
+        return Response(serializer.data)
+    
+    if request.method == "PATCH":
+        data = parse_json(request)
+        if not data:
+            return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = AlertRuleSerializer(rule, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    if request.method == "DELETE":
+        rule.delete()
+        return Response({"message": "Alert rule deleted successfully"}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def alert_events(request):
+    """Get alert events for the current user."""
+    since = request.GET.get('since')
+    events = AlertEvent.objects.filter(alert_rule__user=request.user)
+    
+    if since:
+        try:
+            since_dt = timezone.datetime.fromisoformat(since.replace('Z', '+00:00'))
+            events = events.filter(occurred_at__gte=since_dt)
+        except ValueError:
+            return Response({"error": "Invalid since parameter"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    events = events.order_by('-occurred_at')[:100]  # Limit to 100 most recent
+    serializer = AlertEventSerializer(events, many=True)
+    return Response({"events": serializer.data})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def alert_test(request):
+    """Send a test alert to verify channels are working."""
+    from orchestration.alerts import create_notifier_for_user
+    
+    user = request.user
+    channels = []
+    
+    if getattr(user, 'notify_email', False) and user.email:
+        from orchestration.alerts import EmailAlert
+        channels.append(EmailAlert(user.email))
+    
+    if getattr(user, 'notify_whatsapp', False) and getattr(user, 'phone', None):
+        from orchestration.alerts import WhatsAppAlert
+        channels.append(WhatsAppAlert(user.phone))
+    
+    if not channels:
+        return Response({"error": "No notification channels configured"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Send test message
+    test_message = "נדלנר: זהו הודעת בדיקה. הערוצים שלך מוגדרים כראוי."
+    
+    try:
+        for channel in channels:
+            channel.send(test_message)
+        
+        return Response({"message": "Test alert sent successfully"}, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error("Failed to send test alert: %s", e)
+        return Response({"error": "Failed to send test alert"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

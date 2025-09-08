@@ -1,18 +1,45 @@
 import { NextResponse } from 'next/server'
-import { alerts } from '@/lib/data'
 
-// In-memory storage for read status (in a real app, this would be in a database)
-let readAlerts = new Set<number>()
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
-export async function GET() {
+async function fetchFromBackend(endpoint: string, options: RequestInit = {}) {
+  const url = `${BACKEND_URL}${endpoint}`
+  
+  const defaultOptions: RequestInit = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    credentials: 'include',
+    cache: 'no-store',
+  }
+  
+  return fetch(url, { ...defaultOptions, ...options })
+}
+
+export async function GET(req: Request) {
   try {
-    // Return alerts with updated read status
-    const alertsWithReadStatus = alerts.map(alert => ({
-      ...alert,
-      isRead: readAlerts.has(alert.id)
-    }))
+    const { searchParams } = new URL(req.url)
+    const since = searchParams.get('since')
     
-    return NextResponse.json({ alerts: alertsWithReadStatus })
+    let endpoint = '/api/alert-rules/'
+    if (since) {
+      endpoint = `/api/alert-events/?since=${since}`
+    }
+    
+    const response = await fetchFromBackend(endpoint)
+    
+    // Handle authentication errors gracefully
+    if (response.status === 401) {
+      return NextResponse.json({ rules: [], events: [] })
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Backend responded with ${response.status}`)
+    }
+    
+    const data = await response.json()
+    return NextResponse.json(data)
   } catch (error) {
     console.error('Error fetching alerts:', error)
     return NextResponse.json({ error: 'Failed to fetch alerts' }, { status: 500 })
@@ -23,17 +50,41 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     
-    // Mock response for creating/updating alerts
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Alert updated successfully' 
-    }, { status: 200 })
+    // Check if this is a test request
+    if (body.test) {
+      const response = await fetchFromBackend('/api/alert-test/', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+      
+      if (response.status === 401) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Backend responded with ${response.status}`)
+      }
+      
+      const data = await response.json()
+      return NextResponse.json(data)
+    }
     
+    // Create new alert rule
+    const response = await fetchFromBackend('/api/alert-rules/', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      return NextResponse.json(errorData, { status: response.status })
+    }
+    
+    const data = await response.json()
+    return NextResponse.json(data, { status: 201 })
   } catch (error) {
-    console.error('Error updating alert:', error)
-    return NextResponse.json({ 
-      error: 'Failed to update alert' 
-    }, { status: 500 })
+    console.error('Error creating alert:', error)
+    return NextResponse.json({ error: 'Failed to create alert' }, { status: 500 })
   }
 }
 
@@ -43,11 +94,7 @@ export async function PATCH(req: Request) {
     
     // Handle mark all as read
     if (body.markAllAsRead) {
-      // Mark all alerts as read
-      alerts.forEach(alert => {
-        readAlerts.add(alert.id)
-      })
-      
+      // This would need to be implemented in the backend
       return NextResponse.json({ 
         success: true, 
         message: 'All alerts marked as read' 
@@ -56,12 +103,7 @@ export async function PATCH(req: Request) {
     
     // Handle individual alert updates
     if (body.alertId && body.isRead !== undefined) {
-      if (body.isRead) {
-        readAlerts.add(body.alertId)
-      } else {
-        readAlerts.delete(body.alertId)
-      }
-      
+      // This would need to be implemented in the backend
       return NextResponse.json({ 
         success: true, 
         message: 'Alert marked as read' 

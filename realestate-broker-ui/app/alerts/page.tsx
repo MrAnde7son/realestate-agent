@@ -7,50 +7,42 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer, RefreshCw } from 'lucide-react'
-import type { Alert } from '@/lib/data'
+import { ALERT_TYPE_LABELS } from '@/lib/alert-constants'
 
-const getAlertIcon = (type: Alert['type']) => {
-  switch (type) {
-    case 'price_drop':
+interface AlertEvent {
+  id: number
+  alert_rule: {
+    id: number
+    trigger_type: string
+    trigger_type_display: string
+  }
+  asset_address?: string
+  occurred_at: string
+  payload: any
+  delivered_at?: string
+}
+
+const getAlertIcon = (triggerType: string) => {
+  switch (triggerType) {
+    case 'PRICE_DROP':
       return <TrendingDown className="h-5 w-5 text-red-500" />
-    case 'new_asset':
+    case 'NEW_LISTING':
       return <Home className="h-5 w-5 text-blue-500" />
-    case 'market_change':
+    case 'MARKET_TREND':
       return <Bell className="h-5 w-5 text-orange-500" />
-    case 'document_update':
+    case 'DOCS_UPDATE':
       return <FileText className="h-5 w-5 text-purple-500" />
-    case 'permit_status':
+    case 'PERMIT_STATUS':
       return <Hammer className="h-5 w-5 text-green-500" />
+    case 'NEW_GOV_TX':
+      return <FileText className="h-5 w-5 text-green-500" />
+    case 'LISTING_REMOVED':
+      return <TrendingDown className="h-5 w-5 text-gray-500" />
     default:
       return <Bell className="h-5 w-5 text-gray-500" />
   }
 }
 
-const getPriorityColor = (priority: Alert['priority']) => {
-  switch (priority) {
-    case 'high':
-      return 'error'
-    case 'medium':
-      return 'warning'
-    case 'low':
-      return 'neutral'
-    default:
-      return 'neutral'
-  }
-}
-
-const getPriorityText = (priority: Alert['priority']) => {
-  switch (priority) {
-    case 'high':
-      return 'חשוב'
-    case 'medium':
-      return 'בינוני'
-    case 'low':
-      return 'נמוך'
-    default:
-      return 'רגיל'
-  }
-}
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
@@ -64,21 +56,20 @@ const formatDate = (dateString: string) => {
 }
 
 export default function AlertsPage() {
-  const [alertsData, setAlertsData] = useState<Alert[]>([])
+  const [alertsData, setAlertsData] = useState<AlertEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedPriorities, setSelectedPriorities] = useState<Alert['priority'][]>([])
-  const [selectedTypes, setSelectedTypes] = useState<Alert['type'][]>([])
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
 
   // Fetch alerts from API
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
         setLoading(true)
-        const response = await fetch('/api/alerts')
+        const response = await fetch('/api/alerts?since=2024-01-01')
         if (response.ok) {
           const data = await response.json()
-          setAlertsData(data.alerts || data || [])
+          setAlertsData(data.events || data || [])
         } else {
           setError('שגיאה בטעינת ההתראות')
         }
@@ -93,13 +84,7 @@ export default function AlertsPage() {
     fetchAlerts()
   }, [])
 
-  const togglePriority = (priority: Alert['priority']) => {
-    setSelectedPriorities(prev =>
-      prev.includes(priority) ? prev.filter(p => p !== priority) : [...prev, priority]
-    )
-  }
-
-  const toggleType = (type: Alert['type']) => {
+  const toggleType = (type: string) => {
     setSelectedTypes(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     )
@@ -107,27 +92,12 @@ export default function AlertsPage() {
 
   const markAsRead = async (alertId: number) => {
     try {
-      const response = await fetch('/api/alerts', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alertId, isRead: true })
-      })
-      
-      if (response.ok) {
-        // Update local state
-        setAlertsData(prev =>
-          prev.map(alert =>
-            alert.id === alertId ? { ...alert, isRead: true } : alert
-          )
+      // For now, just update local state since we don't have a backend endpoint for this yet
+      setAlertsData(prev =>
+        prev.map(alert =>
+          alert.id === alertId ? { ...alert, delivered_at: new Date().toISOString() } : alert
         )
-        
-        // Refresh data from server to ensure consistency
-        const refreshResponse = await fetch('/api/alerts')
-        if (refreshResponse.ok) {
-          const data = await refreshResponse.json()
-          setAlertsData(data.alerts || data || [])
-        }
-      }
+      )
     } catch (err) {
       console.error('Error marking alert as read:', err)
     }
@@ -135,38 +105,21 @@ export default function AlertsPage() {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch('/api/alerts', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAllAsRead: true })
-      })
-      
-      if (response.ok) {
-        // Update local state
-        setAlertsData(prev =>
-          prev.map(alert => ({ ...alert, isRead: true }))
-        )
-        
-        // Refresh data from server to ensure consistency
-        const refreshResponse = await fetch('/api/alerts')
-        if (refreshResponse.ok) {
-          const data = await refreshResponse.json()
-          setAlertsData(data.alerts || data || [])
-        }
-      }
+      // For now, just update local state since we don't have a backend endpoint for this yet
+      setAlertsData(prev =>
+        prev.map(alert => ({ ...alert, delivered_at: new Date().toISOString() }))
+      )
     } catch (err) {
       console.error('Error marking all alerts as read:', err)
     }
   }
 
   const filteredAlerts = alertsData.filter(alert => {
-    const priorityMatch =
-      selectedPriorities.length === 0 || selectedPriorities.includes(alert.priority)
-    const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(alert.type)
-    return priorityMatch && typeMatch
+    const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(alert.alert_rule.trigger_type)
+    return typeMatch
   })
 
-  const unreadCount = filteredAlerts.filter(alert => !alert.isRead).length
+  const unreadCount = filteredAlerts.filter(alert => !alert.delivered_at).length
 
   if (loading) {
     return (
@@ -261,16 +214,15 @@ export default function AlertsPage() {
                     <div className="text-center">
                       <h3 className="text-lg font-semibold text-foreground">אין התראות</h3>
                       <p className="text-muted-foreground">
-                        {selectedPriorities.length > 0 || selectedTypes.length > 0
+                        {selectedTypes.length > 0
                           ? 'לא נמצאו התראות לפי הסינון שנבחר'
                           : 'אין התראות זמינות כרגע'}
                       </p>
-                      {(selectedPriorities.length > 0 || selectedTypes.length > 0) && (
+                      {selectedTypes.length > 0 && (
                         <Button 
                           variant="outline" 
                           className="mt-4"
                           onClick={() => {
-                            setSelectedPriorities([])
                             setSelectedTypes([])
                           }}
                         >
@@ -285,49 +237,51 @@ export default function AlertsPage() {
                       <div 
                         key={alert.id} 
                         className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 border rounded-lg transition-colors ${
-                          alert.isRead ? 'bg-muted/50' : 'bg-card hover:bg-muted/50'
+                          alert.delivered_at ? 'bg-muted/50' : 'bg-card hover:bg-muted/50'
                         }`}
                       >
                         <div className="flex-shrink-0 flex justify-center sm:justify-start">
-                          {getAlertIcon(alert.type)}
+                          {getAlertIcon(alert.alert_rule.trigger_type)}
                         </div>
                         
                         <div className="flex-1 min-w-0 space-y-3">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                              <h3 className={`font-medium text-sm sm:text-base ${!alert.isRead ? 'text-primary' : 'text-muted-foreground'}`}>
-                                {alert.title}
+                              <h3 className={`font-medium text-sm sm:text-base ${!alert.delivered_at ? 'text-primary' : 'text-muted-foreground'}`}>
+                                {ALERT_TYPE_LABELS[alert.alert_rule.trigger_type as keyof typeof ALERT_TYPE_LABELS] || alert.alert_rule.trigger_type_display}
                               </h3>
                               <div className="flex items-center gap-2">
-                                <Badge variant={getPriorityColor(alert.priority)} className="text-xs">
-                                  {getPriorityText(alert.priority)}
+                                <Badge variant="outline" className="text-xs">
+                                  {alert.alert_rule.trigger_type_display}
                                 </Badge>
-                                {!alert.isRead && (
+                                {!alert.delivered_at && (
                                   <div className="w-2 h-2 bg-blue-500 rounded-full" />
                                 )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <Clock className="h-3 w-3" />
-                              <span>{formatDate(alert.createdAt)}</span>
+                              <span>{formatDate(alert.occurred_at)}</span>
                             </div>
                           </div>
                           
-                          <p className="text-sm text-muted-foreground">{alert.message}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {alert.payload?.message || 'התראה חדשה'}
+                          </p>
                           
-                          {alert.assetAddress && (
+                          {alert.asset_address && (
                             <p className="text-xs text-muted-foreground">
-                              📍 {alert.assetAddress}
+                              📍 {alert.asset_address}
                             </p>
                           )}
                           
                           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                            {alert.actionUrl && (
+                            {alert.payload?.asset_url && (
                               <Button size="sm" variant="outline" asChild className="w-full sm:w-auto">
-                                <a href={alert.actionUrl}>צפה בנכס</a>
+                                <a href={alert.payload.asset_url}>צפה בנכס</a>
                               </Button>
                             )}
-                            {!alert.isRead && (
+                            {!alert.delivered_at && (
                               <Button 
                                 size="sm" 
                                 variant="ghost"
@@ -367,7 +321,7 @@ export default function AlertsPage() {
                   <span className="text-sm text-muted-foreground">היום</span>
                   <span className="font-semibold">
                     {filteredAlerts.filter(alert => {
-                      const alertDate = new Date(alert.createdAt)
+                      const alertDate = new Date(alert.occurred_at)
                       const today = new Date()
                       return alertDate.toDateString() === today.toDateString()
                     }).length}
@@ -383,44 +337,20 @@ export default function AlertsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">עדיפות</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['high', 'medium', 'low'].map((priority) => (
-                      <Badge
-                        key={priority}
-                        variant={
-                          selectedPriorities.includes(priority as Alert['priority'])
-                            ? 'default'
-                            : 'neutral'
-                        }
-                        className="cursor-pointer"
-                        onClick={() => togglePriority(priority as Alert['priority'])}
-                      >
-                        {getPriorityText(priority as Alert['priority'])}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
                   <label className="text-sm font-medium">סוג התראה</label>
                   <div className="flex flex-wrap gap-2">
-                    {['price_drop', 'new_asset', 'market_change', 'document_update', 'permit_status'].map((type) => (
+                    {Object.entries(ALERT_TYPE_LABELS).map(([key, label]) => (
                       <Badge
-                        key={type}
+                        key={key}
                         variant={
-                          selectedTypes.includes(type as Alert['type'])
+                          selectedTypes.includes(key)
                             ? 'default'
                             : 'neutral'
                         }
                         className="cursor-pointer"
-                        onClick={() => toggleType(type as Alert['type'])}
+                        onClick={() => toggleType(key)}
                       >
-                        {type === 'price_drop' && 'ירידת מחיר'}
-                        {type === 'new_asset' && 'נכס חדש'}
-                        {type === 'market_change' && 'שינוי בשוק'}
-                        {type === 'document_update' && 'עדכון מסמכים'}
-                        {type === 'permit_status' && 'סטטוס היתרים'}
+                        {label}
                       </Badge>
                     ))}
                   </div>
@@ -437,26 +367,12 @@ export default function AlertsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
-              <div className="flex flex-col items-center gap-2 text-center p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <TrendingDown className="h-6 w-6 text-red-500" />
-                <span className="text-sm">ירידת מחיר</span>
-              </div>
-              <div className="flex flex-col items-center gap-2 text-center p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <Home className="h-6 w-6 text-blue-500" />
-                <span className="text-sm">נכס חדש</span>
-              </div>
-              <div className="flex flex-col items-center gap-2 text-center p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <Bell className="h-6 w-6 text-orange-500" />
-                <span className="text-sm">שינוי בשוק</span>
-              </div>
-              <div className="flex flex-col items-center gap-2 text-center p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <FileText className="h-6 w-6 text-purple-500" />
-                <span className="text-sm">עדכון מסמכים</span>
-              </div>
-              <div className="flex flex-col items-center gap-2 text-center p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <Hammer className="h-6 w-6 text-green-500" />
-                <span className="text-sm">סטטוס היתרים</span>
-              </div>
+              {Object.entries(ALERT_TYPE_LABELS).map(([key, label]) => (
+                <div key={key} className="flex flex-col items-center gap-2 text-center p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                  {getAlertIcon(key)}
+                  <span className="text-sm">{label}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

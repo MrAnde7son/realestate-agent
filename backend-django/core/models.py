@@ -86,6 +86,129 @@ class Alert(models.Model):
         return f"Alert({self.user.email}, active={self.active})"
 
 
+class AlertRule(models.Model):
+    """Alert rule model for user-defined notification triggers."""
+    
+    TRIGGER_TYPE_CHOICES = [
+        ('PRICE_DROP', 'ירידת מחיר'),
+        ('NEW_LISTING', 'נכס חדש'),
+        ('MARKET_TREND', 'שינוי בשוק'),
+        ('DOCS_UPDATE', 'עדכון מסמכים'),
+        ('PERMIT_STATUS', 'סטטוס היתרים'),
+        ('NEW_GOV_TX', 'עסקה חדשה בסביבה'),
+        ('LISTING_REMOVED', 'מודעה הוסרה'),
+    ]
+    
+    FREQUENCY_CHOICES = [
+        ('immediate', 'מיידי'),
+        ('daily', 'יומי'),
+    ]
+    
+    SCOPE_CHOICES = [
+        ('global', 'כללי'),
+        ('asset', 'נכס ספציפי'),
+    ]
+    
+    user = models.ForeignKey(
+        get_user_model(), 
+        on_delete=models.CASCADE, 
+        related_name="alert_rules"
+    )
+    scope = models.CharField(
+        max_length=20, 
+        choices=SCOPE_CHOICES, 
+        default='global'
+    )
+    asset = models.ForeignKey(
+        'Asset', 
+        on_delete=models.CASCADE, 
+        related_name="alert_rules",
+        null=True, 
+        blank=True
+    )
+    trigger_type = models.CharField(
+        max_length=20, 
+        choices=TRIGGER_TYPE_CHOICES
+    )
+    params = models.JSONField(default=dict)
+    channels = models.JSONField(default=list)  # ['email', 'whatsapp']
+    frequency = models.CharField(
+        max_length=20, 
+        choices=FREQUENCY_CHOICES, 
+        default='immediate'
+    )
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'active']),
+            models.Index(fields=['scope', 'asset']),
+            models.Index(fields=['trigger_type']),
+        ]
+    
+    def __str__(self):
+        return f"AlertRule({self.user.email}, {self.trigger_type}, {self.scope})"
+
+
+class AlertEvent(models.Model):
+    """Alert event model for tracking triggered notifications."""
+    
+    alert_rule = models.ForeignKey(
+        AlertRule, 
+        on_delete=models.CASCADE, 
+        related_name="events"
+    )
+    asset = models.ForeignKey(
+        'Asset', 
+        on_delete=models.CASCADE, 
+        related_name="alert_events",
+        null=True, 
+        blank=True
+    )
+    occurred_at = models.DateTimeField(auto_now_add=True)
+    payload = models.JSONField(default=dict)
+    payload_hash = models.CharField(max_length=64, unique=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    digest_id = models.CharField(max_length=100, null=True, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['alert_rule', 'occurred_at']),
+            models.Index(fields=['asset', 'occurred_at']),
+            models.Index(fields=['payload_hash']),
+            models.Index(fields=['delivered_at']),
+        ]
+        ordering = ['-occurred_at']
+    
+    def __str__(self):
+        return f"AlertEvent({self.alert_rule.trigger_type}, {self.occurred_at})"
+
+
+class Snapshot(models.Model):
+    """Asset snapshot model for tracking changes over time."""
+    
+    asset = models.ForeignKey(
+        'Asset', 
+        on_delete=models.CASCADE, 
+        related_name="snapshots"
+    )
+    payload = models.JSONField(default=dict)
+    ppsqm = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['asset', 'created_at']),
+            models.Index(fields=['ppsqm']),
+        ]
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Snapshot({self.asset_id}, {self.created_at})"
+
+
 # Asset Enrichment Pipeline Models
 class Asset(models.Model):
     """Asset model for the enrichment pipeline."""

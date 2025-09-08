@@ -416,11 +416,80 @@ class DataPipeline:
                             )
 
                 session.commit()
+                
+                # Create snapshot for alert evaluation
+                if asset_id:
+                    _create_asset_snapshot(asset_id, results)
+                    
+                    # Trigger alert evaluation
+                    try:
+                        from core.tasks import evaluate_alerts_for_asset
+                        evaluate_alerts_for_asset.delay(asset_id)
+                    except Exception as e:
+                        logger.error("Failed to trigger alert evaluation for asset %s: %s", asset_id, e)
             finally:
                 if not session_provided:
                     session.close()
 
             return results
+
+
+def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
+    """Create a snapshot of asset data for alert evaluation."""
+    try:
+        import os
+        import sys
+        
+        # Add Django backend to path
+        backend_path = os.path.join(os.path.dirname(__file__), "..", "backend-django")
+        if backend_path not in sys.path:
+            sys.path.insert(0, backend_path)
+        
+        import django
+        if not django.conf.settings.configured:
+            os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
+            django.setup()
+        
+        from core.models import Asset, Snapshot
+        
+        asset = Asset.objects.get(id=asset_id)
+        
+        # Extract relevant data from results
+        payload = {
+            'price': asset.price,
+            'price_per_sqm': asset.price_per_sqm,
+            'area': asset.area,
+            'rooms': asset.rooms,
+            'permit_status': asset.permit_status,
+            'permit_date': asset.permit_date.isoformat() if asset.permit_date else None,
+            'documents': [],  # This would be populated from source records
+            'gov_transactions': [],  # This would be populated from gov data
+            'listing_id': None,  # This would be populated from Yad2 data
+        }
+        
+        # Add data from results
+        for result in results:
+            if isinstance(result, dict):
+                if result.get('source') == 'yad2':
+                    # Extract Yad2 data
+                    yad2_data = result.get('data', {})
+                    if hasattr(yad2_data, 'listing_id'):
+                        payload['listing_id'] = yad2_data.listing_id
+                elif result.get('source') == 'transactions':
+                    # Extract transaction data
+                    payload['gov_transactions'] = result.get('data', [])
+        
+        # Create snapshot
+        Snapshot.objects.create(
+            asset=asset,
+            payload=payload,
+            ppsqm=asset.price_per_sqm
+        )
+        
+        logger.info("Created snapshot for asset %s", asset_id)
+        
+    except Exception as e:
+        logger.error("Failed to create snapshot for asset %s: %s", asset_id, e)
 
 
 __all__ = [

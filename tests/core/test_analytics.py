@@ -49,7 +49,7 @@ def test_spike_detection():
 def test_e2e_metrics():
     track('asset_create')
     track('report_success')
-    track('alert_send')
+    track('alert_rule_create')
     tasks.rollup_analytics.run()
     daily = AnalyticsDaily.objects.get(date=timezone.now().date())
     assert daily.assets == 1

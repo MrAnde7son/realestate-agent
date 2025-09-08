@@ -21,6 +21,8 @@ urlpatterns = [
     path('reports/file/<str:filename>', views.report_file, name='report_file'),
     path('settings/', views.user_settings, name='user_settings'),
     path('alerts/', views.alerts, name='alerts'),
+    path('alert-events/', views.alert_events, name='alert_events'),
+    path('alert-test/', views.alert_test, name='alert_test'),
     path('analytics/timeseries', va.analytics_timeseries),
     path('analytics/top-failures', va.analytics_top_failures),
     path('onboarding-status/', views.onboarding_status, name='onboarding_status'),

@@ -122,6 +122,14 @@ if os.getenv('USE_CELERY', 'false').lower() == 'true':
             'task': 'core.tasks.cleanup_demo_data',
             'schedule': crontab(hour=0, minute=0),
         },
+        'alerts-daily-digest': {
+            'task': 'core.tasks.alerts_daily_digest',
+            'schedule': crontab(hour=8, minute=0),  # 8:00 AM Asia/Jerusalem
+        },
+        'rollup-analytics': {
+            'task': 'core.tasks.rollup_analytics',
+            'schedule': crontab(hour=1, minute=0),  # 1:00 AM daily
+        },
     }
 else:
     # Disable Celery for development

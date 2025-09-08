@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Globe, Bell, Shield, Palette, Database, Zap } from 'lucide-react'
 import { ContactSupportDialog, BugReportDialog } from '@/components/support/dialogs'
+import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import Link from 'next/link'
 
 interface UserSettings {
@@ -18,10 +19,6 @@ interface UserSettings {
   timezone: string
   currency: string
   date_format: string
-  notify_email: boolean
-  notify_whatsapp: boolean
-  notify_urgent: boolean
-  notification_time: string
 }
 
 export default function SettingsPage() {
@@ -29,11 +26,7 @@ export default function SettingsPage() {
     language: 'en',
     timezone: 'UTC',
     currency: 'usd',
-    date_format: 'yyyy-mm-dd',
-    notify_email: true,
-    notify_whatsapp: false,
-    notify_urgent: true,
-    notification_time: '09:00'
+    date_format: 'yyyy-mm-dd'
   })
 
   useEffect(() => {
@@ -148,70 +141,8 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Notification Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="h-5 w-5" />
-                  הגדרות התראות
-                </CardTitle>
-                <CardDescription>
-                  הגדר איך ומתי לקבל התראות
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות בדוא״ל</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות על שינויים במחירים ועדכונים
-                    </p>
-                  </div>
-                  <Switch checked={settings.notify_email} onCheckedChange={(v) => setSettings({ ...settings, notify_email: v })} />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות בווטסאפ</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות מיידיות בווטסאפ
-                    </p>
-                  </div>
-                  <Switch checked={settings.notify_whatsapp} onCheckedChange={(v) => setSettings({ ...settings, notify_whatsapp: v })} />
-                </div>
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">התראות דחופות</p>
-                    <p className="text-sm text-muted-foreground">
-                      קבל התראות על עסקאות דחופות
-                    </p>
-                  </div>
-                  <Switch checked={settings.notify_urgent} onCheckedChange={(v) => setSettings({ ...settings, notify_urgent: v })} />
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <Label htmlFor="notificationTime">שעת התראות יומיות</Label>
-                  <Select value={settings.notification_time} onValueChange={(v) => setSettings({ ...settings, notification_time: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="בחר שעה" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="08:00">08:00</SelectItem>
-                      <SelectItem value="09:00">09:00</SelectItem>
-                      <SelectItem value="10:00">10:00</SelectItem>
-                      <SelectItem value="17:00">17:00</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Alert Rules Manager */}
+            <AlertRulesManager />
 
             {/* Security Settings - disabled until implementation */}
             {/**

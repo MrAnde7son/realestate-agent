@@ -43,6 +43,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const token = authAPI.getAccessToken()
       
       if (token) {
+        // Validate token before making API call
+        const isValid = await authAPI.validateToken()
+        if (!isValid) {
+          console.log('❌ Token validation failed, logging out user')
+          authAPI.clearTokens()
+          setUser(null)
+          return
+        }
+
         const response = await authAPI.getProfile()
         setUser(response.user)
       } else {
@@ -139,6 +148,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     refreshUser()
   }, [])
+
+  // Set up periodic token validation
+  useEffect(() => {
+    if (!user) return
+
+    const validateTokenPeriodically = async () => {
+      try {
+        const isValid = await authAPI.validateToken()
+        if (!isValid) {
+          console.log('❌ Periodic token validation failed, logging out user')
+          authAPI.clearTokens()
+          setUser(null)
+          router.push('/auth')
+        }
+      } catch (error) {
+        console.error('Token validation error:', error)
+        authAPI.clearTokens()
+        setUser(null)
+        router.push('/auth')
+      }
+    }
+
+    // Validate token every 5 minutes
+    const interval = setInterval(validateTokenPeriodically, 5 * 60 * 1000)
+
+    // Also validate on window focus (user returns to tab)
+    const handleFocus = () => {
+      validateTokenPeriodically()
+    }
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [user, router])
 
   const value: AuthContextType = {
     user,

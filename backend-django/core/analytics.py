@@ -54,7 +54,7 @@ def rollup_day(date):
     daily.users = events.filter(event='user_signup').count()
     daily.assets = events.filter(event='asset_create').count()
     daily.reports = events.filter(event='report_success').count()
-    daily.alerts = events.filter(event='alert_send').count()
+    daily.alerts = events.filter(event='alert_rule_create').count()
     daily.errors = events.filter(
         event__in=['report_fail', 'alert_fail', 'collector_fail', 'asset_sync_fail']
     ).count()

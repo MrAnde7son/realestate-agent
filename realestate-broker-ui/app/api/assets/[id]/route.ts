@@ -37,5 +37,6 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching asset from backend:', error)
   }
+
   return new NextResponse('Not found', { status: 404, statusText: 'Not Found' })
 }

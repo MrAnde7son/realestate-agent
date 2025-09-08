@@ -49,7 +49,7 @@ const DEFAULT_RADIUS_METERS = 100;
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -704,9 +704,18 @@ export default function AssetsPage() {
         {/* Summary */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            מציג {filteredAssets.length} מתוך {assets.length} נכסים 
+            מציג {filteredAssets.length} מתוך {assets.length} נכסים
           </p>
         </div>
+
+        <Button
+          size="icon"
+          className="fixed bottom-4 right-4 rounded-full h-14 w-14 sm:hidden"
+          onClick={() => setOpen(true)}
+        >
+          <Plus className="h-6 w-6" />
+          <span className="sr-only">הוספת נכס חדש</span>
+        </Button>
       </div>
     </DashboardLayout>
   );

@@ -700,9 +700,18 @@ export default function AssetsPage() {
         {/* Summary */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            מציג {filteredAssets.length} מתוך {assets.length} נכסים 
+            מציג {filteredAssets.length} מתוך {assets.length} נכסים
           </p>
         </div>
+
+        <Button
+          size="icon"
+          className="fixed bottom-4 right-4 rounded-full h-14 w-14 sm:hidden"
+          onClick={() => setOpen(true)}
+        >
+          <Plus className="h-6 w-6" />
+          <span className="sr-only">הוסף נכס (כפתור צף)</span>
+        </Button>
       </div>
     </DashboardLayout>
   );

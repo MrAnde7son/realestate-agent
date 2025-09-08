@@ -114,11 +114,19 @@ export default function AlertsPage() {
       })
       
       if (response.ok) {
+        // Update local state
         setAlertsData(prev =>
           prev.map(alert =>
             alert.id === alertId ? { ...alert, isRead: true } : alert
           )
         )
+        
+        // Refresh data from server to ensure consistency
+        const refreshResponse = await fetch('/api/alerts')
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json()
+          setAlertsData(data.alerts || data || [])
+        }
       }
     } catch (err) {
       console.error('Error marking alert as read:', err)
@@ -134,9 +142,17 @@ export default function AlertsPage() {
       })
       
       if (response.ok) {
+        // Update local state
         setAlertsData(prev =>
           prev.map(alert => ({ ...alert, isRead: true }))
         )
+        
+        // Refresh data from server to ensure consistency
+        const refreshResponse = await fetch('/api/alerts')
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json()
+          setAlertsData(data.alerts || data || [])
+        }
       }
     } catch (err) {
       console.error('Error marking all alerts as read:', err)

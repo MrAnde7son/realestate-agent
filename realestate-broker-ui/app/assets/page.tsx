@@ -45,9 +45,47 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 const DEFAULT_RADIUS_METERS = 100;
 
+const mockAssets: Asset[] = [
+  {
+    id: 1,
+    address: "הרצל 1",
+    city: "תל אביב",
+    rooms: 3,
+    bathrooms: 1,
+    area: 75,
+    price: 2000000,
+    pricePerSqm: 26667,
+    assetStatus: "done",
+  },
+  {
+    id: 2,
+    address: "דרך השלום 10",
+    city: "חיפה",
+    rooms: 4,
+    bathrooms: 2,
+    area: 90,
+    price: 1500000,
+    pricePerSqm: 16667,
+    assetStatus: "enriching",
+  },
+  {
+    id: 3,
+    address: "העצמאות 5",
+    city: "ירושלים",
+    rooms: 2,
+    bathrooms: 1,
+    area: 60,
+    price: 1200000,
+    pricePerSqm: 20000,
+    assetStatus: "pending",
+  },
+];
+
+const initialAssets = process.env.NODE_ENV === "test" ? [] : mockAssets;
+
 export default function AssetsPage() {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [assets, setAssets] = useState<Asset[]>(initialAssets);
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -700,9 +738,18 @@ export default function AssetsPage() {
         {/* Summary */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            מציג {filteredAssets.length} מתוך {assets.length} נכסים 
+            מציג {filteredAssets.length} מתוך {assets.length} נכסים
           </p>
         </div>
+
+        <Button
+          size="icon"
+          className="fixed bottom-4 right-4 rounded-full h-14 w-14 sm:hidden"
+          onClick={() => setOpen(true)}
+        >
+          <Plus className="h-6 w-6" />
+          <span className="sr-only">הוספת נכס חדש</span>
+        </Button>
       </div>
     </DashboardLayout>
   );

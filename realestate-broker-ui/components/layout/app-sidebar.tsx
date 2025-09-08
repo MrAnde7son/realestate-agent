@@ -141,19 +141,19 @@ export default function AppSidebar({
               <Link
                 key={item.name}
                 href={item.href}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-                  active
-                    ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)] font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                )}
-              >
-                <item.icon
                   className={cn(
-                    "h-4 w-4",
-                    active && "text-[var(--brand-teal)]"
+                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                   )}
-                />
+                >
+                  <item.icon
+                    className={cn(
+                      "h-4 w-4",
+                      active && "text-primary"
+                    )}
+                  />
                 <span>{item.name}</span>
               </Link>
             );

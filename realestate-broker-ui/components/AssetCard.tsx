@@ -65,12 +65,12 @@ export default function AssetCard({ asset }: AssetCardProps) {
         <Link href={`/assets/${asset.id}`}> 
           <Button variant="outline" size="icon">
             <Eye className="h-4 w-4" />
-            <span className="sr-only">View Details</span>
+            <span className="sr-only">צפה בפרטים</span>
           </Button>
         </Link>
         <Button variant="outline" size="icon" onClick={() => exportAssetCsv(asset)}>
           <FileText className="h-4 w-4" />
-          <span className="sr-only">Generate Report</span>
+          <span className="sr-only">צור דוח</span>
         </Button>
       </div>
     </Card>

@@ -169,29 +169,31 @@ class AuthAPI {
   }
 
   // Token management
+  private getCookieDomain(): string {
+    if (typeof window === 'undefined') return ''
+    const parts = window.location.hostname.split('.')
+    return parts.length > 2 ? parts.slice(-2).join('.') : parts.join('.')
+  }
+
   setTokens(accessToken: string, refreshToken: string): void {
     if (typeof window !== 'undefined') {
       // Store in localStorage
       localStorage.setItem('access_token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
-      
+
       // Also set cookies for middleware with proper settings
-      const cookieOptions = [
-        `path=/`,
-        `max-age=3600`,
-        `SameSite=Lax`,
-        `secure=${window.location.protocol === 'https:'}`,
-        `domain=${window.location.hostname}`
-      ].join('; ')
-      
-      document.cookie = `access_token=${accessToken}; ${cookieOptions}`
-      document.cookie = `refresh_token=${refreshToken}; ${cookieOptions.replace('max-age=3600', 'max-age=86400')}`
-      
+      const domain = this.getCookieDomain()
+      const secure = window.location.protocol === 'https:'
+      const cookieOptions = [`path=/`, `SameSite=Lax`, `domain=${domain}`, secure ? 'secure' : ''].join('; ')
+
+      document.cookie = `access_token=${accessToken}; max-age=3600; ${cookieOptions}`
+      document.cookie = `refresh_token=${refreshToken}; max-age=86400; ${cookieOptions}`
+
       console.log('🍪 Cookies set:', {
         access_token: accessToken ? 'set' : 'not set',
         refresh_token: refreshToken ? 'set' : 'not set',
-        domain: window.location.hostname,
-        secure: window.location.protocol === 'https:'
+        domain,
+        secure
       })
     }
   }
@@ -223,14 +225,14 @@ class AuthAPI {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
-      
+
       // Also clear cookies with proper domain and path
-      const domain = window.location.hostname
+      const domain = this.getCookieDomain()
       const secure = window.location.protocol === 'https:'
-      
+
       document.cookie = `access_token=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${secure ? 'secure;' : ''}`
       document.cookie = `refresh_token=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${secure ? 'secure;' : ''}`
-      
+
       console.log('🧹 Tokens cleared from localStorage and cookies')
     }
   }

@@ -75,12 +75,17 @@ ASSETS_POST_WINDOW = 60  # window size in seconds
 _assets_rate_limit = {}
 
 def _update_onboarding(user, step):
+    print(f"🔄 _update_onboarding called - User: {user}, Step: {step}, Authenticated: {getattr(user, 'is_authenticated', False) if user else 'No user'}")
     if not user or not user.is_authenticated:
+        print(f"❌ Skipping onboarding update - No authenticated user")
         return
     progress, _ = OnboardingProgress.objects.get_or_create(user=user)
     if not getattr(progress, step):
         setattr(progress, step, True)
         progress.save()
+        print(f"✅ Updated onboarding step {step} to True for user {user.id}")
+    else:
+        print(f"ℹ️ Onboarding step {step} already True for user {user.id}")
 
 
 # Authentication views
@@ -911,7 +916,8 @@ def tabu(request):
         )
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "DELETE"])
+@permission_classes([AllowAny])  # Allow both authenticated and unauthenticated access
 def assets(request):
     """Handle assets - GET (list all) or POST (create new).
 
@@ -941,30 +947,30 @@ def assets(request):
     if request.method == "DELETE":
         data = parse_json(request)
         if not data or not data.get("assetId"):
-            return JsonResponse({"error": "assetId required"}, status=400)
+            return Response({"error": "assetId required"}, status=400)
 
         try:
             asset_id = int(data["assetId"])
             asset = Asset.objects.get(id=asset_id)
 
             if asset.delete_asset():
-                return JsonResponse(
+                return Response(
                     {"message": f"Asset {asset_id} deleted successfully"}, status=200
                 )
             else:
-                return JsonResponse({"error": "Failed to delete asset"}, status=500)
+                return Response({"error": "Failed to delete asset"}, status=500)
 
         except Asset.DoesNotExist:
-            return JsonResponse({"error": "Asset not found"}, status=404)
+            return Response({"error": "Asset not found"}, status=404)
         except ValueError:
-            return JsonResponse({"error": "Invalid asset ID"}, status=400)
+            return Response({"error": "Invalid asset ID"}, status=400)
         except Exception as e:
-            return JsonResponse(
+            return Response(
                 {"error": "Error deleting asset", "details": str(e)}, status=500
             )
 
     if request.method != "POST":
-        return JsonResponse({"error": "POST method required"}, status=405)
+        return Response({"error": "POST method required"}, status=405)
 
     # Rate limiting per IP to prevent abuse
     ip = request.META.get("HTTP_X_FORWARDED_FOR", "")
@@ -986,20 +992,20 @@ def assets(request):
     cache_key = f"assets_post_{ip}"
     cache_count = cache.get(cache_key, 0)
     if cache_count >= ASSETS_POST_LIMIT:
-        return JsonResponse({"error": "Too many requests"}, status=429)
+        return Response({"error": "Too many requests"}, status=429)
     cache.set(cache_key, cache_count + 1, ASSETS_POST_WINDOW)
 
     # Parse JSON with error handling
     data = parse_json(request)
     if not data:
-        return JsonResponse({"error": "Invalid JSON in request body"}, status=400)
+        return Response({"error": "Invalid JSON in request body"}, status=400)
 
     try:
         # Extract scope information
         scope = data.get("scope", {})
         scope_type = scope.get("type")
         if not scope_type:
-            return JsonResponse({"error": "Scope type is required"}, status=400)
+            return Response({"error": "Scope type is required"}, status=400)
 
         # Create asset record
         asset_data = {
@@ -1023,6 +1029,7 @@ def assets(request):
         asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
         user = getattr(request, "user", None)
+        print(f"🔍 Asset creation - User: {user}, Authenticated: {getattr(user, 'is_authenticated', False) if user else 'No user'}")
         if user and getattr(user, "is_authenticated", False):
             track("asset_create", user=user, asset_id=asset_id)
         else:
@@ -1045,7 +1052,7 @@ def assets(request):
             except Exception as save_error:
                 print(f"Failed to update asset status: {save_error}")
 
-        return JsonResponse(
+        return Response(
             {
                 "id": asset_id,
                 "status": asset_data["status"],
@@ -1057,7 +1064,7 @@ def assets(request):
 
     except Exception as e:
         print(f"Error creating asset: {e}")
-        return JsonResponse(
+        return Response(
             {"error": "Failed to create asset", "details": str(e)}, status=500
         )
 
@@ -1073,10 +1080,10 @@ def _get_assets_list():
                 "-fetched_at"
             )
             rows.append(build_listing(asset, srcs))
-        return JsonResponse({"rows": rows})
+        return Response({"rows": rows})
     except Exception as e:
         print(f"Error fetching assets: {e}")
-        return JsonResponse(
+        return Response(
             {"error": "Failed to fetch assets", "details": str(e)}, status=500
         )
 

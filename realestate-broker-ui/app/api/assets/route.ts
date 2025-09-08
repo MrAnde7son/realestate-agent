@@ -120,6 +120,7 @@ export async function POST(req: Request) {
     
     // Get authentication token
     const token = cookies().get('access_token')?.value
+    console.log('🔐 Asset creation - Token found:', !!token, token ? 'Yes' : 'No')
 
     // Validate input
     const validatedData = newAssetSchema.parse(body)

@@ -33,8 +33,10 @@ interface Props { state: OnboardingState }
 
 export default function OnboardingProgress({ state }: Props) {
   const pct = getCompletionPct(state)
+  
+  // Hide the component when onboarding is complete
   if (pct === 100) {
-    return <div className="mb-6 text-sm font-medium">הכל מוכן ✅</div>
+    return null
   }
 
   const firstIncomplete = steps.findIndex(s => !state[s.key])

@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/Badge'
 import { Separator } from '@/components/ui/separator'
-import { Plus, Trash2, TestTube, Bell } from 'lucide-react'
+import { Plus, Trash2, TestTube, Bell, Building } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { 
   ALERT_TYPES, 
@@ -27,6 +27,7 @@ import {
   type AlertScope,
   type AlertChannel
 } from '@/lib/alert-constants'
+import type { Asset } from '@/lib/normalizers/asset'
 
 interface AlertRule {
   id?: number
@@ -41,17 +42,47 @@ interface AlertRule {
 
 interface AlertRulesManagerProps {
   assetId?: number
+  editingRule?: AlertRule | null
+  onRuleSaved?: () => void
 }
 
-export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
+export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }: AlertRulesManagerProps) {
   const { refreshUser } = useAuth()
   const [rules, setRules] = useState<AlertRule[]>([])
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [assetsLoading, setAssetsLoading] = useState(false)
+
+  // Helper functions for translation
+  const translateTriggerType = (type: string) => {
+    return ALERT_TYPE_LABELS[type as keyof typeof ALERT_TYPE_LABELS] || type
+  }
+
+  const translateScope = (scope: string) => {
+    return ALERT_SCOPE_LABELS[scope as keyof typeof ALERT_SCOPE_LABELS] || scope
+  }
 
   useEffect(() => {
-    loadRules()
-  }, [assetId])
+    if (editingRule) {
+      // When editing, only show the specific rule being edited
+      const frontendRule: AlertRule = {
+        id: editingRule.id,
+        trigger_type: editingRule.trigger_type as AlertType,
+        params: editingRule.params,
+        channels: editingRule.channels as AlertChannel[],
+        frequency: editingRule.frequency as AlertFrequency,
+        scope: editingRule.scope as AlertScope,
+        asset: editingRule.asset,
+        active: editingRule.active
+      }
+      setRules([frontendRule])
+    } else {
+      // When not editing, load all rules
+      loadRules()
+    }
+    loadAssets()
+  }, [assetId, editingRule])
 
   const loadRules = async () => {
     try {
@@ -66,6 +97,26 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadAssets = async () => {
+    try {
+      setAssetsLoading(true)
+      const response = await fetch('/api/assets')
+      if (response.ok) {
+        const data = await response.json()
+        setAssets(data.rows || [])
+      }
+    } catch (error) {
+      console.error('Failed to load assets:', error)
+    } finally {
+      setAssetsLoading(false)
+    }
+  }
+
+  const getSelectedAsset = (assetId?: number) => {
+    if (!assetId) return null
+    return assets.find(asset => asset.id === assetId) || null
   }
 
   const addRule = () => {
@@ -90,6 +141,26 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
       updatedRules[index].params = ALERT_DEFAULT_PARAMS[updates.trigger_type as keyof typeof ALERT_DEFAULT_PARAMS] || {}
     }
     
+    // Update scope and asset when scope changes
+    if (updates.scope) {
+      if (updates.scope === ALERT_SCOPES.ASSET) {
+        // If changing to asset scope, keep current asset or set to first available
+        updatedRules[index].asset = updatedRules[index].asset || (assets.length > 0 ? assets[0].id : undefined)
+      } else {
+        // If changing to global scope, clear asset
+        updatedRules[index].asset = undefined
+      }
+    }
+    
+    // Update scope when asset changes
+    if (updates.asset !== undefined) {
+      if (updates.asset) {
+        updatedRules[index].scope = ALERT_SCOPES.ASSET
+      } else {
+        updatedRules[index].scope = ALERT_SCOPES.GLOBAL
+      }
+    }
+    
     setRules(updatedRules)
   }
 
@@ -105,8 +176,12 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
       // Debug logging
       console.log('🔍 Frontend - Sending alert rule:', rule)
       
-      const response = await fetch('/api/alerts', {
-        method: 'POST',
+      const isUpdate = !!rule.id
+      const url = isUpdate ? `/api/alerts?id=${rule.id}` : '/api/alerts'
+      const method = isUpdate ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rule)
       })
@@ -114,11 +189,16 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
       if (response.ok) {
         const data = await response.json()
         const updatedRules = [...rules]
-        updatedRules[index] = { ...rule, id: data.id }
+        updatedRules[index] = { ...rule, id: data.id || rule.id }
         setRules(updatedRules)
         
         // Refresh user data to update onboarding progress
         await refreshUser()
+        
+        // Call the callback if provided
+        if (onRuleSaved) {
+          onRuleSaved()
+        }
       } else {
         const errorData = await response.json()
         alert(`Failed to save rule: ${errorData.error || 'Unknown error'}`)
@@ -198,26 +278,59 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5" />
-              כללי התראות
+              {editingRule ? 'עריכת כלל התראה' : 'כללי התראות'}
             </CardTitle>
             <CardDescription>
-              הגדר התראות אוטומטיות על שינויים בנכסים
+              {editingRule 
+                ? 'ערוך את הגדרות כלל ההתראה הנבחר'
+                : 'הגדר התראות אוטומטיות על שינויים בנכסים'
+              }
             </CardDescription>
+            {editingRule && (
+              <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  <strong>עורך כלל:</strong> {translateTriggerType(editingRule.trigger_type)} - {translateScope(editingRule.scope)}
+                </p>
+                {editingRule.scope === 'asset' && editingRule.asset && (() => {
+                  const asset = assets.find(a => a.id === editingRule.asset)
+                  if (asset) {
+                    return (
+                      <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                        <div className="font-medium">נכס נבחר:</div>
+                        <div>📍 {asset.address || 'כתובת לא זמינה'}</div>
+                        <div>🏙️ {asset.city || 'עיר לא זמינה'}</div>
+                        {asset.type && <div>🏠 {asset.type}</div>}
+                        {asset.area && <div>📐 {asset.area} מ&quot;ר</div>}
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                      נכס ספציפי (ID: {editingRule.asset})
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={testChannels}
-              disabled={testing}
-            >
-              <TestTube className="h-4 w-4 ml-2" />
-              {testing ? 'שולח...' : 'בדוק ערוצים'}
-            </Button>
-            <Button size="sm" onClick={addRule}>
-              <Plus className="h-4 w-4 ml-2" />
-              הוסף כלל
-            </Button>
+            {!editingRule && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={testChannels}
+                  disabled={testing}
+                >
+                  <TestTube className="h-4 w-4 ml-2" />
+                  {testing ? 'שולח...' : 'בדוק ערוצים'}
+                </Button>
+                <Button size="sm" onClick={addRule}>
+                  <Plus className="h-4 w-4 ml-2" />
+                  הוסף כלל
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -277,7 +390,7 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
                   <Separator />
 
                   {/* Rule Configuration */}
-                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                       <Label>סוג התראה</Label>
                       <Select
@@ -355,6 +468,60 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Asset Selection - Only show when scope is ASSET and not pre-selected from asset table */}
+                    {rule.scope === ALERT_SCOPES.ASSET && !assetId && (
+                      <div className="space-y-2">
+                        <Label>נכס ספציפי</Label>
+                        <Select
+                          value={rule.asset?.toString() || ''}
+                          onValueChange={(value) => updateRule(index, { asset: value ? parseInt(value) : undefined })}
+                          disabled={assetsLoading}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={assetsLoading ? "טוען נכסים..." : "בחר נכס"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {assets.map((asset) => (
+                              <SelectItem key={asset.id} value={asset.id.toString()}>
+                                <div className="flex items-center gap-2">
+                                  <Building className="h-4 w-4" />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{asset.address}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {asset.city} • {asset.type} • {asset.area ? `${asset.area} מ"ר` : '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {rule.asset && (
+                          <div className="text-xs text-muted-foreground">
+                            נכס נבחר: {getSelectedAsset(rule.asset)?.address || 'לא נמצא'}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Show selected asset info when asset is pre-selected from asset table */}
+                    {assetId && rule.scope === ALERT_SCOPES.ASSET && (
+                      <div className="space-y-2">
+                        <Label>נכס נבחר</Label>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Building className="h-4 w-4" />
+                            <div>
+                              <div className="font-medium">{getSelectedAsset(assetId)?.address || 'טוען...'}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {getSelectedAsset(assetId)?.city} • {getSelectedAsset(assetId)?.type}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Parameters */}

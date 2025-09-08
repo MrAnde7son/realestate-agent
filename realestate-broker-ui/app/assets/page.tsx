@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
-import { selectOnboardingState } from "@/onboarding/selectors";
+import { selectOnboardingState, getCompletionPct } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import DashboardLayout from "@/components/layout/dashboard-layout";
@@ -68,7 +68,7 @@ export default function AssetsPage() {
     return val ? Number(val) : undefined;
   });
   const { user, isAuthenticated, refreshUser } = useAuth();
-  const onboardingState = selectOnboardingState(user);
+  const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -421,7 +421,7 @@ export default function AssetsPage() {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
-        {isAuthenticated && <OnboardingProgress state={onboardingState} />}
+        {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>

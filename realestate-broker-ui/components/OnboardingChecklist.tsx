@@ -19,22 +19,16 @@ type Props = { state: OnboardingState }
 export default function OnboardingChecklist({ state }: Props) {
   const pct = getCompletionPct(state)
   const [open, setOpen] = useState(pct !== 100)
+  
+  // Hide the component when onboarding is complete
+  if (pct === 100) {
+    return null
+  }
 
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-medium text-foreground">רשימת משימות</h3>
-        {pct === 100 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setOpen(o => !o)}
-            className="h-6 px-2 text-xs"
-          >
-            {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            <span className="sr-only">הצג/הסתר רשימת משימות</span>
-          </Button>
-        )}
       </div>
       {open && (
         <div className="bg-muted/30 rounded-lg p-3 border">
@@ -51,18 +45,6 @@ export default function OnboardingChecklist({ state }: Props) {
               </li>
             ))}
           </ul>
-        </div>
-      )}
-      {pct === 100 && !open && (
-        <div className="bg-muted/30 rounded-lg p-3 border">
-          <Button
-            variant="link"
-            size="sm"
-            className="p-0 h-auto text-xs"
-            onClick={() => setOpen(true)}
-          >
-            הצג צעדים שהושלמו
-          </Button>
         </div>
       )}
     </div>

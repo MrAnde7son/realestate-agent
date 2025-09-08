@@ -11,6 +11,12 @@ export interface User {
   notify_whatsapp?: boolean
   is_verified: boolean
   created_at?: string
+  onboarding_flags?: {
+    connect_payment: boolean
+    add_first_asset: boolean
+    generate_first_report: boolean
+    set_one_alert: boolean
+  }
 }
 
 export interface AuthResponse {

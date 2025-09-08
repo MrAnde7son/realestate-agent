@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer, RefreshCw, Plus, Settings } from 'lucide-react'
+import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer, RefreshCw, Plus, Settings, Edit, Trash2 } from 'lucide-react'
 import { ALERT_TYPE_LABELS } from '@/lib/alert-constants'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 
@@ -57,35 +57,79 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString('he-IL')
 }
 
+interface AlertRule {
+  id: number
+  trigger_type: string
+  trigger_type_display: string
+  scope: string
+  scope_display: string
+  asset?: number
+  params: Record<string, any>
+  channels: string[]
+  frequency: string
+  frequency_display: string
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export default function AlertsPage() {
   const [alertsData, setAlertsData] = useState<AlertEvent[]>([])
+  const [alertRules, setAlertRules] = useState<AlertRule[]>([])
+  const [assets, setAssets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [alertRulesModalOpen, setAlertRulesModalOpen] = useState(false)
+  const [editingRule, setEditingRule] = useState<AlertRule | null>(null)
 
   // Fetch alerts from API
-  useEffect(() => {
-    const fetchAlerts = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch('/api/alerts?since=2024-01-01')
-        if (response.ok) {
-          const data = await response.json()
-          setAlertsData(data.events || data || [])
-        } else {
-          setError('שגיאה בטעינת ההתראות')
-        }
-      } catch (err) {
-        console.error('Error fetching alerts:', err)
-        setError('שגיאה בטעינת ההתראות')
-      } finally {
-        setLoading(false)
+  const fetchAlerts = async () => {
+    try {
+      setLoading(true)
+      // Fetch alert rules
+      const rulesResponse = await fetch('/api/alerts')
+      if (rulesResponse.ok) {
+        const rulesData = await rulesResponse.json()
+        setAlertRules(rulesData.rules || [])
       }
+      
+      // Fetch alert events
+      const eventsResponse = await fetch('/api/alerts?since=2024-01-01')
+      if (eventsResponse.ok) {
+        const eventsData = await eventsResponse.json()
+        setAlertsData(eventsData.events || [])
+      }
+    } catch (err) {
+      console.error('Error fetching alerts:', err)
+      setError('שגיאה בטעינת ההתראות')
+    } finally {
+      setLoading(false)
     }
+  }
 
+  // Fetch assets from API
+  const fetchAssets = async () => {
+    try {
+      const response = await fetch('/api/assets')
+      if (response.ok) {
+        const data = await response.json()
+        setAssets(data.rows || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch assets:', err)
+    }
+  }
+
+  useEffect(() => {
     fetchAlerts()
+    fetchAssets()
   }, [])
+
+  // Helper function to get asset by ID
+  const getAssetById = (assetId: number) => {
+    return assets.find(asset => asset.id === assetId)
+  }
 
   const toggleType = (type: string) => {
     setSelectedTypes(prev =>
@@ -115,6 +159,38 @@ export default function AlertsPage() {
     } catch (err) {
       console.error('Error marking all alerts as read:', err)
     }
+  }
+
+  const handleEditRule = (rule: AlertRule) => {
+    setEditingRule(rule)
+    setAlertRulesModalOpen(true)
+  }
+
+  const handleDeleteRule = async (ruleId: number) => {
+    if (!confirm('האם אתה בטוח שברצונך למחוק את כלל ההתראה?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/alerts?ruleId=${ruleId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setAlertRules(prev => prev.filter(rule => rule.id !== ruleId))
+      } else {
+        alert('שגיאה במחיקת כלל ההתראה')
+      }
+    } catch (err) {
+      console.error('Error deleting alert rule:', err)
+      alert('שגיאה במחיקת כלל ההתראה')
+    }
+  }
+
+  const handleRuleSaved = () => {
+    // Refresh alert rules after saving
+    fetchAlerts()
+    setEditingRule(null)
   }
 
   const filteredAlerts = alertsData.filter(alert => {
@@ -205,9 +281,147 @@ export default function AlertsPage() {
         </DashboardHeader>
 
         {/* Main Content Grid */}
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-          {/* Alerts List - Takes 2 columns on large screens, full width on mobile */}
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
+          {/* Alerts List - Takes 2 columns on xl screens, full width on mobile */}
+          <div className="xl:col-span-2 space-y-4">
+            {/* Alert Rules Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <span>כללי התראות ({alertRules.length})</span>
+                  <Button 
+                    onClick={() => setAlertRulesModalOpen(true)} 
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Plus className="h-4 w-4 ms-2" />
+                    הוסף כלל
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {alertRules.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                      <Bell className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold text-foreground">אין כללי התראות</h3>
+                      <p className="text-muted-foreground">הגדר כללי התראות כדי לקבל עדכונים</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {alertRules.map((rule) => (
+                      <div 
+                        key={rule.id} 
+                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg transition-colors gap-3 ${
+                          editingRule?.id === rule.id 
+                            ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 ring-2 ring-blue-200 dark:ring-blue-800' 
+                            : 'bg-card hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex flex-col gap-3 flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={rule.active ? "default" : "secondary"} className="text-xs">
+                              {rule.active ? "פעיל" : "לא פעיל"}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {rule.trigger_type_display}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {rule.scope_display}
+                            </Badge>
+                          </div>
+                          
+                          {/* Rule Parameters */}
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">
+                              {rule.frequency_display} • {rule.channels.map(channel => {
+                                switch(channel) {
+                                  case 'email': return 'אימייל'
+                                  case 'whatsapp': return 'ווטסאפ'
+                                  case 'sms': return 'SMS'
+                                  default: return channel
+                                }
+                              }).join(", ")}
+                            </div>
+                            
+                            {/* Show specific parameters based on trigger type */}
+                            {rule.trigger_type === 'PRICE_DROP' && rule.params.pct && (
+                              <div className="text-xs text-muted-foreground">
+                                התראה על ירידה של {rule.params.pct}% במחיר
+                              </div>
+                            )}
+                            {rule.trigger_type === 'MARKET_TREND' && rule.params.delta_pct && (
+                              <div className="text-xs text-muted-foreground">
+                                התראה על שינוי של {rule.params.delta_pct}% במחיר למ&quot;ר
+                              </div>
+                            )}
+                            {rule.trigger_type === 'MARKET_TREND' && rule.params.window_days && (
+                              <div className="text-xs text-muted-foreground">
+                                חישוב ממוצע על {rule.params.window_days} ימים
+                              </div>
+                            )}
+                            {rule.scope === 'asset' && rule.asset && (
+                              <div className="text-xs text-muted-foreground">
+                                {(() => {
+                                  const asset = getAssetById(rule.asset)
+                                  if (asset) {
+                                    return `נכס: ${asset.address || 'כתובת לא זמינה'}, ${asset.city || 'עיר לא זמינה'}`
+                                  } else {
+                                    return `נכס ספציפי (ID: ${rule.asset})`
+                                  }
+                                })()}
+                              </div>
+                            )}
+                            {rule.scope === 'GLOBAL' && (
+                              <div className="text-xs text-muted-foreground">
+                                כל הנכסים במערכת
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between sm:justify-end gap-2">
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(rule.created_at).toLocaleDateString('he-IL')}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {editingRule?.id === rule.id ? (
+                              <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                                עורך
+                              </div>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditRule(rule)}
+                                  className="h-9 w-9 p-0 touch-manipulation"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteRule(rule.id)}
+                                  className="h-9 w-9 p-0 text-destructive hover:text-destructive touch-manipulation"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Alert Events Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -290,6 +504,67 @@ export default function AlertsPage() {
                             {alert.payload?.message || 'התראה חדשה'}
                           </p>
                           
+                          {/* Show specific alert details based on payload */}
+                          {alert.payload && (
+                            <div className="space-y-1">
+                              {alert.payload.price_change && (
+                                <div className="text-xs text-muted-foreground">
+                                  שינוי במחיר: {alert.payload.price_change > 0 ? '+' : ''}{alert.payload.price_change}%
+                                </div>
+                              )}
+                              {alert.payload.new_price && (
+                                <div className="text-xs text-muted-foreground">
+                                  מחיר חדש: ₪{alert.payload.new_price.toLocaleString()}
+                                </div>
+                              )}
+                              {alert.payload.old_price && (
+                                <div className="text-xs text-muted-foreground">
+                                  מחיר קודם: ₪{alert.payload.old_price.toLocaleString()}
+                                </div>
+                              )}
+                              {alert.payload.area && (
+                                <div className="text-xs text-muted-foreground">
+                                  שטח: {alert.payload.area} מ&quot;ר
+                                </div>
+                              )}
+                              {alert.payload.price_per_sqm && (
+                                <div className="text-xs text-muted-foreground">
+                                  מחיר למ&quot;ר: ₪{alert.payload.price_per_sqm.toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Show asset details if available */}
+                          {(() => {
+                            // Try different possible asset ID fields
+                            const assetId = alert.payload?.asset_id || alert.payload?.assetId || alert.payload?.asset
+                            if (assetId) {
+                              const asset = getAssetById(assetId)
+                              if (asset) {
+                                return (
+                                  <div className="text-xs text-muted-foreground space-y-1">
+                                    <div className="font-medium">פרטי הנכס:</div>
+                                    <div>📍 {asset.address || 'כתובת לא זמינה'}</div>
+                                    <div>🏙️ {asset.city || 'עיר לא זמינה'}</div>
+                                    {asset.type && <div>🏠 {asset.type}</div>}
+                                    {asset.area && <div>📐 {asset.area} מ&quot;ר</div>}
+                                    {asset.price && <div>💰 ₪{asset.price.toLocaleString()}</div>}
+                                  </div>
+                                )
+                              } else {
+                                // Debug: show what we're looking for
+                                console.log('Asset not found for ID:', assetId, 'Available assets:', assets.map(a => ({ id: a.id, address: a.address })))
+                                return (
+                                  <div className="text-xs text-muted-foreground">
+                                    נכס לא נמצא (ID: {assetId})
+                                  </div>
+                                )
+                              }
+                            }
+                            return null
+                          })()}
+                          
                           {alert.asset_address && (
                             <p className="text-xs text-muted-foreground">
                               📍 {alert.asset_address}
@@ -322,31 +597,33 @@ export default function AlertsPage() {
             </Card>
           </div>
 
-          {/* Sidebar - Takes 1 column on large screens, full width on mobile */}
-          <div className="space-y-4">
+          {/* Sidebar - Takes 1 column on xl screens, full width on mobile */}
+          <div className="space-y-4 order-first xl:order-last">
             {/* Quick Stats Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">סטטיסטיקות מהירות</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">סה״כ התראות</span>
-                  <span className="font-semibold">{filteredAlerts.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">לא נקראו</span>
-                  <span className="font-semibold text-blue-600">{unreadCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">היום</span>
-                  <span className="font-semibold">
-                    {filteredAlerts.filter(alert => {
-                      const alertDate = new Date(alert.occurred_at)
-                      const today = new Date()
-                      return alertDate.toDateString() === today.toDateString()
-                    }).length}
-                  </span>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <div className="text-2xl font-bold text-foreground">{alertRules.length}</div>
+                    <div className="text-xs text-muted-foreground">כללי התראות</div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <div className="text-2xl font-bold text-green-600">
+                      {alertRules.filter(rule => rule.active).length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">פעילים</div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <div className="text-2xl font-bold text-foreground">{filteredAlerts.length}</div>
+                    <div className="text-xs text-muted-foreground">התראות</div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <div className="text-2xl font-bold text-blue-600">{unreadCount}</div>
+                    <div className="text-xs text-muted-foreground">לא נקראו</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -357,9 +634,9 @@ export default function AlertsPage() {
                 <CardTitle className="text-lg">סינון התראות</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <label className="text-sm font-medium">סוג התראה</label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {Object.entries(ALERT_TYPE_LABELS).map(([key, label]) => (
                       <Badge
                         key={key}
@@ -368,7 +645,7 @@ export default function AlertsPage() {
                             ? 'default'
                             : 'neutral'
                         }
-                        className="cursor-pointer"
+                        className="cursor-pointer text-center py-2 px-3 touch-manipulation"
                         onClick={() => toggleType(key)}
                       >
                         {label}
@@ -387,11 +664,13 @@ export default function AlertsPage() {
             <CardTitle>סוגי התראות</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {Object.entries(ALERT_TYPE_LABELS).map(([key, label]) => (
-                <div key={key} className="flex flex-col items-center gap-2 text-center p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                  {getAlertIcon(key)}
-                  <span className="text-sm">{label}</span>
+                <div key={key} className="flex flex-col items-center gap-2 text-center p-3 rounded-lg hover:bg-muted/50 transition-colors touch-manipulation">
+                  <div className="w-8 h-8 flex items-center justify-center">
+                    {getAlertIcon(key)}
+                  </div>
+                  <span className="text-xs sm:text-sm leading-tight">{label}</span>
                 </div>
               ))}
             </div>
@@ -399,15 +678,25 @@ export default function AlertsPage() {
         </Card>
 
         {/* Alert Rules Modal */}
-        <Dialog open={alertRulesModalOpen} onOpenChange={setAlertRulesModalOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <Dialog open={alertRulesModalOpen} onOpenChange={(open) => {
+          setAlertRulesModalOpen(open)
+          if (!open) {
+            setEditingRule(null)
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+              <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
                 <Settings className="h-5 w-5" />
-                ניהול כללי התראות
+                {editingRule ? 'עריכת כלל התראה' : 'ניהול כללי התראות'}
               </DialogTitle>
             </DialogHeader>
-            <AlertRulesManager />
+            <div className="mt-4">
+              <AlertRulesManager 
+                editingRule={editingRule as any}
+                onRuleSaved={handleRuleSaved}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       </DashboardShell>

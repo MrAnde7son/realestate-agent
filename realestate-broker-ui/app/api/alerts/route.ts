@@ -3,9 +3,19 @@ import { cookies } from 'next/headers'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
-async function fetchFromBackend(endpoint: string, options: RequestInit = {}) {
+async function fetchFromBackend(endpoint: string, options: RequestInit = {}, req?: Request) {
   const url = `${BACKEND_URL}${endpoint}`
-  const token = cookies().get('access_token')?.value
+  
+  // Try to get token from cookies first (server-side)
+  let token = cookies().get('access_token')?.value
+  
+  // If no token in cookies, try to get from request headers (client-side)
+  if (!token && req) {
+    const authHeader = req.headers.get('authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7)
+    }
+  }
   
   // Debug logging
   console.log('🔍 Alerts API - Backend request:', {
@@ -45,7 +55,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const since = searchParams.get('since')
     
-    let endpoint = '/api/alert-rules/'
+    let endpoint = '/api/alerts/'
     if (since) {
       endpoint = `/api/alert-events/?since=${since}`
     }
@@ -98,7 +108,7 @@ export async function POST(req: Request) {
     }
     
     // Create new alert rule
-    const response = await fetchFromBackend('/api/alert-rules/', {
+    const response = await fetchFromBackend('/api/alerts/', {
       method: 'POST',
       body: JSON.stringify(body),
     })
@@ -117,6 +127,39 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Error creating alert:', error)
     return NextResponse.json({ error: 'Failed to create alert' }, { status: 500 })
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const ruleId = searchParams.get('id')
+    
+    if (!ruleId) {
+      return NextResponse.json({ error: 'Alert rule ID required' }, { status: 400 })
+    }
+    
+    const body = await req.json()
+    
+    const response = await fetchFromBackend(`/api/alerts/?id=${ruleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }, req)
+    
+    if (response.status === 401) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      return NextResponse.json(errorData, { status: response.status })
+    }
+    
+    const data = await response.json()
+    return NextResponse.json(data, { status: 200 })
+  } catch (error) {
+    console.error('Error updating alert rule:', error)
+    return NextResponse.json({ error: 'Failed to update alert rule' }, { status: 500 })
   }
 }
 
@@ -152,5 +195,35 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ 
       error: 'Failed to update alerts' 
     }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const ruleId = searchParams.get('ruleId')
+    
+    if (!ruleId) {
+      return NextResponse.json({ error: 'ruleId required' }, { status: 400 })
+    }
+    
+    const response = await fetchFromBackend(`/api/alerts/?ruleId=${ruleId}`, {
+      method: 'DELETE',
+    }, req)
+    
+    if (response.status === 401) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      return NextResponse.json(errorData, { status: response.status })
+    }
+    
+    const data = await response.json()
+    return NextResponse.json(data, { status: 200 })
+  } catch (error) {
+    console.error('Error deleting alert rule:', error)
+    return NextResponse.json({ error: 'Failed to delete alert rule' }, { status: 500 })
   }
 }

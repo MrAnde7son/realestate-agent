@@ -26,10 +26,8 @@ from openai import OpenAI
 
 # Import Django models
 from .models import (
-    Alert,
     AlertRule,
     AlertEvent,
-    Snapshot,
     Asset,
     SourceRecord,
     RealEstateTransaction,
@@ -186,39 +184,40 @@ def auth_profile(request):
         # Get onboarding progress
         onboarding_progress, _ = OnboardingProgress.objects.get_or_create(user=user)
         
-        return Response(
-            {
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "username": user.username,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "company": getattr(user, "company", ""),
-                    "role": getattr(user, "role", ""),
-                    "is_verified": getattr(user, "is_verified", False),
-                    "created_at": (
-                        user.created_at.isoformat()
-                        if hasattr(user, "created_at")
-                        else None
-                    ),
-                    "language": getattr(user, "language", ""),
-                    "timezone": getattr(user, "timezone", ""),
-                    "currency": getattr(user, "currency", ""),
-                    "date_format": getattr(user, "date_format", ""),
-                    "notify_email": getattr(user, "notify_email", False),
-                    "notify_whatsapp": getattr(user, "notify_whatsapp", False),
-                    "notify_urgent": getattr(user, "notify_urgent", False),
-                    "notification_time": getattr(user, "notification_time", ""),
-                    "onboarding_flags": {
-                        "connect_payment": onboarding_progress.connect_payment,
-                        "add_first_asset": onboarding_progress.add_first_asset,
-                        "generate_first_report": onboarding_progress.generate_first_report,
-                        "set_one_alert": onboarding_progress.set_one_alert,
-                    }
+        response_data = {
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "company": getattr(user, "company", ""),
+                "role": getattr(user, "role", ""),
+                "is_verified": getattr(user, "is_verified", False),
+                "created_at": (
+                    user.created_at.isoformat()
+                    if hasattr(user, "created_at")
+                    else None
+                ),
+                "language": getattr(user, "language", ""),
+                "timezone": getattr(user, "timezone", ""),
+                "currency": getattr(user, "currency", ""),
+                "date_format": getattr(user, "date_format", ""),
+                "notify_email": getattr(user, "notify_email", False),
+                "notify_whatsapp": getattr(user, "notify_whatsapp", False),
+                "notify_urgent": getattr(user, "notify_urgent", False),
+                "notification_time": getattr(user, "notification_time", ""),
+                "onboarding_flags": {
+                    "connect_payment": onboarding_progress.connect_payment,
+                    "add_first_asset": onboarding_progress.add_first_asset,
+                    "generate_first_report": onboarding_progress.generate_first_report,
+                    "set_one_alert": onboarding_progress.set_one_alert,
                 }
             }
-        )
+        }
+        
+        
+        return Response(response_data)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -488,7 +487,7 @@ def user_settings(request):
     )
 
 
-@api_view(["GET", "POST"])
+@api_view(["GET", "POST", "PUT", "DELETE"])
 @permission_classes([IsAuthenticated])
 def alerts(request):
     if request.method == "POST":
@@ -498,31 +497,58 @@ def alerts(request):
                 {"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        alert = Alert.objects.create(
-            user=request.user,
-            criteria=data.get("criteria") or {},
-            notify=data.get("notify") or [],
-        )
-        _update_onboarding(getattr(request, "user", None), "set_one_alert")
-        return Response(
-            {"id": alert.id, "created_at": alert.created_at.isoformat()},
-            status=status.HTTP_201_CREATED,
-        )
+        serializer = AlertRuleSerializer(data=data)
+        if serializer.is_valid():
+            # Save with user from request - pass user object to save method
+            alert_rule = serializer.save(user=request.user)
+            
+            # Track analytics event for alert rule creation
+            from .analytics import track
+            track("alert_rule_create", user=request.user, asset_id=alert_rule.asset_id if alert_rule.asset else None)
+            
+            _update_onboarding(request.user, "set_one_alert")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == "GET":
-        # Only return alerts for the current user
-        alerts = Alert.objects.filter(user=request.user).order_by("-created_at")
-        rows = [
-            {
-                "id": alert.id,
-                "criteria": alert.criteria,
-                "notify": alert.notify,
-                "active": alert.active,
-                "created_at": alert.created_at.isoformat(),
-            }
-            for alert in alerts
-        ]
-    return Response({"rows": rows})
+        # Only return alert rules for the current user
+        rules = AlertRule.objects.filter(user=request.user).order_by("-created_at")
+        serializer = AlertRuleSerializer(rules, many=True)
+        return Response({"rules": serializer.data})
+
+    if request.method == "PUT":
+        rule_id = request.GET.get('id')
+        if not rule_id:
+            return Response({"error": "Alert rule ID required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            rule = AlertRule.objects.get(id=rule_id, user=request.user)
+        except AlertRule.DoesNotExist:
+            return Response({"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        data = parse_json(request)
+        if not data:
+            return Response(
+                {"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = AlertRuleSerializer(rule, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == "DELETE":
+        rule_id = request.GET.get('ruleId')
+        if not rule_id:
+            return Response({"error": "Alert rule ID required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            rule = AlertRule.objects.get(id=rule_id, user=request.user)
+            rule.delete()
+            return Response({"message": "Alert rule deleted successfully"}, status=status.HTTP_200_OK)
+        except AlertRule.DoesNotExist:
+            return Response({"error": "Alert rule not found"}, status=status.HTTP_404_NOT_FOUND)
 
     return Response(
         {"error": "Unsupported method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
@@ -1413,7 +1439,6 @@ def alert_events(request):
 @permission_classes([IsAuthenticated])
 def alert_test(request):
     """Send a test alert to verify channels are working."""
-    from orchestration.alerts import create_notifier_for_user
     
     user = request.user
     channels = []

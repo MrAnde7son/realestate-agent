@@ -10,7 +10,7 @@ export async function GET(
   try {
     // Try to fetch from backend first
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-    const backendResponse = await fetch(`${backendUrl}/api/assets/${id}`)
+    const backendResponse = await fetch(`${backendUrl}/api/assets/${id}/`)
 
     if (backendResponse.ok) {
       const data = await backendResponse.json()
@@ -21,15 +21,55 @@ export async function GET(
         : data
 
       if (backendAsset) {
-        const asset: any = normalizeFromBackend(backendAsset)
+        // Extract data from meta field and merge with asset data
+        const meta = backendAsset.meta || {}
+        const enrichedAsset = {
+          ...backendAsset,
+          // Override with data from meta field
+          address: backendAsset.normalized_address || backendAsset.address,
+          type: meta.type || backendAsset.building_type,
+          price: meta.price || backendAsset.price,
+          area: meta.area || meta.netSqm || backendAsset.area,
+          totalArea: meta.totalSqm || backendAsset.total_area,
+          rooms: meta.rooms || meta.bedrooms || backendAsset.rooms,
+          bedrooms: meta.bedrooms || backendAsset.bedrooms,
+          bathrooms: meta.bathrooms || backendAsset.bathrooms,
+          pricePerSqm: meta.pricePerSqm || backendAsset.price_per_sqm,
+          rentEstimate: meta.rentEstimate || backendAsset.rent_estimate,
+          zoning: meta.zoning || backendAsset.zoning,
+          buildingRights: meta.building_rights || backendAsset.building_rights,
+          permitStatus: meta.permit_status || backendAsset.permit_status,
+          remainingRightsSqm: meta.remainingRightsSqm,
+          program: meta.program,
+          lastPermitQ: meta.lastPermitQ,
+          noiseLevel: meta.noiseLevel,
+          competition1km: meta.competition1km,
+          priceGapPct: meta.priceGapPct,
+          expectedPriceRange: meta.expectedPriceRange,
+          modelPrice: meta.modelPrice,
+          confidencePct: meta.confidencePct,
+          capRatePct: meta.capRatePct,
+          riskFlags: meta.riskFlags || [],
+          documents: meta.documents || [],
+          features: meta.features,
+          contactInfo: meta.contactInfo,
+          deltaVsAreaPct: meta.deltaVsAreaPct,
+          domPercentile: meta.domPercentile,
+          antennaDistanceM: meta.antennaDistanceM,
+          greenWithin300m: meta.greenWithin300m,
+          shelterDistanceM: meta.shelterDistanceM,
+          assetStatus: backendAsset.status,
+        }
+
+        const asset: any = normalizeFromBackend(enrichedAsset)
 
         const backendMeta = backendAsset._meta || backendAsset.meta || {}
-        const meta: Record<string, any> = {}
+        const metaData: Record<string, any> = {}
         for (const [key, value] of Object.entries(backendMeta)) {
           const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
-          meta[camel] = value
+          metaData[camel] = value
         }
-        asset._meta = meta
+        asset._meta = metaData
 
         return NextResponse.json({ asset })
       }

@@ -811,13 +811,22 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
 
                   <div className="text-center">
-                      {renderValue(
-                        <Badge variant={asset.greenWithin300m ? 'success' : 'error'}>
-                          {asset.greenWithin300m ? 'כן' : 'לא'}
-                        </Badge>,
-                        'greenWithin300m'
+                    <div className="text-2xl font-bold flex items-center justify-center gap-1">
+                      {asset.greenWithin300m !== undefined && asset.greenWithin300m !== null ? (
+                        <>
+                          <Badge variant={asset.greenWithin300m ? 'success' : 'error'}>
+                            {asset.greenWithin300m ? 'כן' : 'לא'}
+                          </Badge>
+                          <DataBadge
+                            source={asset?._meta?.greenWithin300m?.source}
+                            fetchedAt={asset?._meta?.greenWithin300m?.fetched_at}
+                          />
+                        </>
+                      ) : (
+                        '—'
                       )}
-                      <div className="text-sm text-muted-foreground">שטחי ציבור ≤300מ׳</div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">שטחי ציבור ≤300מ׳</div>
                   </div>
 
                   <div className="text-center">

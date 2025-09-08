@@ -1,8 +1,11 @@
 import os
+import logging
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
+
+logger = logging.getLogger(__name__)
 
 
 class User(AbstractUser):
@@ -181,7 +184,7 @@ class Asset(models.Model):
             return True
         except Exception as e:
             # Log the error but don't fail the deletion
-            print(f"Error deleting asset {self.id}: {e}")
+            logger.error("Error deleting asset %s: %s", self.id, e)
             return False
 
 
@@ -375,7 +378,7 @@ class Report(models.Model):
             return True
         except Exception as e:
             # Log the error but don't fail the deletion
-            print(f"Error deleting report {self.id}: {e}")
+            logger.error("Error deleting report %s: %s", self.id, e)
             return False
 
 

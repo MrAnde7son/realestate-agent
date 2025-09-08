@@ -12,13 +12,13 @@ from django.shortcuts import redirect, render
 from django.conf import settings
 from django.utils.crypto import get_random_string
 from django.utils import timezone
-from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 import logging
 
@@ -30,7 +30,6 @@ from .models import (
     Asset,
     SourceRecord,
     RealEstateTransaction,
-    Report,
     OnboardingProgress,
     ShareToken,
 )
@@ -75,17 +74,18 @@ ASSETS_POST_WINDOW = 60  # window size in seconds
 _assets_rate_limit = {}
 
 def _update_onboarding(user, step):
-    print(f"🔄 _update_onboarding called - User: {user}, Step: {step}, Authenticated: {getattr(user, 'is_authenticated', False) if user else 'No user'}")
+    logger.debug("_update_onboarding called - User: %s, Step: %s, Authenticated: %s", 
+                 user, step, getattr(user, 'is_authenticated', False) if user else 'No user')
     if not user or not user.is_authenticated:
-        print(f"❌ Skipping onboarding update - No authenticated user")
+        logger.debug("Skipping onboarding update - No authenticated user")
         return
     progress, _ = OnboardingProgress.objects.get_or_create(user=user)
     if not getattr(progress, step):
         setattr(progress, step, True)
         progress.save()
-        print(f"✅ Updated onboarding step {step} to True for user {user.id}")
+        logger.info("Updated onboarding step %s to True for user %s", step, user.id)
     else:
-        print(f"ℹ️ Onboarding step {step} already True for user {user.id}")
+        logger.debug("Onboarding step %s already True for user %s", step, user.id)
 
 
 # Authentication views
@@ -898,7 +898,7 @@ def tabu(request):
             rows = search_rows(rows, query)
         return JsonResponse({"rows": rows})
     except Exception as e:
-        print(f"Error parsing tabu PDF: {e}")
+        logger.error("Error parsing tabu PDF: %s", e)
         # Return dummy data for testing if parsing fails
         # This also handles the case where utils module is not available
         return JsonResponse(
@@ -1030,7 +1030,8 @@ def assets(request):
         asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
         user = getattr(request, "user", None)
-        print(f"🔍 Asset creation - User: {user}, Authenticated: {getattr(user, 'is_authenticated', False) if user else 'No user'}")
+        logger.info("Asset creation - User: %s, Authenticated: %s", 
+                   user, getattr(user, 'is_authenticated', False) if user else 'No user')
         if user and getattr(user, "is_authenticated", False):
             track("asset_create", user=user, asset_id=asset_id)
         else:
@@ -1043,7 +1044,7 @@ def assets(request):
             result = run_data_pipeline.delay(asset_id)
             job_id = result.id
         except Exception as e:
-            print(f"Failed to enqueue enrichment task: {e}")
+            logger.error("Failed to enqueue enrichment task: %s", e)
             # Update asset status to error
             try:
                 asset = Asset.objects.get(id=asset_id)
@@ -1051,7 +1052,7 @@ def assets(request):
                 asset.meta["error"] = str(e)
                 asset.save()
             except Exception as save_error:
-                print(f"Failed to update asset status: {save_error}")
+                logger.error("Failed to update asset status: %s", save_error)
 
         return Response(
             {
@@ -1064,7 +1065,7 @@ def assets(request):
         )
 
     except Exception as e:
-        print(f"Error creating asset: {e}")
+        logger.error("Error creating asset: %s", e)
         return Response(
             {"error": "Failed to create asset", "details": str(e)}, status=500
         )
@@ -1083,7 +1084,7 @@ def _get_assets_list():
             rows.append(build_listing(asset, srcs))
         return Response({"rows": rows})
     except Exception as e:
-        print(f"Error fetching assets: {e}")
+        logger.error("Error fetching assets: %s", e)
         return Response(
             {"error": "Failed to fetch assets", "details": str(e)}, status=500
         )
@@ -1169,7 +1170,7 @@ def asset_detail(request, asset_id):
         )
 
     except Exception as e:
-        print(f"Error retrieving asset {asset_id}: {e}")
+        logger.error("Error retrieving asset %s: %s", asset_id, e)
         return JsonResponse(
             {"error": "Failed to retrieve asset", "details": str(e)}, status=500
         )
@@ -1231,7 +1232,7 @@ def asset_share_message(request, asset_id):
             )
             message = completion.choices[0].message.content.strip()
         except Exception as e:
-            logger.exception("Error generating marketing message for asset %s", asset_id)
+            logger.exception("Error generating marketing message for asset %s: %s", asset_id, e)
             message = None
 
     if not message:

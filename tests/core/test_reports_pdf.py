@@ -77,8 +77,8 @@ class HebrewPDFGenerationTest(TestCase):
             content_type="application/json",
         )
         resp = views.reports(req)
-        self.assertEqual(resp.status_code, 201, resp.content)
-        filename = json.loads(resp.content)["report"]["filename"]
+        self.assertEqual(resp.status_code, 201, resp.data)
+        filename = resp.data["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
         report = Report.objects.get(filename=filename)
         self.assertEqual(report.sections, DEFAULT_REPORT_SECTIONS)
@@ -101,8 +101,8 @@ class HebrewPDFGenerationTest(TestCase):
             content_type="application/json",
         )
         resp = views.reports(req)
-        self.assertEqual(resp.status_code, 201, resp.content)
-        filename = json.loads(resp.content)["report"]["filename"]
+        self.assertEqual(resp.status_code, 201, resp.data)
+        filename = resp.data["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
         report = Report.objects.get(filename=filename)
         self.assertEqual(report.sections, ["summary", "plans"])
@@ -130,9 +130,9 @@ class HebrewPDFGenerationTest(TestCase):
             content_type="application/json",
         )
         resp = views.reports(req)
-        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.status_code, 201, resp.data)
 
-        data = json.loads(resp.content)
+        data = resp.data
         filename = data["report"]["filename"]
         path = os.path.join(self.tmpdir, filename)
         self.assertTrue(os.path.exists(path), f"Expected PDF file at path {path}")

@@ -39,7 +39,8 @@ def test_assets_post_triggers_pipeline(monkeypatch):
     assert response.status_code == 201
     # Ensure the Celery task was called with the new asset ID
     assert dummy.calls == [(dummy_asset.id, 1)]
-    data = json.loads(response.content)
+    # For DRF Response, access data directly instead of parsing content
+    data = response.data
     assert data["job_id"] == dummy.job_id
 
 

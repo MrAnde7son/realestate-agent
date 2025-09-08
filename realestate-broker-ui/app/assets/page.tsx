@@ -29,6 +29,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Plus,
   RefreshCw,
@@ -422,6 +423,9 @@ export default function AssetsPage() {
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
+        {/* Skip link for accessibility */}
+        <a href="#main-content" className="skip-link">דלג לתוכן הראשי</a>
+        
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -484,16 +488,24 @@ export default function AssetsPage() {
                             id="city"
                             list="city-options"
                             placeholder="בחר עיר"
+                            className={form.formState.errors.city ? "border-error" : ""}
                             {...form.register("city", {
                               onChange: (e) =>
                                 fetchCitySuggestions(e.target.value),
                             })}
+                            aria-invalid={!!form.formState.errors.city}
+                            aria-describedby={form.formState.errors.city ? "city-error" : undefined}
                           />
                           <datalist id="city-options">
                             {citySuggestions.map((c) => (
                               <option key={c} value={c} />
                             ))}
                           </datalist>
+                          {form.formState.errors.city && (
+                            <p id="city-error" className="text-sm text-error">
+                              {form.formState.errors.city.message}
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -502,6 +514,7 @@ export default function AssetsPage() {
                             id="street"
                             list="street-options"
                             placeholder="בחר רחוב"
+                            className={form.formState.errors.street ? "border-error" : ""}
                             {...form.register("street", {
                               onChange: (e) =>
                                 fetchStreetSuggestions(
@@ -509,12 +522,19 @@ export default function AssetsPage() {
                                   form.getValues("city") || ""
                                 ),
                             })}
+                            aria-invalid={!!form.formState.errors.street}
+                            aria-describedby={form.formState.errors.street ? "street-error" : undefined}
                           />
                           <datalist id="street-options">
                             {streetSuggestions.map((s) => (
                               <option key={s} value={s} />
                             ))}
                           </datalist>
+                          {form.formState.errors.street && (
+                            <p id="street-error" className="text-sm text-error">
+                              {form.formState.errors.street.message}
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -544,16 +564,32 @@ export default function AssetsPage() {
                           <Input
                             id="gush"
                             placeholder="הזן מספר גוש"
+                            className={form.formState.errors.gush ? "border-error" : ""}
                             {...form.register("gush")}
+                            aria-invalid={!!form.formState.errors.gush}
+                            aria-describedby={form.formState.errors.gush ? "gush-error" : undefined}
                           />
+                          {form.formState.errors.gush && (
+                            <p id="gush-error" className="text-sm text-error">
+                              {form.formState.errors.gush.message}
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="helka">חלקה</Label>
                           <Input
                             id="helka"
                             placeholder="הזן מספר חלקה"
+                            className={form.formState.errors.helka ? "border-error" : ""}
                             {...form.register("helka")}
+                            aria-invalid={!!form.formState.errors.helka}
+                            aria-describedby={form.formState.errors.helka ? "helka-error" : undefined}
                           />
+                          {form.formState.errors.helka && (
+                            <p id="helka-error" className="text-sm text-error">
+                              {form.formState.errors.helka.message}
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="subHelka">תת חלקה</Label>
@@ -600,9 +636,11 @@ export default function AssetsPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="md:hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               onClick={() => setFiltersOpen((prev) => !prev)}
               aria-label={filtersOpen ? 'סגור סינון' : 'פתח סינון'}
+              aria-expanded={filtersOpen}
+              aria-controls="filters-content"
             >
               {filtersOpen ? (
                 <ChevronUp className="h-4 w-4" />
@@ -612,21 +650,26 @@ export default function AssetsPage() {
             </Button>
           </CardHeader>
           {filtersOpen && (
-            <CardContent>
+            <CardContent id="filters-content">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="search">חיפוש</Label>
                 <div className="relative">
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <Input
                     id="search"
                     placeholder="חיפוש בכתובת או עיר..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pr-10 text-right"
+                    className="pr-10 text-right focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     dir="rtl"
+                    aria-label="חיפוש נכסים"
+                    aria-describedby="search-help"
                   />
                 </div>
+                <p id="search-help" className="text-xs text-muted-foreground sr-only">
+                  חפש נכסים לפי כתובת או עיר
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -698,7 +741,7 @@ export default function AssetsPage() {
         </Card>
 
         {/* Assets Table */}
-        <Card>
+        <Card id="main-content">
           <CardHeader>
             <CardTitle>נכסים זמינים</CardTitle>
             <CardDescription>
@@ -707,11 +750,44 @@ export default function AssetsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
-                <div className="text-center">
-                  <p className="text-muted-foreground">טוען נכסים...</p>
-                  <p className="text-sm text-muted-foreground">אנא המתן בזמן שאנחנו מביאים את הנתונים העדכניים</p>
+              <div className="space-y-4">
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
+                  <div className="text-center">
+                    <p className="text-muted-foreground">טוען נכסים...</p>
+                    <p className="text-sm text-muted-foreground">אנא המתן בזמן שאנחנו מביאים את הנתונים העדכניים</p>
+                  </div>
+                </div>
+                {/* Skeleton table for better UX */}
+                <div className="hidden sm:block">
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex space-x-4">
+                        <Skeleton className="h-4 w-4" />
+                        <Skeleton className="h-4 w-48" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-12" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Skeleton cards for mobile */}
+                <div className="sm:hidden space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="p-4 border rounded-lg space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <div className="flex space-x-2">
+                        <Skeleton className="h-6 w-16" />
+                        <Skeleton className="h-6 w-20" />
+                        <Skeleton className="h-6 w-12" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : filteredAssets.length === 0 ? (

@@ -207,6 +207,9 @@ export default function AppSidebar({
                     {user.company}
                   </p>
                 )}
+                <p className="text-xs leading-none text-muted-foreground">
+                  {user?.role === 'admin' ? 'מנהל מערכת' : 'משתמש רגיל'}
+                </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

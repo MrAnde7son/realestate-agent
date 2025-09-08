@@ -50,7 +50,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         checked={table.getIsAllRowsSelected()}
         onChange={table.getToggleAllRowsSelectedHandler()}
         aria-label="בחר הכל"
-        className="size-4"
+        className="size-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       />
     ),
     cell: ({ row }) => (
@@ -59,8 +59,8 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         checked={row.getIsSelected()}
         onClick={e => e.stopPropagation()}
         onChange={row.getToggleSelectedHandler()}
-        aria-label="בחר שורה"
-        className="size-4"
+        aria-label={`בחר נכס ${row.original.address}`}
+        className="size-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       />
     ),
     enableSorting: false,
@@ -168,24 +168,40 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     } },
     { header:'—', id:'actions', cell: ({ row }) => (
       <div className="flex gap-2">
-        <Link className="underline" href={`/assets/${row.original.id}`}>👁️</Link>
+        <Link 
+          className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+          href={`/assets/${row.original.id}`}
+          aria-label={`צפה בפרטי נכס ${row.original.address}`}
+        >
+          👁️
+        </Link>
         {onOpenAlert && (
           <button
             onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
-            className="underline"
-            title="הגדר התראות לנכס זה">
+            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            title="הגדר התראות לנכס זה"
+            aria-label={`הגדר התראות לנכס ${row.original.address}`}
+          >
             <Bell className="h-4 w-4" />
           </button>
         )}
         {onExport && (
           <button
             onClick={e => { e.stopPropagation(); onExport(row.original) }}
-            className="underline">
+            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            aria-label={`ייצא נכס ${row.original.address}`}
+            title="ייצא נכס"
+          >
             <Download className="h-4 w-4" />
           </button>
         )}
         {onDelete && (
-          <button onClick={e => { e.stopPropagation(); onDelete(row.original.id) }} className="underline">
+          <button 
+            onClick={e => { e.stopPropagation(); onDelete(row.original.id) }} 
+            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            aria-label={`מחק נכס ${row.original.address}`}
+            title="מחק נכס"
+          >
             <Trash2 className="h-4 w-4" />
           </button>
         )}
@@ -238,34 +254,60 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
   return (
     <>
       <div className="hidden sm:block">
-        <div className="rounded-xl border border-[var(--border)] bg-[linear-gradient(180deg,var(--panel),var(--card))] overflow-x-auto">
+        <div className="rounded-xl border border-border bg-card overflow-x-auto">
           <div className="p-2 flex justify-end">
-            <Button onClick={handleExportSelected} disabled={!anySelected} variant="outline">
-              <Download className="h-4 w-4" /> ייצוא נבחרים
+            <Button 
+              onClick={handleExportSelected} 
+              disabled={!anySelected} 
+              variant="outline"
+              aria-label="ייצא נכסים נבחרים"
+            >
+              <Download className="h-4 w-4 ms-2" /> ייצוא נבחרים
             </Button>
           </div>
-          <Table>
-            <THead>
-              <TR>
-                {table.getFlatHeaders().map(h=>(
-                  <TH key={h.id} className={h.column.id==='address'?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                  </TH>
-                ))}
-              </TR>
-            </THead>
-            <TBody>
-              {table.getRowModel().rows.map(row=>(
-                <TR key={row.id} className="cursor-pointer hover:bg-blue-50/50 hover:shadow-sm transition-all duration-200 !hover:bg-blue-50" onClick={() => handleRowClick(row.original)}>
-                  {row.getVisibleCells().map(cell=>(
-                    <TD key={cell.id} className={cell.column.id==='address'?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TD>
+          <div className="overflow-x-auto" role="region" aria-label="טבלת נכסים">
+            <Table>
+              <THead>
+                <TR>
+                  {table.getFlatHeaders().map(h=>(
+                    <TH 
+                      key={h.id} 
+                      className={h.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                    >
+                      {flexRender(h.column.columnDef.header, h.getContext())}
+                    </TH>
                   ))}
                 </TR>
-              ))}
-            </TBody>
-          </Table>
+              </THead>
+              <TBody>
+                {table.getRowModel().rows.map(row=>(
+                  <TR 
+                    key={row.id} 
+                    className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
+                    onClick={() => handleRowClick(row.original)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`נכס ${row.original.address} - לחץ לפרטים`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleRowClick(row.original)
+                      }
+                    }}
+                  >
+                    {row.getVisibleCells().map(cell=>(
+                      <TD 
+                        key={cell.id} 
+                        className={cell.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TD>
+                    ))}
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </div>
         </div>
       </div>
       <div className="sm:hidden space-y-2">

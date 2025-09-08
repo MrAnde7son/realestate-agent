@@ -103,11 +103,16 @@ const config: Config = {
         // Brand colors
         brand: {
           teal: 'var(--brand-teal)',
+          'teal-light': 'var(--brand-teal-light)',
+          'teal-dark': 'var(--brand-teal-dark)',
           slate: 'var(--brand-slate)',
+          'slate-light': 'var(--brand-slate-light)',
+          'slate-dark': 'var(--brand-slate-dark)',
           blue: 'var(--brand-blue)',
           green: 'var(--brand-green)',
           orange: 'var(--brand-orange)',
           red: 'var(--brand-red)',
+          gray: 'var(--brand-gray)',
         },
         neutral: colors.gray,
       },

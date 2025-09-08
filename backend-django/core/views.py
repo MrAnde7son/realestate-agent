@@ -237,8 +237,9 @@ def auth_update_profile(request):
             user.last_name = data["last_name"]
         if "company" in data:
             user.company = data["company"]
-        if "role" in data:
-            user.role = data["role"]
+        # Role changes are not allowed for regular users - only admins can change roles
+        # if "role" in data:
+        #     user.role = data["role"]
 
         user.save()
 

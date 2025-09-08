@@ -293,30 +293,50 @@ export default function HomePage() {
               <CardDescription>חלוקה לפי סוגי נכסים במאגר</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={dashboardData.propertyTypes}
-                    cx="50%"
-                    cy="50%"
-                    nameKey="type"
-                    labelLine={false}
-                    label={({ type, percentage }) => `${type} ${percentage}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {dashboardData.propertyTypes.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              {dashboardData.propertyTypes && dashboardData.propertyTypes.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={dashboardData.propertyTypes}
+                      cx="50%"
+                      cy="50%"
+                      nameKey="type"
+                      labelLine={false}
+                      label={({ type, percentage }) => `${type} ${percentage}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {dashboardData.propertyTypes.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                    <Building className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium text-foreground">אין נתוני נכסים</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm">
+                      עדיין לא נוספו נכסים למאגר. התחל להוסיף נכסים כדי לראות את התפלגות סוגי הנכסים
+                    </p>
+                  </div>
+                  <Button asChild className="mt-4">
+                    <Link href="/assets">
+                      <Building className="h-4 w-4 mr-2" />
+                      הוסף נכס ראשון
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

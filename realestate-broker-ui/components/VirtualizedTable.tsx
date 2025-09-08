@@ -1,0 +1,363 @@
+'use client'
+
+import * as React from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import type { Asset } from '@/lib/normalizers/asset'
+import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
+import { Badge } from '@/components/ui/Badge'
+import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Trash2, Download, Bell } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import AlertRulesManager from '@/components/alerts/alert-rules-manager'
+
+function RiskCell({ flags }: { flags?: string[] }){
+  if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
+  return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'error':f.includes('אנטנה')?'warning':'neutral'}>{f}</Badge>)}</div>
+}
+
+function exportAssetsCsv(assets: Asset[]) {
+  if (assets.length === 0) return
+  const headers = ['id', 'address', 'city', 'type', 'price', 'pricePerSqm'] as const
+  const csv = [
+    headers.join(','),
+    ...assets.map(a =>
+      headers
+        .map(k => JSON.stringify((a as any)[k] ?? ''))
+        .join(',')
+    )
+  ].join('\n')
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'assets.csv')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset) => void, onOpenAlert?: (assetId: number) => void): ColumnDef<Asset>[] {
+  return [
+  {
+    id: 'select',
+    header: ({ table }) => (
+      <input
+        type="checkbox"
+        checked={table.getIsAllRowsSelected()}
+        onChange={table.getToggleAllRowsSelectedHandler()}
+        aria-label="בחר הכל"
+        className="size-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      />
+    ),
+    cell: ({ row }) => (
+      <input
+        type="checkbox"
+        checked={row.getIsSelected()}
+        onClick={e => e.stopPropagation()}
+        onChange={row.getToggleSelectedHandler()}
+        aria-label={`בחר נכס ${row.original.address}`}
+        className="size-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false
+  },
+  {
+    header:'נכס',
+    accessorKey:'address',
+    cell: ({ row }) => (
+      <div>
+        <div className="font-semibold">
+          <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
+        </div>
+        <div className="text-xs text-sub">
+            {row.original.city ?? '—'}
+            {row.original.neighborhood ? ` · ${row.original.neighborhood}` : ''}
+            {row.original.gush ? ` · גוש ${row.original.gush}` : ''}
+            {row.original.helka ? ` חלקה ${row.original.helka}` : ''}
+            {row.original.subhelka ? ` תת חלקה ${row.original.subhelka}` : ''}
+            · {row.original.type ?? '—'} · {row.original.area !== undefined && row.original.area !== null ? `${fmtNumber(row.original.area)} מ"ר נטו` : '—'}
+        </div>
+      </div>
+    )
+  },
+  { header:'₪', accessorKey:'price', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
+    } },
+  { header:'₪/מ"ר', accessorKey:'pricePerSqm', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
+    } },
+  { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge variant={typeof value === 'number' && value < 0 ? 'error' : 'neutral'}>{fmtPct(value)}</Badge>
+    } },
+  { header:'ימי שוק (אחוזון)', accessorKey:'domPercentile', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{!!value ? `P${value}` : '—'}</Badge>
+    } },
+  { header:'תחרות (1ק"מ)', accessorKey:'competition1km', cell: info => {
+      const value = info.getValue() as string | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'ייעוד', accessorKey:'zoning', cell: info => {
+      const value = info.getValue() as string | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'יתרת זכויות', accessorKey:'remainingRightsSqm', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{value !== undefined && value !== null ? `~+${fmtNumber(value)} מ"ר` : '—'}</Badge>
+    } },
+  { header:'תכנית', accessorKey:'program', cell: info => {
+      const value = info.getValue() as string | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'היתר עדכני', accessorKey:'lastPermitQ', cell: info => {
+      const value = info.getValue() as string | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'קבצים', id:'docsCount', accessorFn: row => row.documents?.length ?? 0, cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{fmtNumber(value)}</Badge>
+    } },
+  { header:'רעש', accessorKey:'noiseLevel', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{!!value ? `${value}/5` : '—'}</Badge>
+    } },
+  { header:'אנטנה (מ")', accessorKey:'antennaDistanceM', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
+    } },
+  { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => {
+      const value = info.getValue() as boolean | undefined
+      return <Badge variant={value === undefined ? 'neutral' : value ? 'success' : 'error'}>{value === undefined ? '—' : value ? 'כן' : 'לא'}</Badge>
+    } },
+  { header:'מקלט (מ")', accessorKey:'shelterDistanceM', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
+    } },
+  { header:'סיכון', accessorKey:'riskFlags', cell: info => <RiskCell flags={info.getValue() as string[]}/> },
+  { header:'סטטוס נכס', accessorKey:'assetStatus', cell: info => {
+    const status = info.getValue() as string
+    if (!status) return <Badge variant="neutral">—</Badge>
+    const variant = status === 'done' ? 'success' : status === 'failed' ? 'error' : 'warning'
+    const label = status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
+    return <Badge variant={variant}>{label}</Badge>
+  }},
+  { header:'מחיר מודל', accessorKey:'modelPrice', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
+  { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge variant={typeof value === 'number' && value > 0 ? 'warning' : 'success'}>{fmtPct(value)}</Badge>
+    } },
+  { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{!!value ? `${value}%` : '—'}</Badge>
+    } },
+  { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
+    } },
+    { header:'תשואה', accessorKey:'capRatePct', cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{typeof value === 'number' ? `${value.toFixed(1)}%` : '—'}</Badge>
+    } },
+    { header:'—', id:'actions', cell: ({ row }) => (
+      <div className="flex gap-2">
+        <Link 
+          className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+          href={`/assets/${row.original.id}`}
+          aria-label={`צפה בפרטי נכס ${row.original.address}`}
+        >
+          👁️
+        </Link>
+        {onOpenAlert && (
+          <button
+            onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
+            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            title="הגדר התראות לנכס זה"
+            aria-label={`הגדר התראות לנכס ${row.original.address}`}
+          >
+            <Bell className="h-4 w-4" />
+          </button>
+        )}
+        {onExport && (
+          <button
+            onClick={e => { e.stopPropagation(); onExport(row.original) }}
+            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            aria-label={`ייצא נכס ${row.original.address}`}
+            title="ייצא נכס"
+          >
+            <Download className="h-4 w-4" />
+          </button>
+        )}
+        {onDelete && (
+          <button 
+            onClick={e => { e.stopPropagation(); onDelete(row.original.id) }} 
+            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            aria-label={`מחק נכס ${row.original.address}`}
+            title="מחק נכס"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    ) }
+  ]
+}
+
+interface VirtualizedTableProps {
+    data?: Asset[]
+    loading?: boolean
+    onDelete?: (id: number) => void
+  }
+
+export default function VirtualizedTable({ data = [], loading = false, onDelete }: VirtualizedTableProps){
+  const router = useRouter()
+  const [rowSelection, setRowSelection] = React.useState({})
+  const [alertModalOpen, setAlertModalOpen] = React.useState(false)
+  const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
+
+  const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset])
+
+  const handleOpenAlertModal = (assetId: number) => {
+    setSelectedAssetId(assetId)
+    setAlertModalOpen(true)
+  }
+
+  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete])
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { rowSelection },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
+    getCoreRowModel: getCoreRowModel()
+  })
+
+  const handleRowClick = (asset: Asset) => {
+    router.push(`/assets/${asset.id}`)
+  }
+
+  const handleExportSelected = () => {
+    const selected = table.getSelectedRowModel().rows.map(r => r.original)
+    exportAssetsCsv(selected)
+  }
+
+  const anySelected = table.getSelectedRowModel().rows.length > 0
+
+  // Virtualization setup
+  const parentRef = React.useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: data.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60, // Estimated row height
+    overscan: 10, // Number of items to render outside of the visible area
+  })
+
+  return (
+    <>
+      <div className="hidden sm:block">
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="p-2 flex justify-end">
+            <Button 
+              onClick={handleExportSelected} 
+              disabled={!anySelected} 
+              variant="outline"
+              aria-label="ייצא נכסים נבחרים"
+            >
+              <Download className="h-4 w-4 ms-2" /> ייצוא נבחרים
+            </Button>
+          </div>
+          <div 
+            ref={parentRef}
+            className="overflow-auto h-[600px]"
+            role="region" 
+            aria-label="טבלת נכסים"
+          >
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              <Table>
+                <THead className="sticky top-0 z-10 bg-card">
+                  <TR>
+                    {table.getFlatHeaders().map(h=>(
+                      <TH 
+                        key={h.id} 
+                        className={h.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                      >
+                        {flexRender(h.column.columnDef.header, h.getContext())}
+                      </TH>
+                    ))}
+                  </TR>
+                </THead>
+                <TBody>
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const row = table.getRowModel().rows[virtualRow.index]
+                    if (!row) return null
+                    
+                    return (
+                      <TR 
+                        key={row.id} 
+                        className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
+                        onClick={() => handleRowClick(row.original)}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`נכס ${row.original.address} - לחץ לפרטים`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            handleRowClick(row.original)
+                          }
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: `${virtualRow.size}px`,
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        {row.getVisibleCells().map(cell=>(
+                          <TD 
+                            key={cell.id} 
+                            className={cell.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TD>
+                        ))}
+                      </TR>
+                    )
+                  })}
+                </TBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Alert Modal */}
+      <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>הגדרת התראות לנכס</DialogTitle>
+          </DialogHeader>
+          {selectedAssetId && (
+            <AlertRulesManager assetId={selectedAssetId} />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}

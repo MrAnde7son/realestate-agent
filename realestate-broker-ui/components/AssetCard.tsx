@@ -70,7 +70,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
         </Link>
         <Button variant="outline" size="icon" onClick={() => exportAssetCsv(asset)}>
           <FileText className="h-4 w-4" />
-            <span className="sr-only">הפק דו&quot;ח</span>
+            <span className="sr-only">ייצוא פרטי נכס</span>
         </Button>
       </div>
     </Card>

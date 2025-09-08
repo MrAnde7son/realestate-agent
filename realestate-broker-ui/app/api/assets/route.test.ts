@@ -2,6 +2,18 @@ import { describe, it, expect, vi } from 'vitest'
 import { GET, POST, DELETE } from './route'
 import { NextRequest } from 'next/server'
 
+// Mock cookies
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(() => ({
+    get: vi.fn((name: string) => {
+      if (name === 'access_token') {
+        return { value: 'mock-token' }
+      }
+      return undefined
+    })
+  }))
+}))
+
 const originalFetch = global.fetch
 
 // Mock NextRequest
@@ -74,7 +86,15 @@ describe('/api/assets', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 201,
-        json: async () => ({ id: 999, status: 'pending', message: 'ok' })
+        json: async () => ({ 
+          id: 999, 
+          status: 'pending', 
+          message: 'ok',
+          address: 'New St 5',
+          city: 'תל אביב',
+          street: 'New St',
+          number: 5
+        })
       })
     })
 

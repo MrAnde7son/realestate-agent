@@ -128,7 +128,7 @@ describe('AssetsPage', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('0 assets')).toBeInTheDocument()
+      expect(screen.getByText('לא נמצאו נכסים')).toBeInTheDocument()
     })
 
     consoleSpy.mockRestore()
@@ -176,7 +176,7 @@ describe('AssetsPage', () => {
       screen.queryByPlaceholderText('חיפוש בכתובת או עיר...')
     ).toBeNull()
 
-    const toggleButton = screen.getByRole('button', { name: /toggle filters/i })
+    const toggleButton = screen.getByRole('button', { name: /פתח סינון/i })
     await act(async () => {
       fireEvent.click(toggleButton)
     })
@@ -354,6 +354,13 @@ describe('AssetsPage', () => {
 
     mockUseRouter.replace.mockClear()
 
+    // Open filters first (check if already open)
+    const toggleButton = screen.queryByRole('button', { name: /פתח סינון/i }) || 
+                         screen.getByRole('button', { name: /סגור סינון/i })
+    if (toggleButton.getAttribute('aria-label')?.includes('פתח')) {
+      fireEvent.click(toggleButton)
+    }
+
     // Open city select and choose Tel Aviv
     fireEvent.click(screen.getByText('כל הערים'))
     fireEvent.click(screen.getByText('תל אביב'))
@@ -375,6 +382,13 @@ describe('AssetsPage', () => {
 
     mockUseRouter.replace.mockClear()
 
+    // Open filters first (check if already open)
+    const toggleButton = screen.queryByRole('button', { name: /פתח סינון/i }) || 
+                         screen.getByRole('button', { name: /סגור סינון/i })
+    if (toggleButton.getAttribute('aria-label')?.includes('פתח')) {
+      fireEvent.click(toggleButton)
+    }
+
     fireEvent.click(screen.getByText('כל הסוגים'))
     fireEvent.click(screen.getByText('דירה'))
 
@@ -394,6 +408,13 @@ describe('AssetsPage', () => {
     })
 
     mockUseRouter.replace.mockClear()
+
+    // Open filters first (check if already open)
+    const toggleButton = screen.queryByRole('button', { name: /פתח סינון/i }) || 
+                         screen.getByRole('button', { name: /סגור סינון/i })
+    if (toggleButton.getAttribute('aria-label')?.includes('פתח')) {
+      fireEvent.click(toggleButton)
+    }
 
     const searchInput = screen.getByPlaceholderText('חיפוש בכתובת או עיר...')
     fireEvent.change(searchInput, { target: { value: 'Street' } })

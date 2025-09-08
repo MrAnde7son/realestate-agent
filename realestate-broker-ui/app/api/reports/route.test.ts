@@ -5,6 +5,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
+// Mock cookies
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(() => ({
+    get: vi.fn((name: string) => {
+      if (name === 'access_token') {
+        return { value: 'mock-token' }
+      }
+      return undefined
+    })
+  }))
+}))
+
 // Mock fs module for tests
 vi.mock('fs', () => ({
   default: {
@@ -46,6 +58,18 @@ describe('reports API', () => {
   });
 
   it('creates a new report', async () => {
+    // Mock the backend fetch call
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ 
+        id: 1, 
+        asset_id: assets[0].id, 
+        filename: 'test-report.pdf',
+        status: 'completed',
+        pages: 5,
+        file_size: 1024
+      }), { status: 201 })
+    );
+
     const req = new Request('http://127.0.0.1/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,21 +78,24 @@ describe('reports API', () => {
     
     const res = await POST(req);
     const data = await res.json();
+
+    fetchMock.mockRestore();
     
     // Check basic response structure
     expect(res.status).toBe(201);
-    expect(data.report.assetId).toBe(assets[0].id);
-    expect(data.report.filename).toBeDefined();
+    expect(data.id).toBeDefined();
+    expect(data.asset_id).toBe(assets[0].id);
+    expect(data.filename).toBeDefined();
     
     // If backend is available, check for backend-specific fields
-    if (data.report.status) {
-      expect(data.report.status).toBe('completed');
-      expect(data.report.pages).toBeGreaterThan(0);
-      expect(data.report.fileSize).toBeGreaterThan(0);
+    if (data.status) {
+      expect(data.status).toBe('completed');
+      expect(data.pages).toBeGreaterThan(0);
+      expect(data.file_size).toBeGreaterThan(0);
     } else {
       // Local fallback - check for local-specific fields
-      expect(data.report.createdAt).toBeDefined();
-      expect(data.report.address).toBeDefined();
+      expect(data.createdAt).toBeDefined();
+      expect(data.address).toBeDefined();
     }
   });
 

@@ -67,7 +67,7 @@ export default function AssetsPage() {
     const val = searchParams.get("priceMax");
     return val ? Number(val) : undefined;
   });
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, refreshUser } = useAuth();
   const onboardingState = selectOnboardingState(user);
   const router = useRouter();
   const pathname = usePathname();
@@ -341,6 +341,8 @@ export default function AssetsPage() {
         setOpen(false);
         // Refresh assets to show the new asset
         await fetchAssets();
+        // Refresh user data to update onboarding progress
+        await refreshUser();
       } else {
         const errorData = await response.json();
         console.error("Failed to create asset:", errorData);
@@ -356,9 +358,21 @@ export default function AssetsPage() {
 
   // Show filters by default on desktop, hide on mobile
   useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth >= 768) {
-      setFiltersOpen(true);
-    }
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        setFiltersOpen(window.innerWidth >= 768);
+      }
+    };
+
+    // Set initial state
+    handleResize();
+
+    // Listen for resize events
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   const cityOptions = React.useMemo(

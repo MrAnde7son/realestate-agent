@@ -173,6 +173,10 @@ def auth_profile(request):
     """Get current user profile."""
     try:
         user = request.user
+        
+        # Get onboarding progress
+        onboarding_progress, _ = OnboardingProgress.objects.get_or_create(user=user)
+        
         return Response(
             {
                 "user": {
@@ -197,6 +201,12 @@ def auth_profile(request):
                     "notify_whatsapp": getattr(user, "notify_whatsapp", False),
                     "notify_urgent": getattr(user, "notify_urgent", False),
                     "notification_time": getattr(user, "notification_time", ""),
+                    "onboarding_flags": {
+                        "connect_payment": onboarding_progress.connect_payment,
+                        "add_first_asset": onboarding_progress.add_first_asset,
+                        "generate_first_report": onboarding_progress.generate_first_report,
+                        "set_one_alert": onboarding_progress.set_one_alert,
+                    }
                 }
             }
         )
@@ -224,6 +234,9 @@ def auth_update_profile(request):
 
         user.save()
 
+        # Get onboarding progress
+        onboarding_progress, _ = OnboardingProgress.objects.get_or_create(user=user)
+        
         return Response(
             {
                 "user": {
@@ -235,6 +248,12 @@ def auth_update_profile(request):
                     "company": getattr(user, "company", ""),
                     "role": getattr(user, "role", ""),
                     "is_verified": getattr(user, "is_verified", False),
+                    "onboarding_flags": {
+                        "connect_payment": onboarding_progress.connect_payment,
+                        "add_first_asset": onboarding_progress.add_first_asset,
+                        "generate_first_report": onboarding_progress.generate_first_report,
+                        "set_one_alert": onboarding_progress.set_one_alert,
+                    }
                 }
             }
         )

@@ -710,7 +710,7 @@ export default function AssetsPage() {
           onClick={() => setOpen(true)}
         >
           <Plus className="h-6 w-6" />
-          <span className="sr-only">הוספת נכס</span>
+          <span className="sr-only">הוסף נכס</span>
         </Button>
       </div>
     </DashboardLayout>

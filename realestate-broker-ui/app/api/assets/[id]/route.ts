@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { normalizeFromBackend } from '@/lib/normalizers/asset'
-import { getMockAsset } from '@/lib/mock-assets'
 
 export async function GET(
   request: NextRequest,
@@ -37,11 +36,6 @@ export async function GET(
     }
   } catch (error) {
     console.error('Error fetching asset from backend:', error)
-  }
-
-  const localAsset = getMockAsset(Number(id))
-  if (localAsset) {
-    return NextResponse.json({ asset: localAsset })
   }
 
   return new NextResponse('Not found', { status: 404, statusText: 'Not Found' })

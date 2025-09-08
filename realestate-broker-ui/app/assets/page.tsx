@@ -39,17 +39,14 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import type { Asset } from "@/lib/normalizers/asset";
-import { mockAssets } from "@/lib/mock-assets";
 import AssetsTable from "@/components/AssetsTable";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 const DEFAULT_RADIUS_METERS = 100;
 
-const initialAssets = process.env.NODE_ENV === "test" ? [] : mockAssets;
-
 export default function AssetsPage() {
-  const [assets, setAssets] = useState<Asset[]>(initialAssets);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);

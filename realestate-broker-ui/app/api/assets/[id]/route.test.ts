@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from './route'
 import { NextRequest } from 'next/server'
-import { mockAssets } from '@/lib/mock-assets'
 
 process.env.BACKEND_URL = 'http://127.0.0.1:8000'
 
@@ -61,19 +60,6 @@ describe('/api/assets/[id]', () => {
       expect(global.fetch).toHaveBeenCalledWith(
         'http://127.0.0.1:8000/api/assets/101'
       )
-    })
-
-    it('falls back to local data when backend fails', async () => {
-      ;(global.fetch as any).mockRejectedValue(new Error('Backend unavailable'))
-
-      const id = mockAssets[0].id.toString()
-      const request = new NextRequest(`http://127.0.0.1:3000/api/assets/${id}`)
-
-      const response = await GET(request, { params: { id } })
-      const data = await response.json()
-
-      expect(response.status).toBe(200)
-      expect(data.asset.address).toBe(mockAssets[0].address)
     })
 
     it('handles backend timeout gracefully', async () => {

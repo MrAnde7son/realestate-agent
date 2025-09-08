@@ -20,6 +20,7 @@ import {
   ALERT_CHANNEL_LABELS,
   ALERT_DEFAULT_PARAMS,
   ALERT_PARAM_VALIDATION,
+  ALERT_PARAM_LABELS,
   type AlertType,
   type AlertFrequency,
   type AlertScope,
@@ -149,18 +150,28 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
     
     if (paramConfig.type === 'number' || paramConfig.type === 'integer') {
       return (
-        <Input
-          type="number"
-          value={value}
-          min={paramConfig.min}
-          max={paramConfig.max}
-          onChange={(e) => {
-            const newValue = paramConfig.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value)
-            updateRule(rules.indexOf(rule), {
-              params: { ...rule.params, [paramKey]: newValue }
-            })
-          }}
-        />
+        <div className="space-y-1">
+          <Input
+            type="number"
+            value={value}
+            min={paramConfig.min}
+            max={paramConfig.max}
+            onChange={(e) => {
+              const newValue = paramConfig.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value)
+              updateRule(rules.indexOf(rule), {
+                params: { ...rule.params, [paramKey]: newValue }
+              })
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            {paramKey === 'pct' && 'אחוז הירידה הנדרש כדי להפעיל התראה'}
+            {paramKey === 'delta_pct' && 'אחוז השינוי הנדרש במחיר למ"ר'}
+            {paramKey === 'window_days' && 'מספר הימים לחישוב הממוצע'}
+            {paramKey === 'radius_km' && 'רדיוס החיפוש בקילומטרים'}
+            {paramKey === 'radius_m' && 'רדיוס החיפוש במטרים'}
+            {paramKey === 'misses' && 'מספר הפעמים שהנכס צריך להיות חסר'}
+          </p>
+        </div>
       )
     }
     
@@ -202,6 +213,19 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Information about notification setup */}
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">הגדרת ערוצי התראות</h4>
+          <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+            כדי לקבל התראות, וודא שהגדרת את פרטי הקשר שלך:
+          </p>
+          <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+            <li>• <strong>אימייל:</strong> מוגדר בפרופיל המשתמש</li>
+            <li>• <strong>טלפון:</strong> מוגדר בפרופיל המשתמש (לווטסאפ) - <a href="/profile" className="underline">לחץ כאן לעריכה</a></li>
+            <li>• <strong>העדפות התראות:</strong> מוגדרות בפרופיל המשתמש - <a href="/profile" className="underline">לחץ כאן לעריכה</a></li>
+          </ul>
+        </div>
+
         {rules.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -332,7 +356,7 @@ export default function AlertRulesManager({ assetId }: AlertRulesManagerProps) {
                       <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                         {Object.entries(ALERT_PARAM_VALIDATION[rule.trigger_type]).map(([paramKey, paramConfig]) => (
                           <div key={paramKey} className="space-y-2">
-                            <Label>{paramKey}</Label>
+                            <Label>{paramConfig.label || ALERT_PARAM_LABELS[paramKey as keyof typeof ALERT_PARAM_LABELS] || paramKey}</Label>
                             {renderParameterInput(rule, paramKey, paramConfig)}
                           </div>
                         ))}

@@ -6,6 +6,9 @@ export interface User {
   last_name: string
   company: string
   role: string
+  phone?: string
+  notify_email?: boolean
+  notify_whatsapp?: boolean
   is_verified: boolean
   created_at?: string
 }
@@ -36,6 +39,9 @@ export interface ProfileUpdateData {
   last_name?: string
   company?: string
   role?: string
+  phone?: string
+  notify_email?: boolean
+  notify_whatsapp?: boolean
 }
 
 export interface ChangePasswordData {

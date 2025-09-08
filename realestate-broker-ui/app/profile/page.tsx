@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { User, Mail, Phone, MapPin, Building, Shield, Key, Star, Save, Edit, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
@@ -22,6 +23,9 @@ const profileSchema = z.object({
   last_name: z.string().min(2, 'שם משפחה חייב להכיל לפחות 2 תווים'),
   company: z.string().optional(),
   role: z.string().optional(),
+  phone: z.string().optional(),
+  notify_email: z.boolean().optional(),
+  notify_whatsapp: z.boolean().optional(),
 })
 
 const changePasswordSchema = z.object({
@@ -60,6 +64,9 @@ export default function ProfilePage() {
       last_name: user?.last_name || '',
       company: user?.company || '',
       role: user?.role || '',
+      phone: user?.phone || '',
+      notify_email: user?.notify_email || false,
+      notify_whatsapp: user?.notify_whatsapp || false,
     },
   })
 
@@ -80,6 +87,9 @@ export default function ProfilePage() {
         last_name: user.last_name || '',
         company: user.company || '',
         role: user.role || '',
+        phone: user.phone || '',
+        notify_email: user.notify_email || false,
+        notify_whatsapp: user.notify_whatsapp || false,
       })
     }
   }, [user, form])
@@ -204,6 +214,12 @@ export default function ProfilePage() {
                   <Mail className="h-4 w-4 text-muted-foreground" />
                   <span>{user.email}</span>
                 </div>
+                {user.phone && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span>{user.phone}</span>
+                  </div>
+                )}
                 {user.company && (
                   <div className="flex items-center gap-3 text-sm">
                     <Building className="h-4 w-4 text-muted-foreground" />
@@ -307,6 +323,57 @@ export default function ProfilePage() {
                         {...form.register('role')}
                         disabled={!isEditing}
                         placeholder="תפקיד (אופציונלי)"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">טלפון</Label>
+                    <Input
+                      id="phone"
+                      {...form.register('phone')}
+                      disabled={!isEditing}
+                      placeholder="מספר טלפון (להתראות ווטסאפ)"
+                    />
+                    {form.formState.errors.phone && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.phone.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">העדפות התראות</h3>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="notify_email">התראות בדוא״ל</Label>
+                        <p className="text-sm text-muted-foreground">
+                          קבל התראות על שינויים במחירים ועדכונים
+                        </p>
+                      </div>
+                      <Switch
+                        id="notify_email"
+                        checked={form.watch('notify_email')}
+                        onCheckedChange={(checked) => form.setValue('notify_email', checked)}
+                        disabled={!isEditing}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="notify_whatsapp">התראות בווטסאפ</Label>
+                        <p className="text-sm text-muted-foreground">
+                          קבל התראות מיידיות בווטסאפ
+                        </p>
+                      </div>
+                      <Switch
+                        id="notify_whatsapp"
+                        checked={form.watch('notify_whatsapp')}
+                        onCheckedChange={(checked) => form.setValue('notify_whatsapp', checked)}
+                        disabled={!isEditing}
                       />
                     </div>
                   </div>

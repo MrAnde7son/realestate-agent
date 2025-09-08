@@ -57,21 +57,31 @@ export const ALERT_DEFAULT_PARAMS = {
   [ALERT_TYPES.LISTING_REMOVED]: { misses: 2 },
 } as const
 
+// Hebrew labels for parameters
+export const ALERT_PARAM_LABELS = {
+  pct: 'אחוז ירידה',
+  delta_pct: 'אחוז שינוי',
+  window_days: 'ימים לחישוב',
+  radius_km: 'רדיוס בקילומטרים',
+  radius_m: 'רדיוס במטרים',
+  misses: 'מספר פעמים חסר',
+} as const
+
 // Validation rules for parameters
 export const ALERT_PARAM_VALIDATION = {
   [ALERT_TYPES.PRICE_DROP]: {
-    pct: { min: 0, max: 100, type: 'number' }
+    pct: { min: 0, max: 100, type: 'number', label: 'אחוז ירידה' }
   },
   [ALERT_TYPES.MARKET_TREND]: {
-    delta_pct: { min: 0, max: 100, type: 'number' },
-    window_days: { min: 7, max: 180, type: 'integer' },
-    radius_km: { min: 0.1, max: 5, type: 'number' }
+    delta_pct: { min: 0, max: 100, type: 'number', label: 'אחוז שינוי' },
+    window_days: { min: 7, max: 180, type: 'integer', label: 'ימים לחישוב' },
+    radius_km: { min: 0.1, max: 5, type: 'number', label: 'רדיוס בקילומטרים' }
   },
   [ALERT_TYPES.NEW_GOV_TX]: {
-    radius_m: { min: 50, max: 2000, type: 'integer' }
+    radius_m: { min: 50, max: 2000, type: 'integer', label: 'רדיוס במטרים' }
   },
   [ALERT_TYPES.LISTING_REMOVED]: {
-    misses: { min: 1, max: 10, type: 'integer' }
+    misses: { min: 1, max: 10, type: 'integer', label: 'מספר פעמים חסר' }
   },
 } as const
 

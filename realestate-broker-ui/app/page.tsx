@@ -37,7 +37,7 @@ import { useAuth } from "@/lib/auth-context";
 import { fmtCurrency, fmtNumber } from "@/lib/utils";
 import { useDashboardData } from "@/lib/dashboard";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 import {
   LineChart,
@@ -76,7 +76,7 @@ export default function HomePage() {
   const [alertsLoading, setAlertsLoading] = useState(false);
 
   // Fetch alerts data
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     if (!isAuthenticated) return;
     
     try {
@@ -100,13 +100,13 @@ export default function HomePage() {
     } finally {
       setAlertsLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchAlerts();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchAlerts]);
 
   const handleProtectedAction = (action: string) => {
     if (!isAuthenticated) {

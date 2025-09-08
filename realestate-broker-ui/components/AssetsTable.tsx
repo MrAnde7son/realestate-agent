@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Trash2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import AssetCard from './AssetCard'
 
 function RiskCell({ flags }: { flags?: string[] }){
   if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
@@ -46,7 +47,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         type="checkbox"
         checked={table.getIsAllRowsSelected()}
         onChange={table.getToggleAllRowsSelectedHandler()}
-        aria-label="Select all"
+        aria-label="בחר הכל"
         className="size-4"
       />
     ),
@@ -56,7 +57,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         checked={row.getIsSelected()}
         onClick={e => e.stopPropagation()}
         onChange={row.getToggleSelectedHandler()}
-        aria-label="Select row"
+        aria-label="בחר שורה"
         className="size-4"
       />
     ),
@@ -219,34 +220,43 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
   const anySelected = table.getSelectedRowModel().rows.length > 0
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[linear-gradient(180deg,var(--panel),var(--card))] overflow-x-auto">
-      <div className="p-2 flex justify-end">
-        <Button onClick={handleExportSelected} disabled={!anySelected} variant="outline">
-          <Download className="h-4 w-4" /> ייצוא נבחרים
-        </Button>
-      </div>
-      <Table>
-        <THead>
-          <TR>
-            {table.getFlatHeaders().map(h=>(
-              <TH key={h.id} className={h.column.id==='address'?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
-                {flexRender(h.column.columnDef.header, h.getContext())}
-              </TH>
-            ))}
-          </TR>
-        </THead>
-        <TBody>
-          {table.getRowModel().rows.map(row=>(
-            <TR key={row.id} className="cursor-pointer hover:bg-blue-50/50 hover:shadow-sm transition-all duration-200 !hover:bg-blue-50" onClick={() => handleRowClick(row.original)}>
-              {row.getVisibleCells().map(cell=>(
-                <TD key={cell.id} className={cell.column.id==='address'?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TD>
+    <>
+      <div className="hidden sm:block">
+        <div className="rounded-xl border border-[var(--border)] bg-[linear-gradient(180deg,var(--panel),var(--card))] overflow-x-auto">
+          <div className="p-2 flex justify-end">
+            <Button onClick={handleExportSelected} disabled={!anySelected} variant="outline">
+              <Download className="h-4 w-4" /> ייצוא נבחרים
+            </Button>
+          </div>
+          <Table>
+            <THead>
+              <TR>
+                {table.getFlatHeaders().map(h=>(
+                  <TH key={h.id} className={h.column.id==='address'?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
+                    {flexRender(h.column.columnDef.header, h.getContext())}
+                  </TH>
+                ))}
+              </TR>
+            </THead>
+            <TBody>
+              {table.getRowModel().rows.map(row=>(
+                <TR key={row.id} className="cursor-pointer hover:bg-blue-50/50 hover:shadow-sm transition-all duration-200 !hover:bg-blue-50" onClick={() => handleRowClick(row.original)}>
+                  {row.getVisibleCells().map(cell=>(
+                    <TD key={cell.id} className={cell.column.id==='address'?'sticky right-0 bg-[linear-gradient(180deg,var(--panel),var(--card))]':''}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TD>
+                  ))}
+                </TR>
               ))}
-            </TR>
-          ))}
-        </TBody>
-      </Table>
-    </div>
+            </TBody>
+          </Table>
+        </div>
+      </div>
+      <div className="sm:hidden space-y-2">
+        {data.map(asset => (
+          <AssetCard key={asset.id} asset={asset} />
+        ))}
+      </div>
+    </>
   )
 }

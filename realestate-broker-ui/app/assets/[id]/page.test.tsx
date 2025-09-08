@@ -4,7 +4,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AssetDetailPage from './page'
 import { useRouter } from 'next/navigation'
 
+const mockUseAuth = {
+  isAuthenticated: true,
+  user: { id: '1', onboarding_flags: {} },
+}
+
 vi.mock('next/navigation')
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => mockUseAuth,
+}))
 vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
 }))

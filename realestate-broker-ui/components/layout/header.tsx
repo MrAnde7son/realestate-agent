@@ -110,9 +110,9 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                         key={item.name}
                         href={item.href}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground mobile-nav-item",
+                          "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-[var(--brand-teal)]/10 hover:text-[var(--brand-teal)] mobile-nav-item",
                           isActive 
-                            ? "bg-accent text-accent-foreground" 
+                            ? "bg-[var(--brand-teal)]/10 text-[var(--brand-teal)]" 
                             : "text-muted-foreground"
                         )}
                         onClick={() => setMobileSidebarOpen(false)}

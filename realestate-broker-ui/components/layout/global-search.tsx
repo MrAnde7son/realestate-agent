@@ -112,7 +112,7 @@ export function GlobalSearch() {
               <CommandItem
                 key={item.href}
                 onSelect={() => runCommand(() => router.push(item.href))}
-                className="group hover:bg-accent/80"
+                className="group hover:bg-[var(--brand-teal)]/80"
               >
                 <span className="mr-3 text-xl group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
                 <div className="flex-1">

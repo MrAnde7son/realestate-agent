@@ -118,11 +118,11 @@ const CommandItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm outline-none transition-all duration-200",
-      "text-foreground bg-transparent hover:bg-accent/50 hover:text-accent-foreground",
-      "aria-selected:bg-accent aria-selected:text-accent-foreground",
+      "text-foreground bg-transparent hover:bg-[var(--brand-teal)]/50 hover:text-[var(--brand-teal)]",
+      "aria-selected:bg-[var(--brand-teal)]/50 aria-selected:text-[var(--brand-teal)]",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-      "focus:bg-accent/50 focus:text-accent-foreground",
-      "active:bg-accent active:text-accent-foreground",
+      "focus:bg-[var(--brand-teal)]/50 focus:text-[var(--brand-teal)]",
+      "active:bg-[var(--brand-teal)] active:text-[var(--brand-teal)]",
       className
     )}
     {...props}

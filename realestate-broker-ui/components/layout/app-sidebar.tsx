@@ -145,7 +145,7 @@ export default function AppSidebar({
                   "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
                   active
                     ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)] font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                    : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8"
                 )}
               >
                 <item.icon

@@ -3,6 +3,7 @@ import { ReactNode } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/auth-context'
 import { Toaster } from '@/components/ui/toaster'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import './globals.css'
 
 export const metadata: Metadata = { 
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <AuthProvider>
             {children}
             <Toaster />
+            <ConfirmationDialog />
           </AuthProvider>
         </ThemeProvider>
       </body>

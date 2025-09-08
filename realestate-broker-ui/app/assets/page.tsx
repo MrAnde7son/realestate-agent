@@ -45,6 +45,8 @@ import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/use-confirm";
 
 const DEFAULT_RADIUS_METERS = 100;
 
@@ -72,6 +74,8 @@ export default function AssetsPage() {
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
@@ -212,7 +216,15 @@ export default function AssetsPage() {
   };
 
   const handleDeleteAsset = async (assetId: number) => {
-    if (!confirm("האם אתה בטוח שברצונך למחוק נכס זה?")) {
+    const confirmed = await confirm({
+      title: "מחיקת נכס",
+      description: "האם אתה בטוח שברצונך למחוק נכס זה? פעולה זו לא ניתנת לביטול.",
+      confirmText: "מחק",
+      cancelText: "ביטול",
+      variant: "destructive",
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -226,14 +238,26 @@ export default function AssetsPage() {
 
       if (response.ok) {
         setAssets(prev => prev.filter(a => a.id !== assetId));
-        alert("הנכס נמחק בהצלחה");
+        toast({
+          title: "הצלחה",
+          description: "הנכס נמחק בהצלחה",
+          variant: "success",
+        });
       } else {
         const error = await response.json();
-        alert(`שגיאה במחיקת הנכס: ${error.error}`);
+        toast({
+          title: "שגיאה",
+          description: `שגיאה במחיקת הנכס: ${error.error}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error deleting asset:", error);
-      alert("שגיאה במחיקת הנכס");
+      toast({
+        title: "שגיאה",
+        description: "שגיאה במחיקת הנכס",
+        variant: "destructive",
+      });
     } finally {
       setDeleting(null);
     }
@@ -344,12 +368,27 @@ export default function AssetsPage() {
         await fetchAssets();
         // Refresh user data to update onboarding progress
         await refreshUser();
+        toast({
+          title: "הצלחה",
+          description: "הנכס נוסף בהצלחה",
+          variant: "success",
+        });
       } else {
         const errorData = await response.json();
         console.error("Failed to create asset:", errorData);
+        toast({
+          title: "שגיאה",
+          description: `שגיאה ביצירת הנכס: ${errorData.error || 'שגיאה לא ידועה'}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error creating asset:", error);
+      toast({
+        title: "שגיאה",
+        description: "שגיאה ביצירת הנכס",
+        variant: "destructive",
+      });
     }
   };
 

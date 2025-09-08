@@ -162,10 +162,10 @@ export default function HomePage() {
         />
 
         {isAuthenticated && (
-          <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             <OnboardingProgress state={onboardingState} />
             <OnboardingChecklist state={onboardingState} />
-          </>
+          </div>
         )}
 
         {/* Login Prompt for Guests */}
@@ -376,7 +376,7 @@ export default function HomePage() {
                     <Badge
                       variant={
                         area.trend > 5
-                          ? 'primary'
+                          ? 'default'
                           : area.trend > 3
                           ? 'accent'
                           : 'neutral'

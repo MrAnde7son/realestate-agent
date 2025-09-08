@@ -39,9 +39,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const refreshUser = async () => {
     try {
-      if (authAPI.isAuthenticated()) {
+      // Check if we have a token in localStorage or cookies
+      const token = authAPI.getAccessToken()
+      
+      if (token) {
         const response = await authAPI.getProfile()
         setUser(response.user)
+      } else {
+        setUser(null)
       }
     } catch (error) {
       console.error('Failed to refresh user:', error)

@@ -332,7 +332,7 @@ describe('Asset Management Integration', () => {
 
       // Should show empty state after loading fails
       await waitFor(() => {
-        expect(screen.getByTestId('asset-count')).toHaveTextContent('0 assets')
+        expect(screen.getByText('לא נמצאו נכסים')).toBeInTheDocument()
       })
 
       consoleSpy.mockRestore()
@@ -358,8 +358,7 @@ describe('Asset Management Integration', () => {
       
       // Should show results after loading
       await waitFor(() => {
-        expect(screen.getByTestId('assets-table')).toBeInTheDocument()
-        expect(screen.getByText('0 assets')).toBeInTheDocument()
+        expect(screen.getByText('לא נמצאו נכסים')).toBeInTheDocument()
       }, { timeout: 200 })
     })
 

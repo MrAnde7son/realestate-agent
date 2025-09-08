@@ -67,7 +67,7 @@ export default function AssetsPage() {
     const val = searchParams.get("priceMax");
     return val ? Number(val) : undefined;
   });
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, refreshUser } = useAuth();
   const onboardingState = selectOnboardingState(user);
   const router = useRouter();
   const pathname = usePathname();
@@ -341,6 +341,8 @@ export default function AssetsPage() {
         setOpen(false);
         // Refresh assets to show the new asset
         await fetchAssets();
+        // Refresh user data to update onboarding progress
+        await refreshUser();
       } else {
         const errorData = await response.json();
         console.error("Failed to create asset:", errorData);
@@ -356,9 +358,21 @@ export default function AssetsPage() {
 
   // Show filters by default on desktop, hide on mobile
   useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth >= 768) {
-      setFiltersOpen(true);
-    }
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        setFiltersOpen(window.innerWidth >= 768);
+      }
+    };
+
+    // Set initial state
+    handleResize();
+
+    // Listen for resize events
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   const cityOptions = React.useMemo(
@@ -409,22 +423,23 @@ export default function AssetsPage() {
       <div className="p-6 space-y-6">
         {isAuthenticated && <OnboardingProgress state={onboardingState} />}
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">רשימת נכסים</h1>
+            <h1 className="text-3xl font-bold text-foreground">רשימת נכסים</h1>
             <p className="text-muted-foreground">
-              {assets.length} נכסים עם נתוני שמאות ותכנון מלאים
+              {loading ? 'טוען נכסים...' : `${assets.length} נכסים עם נתוני שמאות ותכנון מלאים`}
             </p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <Button onClick={fetchAssets} variant="outline" disabled={loading}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className={`h-4 w-4 ms-2 ${loading ? 'animate-spin' : ''}`} />
               רענן
             </Button>
             {isAuthenticated ? (
               <Sheet open={open} onOpenChange={setOpen}>
                 <SheetTrigger asChild>
-                  <Button className="bg-[var(--brand-teal)] text-white hover:bg-[color-mix(in oklab, var(--brand-teal), black 10%)]">
+                  <Button className="bg-brand-teal text-white hover:bg-brand-teal/90">
+                    <Plus className="h-4 w-4 ms-2" />
                     הוסף נכס חדש
                   </Button>
                 </SheetTrigger>
@@ -568,7 +583,7 @@ export default function AssetsPage() {
               </Sheet>
             ) : (
               <Button onClick={handleProtectedAction}>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4 ms-2" />
                 התחבר להוספת נכס
               </Button>
             )}
@@ -576,7 +591,7 @@ export default function AssetsPage() {
         </div>
 
         {/* Filters */}
-        <Card className="border-0 shadow-sm bg-gray-50/50">
+        <Card variant="outlined" className="bg-muted/30">
           <CardHeader className="pb-4 flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-4 w-4" />
@@ -587,13 +602,13 @@ export default function AssetsPage() {
               size="icon"
               className="md:hidden"
               onClick={() => setFiltersOpen((prev) => !prev)}
+              aria-label={filtersOpen ? 'סגור סינון' : 'פתח סינון'}
             >
               {filtersOpen ? (
                 <ChevronUp className="h-4 w-4" />
               ) : (
                 <ChevronDown className="h-4 w-4" />
               )}
-              <span className="sr-only">Toggle filters</span>
             </Button>
           </CardHeader>
           {filtersOpen && (
@@ -602,13 +617,14 @@ export default function AssetsPage() {
               <div className="space-y-2">
                 <Label htmlFor="search">חיפוש</Label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="search"
                     placeholder="חיפוש בכתובת או עיר..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10"
+                    className="pr-10 text-right"
+                    dir="rtl"
                   />
                 </div>
               </div>
@@ -691,9 +707,32 @@ export default function AssetsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-8 w-8 animate-spin" />
-                <span className="ml-2">טוען נכסים...</span>
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
+                <div className="text-center">
+                  <p className="text-muted-foreground">טוען נכסים...</p>
+                  <p className="text-sm text-muted-foreground">אנא המתן בזמן שאנחנו מביאים את הנתונים העדכניים</p>
+                </div>
+              </div>
+            ) : filteredAssets.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <Search className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
+                  <p className="text-muted-foreground">
+                    {search || city !== 'all' || typeFilter !== 'all' || priceMin || priceMax
+                      ? 'נסה לשנות את הסינון או החיפוש'
+                      : 'אין נכסים זמינים כרגע'}
+                  </p>
+                  {!search && city === 'all' && typeFilter === 'all' && !priceMin && !priceMax && (
+                    <Button className="mt-4" onClick={() => setOpen(true)}>
+                      <Plus className="h-4 w-4 ms-2" />
+                      הוסף נכס ראשון
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : (
               <AssetsTable data={filteredAssets} loading={loading} onDelete={handleDeleteAsset} />
@@ -710,11 +749,11 @@ export default function AssetsPage() {
 
         <Button
           size="icon"
-          className="fixed bottom-4 right-4 rounded-full h-14 w-14 sm:hidden"
+          className="fixed bottom-4 right-4 rounded-full h-14 w-14 sm:hidden bg-brand-teal hover:bg-brand-teal/90 shadow-lg z-50"
           onClick={() => setOpen(true)}
+          aria-label="הוספת נכס חדש"
         >
           <Plus className="h-6 w-6" />
-          <span className="sr-only">הוספת נכס חדש</span>
         </Button>
       </div>
     </DashboardLayout>

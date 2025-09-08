@@ -24,7 +24,21 @@ describe('AlertsPage', () => {
   beforeEach(() => {
     global.fetch = vi.fn(() =>
       Promise.resolve({
-        json: () => Promise.resolve({ rows: [] }),
+        ok: true,
+        json: () => Promise.resolve({ 
+          alerts: [
+            {
+              id: '1',
+              type: 'price_drop',
+              priority: 'high',
+              title: 'ירידת מחיר',
+              message: 'המחיר ירד ב-5%',
+              isRead: false,
+              createdAt: new Date().toISOString(),
+              assetId: '1'
+            }
+          ]
+        }),
       } as any)
     ) as any;
   });
@@ -98,9 +112,8 @@ describe('AlertsPage', () => {
     });
     
     // Check that some alert content is displayed
-    expect(screen.getByText('ירידת מחיר בנכס')).toBeInTheDocument();
-    expect(screen.getByText('נכס חדש התווסף')).toBeInTheDocument();
-    expect(screen.getByText('שינוי בשוק הנדל״ן')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'ירידת מחיר' })).toBeInTheDocument();
+    expect(screen.getByText('המחיר ירד ב-5%')).toBeInTheDocument();
   });
 
   it('displays the mark all as read button when there are unread alerts', async () => {
@@ -134,7 +147,7 @@ describe('AlertsPage', () => {
     const priceDropBadge = within(filterCard).getByText('ירידת מחיר');
     fireEvent.click(priceDropBadge);
 
-    expect(within(alertsCard).getByText('ירידת מחיר בנכס')).toBeInTheDocument();
+    expect(within(alertsCard).getByText('ירידת מחיר')).toBeInTheDocument();
     expect(within(alertsCard).queryByText('עדכון מסמכים')).not.toBeInTheDocument();
   });
 

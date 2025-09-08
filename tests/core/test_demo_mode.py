@@ -39,7 +39,7 @@ def test_demo_start_populates_assets_endpoint():
     get_request = factory.get("/api/assets/")
     response = views.assets(get_request)
     assert response.status_code == 200
-    data = json.loads(response.content)
+    data = response.data
     assert len(data.get("rows", [])) >= 2
 
 

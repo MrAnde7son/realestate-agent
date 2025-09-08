@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import jsPDF from 'jspdf';
 import fs from 'fs';
 import path from 'path';
@@ -9,7 +10,13 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 export async function GET(req: Request) {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/reports/`, { cache: 'no-store' });
+    const token = cookies().get('access_token')?.value;
+    const res = await fetch(`${BACKEND_URL}/api/reports/`, { 
+      cache: 'no-store',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      }
+    });
     if (res.ok) {
       const data = await res.json();
       const backendReports = data.reports || [];
@@ -49,9 +56,13 @@ export async function DELETE(req: Request) {
 
     // Try to connect to backend first
     try {
+      const token = cookies().get('access_token')?.value;
       const res = await fetch(`${BACKEND_URL}/api/reports/`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` })
+        },
         body: JSON.stringify({ reportId }),
       });
       
@@ -125,10 +136,14 @@ export async function POST(req: Request) {
 
   // Try to connect to backend first
   try {
+    const token = cookies().get('access_token')?.value;
     console.log('Attempting to connect to backend at:', BACKEND_URL);
     const res = await fetch(`${BACKEND_URL}/api/reports/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
       body: JSON.stringify({ assetId, sections }),
     });
     console.log('Backend response status:', res.status);

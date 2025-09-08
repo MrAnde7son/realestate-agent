@@ -40,8 +40,12 @@ export default function OnboardingProgress({ state }: Props) {
   const firstIncomplete = steps.findIndex(s => !state[s.key])
 
   return (
-    <div className="mb-6">
-      <div className="flex items-start justify-between mb-2">
+    <div className="mb-4 p-4 bg-muted/30 rounded-lg border">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-foreground">התקדמות התחלת העבודה</h3>
+        <span className="text-xs text-muted-foreground">{pct}% הושלם</span>
+      </div>
+      <div className="flex items-center justify-between mb-2">
         {steps.map((step: Step, idx) => {
           const completed = state[step.key]
           const active = idx === firstIncomplete
@@ -57,9 +61,9 @@ export default function OnboardingProgress({ state }: Props) {
               : 'text-muted-foreground'
 
           const icon = (
-            <div className="flex flex-col items-center text-center w-full">
-              <div className={`mb-1 p-2 rounded-full border ${border}`}>
-                <step.icon className="h-4 w-4" />
+            <div className="flex flex-col items-center text-center flex-1">
+              <div className={`mb-1 p-1.5 rounded-full border ${border}`}>
+                <step.icon className="h-3 w-3" />
               </div>
               <span className={`text-xs ${labelColor}`}>{step.label}</span>
             </div>

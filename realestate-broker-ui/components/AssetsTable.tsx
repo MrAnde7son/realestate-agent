@@ -97,7 +97,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     } },
   { header:'ימי שוק (אחוזון)', accessorKey:'domPercentile', cell: info => {
       const value = info.getValue() as number | undefined
-      return <Badge>{value !== undefined ? `P${value}` : '—'}</Badge>
+      return <Badge>{!!value ? `P${value}` : '—'}</Badge>
     } },
   { header:'תחרות (1ק"מ)', accessorKey:'competition1km', cell: info => {
       const value = info.getValue() as string | undefined
@@ -125,7 +125,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     } },
   { header:'רעש', accessorKey:'noiseLevel', cell: info => {
       const value = info.getValue() as number | undefined
-      return <Badge>{value !== undefined ? `${value}/5` : '—'}</Badge>
+      return <Badge>{!!value ? `${value}/5` : '—'}</Badge>
     } },
   { header:'אנטנה (מ")', accessorKey:'antennaDistanceM', cell: info => {
       const v = info.getValue() as number | null | undefined
@@ -154,7 +154,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     } },
   { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => {
       const value = info.getValue() as number | undefined
-      return <Badge>{value !== undefined ? `${value}%` : '—'}</Badge>
+      return <Badge>{!!value ? `${value}%` : '—'}</Badge>
     } },
   { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => {
       const v = info.getValue() as number | null | undefined

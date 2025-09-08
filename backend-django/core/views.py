@@ -12,13 +12,13 @@ from django.shortcuts import redirect, render
 from django.conf import settings
 from django.utils.crypto import get_random_string
 from django.utils import timezone
-from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 import logging
 
@@ -30,7 +30,6 @@ from .models import (
     Asset,
     SourceRecord,
     RealEstateTransaction,
-    Report,
     OnboardingProgress,
     ShareToken,
 )
@@ -75,12 +74,18 @@ ASSETS_POST_WINDOW = 60  # window size in seconds
 _assets_rate_limit = {}
 
 def _update_onboarding(user, step):
+    logger.debug("_update_onboarding called - User: %s, Step: %s, Authenticated: %s", 
+                 user, step, getattr(user, 'is_authenticated', False) if user else 'No user')
     if not user or not user.is_authenticated:
+        logger.debug("Skipping onboarding update - No authenticated user")
         return
     progress, _ = OnboardingProgress.objects.get_or_create(user=user)
     if not getattr(progress, step):
         setattr(progress, step, True)
         progress.save()
+        logger.info("Updated onboarding step %s to True for user %s", step, user.id)
+    else:
+        logger.debug("Onboarding step %s already True for user %s", step, user.id)
 
 
 # Authentication views
@@ -173,6 +178,10 @@ def auth_profile(request):
     """Get current user profile."""
     try:
         user = request.user
+        
+        # Get onboarding progress
+        onboarding_progress, _ = OnboardingProgress.objects.get_or_create(user=user)
+        
         return Response(
             {
                 "user": {
@@ -197,6 +206,12 @@ def auth_profile(request):
                     "notify_whatsapp": getattr(user, "notify_whatsapp", False),
                     "notify_urgent": getattr(user, "notify_urgent", False),
                     "notification_time": getattr(user, "notification_time", ""),
+                    "onboarding_flags": {
+                        "connect_payment": onboarding_progress.connect_payment,
+                        "add_first_asset": onboarding_progress.add_first_asset,
+                        "generate_first_report": onboarding_progress.generate_first_report,
+                        "set_one_alert": onboarding_progress.set_one_alert,
+                    }
                 }
             }
         )
@@ -224,6 +239,9 @@ def auth_update_profile(request):
 
         user.save()
 
+        # Get onboarding progress
+        onboarding_progress, _ = OnboardingProgress.objects.get_or_create(user=user)
+        
         return Response(
             {
                 "user": {
@@ -235,6 +253,12 @@ def auth_update_profile(request):
                     "company": getattr(user, "company", ""),
                     "role": getattr(user, "role", ""),
                     "is_verified": getattr(user, "is_verified", False),
+                    "onboarding_flags": {
+                        "connect_payment": onboarding_progress.connect_payment,
+                        "add_first_asset": onboarding_progress.add_first_asset,
+                        "generate_first_report": onboarding_progress.generate_first_report,
+                        "set_one_alert": onboarding_progress.set_one_alert,
+                    }
                 }
             }
         )
@@ -640,51 +664,52 @@ def sync_address(request):
 # Old view functions removed - replaced with new asset enrichment pipeline
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "DELETE"])
+@permission_classes([AllowAny])  # Allow both authenticated and unauthenticated access
 def reports(request):
     """Create a PDF report for a listing or list existing reports."""
     if request.method == "GET":
         # Get all reports using service
         reports_list = report_service.get_reports_list()
-        return JsonResponse({"reports": reports_list})
+        return Response({"reports": reports_list})
 
     if request.method == "DELETE":
         # Delete a specific report using service
         data = parse_json(request)
         if not data or not data.get("reportId"):
-            return JsonResponse({"error": "reportId required"}, status=400)
+            return Response({"error": "reportId required"}, status=400)
 
         try:
             report_id = int(data["reportId"])
             success = report_service.delete_report(report_id)
 
             if success:
-                return JsonResponse(
+                return Response(
                     {"message": f"Report {report_id} deleted successfully"}, status=200
                 )
             else:
-                return JsonResponse({"error": "Failed to delete report"}, status=500)
+                return Response({"error": "Failed to delete report"}, status=500)
 
         except ValueError:
-            return JsonResponse({"error": "Invalid report ID"}, status=400)
+            return Response({"error": "Invalid report ID"}, status=400)
         except Exception as e:
-            return JsonResponse(
+            return Response(
                 {"error": "Error deleting report", "details": str(e)}, status=500
             )
 
     if request.method != "POST":
-        return JsonResponse({"error": "POST or DELETE required"}, status=405)
+        return Response({"error": "POST or DELETE required"}, status=405)
 
     data = parse_json(request)
     if not data or not data.get("assetId"):
-        return JsonResponse({"error": "assetId required"}, status=400)
+        return Response({"error": "assetId required"}, status=400)
 
     asset_id = data["assetId"]
     sections = data.get("sections")
     if sections is None:
         sections = DEFAULT_REPORT_SECTIONS
     elif not sections:
-        return JsonResponse({"error": "sections required"}, status=400)
+        return Response({"error": "sections required"}, status=400)
 
     logger.info("Report generation requested for asset %s", asset_id)
     track("report_request", user=getattr(request, "user", None), asset_id=asset_id)
@@ -694,21 +719,21 @@ def reports(request):
 
         if not report:
             logger.error("Failed to create report for asset %s", asset_id)
-            return JsonResponse({"error": "Failed to create report"}, status=500)
+            return Response({"error": "Failed to create report"}, status=500)
 
         # Generate PDF using service
         success = report_service.generate_pdf(report)
 
         if not success:
             logger.error("PDF generation failed for report %s", report.id)
-            return JsonResponse({"error": "PDF generation failed"}, status=500)
+            return Response({"error": "PDF generation failed"}, status=500)
 
         _update_onboarding(getattr(request, "user", None), "generate_first_report")
         track("report_success", user=getattr(request, "user", None), asset_id=asset_id)
         logger.info("Report %s successfully generated for asset %s", report.id, asset_id)
 
         # Return success response
-        return JsonResponse(
+        return Response(
             {
                 "report": {
                     "id": report.id,
@@ -734,7 +759,7 @@ def reports(request):
             error_code=str(e),
         )
         logger.exception("Report generation failed for asset %s", asset_id)
-        return JsonResponse(
+        return Response(
             {"error": "Report generation failed", "details": str(e)}, status=500
         )
 
@@ -873,7 +898,7 @@ def tabu(request):
             rows = search_rows(rows, query)
         return JsonResponse({"rows": rows})
     except Exception as e:
-        print(f"Error parsing tabu PDF: {e}")
+        logger.error("Error parsing tabu PDF: %s", e)
         # Return dummy data for testing if parsing fails
         # This also handles the case where utils module is not available
         return JsonResponse(
@@ -892,7 +917,8 @@ def tabu(request):
         )
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "DELETE"])
+@permission_classes([AllowAny])  # Allow both authenticated and unauthenticated access
 def assets(request):
     """Handle assets - GET (list all) or POST (create new).
 
@@ -922,30 +948,30 @@ def assets(request):
     if request.method == "DELETE":
         data = parse_json(request)
         if not data or not data.get("assetId"):
-            return JsonResponse({"error": "assetId required"}, status=400)
+            return Response({"error": "assetId required"}, status=400)
 
         try:
             asset_id = int(data["assetId"])
             asset = Asset.objects.get(id=asset_id)
 
             if asset.delete_asset():
-                return JsonResponse(
+                return Response(
                     {"message": f"Asset {asset_id} deleted successfully"}, status=200
                 )
             else:
-                return JsonResponse({"error": "Failed to delete asset"}, status=500)
+                return Response({"error": "Failed to delete asset"}, status=500)
 
         except Asset.DoesNotExist:
-            return JsonResponse({"error": "Asset not found"}, status=404)
+            return Response({"error": "Asset not found"}, status=404)
         except ValueError:
-            return JsonResponse({"error": "Invalid asset ID"}, status=400)
+            return Response({"error": "Invalid asset ID"}, status=400)
         except Exception as e:
-            return JsonResponse(
+            return Response(
                 {"error": "Error deleting asset", "details": str(e)}, status=500
             )
 
     if request.method != "POST":
-        return JsonResponse({"error": "POST method required"}, status=405)
+        return Response({"error": "POST method required"}, status=405)
 
     # Rate limiting per IP to prevent abuse
     ip = request.META.get("HTTP_X_FORWARDED_FOR", "")
@@ -967,20 +993,20 @@ def assets(request):
     cache_key = f"assets_post_{ip}"
     cache_count = cache.get(cache_key, 0)
     if cache_count >= ASSETS_POST_LIMIT:
-        return JsonResponse({"error": "Too many requests"}, status=429)
+        return Response({"error": "Too many requests"}, status=429)
     cache.set(cache_key, cache_count + 1, ASSETS_POST_WINDOW)
 
     # Parse JSON with error handling
     data = parse_json(request)
     if not data:
-        return JsonResponse({"error": "Invalid JSON in request body"}, status=400)
+        return Response({"error": "Invalid JSON in request body"}, status=400)
 
     try:
         # Extract scope information
         scope = data.get("scope", {})
         scope_type = scope.get("type")
         if not scope_type:
-            return JsonResponse({"error": "Scope type is required"}, status=400)
+            return Response({"error": "Scope type is required"}, status=400)
 
         # Create asset record
         asset_data = {
@@ -1004,6 +1030,8 @@ def assets(request):
         asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
         user = getattr(request, "user", None)
+        logger.info("Asset creation - User: %s, Authenticated: %s", 
+                   user, getattr(user, 'is_authenticated', False) if user else 'No user')
         if user and getattr(user, "is_authenticated", False):
             track("asset_create", user=user, asset_id=asset_id)
         else:
@@ -1016,7 +1044,7 @@ def assets(request):
             result = run_data_pipeline.delay(asset_id)
             job_id = result.id
         except Exception as e:
-            print(f"Failed to enqueue enrichment task: {e}")
+            logger.error("Failed to enqueue enrichment task: %s", e)
             # Update asset status to error
             try:
                 asset = Asset.objects.get(id=asset_id)
@@ -1024,9 +1052,9 @@ def assets(request):
                 asset.meta["error"] = str(e)
                 asset.save()
             except Exception as save_error:
-                print(f"Failed to update asset status: {save_error}")
+                logger.error("Failed to update asset status: %s", save_error)
 
-        return JsonResponse(
+        return Response(
             {
                 "id": asset_id,
                 "status": asset_data["status"],
@@ -1037,8 +1065,8 @@ def assets(request):
         )
 
     except Exception as e:
-        print(f"Error creating asset: {e}")
-        return JsonResponse(
+        logger.error("Error creating asset: %s", e)
+        return Response(
             {"error": "Failed to create asset", "details": str(e)}, status=500
         )
 
@@ -1054,10 +1082,10 @@ def _get_assets_list():
                 "-fetched_at"
             )
             rows.append(build_listing(asset, srcs))
-        return JsonResponse({"rows": rows})
+        return Response({"rows": rows})
     except Exception as e:
-        print(f"Error fetching assets: {e}")
-        return JsonResponse(
+        logger.error("Error fetching assets: %s", e)
+        return Response(
             {"error": "Failed to fetch assets", "details": str(e)}, status=500
         )
 
@@ -1142,7 +1170,7 @@ def asset_detail(request, asset_id):
         )
 
     except Exception as e:
-        print(f"Error retrieving asset {asset_id}: {e}")
+        logger.error("Error retrieving asset %s: %s", asset_id, e)
         return JsonResponse(
             {"error": "Failed to retrieve asset", "details": str(e)}, status=500
         )
@@ -1204,7 +1232,7 @@ def asset_share_message(request, asset_id):
             )
             message = completion.choices[0].message.content.strip()
         except Exception as e:
-            logger.exception("Error generating marketing message for asset %s", asset_id)
+            logger.exception("Error generating marketing message for asset %s: %s", asset_id, e)
             message = None
 
     if not message:

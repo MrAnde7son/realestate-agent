@@ -172,7 +172,7 @@ export default function ReportsPage() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardBody className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <CardBody className="flex flex-col gap-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
                     <span>
@@ -185,27 +185,35 @@ export default function ReportsPage() {
                       })}
                     </span>
                   </div>
-                  <div className="flex gap-2 sm:ml-auto" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex flex-wrap gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={report.url} target="_blank">
-                        <Eye className="h-4 w-4 ml-2" />
-                        תצוגה
+                        <Eye className="h-4 w-4" />
+                        <span className="hidden sm:inline ml-2">תצוגה</span>
                       </Link>
                     </Button>
                     <Button variant="outline" size="sm" asChild>
                       <a href={report.url} download>
-                        <Download className="h-4 w-4 ml-2" />
-                        הורדה
+                        <Download className="h-4 w-4" />
+                        <span className="hidden sm:inline ml-2">הורדה</span>
                       </a>
                     </Button>
+                    {/* Debug: Delete button should be visible */}
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDeleteReport(report.id)}
+                      onClick={() => {
+                        console.log('Delete button clicked for report:', report.id);
+                        handleDeleteReport(report.id);
+                      }}
                       disabled={deleting === report.id}
+                      className="min-w-fit bg-red-600 hover:bg-red-700 text-white border-red-600"
+                      style={{ minWidth: '80px', height: '32px' }}
                     >
-                      <Trash2 className="h-4 w-4 ml-2" />
-                      {deleting === report.id ? 'מוחק...' : 'מחיקה'}
+                      <Trash2 className="h-4 w-4" />
+                      <span className="ml-2">
+                        {deleting === report.id ? 'מוחק...' : 'מחיקה'}
+                      </span>
                     </Button>
                   </div>
                 </CardBody>

@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from pathlib import Path
 from typing import Optional, List
 
@@ -24,6 +25,7 @@ class HebrewPDFGenerator:
         self.font_path = str(
             (base_dir / "core" / "fonts" / "NotoSansHebrew-Regular.ttf").resolve()
         )
+        self.logger = logging.getLogger(__name__)
         self.report_font = self._setup_hebrew_font()
 
     def _setup_hebrew_font(self) -> str:
@@ -31,13 +33,13 @@ class HebrewPDFGenerator:
         try:
             if os.path.exists(self.font_path):
                 pdfmetrics.registerFont(TTFont("HebrewFont", self.font_path))
-                print(f"Successfully registered Hebrew font: {self.font_path}")
+                self.logger.info("Successfully registered Hebrew font: %s", self.font_path)
                 return "HebrewFont"
             else:
-                print(f"Hebrew font not found at: {self.font_path}")
+                self.logger.warning("Hebrew font not found at: %s", self.font_path)
                 return "Helvetica"
         except Exception as e:
-            print(f"Failed to register Hebrew font: {e}")
+            self.logger.error("Failed to register Hebrew font: %s", e)
             return "Helvetica"
 
     def reverse_hebrew_text(self, text: str) -> str:
@@ -113,9 +115,9 @@ class HebrewPDFGenerator:
             listing = self.create_asset_listing(asset)
 
             # Debug output
-            print(f"Debug - Listing data: {listing}")
-            print(f"Debug - Address: {listing.get('address', 'NOT_FOUND')}")
-            print(f"Debug - City: {listing.get('city', 'NOT_FOUND')}")
+            self.logger.debug("Listing data: %s", listing)
+            self.logger.debug("Address: %s", listing.get('address', 'NOT_FOUND'))
+            self.logger.debug("City: %s", listing.get('city', 'NOT_FOUND'))
 
             # Create PDF canvas
             c = canvas.Canvas(file_path, pagesize=A4)
@@ -153,7 +155,7 @@ class HebrewPDFGenerator:
 
         except Exception as e:
             report.mark_failed(str(e))
-            print(f"PDF generation failed: {e}")
+            self.logger.error("PDF generation failed: %s", e)
             return False
 
     def _generate_report_from_template(
@@ -194,7 +196,9 @@ class HebrewPDFGenerator:
             }
 
             html_string = render_to_string("report_asset.html", context)
-            HTML(string=html_string, base_url=str(self.base_dir)).write_pdf(file_path)
+            # Use the static files directory as base_url for WeasyPrint to resolve static assets
+            static_dir = self.base_dir / "core" / "static"
+            HTML(string=html_string, base_url=str(static_dir)).write_pdf(file_path)
 
             generation_time = time.time() - start_time
             pages = len(PdfReader(file_path).pages)
@@ -205,7 +209,7 @@ class HebrewPDFGenerator:
             return True
         except Exception as e:
             report.mark_failed(str(e))
-            print(f"PDF generation failed: {e}")
+            self.logger.error("PDF generation failed: %s", e)
             return False
 
     def generate_report(

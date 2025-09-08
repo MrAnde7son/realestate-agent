@@ -58,7 +58,7 @@ describe('/api/assets/[id]', () => {
       
       // Verify backend was called
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://127.0.0.1:8000/api/assets/101'
+        'http://127.0.0.1:8000/api/assets/101/'
       )
     })
 
@@ -91,7 +91,7 @@ describe('/api/assets/[id]', () => {
         rooms: 2.5,
         bathrooms: 1,
         property_type: 'דירה',
-        pricePerSqm: Math.round(2500000 / 75)
+        price_per_sqm: Math.round(2500000 / 75)
       }
 
       ;(global.fetch as any).mockResolvedValue({

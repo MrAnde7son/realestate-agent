@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, POST } from './route'
 import { NextRequest } from 'next/server'
+
+// Mock fetch globally
+global.fetch = vi.fn()
 
 // Mock the data import
 vi.mock('@/lib/data', () => ({
@@ -27,26 +30,27 @@ vi.mock('@/lib/data', () => ({
 }))
 
 describe('/api/alerts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   describe('GET', () => {
     it('returns alerts successfully', async () => {
+      // Mock successful backend response
+      ;(global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ rules: [] })
+      }).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ events: [] })
+      })
+
       const response = await GET()
       const data = await response.json()
       
       expect(response.status).toBe(200)
-      expect(data.alerts).toBeDefined()
-      expect(Array.isArray(data.alerts)).toBe(true)
-      expect(data.alerts).toHaveLength(2)
-      
-      // Check first alert structure
-      expect(data.alerts[0]).toEqual({
-        id: 1,
-        type: 'price_drop',
-        title: 'Test Alert',
-        message: 'Test message',
-        priority: 'high',
-        isRead: false,
-        createdAt: '2024-01-15T10:30:00Z',
-      })
+      expect(data.rules).toBeDefined()
+      expect(Array.isArray(data.rules)).toBe(true)
     })
 
     it('handles errors gracefully', async () => {
@@ -61,7 +65,7 @@ describe('/api/alerts', () => {
         
         // The function should work normally with mocked data
         expect(response.status).toBe(200)
-        expect(data.alerts).toBeDefined()
+        expect(data.rules).toBeDefined()
       } finally {
         consoleSpy.mockRestore()
         vi.clearAllMocks()
@@ -81,18 +85,25 @@ describe('/api/alerts', () => {
     }
 
     it('handles POST requests successfully', async () => {
+      // Mock successful backend response
+      ;(global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 1, success: true })
+      })
+
       const requestBody = {
-        alertId: 1,
-        isRead: true
+        trigger_type: 'PRICE_DROP',
+        scope: 'global',
+        params: {},
+        channels: ['email']
       }
       
       const request = createMockRequest(requestBody)
       const response = await POST(request)
       const data = await response.json()
       
-      expect(response.status).toBe(200)
-      expect(data.success).toBe(true)
-      expect(data.message).toBe('Alert updated successfully')
+      expect(response.status).toBe(201)
+      expect(data.id).toBe(1)
     })
 
     it('handles invalid JSON in POST request', async () => {
@@ -111,20 +122,25 @@ describe('/api/alerts', () => {
         const data = await response.json()
         
         expect(response.status).toBe(500)
-        expect(data.error).toBe('Failed to update alert')
+        expect(data.error).toBe('Failed to create alert')
       } finally {
         consoleSpy.mockRestore()
       }
     })
 
     it('handles empty POST request body', async () => {
+      // Mock successful backend response for empty body
+      ;(global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 1, success: true })
+      })
+
       const request = createMockRequest({})
       const response = await POST(request)
       const data = await response.json()
       
-      expect(response.status).toBe(200)
-      expect(data.success).toBe(true)
-      expect(data.message).toBe('Alert updated successfully')
+      expect(response.status).toBe(201)
+      expect(data.id).toBe(1)
     })
   })
 })

@@ -19,10 +19,11 @@ def build_listing(
         sr = next(iter(source_records), None)
         raw = (sr.raw or {}) if sr else {}
 
-    rooms = _first_nonempty(asset.rooms, meta.get("rooms"), raw.get("rooms"))
+    # Use asset model fields first, then fall back to meta/raw
     bedrooms = _first_nonempty(
         asset.bedrooms, meta.get("bedrooms"), raw.get("bedrooms")
     )
+    rooms = _first_nonempty(asset.rooms, meta.get("rooms"), raw.get("rooms"), bedrooms)
     net_sqm = _first_nonempty(
         asset.area,
         meta.get("netSqm"),
@@ -31,9 +32,9 @@ def build_listing(
         raw.get("area"),
     )
     total_sqm = _first_nonempty(
-        getattr(asset, "total_area", None), meta.get("totalSqm"), raw.get("total_size")
+        asset.total_area, meta.get("totalSqm"), raw.get("total_size")
     )
-    price = _first_nonempty(meta.get("price"), raw.get("price"))
+    price = _first_nonempty(asset.price, meta.get("price"), raw.get("price"))
     ptype = _first_nonempty(
         asset.building_type, meta.get("type"), raw.get("property_type")
     )
@@ -44,7 +45,11 @@ def build_listing(
         parts = [asset.street, asset.number, asset.city]
         address = " ".join(str(p) for p in parts if p)
 
-    ppsqm = round(price / net_sqm) if price and net_sqm else None
+    ppsqm = _first_nonempty(
+        asset.price_per_sqm,
+        round(price / net_sqm) if price and net_sqm else None,
+        meta.get("pricePerSqm")
+    )
 
     return {
         "id": asset.id,
@@ -68,14 +73,39 @@ def build_listing(
         "lastPermitQ": meta.get("lastPermitQ"),
         "noiseLevel": meta.get("noiseLevel"),
         "competition1km": meta.get("competition1km"),
-        "zoning": meta.get("zoning"),
+        "zoning": _first_nonempty(asset.zoning, meta.get("zoning")),
         "priceGapPct": meta.get("priceGapPct"),
         "expectedPriceRange": meta.get("expectedPriceRange"),
         "modelPrice": meta.get("modelPrice"),
         "confidencePct": meta.get("confidencePct"),
         "capRatePct": meta.get("capRatePct"),
-        "rentEstimate": meta.get("rentEstimate"),
+        "rentEstimate": _first_nonempty(asset.rent_estimate, meta.get("rentEstimate")),
         "riskFlags": meta.get("riskFlags") or [],
         "documents": meta.get("documents") or [],
         "asset_status": asset.status,
+        # Additional fields expected by frontend
+        "deltaVsAreaPct": meta.get("deltaVsAreaPct"),
+        "domPercentile": meta.get("domPercentile"),
+        "antennaDistanceM": meta.get("antennaDistanceM"),
+        "greenWithin300m": meta.get("greenWithin300m"),
+        "shelterDistanceM": meta.get("shelterDistanceM"),
+        # Additional fields that might be in the frontend
+        "bathrooms": _first_nonempty(asset.bathrooms, meta.get("bathrooms")),
+        "balconyArea": _first_nonempty(asset.balcony_area, meta.get("balconyArea")),
+        "parkingSpaces": _first_nonempty(asset.parking_spaces, meta.get("parkingSpaces")),
+        "storageRoom": _first_nonempty(asset.storage_room, meta.get("storageRoom")),
+        "elevator": _first_nonempty(asset.elevator, meta.get("elevator")),
+        "airConditioning": _first_nonempty(asset.air_conditioning, meta.get("airConditioning")),
+        "furnished": _first_nonempty(asset.furnished, meta.get("furnished")),
+        "renovated": _first_nonempty(asset.renovated, meta.get("renovated")),
+        "yearBuilt": _first_nonempty(asset.year_built, meta.get("yearBuilt")),
+        "lastRenovation": _first_nonempty(asset.last_renovation, meta.get("lastRenovation")),
+        "floor": _first_nonempty(asset.floor, meta.get("floor")),
+        "totalFloors": _first_nonempty(asset.total_floors, meta.get("totalFloors")),
+        "lat": asset.lat,
+        "lon": asset.lon,
+        "normalizedAddress": asset.normalized_address,
+        "buildingRights": _first_nonempty(asset.building_rights, meta.get("buildingRights")),
+        "permitStatus": _first_nonempty(asset.permit_status, meta.get("permitStatus")),
+        "permitDate": asset.permit_date.isoformat() if asset.permit_date else None,
     }

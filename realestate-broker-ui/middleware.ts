@@ -51,14 +51,36 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith('/admin')) {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000'}/api/me`, {
-      headers: { cookie: request.headers.get('cookie') || '' },
-    })
-    if (res.status !== 200) {
+    // Get the access token from cookies
+    const accessToken = request.cookies.get('access_token')?.value
+    
+    if (!accessToken) {
+      console.log(`🔒 No access token found for admin route: ${pathname}`)
       return NextResponse.redirect(new URL('/', request.url))
     }
-    const me = await res.json()
-    if (me.role !== 'admin') {
+    
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000'}/api/me`, {
+        headers: { 
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+      })
+      
+      if (res.status !== 200) {
+        console.log(`🔒 API returned status ${res.status} for admin route: ${pathname}`)
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+      
+      const me = await res.json()
+      console.log(`👤 User role check: ${me.role} for route: ${pathname}`)
+      
+      if (me.role !== 'admin') {
+        console.log(`🔒 User role '${me.role}' is not admin for route: ${pathname}`)
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+    } catch (error) {
+      console.error(`❌ Error checking admin access for ${pathname}:`, error)
       return NextResponse.redirect(new URL('/', request.url))
     }
   }

@@ -19,6 +19,15 @@ interface Props {
 }
 
 export default function AnalyticsClient({ daily, topFailures }: Props) {
+  // Add safety checks for data
+  if (!daily || !Array.isArray(daily)) {
+    return <div className="p-4">No analytics data available</div>;
+  }
+  
+  if (!topFailures || !Array.isArray(topFailures)) {
+    return <div className="p-4">No failure data available</div>;
+  }
+
   return (
     <div className="p-4 space-y-8">
       <LineChart width={600} height={300} data={daily}>

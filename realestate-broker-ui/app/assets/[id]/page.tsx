@@ -22,6 +22,9 @@ import { Label } from '@/components/ui/label'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2 } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
+import OnboardingProgress from '@/components/OnboardingProgress'
+import { selectOnboardingState } from '@/onboarding/selectors'
 
 const ALL_SECTIONS = ['summary','permits','plans','environment','comparables','mortgage','appendix']
 
@@ -42,6 +45,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [sections, setSections] = useState<string[]>(ALL_SECTIONS)
   const router = useRouter()
   const { id } = params
+  const { user, isAuthenticated } = useAuth()
+  const onboardingState = selectOnboardingState(user)
   const renderValue = (value: React.ReactNode, key: string) => (
     <span className="flex items-center gap-1">
       {value ?? '—'}
@@ -278,6 +283,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
+        {isAuthenticated && <OnboardingProgress state={onboardingState} />}
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">

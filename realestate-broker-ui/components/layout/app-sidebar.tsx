@@ -149,11 +149,11 @@ export default function AppSidebar({
                 )}
               >
                 <item.icon
-                  className={cn(
-                    "h-4 w-4",
-                    active && "text-[var(--brand-teal)]"
-                  )}
-                />
+                    className={cn(
+                      "h-4 w-4",
+                      active && "text-primary"
+                    )}
+                  />
                 <span>{item.name}</span>
               </Link>
             );

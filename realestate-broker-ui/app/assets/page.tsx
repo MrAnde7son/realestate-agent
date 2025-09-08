@@ -38,6 +38,8 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import OnboardingProgress from "@/components/OnboardingProgress";
+import { selectOnboardingState } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import DashboardLayout from "@/components/layout/dashboard-layout";
@@ -65,7 +67,8 @@ export default function AssetsPage() {
     const val = searchParams.get("priceMax");
     return val ? Number(val) : undefined;
   });
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const onboardingState = selectOnboardingState(user);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -404,6 +407,7 @@ export default function AssetsPage() {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
+        {isAuthenticated && <OnboardingProgress state={onboardingState} />}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

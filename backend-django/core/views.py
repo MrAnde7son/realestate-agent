@@ -664,51 +664,52 @@ def sync_address(request):
 # Old view functions removed - replaced with new asset enrichment pipeline
 
 
-@csrf_exempt
+@api_view(["GET", "POST", "DELETE"])
+@permission_classes([AllowAny])  # Allow both authenticated and unauthenticated access
 def reports(request):
     """Create a PDF report for a listing or list existing reports."""
     if request.method == "GET":
         # Get all reports using service
         reports_list = report_service.get_reports_list()
-        return JsonResponse({"reports": reports_list})
+        return Response({"reports": reports_list})
 
     if request.method == "DELETE":
         # Delete a specific report using service
         data = parse_json(request)
         if not data or not data.get("reportId"):
-            return JsonResponse({"error": "reportId required"}, status=400)
+            return Response({"error": "reportId required"}, status=400)
 
         try:
             report_id = int(data["reportId"])
             success = report_service.delete_report(report_id)
 
             if success:
-                return JsonResponse(
+                return Response(
                     {"message": f"Report {report_id} deleted successfully"}, status=200
                 )
             else:
-                return JsonResponse({"error": "Failed to delete report"}, status=500)
+                return Response({"error": "Failed to delete report"}, status=500)
 
         except ValueError:
-            return JsonResponse({"error": "Invalid report ID"}, status=400)
+            return Response({"error": "Invalid report ID"}, status=400)
         except Exception as e:
-            return JsonResponse(
+            return Response(
                 {"error": "Error deleting report", "details": str(e)}, status=500
             )
 
     if request.method != "POST":
-        return JsonResponse({"error": "POST or DELETE required"}, status=405)
+        return Response({"error": "POST or DELETE required"}, status=405)
 
     data = parse_json(request)
     if not data or not data.get("assetId"):
-        return JsonResponse({"error": "assetId required"}, status=400)
+        return Response({"error": "assetId required"}, status=400)
 
     asset_id = data["assetId"]
     sections = data.get("sections")
     if sections is None:
         sections = DEFAULT_REPORT_SECTIONS
     elif not sections:
-        return JsonResponse({"error": "sections required"}, status=400)
+        return Response({"error": "sections required"}, status=400)
 
     logger.info("Report generation requested for asset %s", asset_id)
     track("report_request", user=getattr(request, "user", None), asset_id=asset_id)
@@ -718,21 +719,21 @@ def reports(request):
 
         if not report:
             logger.error("Failed to create report for asset %s", asset_id)
-            return JsonResponse({"error": "Failed to create report"}, status=500)
+            return Response({"error": "Failed to create report"}, status=500)
 
         # Generate PDF using service
         success = report_service.generate_pdf(report)
 
         if not success:
             logger.error("PDF generation failed for report %s", report.id)
-            return JsonResponse({"error": "PDF generation failed"}, status=500)
+            return Response({"error": "PDF generation failed"}, status=500)
 
         _update_onboarding(getattr(request, "user", None), "generate_first_report")
         track("report_success", user=getattr(request, "user", None), asset_id=asset_id)
         logger.info("Report %s successfully generated for asset %s", report.id, asset_id)
 
         # Return success response
-        return JsonResponse(
+        return Response(
             {
                 "report": {
                     "id": report.id,
@@ -758,7 +759,7 @@ def reports(request):
             error_code=str(e),
         )
         logger.exception("Report generation failed for asset %s", asset_id)
-        return JsonResponse(
+        return Response(
             {"error": "Report generation failed", "details": str(e)}, status=500
         )
 

@@ -62,6 +62,34 @@ class NadlanDealsScraper:
         """Context manager exit."""
         # Playwright handles its own cleanup
     
+    def get_deals_by_street_id(self, street_id: str) -> List[Deal]:
+        """
+        Fetch deals for a specific street ID.
+
+        Args:
+            street_id: The street ID from nadlan.gov.il
+
+        Returns:
+            List of Deal objects
+
+        Raises:
+            NadlanAPIError: If the API call fails
+        """
+        logger.info("Fetching deals for street %s", street_id)
+        try:
+            deals = asyncio.run(self._fetch_deals_by_street(street_id))
+            logger.info(
+                "Fetched %s deals for street %s", len(deals), street_id
+            )
+            return deals
+        except Exception as e:
+            logger.exception(
+                "Failed to fetch deals for street %s", street_id
+            )
+            raise NadlanAPIError(
+                f"Failed to fetch deals for street {street_id}: {e}"
+            )
+
     def get_deals_by_neighborhood_id(self, neighbourhood_id: str) -> List[Deal]:
         """Retrieve deals using a neighbourhood identifier.
 
@@ -447,6 +475,40 @@ class NadlanDealsScraper:
 
                 # Navigate to the neighborhood page
                 url = f"https://www.nadlan.gov.il/?view=neighborhood&id={neigh_id}&page=deals"
+                await page.goto(url, timeout=int(self.timeout * 1000))
+
+                # Wait for /api/deal response
+                resp: Response = await asyncio.wait_for(fut, timeout=self.timeout + 10)
+                if resp.status != 200:
+                    raise NadlanAPIError(f"/api/deal HTTP {resp.status}")
+
+                body_bytes = await resp.body()
+                deals = self._decode_deals_payload(body_bytes)
+                return deals
+            finally:
+                await browser.close()
+
+    async def _fetch_deals_by_street(self, street_id: str) -> List[Deal]:
+        """Fetch deals by street using Playwright."""
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=self.headless)
+            try:
+                ctx = await browser.new_context()
+                page = await ctx.new_page()
+
+                # Capture the first /api/deal response
+                fut = asyncio.get_event_loop().create_future()
+
+                def _maybe_res(r: Response) -> None:
+                    url = r.url
+                    if "/api/deal" in url:
+                        if not fut.done():
+                            fut.set_result(r)
+
+                page.on("response", _maybe_res)
+
+                # Navigate to the street page
+                url = f"https://www.nadlan.gov.il/?view=street&id={street_id}&page=deals"
                 await page.goto(url, timeout=int(self.timeout * 1000))
 
                 # Wait for /api/deal response

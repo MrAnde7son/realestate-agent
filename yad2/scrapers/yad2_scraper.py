@@ -7,6 +7,7 @@ Essential Yad2 scraper with clean, focused implementation.
 """
 
 import json
+import time
 from datetime import datetime
 from urllib.parse import urljoin
 
@@ -32,13 +33,14 @@ class Yad2Scraper:
         self.search_endpoint = "/realestate/forsale"
         self.api_base_url = "https://gw.yad2.co.il"
         
-        # Default headers to mimic a real browser
+        # Mobile headers to avoid CAPTCHA
         self.headers = headers or {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "he-IL,he;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
-            "Referer": "https://www.yad2.co.il/"
+            "Upgrade-Insecure-Requests": "1"
         }
         
         # Initialize search parameters
@@ -195,8 +197,18 @@ class Yad2Scraper:
             print(f"Failed to fetch page {page}")
             return []
         
-        # Use the working selector
+        # Try multiple selectors for different page layouts
         items = soup.select("a.item-layout_itemLink__CZZ7w")
+        if not items:
+            # Try mobile selectors
+            items = soup.select("div[data-testid='feeditem']")
+        if not items:
+            # Try generic listing selectors
+            items = soup.select("div.feeditem")
+        if not items:
+            # Try any div with listing-like content
+            items = soup.find_all('div', class_=lambda x: x and ('item' in x.lower() or 'listing' in x.lower()))
+        
         if not items:
             print(f"No assets found on page {page}")
             return []

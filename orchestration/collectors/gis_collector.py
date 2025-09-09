@@ -1,10 +1,13 @@
 """GIS data collector implementation."""
 
+import logging
 from typing import Any, Dict, Optional, Tuple
 
 from gis.gis_client import TelAvivGS
 
 from .base_collector import BaseCollector
+
+logger = logging.getLogger(__name__)
 
 
 class GISCollector(BaseCollector):
@@ -30,8 +33,37 @@ class GISCollector(BaseCollector):
         return data
 
     def _geocode(self, address: str, house_number: int) -> Tuple[float, float]:
-        """Geocode an address to coordinates."""
-        return self.client.get_address_coordinates(address, house_number)
+        """Geocode an address to coordinates with fallback strategies."""
+        # Try the original address first with like=True (same as MCP server)
+        try:
+            return self.client.get_address_coordinates(address, house_number, like=True)
+        except Exception as e:
+            logger.warning(f"Primary geocoding failed: {e}")
+            
+        # Try with reversed street name (common issue with Hebrew addresses)
+        if ' ' in address:
+            parts = address.split()
+            if len(parts) == 2:
+                reversed_address = f"{parts[1]} {parts[0]}"
+                try:
+                    logger.info(f"Trying reversed address: {reversed_address}")
+                    return self.client.get_address_coordinates(reversed_address, house_number, like=True)
+                except Exception as e2:
+                    logger.warning(f"Reversed geocoding failed: {e2}")
+        
+        # Try with MCP server as fallback
+        try:
+            logger.info("Trying MCP server geocoding...")
+            from gis.mcp.server import geocode_address
+            result = geocode_address(address, house_number)
+            if result and 'x' in result and 'y' in result:
+                logger.info(f"MCP geocoding successful: {result['x']}, {result['y']}")
+                return float(result['x']), float(result['y'])
+        except Exception as e3:
+            logger.warning(f"MCP geocoding failed: {e3}")
+        
+        # If all else fails, raise the original error
+        raise Exception(f"All geocoding attempts failed for {address} {house_number}")
 
     def _extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
         """Extract block and parcel numbers from GIS data."""

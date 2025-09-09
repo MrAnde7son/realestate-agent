@@ -127,21 +127,48 @@ async def search_tel_aviv_plans(
     Returns:
         Dict with plan count and list of plans found
     """
+    client = _get_client()
+    
     # Pre-configured for Tel Aviv with common plan types
     common_plan_types = [72, 21, 1, 8, 9, 10, 12, 20, 62, 31, 41, 25, 22, 2, 11, 13, 
                         61, 32, 74, 78, 77, 73, 76, 75, 80, 79, 40, 60, 71, 70, 67, 
                         68, 69, 30, 50, 3]
     
-    return await search_plans(
-        ctx=ctx,
-        plan_number=plan_number,
-        city=5000,  # Tel Aviv area code
-        gush=gush,
-        chelka=chelka,
-        statuses=statuses,
-        plan_types=common_plan_types,
-        plan_types_used=True
-    )
+    search_params = {
+        "planNumber": plan_number,
+        "city": 5000,  # Tel Aviv area code
+        "gush": gush,
+        "chelka": chelka,
+        "statuses": statuses,
+        "planTypes": common_plan_types,
+        "planTypesUsed": True
+    }
+    
+    # Remove None values
+    search_params = {k: v for k, v in search_params.items() if v is not None}
+    
+    await ctx.info(f"Searching Tel Aviv RAMI plans with parameters: {search_params}")
+    
+    try:
+        df = client.fetch_plans(search_params)
+        plans = df.to_dict('records')
+        
+        await ctx.info(f"Found {len(plans)} plans")
+        
+        return {
+            "total_records": len(plans),
+            "plans": plans,
+            "search_params": search_params
+        }
+        
+    except Exception as e:
+        await ctx.warning(f"Error searching Tel Aviv plans: {str(e)}")
+        return {
+            "total_records": 0,
+            "plans": [],
+            "error": str(e),
+            "search_params": search_params
+        }
 
 
 @mcp.tool()

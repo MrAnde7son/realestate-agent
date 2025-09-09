@@ -1089,7 +1089,7 @@ def assets(request):
                 asset=asset,
                 user=user,
                 contribution_type='creation',
-                description=f"Created asset for {scope_type}: {data.get('city', 'Unknown location')}",
+                description=f"נוצר נכס עבור {scope_type}: {data.get('city', 'מיקום לא ידוע')}",
                 source='manual'
             )
             

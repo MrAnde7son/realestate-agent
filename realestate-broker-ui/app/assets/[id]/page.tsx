@@ -1426,44 +1426,44 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="contributions" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="rtl:text-right">תרומות קהילה</CardTitle>
-                <p className="text-sm text-muted-foreground rtl:text-right">
+                <CardTitle className="text-right">תרומות קהילה</CardTitle>
+                <p className="text-sm text-muted-foreground text-right">
                   היסטוריית התרומות והעדכונים שנעשו על הנכס הזה על ידי חברי הקהילה
                 </p>
               </CardHeader>
-              <CardContent className="space-y-6 rtl:text-right">
+              <CardContent className="space-y-4 text-right">
                 {/* Attribution Summary */}
                 {asset.attribution && (
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-3 lg:grid-cols-2">
                     {asset.attribution.created_by && (
-                      <div className="p-4 border rounded-lg rtl:text-right">
-                        <h3 className="font-medium mb-2">יוצר הנכס</h3>
-                        <div className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse">
-                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-sm font-medium">
+                      <div className="p-3 border rounded-lg text-right">
+                        <h3 className="font-medium mb-2 text-sm">יוצר הנכס</h3>
+                        <div className="flex items-center gap-2 rtl:flex-row-reverse">
+                          <div className="flex-1 text-right">
+                            <p className="font-medium text-sm truncate">{asset.attribution.created_by.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{asset.attribution.created_by.email}</p>
+                          </div>
+                          <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-medium">
                               {asset.attribution.created_by.name.charAt(0).toUpperCase()}
                             </span>
-                          </div>
-                          <div className="flex-1 min-w-0 text-right">
-                            <p className="font-medium truncate">{asset.attribution.created_by.name}</p>
-                            <p className="text-sm text-muted-foreground truncate">{asset.attribution.created_by.email}</p>
                           </div>
                         </div>
                       </div>
                     )}
                     
                     {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
-                      <div className="p-4 border rounded-lg rtl:text-right">
-                        <h3 className="font-medium mb-2">עודכן לאחרונה על ידי</h3>
-                        <div className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse">
-                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-sm font-medium">
+                      <div className="p-3 border rounded-lg text-right">
+                        <h3 className="font-medium mb-2 text-sm">עודכן לאחרונה על ידי</h3>
+                        <div className="flex items-center gap-2 rtl:flex-row-reverse">
+                          <div className="flex-1 text-right">
+                            <p className="font-medium text-sm truncate">{asset.attribution.last_updated_by.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{asset.attribution.last_updated_by.email}</p>
+                          </div>
+                          <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-medium">
                               {asset.attribution.last_updated_by.name.charAt(0).toUpperCase()}
                             </span>
-                          </div>
-                          <div className="flex-1 min-w-0 text-right">
-                            <p className="font-medium truncate">{asset.attribution.last_updated_by.name}</p>
-                            <p className="text-sm text-muted-foreground truncate">{asset.attribution.last_updated_by.email}</p>
                           </div>
                         </div>
                       </div>
@@ -1472,67 +1472,67 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 )}
 
                 {/* Recent Contributions */}
-                <div className="rtl:text-right">
-                  <h3 className="font-medium mb-4">תרומות אחרונות</h3>
+                <div className="text-right">
+                  <h3 className="font-medium mb-3 text-sm">תרומות אחרונות</h3>
                   {asset.recent_contributions && asset.recent_contributions.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {asset.recent_contributions.map((contrib: any, idx: number) => (
-                        <div key={idx} className="flex items-start space-x-3 rtl:space-x-reverse p-3 border rounded-lg rtl:flex-row-reverse">
-                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-sm font-medium">
-                              {contrib.user.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0 text-right">
-                            <div className="flex items-center justify-between rtl:flex-row-reverse">
+                        <div key={idx} className="flex items-start gap-2 p-2 border rounded-lg rtl:flex-row-reverse">
+                          <div className="flex-1 text-right">
+                            <div className="flex items-center justify-between rtl:flex-row-reverse mb-1">
                               <p className="font-medium text-sm">{contrib.user.name}</p>
                               <span className="text-xs text-muted-foreground">
                                 {new Date(contrib.created_at).toLocaleDateString('he-IL')}
                               </span>
                             </div>
-                            <p className="text-sm text-muted-foreground mb-1">
+                            <p className="text-xs text-muted-foreground mb-1">
                               {getContributionTypeDisplay(contrib.type)}
                               {contrib.field_name && ` - ${contrib.field_name}`}
                             </p>
                             {contrib.description && (
-                              <p className="text-sm">{contrib.description}</p>
+                              <p className="text-xs text-right text-muted-foreground">{contrib.description}</p>
                             )}
                             {contrib.source && (
-                              <span className="inline-block px-2 py-1 text-xs bg-secondary rounded-full mt-1">
+                              <span className="inline-block px-1.5 py-0.5 text-xs bg-secondary rounded-full mt-1">
                                 {getSourceDisplay(contrib.source)}
                               </span>
                             )}
+                          </div>
+                          <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-medium">
+                              {contrib.user.name.charAt(0).toUpperCase()}
+                            </span>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>אין תרומות זמינות</p>
-                      <p className="text-sm">היה הראשון לתרום מידע על הנכס הזה!</p>
+                    <div className="text-center py-6 text-muted-foreground">
+                      <p className="text-sm">אין תרומות זמינות</p>
+                      <p className="text-xs">היה הראשון לתרום מידע על הנכס הזה!</p>
                     </div>
                   )}
                 </div>
 
                 {/* Community Stats */}
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="p-4 border rounded-lg text-center rtl:text-right">
-                    <div className="text-2xl font-bold text-primary">
+                <div className="grid gap-2 grid-cols-3">
+                  <div className="p-2 border rounded-lg text-center text-right">
+                    <div className="text-lg font-bold text-primary">
                       {asset.recent_contributions?.length || 0}
                     </div>
-                    <div className="text-sm text-muted-foreground">תרומות</div>
+                    <div className="text-xs text-muted-foreground">תרומות</div>
                   </div>
-                  <div className="p-4 border rounded-lg text-center rtl:text-right">
-                    <div className="text-2xl font-bold text-primary">
+                  <div className="p-2 border rounded-lg text-center text-right">
+                    <div className="text-lg font-bold text-primary">
                       {asset.attribution?.created_by ? 1 : 0}
                     </div>
-                    <div className="text-sm text-muted-foreground">יוצר</div>
+                    <div className="text-xs text-muted-foreground">יוצר</div>
                   </div>
-                  <div className="p-4 border rounded-lg text-center rtl:text-right">
-                    <div className="text-2xl font-bold text-primary">
+                  <div className="p-2 border rounded-lg text-center text-right">
+                    <div className="text-lg font-bold text-primary">
                       {new Set(asset.recent_contributions?.map((c: any) => c.user.id) || []).size}
                     </div>
-                    <div className="text-sm text-muted-foreground">תורמים</div>
+                    <div className="text-xs text-muted-foreground">תורמים</div>
                   </div>
                 </div>
               </CardContent>

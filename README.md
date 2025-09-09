@@ -149,8 +149,14 @@ The modern Next.js dashboard provides a complete broker workflow with alerts, mo
 # 🖥️ Frontend Setup
 cd realestate-broker-ui
 pnpm install
-cp .env.example .env.local
-# Edit .env.local with your configuration
+# Create .env.local file with your configuration (see env.example in project root)
+# Example .env.local content:
+# NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+# NEXT_PUBLIC_MCP_YAD2_URL=http://localhost:8001
+# NEXT_PUBLIC_MCP_RAMI_URL=http://localhost:8002
+# NEXT_PUBLIC_MCP_GIS_URL=http://localhost:8003
+# NEXT_PUBLIC_MCP_GOV_URL=http://localhost:8004
+# NEXT_PUBLIC_MCP_MAVAT_URL=http://localhost:8005
 pnpm dev  
 
 # 🔧 Backend Setup (in a new terminal)
@@ -187,6 +193,17 @@ TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
 ```
 
+**Frontend Environment Variables:**
+Create `realestate-broker-ui/.env.local`:
+```env
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_MCP_YAD2_URL=http://localhost:8001
+NEXT_PUBLIC_MCP_RAMI_URL=http://localhost:8002
+NEXT_PUBLIC_MCP_GIS_URL=http://localhost:8003
+NEXT_PUBLIC_MCP_GOV_URL=http://localhost:8004
+NEXT_PUBLIC_MCP_MAVAT_URL=http://localhost:8005
+```
+
 ### 3️⃣ MCP Servers for LLM Integration
 
 Set up Claude Desktop or other LLM tools to use natural language queries:
@@ -217,6 +234,7 @@ python -m yad2.mcp.server      # Real estate scraping (port 8001)
 python -m rami.mcp.server      # Planning documents (port 8002)
 python -m gis.mcp.server       # Tel Aviv GIS (port 8003)
 python -m gov.mcp.server       # Government data (port 8004)
+python -m mavat.mcp.server     # National planning portal (port 8005)
 ```
 
 ### 4️⃣ Quick Examples
@@ -438,7 +456,7 @@ print(summary)
 
 ## 🤖 MCP Servers for LLM Integration
 
-The platform provides **4 specialized MCP servers** with **25+ tools** for comprehensive real estate intelligence through natural language queries.
+The platform provides **5 specialized MCP servers** with **25+ tools** for comprehensive real estate intelligence through natural language queries.
 
 ### 🏠 Yad2 Real Estate Server (`python -m yad2.mcp.server`)
 
@@ -508,6 +526,22 @@ The platform provides **4 specialized MCP servers** with **25+ tools** for compr
 - *"Get decisive appraisal decisions for block 6638 plot 96"*
 - *"Search government datasets about housing prices"*
 
+### 🏛️ MAVAT Planning Portal Server (`python -m mavat.mcp.server`)
+
+**Planning Tools:**
+- **`search_plans`** — Search for planning documents by various criteria
+- **`get_plan_details`** — Get detailed information for specific plans
+- **`get_plan_documents`** — Download plan documents and attachments
+- **`search_by_location`** — Location-based plan searches
+- **`search_by_block_parcel`** — Cadastral-based searches
+- **`get_lookup_tables`** — Access reference data (districts, cities, streets)
+- **`get_plan_summary`** — Comprehensive plan summaries
+
+**Example Queries:**
+- *"Find planning documents for Tel Aviv city center"*
+- *"Search plans by block 6638 parcel 96"*
+- *"Get all approved plans in Jerusalem from 2023"*
+
 ### 🚀 Usage with LLM
 
 **Start All Servers:**
@@ -521,6 +555,7 @@ python -m yad2.mcp.server     # Real estate scraping
 python -m rami.mcp.server     # Planning documents
 python -m gis.mcp.server      # Tel Aviv GIS data
 python -m gov.mcp.server      # Government datasets
+python -m mavat.mcp.server    # National planning portal
 ```
 
 **Configure your LLM** to connect to the servers and use natural language queries:

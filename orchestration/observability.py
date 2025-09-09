@@ -21,12 +21,19 @@ provider = TracerProvider(resource=resource)
 
 # Choose exporter based on environment
 _otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+_log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+_enable_tracing = os.getenv("ENABLE_TRACING", "false").lower() == "true"
+
 if _otlp_endpoint:
     exporter = OTLPSpanExporter(endpoint=_otlp_endpoint)
-else:
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+elif _log_level == "DEBUG" and _enable_tracing:
+    # Only use console exporter in debug mode when explicitly enabled
     exporter = ConsoleSpanExporter()
-
-provider.add_span_processor(BatchSpanProcessor(exporter))
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+else:
+    # In production, don't add any span processor to avoid verbose output
+    pass
 trace.set_tracer_provider(provider)
 tracer = trace.get_tracer(__name__)
 

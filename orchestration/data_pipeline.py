@@ -54,8 +54,9 @@ try:  # pragma: no cover - best effort import
         sys.path.insert(0, backend_path)
 
     import django
+    from django.conf import settings
 
-    if not django.conf.settings.configured:
+    if not settings.configured:
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
         django.setup()
 
@@ -200,12 +201,13 @@ class DataPipeline:
                 duration = time.perf_counter() - start_time
                 COLLECTOR_LATENCY.labels(source=source).observe(duration)
                 logger.info(
-                    "collector_run",
+                    f"📊 {source.upper()} collector completed",
                     extra={
                         "asset_id": asset_id,
                         "collector": source,
                         "duration_ms": int(duration * 1000),
                         "items_count": items_count,
+                        "status": "success" if items_count > 0 else "empty"
                     },
                 )
 
@@ -276,10 +278,13 @@ class DataPipeline:
         list of raw objects/dictionaries representing the collected data.  This
         makes the pipeline easier to test in isolation.
         """
+        
+        logger.info(f"🚀 Starting data pipeline for {address} {house_number} (max_pages={max_pages})")
+        start_time = time.perf_counter()
 
         with tracer.start_as_current_span(
             "data_pipeline.run",
-            attributes={"address": address, "house_number": house_number},
+            attributes={"address": address, "house_number": house_number, "max_pages": max_pages},
         ):
             # Search Yad2 for listings
             try:
@@ -293,8 +298,10 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="yad2")
+                logger.info(f"📊 Found {len(listings)} Yad2 listings")
             except Exception as e:
                 track("collector_fail", source="yad2", error_code=str(e))
+                logger.error(f"❌ Yad2 collection failed: {e}")
                 listings = []
 
             # Load user notifiers once per run
@@ -307,50 +314,111 @@ class DataPipeline:
                 raise RuntimeError("No database session available")
 
             results: List[Any] = []
+            
+            # Get GIS data once for the address (not per listing)
+            gis_data = {}
+            block = ""
+            parcel = ""
+            
+            if listings:  # Only get GIS data if we have listings
+                try:
+                    logger.info("🗺️ Collecting GIS data for address...")
+                    gis_data = self._collect_with_observability(
+                        "gis",
+                        self.gis.collect,
+                        address=address,
+                        house_number=house_number,
+                        timeout=self.TIMEOUTS.get("gis"),
+                        retries=self.RETRIES.get("gis", 0),
+                        asset_id=asset_id,
+                    )
+                    track("collector_success", source="gis")
+                    block = gis_data.get("block", "")
+                    parcel = gis_data.get("parcel", "")
+                    logger.info(f"📍 GIS data collected: block={block}, parcel={parcel}")
+                except Exception as e:
+                    gis_data = {}
+                    track("collector_fail", source="gis", error_code=str(e))
+                    logger.warning(f"⚠️ GIS collection failed: {e}")
+            
+            # Get government data once for the address
+            gov_data = {"decisive": [], "transactions": []}
+            if block and parcel:
+                try:
+                    logger.info("🏛️ Collecting government data...")
+                    gov_data = self._collect_with_observability(
+                        "gov",
+                        self.gov.collect,
+                        block=block,
+                        parcel=parcel,
+                        address=address,
+                        timeout=self.TIMEOUTS.get("gov"),
+                        retries=self.RETRIES.get("gov", 0),
+                        asset_id=asset_id,
+                    )
+                    track("collector_success", source="gov")
+                    logger.info(f"📊 Government data collected: {len(gov_data.get('decisive', []))} decisives, {len(gov_data.get('transactions', []))} transactions")
+                except Exception as e:
+                    gov_data = {"decisive": [], "transactions": []}
+                    track("collector_fail", source="gov", error_code=str(e))
+                    logger.warning(f"⚠️ Government data collection failed: {e}")
+            
+            # Get RAMI plans once for the address
+            plans = []
+            if block and parcel:
+                try:
+                    logger.info("📋 Collecting RAMI plans...")
+                    plans = self._collect_with_observability(
+                        "rami",
+                        self.rami.collect,
+                        block=block,
+                        parcel=parcel,
+                        timeout=self.TIMEOUTS.get("rami"),
+                        retries=self.RETRIES.get("rami", 0),
+                        asset_id=asset_id,
+                    )
+                    track("collector_success", source="rami")
+                    logger.info(f"📋 RAMI plans collected: {len(plans)} plans")
+                except Exception as e:
+                    plans = []
+                    track("collector_fail", source="rami", error_code=str(e))
+                    logger.warning(f"⚠️ RAMI collection failed: {e}")
+            
+            # Get Mavat plans once for the address
+            mavat_plans = []
+            if block and parcel:
+                try:
+                    logger.info("🏗️ Collecting Mavat plans...")
+                    mavat_plans = self._collect_with_observability(
+                        "mavat",
+                        self.mavat.collect,
+                        block=block,
+                        parcel=parcel,
+                        timeout=self.TIMEOUTS.get("mavat"),
+                        retries=self.RETRIES.get("mavat", 0),
+                        asset_id=asset_id,
+                    )
+                    track("collector_success", source="mavat")
+                    logger.info(f"🏗️ Mavat plans collected: {len(mavat_plans)} plans")
+                except Exception as e:
+                    mavat_plans = []
+                    track("collector_fail", source="mavat", error_code=str(e))
+                    logger.warning(f"⚠️ Mavat collection failed: {e}")
+            
             try:
-                for listing in listings:
+                for i, listing in enumerate(listings, 1):
+                    logger.info(f"🏠 Processing listing {i}/{len(listings)}: {listing.title}")
                     # Store listing in DB and add to return list
                     db_listing = self._store_listing(session, listing)
                     results.append(listing)
 
-                    # ---------------- GIS ----------------
-                    try:
-                        gis_data = self._collect_with_observability(
-                            "gis",
-                            self.gis.collect,
-                            address=address,
-                            house_number=house_number,
-                            timeout=self.TIMEOUTS.get("gis"),
-                            retries=self.RETRIES.get("gis", 0),
-                            asset_id=asset_id,
-                        )
-                        track("collector_success", source="gis")
-                    except Exception as e:
-                        gis_data = {}
-                        track("collector_fail", source="gis", error_code=str(e))
+                    # ---------------- GIS (already collected above) ----------------
                     self._add_source_record(session, db_listing.id, "gis", gis_data)
                     results.append({"source": "gis", "data": gis_data})
 
-                    block = gis_data.get("block", "")
-                    parcel = gis_data.get("parcel", "")
-
-                    # ---------------- Gov data ----------------
-                    try:
-                        gov_data = self._collect_with_observability(
-                            "gov",
-                            self.gov.collect,
-                            block=block,
-                            parcel=parcel,
-                            address=address,
-                            timeout=self.TIMEOUTS.get("gov"),
-                            retries=self.RETRIES.get("gov", 0),
-                            asset_id=asset_id,
-                        )
-                        track("collector_success", source="gov")
-                    except Exception as e:
-                        gov_data = {"decisive": [], "transactions": []}
-                        track("collector_fail", source="gov", error_code=str(e))
-
+                    # ---------------- Gov data (collected once above) ----------------
+                    self._add_source_record(session, db_listing.id, "gov", gov_data)
+                    
                     decisives = gov_data.get("decisive") or []
                     if decisives:
                         self._add_source_record(
@@ -363,40 +431,12 @@ class DataPipeline:
                     if deals:
                         results.append({"source": "transactions", "data": deals})
 
-                    # ---------------- RAMI plans ----------------
-                    try:
-                        plans = self._collect_with_observability(
-                            "rami",
-                            self.rami.collect,
-                            block=block,
-                            parcel=parcel,
-                            timeout=self.TIMEOUTS.get("rami"),
-                            retries=self.RETRIES.get("rami", 0),
-                            asset_id=asset_id,
-                        )
-                        track("collector_success", source="rami")
-                    except Exception as e:
-                        plans = []
-                        track("collector_fail", source="rami", error_code=str(e))
+                    # ---------------- RAMI plans (collected once above) ----------------
                     if plans:
                         self._add_source_record(session, db_listing.id, "rami", plans)
                         results.append({"source": "rami", "data": plans})
 
-                    # ---------------- Mavat plans ----------------
-                    try:
-                        mavat_plans = self._collect_with_observability(
-                            "mavat",
-                            self.mavat.collect,
-                            block=block,
-                            parcel=parcel,
-                            timeout=self.TIMEOUTS.get("mavat"),
-                            retries=self.RETRIES.get("mavat", 0),
-                            asset_id=asset_id,
-                        )
-                        track("collector_success", source="mavat")
-                    except Exception as e:
-                        mavat_plans = []
-                        track("collector_fail", source="mavat", error_code=str(e))
+                    # ---------------- Mavat plans (collected once above) ----------------
                     if mavat_plans:
                         self._add_source_record(
                             session, db_listing.id, "mavat", mavat_plans
@@ -431,6 +471,11 @@ class DataPipeline:
                 if not session_provided:
                     session.close()
 
+            # Log completion summary
+            execution_time = time.perf_counter() - start_time
+            logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
+            logger.info(f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
+            
             return results
 
 

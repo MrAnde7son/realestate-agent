@@ -141,7 +141,7 @@ export default function AnalyticsClient({ daily, topFailures }: Props) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalPageViews.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">סה"כ צפיות בדפים</p>
+            <p className="text-xs text-muted-foreground">סה&quot;כ צפיות בדפים</p>
           </CardContent>
         </Card>
 

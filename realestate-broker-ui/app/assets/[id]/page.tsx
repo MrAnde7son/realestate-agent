@@ -395,23 +395,23 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </div>
             {/* Attribution Information */}
             {asset.attribution && (
-              <div className="text-xs text-muted-foreground mt-2 space-y-1 rtl:text-right">
+              <div className="text-xs text-muted-foreground mt-2 space-y-1 text-right">
                 {asset.attribution.created_by && (
-                  <div className="rtl:flex rtl:flex-row-reverse rtl:justify-end">
+                  <div className="flex flex-row-reverse justify-end">
                     <span className="font-medium">נוצר על ידי:</span> 
-                    <span className="rtl:mr-1">{asset.attribution.created_by.name}</span>
+                    <span className="mr-1">{asset.attribution.created_by.name}</span>
                   </div>
                 )}
                 {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
-                  <div className="rtl:flex rtl:flex-row-reverse rtl:justify-end">
+                  <div className="flex flex-row-reverse justify-end">
                     <span className="font-medium">עודכן לאחרונה על ידי:</span> 
-                    <span className="rtl:mr-1">{asset.attribution.last_updated_by.name}</span>
+                    <span className="mr-1">{asset.attribution.last_updated_by.name}</span>
                   </div>
                 )}
                 {asset.recent_contributions && asset.recent_contributions.length > 0 && (
-                  <div className="rtl:flex rtl:flex-row-reverse rtl:justify-end">
+                  <div className="flex flex-row-reverse justify-end">
                     <span className="font-medium">תרומות אחרונות:</span> 
-                    <span className="rtl:mr-1">{asset.recent_contributions.length}</span>
+                    <span className="mr-1">{asset.recent_contributions.length}</span>
                   </div>
                 )}
               </div>
@@ -1426,25 +1426,25 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="contributions" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>תרומות קהילה</CardTitle>
-                <p className="text-sm text-muted-foreground">
+                <CardTitle className="rtl:text-right">תרומות קהילה</CardTitle>
+                <p className="text-sm text-muted-foreground rtl:text-right">
                   היסטוריית התרומות והעדכונים שנעשו על הנכס הזה על ידי חברי הקהילה
                 </p>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 rtl:text-right">
                 {/* Attribution Summary */}
                 {asset.attribution && (
                   <div className="grid gap-4 md:grid-cols-2">
                     {asset.attribution.created_by && (
-                      <div className="p-4 border rounded-lg">
-                        <h3 className="font-medium mb-2 rtl:text-right">יוצר הנכס</h3>
+                      <div className="p-4 border rounded-lg rtl:text-right">
+                        <h3 className="font-medium mb-2">יוצר הנכס</h3>
                         <div className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse">
                           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-sm font-medium">
                               {asset.attribution.created_by.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div className="rtl:text-right flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 text-right">
                             <p className="font-medium truncate">{asset.attribution.created_by.name}</p>
                             <p className="text-sm text-muted-foreground truncate">{asset.attribution.created_by.email}</p>
                           </div>
@@ -1453,15 +1453,15 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     )}
                     
                     {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
-                      <div className="p-4 border rounded-lg">
-                        <h3 className="font-medium mb-2 rtl:text-right">עודכן לאחרונה על ידי</h3>
+                      <div className="p-4 border rounded-lg rtl:text-right">
+                        <h3 className="font-medium mb-2">עודכן לאחרונה על ידי</h3>
                         <div className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse">
                           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-sm font-medium">
                               {asset.attribution.last_updated_by.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div className="rtl:text-right flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 text-right">
                             <p className="font-medium truncate">{asset.attribution.last_updated_by.name}</p>
                             <p className="text-sm text-muted-foreground truncate">{asset.attribution.last_updated_by.email}</p>
                           </div>
@@ -1472,7 +1472,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 )}
 
                 {/* Recent Contributions */}
-                <div>
+                <div className="rtl:text-right">
                   <h3 className="font-medium mb-4">תרומות אחרונות</h3>
                   {asset.recent_contributions && asset.recent_contributions.length > 0 ? (
                     <div className="space-y-3">
@@ -1483,7 +1483,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                               {contrib.user.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div className="flex-1 min-w-0 rtl:text-right">
+                          <div className="flex-1 min-w-0 text-right">
                             <div className="flex items-center justify-between rtl:flex-row-reverse">
                               <p className="font-medium text-sm">{contrib.user.name}</p>
                               <span className="text-xs text-muted-foreground">

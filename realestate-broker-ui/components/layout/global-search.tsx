@@ -16,6 +16,7 @@ import {
 import {
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useAnalytics } from "@/hooks/useAnalytics"
 
 const searchItems = [
   {
@@ -71,6 +72,7 @@ const searchItems = [
 export function GlobalSearch() {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
+  const { trackSearch, trackFeatureUsage } = useAnalytics()
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -98,10 +100,19 @@ export function GlobalSearch() {
     }
   }, [open])
 
-  const runCommand = React.useCallback((command: () => unknown) => {
+  const runCommand = React.useCallback((command: () => unknown, searchQuery?: string) => {
     setOpen(false)
+    
+    // Track search usage
+    if (searchQuery) {
+      trackSearch(searchQuery, {}, 1)
+    }
+    
+    // Track feature usage
+    trackFeatureUsage('global_search')
+    
     command()
-  }, [])
+  }, [trackSearch, trackFeatureUsage])
 
   return (
     <>
@@ -122,6 +133,11 @@ export function GlobalSearch() {
           placeholder="חפש בכל האתר..." 
           className="text-right border-0 focus:ring-0"
           dir="rtl"
+          onValueChange={(value) => {
+            if (value.trim()) {
+              trackSearch(value.trim(), {}, 0)
+            }
+          }}
         />
         <CommandList className="max-h-[400px] overflow-y-auto">
           <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">לא נמצאו תוצאות.</CommandEmpty>

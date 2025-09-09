@@ -39,6 +39,7 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface FilterOption {
   key: string;
@@ -145,6 +146,7 @@ export default function TableToolbar({
   statusFilters,
   dateRange,
 }: TableToolbarProps) {
+  const { trackFeatureUsage } = useAnalytics()
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
@@ -171,6 +173,8 @@ export default function TableToolbar({
     additionalFilters.forEach(filter => {
       onAdditionalFilterChange?.(filter.key, 'all');
     });
+    // Track filter usage
+    trackFeatureUsage('filter', undefined, { action: 'clear_all' });
     statusFilters?.onChange('all');
     dateRange?.onChange(undefined, undefined);
   };
@@ -228,7 +232,10 @@ export default function TableToolbar({
                   {/* City filter */}
                   <div className="space-y-2">
                     <Label htmlFor="city-filter" className="text-sm">עיר</Label>
-                    <Select value={filters.city.value} onValueChange={filters.city.onChange}>
+                    <Select value={filters.city.value} onValueChange={(value) => {
+                      filters.city.onChange(value);
+                      trackFeatureUsage('filter', undefined, { filter_type: 'city', value });
+                    }}>
                       <SelectTrigger>
                         <SelectValue placeholder="כל הערים" />
                       </SelectTrigger>
@@ -246,7 +253,10 @@ export default function TableToolbar({
                   {/* Type filter */}
                   <div className="space-y-2">
                     <Label htmlFor="type-filter" className="text-sm">סוג נכס</Label>
-                    <Select value={filters.type.value} onValueChange={filters.type.onChange}>
+                    <Select value={filters.type.value} onValueChange={(value) => {
+                      filters.type.onChange(value);
+                      trackFeatureUsage('filter', undefined, { filter_type: 'type', value });
+                    }}>
                       <SelectTrigger>
                         <SelectValue placeholder="כל הסוגים" />
                       </SelectTrigger>
@@ -269,11 +279,11 @@ export default function TableToolbar({
                       type="number"
                       placeholder="₪"
                       value={filters.priceMin.value || ""}
-                      onChange={(e) =>
-                        filters.priceMin.onChange(
-                          e.target.value ? Number(e.target.value) : undefined
-                        )
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value ? Number(e.target.value) : undefined;
+                        filters.priceMin.onChange(value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'price_min', value });
+                      }}
                     />
                   </div>
 
@@ -284,11 +294,11 @@ export default function TableToolbar({
                       type="number"
                       placeholder="₪"
                       value={filters.priceMax.value || ""}
-                      onChange={(e) =>
-                        filters.priceMax.onChange(
-                          e.target.value ? Number(e.target.value) : undefined
-                        )
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value ? Number(e.target.value) : undefined;
+                        filters.priceMax.onChange(value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'price_max', value });
+                      }}
                     />
                   </div>
                 </div>

@@ -5,12 +5,21 @@ import fs from 'fs';
 import path from 'path';
 import { mockReports, type Report } from '@/lib/reports';
 import { assets } from '@/lib/data';
+import { validateToken } from '@/lib/token-utils';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 export async function GET(req: Request) {
   try {
     const token = cookies().get('access_token')?.value;
+    
+    // Validate token
+    const tokenValidation = validateToken(token);
+    if (!tokenValidation.isValid) {
+      console.log('❌ Reports API - Token validation failed:', tokenValidation.error);
+      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 });
+    }
+    
     const res = await fetch(`${BACKEND_URL}/api/reports/`, { 
       cache: 'no-store',
       headers: {

@@ -222,7 +222,12 @@ def rollup_day(date):
     daily.bounce_rate = (bounce_sessions / total_sessions * 100) if total_sessions > 0 else 0.0
     
     # Feature usage metrics
-    daily.marketing_messages_created = events.filter(event='marketing_message_create').count()
+    daily.marketing_messages_created = events.filter(
+        event='marketing_message_create'
+    ).count() + events.filter(
+        event='feature_usage', 
+        meta__feature='marketing_message'
+    ).count()
     daily.searches_performed = events.filter(event='search_performed').count()
     daily.filters_applied = events.filter(event='feature_usage', meta__feature='filter').count()
     daily.exports_downloaded = events.filter(event='feature_usage', meta__feature='export').count()

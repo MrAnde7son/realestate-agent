@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { validateToken } from '@/lib/token-utils'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
@@ -15,6 +16,13 @@ async function fetchFromBackend(endpoint: string, options: RequestInit = {}, req
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7)
     }
+  }
+  
+  // Validate token
+  const tokenValidation = validateToken(token)
+  if (!tokenValidation.isValid) {
+    console.log('❌ Alerts API - Token validation failed:', tokenValidation.error)
+    throw new Error('Unauthorized - Token expired or invalid')
   }
   
   // Debug logging

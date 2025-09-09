@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import {
   Card,
   CardHeader,
@@ -37,6 +38,7 @@ import {
 const ALL_SECTIONS = ['summary','permits','plans','environment','comparables','mortgage','appendix']
 
 export default function AssetDetail({ params }: { params: { id: string } }) {
+  const { trackFeatureUsage } = useAnalytics()
   const [asset, setAsset] = useState<any>(null)
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -252,6 +254,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         const data = await res.json()
         setShareMessage(data.text)
         setShareUrl(data.share_url)
+        
+        // Track marketing message creation
+        trackFeatureUsage('marketing_message', parseInt(id), {
+          message_type: 'share_message',
+          language: language
+        })
       } else {
         const errorData = await res.json().catch(() => ({}))
         alert(errorData.details || errorData.error || 'שגיאה ביצירת הודעה')

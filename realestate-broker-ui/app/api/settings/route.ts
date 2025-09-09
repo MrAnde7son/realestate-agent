@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { validateToken } from '@/lib/token-utils'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 export async function GET() {
   const token = cookies().get('access_token')?.value
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  
+  // Validate token
+  const tokenValidation = validateToken(token)
+  if (!tokenValidation.isValid) {
+    console.log('❌ Settings API - Token validation failed:', tokenValidation.error)
+    return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
   }
 
   const res = await fetch(`${BACKEND_URL}/api/settings/`, {
@@ -18,8 +23,12 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   const token = cookies().get('access_token')?.value
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  
+  // Validate token
+  const tokenValidation = validateToken(token)
+  if (!tokenValidation.isValid) {
+    console.log('❌ Settings API PUT - Token validation failed:', tokenValidation.error)
+    return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
   }
   let body
   try {

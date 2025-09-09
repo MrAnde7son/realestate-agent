@@ -1,3 +1,5 @@
+import { isTokenExpired as checkTokenExpired } from './token-utils'
+
 export interface User {
   id: number
   email: string
@@ -341,21 +343,7 @@ class AuthAPI {
   }
 
   isTokenExpired(token: string): boolean {
-    try {
-      // JWT tokens have 3 parts separated by dots
-      const parts = token.split('.')
-      if (parts.length !== 3) return true
-
-      // Decode the payload (second part)
-      const payload = JSON.parse(atob(parts[1]))
-      const currentTime = Math.floor(Date.now() / 1000)
-      
-      // Check if token is expired (exp claim is in seconds)
-      return payload.exp < currentTime
-    } catch (error) {
-      console.error('Error checking token expiration:', error)
-      return true // Assume expired if we can't parse
-    }
+    return checkTokenExpired(token)
   }
 
   async validateToken(): Promise<boolean> {

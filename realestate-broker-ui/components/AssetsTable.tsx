@@ -14,14 +14,23 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMe
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import TableToolbar from './TableToolbar'
+import { useAnalytics } from '@/hooks/useAnalytics'
 
 function RiskCell({ flags }: { flags?: string[] }){
   if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
   return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'error':f.includes('אנטנה')?'warning':'neutral'}>{f}</Badge>)}</div>
 }
 
-function exportAssetsCsv(assets: Asset[], visibleColumns?: any[]) {
+function exportAssetsCsv(assets: Asset[], visibleColumns?: any[], trackFeatureUsage?: (feature: string, assetId?: number, meta?: Record<string, any>) => void) {
   if (assets.length === 0) return
+  
+  // Track export usage
+  if (trackFeatureUsage) {
+    trackFeatureUsage('export', undefined, {
+      asset_count: assets.length,
+      export_type: 'csv'
+    })
+  }
   
   // If visibleColumns is provided, use them; otherwise fall back to default columns
   const headers = visibleColumns ? 
@@ -282,6 +291,7 @@ export default function AssetsTable({
   viewMode = 'table',
   onViewModeChange
 }: AssetsTableProps){
+  const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
@@ -329,9 +339,9 @@ export default function AssetsTable({
   // Define handleExportSingle that uses the table ref
   const handleExportSingle = React.useCallback((asset: Asset) => {
     if (tableRef.current) {
-      exportAssetsCsv([asset], tableRef.current.getVisibleLeafColumns())
+      exportAssetsCsv([asset], tableRef.current.getVisibleLeafColumns(), trackFeatureUsage)
     }
-  }, [])
+  }, [trackFeatureUsage])
 
   // Create columns with handleExportSingle
   const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete, handleExportSingle, handleOpenAlertModal])
@@ -360,7 +370,7 @@ export default function AssetsTable({
 
   const handleExportSelected = () => {
     const selected = table.getSelectedRowModel().rows.map(r => r.original)
-    exportAssetsCsv(selected, table.getVisibleLeafColumns())
+    exportAssetsCsv(selected, table.getVisibleLeafColumns(), trackFeatureUsage)
   }
 
   const anySelected = table.getSelectedRowModel().rows.length > 0
@@ -382,7 +392,15 @@ export default function AssetsTable({
           {/* Integrated Toolbar */}
           <TableToolbar
             searchValue={searchValue}
-            onSearchChange={onSearchChange || (() => {})}
+            onSearchChange={(value) => {
+              if (onSearchChange) {
+                onSearchChange(value)
+              }
+              // Track search usage
+              if (value.trim()) {
+                trackSearch(value.trim(), {}, 0)
+              }
+            }}
             searchPlaceholder="חיפוש בכתובת או עיר..."
             filters={filters || {
               city: { value: 'all', onChange: () => {}, options: [] },
@@ -392,7 +410,7 @@ export default function AssetsTable({
             }}
             columns={toolbarColumns}
             onExportSelected={handleExportSelected}
-            onExportAll={() => exportAssetsCsv(data, table.getVisibleLeafColumns())}
+            onExportAll={() => exportAssetsCsv(data, table.getVisibleLeafColumns(), trackFeatureUsage)}
             selectedCount={table.getSelectedRowModel().rows.length}
             totalCount={data.length}
             viewMode={viewMode}

@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
+import TableToolbar from './TableToolbar'
 
 function RiskCell({ flags }: { flags?: string[] }){
   if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
@@ -229,14 +230,58 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
 }
 
 interface AssetsTableProps {
-    data?: Asset[]
-    loading?: boolean
-    onDelete?: (id: number) => void
+  data?: Asset[]
+  loading?: boolean
+  onDelete?: (id: number) => void
+  // Toolbar props
+  searchValue?: string
+  onSearchChange?: (value: string) => void
+  filters?: {
+    city: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    type: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    priceMin: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    priceMax: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
   }
+  onRefresh?: () => void
+  onAddNew?: () => void
+  viewMode?: 'table' | 'cards'
+  onViewModeChange?: (mode: 'table' | 'cards') => void
+  bulkActions?: Array<{
+    label: string
+    action: () => void
+    icon?: React.ReactNode
+    disabled?: boolean
+  }>
+}
 
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
 
-export default function AssetsTable({ data = [], loading = false, onDelete }: AssetsTableProps){
+export default function AssetsTable({ 
+  data = [], 
+  loading = false, 
+  onDelete,
+  searchValue = '',
+  onSearchChange,
+  filters,
+  onRefresh,
+  onAddNew,
+  viewMode = 'table',
+  onViewModeChange
+}: AssetsTableProps){
   const router = useRouter()
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
@@ -255,12 +300,10 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
   const [alertModalOpen, setAlertModalOpen] = React.useState(false)
   const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
 
-  const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset], table?.getVisibleLeafColumns())
-
-  const handleOpenAlertModal = (assetId: number) => {
+  const handleOpenAlertModal = React.useCallback((assetId: number) => {
     setSelectedAssetId(assetId)
     setAlertModalOpen(true)
-  }
+  }, [])
 
   // Save column preferences to localStorage whenever they change
   const handleColumnVisibilityChange = React.useCallback((updaterOrValue: any) => {
@@ -280,7 +323,18 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
     })
   }, [])
 
-  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete])
+  // Create a ref to store the table instance
+  const tableRef = React.useRef<any>(null)
+
+  // Define handleExportSingle that uses the table ref
+  const handleExportSingle = React.useCallback((asset: Asset) => {
+    if (tableRef.current) {
+      exportAssetsCsv([asset], tableRef.current.getVisibleLeafColumns())
+    }
+  }, [])
+
+  // Create columns with handleExportSingle
+  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete, handleExportSingle, handleOpenAlertModal])
 
   const table = useReactTable({
     data,
@@ -295,6 +349,11 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
     getCoreRowModel: getCoreRowModel()
   })
 
+  // Store table instance in ref
+  React.useEffect(() => {
+    tableRef.current = table
+  }, [table])
+
   const handleRowClick = (asset: Asset) => {
     router.push(`/assets/${asset.id}`)
   }
@@ -306,114 +365,99 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
 
   const anySelected = table.getSelectedRowModel().rows.length > 0
 
+  // Prepare columns for toolbar
+  const toolbarColumns = table.getAllColumns()
+    .filter(column => column.getCanHide())
+    .map(column => ({
+      id: column.id,
+      header: column.columnDef.header as string,
+      visible: column.getIsVisible(),
+      toggle: (value: boolean) => column.toggleVisibility(value)
+    }))
+
   return (
     <>
-      <div className="hidden sm:block">
+      <div className="block">
         <div className="rounded-xl border border-border bg-card overflow-x-auto">
-          <div className="p-3 border-b border-border bg-muted/30">
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              {/* Left side - Column selection */}
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" aria-label="בחר עמודות">
-                      <Settings className="h-4 w-4 me-2" />
-                      <span className="hidden sm:inline">עמודות</span>
-                      <span className="sm:hidden">עמודות</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto z-[100] bg-background border shadow-lg">
-                    {table.getAllColumns()
-                      .filter(column => column.getCanHide())
-                      .map(column => (
-                        <DropdownMenuCheckboxItem
-                          key={column.id}
-                          className="capitalize"
-                          checked={column.getIsVisible()}
-                          onCheckedChange={value => column.toggleVisibility(!!value)}
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          {column.columnDef.header as string}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <span className="text-sm text-muted-foreground hidden sm:inline">
-                  {table.getVisibleLeafColumns().length} מתוך {table.getAllColumns().length} עמודות
-                </span>
-              </div>
-              
-              {/* Right side - Export actions */}
-              <div className="flex items-center gap-2">
-                <Button 
-                  onClick={handleExportSelected} 
-                  disabled={!anySelected} 
-                  variant="outline"
-                  size="sm"
-                  aria-label="ייצא נכסים נבחרים"
-                >
-                  <Download className="h-4 w-4 me-2" />
-                  <span className="hidden sm:inline">ייצוא נבחרים</span>
-                  <span className="sm:hidden">ייצוא</span>
-                  {anySelected && (
-                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
-                      {table.getSelectedRowModel().rows.length}
-                    </span>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-          <div className="overflow-x-auto" role="region" aria-label="טבלת נכסים">
-            <Table>
-              <THead>
-                <TR>
-                  {table.getFlatHeaders().map(h=>(
-                    <TH 
-                      key={h.id} 
-                      className={h.column.id==='address'?'sticky right-0 bg-card z-10':''}
-                    >
-                      {flexRender(h.column.columnDef.header, h.getContext())}
-                    </TH>
-                  ))}
-                </TR>
-              </THead>
-              <TBody>
-                {table.getRowModel().rows.map(row=>(
-                  <TR 
-                    key={row.id} 
-                    className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
-                    onClick={() => handleRowClick(row.original)}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`נכס ${row.original.address} - לחץ לפרטים`}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        handleRowClick(row.original)
-                      }
-                    }}
-                  >
-                    {row.getVisibleCells().map(cell=>(
-                      <TD 
-                        key={cell.id} 
-                        className={cell.column.id==='address'?'sticky right-0 bg-card z-10':''}
+          {/* Integrated Toolbar */}
+          <TableToolbar
+            searchValue={searchValue}
+            onSearchChange={onSearchChange || (() => {})}
+            searchPlaceholder="חיפוש בכתובת או עיר..."
+            filters={filters || {
+              city: { value: 'all', onChange: () => {}, options: [] },
+              type: { value: 'all', onChange: () => {}, options: [] },
+              priceMin: { value: undefined, onChange: () => {} },
+              priceMax: { value: undefined, onChange: () => {} }
+            }}
+            columns={toolbarColumns}
+            onExportSelected={handleExportSelected}
+            onExportAll={() => exportAssetsCsv(data, table.getVisibleLeafColumns())}
+            selectedCount={table.getSelectedRowModel().rows.length}
+            totalCount={data.length}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange || (() => {})}
+            onRefresh={onRefresh || (() => {})}
+            onAddNew={onAddNew}
+            loading={loading}
+          />
+          {/* Table view - show when viewMode is 'table' */}
+          {viewMode === 'table' && (
+            <div className="overflow-x-auto" role="region" aria-label="טבלת נכסים">
+              <Table>
+                <THead>
+                  <TR>
+                    {table.getFlatHeaders().map(h=>(
+                      <TH 
+                        key={h.id} 
+                        className={h.column.id==='address'?'sticky right-0 bg-card z-10':''}
                       >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TD>
+                        {flexRender(h.column.columnDef.header, h.getContext())}
+                      </TH>
                     ))}
                   </TR>
-                ))}
-              </TBody>
-            </Table>
-          </div>
+                </THead>
+                <TBody>
+                  {table.getRowModel().rows.map(row=>(
+                    <TR 
+                      key={row.id} 
+                      className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
+                      onClick={() => handleRowClick(row.original)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`נכס ${row.original.address} - לחץ לפרטים`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleRowClick(row.original)
+                        }
+                      }}
+                    >
+                      {row.getVisibleCells().map(cell=>(
+                        <TD 
+                          key={cell.id} 
+                          className={cell.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TD>
+                      ))}
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+          )}
         </div>
       </div>
-      <div className="sm:hidden space-y-2">
-        {data.map(asset => (
-          <AssetCard key={asset.id} asset={asset} />
-        ))}
-      </div>
+      
+      {/* Card view - show when viewMode is 'cards' */}
+      {viewMode === 'cards' && (
+        <div className="space-y-2">
+          {data.map(asset => (
+            <AssetCard key={asset.id} asset={asset} />
+          ))}
+        </div>
+      )}
 
       {/* Alert Modal */}
       <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>

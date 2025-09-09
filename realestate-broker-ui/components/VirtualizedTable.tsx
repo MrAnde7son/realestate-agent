@@ -243,14 +243,22 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
   const [alertModalOpen, setAlertModalOpen] = React.useState(false)
   const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
 
-  const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset], table?.getVisibleLeafColumns())
+  // Create a ref to store the table instance
+  const tableRef = React.useRef<any>(null)
 
-  const handleOpenAlertModal = (assetId: number) => {
+  // Define handleExportSingle that uses the table ref
+  const handleExportSingle = React.useCallback((asset: Asset) => {
+    if (tableRef.current) {
+      exportAssetsCsv([asset], tableRef.current.getVisibleLeafColumns())
+    }
+  }, [])
+
+  const handleOpenAlertModal = React.useCallback((assetId: number) => {
     setSelectedAssetId(assetId)
     setAlertModalOpen(true)
-  }
+  }, [])
 
-  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete])
+  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete, handleExportSingle, handleOpenAlertModal])
 
   const table = useReactTable({
     data,
@@ -264,6 +272,11 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel()
   })
+
+  // Store table instance in ref
+  React.useEffect(() => {
+    tableRef.current = table
+  }, [table])
 
   const handleRowClick = (asset: Asset) => {
     router.push(`/assets/${asset.id}`)

@@ -151,7 +151,7 @@ cd realestate-broker-ui
 pnpm install
 cp .env.example .env.local
 # Edit .env.local with your configuration
-pnpm dev  # Starts on http://localhost:3000
+pnpm dev  
 
 # 🔧 Backend Setup (in a new terminal)
 cd ../backend-django

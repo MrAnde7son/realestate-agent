@@ -504,7 +504,6 @@ def alerts(request):
             alert_rule = serializer.save(user=request.user)
             
             # Track analytics event for alert rule creation
-            from .analytics import track, track_search, track_feature_usage, track_performance
             track("alert_rule_create", user=request.user, asset_id=alert_rule.asset_id if alert_rule.asset else None)
             
             _update_onboarding(request.user, "set_one_alert")

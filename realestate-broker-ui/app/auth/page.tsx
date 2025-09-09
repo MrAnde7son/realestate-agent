@@ -53,13 +53,9 @@ export default function AuthPage() {
 
   const onLoginSubmit = async (data: LoginFormData) => {
     try {
-      console.log('🚀 Form submitted with data:', data)
       setError('')
-      console.log('📞 Calling login function...')
       await login(data)
-      console.log('✅ Login completed successfully')
     } catch (err: any) {
-      console.error('❌ Login error:', err)
       setError(err.message || 'שגיאה בהתחברות')
     }
   }
@@ -126,10 +122,7 @@ export default function AuthPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <form onSubmit={(e) => {
-                console.log('📝 Form onSubmit triggered')
-                loginForm.handleSubmit(onLoginSubmit)(e)
-              }} className="space-y-4">
+              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">דוא״ל</Label>
                   <div className="relative">
@@ -186,7 +179,6 @@ export default function AuthPage() {
                   className="w-full" 
                   size="lg"
                   disabled={isLoading}
-                  onClick={() => console.log('🔘 Login button clicked')}
                 >
                   {isLoading ? 'מתחבר...' : 'התחבר'}
                 </Button>

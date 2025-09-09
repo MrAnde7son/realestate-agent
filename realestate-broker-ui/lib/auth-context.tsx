@@ -42,46 +42,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       // Check if we have tokens
       const accessToken = authAPI.getAccessToken()
-      const refreshToken = authAPI.getRefreshToken()
       
-      if (accessToken || refreshToken) {
-        // Validate both tokens
-        const tokenValidation = validateTokens(accessToken, refreshToken)
-        
-        if (tokenValidation.shouldLogout) {
-          console.log('❌ Both tokens are invalid, logging out user')
+      if (accessToken) {
+        // Check if token is expired before making API call
+        const isExpired = authAPI.isTokenExpired(accessToken)
+        if (isExpired) {
           authAPI.clearTokens()
           setUser(null)
-          return
-        }
-        
-        if (tokenValidation.canRefresh) {
-          console.log('🔄 Access token expired, attempting refresh...')
+        } else {
+          // Token is valid, try to get profile
           try {
-            const newToken = await authAPI.refreshAccessToken()
-            if (!newToken) {
-              console.log('❌ Token refresh failed, logging out user')
-              authAPI.clearTokens()
-              setUser(null)
-              return
-            }
-            console.log('✅ Token refreshed successfully')
-          } catch (refreshError) {
-            console.error('❌ Token refresh error:', refreshError)
+            const response = await authAPI.getProfile()
+            setUser(response.user)
+          } catch (profileError) {
             authAPI.clearTokens()
             setUser(null)
-            return
           }
         }
-
-        const response = await authAPI.getProfile()
-        setUser(response.user)
       } else {
         setUser(null)
       }
     } catch (error) {
-      console.error('Failed to refresh user:', error)
-      // Token might be invalid, clear it
+      // Clear tokens and let user re-login
       authAPI.clearTokens()
       setUser(null)
     } finally {
@@ -91,20 +73,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (credentials: LoginCredentials) => {
     try {
-      console.log('🔐 Starting login process...', credentials)
       setIsLoading(true)
       const response = await authAPI.login(credentials)
-      console.log('✅ Login API response received:', response)
       authAPI.setTokens(response.access_token, response.refresh_token)
-      console.log('💾 Tokens stored in localStorage')
       setUser(response.user)
-      console.log('👤 User state updated:', response.user)
-      console.log('🚀 Redirecting to /...')
       router.push('/')
-      console.log('✅ Login process completed')
-    } catch (error) {
-      console.error('❌ Login failed:', error)
-      throw error
+    } catch (error: any) {
+      // Provide more specific error messages
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        throw new Error('שם משתמש או סיסמה שגויים')
+      } else if (error.message?.includes('Network') || error.message?.includes('fetch')) {
+        throw new Error('שגיאת רשת - בדוק את החיבור לאינטרנט')
+      } else {
+        throw new Error(error.message || 'שגיאה בהתחברות')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -118,7 +100,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(response.user)
       router.push('/')
     } catch (error) {
-      console.error('Registration failed:', error)
       throw error
     } finally {
       setIsLoading(false)
@@ -129,7 +110,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await authAPI.logout()
     } catch (error) {
-      console.error('Logout API call failed:', error)
+      // Ignore logout API errors
     } finally {
       authAPI.clearTokens()
       setUser(null)
@@ -142,93 +123,75 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const response = await authAPI.updateProfile(data)
       setUser(response.user)
     } catch (error) {
-      console.error('Profile update failed:', error)
       throw error
     }
   }
 
   const googleLogin = async () => {
     try {
-      console.log('🔐 Starting Google OAuth login...')
       setIsLoading(true)
       
       // Get Google OAuth URL from backend
       const response = await authAPI.googleLogin()
-      console.log('✅ Google OAuth URL received:', response.auth_url)
       
       // Redirect to Google OAuth
       window.location.href = response.auth_url
       
     } catch (error) {
-      console.error('❌ Google OAuth failed:', error)
       setIsLoading(false)
       throw error
     }
   }
 
+
   // Initialize auth state on mount
   useEffect(() => {
-    refreshUser()
+    // Add a timeout to prevent infinite loading state
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false)
+    }, 5000) // 5 second timeout
+
+    refreshUser().finally(() => {
+      clearTimeout(timeoutId)
+    })
+
+    return () => clearTimeout(timeoutId)
   }, [])
 
-  // Set up periodic token validation
+  // Simple periodic check - just verify user is still logged in
   useEffect(() => {
     if (!user) return
 
-    const validateTokenPeriodically = async () => {
+    const checkUserStatus = async () => {
       try {
         const accessToken = authAPI.getAccessToken()
-        const refreshToken = authAPI.getRefreshToken()
-        
-        const tokenValidation = validateTokens(accessToken, refreshToken)
-        
-        if (tokenValidation.shouldLogout) {
-          console.log('❌ Periodic token validation failed - both tokens invalid, logging out user')
+        if (!accessToken) {
           authAPI.clearTokens()
           setUser(null)
           router.push('/auth')
           return
         }
         
-        if (tokenValidation.canRefresh) {
-          console.log('🔄 Periodic validation - access token expired, attempting refresh...')
-          try {
-            const newToken = await authAPI.refreshAccessToken()
-            if (!newToken) {
-              console.log('❌ Periodic refresh failed, logging out user')
-              authAPI.clearTokens()
-              setUser(null)
-              router.push('/auth')
-            } else {
-              console.log('✅ Periodic token refresh successful')
-            }
-          } catch (refreshError) {
-            console.error('❌ Periodic token refresh error:', refreshError)
-            authAPI.clearTokens()
-            setUser(null)
-            router.push('/auth')
-          }
+        // Try to get profile - if it fails, user needs to re-login
+        try {
+          await authAPI.getProfile()
+        } catch (profileError) {
+          authAPI.clearTokens()
+          setUser(null)
+          router.push('/auth')
         }
       } catch (error) {
-        console.error('Token validation error:', error)
         authAPI.clearTokens()
         setUser(null)
         router.push('/auth')
       }
     }
 
-    // Validate token every 5 minutes
-    const interval = setInterval(validateTokenPeriodically, 5 * 60 * 1000)
-
-    // Also validate on window focus (user returns to tab)
-    const handleFocus = () => {
-      validateTokenPeriodically()
-    }
-    window.addEventListener('focus', handleFocus)
+    // Check every 10 minutes
+    const interval = setInterval(checkUserStatus, 10 * 60 * 1000)
 
     return () => {
       clearInterval(interval)
-      window.removeEventListener('focus', handleFocus)
     }
   }, [user, router])
 

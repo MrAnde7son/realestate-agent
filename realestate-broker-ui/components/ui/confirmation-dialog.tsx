@@ -17,22 +17,29 @@ export function ConfirmationDialog() {
 
   return (
     <AlertDialog open={state.isOpen} onOpenChange={close}>
-      <AlertDialogContent>
+      <AlertDialogContent className="sm:max-w-md w-[95vw] mx-auto">
         <AlertDialogHeader>
-          <AlertDialogTitle>{state.title}</AlertDialogTitle>
+          <AlertDialogTitle className="text-right">{state.title}</AlertDialogTitle>
           {state.description && (
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-right">
               {state.description}
             </AlertDialogDescription>
           )}
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={state.onCancel}>
+        <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <AlertDialogCancel 
+            onClick={state.onCancel}
+            className="w-full sm:w-auto order-2 sm:order-1"
+          >
             {state.cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={state.onConfirm}
-            variant={state.variant === "destructive" ? "destructive" : "default"}
+            className={`w-full sm:w-auto order-1 sm:order-2 ${
+              state.variant === "destructive" 
+                ? "bg-red-600 hover:bg-red-700 text-white" 
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
           >
             {state.confirmText}
           </AlertDialogAction>

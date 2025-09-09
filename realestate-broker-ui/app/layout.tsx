@@ -5,6 +5,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import { AnalyticsProvider } from '@/components/analytics-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
+import { ConfirmProvider } from '@/hooks/use-confirm'
 import './globals.css'
 
 export const metadata: Metadata = { 
@@ -30,9 +31,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           <AuthProvider>
             <AnalyticsProvider>
-              {children}
-              <Toaster />
-              <ConfirmationDialog />
+              <ConfirmProvider>
+                {children}
+                <Toaster />
+                <ConfirmationDialog />
+              </ConfirmProvider>
             </AnalyticsProvider>
           </AuthProvider>
         </ThemeProvider>

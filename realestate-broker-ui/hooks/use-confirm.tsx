@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, createContext, useContext } from "react"
 
 interface ConfirmOptions {
   title: string
@@ -16,7 +16,15 @@ interface ConfirmState extends ConfirmOptions {
   onCancel?: () => void
 }
 
-export function useConfirm() {
+interface ConfirmContextType {
+  confirm: (options: ConfirmOptions) => Promise<boolean>
+  close: () => void
+  state: ConfirmState
+}
+
+const ConfirmContext = createContext<ConfirmContextType | undefined>(undefined)
+
+export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<ConfirmState>({
     isOpen: false,
     title: "",
@@ -47,9 +55,17 @@ export function useConfirm() {
     setState(prev => ({ ...prev, isOpen: false }))
   }, [])
 
-  return {
-    confirm,
-    close,
-    state,
+  return (
+    <ConfirmContext.Provider value={{ confirm, close, state }}>
+      {children}
+    </ConfirmContext.Provider>
+  )
+}
+
+export function useConfirm() {
+  const context = useContext(ConfirmContext)
+  if (context === undefined) {
+    throw new Error('useConfirm must be used within a ConfirmProvider')
   }
+  return context
 }

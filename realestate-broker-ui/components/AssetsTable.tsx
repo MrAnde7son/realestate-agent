@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye, Settings } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Settings, Search, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -418,31 +418,57 @@ export default function AssetsTable({
                   </TR>
                 </THead>
                 <TBody>
-                  {table.getRowModel().rows.map(row=>(
-                    <TR 
-                      key={row.id} 
-                      className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
-                      onClick={() => handleRowClick(row.original)}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`נכס ${row.original.address} - לחץ לפרטים`}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          handleRowClick(row.original)
-                        }
-                      }}
-                    >
-                      {row.getVisibleCells().map(cell=>(
-                        <TD 
-                          key={cell.id} 
-                          className={cell.column.id==='address'?'sticky right-0 bg-card z-10':''}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TD>
-                      ))}
+                  {table.getRowModel().rows.length === 0 ? (
+                    <TR>
+                      <TD colSpan={table.getFlatHeaders().length} className="text-center py-12">
+                        <div className="flex flex-col items-center justify-center space-y-4">
+                          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                            <Search className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <div className="text-center">
+                            <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
+                            <p className="text-muted-foreground">
+                              {searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
+                                ? 'נסה לשנות את הסינון או החיפוש'
+                                : 'אין נכסים זמינים כרגע'}
+                            </p>
+                            {!searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew && (
+                              <Button className="mt-4" onClick={onAddNew}>
+                                <Plus className="h-4 w-4 ms-2" />
+                                הוסף נכס ראשון
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </TD>
                     </TR>
-                  ))}
+                  ) : (
+                    table.getRowModel().rows.map(row=>(
+                      <TR 
+                        key={row.id} 
+                        className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
+                        onClick={() => handleRowClick(row.original)}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`נכס ${row.original.address} - לחץ לפרטים`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            handleRowClick(row.original)
+                          }
+                        }}
+                      >
+                        {row.getVisibleCells().map(cell=>(
+                          <TD 
+                            key={cell.id} 
+                            className={cell.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TD>
+                        ))}
+                      </TR>
+                    ))
+                  )}
                 </TBody>
               </Table>
             </div>
@@ -453,9 +479,31 @@ export default function AssetsTable({
       {/* Card view - show when viewMode is 'cards' */}
       {viewMode === 'cards' && (
         <div className="space-y-2">
-          {data.map(asset => (
-            <AssetCard key={asset.id} asset={asset} />
-          ))}
+          {data.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                <Search className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
+                <p className="text-muted-foreground">
+                  {searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
+                    ? 'נסה לשנות את הסינון או החיפוש'
+                    : 'אין נכסים זמינים כרגע'}
+                </p>
+                {!searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew && (
+                  <Button className="mt-4" onClick={onAddNew}>
+                    <Plus className="h-4 w-4 ms-2" />
+                    הוסף נכס ראשון
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            data.map(asset => (
+              <AssetCard key={asset.id} asset={asset} />
+            ))
+          )}
         </div>
       )}
 

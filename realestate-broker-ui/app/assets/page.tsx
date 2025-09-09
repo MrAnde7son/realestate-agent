@@ -462,12 +462,17 @@ export default function AssetsPage() {
           return false;
         }
         
-        // Price filters
-        if (priceMin != null && l.price != null && l.price < priceMin) {
-          return false;
-        }
-        if (priceMax != null && l.price != null && l.price > priceMax) {
-          return false;
+        // Price filters - exclude items without price when price filters are applied
+        if (priceMin != null || priceMax != null) {
+          if (l.price == null) {
+            return false;
+          }
+          if (priceMin != null && l.price < priceMin) {
+            return false;
+          }
+          if (priceMax != null && l.price > priceMax) {
+            return false;
+          }
         }
         
         return true;
@@ -716,26 +721,6 @@ export default function AssetsPage() {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-            ) : filteredAssets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                  <Search className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
-                  <p className="text-muted-foreground">
-                    {search || city !== 'all' || typeFilter !== 'all' || priceMin || priceMax
-                      ? 'נסה לשנות את הסינון או החיפוש'
-                      : 'אין נכסים זמינים כרגע'}
-                  </p>
-                  {!search && city === 'all' && typeFilter === 'all' && !priceMin && !priceMax && (
-                    <Button className="mt-4" onClick={() => setOpen(true)}>
-                      <Plus className="h-4 w-4 ms-2" />
-                      הוסף נכס ראשון
-                    </Button>
-                  )}
                 </div>
               </div>
             ) : (

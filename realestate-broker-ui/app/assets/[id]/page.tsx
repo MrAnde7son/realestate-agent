@@ -397,21 +397,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             {asset.attribution && (
               <div className="text-xs text-muted-foreground mt-2 space-y-1 text-right">
                 {asset.attribution.created_by && (
-                  <div className="flex flex-row-reverse justify-end">
-                    <span className="font-medium">נוצר על ידי:</span> 
-                    <span className="mr-1">{asset.attribution.created_by.name}</span>
+                  <div className="text-right">
+                    <span className="font-medium">נוצר על ידי: </span>
+                    <span>{asset.attribution.created_by.name}</span>
                   </div>
                 )}
                 {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
-                  <div className="flex flex-row-reverse justify-end">
-                    <span className="font-medium">עודכן לאחרונה על ידי:</span> 
-                    <span className="mr-1">{asset.attribution.last_updated_by.name}</span>
+                  <div className="text-right">
+                    <span className="font-medium">עודכן לאחרונה על ידי: </span>
+                    <span>{asset.attribution.last_updated_by.name}</span>
                   </div>
                 )}
                 {asset.recent_contributions && asset.recent_contributions.length > 0 && (
-                  <div className="flex flex-row-reverse justify-end">
-                    <span className="font-medium">תרומות אחרונות:</span> 
-                    <span className="mr-1">{asset.recent_contributions.length}</span>
+                  <div className="text-right">
+                    <span className="font-medium">תרומות אחרונות: </span>
+                    <span>{asset.recent_contributions.length}</span>
                   </div>
                 )}
               </div>
@@ -660,7 +660,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
             <TabsTrigger value="documents">מסמכים</TabsTrigger>
-            <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger>
           </TabsList>
 
           <TabsContent value="analysis" className="space-y-4">

@@ -54,18 +54,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
           try {
             const response = await authAPI.getProfile()
             setUser(response.user)
-          } catch (profileError) {
-            authAPI.clearTokens()
-            setUser(null)
+          } catch (profileError: any) {
+            // Only clear tokens if it's a 401 error, not network errors
+            if (profileError.message?.includes('401') || profileError.message?.includes('Session expired')) {
+              authAPI.clearTokens()
+              setUser(null)
+            }
+            // For other errors (like network), keep the user state as is
           }
         }
       } else {
+        // No tokens, user is not authenticated - this is normal for public pages
         setUser(null)
       }
-    } catch (error) {
-      // Clear tokens and let user re-login
-      authAPI.clearTokens()
-      setUser(null)
+    } catch (error: any) {
+      // Only clear tokens for authentication errors, not network errors
+      if (error.message?.includes('401') || error.message?.includes('Session expired')) {
+        authAPI.clearTokens()
+        setUser(null)
+      }
+      // For other errors, keep the current state
     } finally {
       setIsLoading(false)
     }

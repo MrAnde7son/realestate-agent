@@ -596,15 +596,99 @@ class AnalyticsEvent(models.Model):
         ]
 
 
+class UserSession(models.Model):
+    """Track user sessions for engagement analytics."""
+    
+    session_id = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sessions",
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    referrer = models.URLField(blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration = models.FloatField(default=0.0)  # in seconds
+    page_view_count = models.IntegerField(default=0)
+    is_bounce = models.BooleanField(default=False)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["session_id"]),
+            models.Index(fields=["user"]),
+            models.Index(fields=["started_at"]),
+        ]
+
+
+class PageView(models.Model):
+    """Track individual page views for detailed analytics."""
+    
+    session = models.ForeignKey(
+        UserSession,
+        on_delete=models.CASCADE,
+        related_name="page_views"
+    )
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="page_views",
+    )
+    page_path = models.CharField(max_length=500)
+    page_title = models.CharField(max_length=200, blank=True)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+    duration = models.FloatField(default=0.0)  # time spent on page in seconds
+    load_time = models.FloatField(default=0.0)  # page load time in seconds
+    meta = models.JSONField(default=dict, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["session"]),
+            models.Index(fields=["user"]),
+            models.Index(fields=["viewed_at"]),
+            models.Index(fields=["page_path"]),
+        ]
+
+
 class AnalyticsDaily(models.Model):
     """Daily rollups for analytics events."""
 
     date = models.DateField(unique=True)
+    
+    # Core metrics
     users = models.IntegerField(default=0)
     assets = models.IntegerField(default=0)
     reports = models.IntegerField(default=0)
     alerts = models.IntegerField(default=0)
     errors = models.IntegerField(default=0)
+    
+    # User engagement metrics
+    page_views = models.IntegerField(default=0)
+    unique_visitors = models.IntegerField(default=0)
+    session_duration_avg = models.FloatField(default=0.0)  # in seconds
+    bounce_rate = models.FloatField(default=0.0)  # percentage
+    
+    # Feature usage metrics
+    marketing_messages_created = models.IntegerField(default=0)
+    searches_performed = models.IntegerField(default=0)
+    filters_applied = models.IntegerField(default=0)
+    exports_downloaded = models.IntegerField(default=0)
+    
+    # Conversion metrics
+    signup_conversions = models.IntegerField(default=0)
+    asset_creation_conversions = models.IntegerField(default=0)
+    report_generation_conversions = models.IntegerField(default=0)
+    alert_setup_conversions = models.IntegerField(default=0)
+    
+    # Performance metrics
+    avg_page_load_time = models.FloatField(default=0.0)  # in seconds
+    api_response_time_avg = models.FloatField(default=0.0)  # in seconds
+    error_rate = models.FloatField(default=0.0)  # percentage
 
     class Meta:
         indexes = [models.Index(fields=["date"])]

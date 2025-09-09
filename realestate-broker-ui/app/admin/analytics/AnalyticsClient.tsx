@@ -54,6 +54,23 @@ export default function AnalyticsClient({ daily, topFailures }: Props) {
   const totalReports = daily.reduce((sum, day) => sum + (day.reports || 0), 0);
   const totalAlerts = daily.reduce((sum, day) => sum + (day.alerts || 0), 0);
   const totalErrors = daily.reduce((sum, day) => sum + (day.errors || 0), 0);
+  
+  // New engagement metrics
+  const totalPageViews = daily.reduce((sum, day) => sum + (day.page_views || 0), 0);
+  const totalUniqueVisitors = daily.reduce((sum, day) => sum + (day.unique_visitors || 0), 0);
+  const avgSessionDuration = daily.reduce((sum, day) => sum + (day.session_duration_avg || 0), 0) / daily.length;
+  const avgBounceRate = daily.reduce((sum, day) => sum + (day.bounce_rate || 0), 0) / daily.length;
+  
+  // Feature usage metrics
+  const totalSearches = daily.reduce((sum, day) => sum + (day.searches_performed || 0), 0);
+  const totalMarketingMessages = daily.reduce((sum, day) => sum + (day.marketing_messages_created || 0), 0);
+  const totalFilters = daily.reduce((sum, day) => sum + (day.filters_applied || 0), 0);
+  const totalExports = daily.reduce((sum, day) => sum + (day.exports_downloaded || 0), 0);
+  
+  // Performance metrics
+  const avgPageLoadTime = daily.reduce((sum, day) => sum + (day.avg_page_load_time || 0), 0) / daily.length;
+  const avgApiResponseTime = daily.reduce((sum, day) => sum + (day.api_response_time_avg || 0), 0) / daily.length;
+  const avgErrorRate = daily.reduce((sum, day) => sum + (day.error_rate || 0), 0) / daily.length;
 
   return (
     <div className="space-y-6">
@@ -115,6 +132,136 @@ export default function AnalyticsClient({ daily, topFailures }: Props) {
         </Card>
       </div>
 
+      {/* Engagement Metrics */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">צפיות בדפים</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalPageViews.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">סה&quot;כ צפיות בדפים</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">מבקרים ייחודיים</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalUniqueVisitors.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">משתמשים ייחודיים</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">זמן ממוצע בפגישה</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Math.round(avgSessionDuration / 60)} דקות</div>
+            <p className="text-xs text-muted-foreground">זמן ממוצע בפגישה</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">שיעור נטישה</CardTitle>
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{avgBounceRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">שיעור נטישה ממוצע</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Feature Usage Metrics */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">חיפושים</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalSearches.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">חיפושים שבוצעו</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">הודעות שיווק</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalMarketingMessages.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">הודעות שיווק שנוצרו</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">סינונים</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalFilters.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">סינונים שהוחלו</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">ייצוא</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalExports.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">קבצים שיוצאו</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Performance Metrics */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">זמן טעינת דף</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{avgPageLoadTime.toFixed(2)}s</div>
+            <p className="text-xs text-muted-foreground">זמן טעינה ממוצע</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">זמן תגובת API</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{avgApiResponseTime.toFixed(2)}s</div>
+            <p className="text-xs text-muted-foreground">זמן תגובה ממוצע</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">שיעור שגיאות</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-500">{avgErrorRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">שיעור שגיאות ממוצע</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Activity Chart */}
       <Card>
         <CardHeader>
@@ -168,6 +315,20 @@ export default function AnalyticsClient({ daily, topFailures }: Props) {
                   stroke={C.series4} 
                   strokeWidth={2}
                   name="התראות"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="page_views" 
+                  stroke="#8884d8" 
+                  strokeWidth={2}
+                  name="צפיות בדפים"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="searches_performed" 
+                  stroke="#82ca9d" 
+                  strokeWidth={2}
+                  name="חיפושים"
                 />
               </LineChart>
             </ResponsiveContainer>

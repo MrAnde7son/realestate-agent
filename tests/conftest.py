@@ -11,10 +11,10 @@ import sys
 import pytest
 
 # Store the original system paths
-original_sys_path = sys.path.copy()
+original_sys_path = list(sys.path)
 
 # Clear and rebuild the Python path to ensure correct order
-sys.path.clear()
+sys.path[:] = []
 
 # Add backend-django to path for Django tests (using symbolic link) - MUST BE FIRST
 # to avoid conflicts with other 'core' modules
@@ -55,41 +55,38 @@ print("Backend path:", backend_path)
 print("Backend exists:", os.path.exists(backend_path))
 print("Python path after setup:")
 for i, path in enumerate(sys.path[:10]):  # Show first 10 paths
-    print(f"  {i}: {path}")
+    print("  {}: {}".format(i, path))
 print("=========================")
 
-# Set up Django immediately for all tests that might need it
-try:
-    import django
-    from django.core.management import call_command
-
-    # Set environment variables for Django
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
-    os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-testing')
-    os.environ.setdefault('DEBUG', 'True')
-    
-    # Configure Django for testing
-    django.setup()
-    
-    # Run migrations for test database
-    try:
-        call_command("migrate", run_syncdb=True, verbosity=0)
-    except Exception:
-        # If migrations fail, continue - this might be expected in test environment
-        pass
-        
-    print("Django setup completed successfully")
-        
-except ImportError as e:
-    # Django not available, skip Django setup
-    print("Django not available: {}".format(e))
-except Exception as e:
-    print("Django setup failed: {}".format(e))
-
-# Only setup Django if we're running Django tests
+# Set up Django only when needed
 def pytest_configure(config):
     """Configure Django only when needed."""
-    # Django is already set up above, so this function is now a no-op
+    try:
+        import django
+        from django.core.management import call_command
+
+        # Set environment variables for Django
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
+        os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-testing')
+        os.environ.setdefault('DEBUG', 'True')
+        
+        # Configure Django for testing
+        django.setup()
+        
+        # Run migrations for test database
+        try:
+            call_command("migrate", run_syncdb=True, verbosity=0)
+        except Exception:
+            # If migrations fail, continue - this might be expected in test environment
+            pass
+            
+        print("Django setup completed successfully")
+            
+    except ImportError as e:
+        # Django not available, skip Django setup
+        print("Django not available: {}".format(e))
+    except Exception as e:
+        print("Django setup failed: {}".format(e))
 
 # Common fixtures for all tests
 @pytest.fixture

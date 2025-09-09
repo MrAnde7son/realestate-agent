@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { ReactNode } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/auth-context'
+import { AnalyticsProvider } from '@/components/analytics-provider'
+import { Toaster } from '@/components/ui/toaster'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import './globals.css'
 
 export const metadata: Metadata = { 
@@ -26,7 +29,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
+            <AnalyticsProvider>
+              {children}
+              <Toaster />
+              <ConfirmationDialog />
+            </AnalyticsProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

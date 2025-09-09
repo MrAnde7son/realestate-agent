@@ -30,3 +30,21 @@ vi.mock('next/link', () => ({
     return React.createElement('a', { href, ...props }, children)
   },
 }))
+
+// Mock fetch for analytics calls
+global.fetch = vi.fn().mockImplementation((url, options) => {
+  // Mock analytics API calls
+  if (typeof url === 'string' && url.includes('/api/analytics/')) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ success: true })
+    })
+  }
+  // For other fetch calls, return a default response
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({})
+  })
+})

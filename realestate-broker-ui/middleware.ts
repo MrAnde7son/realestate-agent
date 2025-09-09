@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { validateToken } from './lib/token-utils'
 
 // Routes that require authentication
 const protectedRoutes = [
@@ -38,25 +39,27 @@ export async function middleware(request: NextRequest) {
   // Check if we have a valid token (either access or refresh token)
   const hasValidToken = accessToken || refreshToken
 
-  // If we have an access token, check if it's expired
+  // Validate access token if present
   let isTokenExpired = false
+  let needsRefresh = false
+  
   if (accessToken) {
-    try {
-      const parts = accessToken.split('.')
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]))
-        const currentTime = Math.floor(Date.now() / 1000)
-        isTokenExpired = payload.exp < currentTime
-      }
-    } catch (error) {
-      console.error('Error checking token expiration in middleware:', error)
-      isTokenExpired = true
+    const tokenValidation = validateToken(accessToken)
+    isTokenExpired = tokenValidation.isExpired
+    needsRefresh = tokenValidation.needsRefresh
+    
+    if (tokenValidation.isExpired) {
+      console.log('🔄 Access token is expired in middleware')
     }
   }
   
-  // If it's a protected route and no valid token or token is expired, redirect to auth
-  if (isProtectedRoute && (!hasValidToken || isTokenExpired)) {
-    console.log(`🔒 Redirecting to auth: ${pathname} requires authentication (expired: ${isTokenExpired})`)
+  // If access token is expired but we have a refresh token, we can still allow access
+  // The frontend will handle the token refresh
+  const canAccess = hasValidToken && (!isTokenExpired || refreshToken)
+  
+  // If it's a protected route and no valid token or can't access, redirect to auth
+  if (isProtectedRoute && !canAccess) {
+    console.log(`🔒 Redirecting to auth: ${pathname} requires authentication (expired: ${isTokenExpired}, hasRefresh: ${!!refreshToken})`)
     return NextResponse.redirect(new URL('/auth', request.url))
   }
   

@@ -27,21 +27,21 @@ interface AlertEvent {
 const getAlertIcon = (triggerType: string) => {
   switch (triggerType) {
     case 'PRICE_DROP':
-      return <TrendingDown className="h-5 w-5 text-red-500" />
+      return <TrendingDown className="h-5 w-5 text-error" />
     case 'NEW_LISTING':
-      return <Home className="h-5 w-5 text-blue-500" />
+      return <Home className="h-5 w-5 text-brand-blue" />
     case 'MARKET_TREND':
-      return <Bell className="h-5 w-5 text-orange-500" />
+      return <Bell className="h-5 w-5 text-warning" />
     case 'DOCS_UPDATE':
-      return <FileText className="h-5 w-5 text-purple-500" />
+      return <FileText className="h-5 w-5 text-info" />
     case 'PERMIT_STATUS':
-      return <Hammer className="h-5 w-5 text-green-500" />
+      return <Hammer className="h-5 w-5 text-success" />
     case 'NEW_GOV_TX':
-      return <FileText className="h-5 w-5 text-green-500" />
+      return <FileText className="h-5 w-5 text-success" />
     case 'LISTING_REMOVED':
-      return <TrendingDown className="h-5 w-5 text-gray-500" />
+      return <TrendingDown className="h-5 w-5 text-muted-foreground" />
     default:
-      return <Bell className="h-5 w-5 text-gray-500" />
+      return <Bell className="h-5 w-5 text-muted-foreground" />
   }
 }
 

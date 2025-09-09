@@ -3,6 +3,7 @@ import type { Asset } from '@/lib/normalizers/asset'
 import { z } from 'zod'
 import { cookies } from 'next/headers'
 import { normalizeFromBackend, determineAssetType } from '@/lib/normalizers/asset'
+import { validateToken } from '@/lib/token-utils'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
@@ -50,6 +51,14 @@ const newAssetSchema = z.object({
 export async function GET() {
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
   const token = cookies().get('access_token')?.value
+  
+  // Validate token
+  const tokenValidation = validateToken(token)
+  if (!tokenValidation.isValid) {
+    console.log('❌ Assets API - Token validation failed:', tokenValidation.error)
+    return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+  }
+  
   try {
     const res = await fetch(`${backendUrl}/api/assets/`, {
       headers: {
@@ -70,6 +79,16 @@ export async function GET() {
 
 export async function DELETE(req: Request) {
   try {
+    // Get authentication token
+    const token = cookies().get('access_token')?.value
+    
+    // Validate token
+    const tokenValidation = validateToken(token)
+    if (!tokenValidation.isValid) {
+      console.log('❌ Asset deletion - Token validation failed:', tokenValidation.error)
+      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+    }
+    
     const contentType = req.headers.get('content-type')
     let assetId: number | null = null
 
@@ -121,6 +140,13 @@ export async function POST(req: Request) {
     // Get authentication token
     const token = cookies().get('access_token')?.value
     console.log('🔐 Asset creation - Token found:', !!token, token ? 'Yes' : 'No')
+    
+    // Validate token
+    const tokenValidation = validateToken(token)
+    if (!tokenValidation.isValid) {
+      console.log('❌ Asset creation - Token validation failed:', tokenValidation.error)
+      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+    }
 
     // Validate input
     const validatedData = newAssetSchema.parse(body)

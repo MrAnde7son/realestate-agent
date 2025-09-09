@@ -5,12 +5,21 @@ import fs from 'fs';
 import path from 'path';
 import { mockReports, type Report } from '@/lib/reports';
 import { assets } from '@/lib/data';
+import { validateToken } from '@/lib/token-utils';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 export async function GET(req: Request) {
   try {
     const token = cookies().get('access_token')?.value;
+    
+    // Validate token
+    const tokenValidation = validateToken(token);
+    if (!tokenValidation.isValid) {
+      console.log('❌ Reports API - Token validation failed:', tokenValidation.error);
+      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 });
+    }
+    
     const res = await fetch(`${BACKEND_URL}/api/reports/`, { 
       cache: 'no-store',
       headers: {
@@ -30,6 +39,16 @@ export async function GET(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    // Get authentication token
+    const token = cookies().get('access_token')?.value;
+    
+    // Validate token
+    const tokenValidation = validateToken(token);
+    if (!tokenValidation.isValid) {
+      console.log('❌ Reports DELETE API - Token validation failed:', tokenValidation.error);
+      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 });
+    }
+    
     // Check if request has a body
     const contentType = req.headers.get('content-type');
     let reportId: number | null = null;
@@ -56,7 +75,6 @@ export async function DELETE(req: Request) {
 
     // Try to connect to backend first
     try {
-      const token = cookies().get('access_token')?.value;
       const res = await fetch(`${BACKEND_URL}/api/reports/`, {
         method: 'DELETE',
         headers: { 

@@ -16,6 +16,7 @@ import {
 import {
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useAnalytics } from "@/hooks/useAnalytics"
 
 const searchItems = [
   {
@@ -71,6 +72,7 @@ const searchItems = [
 export function GlobalSearch() {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
+  const { trackSearch, trackFeatureUsage } = useAnalytics()
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -84,16 +86,39 @@ export function GlobalSearch() {
     return () => document.removeEventListener("keydown", down)
   }, [])
 
-  const runCommand = React.useCallback((command: () => unknown) => {
+  // Close dialog on escape
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false)
+      }
+    }
+
+    if (open) {
+      document.addEventListener("keydown", handleEscape)
+      return () => document.removeEventListener("keydown", handleEscape)
+    }
+  }, [open])
+
+  const runCommand = React.useCallback((command: () => unknown, searchQuery?: string) => {
     setOpen(false)
+    
+    // Track search usage
+    if (searchQuery) {
+      trackSearch(searchQuery, {}, 1)
+    }
+    
+    // Track feature usage
+    trackFeatureUsage('global_search')
+    
     command()
-  }, [])
+  }, [trackSearch, trackFeatureUsage])
 
   return (
     <>
       <Button
         variant="outline"
-        className="relative h-9 w-9 p-0 xl:h-10 xl:w-60 xl:justify-start xl:px-3 xl:py-2"
+        className="relative h-9 w-9 p-0 xl:h-10 xl:w-60 xl:justify-start xl:px-3 xl:py-2 hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={() => setOpen(true)}
       >
         <Search className="h-4 w-4 xl:ml-2" />
@@ -104,19 +129,28 @@ export function GlobalSearch() {
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <DialogTitle className="sr-only">חיפוש גלובלי</DialogTitle>
-        <CommandInput placeholder="חפש בכל האתר..." />
-        <CommandList>
-          <CommandEmpty>לא נמצאו תוצאות.</CommandEmpty>
-          <CommandGroup heading="ניווט מהיר">
+        <CommandInput 
+          placeholder="חפש בכל האתר..." 
+          className="text-right border-0 focus:ring-0"
+          dir="rtl"
+          onValueChange={(value) => {
+            if (value.trim()) {
+              trackSearch(value.trim(), {}, 0)
+            }
+          }}
+        />
+        <CommandList className="max-h-[400px] overflow-y-auto">
+          <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">לא נמצאו תוצאות.</CommandEmpty>
+          <CommandGroup heading="ניווט מהיר" className="text-right">
             {searchItems.map((item) => (
               <CommandItem
                 key={item.href}
                 onSelect={() => runCommand(() => router.push(item.href))}
-                className="group hover:bg-[var(--brand-teal)]/80"
+                className="group"
               >
-                <span className="mr-3 text-xl group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
-                <div className="flex-1">
-                  <div className="font-semibold text-foreground group-hover:text-primary transition-colors duration-200">{item.title}</div>
+                <span className="ml-3 text-xl group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
+                <div className="flex-1 text-right">
+                  <div className="font-semibold group-hover:text-[var(--brand-teal)] transition-colors duration-200">{item.title}</div>
                   <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-200">
                     {item.description}
                   </div>

@@ -46,7 +46,7 @@ class Command(BaseCommand):
                     'first_name': 'מנהל',
                     'last_name': 'מערכת',
                     'company': 'נדל״נר',
-                    'role': 'מנהל מערכת',
+                    'role': 'admin',
                     'is_superuser': True,
                     'is_staff': True,
                     'is_active': True
@@ -75,7 +75,7 @@ class Command(BaseCommand):
                     'first_name': 'משתמש',
                     'last_name': 'דמו',
                     'company': 'נדל״ן דמו בע״מ',
-                    'role': 'מתווך נדל״ן',
+                    'role': 'member',
                     'is_active': True
                 }
             )

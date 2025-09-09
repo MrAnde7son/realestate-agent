@@ -58,7 +58,8 @@ class AuthenticationService:
             first_name = user_data.get('first_name', '')
             last_name = user_data.get('last_name', '')
             company = user_data.get('company', '')
-            role = user_data.get('role', '')
+            # All new users are automatically assigned 'member' role
+            role = 'member'
             
             if not email or not password or not username:
                 return {

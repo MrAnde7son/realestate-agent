@@ -189,7 +189,7 @@ export default function AppSidebar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-56"
+            className="w-56 bg-background border shadow-lg"
             align={isCollapsed ? "center" : "end"}
             side={isCollapsed ? "right" : "top"}
             forceMount
@@ -207,6 +207,9 @@ export default function AppSidebar({
                     {user.company}
                   </p>
                 )}
+                <p className="text-xs leading-none text-muted-foreground">
+                  {user?.role === 'admin' ? 'מנהל מערכת' : 'משתמש רגיל'}
+                </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

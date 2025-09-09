@@ -29,13 +29,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Plus,
   RefreshCw,
   Search,
-  Filter,
-  ChevronDown,
-  ChevronUp,
+  Trash2,
+  Download,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
@@ -44,6 +44,8 @@ import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/use-confirm";
 
 const DEFAULT_RADIUS_METERS = 100;
 
@@ -52,7 +54,6 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [city, setCity] = useState<string>(() => searchParams.get("city") ?? "all");
@@ -67,10 +68,13 @@ export default function AssetsPage() {
     const val = searchParams.get("priceMax");
     return val ? Number(val) : undefined;
   });
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const { user, isAuthenticated, refreshUser } = useAuth();
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
@@ -140,11 +144,6 @@ export default function AssetsPage() {
     }
   };
 
-  const handleProtectedAction = () => {
-    if (!isAuthenticated) {
-      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
-    }
-  };
 
   useEffect(() => {
     setSearch(searchParams.get("search") ?? "");
@@ -211,7 +210,15 @@ export default function AssetsPage() {
   };
 
   const handleDeleteAsset = async (assetId: number) => {
-    if (!confirm("האם אתה בטוח שברצונך למחוק נכס זה?")) {
+    const confirmed = await confirm({
+      title: "מחיקת נכס",
+      description: "האם אתה בטוח שברצונך למחוק נכס זה? פעולה זו לא ניתנת לביטול.",
+      confirmText: "מחק",
+      cancelText: "ביטול",
+      variant: "destructive",
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -225,17 +232,61 @@ export default function AssetsPage() {
 
       if (response.ok) {
         setAssets(prev => prev.filter(a => a.id !== assetId));
-        alert("הנכס נמחק בהצלחה");
+        toast({
+          title: "הצלחה",
+          description: "הנכס נמחק בהצלחה",
+          variant: "success",
+        });
       } else {
         const error = await response.json();
-        alert(`שגיאה במחיקת הנכס: ${error.error}`);
+        toast({
+          title: "שגיאה",
+          description: `שגיאה במחיקת הנכס: ${error.error}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error deleting asset:", error);
-      alert("שגיאה במחיקת הנכס");
+      toast({
+        title: "שגיאה",
+        description: "שגיאה במחיקת הנכס",
+        variant: "destructive",
+      });
     } finally {
       setDeleting(null);
     }
+  };
+
+  // Bulk actions
+  const handleBulkDelete = async () => {
+    if (!isAuthenticated) {
+      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: "מחיקת נכסים נבחרים",
+      description: "האם אתה בטוח שברצונך למחוק את הנכסים הנבחרים? פעולה זו לא ניתנת לביטול.",
+      confirmText: "מחק הכל",
+      cancelText: "ביטול",
+      variant: "destructive",
+    });
+
+    if (!confirmed) return;
+
+    // This would be implemented with actual bulk delete API
+    toast({
+      title: "פונקציונליות במפתח",
+      description: "מחיקה מרובה תהיה זמינה בקרוב",
+    });
+  };
+
+  const handleBulkExport = () => {
+    // This would trigger export of selected assets
+    toast({
+      title: "ייצוא מרובה",
+      description: "ייצוא נכסים נבחרים החל",
+    });
   };
 
   const newAssetSchema = z
@@ -343,12 +394,27 @@ export default function AssetsPage() {
         await fetchAssets();
         // Refresh user data to update onboarding progress
         await refreshUser();
+        toast({
+          title: "הצלחה",
+          description: "הנכס נוסף בהצלחה",
+          variant: "success",
+        });
       } else {
         const errorData = await response.json();
         console.error("Failed to create asset:", errorData);
+        toast({
+          title: "שגיאה",
+          description: `שגיאה ביצירת הנכס: ${errorData.error || 'שגיאה לא ידועה'}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error creating asset:", error);
+      toast({
+        title: "שגיאה",
+        description: "שגיאה ביצירת הנכס",
+        variant: "destructive",
+      });
     }
   };
 
@@ -356,24 +422,6 @@ export default function AssetsPage() {
     fetchAssets();
   }, []);
 
-  // Show filters by default on desktop, hide on mobile
-  useEffect(() => {
-    const handleResize = () => {
-      if (typeof window !== "undefined") {
-        setFiltersOpen(window.innerWidth >= 768);
-      }
-    };
-
-    // Set initial state
-    handleResize();
-
-    // Listen for resize events
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
 
   const cityOptions = React.useMemo(
     () =>
@@ -393,26 +441,40 @@ export default function AssetsPage() {
   const filteredAssets = React.useMemo(
     () =>
       assets.filter((l) => {
+        // Search filter
         if (search) {
           const lower = search.toLowerCase();
-          const addressLower = l.address?.toLowerCase();
-          const cityLower = l.city?.toLowerCase();
-          if (!(addressLower?.includes(lower) || cityLower?.includes(lower))) {
+          const addressLower = l.address?.toLowerCase() || '';
+          const cityLower = l.city?.toLowerCase() || '';
+          const typeLower = l.type?.toLowerCase() || '';
+          if (!(addressLower.includes(lower) || cityLower.includes(lower) || typeLower.includes(lower))) {
             return false;
           }
         }
+        
+        // City filter
         if (city && city !== "all" && l.city !== city) {
           return false;
         }
+        
+        // Type filter
         if (typeFilter && typeFilter !== "all" && l.type !== typeFilter) {
           return false;
         }
-        if (priceMin != null && l.price != null && l.price < priceMin) {
-          return false;
+        
+        // Price filters - exclude items without price when price filters are applied
+        if (priceMin != null || priceMax != null) {
+          if (l.price == null) {
+            return false;
+          }
+          if (priceMin != null && l.price < priceMin) {
+            return false;
+          }
+          if (priceMax != null && l.price > priceMax) {
+            return false;
+          }
         }
-        if (priceMax != null && l.price != null && l.price > priceMax) {
-          return false;
-        }
+        
         return true;
       }),
     [assets, search, city, typeFilter, priceMin, priceMax]
@@ -422,6 +484,9 @@ export default function AssetsPage() {
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
+        {/* Skip link for accessibility */}
+        <a href="#main-content" className="skip-link">דלג לתוכן הראשי</a>
+        
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -430,19 +495,11 @@ export default function AssetsPage() {
               {loading ? 'טוען נכסים...' : `${assets.length} נכסים עם נתוני שמאות ותכנון מלאים`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={fetchAssets} variant="outline" disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ms-2 ${loading ? 'animate-spin' : ''}`} />
-              רענן
-            </Button>
-            {isAuthenticated ? (
-              <Sheet open={open} onOpenChange={setOpen}>
-                <SheetTrigger asChild>
-                  <Button className="bg-brand-teal text-white hover:bg-brand-teal/90">
-                    <Plus className="h-4 w-4 ms-2" />
-                    הוסף נכס חדש
-                  </Button>
-                </SheetTrigger>
+        </div>
+
+        {/* Asset Creation Sheet - Keep the form but remove the trigger button */}
+        {isAuthenticated && (
+          <Sheet open={open} onOpenChange={setOpen}>
                 <SheetContent>
                   <SheetHeader>
                     <SheetTitle>הוסף נכס חדש</SheetTitle>
@@ -484,16 +541,24 @@ export default function AssetsPage() {
                             id="city"
                             list="city-options"
                             placeholder="בחר עיר"
+                            className={form.formState.errors.city ? "border-error" : ""}
                             {...form.register("city", {
                               onChange: (e) =>
                                 fetchCitySuggestions(e.target.value),
                             })}
+                            aria-invalid={!!form.formState.errors.city}
+                            aria-describedby={form.formState.errors.city ? "city-error" : undefined}
                           />
                           <datalist id="city-options">
                             {citySuggestions.map((c) => (
                               <option key={c} value={c} />
                             ))}
                           </datalist>
+                          {form.formState.errors.city && (
+                            <p id="city-error" className="text-sm text-error">
+                              {form.formState.errors.city.message}
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -502,6 +567,7 @@ export default function AssetsPage() {
                             id="street"
                             list="street-options"
                             placeholder="בחר רחוב"
+                            className={form.formState.errors.street ? "border-error" : ""}
                             {...form.register("street", {
                               onChange: (e) =>
                                 fetchStreetSuggestions(
@@ -509,12 +575,19 @@ export default function AssetsPage() {
                                   form.getValues("city") || ""
                                 ),
                             })}
+                            aria-invalid={!!form.formState.errors.street}
+                            aria-describedby={form.formState.errors.street ? "street-error" : undefined}
                           />
                           <datalist id="street-options">
                             {streetSuggestions.map((s) => (
                               <option key={s} value={s} />
                             ))}
                           </datalist>
+                          {form.formState.errors.street && (
+                            <p id="street-error" className="text-sm text-error">
+                              {form.formState.errors.street.message}
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -544,16 +617,32 @@ export default function AssetsPage() {
                           <Input
                             id="gush"
                             placeholder="הזן מספר גוש"
+                            className={form.formState.errors.gush ? "border-error" : ""}
                             {...form.register("gush")}
+                            aria-invalid={!!form.formState.errors.gush}
+                            aria-describedby={form.formState.errors.gush ? "gush-error" : undefined}
                           />
+                          {form.formState.errors.gush && (
+                            <p id="gush-error" className="text-sm text-error">
+                              {form.formState.errors.gush.message}
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="helka">חלקה</Label>
                           <Input
                             id="helka"
                             placeholder="הזן מספר חלקה"
+                            className={form.formState.errors.helka ? "border-error" : ""}
                             {...form.register("helka")}
+                            aria-invalid={!!form.formState.errors.helka}
+                            aria-describedby={form.formState.errors.helka ? "helka-error" : undefined}
                           />
+                          {form.formState.errors.helka && (
+                            <p id="helka-error" className="text-sm text-error">
+                              {form.formState.errors.helka.message}
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="subHelka">תת חלקה</Label>
@@ -581,124 +670,11 @@ export default function AssetsPage() {
                   </form>
                 </SheetContent>
               </Sheet>
-            ) : (
-              <Button onClick={handleProtectedAction}>
-                <Plus className="h-4 w-4 ms-2" />
-                התחבר להוספת נכס
-              </Button>
             )}
-          </div>
-        </div>
 
-        {/* Filters */}
-        <Card variant="outlined" className="bg-muted/30">
-          <CardHeader className="pb-4 flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Filter className="h-4 w-4" />
-              סינון נכסים
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setFiltersOpen((prev) => !prev)}
-              aria-label={filtersOpen ? 'סגור סינון' : 'פתח סינון'}
-            >
-              {filtersOpen ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </Button>
-          </CardHeader>
-          {filtersOpen && (
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="search">חיפוש</Label>
-                <div className="relative">
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search"
-                    placeholder="חיפוש בכתובת או עיר..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pr-10 text-right"
-                    dir="rtl"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="city">עיר</Label>
-                <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="כל הערים" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">כל הערים</SelectItem>
-                    {cityOptions.map((cityOption) => (
-                      <SelectItem key={cityOption} value={cityOption}>
-                        {cityOption}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="type">סוג נכס</Label>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="כל הסוגים" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">כל הסוגים</SelectItem>
-                    {typeOptions.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="priceMin">מחיר מינימלי</Label>
-                <Input
-                  id="priceMin"
-                  type="number"
-                  placeholder="₪"
-                  value={priceMin || ""}
-                  onChange={(e) =>
-                    setPriceMin(
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="priceMax">מחיר מקסימלי</Label>
-                <Input
-                  id="priceMax"
-                  type="number"
-                  placeholder="₪"
-                  value={priceMax || ""}
-                  onChange={(e) =>
-                    setPriceMax(
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                />
-              </div>
-            </div>
-            </CardContent>
-          )}
-        </Card>
 
         {/* Assets Table */}
-        <Card>
+        <Card id="main-content">
           <CardHeader>
             <CardTitle>נכסים זמינים</CardTitle>
             <CardDescription>
@@ -707,35 +683,90 @@ export default function AssetsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
-                <div className="text-center">
-                  <p className="text-muted-foreground">טוען נכסים...</p>
-                  <p className="text-sm text-muted-foreground">אנא המתן בזמן שאנחנו מביאים את הנתונים העדכניים</p>
+              <div className="space-y-4">
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
+                  <div className="text-center">
+                    <p className="text-muted-foreground">טוען נכסים...</p>
+                    <p className="text-sm text-muted-foreground">אנא המתן בזמן שאנחנו מביאים את הנתונים העדכניים</p>
+                  </div>
                 </div>
-              </div>
-            ) : filteredAssets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                  <Search className="h-8 w-8 text-muted-foreground" />
+                {/* Skeleton table for better UX */}
+                <div className="hidden sm:block">
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex space-x-4">
+                        <Skeleton className="h-4 w-4" />
+                        <Skeleton className="h-4 w-48" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-12" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
-                  <p className="text-muted-foreground">
-                    {search || city !== 'all' || typeFilter !== 'all' || priceMin || priceMax
-                      ? 'נסה לשנות את הסינון או החיפוש'
-                      : 'אין נכסים זמינים כרגע'}
-                  </p>
-                  {!search && city === 'all' && typeFilter === 'all' && !priceMin && !priceMax && (
-                    <Button className="mt-4" onClick={() => setOpen(true)}>
-                      <Plus className="h-4 w-4 ms-2" />
-                      הוסף נכס ראשון
-                    </Button>
-                  )}
+                {/* Skeleton cards for mobile */}
+                <div className="sm:hidden space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="p-4 border rounded-lg space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <div className="flex space-x-2">
+                        <Skeleton className="h-6 w-16" />
+                        <Skeleton className="h-6 w-20" />
+                        <Skeleton className="h-6 w-12" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (
-              <AssetsTable data={filteredAssets} loading={loading} onDelete={handleDeleteAsset} />
+              <AssetsTable 
+                data={filteredAssets} 
+                loading={loading} 
+                onDelete={handleDeleteAsset}
+                searchValue={search}
+                onSearchChange={setSearch}
+                filters={{
+                  city: {
+                    value: city,
+                    onChange: setCity,
+                    options: cityOptions
+                  },
+                  type: {
+                    value: typeFilter,
+                    onChange: setTypeFilter,
+                    options: typeOptions
+                  },
+                  priceMin: {
+                    value: priceMin,
+                    onChange: setPriceMin
+                  },
+                  priceMax: {
+                    value: priceMax,
+                    onChange: setPriceMax
+                  }
+                }}
+                onRefresh={fetchAssets}
+                onAddNew={() => setOpen(true)}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                bulkActions={[
+                  {
+                    label: "מחק נבחרים",
+                    action: handleBulkDelete,
+                    icon: <Trash2 className="h-4 w-4" />,
+                  },
+                  {
+                    label: "ייצא נבחרים",
+                    action: handleBulkExport,
+                    icon: <Download className="h-4 w-4" />,
+                  }
+                ]}
+              />
             )}
           </CardContent>
         </Card>
@@ -747,14 +778,6 @@ export default function AssetsPage() {
           </p>
         </div>
 
-        <Button
-          size="icon"
-          className="fixed bottom-4 right-4 rounded-full h-14 w-14 sm:hidden bg-brand-teal hover:bg-brand-teal/90 shadow-lg z-50"
-          onClick={() => setOpen(true)}
-          aria-label="הוספת נכס חדש"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
       </div>
     </DashboardLayout>
   );

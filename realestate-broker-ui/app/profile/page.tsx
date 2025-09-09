@@ -317,13 +317,18 @@ export default function ProfilePage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="role">תפקיד</Label>
-                      <Input
-                        id="role"
-                        {...form.register('role')}
-                        disabled={!isEditing}
-                        placeholder="תפקיד (אופציונלי)"
-                      />
+                      <Label htmlFor="role">רמת גישה</Label>
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                        <Input
+                          id="role"
+                          value={user?.role === 'admin' ? 'מנהל מערכת' : 'משתמש רגיל'}
+                          disabled={true}
+                          className="bg-muted"
+                        />
+                        <div className="text-sm text-muted-foreground">
+                          {user?.role === 'admin' ? 'גישה מלאה לכל הפונקציות' : 'גישה לפונקציות בסיסיות'}
+                        </div>
+                      </div>
                     </div>
                   </div>
 

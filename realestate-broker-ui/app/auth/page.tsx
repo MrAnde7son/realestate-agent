@@ -278,14 +278,6 @@ export default function AuthPage() {
                       {...registerForm.register('company')}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">תפקיד</Label>
-                    <Input
-                      id="role"
-                      placeholder="תפקיד (אופציונלי)"
-                      {...registerForm.register('role')}
-                    />
-                  </div>
                 </div>
 
                 <div className="space-y-2">

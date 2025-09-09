@@ -267,7 +267,10 @@ export default function HomePage() {
                   נסה הדגמה
                 </Button>
                 <Button
-                  onClick={() => router.push("/auth")}
+                  onClick={() => {
+                    console.log('🔘 Login button clicked - navigating to /auth')
+                    router.push("/auth")
+                  }}
                   className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                 >
                   התחבר עכשיו

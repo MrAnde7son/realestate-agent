@@ -24,15 +24,21 @@ class Yad2Collector(BaseCollector):
 
     def _fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
         """Fetch Yad2 listings for a given address."""
-        location = self.client.fetch_location_data(address)
-        if location:
-            city = location.get("cities") or []
-            streets = location.get("streets") or []
-            if city:
-                self.client.set_search_parameters(city=city[0].get("id"))
-            if streets:
-                self.client.set_search_parameters(street=streets[0].get("id"))
-        return self.client.scrape_all_pages(max_pages=max_pages, delay=0)
+        try:
+            location = self.client.fetch_location_data(address)
+            if location:
+                city = location.get("cities") or []
+                streets = location.get("streets") or []
+                if city:
+                    self.client.set_search_parameters(city=city[0].get("id"))
+                if streets:
+                    self.client.set_search_parameters(street=streets[0].get("id"))
+            return self.client.scrape_all_pages(max_pages=max_pages, delay=0)
+        except Exception as e:
+            # Handle captcha or other blocking issues gracefully
+            print(f"Yad2 scraping failed (likely captcha protection): {e}")
+            # Return empty list instead of failing
+            return []
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for Yad2 collection."""

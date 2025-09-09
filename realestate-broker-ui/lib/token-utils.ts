@@ -54,6 +54,29 @@ export function validateToken(token: string | null | undefined): TokenValidation
 }
 
 /**
+ * Validate both access and refresh tokens
+ */
+export function validateTokens(accessToken: string | null | undefined, refreshToken: string | null | undefined): {
+  accessToken: TokenValidationResult
+  refreshToken: TokenValidationResult
+  canRefresh: boolean
+  shouldLogout: boolean
+} {
+  const accessValidation = validateToken(accessToken)
+  const refreshValidation = validateToken(refreshToken)
+  
+  const canRefresh = refreshValidation.isValid && accessValidation.isExpired
+  const shouldLogout = !accessValidation.isValid && !refreshValidation.isValid
+  
+  return {
+    accessToken: accessValidation,
+    refreshToken: refreshValidation,
+    canRefresh,
+    shouldLogout
+  }
+}
+
+/**
  * Extract token from Authorization header
  */
 export function extractTokenFromHeader(authHeader: string | null): string | null {

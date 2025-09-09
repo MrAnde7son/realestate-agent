@@ -41,18 +41,25 @@ export async function middleware(request: NextRequest) {
 
   // Validate access token if present
   let isTokenExpired = false
+  let needsRefresh = false
+  
   if (accessToken) {
     const tokenValidation = validateToken(accessToken)
     isTokenExpired = tokenValidation.isExpired
+    needsRefresh = tokenValidation.needsRefresh
     
     if (tokenValidation.isExpired) {
       console.log('🔄 Access token is expired in middleware')
     }
   }
   
-  // If it's a protected route and no valid token or token is expired, redirect to auth
-  if (isProtectedRoute && (!hasValidToken || isTokenExpired)) {
-    console.log(`🔒 Redirecting to auth: ${pathname} requires authentication (expired: ${isTokenExpired})`)
+  // If access token is expired but we have a refresh token, we can still allow access
+  // The frontend will handle the token refresh
+  const canAccess = hasValidToken && (!isTokenExpired || refreshToken)
+  
+  // If it's a protected route and no valid token or can't access, redirect to auth
+  if (isProtectedRoute && !canAccess) {
+    console.log(`🔒 Redirecting to auth: ${pathname} requires authentication (expired: ${isTokenExpired}, hasRefresh: ${!!refreshToken})`)
     return NextResponse.redirect(new URL('/auth', request.url))
   }
   

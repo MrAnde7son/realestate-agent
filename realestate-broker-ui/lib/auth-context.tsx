@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, authAPI, LoginCredentials, RegisterCredentials, ProfileUpdateData } from './auth'
+import { validateTokens } from './token-utils'
 
 interface AuthContextType {
   user: User | null
@@ -39,17 +40,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const refreshUser = async () => {
     try {
-      // Check if we have a token in localStorage or cookies
-      const token = authAPI.getAccessToken()
+      // Check if we have tokens
+      const accessToken = authAPI.getAccessToken()
+      const refreshToken = authAPI.getRefreshToken()
       
-      if (token) {
-        // Validate token before making API call
-        const isValid = await authAPI.validateToken()
-        if (!isValid) {
-          console.log('❌ Token validation failed, logging out user')
+      if (accessToken || refreshToken) {
+        // Validate both tokens
+        const tokenValidation = validateTokens(accessToken, refreshToken)
+        
+        if (tokenValidation.shouldLogout) {
+          console.log('❌ Both tokens are invalid, logging out user')
           authAPI.clearTokens()
           setUser(null)
           return
+        }
+        
+        if (tokenValidation.canRefresh) {
+          console.log('🔄 Access token expired, attempting refresh...')
+          try {
+            const newToken = await authAPI.refreshAccessToken()
+            if (!newToken) {
+              console.log('❌ Token refresh failed, logging out user')
+              authAPI.clearTokens()
+              setUser(null)
+              return
+            }
+            console.log('✅ Token refreshed successfully')
+          } catch (refreshError) {
+            console.error('❌ Token refresh error:', refreshError)
+            authAPI.clearTokens()
+            setUser(null)
+            return
+          }
         }
 
         const response = await authAPI.getProfile()
@@ -155,12 +177,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const validateTokenPeriodically = async () => {
       try {
-        const isValid = await authAPI.validateToken()
-        if (!isValid) {
-          console.log('❌ Periodic token validation failed, logging out user')
+        const accessToken = authAPI.getAccessToken()
+        const refreshToken = authAPI.getRefreshToken()
+        
+        const tokenValidation = validateTokens(accessToken, refreshToken)
+        
+        if (tokenValidation.shouldLogout) {
+          console.log('❌ Periodic token validation failed - both tokens invalid, logging out user')
           authAPI.clearTokens()
           setUser(null)
           router.push('/auth')
+          return
+        }
+        
+        if (tokenValidation.canRefresh) {
+          console.log('🔄 Periodic validation - access token expired, attempting refresh...')
+          try {
+            const newToken = await authAPI.refreshAccessToken()
+            if (!newToken) {
+              console.log('❌ Periodic refresh failed, logging out user')
+              authAPI.clearTokens()
+              setUser(null)
+              router.push('/auth')
+            } else {
+              console.log('✅ Periodic token refresh successful')
+            }
+          } catch (refreshError) {
+            console.error('❌ Periodic token refresh error:', refreshError)
+            authAPI.clearTokens()
+            setUser(null)
+            router.push('/auth')
+          }
         }
       } catch (error) {
         console.error('Token validation error:', error)

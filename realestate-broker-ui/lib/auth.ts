@@ -200,7 +200,7 @@ class AuthAPI {
     })
   }
 
-  private async refreshAccessToken(): Promise<string | null> {
+  async refreshAccessToken(): Promise<string | null> {
     // Prevent multiple simultaneous refresh attempts
     if (this.isRefreshing && this.refreshPromise) {
       return this.refreshPromise

@@ -210,6 +210,8 @@ export default function AssetsPage() {
   };
 
   const handleDeleteAsset = async (assetId: number) => {
+    console.log("Delete button clicked for asset:", assetId);
+    
     const confirmed = await confirm({
       title: "מחיקת נכס",
       description: "האם אתה בטוח שברצונך למחוק נכס זה? פעולה זו לא ניתנת לביטול.",
@@ -218,10 +220,14 @@ export default function AssetsPage() {
       variant: "destructive",
     });
 
+    console.log("Confirmation result:", confirmed);
+
     if (!confirmed) {
+      console.log("User cancelled deletion");
       return;
     }
 
+    console.log("Proceeding with deletion...");
     setDeleting(assetId);
     try {
       const response = await fetch("/api/assets", {
@@ -229,6 +235,8 @@ export default function AssetsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assetId }),
       });
+
+      console.log("Delete response status:", response.status);
 
       if (response.ok) {
         setAssets(prev => prev.filter(a => a.id !== assetId));
@@ -239,6 +247,7 @@ export default function AssetsPage() {
         });
       } else {
         const error = await response.json();
+        console.error("Delete error:", error);
         toast({
           title: "שגיאה",
           description: `שגיאה במחיקת הנכס: ${error.error}`,

@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Separator } from '@/components/ui/separator'
 import { Plus, Trash2, TestTube, Bell, Building } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { api } from '@/lib/api-client'
 import { 
   ALERT_TYPES, 
   ALERT_TYPE_LABELS, 
@@ -87,10 +88,9 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
   const loadRules = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/alerts')
+      const response = await api.get('/api/alerts')
       if (response.ok) {
-        const data = await response.json()
-        setRules(data.rules || [])
+        setRules(response.data?.rules || [])
       }
     } catch (error) {
       console.error('Failed to load alert rules:', error)
@@ -102,10 +102,9 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
   const loadAssets = async () => {
     try {
       setAssetsLoading(true)
-      const response = await fetch('/api/assets')
+      const response = await api.get('/api/assets')
       if (response.ok) {
-        const data = await response.json()
-        setAssets(data.rows || [])
+        setAssets(response.data?.rows || [])
       }
     } catch (error) {
       console.error('Failed to load assets:', error)
@@ -178,18 +177,14 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
       
       const isUpdate = !!rule.id
       const url = isUpdate ? `/api/alerts?id=${rule.id}` : '/api/alerts'
-      const method = isUpdate ? 'PUT' : 'POST'
       
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rule)
-      })
+      const response = isUpdate 
+        ? await api.put(url, rule)
+        : await api.post(url, rule)
       
       if (response.ok) {
-        const data = await response.json()
         const updatedRules = [...rules]
-        updatedRules[index] = { ...rule, id: data.id || rule.id }
+        updatedRules[index] = { ...rule, id: response.data?.id || rule.id }
         setRules(updatedRules)
         
         // Refresh user data to update onboarding progress
@@ -200,8 +195,7 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
           onRuleSaved()
         }
       } else {
-        const errorData = await response.json()
-        alert(`Failed to save rule: ${errorData.error || 'Unknown error'}`)
+        alert(`Failed to save rule: ${response.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Failed to save rule:', error)
@@ -214,17 +208,12 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
   const testChannels = async () => {
     try {
       setTesting(true)
-      const response = await fetch('/api/alerts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test: true })
-      })
+      const response = await api.post('/api/alerts', { test: true })
       
       if (response.ok) {
         alert('Test alert sent successfully!')
       } else {
-        const errorData = await response.json()
-        alert(`Failed to send test: ${errorData.error || 'Unknown error'}`)
+        alert(`Failed to send test: ${response.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Failed to send test:', error)

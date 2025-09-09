@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +298,24 @@ class Asset(models.Model):
             models.Index(fields=["zoning"]),
         ]
 
+    # Attribution fields
+    created_by = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_assets",
+        help_text="User who originally created this asset"
+    )
+    last_updated_by = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_assets",
+        help_text="User who last updated this asset"
+    )
+
     def __str__(self):
         return f"Asset({self.id}, {self.scope_type}, {self.status})"
 
@@ -367,6 +386,138 @@ def promote_raw_to_asset(asset: Asset, raw: dict):
     set_if_empty(asset, "bedrooms", raw.get("bedrooms"))
     set_if_empty(asset, "building_type", raw.get("property_type"))
     asset.save()
+
+
+class AssetContribution(models.Model):
+    """Track detailed contributions to assets by users."""
+    
+    CONTRIBUTION_TYPE_CHOICES = [
+        ('creation', 'Asset Creation'),
+        ('enrichment', 'Data Enrichment'),
+        ('verification', 'Data Verification'),
+        ('update', 'Field Update'),
+        ('source_add', 'Source Addition'),
+        ('comment', 'Comment/Note'),
+    ]
+    
+    asset = models.ForeignKey(
+        Asset, 
+        on_delete=models.CASCADE, 
+        related_name="contributions"
+    )
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="asset_contributions"
+    )
+    contribution_type = models.CharField(
+        max_length=20,
+        choices=CONTRIBUTION_TYPE_CHOICES
+    )
+    field_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Specific field that was updated (if applicable)"
+    )
+    old_value = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Previous value (if updating existing data)"
+    )
+    new_value = models.TextField(
+        blank=True,
+        null=True,
+        help_text="New value added or updated"
+    )
+    source = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Source of the contribution (yad2, manual, etc.)"
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional description of the contribution"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["asset", "user"]),
+            models.Index(fields=["contribution_type"]),
+            models.Index(fields=["created_at"]),
+        ]
+        ordering = ["-created_at"]
+    
+    def __str__(self):
+        return f"Contribution({self.user.email}, {self.contribution_type}, Asset {self.asset.id})"
+
+
+class UserProfile(models.Model):
+    """Extended user profile with contribution statistics and preferences."""
+    
+    user = models.OneToOneField(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="profile"
+    )
+    
+    # Contribution statistics
+    assets_created = models.IntegerField(default=0)
+    assets_updated = models.IntegerField(default=0)
+    contributions_made = models.IntegerField(default=0)
+    data_points_added = models.IntegerField(default=0)
+    sources_contributed = models.IntegerField(default=0)
+    
+    # Community reputation
+    reputation_score = models.IntegerField(default=0)
+    verification_count = models.IntegerField(default=0)
+    helpful_votes = models.IntegerField(default=0)
+    
+    # Preferences
+    show_attribution = models.BooleanField(
+        default=True,
+        help_text="Show attribution for this user's contributions"
+    )
+    public_profile = models.BooleanField(
+        default=False,
+        help_text="Allow other users to see this user's contribution history"
+    )
+    contribution_notifications = models.BooleanField(
+        default=True,
+        help_text="Receive notifications when others contribute to assets you created"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_contribution_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["reputation_score"]),
+            models.Index(fields=["assets_created"]),
+            models.Index(fields=["last_contribution_at"]),
+        ]
+    
+    def __str__(self):
+        return f"Profile({self.user.email})"
+    
+    def update_contribution_stats(self, contribution_type: str):
+        """Update contribution statistics when user makes a contribution."""
+        if contribution_type == 'creation':
+            self.assets_created += 1
+        elif contribution_type in ['enrichment', 'update', 'verification']:
+            self.assets_updated += 1
+        
+        self.contributions_made += 1
+        self.last_contribution_at = timezone.now()
+        self.save(update_fields=[
+            'assets_created', 'assets_updated', 'contributions_made', 
+            'last_contribution_at'
+        ])
 
 
 class RealEstateTransaction(models.Model):

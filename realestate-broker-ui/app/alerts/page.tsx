@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Bell, CheckCircle, Clock, TrendingDown, Home, FileText, Hammer, RefreshCw, Plus, Settings, Edit, Trash2 } from 'lucide-react'
 import { ALERT_TYPE_LABELS } from '@/lib/alert-constants'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
+import { api } from '@/lib/api-client'
 
 interface AlertEvent {
   id: number
@@ -88,17 +89,15 @@ export default function AlertsPage() {
     try {
       setLoading(true)
       // Fetch alert rules
-      const rulesResponse = await fetch('/api/alerts')
+      const rulesResponse = await api.get('/api/alerts')
       if (rulesResponse.ok) {
-        const rulesData = await rulesResponse.json()
-        setAlertRules(rulesData.rules || [])
+        setAlertRules(rulesResponse.data?.rules || [])
       }
       
       // Fetch alert events
-      const eventsResponse = await fetch('/api/alerts?since=2024-01-01')
+      const eventsResponse = await api.get('/api/alerts?since=2024-01-01')
       if (eventsResponse.ok) {
-        const eventsData = await eventsResponse.json()
-        setAlertsData(eventsData.events || [])
+        setAlertsData(eventsResponse.data?.events || [])
       }
     } catch (err) {
       console.error('Error fetching alerts:', err)
@@ -111,10 +110,9 @@ export default function AlertsPage() {
   // Fetch assets from API
   const fetchAssets = async () => {
     try {
-      const response = await fetch('/api/assets')
+      const response = await api.get('/api/assets')
       if (response.ok) {
-        const data = await response.json()
-        setAssets(data.rows || [])
+        setAssets(response.data?.rows || [])
       }
     } catch (err) {
       console.error('Failed to fetch assets:', err)

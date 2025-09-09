@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot
+from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -193,3 +193,87 @@ class SnapshotSerializer(serializers.ModelSerializer):
         model = Snapshot
         fields = ['id', 'asset', 'payload', 'ppsqm', 'created_at']
         read_only_fields = ('id', 'created_at')
+
+
+class AssetContributionSerializer(serializers.ModelSerializer):
+    """Serializer for AssetContribution model."""
+    
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    contribution_type_display = serializers.SerializerMethodField()
+    
+    def get_contribution_type_display(self, obj):
+        """Return Hebrew translation for contribution type."""
+        translations = {
+            'creation': 'יצירת נכס',
+            'enrichment': 'העשרת נתונים',
+            'verification': 'אימות נתונים',
+            'update': 'עדכון שדה',
+            'source_add': 'הוספת מקור',
+            'comment': 'הערה/תגובה'
+        }
+        return translations.get(obj.contribution_type, obj.get_contribution_type_display())
+    
+    class Meta:
+        model = AssetContribution
+        fields = [
+            'id', 'asset', 'user', 'user_email', 'user_first_name', 'user_last_name',
+            'contribution_type', 'contribution_type_display', 'field_name',
+            'old_value', 'new_value', 'source', 'description', 'created_at'
+        ]
+        read_only_fields = ('id', 'created_at')
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Serializer for UserProfile model."""
+    
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id', 'user', 'user_email', 'user_first_name', 'user_last_name',
+            'assets_created', 'assets_updated', 'contributions_made',
+            'data_points_added', 'sources_contributed', 'reputation_score',
+            'verification_count', 'helpful_votes', 'show_attribution',
+            'public_profile', 'contribution_notifications', 'created_at',
+            'updated_at', 'last_contribution_at'
+        ]
+        read_only_fields = ('id', 'user', 'created_at', 'updated_at')
+
+
+class AssetWithAttributionSerializer(AssetSerializer):
+    """Enhanced Asset serializer with attribution information."""
+    
+    created_by_email = serializers.CharField(source='created_by.email', read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+    last_updated_by_email = serializers.CharField(source='last_updated_by.email', read_only=True)
+    last_updated_by_name = serializers.SerializerMethodField()
+    contributions = AssetContributionSerializer(many=True, read_only=True)
+    contribution_count = serializers.SerializerMethodField()
+    
+    class Meta(AssetSerializer.Meta):
+        fields = AssetSerializer.Meta.fields + [
+            'created_by', 'created_by_email', 'created_by_name',
+            'last_updated_by', 'last_updated_by_email', 'last_updated_by_name',
+            'contributions', 'contribution_count'
+        ]
+    
+    def get_created_by_name(self, obj):
+        """Get full name of the user who created the asset."""
+        if obj.created_by:
+            return f"{obj.created_by.first_name} {obj.created_by.last_name}".strip() or obj.created_by.email
+        return None
+    
+    def get_last_updated_by_name(self, obj):
+        """Get full name of the user who last updated the asset."""
+        if obj.last_updated_by:
+            return f"{obj.last_updated_by.first_name} {obj.last_updated_by.last_name}".strip() or obj.last_updated_by.email
+        return None
+    
+    def get_contribution_count(self, obj):
+        """Get total number of contributions for this asset."""
+        return obj.contributions.count()

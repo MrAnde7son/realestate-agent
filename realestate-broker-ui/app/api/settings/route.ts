@@ -11,7 +11,10 @@ export async function GET() {
   const tokenValidation = validateToken(token)
   if (!tokenValidation.isValid) {
     console.log('❌ Settings API - Token validation failed:', tokenValidation.error)
-    return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+    const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+    response.cookies.delete('access_token')
+    response.cookies.delete('refresh_token')
+    return response
   }
 
   const res = await fetch(`${BACKEND_URL}/api/settings/`, {
@@ -28,7 +31,10 @@ export async function PUT(req: Request) {
   const tokenValidation = validateToken(token)
   if (!tokenValidation.isValid) {
     console.log('❌ Settings API PUT - Token validation failed:', tokenValidation.error)
-    return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+    const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+    response.cookies.delete('access_token')
+    response.cookies.delete('refresh_token')
+    return response
   }
   let body
   try {

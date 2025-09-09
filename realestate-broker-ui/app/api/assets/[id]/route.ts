@@ -59,6 +59,9 @@ export async function GET(
           greenWithin300m: meta.greenWithin300m,
           shelterDistanceM: meta.shelterDistanceM,
           assetStatus: backendAsset.status,
+          // Pass through attribution data
+          attribution: backendAsset.attribution,
+          recent_contributions: backendAsset.recent_contributions,
         }
 
         const asset: any = normalizeFromBackend(enrichedAsset)

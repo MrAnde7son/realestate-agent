@@ -80,7 +80,10 @@ export async function DELETE(req: Request) {
     const tokenValidation = validateToken(token)
     if (!tokenValidation.isValid) {
       console.log('❌ Asset deletion - Token validation failed:', tokenValidation.error)
-      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+      const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+      response.cookies.delete('access_token')
+      response.cookies.delete('refresh_token')
+      return response
     }
     
     const contentType = req.headers.get('content-type')
@@ -139,7 +142,10 @@ export async function POST(req: Request) {
     const tokenValidation = validateToken(token)
     if (!tokenValidation.isValid) {
       console.log('❌ Asset creation - Token validation failed:', tokenValidation.error)
-      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+      const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+      response.cookies.delete('access_token')
+      response.cookies.delete('refresh_token')
+      return response
     }
 
     // Validate input

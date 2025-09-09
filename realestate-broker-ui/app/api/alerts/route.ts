@@ -22,7 +22,10 @@ async function fetchFromBackend(endpoint: string, options: RequestInit = {}, req
   const tokenValidation = validateToken(token)
   if (!tokenValidation.isValid) {
     console.log('❌ Alerts API - Token validation failed:', tokenValidation.error)
-    throw new Error('Unauthorized - Token expired or invalid')
+    return new Response(JSON.stringify({ error: 'Unauthorized - Token expired or invalid' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
   
   // Debug logging
@@ -72,7 +75,11 @@ export async function GET(req: Request) {
     
     // Handle authentication errors gracefully
     if (response.status === 401) {
-      return NextResponse.json({ rules: [], events: [] })
+      // Clear tokens and return 401 to trigger logout
+      const errorResponse = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+      errorResponse.cookies.delete('access_token')
+      errorResponse.cookies.delete('refresh_token')
+      return errorResponse
     }
     
     if (!response.ok) {

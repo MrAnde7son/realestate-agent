@@ -40,6 +40,14 @@ urlpatterns = [
     path('assets/<int:asset_id>/', views.asset_detail, name='asset_detail'),
     path('assets/<int:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
     
+    # Attribution endpoints
+    path('assets/<int:asset_id>/contributions/', views.asset_contributions, name='asset_contributions'),
+    path('assets/<int:asset_id>/add-contribution/', views.add_contribution, name='add_contribution'),
+    path('contributions/', views.user_contributions, name='user_contributions'),
+    path('profile/', views.user_profile, name='user_profile'),
+    path('profile/update/', views.update_user_profile, name='update_user_profile'),
+    path('top-contributors/', views.top_contributors, name='top_contributors'),
+    
 
     
     # Authentication endpoints

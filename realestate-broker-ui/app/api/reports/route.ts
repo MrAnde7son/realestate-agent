@@ -17,7 +17,10 @@ export async function GET(req: Request) {
     const tokenValidation = validateToken(token);
     if (!tokenValidation.isValid) {
       console.log('❌ Reports API - Token validation failed:', tokenValidation.error);
-      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 });
+      const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 });
+      response.cookies.delete('access_token');
+      response.cookies.delete('refresh_token');
+      return response;
     }
     
     const res = await fetch(`${BACKEND_URL}/api/reports/`, { 
@@ -46,7 +49,10 @@ export async function DELETE(req: Request) {
     const tokenValidation = validateToken(token);
     if (!tokenValidation.isValid) {
       console.log('❌ Reports DELETE API - Token validation failed:', tokenValidation.error);
-      return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 });
+      const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 });
+      response.cookies.delete('access_token');
+      response.cookies.delete('refresh_token');
+      return response;
     }
     
     // Check if request has a body

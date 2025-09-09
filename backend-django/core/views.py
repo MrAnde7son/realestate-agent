@@ -1054,7 +1054,11 @@ def assets(request):
         if not scope_type:
             return Response({"error": "Scope type is required"}, status=400)
 
-        # Create asset record
+        # Get user for attribution
+        user = getattr(request, "user", None)
+        is_authenticated = user and getattr(user, "is_authenticated", False)
+        
+        # Create asset record with attribution
         asset_data = {
             "scope_type": scope_type,
             "city": data.get("city") or scope.get("city"),
@@ -1065,6 +1069,8 @@ def assets(request):
             "helka": data.get("helka"),
             "subhelka": data.get("subhelka"),
             "status": "pending",
+            "created_by": user if is_authenticated else None,
+            "last_updated_by": user if is_authenticated else None,
             "meta": {
                 "scope": scope,
                 "raw_input": data,
@@ -1075,10 +1081,25 @@ def assets(request):
         # Save to Django database
         asset = Asset.objects.create(**asset_data)
         asset_id = asset.id
-        user = getattr(request, "user", None)
+        
+        # Create attribution record if user is authenticated
+        if is_authenticated:
+            from .models import AssetContribution, UserProfile
+            AssetContribution.objects.create(
+                asset=asset,
+                user=user,
+                contribution_type='creation',
+                description=f"נוצר נכס עבור {scope_type}: {data.get('city', 'מיקום לא ידוע')}",
+                source='manual'
+            )
+            
+            # Update user profile stats
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            profile.update_contribution_stats('creation')
+        
         logger.info("Asset creation - User: %s, Authenticated: %s", 
-                   user, getattr(user, 'is_authenticated', False) if user else 'No user')
-        if user and getattr(user, "is_authenticated", False):
+                   user, is_authenticated)
+        if is_authenticated:
             track("asset_create", user=user, asset_id=asset_id)
         else:
             track("asset_create", asset_id=asset_id)
@@ -1146,9 +1167,9 @@ def asset_detail(request, asset_id):
         return JsonResponse({"error": "GET method required"}, status=405)
 
     try:
-        # Get asset using Django ORM
+        # Get asset using Django ORM with attribution data
         try:
-            asset = Asset.objects.get(id=asset_id)
+            asset = Asset.objects.select_related('created_by', 'last_updated_by').get(id=asset_id)
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
@@ -1193,7 +1214,52 @@ def asset_detail(request, asset_id):
                 }
             )
 
-        # Return asset details
+        # Get attribution information
+        attribution_info = {}
+        if asset.created_by:
+            attribution_info["created_by"] = {
+                "id": asset.created_by.id,
+                "email": asset.created_by.email,
+                "name": f"{asset.created_by.first_name} {asset.created_by.last_name}".strip() or asset.created_by.email,
+            }
+        if asset.last_updated_by:
+            attribution_info["last_updated_by"] = {
+                "id": asset.last_updated_by.id,
+                "email": asset.last_updated_by.email,
+                "name": f"{asset.last_updated_by.first_name} {asset.last_updated_by.last_name}".strip() or asset.last_updated_by.email,
+            }
+        
+        # Get recent contributions (last 5)
+        from .models import AssetContribution
+        recent_contributions = AssetContribution.objects.filter(asset=asset).order_by('-created_at')[:5]
+        contributions_list = []
+        
+        # Hebrew translations for contribution types
+        contribution_translations = {
+            'creation': 'יצירת נכס',
+            'enrichment': 'העשרת נתונים',
+            'verification': 'אימות נתונים',
+            'update': 'עדכון שדה',
+            'source_add': 'הוספת מקור',
+            'comment': 'הערה/תגובה'
+        }
+        
+        for contrib in recent_contributions:
+            contributions_list.append({
+                "id": contrib.id,
+                "user": {
+                    "email": contrib.user.email,
+                    "name": f"{contrib.user.first_name} {contrib.user.last_name}".strip() or contrib.user.email,
+                },
+                "type": contrib.contribution_type,
+                "type_display": contribution_translations.get(contrib.contribution_type, contrib.get_contribution_type_display()),
+                "field_name": contrib.field_name,
+                "description": contrib.description,
+                "source": contrib.source,
+                "created_at": contrib.created_at.isoformat(),
+            })
+
+        # Return asset details with attribution
         return JsonResponse(
             {
                 "id": asset.id,
@@ -1213,6 +1279,8 @@ def asset_detail(request, asset_id):
                 "created_at": (
                     asset.created_at.isoformat() if asset.created_at else None
                 ),
+                "attribution": attribution_info,
+                "recent_contributions": contributions_list,
                 "records": records_by_source,
                 "transactions": transaction_list,
             }
@@ -1484,3 +1552,131 @@ def alert_test(request):
     except Exception as e:
         logger.error("Failed to send test alert: %s", e)
         return Response({"error": "Failed to send test alert"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Attribution API endpoints
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def asset_contributions(request, asset_id):
+    """Get all contributions for a specific asset."""
+    try:
+        asset = Asset.objects.get(id=asset_id)
+        contributions = AssetContribution.objects.filter(asset=asset).order_by('-created_at')
+        serializer = AssetContributionSerializer(contributions, many=True)
+        return Response({"contributions": serializer.data})
+    except Asset.DoesNotExist:
+        return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error("Error fetching asset contributions: %s", e)
+        return Response({"error": "Failed to fetch contributions"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_contributions(request):
+    """Get all contributions made by the current user."""
+    try:
+        contributions = AssetContribution.objects.filter(user=request.user).order_by('-created_at')
+        serializer = AssetContributionSerializer(contributions, many=True)
+        return Response({"contributions": serializer.data})
+    except Exception as e:
+        logger.error("Error fetching user contributions: %s", e)
+        return Response({"error": "Failed to fetch contributions"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_profile(request):
+    """Get or create user profile with contribution statistics."""
+    try:
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(profile)
+        return Response({"profile": serializer.data})
+    except Exception as e:
+        logger.error("Error fetching user profile: %s", e)
+        return Response({"error": "Failed to fetch profile"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["PUT"])
+@permission_classes([IsAuthenticated])
+def update_user_profile(request):
+    """Update user profile preferences."""
+    try:
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"profile": serializer.data})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error("Error updating user profile: %s", e)
+        return Response({"error": "Failed to update profile"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def top_contributors(request):
+    """Get top contributors by various metrics."""
+    try:
+        # Get top contributors by assets created
+        top_creators = UserProfile.objects.filter(
+            assets_created__gt=0,
+            public_profile=True
+        ).order_by('-assets_created')[:10]
+        
+        # Get top contributors by total contributions
+        top_contributors = UserProfile.objects.filter(
+            contributions_made__gt=0,
+            public_profile=True
+        ).order_by('-contributions_made')[:10]
+        
+        # Get top contributors by reputation
+        top_reputation = UserProfile.objects.filter(
+            reputation_score__gt=0,
+            public_profile=True
+        ).order_by('-reputation_score')[:10]
+        
+        creators_serializer = UserProfileSerializer(top_creators, many=True)
+        contributors_serializer = UserProfileSerializer(top_contributors, many=True)
+        reputation_serializer = UserProfileSerializer(top_reputation, many=True)
+        
+        return Response({
+            "top_creators": creators_serializer.data,
+            "top_contributors": contributors_serializer.data,
+            "top_reputation": reputation_serializer.data
+        })
+    except Exception as e:
+        logger.error("Error fetching top contributors: %s", e)
+        return Response({"error": "Failed to fetch top contributors"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_contribution(request, asset_id):
+    """Add a new contribution to an asset."""
+    try:
+        asset = Asset.objects.get(id=asset_id)
+        data = request.data.copy()
+        data['asset'] = asset_id
+        data['user'] = request.user.id
+        
+        serializer = AssetContributionSerializer(data=data)
+        if serializer.is_valid():
+            contribution = serializer.save()
+            
+            # Update asset's last_updated_by
+            asset.last_updated_by = request.user
+            asset.save(update_fields=['last_updated_by'])
+            
+            # Update user profile stats
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            profile.update_contribution_stats(contribution.contribution_type)
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Asset.DoesNotExist:
+        return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error("Error adding contribution: %s", e)
+        return Response({"error": "Failed to add contribution"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

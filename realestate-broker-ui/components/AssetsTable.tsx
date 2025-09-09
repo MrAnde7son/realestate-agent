@@ -198,7 +198,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         {onDelete && (
           <button 
             onClick={e => { e.stopPropagation(); onDelete(row.original.id) }} 
-            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            className="text-red-600 hover:text-red-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
             aria-label={`מחק נכס ${row.original.address}`}
             title="מחק נכס"
           >

@@ -234,10 +234,24 @@ interface AssetsTableProps {
     onDelete?: (id: number) => void
   }
 
+const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
+
 export default function AssetsTable({ data = [], loading = false, onDelete }: AssetsTableProps){
   const router = useRouter()
   const [rowSelection, setRowSelection] = React.useState({})
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({})
+  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
+    // Load saved column preferences from localStorage on component mount
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(COLUMN_PREFERENCES_KEY)
+        return saved ? JSON.parse(saved) : {}
+      } catch (error) {
+        console.warn('Failed to load column preferences:', error)
+        return {}
+      }
+    }
+    return {}
+  })
   const [alertModalOpen, setAlertModalOpen] = React.useState(false)
   const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
 
@@ -247,6 +261,24 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
     setSelectedAssetId(assetId)
     setAlertModalOpen(true)
   }
+
+  // Save column preferences to localStorage whenever they change
+  const handleColumnVisibilityChange = React.useCallback((updaterOrValue: any) => {
+    setColumnVisibility(prev => {
+      const newVisibility = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(COLUMN_PREFERENCES_KEY, JSON.stringify(newVisibility))
+        } catch (error) {
+          console.warn('Failed to save column preferences:', error)
+        }
+      }
+      
+      return newVisibility
+    })
+  }, [])
 
   const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete])
 
@@ -259,7 +291,7 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
-    onColumnVisibilityChange: setColumnVisibility,
+    onColumnVisibilityChange: handleColumnVisibilityChange,
     getCoreRowModel: getCoreRowModel()
   })
 
@@ -299,6 +331,7 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
                           className="capitalize"
                           checked={column.getIsVisible()}
                           onCheckedChange={value => column.toggleVisibility(!!value)}
+                          onSelect={(e) => e.preventDefault()}
                         >
                           {column.columnDef.header as string}
                         </DropdownMenuCheckboxItem>

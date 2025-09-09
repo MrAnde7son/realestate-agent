@@ -54,7 +54,7 @@ except ImportError:
 
 # Import tasks
 from .tasks import run_data_pipeline
-from .analytics import track
+from .analytics import track, track_search, track_feature_usage, track_performance
 
 # Import services
 from .auth_service import AuthenticationService
@@ -504,7 +504,7 @@ def alerts(request):
             alert_rule = serializer.save(user=request.user)
             
             # Track analytics event for alert rule creation
-            from .analytics import track
+            from .analytics import track, track_search, track_feature_usage, track_performance
             track("alert_rule_create", user=request.user, asset_id=alert_rule.asset_id if alert_rule.asset else None)
             
             _update_onboarding(request.user, "set_one_alert")
@@ -515,6 +515,10 @@ def alerts(request):
         # Only return alert rules for the current user
         rules = AlertRule.objects.filter(user=request.user).order_by("-created_at")
         serializer = AlertRuleSerializer(rules, many=True)
+        
+        # Track feature usage
+        track_feature_usage("alert_rules_view", user=request.user)
+        
         return Response({"rules": serializer.data})
 
     if request.method == "PUT":
@@ -761,6 +765,9 @@ def reports(request):
 
         _update_onboarding(getattr(request, "user", None), "generate_first_report")
         track("report_success", user=getattr(request, "user", None), asset_id=asset_id)
+        
+        # Track feature usage
+        track_feature_usage("report_generation", user=getattr(request, "user", None), asset_id=asset_id)
         logger.info("Report %s successfully generated for asset %s", report.id, asset_id)
 
         # Return success response
@@ -927,6 +934,15 @@ def tabu(request):
         query = request.GET.get("q") or ""
         if query:
             rows = search_rows(rows, query)
+            # Track search query
+            track_search(
+                query=query,
+                user=getattr(request, "user", None),
+                meta={
+                    "source": "tabu",
+                    "results_count": len(rows),
+                }
+            )
         return JsonResponse({"rows": rows})
     except Exception as e:
         logger.error("Error parsing tabu PDF: %s", e)
@@ -1067,6 +1083,9 @@ def assets(request):
             track("asset_create", user=user, asset_id=asset_id)
         else:
             track("asset_create", asset_id=asset_id)
+        
+        # Track feature usage
+        track_feature_usage("asset_creation", user=user, asset_id=asset_id)
         _update_onboarding(user, "add_first_asset")
 
         # Enqueue Celery task if available

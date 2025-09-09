@@ -146,8 +146,9 @@ class AuthAPI {
   }
 
 
-  async googleLogin(): Promise<{ auth_url: string }> {
-    return this.request<{ auth_url: string }>('/auth/google/login/')
+  async googleLogin(redirectTo?: string): Promise<{ auth_url: string }> {
+    const url = redirectTo ? `/auth/google/login/?redirect=${encodeURIComponent(redirectTo)}` : '/auth/google/login/'
+    return this.request<{ auth_url: string }>(url)
   }
 
   async googleCallback(code: string): Promise<AuthResponse> {

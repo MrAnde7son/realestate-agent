@@ -76,6 +76,13 @@ export default function AssetsPage() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
+  // Handle protected action (add new asset)
+  const handleProtectedAction = (action: string) => {
+    if (!isAuthenticated) {
+      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+    }
+  };
+
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
 
@@ -762,7 +769,13 @@ export default function AssetsPage() {
                   }
                 }}
                 onRefresh={fetchAssets}
-                onAddNew={() => setOpen(true)}
+                onAddNew={() => {
+                  if (isAuthenticated) {
+                    setOpen(true);
+                  } else {
+                    handleProtectedAction("add-asset");
+                  }
+                }}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 bulkActions={[

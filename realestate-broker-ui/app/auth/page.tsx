@@ -13,6 +13,7 @@ import { Mail, Lock, User, Building, Eye, EyeOff } from 'lucide-react'
 import Logo from '@/components/Logo'
 import { useAuth } from '@/lib/auth-context'
 import { LoginCredentials, RegisterCredentials } from '@/lib/auth'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 const loginSchema = z.object({
   email: z.string().email('דוא״ל לא תקין'),
@@ -42,6 +43,11 @@ export default function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const { login, register, googleLogin, isLoading } = useAuth()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
+  // Get the redirect URL from query parameters
+  const redirectTo = searchParams.get('redirect') || '/'
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -54,7 +60,7 @@ export default function AuthPage() {
   const onLoginSubmit = async (data: LoginFormData) => {
     try {
       setError('')
-      await login(data)
+      await login(data, redirectTo)
     } catch (err: any) {
       setError(err.message || 'שגיאה בהתחברות')
     }
@@ -64,7 +70,7 @@ export default function AuthPage() {
     try {
       setError('')
       const { confirmPassword, ...registerData } = data
-      await register(registerData)
+      await register(registerData, redirectTo)
     } catch (err: any) {
       setError(err.message || 'שגיאה בהרשמה')
     }
@@ -190,7 +196,7 @@ export default function AuthPage() {
                 variant="outline" 
                 className="w-full" 
                 size="lg" 
-                onClick={() => googleLogin()}
+                onClick={() => googleLogin(redirectTo)}
                 disabled={isLoading}
               >
                 <Building className="h-4 w-4 ml-2" />

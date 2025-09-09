@@ -9,12 +9,12 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (credentials: LoginCredentials) => Promise<void>
-  register: (credentials: RegisterCredentials) => Promise<void>
+  login: (credentials: LoginCredentials, redirectTo?: string) => Promise<void>
+  register: (credentials: RegisterCredentials, redirectTo?: string) => Promise<void>
   logout: () => Promise<void>
   updateProfile: (data: ProfileUpdateData) => Promise<void>
   refreshUser: () => Promise<void>
-  googleLogin: () => Promise<void>
+  googleLogin: (redirectTo?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -79,13 +79,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = async (credentials: LoginCredentials, redirectTo?: string) => {
     try {
       setIsLoading(true)
       const response = await authAPI.login(credentials)
       authAPI.setTokens(response.access_token, response.refresh_token)
       setUser(response.user)
-      router.push('/')
+      router.push(redirectTo || '/')
     } catch (error: any) {
       // Provide more specific error messages
       if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
@@ -100,13 +100,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const register = async (credentials: RegisterCredentials) => {
+  const register = async (credentials: RegisterCredentials, redirectTo?: string) => {
     try {
       setIsLoading(true)
       const response = await authAPI.register(credentials)
       authAPI.setTokens(response.access_token, response.refresh_token)
       setUser(response.user)
-      router.push('/')
+      router.push(redirectTo || '/')
     } catch (error) {
       throw error
     } finally {
@@ -135,12 +135,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const googleLogin = async () => {
+  const googleLogin = async (redirectTo?: string) => {
     try {
       setIsLoading(true)
       
-      // Get Google OAuth URL from backend
-      const response = await authAPI.googleLogin()
+      // Get Google OAuth URL from backend with redirect parameter
+      const response = await authAPI.googleLogin(redirectTo)
       
       // Redirect to Google OAuth
       window.location.href = response.auth_url

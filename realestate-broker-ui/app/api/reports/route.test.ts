@@ -5,12 +5,24 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
+// Create a valid JWT token for testing (expires in 1 hour)
+const createMockJWT = () => {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  const payload = btoa(JSON.stringify({ 
+    exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+    iat: Math.floor(Date.now() / 1000),
+    sub: 'test-user'
+  }))
+  const signature = 'mock-signature'
+  return `${header}.${payload}.${signature}`
+}
+
 // Mock cookies
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() => ({
     get: vi.fn((name: string) => {
       if (name === 'access_token') {
-        return { value: 'mock-token' }
+        return { value: createMockJWT() }
       }
       return undefined
     })

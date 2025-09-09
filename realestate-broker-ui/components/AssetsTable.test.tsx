@@ -6,7 +6,9 @@ import { describe, it, expect, vi } from 'vitest'
 import AssetsTable from './AssetsTable'
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() })
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 vi.mock('next/link', () => ({

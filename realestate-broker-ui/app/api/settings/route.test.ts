@@ -3,6 +3,18 @@ import { NextRequest } from 'next/server'
 
 process.env.BACKEND_URL = 'http://backend'
 
+// Create a valid JWT token for testing (expires in 1 hour)
+const createMockJWT = () => {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  const payload = btoa(JSON.stringify({ 
+    exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+    iat: Math.floor(Date.now() / 1000),
+    sub: 'test-user'
+  }))
+  const signature = 'mock-signature'
+  return `${header}.${payload}.${signature}`
+}
+
 const mockCookies = { get: vi.fn() }
 vi.mock('next/headers', () => ({ cookies: () => mockCookies }))
 
@@ -20,7 +32,7 @@ describe('/api/settings', () => {
   })
 
   it('proxies GET to backend', async () => {
-    mockCookies.get.mockReturnValue({ value: 'abc' })
+    mockCookies.get.mockReturnValue({ value: createMockJWT() })
     const settings = { language: 'en' }
     const fetchMock = vi.spyOn(global, 'fetch' as any).mockResolvedValue({
       ok: true,
@@ -29,14 +41,14 @@ describe('/api/settings', () => {
     } as any)
     const res = await GET()
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/settings/'), expect.objectContaining({
-      headers: { Authorization: 'Bearer abc' }
+      headers: { Authorization: expect.stringMatching(/^Bearer eyJ/) }
     }))
     const data = await res.json()
     expect(data).toEqual(settings)
   })
 
   it('proxies PUT to backend', async () => {
-    mockCookies.get.mockReturnValue({ value: 'abc' })
+    mockCookies.get.mockReturnValue({ value: createMockJWT() })
     const fetchMock = vi.spyOn(global, 'fetch' as any).mockResolvedValue({
       ok: true,
       status: 200,

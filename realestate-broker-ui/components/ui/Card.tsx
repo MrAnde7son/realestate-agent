@@ -1,4 +1,4 @@
-import React, { type HTMLAttributes } from 'react'
+import React, { type HTMLAttributes, forwardRef } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
@@ -49,14 +49,18 @@ export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivEleme
   return <div className={cn('p-6 pt-0', className)} {...props} />
 }
 
-export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return (
-    <h3
-      className={cn('text-2xl font-semibold leading-none tracking-tight', className)}
-      {...props}
-    />
-  )
-}
+export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
+  ({ className, ...props }, ref) => {
+    return (
+      <h3
+        ref={ref}
+        className={cn('text-2xl font-semibold leading-none tracking-tight', className)}
+        {...props}
+      />
+    )
+  }
+)
+CardTitle.displayName = 'CardTitle'
 
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return (

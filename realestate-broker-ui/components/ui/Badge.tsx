@@ -1,4 +1,4 @@
-import React, { type HTMLAttributes } from 'react'
+import React, { type HTMLAttributes, forwardRef } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
@@ -35,20 +35,19 @@ export interface BadgeProps
   extends HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
-export function Badge({
-  variant = 'default',
-  size = 'default',
-  className,
-  ...props
-}: BadgeProps) {
-  return (
-    <span
-      data-slot="badge"
-      className={cn(badgeVariants({ variant, size }), className)}
-      {...props}
-    />
-  )
-}
+export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
+  ({ variant = 'default', size = 'default', className, ...props }, ref) => {
+    return (
+      <span
+        ref={ref}
+        data-slot="badge"
+        className={cn(badgeVariants({ variant, size }), className)}
+        {...props}
+      />
+    )
+  }
+)
+Badge.displayName = 'Badge'
 
 export { badgeVariants }
 export default Badge

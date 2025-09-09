@@ -37,6 +37,32 @@ import {
 
 const ALL_SECTIONS = ['summary','permits','plans','environment','comparables','mortgage','appendix']
 
+// Helper functions for Hebrew translations
+const getContributionTypeDisplay = (type: string): string => {
+  const translations: Record<string, string> = {
+    'creation': 'יצירת נכס',
+    'enrichment': 'העשרת נתונים',
+    'verification': 'אימות נתונים',
+    'update': 'עדכון שדה',
+    'source_add': 'הוספת מקור',
+    'comment': 'הערה/תגובה'
+  }
+  return translations[type] || type
+}
+
+const getSourceDisplay = (source: string): string => {
+  const translations: Record<string, string> = {
+    'manual': 'ידני',
+    'yad2': 'יד2',
+    'nadlan': 'נדלן',
+    'gis_permit': 'היתר GIS',
+    'gis_rights': 'זכויות GIS',
+    'rami_plan': 'תוכנית רמי',
+    'tabu': 'טאבו'
+  }
+  return translations[source] || source
+}
+
 export default function AssetDetail({ params }: { params: { id: string } }) {
   const { trackFeatureUsage } = useAnalytics()
   const [asset, setAsset] = useState<any>(null)
@@ -367,6 +393,29 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 ? `${formatCurrency(asset.pricePerSqm)}/מ״ר`
                 : '—'}
             </div>
+            {/* Attribution Information */}
+            {asset.attribution && (
+              <div className="text-xs text-muted-foreground mt-2 space-y-1 rtl:text-right">
+                {asset.attribution.created_by && (
+                  <div className="rtl:flex rtl:flex-row-reverse rtl:justify-end">
+                    <span className="font-medium">נוצר על ידי:</span> 
+                    <span className="rtl:mr-1">{asset.attribution.created_by.name}</span>
+                  </div>
+                )}
+                {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
+                  <div className="rtl:flex rtl:flex-row-reverse rtl:justify-end">
+                    <span className="font-medium">עודכן לאחרונה על ידי:</span> 
+                    <span className="rtl:mr-1">{asset.attribution.last_updated_by.name}</span>
+                  </div>
+                )}
+                {asset.recent_contributions && asset.recent_contributions.length > 0 && (
+                  <div className="rtl:flex rtl:flex-row-reverse rtl:justify-end">
+                    <span className="font-medium">תרומות אחרונות:</span> 
+                    <span className="rtl:mr-1">{asset.recent_contributions.length}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 items-center justify-end md:justify-start">
               <Button
                 size="sm"
@@ -611,6 +660,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
             <TabsTrigger value="documents">מסמכים</TabsTrigger>
+            <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger>
           </TabsList>
 
           <TabsContent value="analysis" className="space-y-4">
@@ -1368,6 +1418,122 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
                 <div className="pt-4 text-center text-sm text-muted-foreground">
                   סה״כ {asset.documents?.length ?? 0} מסמכים זמינים
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="contributions" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>תרומות קהילה</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  היסטוריית התרומות והעדכונים שנעשו על הנכס הזה על ידי חברי הקהילה
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Attribution Summary */}
+                {asset.attribution && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {asset.attribution.created_by && (
+                      <div className="p-4 border rounded-lg">
+                        <h3 className="font-medium mb-2 rtl:text-right">יוצר הנכס</h3>
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-medium">
+                              {asset.attribution.created_by.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="rtl:text-right flex-1 min-w-0">
+                            <p className="font-medium truncate">{asset.attribution.created_by.name}</p>
+                            <p className="text-sm text-muted-foreground truncate">{asset.attribution.created_by.email}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
+                      <div className="p-4 border rounded-lg">
+                        <h3 className="font-medium mb-2 rtl:text-right">עודכן לאחרונה על ידי</h3>
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse rtl:flex-row-reverse">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-medium">
+                              {asset.attribution.last_updated_by.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="rtl:text-right flex-1 min-w-0">
+                            <p className="font-medium truncate">{asset.attribution.last_updated_by.name}</p>
+                            <p className="text-sm text-muted-foreground truncate">{asset.attribution.last_updated_by.email}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Recent Contributions */}
+                <div>
+                  <h3 className="font-medium mb-4">תרומות אחרונות</h3>
+                  {asset.recent_contributions && asset.recent_contributions.length > 0 ? (
+                    <div className="space-y-3">
+                      {asset.recent_contributions.map((contrib: any, idx: number) => (
+                        <div key={idx} className="flex items-start space-x-3 rtl:space-x-reverse p-3 border rounded-lg rtl:flex-row-reverse">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-medium">
+                              {contrib.user.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0 rtl:text-right">
+                            <div className="flex items-center justify-between rtl:flex-row-reverse">
+                              <p className="font-medium text-sm">{contrib.user.name}</p>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(contrib.created_at).toLocaleDateString('he-IL')}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-1">
+                              {getContributionTypeDisplay(contrib.type)}
+                              {contrib.field_name && ` - ${contrib.field_name}`}
+                            </p>
+                            {contrib.description && (
+                              <p className="text-sm">{contrib.description}</p>
+                            )}
+                            {contrib.source && (
+                              <span className="inline-block px-2 py-1 text-xs bg-secondary rounded-full mt-1">
+                                {getSourceDisplay(contrib.source)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>אין תרומות זמינות</p>
+                      <p className="text-sm">היה הראשון לתרום מידע על הנכס הזה!</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Community Stats */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="p-4 border rounded-lg text-center rtl:text-right">
+                    <div className="text-2xl font-bold text-primary">
+                      {asset.recent_contributions?.length || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">תרומות</div>
+                  </div>
+                  <div className="p-4 border rounded-lg text-center rtl:text-right">
+                    <div className="text-2xl font-bold text-primary">
+                      {asset.attribution?.created_by ? 1 : 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">יוצר</div>
+                  </div>
+                  <div className="p-4 border rounded-lg text-center rtl:text-right">
+                    <div className="text-2xl font-bold text-primary">
+                      {new Set(asset.recent_contributions?.map((c: any) => c.user.id) || []).size}
+                    </div>
+                    <div className="text-sm text-muted-foreground">תורמים</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

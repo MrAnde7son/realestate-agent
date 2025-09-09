@@ -89,6 +89,31 @@ export type Asset = {
   urbanRenewalPotential?: string | null;
   bettermentLevy?: string | null;
   _meta?: Record<string, any>;
+  attribution?: {
+    created_by?: {
+      id: number;
+      email: string;
+      name: string;
+    };
+    last_updated_by?: {
+      id: number;
+      email: string;
+      name: string;
+    };
+  };
+  recent_contributions?: Array<{
+    id: number;
+    user: {
+      email: string;
+      name: string;
+    };
+    type: string;
+    type_display: string;
+    field_name?: string;
+    description?: string;
+    source?: string;
+    created_at: string;
+  }>;
 };
 
 export function determineAssetType(asset: any): string | null {
@@ -183,5 +208,7 @@ export function normalizeFromBackend(row: any): Asset {
     urbanRenewalPotential: row.urbanRenewalPotential ?? row.urban_renewal_potential ?? null,
     bettermentLevy: row.bettermentLevy ?? row.betterment_levy ?? null,
     _meta: row._meta ?? undefined,
+    attribution: row.attribution ?? undefined,
+    recent_contributions: row.recent_contributions ?? undefined,
   };
 }

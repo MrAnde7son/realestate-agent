@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell } from 'lucide-react'
+import { Trash2, Download, Bell, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
@@ -170,16 +170,17 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     { header:'—', id:'actions', cell: ({ row }) => (
       <div className="flex gap-2">
         <Link 
-          className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+          className="text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
           href={`/assets/${row.original.id}`}
           aria-label={`צפה בפרטי נכס ${row.original.address}`}
+          title="צפה בפרטי נכס"
         >
-          👁️
+          <Eye className="h-4 w-4" />
         </Link>
         {onOpenAlert && (
           <button
             onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
-            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            className="text-amber-600 hover:text-amber-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
             title="הגדר התראות לנכס זה"
             aria-label={`הגדר התראות לנכס ${row.original.address}`}
           >
@@ -189,7 +190,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         {onExport && (
           <button
             onClick={e => { e.stopPropagation(); onExport(row.original) }}
-            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            className="text-green-600 hover:text-green-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
             aria-label={`ייצא נכס ${row.original.address}`}
             title="ייצא נכס"
           >
@@ -199,7 +200,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         {onDelete && (
           <button 
             onClick={e => { e.stopPropagation(); onDelete(row.original.id) }} 
-            className="underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+            className="text-red-600 hover:text-red-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
             aria-label={`מחק נכס ${row.original.address}`}
             title="מחק נכס"
           >

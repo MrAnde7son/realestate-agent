@@ -322,7 +322,7 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
                       <span className="sm:hidden">עמודות</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto z-[100]">
+                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto z-[100] bg-background border shadow-lg">
                     {table.getAllColumns()
                       .filter(column => column.getCanHide())
                       .map(column => (

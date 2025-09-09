@@ -210,6 +210,17 @@ export default function AssetsPage() {
   };
 
   const handleDeleteAsset = async (assetId: number) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "עליך להתחבר כדי למחוק נכסים",
+        variant: "destructive",
+      });
+      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+      return;
+    }
+
     const confirmed = await confirm({
       title: "מחיקת נכס",
       description: "האם אתה בטוח שברצונך למחוק נכס זה? פעולה זו לא ניתנת לביטול.",

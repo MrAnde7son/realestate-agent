@@ -218,7 +218,6 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         {onDelete && (
           <button 
             onClick={e => { 
-              console.log("Delete button clicked in virtualized table for asset:", row.original.id);
               e.stopPropagation(); 
               onDelete(row.original.id) 
             }} 

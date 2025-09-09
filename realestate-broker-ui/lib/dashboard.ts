@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { api } from './api-client'
 
 export interface DashboardData {
   totalassets: number
@@ -45,9 +46,9 @@ export function useDashboardData() {
 
         // Fetch data from multiple API endpoints
         const [assetsRes, alertsRes, reportsRes] = await Promise.allSettled([
-          fetch('/api/assets'),
-          fetch('/api/alerts'),
-          fetch('/api/reports')
+          api.get('/api/assets'),
+          api.get('/api/alerts'),
+          api.get('/api/reports')
         ])
 
         // Process assets data
@@ -58,8 +59,7 @@ export function useDashboardData() {
         let propertyReturns: number[] = []
 
         if (assetsRes.status === 'fulfilled' && assetsRes.value.ok) {
-          const assetsData = await assetsRes.value.json()
-          const assets = assetsData.rows || []
+          const assets = assetsRes.value.data?.rows || []
           totalassets = assets.length
 
           // Analyze property types and calculate individual returns
@@ -124,8 +124,7 @@ export function useDashboardData() {
         // Process alerts data
         let activeAlerts = 0
         if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
-          const alertsData = await alertsRes.value.json()
-          const alerts = alertsData.alerts || []
+          const alerts = alertsRes.value.data?.alerts || []
           // Count unread alerts as active alerts
           activeAlerts = alerts.filter((alert: any) => !alert.isRead).length
         }
@@ -133,8 +132,7 @@ export function useDashboardData() {
         // Process reports data
         let totalReports = 0
         if (reportsRes.status === 'fulfilled' && reportsRes.value.ok) {
-          const reportsData = await reportsRes.value.json()
-          const reports = reportsData.rows || reportsData.reports || []
+          const reports = reportsRes.value.data?.rows || reportsRes.value.data?.reports || []
           totalReports = reports.length
         }
 

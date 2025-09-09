@@ -35,12 +35,18 @@ const mobileNavigation = [
 export default function Header({ onToggleSidebar }: HeaderProps) {
   const pathname = usePathname()
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
   const { user, logout } = useAuth()
 
   // Close mobile sidebar when pathname changes
   React.useEffect(() => {
     setMobileSidebarOpen(false)
   }, [pathname])
+
+  // Prevent hydration mismatch
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -51,6 +57,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   }
 
   const getUserDisplayName = () => {
+    if (!mounted) return 'משתמש'
     if (user?.first_name && user?.last_name) {
       return `${user.first_name} ${user.last_name}`
     }
@@ -58,6 +65,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   }
 
   const getUserInitials = () => {
+    if (!mounted) return 'מ'
     if (user?.first_name && user?.last_name) {
       return `${user.first_name[0]}${user.last_name[0]}`
     }

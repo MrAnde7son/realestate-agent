@@ -63,12 +63,14 @@ import OnboardingProgress from "@/components/OnboardingProgress";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { selectOnboardingState, getCompletionPct } from "@/onboarding/selectors";
 import { ALERT_TYPE_LABELS } from "@/lib/alert-constants";
+import { api } from "@/lib/api-client";
 
 export default function HomePage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: dashboardData, loading, error } = useDashboardData();
   const router = useRouter();
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
+  const [mounted, setMounted] = useState(false);
   
   // Alert data state
   const [alertRules, setAlertRules] = useState<any[]>([]);
@@ -83,17 +85,15 @@ export default function HomePage() {
       setAlertsLoading(true);
       
       // Fetch alert rules
-      const rulesResponse = await fetch('/api/alerts');
+      const rulesResponse = await api.get('/api/alerts');
       if (rulesResponse.ok) {
-        const rulesData = await rulesResponse.json();
-        setAlertRules(rulesData.rules || []);
+        setAlertRules(rulesResponse.data?.rules || []);
       }
       
       // Fetch recent alert events
-      const eventsResponse = await fetch('/api/alerts?since=2024-01-01');
+      const eventsResponse = await api.get('/api/alerts?since=2024-01-01');
       if (eventsResponse.ok) {
-        const eventsData = await eventsResponse.json();
-        setAlertEvents(eventsData.events || []);
+        setAlertEvents(eventsResponse.data?.events || []);
       }
     } catch (err) {
       console.error('Error fetching alerts:', err);
@@ -101,6 +101,10 @@ export default function HomePage() {
       setAlertsLoading(false);
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -115,6 +119,23 @@ export default function HomePage() {
       );
     }
   };
+
+  // Prevent hydration mismatch by not rendering auth-dependent content until mounted
+  if (!mounted || authLoading) {
+    return (
+      <DashboardLayout>
+        <DashboardShell>
+          <DashboardHeader
+            heading="ברוכים הבאים לנדל״נר"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
+          />
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+        </DashboardShell>
+      </DashboardLayout>
+    );
+  }
 
   if (loading) {
     return (

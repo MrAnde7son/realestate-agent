@@ -63,9 +63,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth', request.url))
   }
   
-  // If it's the auth page and user has valid non-expired token, redirect to home
-  if (isAuthRoute && hasValidToken && !isTokenExpired) {
-    console.log(`🔄 Redirecting to home: user already authenticated`)
+  // If it's the auth page and user has valid non-expired access token, redirect to home
+  // Allow access to auth page if only refresh token is available (for token refresh)
+  if (isAuthRoute && accessToken && !isTokenExpired) {
+    console.log(`🔄 Redirecting to home: user already authenticated with valid access token`)
     return NextResponse.redirect(new URL('/', request.url))
   }
 

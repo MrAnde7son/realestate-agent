@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 
@@ -18,14 +19,30 @@ function RiskCell({ flags }: { flags?: string[] }){
   return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'error':f.includes('אנטנה')?'warning':'neutral'}>{f}</Badge>)}</div>
 }
 
-function exportAssetsCsv(assets: Asset[]) {
+function exportAssetsCsv(assets: Asset[], visibleColumns?: any[]) {
   if (assets.length === 0) return
-  const headers = ['id', 'address', 'city', 'type', 'price', 'pricePerSqm'] as const
+  
+  // If visibleColumns is provided, use them; otherwise fall back to default columns
+  const headers = visibleColumns ? 
+    visibleColumns
+      .filter(col => col.getCanHide() !== false && col.id !== 'select' && col.id !== 'actions')
+      .map(col => col.columnDef.header as string)
+    : ['id', 'address', 'city', 'type', 'price', 'pricePerSqm']
+  
+  const accessorKeys = visibleColumns ?
+    visibleColumns
+      .filter(col => col.getCanHide() !== false && col.id !== 'select' && col.id !== 'actions')
+      .map(col => col.columnDef.accessorKey || col.id)
+    : ['id', 'address', 'city', 'type', 'price', 'pricePerSqm']
+
   const csv = [
     headers.join(','),
     ...assets.map(a =>
-      headers
-        .map(k => JSON.stringify((a as any)[k] ?? ''))
+      accessorKeys
+        .map(key => {
+          const value = key === 'docsCount' ? (a.documents?.length ?? 0) : (a as any)[key]
+          return JSON.stringify(value ?? '')
+        })
         .join(',')
     )
   ].join('\n')
@@ -220,10 +237,11 @@ interface AssetsTableProps {
 export default function AssetsTable({ data = [], loading = false, onDelete }: AssetsTableProps){
   const router = useRouter()
   const [rowSelection, setRowSelection] = React.useState({})
+  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({})
   const [alertModalOpen, setAlertModalOpen] = React.useState(false)
   const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
 
-  const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset])
+  const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset], table?.getVisibleLeafColumns())
 
   const handleOpenAlertModal = (assetId: number) => {
     setSelectedAssetId(assetId)
@@ -235,9 +253,13 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
   const table = useReactTable({
     data,
     columns,
-    state: { rowSelection },
+    state: { 
+      rowSelection,
+      columnVisibility 
+    },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel()
   })
 
@@ -247,7 +269,7 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
 
   const handleExportSelected = () => {
     const selected = table.getSelectedRowModel().rows.map(r => r.original)
-    exportAssetsCsv(selected)
+    exportAssetsCsv(selected, table.getVisibleLeafColumns())
   }
 
   const anySelected = table.getSelectedRowModel().rows.length > 0
@@ -256,15 +278,58 @@ export default function AssetsTable({ data = [], loading = false, onDelete }: As
     <>
       <div className="hidden sm:block">
         <div className="rounded-xl border border-border bg-card overflow-x-auto">
-          <div className="p-2 flex justify-end">
-            <Button 
-              onClick={handleExportSelected} 
-              disabled={!anySelected} 
-              variant="outline"
-              aria-label="ייצא נכסים נבחרים"
-            >
-              <Download className="h-4 w-4 ms-2" /> ייצוא נבחרים
-            </Button>
+          <div className="p-3 border-b border-border bg-muted/30">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              {/* Left side - Column selection */}
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" aria-label="בחר עמודות">
+                      <Settings className="h-4 w-4 me-2" />
+                      <span className="hidden sm:inline">עמודות</span>
+                      <span className="sm:hidden">עמודות</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto z-[100]">
+                    {table.getAllColumns()
+                      .filter(column => column.getCanHide())
+                      .map(column => (
+                        <DropdownMenuCheckboxItem
+                          key={column.id}
+                          className="capitalize"
+                          checked={column.getIsVisible()}
+                          onCheckedChange={value => column.toggleVisibility(!!value)}
+                        >
+                          {column.columnDef.header as string}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <span className="text-sm text-muted-foreground hidden sm:inline">
+                  {table.getVisibleLeafColumns().length} מתוך {table.getAllColumns().length} עמודות
+                </span>
+              </div>
+              
+              {/* Right side - Export actions */}
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={handleExportSelected} 
+                  disabled={!anySelected} 
+                  variant="outline"
+                  size="sm"
+                  aria-label="ייצא נכסים נבחרים"
+                >
+                  <Download className="h-4 w-4 me-2" />
+                  <span className="hidden sm:inline">ייצוא נבחרים</span>
+                  <span className="sm:hidden">ייצוא</span>
+                  {anySelected && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                      {table.getSelectedRowModel().rows.length}
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
           <div className="overflow-x-auto" role="region" aria-label="טבלת נכסים">
             <Table>

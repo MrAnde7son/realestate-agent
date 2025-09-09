@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 
 function RiskCell({ flags }: { flags?: string[] }){
@@ -19,14 +20,30 @@ function RiskCell({ flags }: { flags?: string[] }){
   return <div className="flex gap-1 flex-wrap">{flags.map((f,i)=><Badge key={i} variant={f.includes('שימור')?'error':f.includes('אנטנה')?'warning':'neutral'}>{f}</Badge>)}</div>
 }
 
-function exportAssetsCsv(assets: Asset[]) {
+function exportAssetsCsv(assets: Asset[], visibleColumns?: any[]) {
   if (assets.length === 0) return
-  const headers = ['id', 'address', 'city', 'type', 'price', 'pricePerSqm'] as const
+  
+  // If visibleColumns is provided, use them; otherwise fall back to default columns
+  const headers = visibleColumns ? 
+    visibleColumns
+      .filter(col => col.getCanHide() !== false && col.id !== 'select' && col.id !== 'actions')
+      .map(col => col.columnDef.header as string)
+    : ['id', 'address', 'city', 'type', 'price', 'pricePerSqm']
+  
+  const accessorKeys = visibleColumns ?
+    visibleColumns
+      .filter(col => col.getCanHide() !== false && col.id !== 'select' && col.id !== 'actions')
+      .map(col => col.columnDef.accessorKey || col.id)
+    : ['id', 'address', 'city', 'type', 'price', 'pricePerSqm']
+
   const csv = [
     headers.join(','),
     ...assets.map(a =>
-      headers
-        .map(k => JSON.stringify((a as any)[k] ?? ''))
+      accessorKeys
+        .map(key => {
+          const value = key === 'docsCount' ? (a.documents?.length ?? 0) : (a as any)[key]
+          return JSON.stringify(value ?? '')
+        })
         .join(',')
     )
   ].join('\n')
@@ -70,6 +87,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
   {
     header:'נכס',
     accessorKey:'address',
+    enableHiding: false, // Keep address column always visible
     cell: ({ row }) => (
       <div>
         <div className="font-semibold">
@@ -86,88 +104,88 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       </div>
     )
   },
-  { header:'₪', accessorKey:'price', cell: info => {
+  { header:'₪', accessorKey:'price', enableHiding: true, cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
     } },
-  { header:'₪/מ"ר', accessorKey:'pricePerSqm', cell: info => {
+  { header:'₪/מ"ר', accessorKey:'pricePerSqm', enableHiding: true, cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
     } },
-  { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', cell: info => {
+  { header:'Δ מול איזור', accessorKey:'deltaVsAreaPct', enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge variant={typeof value === 'number' && value < 0 ? 'error' : 'neutral'}>{fmtPct(value)}</Badge>
     } },
-  { header:'ימי שוק (אחוזון)', accessorKey:'domPercentile', cell: info => {
+  { header:'ימי שוק (אחוזון)', accessorKey:'domPercentile', enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge>{!!value ? `P${value}` : '—'}</Badge>
     } },
-  { header:'תחרות (1ק"מ)', accessorKey:'competition1km', cell: info => {
+  { header:'תחרות (1ק"מ)', accessorKey:'competition1km', enableHiding: true, cell: info => {
       const value = info.getValue() as string | undefined
       return <Badge>{value ?? '—'}</Badge>
     } },
-  { header:'ייעוד', accessorKey:'zoning', cell: info => {
+  { header:'ייעוד', accessorKey:'zoning', enableHiding: true, cell: info => {
       const value = info.getValue() as string | undefined
       return <Badge>{value ?? '—'}</Badge>
     } },
-  { header:'יתרת זכויות', accessorKey:'remainingRightsSqm', cell: info => {
+  { header:'יתרת זכויות', accessorKey:'remainingRightsSqm', enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge>{value !== undefined && value !== null ? `~+${fmtNumber(value)} מ"ר` : '—'}</Badge>
     } },
-  { header:'תכנית', accessorKey:'program', cell: info => {
+  { header:'תכנית', accessorKey:'program', enableHiding: true, cell: info => {
       const value = info.getValue() as string | undefined
       return <Badge>{value ?? '—'}</Badge>
     } },
-  { header:'היתר עדכני', accessorKey:'lastPermitQ', cell: info => {
+  { header:'היתר עדכני', accessorKey:'lastPermitQ', enableHiding: true, cell: info => {
       const value = info.getValue() as string | undefined
       return <Badge>{value ?? '—'}</Badge>
     } },
-  { header:'קבצים', id:'docsCount', accessorFn: row => row.documents?.length ?? 0, cell: info => {
+  { header:'קבצים', id:'docsCount', accessorFn: row => row.documents?.length ?? 0, enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge>{fmtNumber(value)}</Badge>
     } },
-  { header:'רעש', accessorKey:'noiseLevel', cell: info => {
+  { header:'רעש', accessorKey:'noiseLevel', enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge>{!!value ? `${value}/5` : '—'}</Badge>
     } },
-  { header:'אנטנה (מ")', accessorKey:'antennaDistanceM', cell: info => {
+  { header:'אנטנה (מ")', accessorKey:'antennaDistanceM', enableHiding: true, cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
     } },
-  { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', cell: info => {
+  { header:'שטחי ציבור ≤300מ"', accessorKey:'greenWithin300m', enableHiding: true, cell: info => {
       const value = info.getValue() as boolean | undefined
       return <Badge variant={value === undefined ? 'neutral' : value ? 'success' : 'error'}>{value === undefined ? '—' : value ? 'כן' : 'לא'}</Badge>
     } },
-  { header:'מקלט (מ")', accessorKey:'shelterDistanceM', cell: info => {
+  { header:'מקלט (מ")', accessorKey:'shelterDistanceM', enableHiding: true, cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
     } },
-  { header:'סיכון', accessorKey:'riskFlags', cell: info => <RiskCell flags={info.getValue() as string[]}/> },
-  { header:'סטטוס נכס', accessorKey:'assetStatus', cell: info => {
+  { header:'סיכון', accessorKey:'riskFlags', enableHiding: true, cell: info => <RiskCell flags={info.getValue() as string[]}/> },
+  { header:'סטטוס נכס', accessorKey:'assetStatus', enableHiding: true, cell: info => {
     const status = info.getValue() as string
     if (!status) return <Badge variant="neutral">—</Badge>
     const variant = status === 'done' ? 'success' : status === 'failed' ? 'error' : 'warning'
     const label = status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
     return <Badge variant={variant}>{label}</Badge>
   }},
-  { header:'מחיר מודל', accessorKey:'modelPrice', cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
-  { header:'פער למחיר', accessorKey:'priceGapPct', cell: info => {
+  { header:'מחיר מודל', accessorKey:'modelPrice', enableHiding: true, cell: info => <span className="font-mono">{fmtCurrency(info.getValue() as number)}</span> },
+  { header:'פער למחיר', accessorKey:'priceGapPct', enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge variant={typeof value === 'number' && value > 0 ? 'warning' : 'success'}>{fmtPct(value)}</Badge>
     } },
-  { header:'רמת ביטחון', accessorKey:'confidencePct', cell: info => {
+  { header:'רמת ביטחון', accessorKey:'confidencePct', enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge>{!!value ? `${value}%` : '—'}</Badge>
     } },
-  { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => {
+  { header:'שכ"ד', accessorKey:'rentEstimate', enableHiding: true, cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
     } },
-    { header:'תשואה', accessorKey:'capRatePct', cell: info => {
+    { header:'תשואה', accessorKey:'capRatePct', enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge>{typeof value === 'number' ? `${value.toFixed(1)}%` : '—'}</Badge>
     } },
-    { header:'—', id:'actions', cell: ({ row }) => (
+    { header:'—', id:'actions', enableHiding: false, cell: ({ row }) => (
       <div className="flex gap-2">
         <Link 
           className="text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
@@ -221,10 +239,11 @@ interface VirtualizedTableProps {
 export default function VirtualizedTable({ data = [], loading = false, onDelete }: VirtualizedTableProps){
   const router = useRouter()
   const [rowSelection, setRowSelection] = React.useState({})
+  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({})
   const [alertModalOpen, setAlertModalOpen] = React.useState(false)
   const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
 
-  const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset])
+  const handleExportSingle = (asset: Asset) => exportAssetsCsv([asset], table?.getVisibleLeafColumns())
 
   const handleOpenAlertModal = (assetId: number) => {
     setSelectedAssetId(assetId)
@@ -236,9 +255,13 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
   const table = useReactTable({
     data,
     columns,
-    state: { rowSelection },
+    state: { 
+      rowSelection,
+      columnVisibility 
+    },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel()
   })
 
@@ -248,7 +271,7 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
 
   const handleExportSelected = () => {
     const selected = table.getSelectedRowModel().rows.map(r => r.original)
-    exportAssetsCsv(selected)
+    exportAssetsCsv(selected, table.getVisibleLeafColumns())
   }
 
   const anySelected = table.getSelectedRowModel().rows.length > 0
@@ -266,15 +289,59 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
     <>
       <div className="hidden sm:block">
         <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="p-2 flex justify-end">
-            <Button 
-              onClick={handleExportSelected} 
-              disabled={!anySelected} 
-              variant="outline"
-              aria-label="ייצא נכסים נבחרים"
-            >
-              <Download className="h-4 w-4 ms-2" /> ייצוא נבחרים
-            </Button>
+          {/* Table Actions Bar */}
+          <div className="p-3 border-b border-border bg-muted/30">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              {/* Left side - Column selection */}
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" aria-label="בחר עמודות">
+                      <Settings className="h-4 w-4 me-2" />
+                      <span className="hidden sm:inline">עמודות</span>
+                      <span className="sm:hidden">עמודות</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto z-[100]">
+                    {table.getAllColumns()
+                      .filter(column => column.getCanHide())
+                      .map(column => (
+                        <DropdownMenuCheckboxItem
+                          key={column.id}
+                          className="capitalize"
+                          checked={column.getIsVisible()}
+                          onCheckedChange={value => column.toggleVisibility(!!value)}
+                        >
+                          {column.columnDef.header as string}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <span className="text-sm text-muted-foreground hidden sm:inline">
+                  {table.getVisibleLeafColumns().length} מתוך {table.getAllColumns().length} עמודות
+                </span>
+              </div>
+              
+              {/* Right side - Export actions */}
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={handleExportSelected} 
+                  disabled={!anySelected} 
+                  variant="outline"
+                  size="sm"
+                  aria-label="ייצא נכסים נבחרים"
+                >
+                  <Download className="h-4 w-4 me-2" />
+                  <span className="hidden sm:inline">ייצוא נבחרים</span>
+                  <span className="sm:hidden">ייצוא</span>
+                  {anySelected && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                      {table.getSelectedRowModel().rows.length}
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
           <div 
             ref={parentRef}

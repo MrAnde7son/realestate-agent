@@ -11,10 +11,10 @@ import sys
 import pytest
 
 # Store the original system paths
-original_sys_path = sys.path.copy()
+original_sys_path = list(sys.path)
 
 # Clear and rebuild the Python path to ensure correct order
-sys.path.clear()
+sys.path[:] = []
 
 # Add backend-django to path for Django tests (using symbolic link) - MUST BE FIRST
 # to avoid conflicts with other 'core' modules
@@ -55,7 +55,7 @@ print("Backend path:", backend_path)
 print("Backend exists:", os.path.exists(backend_path))
 print("Python path after setup:")
 for i, path in enumerate(sys.path[:10]):  # Show first 10 paths
-    print(f"  {i}: {path}")
+    print("  {}: {}".format(i, path))
 print("=========================")
 
 # Set up Django only when needed

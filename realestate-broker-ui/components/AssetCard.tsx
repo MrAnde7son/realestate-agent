@@ -10,11 +10,37 @@ import { Button } from '@/components/ui/button'
 import { Bed, Bath, Ruler, Eye, FileText } from 'lucide-react'
 
 function exportAssetCsv(asset: Asset) {
-  const headers = ['id', 'address', 'city', 'type', 'price', 'pricePerSqm'] as const
+  // Export all available fields from the Asset type
+  const headers = [
+    'id', 'address', 'city', 'neighborhood', 'street', 'number', 'type', 'bedrooms', 'rooms', 'bathrooms',
+    'area', 'totalArea', 'balconyArea', 'parkingSpaces', 'price', 'pricePerSqm', 'pricePerSqmDisplay',
+    'description', 'gush', 'helka', 'subhelka', 'lat', 'lon', 'normalizedAddress', 'buildingType',
+    'floor', 'totalFloors', 'storageRoom', 'elevator', 'airConditioning', 'furnished', 'renovated',
+    'yearBuilt', 'lastRenovation', 'deltaVsAreaPct', 'domPercentile', 'competition1km', 'zoning',
+    'riskFlags', 'priceGapPct', 'expectedPriceRange', 'remainingRightsSqm', 'program', 'lastPermitQ',
+    'noiseLevel', 'greenWithin300m', 'schoolsWithin500m', 'modelPrice', 'confidencePct', 'capRatePct',
+    'antennaDistanceM', 'shelterDistanceM', 'rentEstimate', 'buildingRights', 'permitStatus', 'permitDate',
+    'assetStatus', 'documents', 'assetId', 'sources', 'primarySource', 'permitDateDisplay',
+    'permitStatusDisplay', 'permitDetails', 'permitMainArea', 'permitServiceArea', 'permitApplicant',
+    'permitDocUrl', 'mainRightsSqm', 'serviceRightsSqm', 'additionalPlanRights', 'planStatus',
+    'publicObligations', 'publicTransport', 'openSpacesNearby', 'publicBuildings', 'parking',
+    'nearbyProjects', 'rightsUsagePct', 'legalRestrictions', 'urbanRenewalPotential', 'bettermentLevy'
+  ] as const
+
   const csv = [
     headers.join(','),
-    headers.map(k => JSON.stringify((asset as any)[k] ?? '')).join(',')
+    headers.map(k => {
+      const value = (asset as any)[k]
+      // Handle arrays and objects by converting to JSON strings
+      if (Array.isArray(value)) {
+        return JSON.stringify(value.join('; '))
+      } else if (typeof value === 'object' && value !== null) {
+        return JSON.stringify(JSON.stringify(value))
+      }
+      return JSON.stringify(value ?? '')
+    }).join(',')
   ].join('\n')
+  
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

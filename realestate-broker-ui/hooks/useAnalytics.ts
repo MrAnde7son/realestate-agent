@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 interface AnalyticsEvent {
   event: string;
@@ -148,30 +148,17 @@ class AnalyticsTracker {
 const analytics = new AnalyticsTracker();
 
 export function useAnalytics() {
-  const router = useRouter();
+  const pathname = usePathname();
   const pageTimerRef = useRef<NodeJS.Timeout>();
 
   // Track page views on route changes
   useEffect(() => {
-    const handleRouteChange = (url: string) => {
-      // End previous page timer
-      analytics.endPageTimer();
-      
-      // Start new page timer
-      analytics.startPageTimer(url);
-    };
-
-    // Track initial page load
-    analytics.startPageTimer(window.location.pathname);
-
-    // Listen for route changes
-    router.events?.on('routeChangeComplete', handleRouteChange);
-
-    return () => {
-      router.events?.off('routeChangeComplete', handleRouteChange);
-      analytics.endPageTimer();
-    };
-  }, [router]);
+    // End previous page timer
+    analytics.endPageTimer();
+    
+    // Start new page timer for current path
+    analytics.startPageTimer(pathname);
+  }, [pathname]);
 
   // Track page visibility changes
   useEffect(() => {

@@ -90,6 +90,10 @@ export async function GET(req: Request) {
     return NextResponse.json(data)
   } catch (error) {
     console.error('Error fetching alerts:', error)
+    // If it's an authentication error, return empty data instead of 500
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json({ rules: [], events: [] })
+    }
     return NextResponse.json({ error: 'Failed to fetch alerts' }, { status: 500 })
   }
 }

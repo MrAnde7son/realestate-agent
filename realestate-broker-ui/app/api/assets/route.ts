@@ -52,16 +52,7 @@ export async function GET() {
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
   const token = cookies().get('access_token')?.value
   
-  // Validate token
-  const tokenValidation = validateToken(token)
-  if (!tokenValidation.isValid) {
-    console.log('❌ Assets API - Token validation failed:', tokenValidation.error)
-    const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
-    response.cookies.delete('access_token')
-    response.cookies.delete('refresh_token')
-    return response
-  }
-  
+  // Assets endpoint is open to everyone - no authentication required
   try {
     const res = await fetch(`${backendUrl}/api/assets/`, {
       headers: {

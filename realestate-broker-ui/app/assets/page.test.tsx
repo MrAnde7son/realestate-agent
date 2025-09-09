@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AssetsPage from './page'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { ConfirmProvider } from '@/hooks/use-confirm'
 
 // Mock dependencies
 vi.mock('@/lib/auth-context')
@@ -77,6 +78,13 @@ const mockUseAuth = {
   logout: vi.fn()
 }
 
+// Test wrapper with providers
+const TestWrapper = ({ children }: { children: React.ReactNode }) => (
+  <ConfirmProvider>
+    {children}
+  </ConfirmProvider>
+)
+
 describe('AssetsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -121,7 +129,7 @@ describe('AssetsPage', () => {
 
   it('renders correctly with loaded assets', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     expect(screen.getByText('רשימת נכסים')).toBeInTheDocument()
@@ -136,7 +144,7 @@ describe('AssetsPage', () => {
 
   it('shows loading state initially', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
     
     // The component should render with loading state initially
@@ -153,7 +161,7 @@ describe('AssetsPage', () => {
     ;(global.fetch as any).mockRejectedValue(new Error('Network error'))
 
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -165,7 +173,7 @@ describe('AssetsPage', () => {
 
   it('handles refresh button click', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -183,7 +191,7 @@ describe('AssetsPage', () => {
 
   it('opens new asset form when add button is clicked', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     const addButton = screen.getByText('הוסף חדש')
@@ -198,7 +206,7 @@ describe('AssetsPage', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 500 })
 
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     // Search input should be visible
@@ -217,7 +225,7 @@ describe('AssetsPage', () => {
     mockUseAuth.isAuthenticated = false
 
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     // The mock always shows the button, but in real implementation it would be conditional
@@ -244,7 +252,7 @@ describe('AssetsPage', () => {
     })
 
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     const addButton = screen.getByText('הוסף חדש')
@@ -273,7 +281,7 @@ describe('AssetsPage', () => {
 
   it('filters assets by search term', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -287,7 +295,7 @@ describe('AssetsPage', () => {
 
   it('filters assets by city', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -329,7 +337,7 @@ describe('AssetsPage', () => {
     })
 
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -344,7 +352,7 @@ describe('AssetsPage', () => {
     mockUseSearchParams.toString.mockReturnValue('type=דירה')
 
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -359,7 +367,7 @@ describe('AssetsPage', () => {
     mockUseSearchParams.toString.mockReturnValue('search=Another')
 
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -369,7 +377,7 @@ describe('AssetsPage', () => {
 
   it('updates URL when city filter changes', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -385,7 +393,7 @@ describe('AssetsPage', () => {
 
   it('updates URL when type filter changes', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -401,7 +409,7 @@ describe('AssetsPage', () => {
 
   it('updates URL when search filter changes', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -422,7 +430,7 @@ describe('AssetsPage', () => {
 
   it('filters assets by price range', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
@@ -436,7 +444,7 @@ describe('AssetsPage', () => {
 
   it('validates form fields correctly', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     // Open form
@@ -456,7 +464,7 @@ describe('AssetsPage', () => {
 
   it('handles different location types in form', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     // Open form
@@ -469,7 +477,7 @@ describe('AssetsPage', () => {
 
   it('displays asset count correctly', async () => {
     await act(async () => {
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {

@@ -48,13 +48,15 @@ class ApiClient {
       
       // Handle 401 Unauthorized - token expired or invalid
       if (response.status === 401) {
-        console.log('🔄 API Client - 401 received, clearing tokens and redirecting to login')
+        console.log('🔄 API Client - 401 received, clearing tokens')
         
         // Clear tokens
         authAPI.clearTokens()
         
-        // Redirect to login page
-        if (typeof window !== 'undefined') {
+        // Only redirect to login if we had a token (user was authenticated)
+        // Don't redirect if this was a request without authentication (public pages)
+        if (token && typeof window !== 'undefined') {
+          console.log('🔄 API Client - Redirecting to login because user was authenticated')
           window.location.href = '/auth'
         }
         

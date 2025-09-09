@@ -69,16 +69,12 @@ export interface OnboardingStatus {
 const API_BASE_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 class AuthAPI {
-  private isRefreshing = false
-  private refreshPromise: Promise<string | null> | null = null
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}/api${endpoint}`
-    console.log('🔗 Full URL:', url)
-    console.log('🔧 Request options:', options)
     
     const config: RequestInit = {
       headers: {
@@ -98,69 +94,31 @@ class AuthAPI {
     }
 
     try {
-      console.log('📡 Sending request...')
       const response = await fetch(url, config)
-      console.log('📨 Response status:', response.status)
-      console.log('📨 Response headers:', Object.fromEntries(response.headers.entries()))
       
-      // Handle token expiration (401 Unauthorized)
-      if (response.status === 401 && token) {
-        console.log('🔄 Access token expired, attempting refresh...')
-        const newToken = await this.refreshAccessToken()
-        
-        if (newToken) {
-          // Retry the request with the new token
-          config.headers = {
-            ...config.headers,
-            Authorization: `Bearer ${newToken}`,
-          }
-          console.log('🔄 Retrying request with new token...')
-          const retryResponse = await fetch(url, config)
-          
-          if (!retryResponse.ok) {
-            const errorData = await retryResponse.json().catch(() => ({}))
-            console.error('❌ Retry response not OK:', errorData)
-            throw new Error(errorData.error || `HTTP error! status: ${retryResponse.status}`)
-          }
-          
-          const data = await retryResponse.json()
-          console.log('📥 Retry response data:', data)
-          return data
-        } else {
-          // Refresh failed, clear tokens and redirect to login
-          console.log('❌ Token refresh failed, logging out user')
-          this.clearTokens()
-          if (typeof window !== 'undefined') {
-            window.location.href = '/auth'
-          }
-          throw new Error('Session expired. Please log in again.')
-        }
+      // Handle 401 Unauthorized - just throw error, let user re-login
+      if (response.status === 401) {
+        this.clearTokens()
+        throw new Error('Session expired. Please log in again.')
       }
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error('❌ Response not OK:', errorData)
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log('📥 Response data:', data)
       return data
     } catch (error) {
-      console.error('❌ API request failed:', error)
       throw error
     }
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    console.log('🌐 Making login request to:', `${API_BASE_URL}/api/auth/login/`)
-    console.log('📤 Request payload:', credentials)
-    const response = await this.request<AuthResponse>('/auth/login/', {
+    return this.request<AuthResponse>('/auth/login/', {
       method: 'POST',
       body: JSON.stringify(credentials),
     })
-    console.log('📥 Login response received:', response)
-    return response
   }
 
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
@@ -187,60 +145,6 @@ class AuthAPI {
     })
   }
 
-  async refreshToken(refreshToken: string): Promise<{
-    access_token: string
-    refresh_token: string
-  }> {
-    return this.request<{
-      access_token: string
-      refresh_token: string
-    }>('/auth/refresh/', {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    })
-  }
-
-  async refreshAccessToken(): Promise<string | null> {
-    // Prevent multiple simultaneous refresh attempts
-    if (this.isRefreshing && this.refreshPromise) {
-      return this.refreshPromise
-    }
-
-    this.isRefreshing = true
-    this.refreshPromise = this.performTokenRefresh()
-
-    try {
-      const result = await this.refreshPromise
-      return result
-    } finally {
-      this.isRefreshing = false
-      this.refreshPromise = null
-    }
-  }
-
-  private async performTokenRefresh(): Promise<string | null> {
-    try {
-      const refreshToken = this.getRefreshToken()
-      if (!refreshToken) {
-        console.log('❌ No refresh token available')
-        return null
-      }
-
-      console.log('🔄 Refreshing access token...')
-      const response = await this.refreshToken(refreshToken)
-      
-      // Update stored tokens
-      this.setTokens(response.access_token, response.refresh_token)
-      console.log('✅ Access token refreshed successfully')
-      
-      return response.access_token
-    } catch (error) {
-      console.error('❌ Token refresh failed:', error)
-      // Clear tokens on refresh failure
-      this.clearTokens()
-      return null
-    }
-  }
 
   async googleLogin(): Promise<{ auth_url: string }> {
     return this.request<{ auth_url: string }>('/auth/google/login/')
@@ -281,13 +185,6 @@ class AuthAPI {
 
       document.cookie = `access_token=${accessToken}; max-age=3600; ${cookieOptions}`
       document.cookie = `refresh_token=${refreshToken}; max-age=86400; ${cookieOptions}`
-
-      console.log('🍪 Cookies set:', {
-        access_token: accessToken ? 'set' : 'not set',
-        refresh_token: refreshToken ? 'set' : 'not set',
-        domain,
-        secure
-      })
     }
   }
 
@@ -325,8 +222,6 @@ class AuthAPI {
 
       document.cookie = `access_token=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${secure ? 'secure;' : ''}`
       document.cookie = `refresh_token=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${secure ? 'secure;' : ''}`
-
-      console.log('🧹 Tokens cleared from localStorage and cookies')
     }
   }
 
@@ -352,9 +247,7 @@ class AuthAPI {
 
     // Check if token is expired
     if (this.isTokenExpired(token)) {
-      console.log('🔄 Access token is expired, attempting refresh...')
-      const newToken = await this.refreshAccessToken()
-      return !!newToken
+      return false
     }
 
     return true

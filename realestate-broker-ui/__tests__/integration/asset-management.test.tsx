@@ -11,6 +11,7 @@ import AssetsPage from '../../app/assets/page'
 import AssetDetailPage from '../../app/assets/[id]/page'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { ConfirmProvider } from '@/hooks/use-confirm'
 
 // Mock dependencies
 vi.mock('@/lib/auth-context')
@@ -100,6 +101,13 @@ const mockUseAuth = {
   logout: vi.fn()
 }
 
+// Test wrapper with providers
+const TestWrapper = ({ children }: { children: React.ReactNode }) => (
+  <ConfirmProvider>
+    {children}
+  </ConfirmProvider>
+)
+
 // Mock fetch globally
 global.fetch = vi.fn()
 
@@ -175,7 +183,7 @@ describe('Asset Management Integration', () => {
   describe('Asset List View', () => {
     it('displays asset list correctly', async () => {
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       // Should show page title
@@ -193,7 +201,7 @@ describe('Asset Management Integration', () => {
 
     it('allows filtering assets', async () => {
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       await waitFor(() => {
@@ -207,7 +215,7 @@ describe('Asset Management Integration', () => {
 
     it('allows price filtering', async () => {
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       await waitFor(() => {
@@ -223,7 +231,7 @@ describe('Asset Management Integration', () => {
   describe('Asset Creation Flow', () => {
     it('completes full asset creation workflow', async () => {
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       // Wait for initial load
@@ -268,7 +276,7 @@ describe('Asset Management Integration', () => {
 
     it('validates form input correctly', async () => {
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       // Open form
@@ -288,7 +296,7 @@ describe('Asset Management Integration', () => {
 
     it('handles different location types in asset creation', async () => {
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       // Open form
@@ -320,7 +328,7 @@ describe('Asset Management Integration', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       // Open form and fill it
@@ -356,7 +364,7 @@ describe('Asset Management Integration', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       // Should show empty state after loading fails
@@ -380,7 +388,7 @@ describe('Asset Management Integration', () => {
         )
       )
 
-      render(<AssetsPage />)
+      render(<AssetsPage />, { wrapper: TestWrapper })
       
       // Should show loading initially - the component renders with loading state
       expect(screen.getByText('רשימת נכסים')).toBeInTheDocument()
@@ -393,7 +401,7 @@ describe('Asset Management Integration', () => {
 
     it('refreshes data when refresh button is clicked', async () => {
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       await waitFor(() => {
@@ -412,7 +420,7 @@ describe('Asset Management Integration', () => {
 
     it('maintains form state during user interaction', async () => {
       await act(async () => {
-        render(<AssetsPage />)
+        render(<AssetsPage />, { wrapper: TestWrapper })
       })
 
       // Open form

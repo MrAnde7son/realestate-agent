@@ -5,7 +5,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Forward to Django backend
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/analytics/session-end`, {
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
+    const response = await fetch(`${backendUrl}/api/analytics/session-end`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

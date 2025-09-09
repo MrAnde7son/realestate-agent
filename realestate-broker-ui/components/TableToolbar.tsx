@@ -150,6 +150,12 @@ export default function TableToolbar({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
+  const [isClient, setIsClient] = useState(false);
+
+  // Handle hydration mismatch
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Filter columns based on search
   const filteredColumns = columns.filter(column =>
@@ -578,7 +584,7 @@ export default function TableToolbar({
       <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-sm text-muted-foreground">
         <div className="flex items-center gap-4">
           <span>
-            {selectedCount > 0 ? `${selectedCount} נבחרים מתוך ` : ''}
+            {isClient && selectedCount > 0 ? `${selectedCount} נבחרים מתוך ` : ''}
             {totalCount} נכסים
           </span>
           {hasActiveFilters && (
@@ -588,7 +594,7 @@ export default function TableToolbar({
           )}
         </div>
         <div className="text-xs">
-          {columns.filter(c => c.visible).length} מתוך {columns.length} עמודות
+          {isClient ? `${columns.filter(c => c.visible).length} מתוך ${columns.length} עמודות` : `${columns.length} עמודות`}
         </div>
       </div>
     </div>

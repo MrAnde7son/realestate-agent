@@ -225,7 +225,10 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         )}
         {onDelete && (
           <button 
-            onClick={e => { e.stopPropagation(); onDelete(row.original.id) }} 
+            onClick={e => { 
+              e.stopPropagation(); 
+              onDelete(row.original.id) 
+            }} 
             className="text-red-600 hover:text-red-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
             aria-label={`מחק נכס ${row.original.address}`}
             title="מחק נכס"
@@ -309,6 +312,12 @@ export default function AssetsTable({
   })
   const [alertModalOpen, setAlertModalOpen] = React.useState(false)
   const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
+  const [mounted, setMounted] = React.useState(false)
+
+  // Handle hydration mismatch
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleOpenAlertModal = React.useCallback((assetId: number) => {
     setSelectedAssetId(assetId)
@@ -343,8 +352,11 @@ export default function AssetsTable({
     }
   }, [trackFeatureUsage])
 
-  // Create columns with handleExportSingle
-  const columns = React.useMemo(() => createColumns(onDelete, handleExportSingle, handleOpenAlertModal), [onDelete, handleExportSingle, handleOpenAlertModal])
+  // Create columns with handleExportSingle - only after mounted to prevent hydration mismatch
+  const columns = React.useMemo(() => {
+    if (!mounted) return []
+    return createColumns(onDelete, handleExportSingle, handleOpenAlertModal)
+  }, [mounted, onDelete, handleExportSingle, handleOpenAlertModal])
 
   const table = useReactTable({
     data,
@@ -384,6 +396,19 @@ export default function AssetsTable({
       visible: column.getIsVisible(),
       toggle: (value: boolean) => column.toggleVisibility(value)
     }))
+
+  // Don't render table until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="block">
+        <div className="rounded-xl border border-border bg-card overflow-x-auto">
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>

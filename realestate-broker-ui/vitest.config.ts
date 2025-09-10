@@ -20,4 +20,7 @@ export default defineConfig({
     // Mock Next.js specific globals
     'process.env.NODE_ENV': '"test"',
   },
+  esbuild: {
+    jsx: 'automatic',
+  },
 })

@@ -100,7 +100,8 @@ describe('PlanInfo Component', () => {
     
     render(<PlanInfo />)
     
-    expect(screen.getByText('טוען מידע על החבילה...')).toBeInTheDocument()
+    // Check for loading skeleton instead of text
+    expect(document.querySelector('.animate-pulse')).toBeInTheDocument()
   })
 
   it('renders plan information correctly for basic plan', async () => {
@@ -113,8 +114,7 @@ describe('PlanInfo Component', () => {
     })
     
     expect(screen.getByText('Basic plan for advanced users')).toBeInTheDocument()
-    expect(screen.getByText('149 ₪')).toBeInTheDocument()
-    expect(screen.getByText('לחודש')).toBeInTheDocument()
+    // Price information is no longer displayed in the component
     
     // Check limits
     expect(screen.getByText('10 / 25')).toBeInTheDocument()
@@ -171,11 +171,12 @@ describe('PlanInfo Component', () => {
     })
     
     // Check that progress bar is rendered (custom div-based progress bar)
-    const progressBar = screen.getByText('10 / 25').closest('div')?.querySelector('div[style*="width: 40%"]')
+    const progressBar = document.querySelector('.w-full.bg-gray-200.rounded-full.h-2')
     expect(progressBar).toBeInTheDocument()
     
-    // Check progress bar width (10/25 = 40%)
-    const progressFill = progressBar.querySelector('div')
+    // Check progress bar fill element
+    const progressFill = progressBar?.querySelector('.bg-primary.h-2.rounded-full')
+    expect(progressFill).toBeInTheDocument()
     expect(progressFill).toHaveStyle('width: 40%')
   })
 

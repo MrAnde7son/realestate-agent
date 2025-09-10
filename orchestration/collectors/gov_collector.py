@@ -27,7 +27,7 @@ class GovCollector(BaseCollector):
         """Collect government data for a given block/parcel and address."""
         return {
             "decisive": self._collect_decisive(block, parcel),
-            "transactions": [],  # Disabled due to Playwright timeout issues
+            "transactions": self._collect_transactions(address),
         }
 
     def _collect_decisive(self, block: str, parcel: str) -> List[Dict[str, Any]]:
@@ -41,19 +41,6 @@ class GovCollector(BaseCollector):
         """Collect transaction history for a given address."""
         try:
             logger.info(f"Fetching Nadlan transactions for: {address}")
-            
-            # Try street ID approach first (faster)
-            if hasattr(self.deals_client, 'get_deals_by_street_id'):
-                try:
-                    # For ליפא קרפל street, we know the street ID is 50000342
-                    if 'ליפא קרפל' in address or 'קרפל ליפא' in address:
-                        logger.info("Trying street ID approach (50000342)...")
-                        deals = self.deals_client.get_deals_by_street_id('50000342')
-                        logger.info(f"Found {len(deals)} transactions via street ID")
-                        return [deal.to_dict() if hasattr(deal, 'to_dict') else dict(deal) for deal in deals]
-                except Exception as e:
-                    logger.warning(f"Street ID approach failed: {e}, trying address approach...")
-            
             # Fallback to address approach
             deals = self.deals_client.get_deals_by_address(address)
             logger.info(f"Found {len(deals)} transactions via address")

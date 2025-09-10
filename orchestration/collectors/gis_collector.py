@@ -51,17 +51,6 @@ class GISCollector(BaseCollector):
                 except Exception as e2:
                     logger.warning(f"Reversed geocoding failed: {e2}")
         
-        # Try with MCP server as fallback
-        try:
-            logger.info("Trying MCP server geocoding...")
-            from gis.mcp.server import geocode_address
-            result = geocode_address(address, house_number)
-            if result and 'x' in result and 'y' in result:
-                logger.info(f"MCP geocoding successful: {result['x']}, {result['y']}")
-                return float(result['x']), float(result['y'])
-        except Exception as e3:
-            logger.warning(f"MCP geocoding failed: {e3}")
-        
         # If all else fails, raise the original error
         raise Exception(f"All geocoding attempts failed for {address} {house_number}")
 

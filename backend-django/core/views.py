@@ -33,10 +33,12 @@ from .models import (
     RealEstateTransaction,
     OnboardingProgress,
     ShareToken,
+    AssetContribution,
+    UserProfile,
 )
 
 from .listing_builder import build_listing
-from .serializers import AlertRuleSerializer, AlertEventSerializer
+from .serializers import AlertRuleSerializer, AlertEventSerializer, AssetContributionSerializer, UserProfileSerializer
 
 # Import utility functions
 try:
@@ -54,7 +56,7 @@ except ImportError:
 
 # Import tasks
 from .tasks import run_data_pipeline
-from .analytics import track, track_search, track_feature_usage, track_performance
+from .analytics import track, track_search, track_feature_usage
 
 # Import services
 from .auth_service import AuthenticationService

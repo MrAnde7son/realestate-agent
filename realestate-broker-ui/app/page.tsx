@@ -72,6 +72,7 @@ export default function HomePage() {
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
   const [mounted, setMounted] = useState(false);
   
+  
   // Alert data state
   const [alertRules, setAlertRules] = useState<any[]>([]);
   const [alertEvents, setAlertEvents] = useState<any[]>([]);
@@ -114,9 +115,7 @@ export default function HomePage() {
 
   const handleProtectedAction = (action: string) => {
     if (!isAuthenticated) {
-      router.push(
-        "/auth?redirect=" + encodeURIComponent(window.location.pathname)
-      );
+      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
     }
   };
 

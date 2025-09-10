@@ -115,6 +115,48 @@ class RamiClient:
                 return value["value"]
         return None
 
+    def create_search_params(
+        self,
+        plan_number: str = "",
+        city: Optional[int] = None,
+        gush: str = "",
+        chelka: str = "",
+        statuses: Optional[List[int]] = None,
+        plan_types: Optional[List[int]] = None,
+        from_status_date: Optional[str] = None,
+        to_status_date: Optional[str] = None,
+        plan_types_used: bool = False
+    ) -> Dict[str, Any]:
+        """Create search parameters in the correct format for RAMI API.
+        
+        Args:
+            plan_number: Plan number to search for
+            city: City code (e.g., 5000 for Tel Aviv)
+            gush: Gush (block) number
+            chelka: Chelka (parcel) number
+            statuses: List of status codes to filter by
+            plan_types: List of plan type codes to filter by
+            from_status_date: Start date for status filter (YYYY-MM-DD)
+            to_status_date: End date for status filter (YYYY-MM-DD)
+            plan_types_used: Whether plan types filter is being used
+            
+        Returns:
+            Dictionary with search parameters in the correct format
+        """
+        if plan_types is None:
+            plan_types = [72, 21, 1, 8, 9, 10, 12, 20, 62, 31, 41, 25, 22, 2, 11, 13, 61, 32, 74, 78, 77, 73, 76, 75, 80, 79, 40, 60, 71, 70, 67, 68, 69, 30, 50, 3]
+        
+        return {
+            "planNumber": plan_number,
+            "gush": gush,
+            "chelka": chelka,
+            "statuses": statuses,
+            "planTypes": plan_types,
+            "fromStatusDate": from_status_date,
+            "toStatusDate": to_status_date,
+            "planTypesUsed": plan_types_used
+        }
+
     def fetch_plans(self, search_params: Dict[str, Any]) -> pd.DataFrame:
         """Fetch all plan results for a given search parameters."""
         # For RAMI API, pagination doesn't work as expected

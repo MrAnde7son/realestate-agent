@@ -48,7 +48,14 @@ class URLUtils:
         numbers = re.findall(r'\d+', price_text)
         if numbers:
             return int(numbers[0])
-        return price_text.strip()
+        
+        # If no numbers found, check for common "price upon request" patterns
+        price_lower = price_text.lower().strip()
+        if any(phrase in price_lower for phrase in ['לאצוין', 'price', 'upon', 'request', 'call', 'contact']):
+            return None  # Return None for "price upon request" listings
+        
+        # If still no valid price, return the original text (for cases like 'approx')
+        return price_text
     
     @staticmethod
     def extract_number(text):

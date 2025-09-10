@@ -173,23 +173,19 @@ class MavatAPIClient:
             lookup_tables = {}
             
             # Process lookup data
-            for item in data:
-                if isinstance(item, dict) and "type" in item and "result" in item:
-                    table_type = str(item["type"])
-                    table_data = item["result"]
+            for table_type, table_data in data.items():
+                if isinstance(table_data, list):
+                    items = []
+                    for entry in table_data:
+                        if isinstance(entry, dict):
+                            lookup_item = MavatLookupItem(
+                                code=str(entry.get("CODE", "")),
+                                description=entry.get("DESCRIPTION", ""),
+                                raw=entry
+                            )
+                            items.append(lookup_item)
                     
-                    if isinstance(table_data, list):
-                        items = []
-                        for entry in table_data:
-                            if isinstance(entry, dict):
-                                lookup_item = MavatLookupItem(
-                                    code=str(entry.get("CODE", "")),
-                                    description=entry.get("DESCRIPTION", ""),
-                                    raw=entry
-                                )
-                                items.append(lookup_item)
-                        
-                        lookup_tables[table_type] = items
+                    lookup_tables[table_type] = items
             
             self._lookup_cache = lookup_tables
             return lookup_tables

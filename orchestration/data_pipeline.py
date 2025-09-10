@@ -45,7 +45,7 @@ and RAMI plans) and persists the aggregated results in the local
 SQLAlchemy database.
 """
 
-# Import Django Alert model if available
+# Import Django models if available
 try:  # pragma: no cover - best effort import
     import sys
 
@@ -60,22 +60,24 @@ try:  # pragma: no cover - best effort import
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
         django.setup()
 
-    from core.models import Alert  # type: ignore
+    from core.models import AlertRule  # type: ignore
 except ImportError as e:  # pragma: no cover - best effort
     print(f"Failed to import Django models: {e}")
 
-    class Alert:  # type: ignore
+    class AlertRule:  # type: ignore
         objects = []
 
 
 def _load_user_notifiers() -> List[Notifier]:
-    """Build notifiers for all users with active alerts."""
+    """Build notifiers for all users with active alert rules."""
 
     notifiers: List[Notifier] = []
     try:
-        alerts = Alert.objects.filter(active=True).select_related("user")  # type: ignore[attr-defined]
-        for alert in alerts:
-            notifier = create_notifier_for_user(alert.user, alert.criteria)
+        from orchestration.alerts import create_notifier_for_alert_rule
+        
+        alert_rules = AlertRule.objects.filter(active=True).select_related("user")  # type: ignore[attr-defined]
+        for alert_rule in alert_rules:
+            notifier = create_notifier_for_alert_rule(alert_rule)
             if notifier:
                 notifiers.append(notifier)
     except Exception as e:  # pragma: no cover - best effort

@@ -44,3 +44,7 @@ PyPDF2>=2.0.0
 python-bidi>=0.4.2
 
 weasyprint>=66.0
+
+# Alert Notifications
+twilio>=8.0.0
+sendgrid>=6.0.0

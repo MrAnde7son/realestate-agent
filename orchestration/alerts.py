@@ -37,26 +37,53 @@ class EmailAlert(Alert):
         self.host = host or os.getenv("SMTP_HOST")
         self.user = user or os.getenv("SMTP_USER")
         self.password = password or os.getenv("SMTP_PASSWORD")
-        self.from_email = from_email or os.getenv("SMTP_FROM", self.user)
+        self.from_email = from_email or os.getenv("EMAIL_FROM", self.user)
 
     def send(self, message: str) -> None:
+        if not self.to_email:
+            return
+
+        # Try SendGrid first if available
+        sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
+        if sendgrid_api_key:
+            try:
+                import sendgrid  # type: ignore
+                from sendgrid.helpers.mail import Mail  # type: ignore
+                
+                sg = sendgrid.SendGridAPIClient(api_key=sendgrid_api_key)
+                mail = Mail(
+                    from_email=os.getenv("EMAIL_FROM", "no-reply@nadlaner.com"),
+                    to_emails=self.to_email,
+                    subject="נדלנר: התראה חדשה",
+                    html_content=f"<p>{message}</p>"
+                )
+                sg.send(mail)
+                return
+            except Exception as e:
+                print(f"SendGrid failed, falling back to SMTP: {e}")
+
+        # Fallback to SMTP
         if not (
             self.host
             and self.user
             and self.password
             and self.from_email
-            and self.to_email
         ):
+            print("Email configuration incomplete, skipping email alert")
             return
 
-        msg = MIMEText(message)
-        msg["Subject"] = "New listing found"
-        msg["From"] = self.from_email
-        msg["To"] = self.to_email
+        try:
+            msg = MIMEText(message, 'html', 'utf-8')
+            msg["Subject"] = "נדלנר: התראה חדשה"
+            msg["From"] = self.from_email
+            msg["To"] = self.to_email
 
-        with smtplib.SMTP(self.host) as server:
-            server.login(self.user, self.password)
-            server.sendmail(self.from_email, [self.to_email], msg.as_string())
+            with smtplib.SMTP(self.host, 587) as server:
+                server.starttls()
+                server.login(self.user, self.password)
+                server.sendmail(self.from_email, [self.to_email], msg.as_string())
+        except Exception as e:
+            print(f"Failed to send email alert: {e}")
 
 
 class WhatsAppAlert(Alert):
@@ -82,14 +109,18 @@ class WhatsAppAlert(Alert):
             and self.from_number
             and self.to_number
         ):
+            print("WhatsApp configuration incomplete, skipping WhatsApp alert")
             return
 
-        client = Client(self.account_sid, self.auth_token)
-        client.messages.create(
-            body=message,
-            from_=f"whatsapp:{self.from_number}",
-            to=f"whatsapp:{self.to_number}",
-        )
+        try:
+            client = Client(self.account_sid, self.auth_token)
+            client.messages.create(
+                body=message,
+                from_=self.from_number,
+                to=f"whatsapp:{self.to_number}",
+            )
+        except Exception as e:
+            print(f"Failed to send WhatsApp alert: {e}")
 
 
 class Notifier:
@@ -105,7 +136,18 @@ class Notifier:
             if getattr(listing, key, None) != value:
                 return
 
-        message = f"New listing found: {listing.title} for {listing.price} - {listing.url}"
+        # Create a more detailed message
+        title = getattr(listing, 'title', 'Unknown Property')
+        price = getattr(listing, 'price', 'Price not available')
+        url = getattr(listing, 'url', '')
+        
+        message = "🏠 נכס חדש נמצא!\n\n"
+        message += f"📍 {title}\n"
+        message += f"💰 מחיר: {price}\n"
+        if url:
+            message += f"🔗 קישור: {url}\n"
+        message += "\nנדלנר - מערכת התראות נדלן"
+        
         for alert in self.alerts:
             alert.send(message)
 
@@ -151,5 +193,46 @@ def create_notifier_for_user(user: Any, criteria: Dict[str, Any]) -> Optional[No
     if not channels:
         return None
 
+    return Notifier(criteria, channels)
+
+
+def create_notifier_for_alert_rule(alert_rule: Any) -> Optional[Notifier]:
+    """Create a :class:`Notifier` configured for a specific alert rule.
+    
+    This function works with the new AlertRule model and creates notifiers
+    based on the channels specified in the alert rule.
+    
+    Parameters
+    ----------
+    alert_rule:
+        An AlertRule instance with channels, user, and other configuration.
+        
+    Returns
+    -------
+    Optional[Notifier]
+        A configured ``Notifier`` instance or ``None`` if no alert channels
+        could be created for the alert rule.
+    """
+    channels: List[Alert] = []
+    user = alert_rule.user
+    
+    # Check if email is enabled in channels
+    if 'email' in alert_rule.channels:
+        email = getattr(user, "email", None)
+        if email:
+            channels.append(EmailAlert(email))
+    
+    # Check if WhatsApp is enabled in channels
+    if 'whatsapp' in alert_rule.channels:
+        phone = getattr(user, "phone", None)
+        if phone:
+            channels.append(WhatsAppAlert(phone))
+    
+    if not channels:
+        return None
+    
+    # Create criteria from alert rule params
+    criteria = alert_rule.params.copy()
+    
     return Notifier(criteria, channels)
 

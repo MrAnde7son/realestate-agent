@@ -865,7 +865,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תכנוני:</span>
-                      {renderValue(<Badge variant="success">פעיל</Badge>, 'planActive')}
+                      {renderValue(
+                        <Badge variant={asset.planActive ? "success" : "neutral"}>
+                          {asset.planActive ? "פעיל" : "לא פעיל"}
+                        </Badge>, 
+                        'planActive'
+                      )}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">הגבלות מיוחדות:</span>

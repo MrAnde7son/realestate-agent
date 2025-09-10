@@ -10,9 +10,15 @@ class MetaSerializerMixin(serializers.ModelSerializer):
         meta = getattr(instance, "meta", {}) or {}
         field_meta = {}
         
-        # Extract attribution information from meta field
+        # Extract values and attribution information from meta field
         for key, value in meta.items():
             if isinstance(value, dict):
+                # Extract the actual value if it exists
+                actual_value = value.get("value")
+                if actual_value is not None:
+                    data[key] = actual_value
+                
+                # Extract attribution information
                 source = value.get("source")
                 fetched = value.get("fetched_at") or value.get("fetchedAt")
                 url = value.get("url")

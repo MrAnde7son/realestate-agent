@@ -5,6 +5,7 @@ export type Asset = {
   neighborhood?: string | null;
   street?: string | null;
   number?: number | null;
+  apartment?: string | null;
   type?: string | null;
   bedrooms?: number | null;
   rooms?: number | null;
@@ -78,6 +79,7 @@ export type Asset = {
   serviceRightsSqm?: number | null;
   additionalPlanRights?: string | null;
   planStatus?: string | null;
+  planActive?: boolean | null;
   publicObligations?: string | null;
   publicTransport?: string | null;
   openSpacesNearby?: string | null;
@@ -128,6 +130,7 @@ export function normalizeFromBackend(row: any): Asset {
     neighborhood: row.neighborhood ?? null,
     street: row.street ?? null,
     number: row.number ?? null,
+    apartment: row.apartment ?? null,
     type: determineAssetType(row),
     bedrooms: row.bedrooms ?? null,
     rooms: row.rooms ?? row.bedrooms ?? null,
@@ -197,6 +200,7 @@ export function normalizeFromBackend(row: any): Asset {
     serviceRightsSqm: row.serviceRightsSqm ?? row.service_rights_sqm ?? null,
     additionalPlanRights: row.additionalPlanRights ?? row.additional_plan_rights ?? null,
     planStatus: row.planStatus ?? row.plan_status ?? null,
+    planActive: row.planActive ?? row.plan_active ?? null,
     publicObligations: row.publicObligations ?? row.public_obligations ?? null,
     publicTransport: row.publicTransport ?? row.public_transport ?? null,
     openSpacesNearby: row.openSpacesNearby ?? row.open_spaces_nearby ?? null,

@@ -42,8 +42,21 @@ def build_listing(
     if asset.normalized_address:
         address = asset.normalized_address
     else:
-        parts = [asset.street, asset.number, asset.city]
-        address = " ".join(str(p) for p in parts if p)
+        # Build address from components
+        parts = []
+        if asset.street:
+            parts.append(asset.street)
+        if asset.number:
+            parts.append(str(asset.number))
+        if asset.building_type and asset.floor:
+            parts.append(f"{asset.building_type} {asset.floor}")
+        elif asset.building_type:
+            parts.append(asset.building_type)
+        if asset.apartment:
+            parts.append(f"דירה {asset.apartment}")
+        if asset.city:
+            parts.append(asset.city)
+        address = " ".join(parts) if parts else None
 
     ppsqm = _first_nonempty(
         asset.price_per_sqm,

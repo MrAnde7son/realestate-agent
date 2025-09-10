@@ -647,6 +647,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <div className="text-sm text-muted-foreground">תת חלקה</div>
               <div className="font-medium">{renderValue(asset.subhelka, 'subhelka')}</div>
             </div>
+            <div>
+              <div className="text-sm text-muted-foreground">מספר דירה</div>
+              <div className="font-medium">{renderValue(asset.apartment, 'apartment')}</div>
+            </div>
           </CardContent>
         </Card>
 
@@ -861,7 +865,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תכנוני:</span>
-                      {renderValue(<Badge variant="success">פעיל</Badge>, 'planActive')}
+                      {renderValue(
+                        <Badge variant={asset.planActive ? "success" : "neutral"}>
+                          {asset.planActive ? "פעיל" : "לא פעיל"}
+                        </Badge>, 
+                        'planActive'
+                      )}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">הגבלות מיוחדות:</span>

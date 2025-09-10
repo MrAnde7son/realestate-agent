@@ -9,8 +9,16 @@ class MetaSerializerMixin(serializers.ModelSerializer):
         data = super().to_representation(instance)
         meta = getattr(instance, "meta", {}) or {}
         field_meta = {}
+        
+        # Extract values and attribution information from meta field
         for key, value in meta.items():
             if isinstance(value, dict):
+                # Extract the actual value if it exists
+                actual_value = value.get("value")
+                if actual_value is not None:
+                    data[key] = actual_value
+                
+                # Extract attribution information
                 source = value.get("source")
                 fetched = value.get("fetched_at") or value.get("fetchedAt")
                 url = value.get("url")
@@ -18,54 +26,47 @@ class MetaSerializerMixin(serializers.ModelSerializer):
                     field_meta[key] = {"source": source, "fetched_at": fetched, "url": url}
                 elif source and fetched:
                     field_meta[key] = {"source": source, "fetched_at": fetched}
+        
+        # Add _meta section if we have attribution data
         if field_meta:
             data["_meta"] = field_meta
+            
         return data
 
 
 class AssetSerializer(MetaSerializerMixin):
-    size = serializers.SerializerMethodField()
-    rights = serializers.SerializerMethodField()
-    permits = serializers.SerializerMethodField()
-    comps = serializers.SerializerMethodField()
-
-    KEY_FIELDS = ["city", "size", "rights", "permits", "comps"]
-
-    def _get_meta_value(self, obj, field):
-        meta = getattr(obj, "meta", {}) or {}
-        value = meta.get(field)
-        if isinstance(value, dict):
-            return value.get("value")
-        return None
-
-    def get_size(self, obj):
-        return self._get_meta_value(obj, "size")
-
-    def get_rights(self, obj):
-        return self._get_meta_value(obj, "rights")
-
-    def get_permits(self, obj):
-        return self._get_meta_value(obj, "permits")
-
-    def get_comps(self, obj):
-        return self._get_meta_value(obj, "comps")
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        # Override key field values from meta if provided
-        meta = getattr(instance, "meta", {}) or {}
-        for field in self.KEY_FIELDS:
-            meta_val = meta.get(field)
-            if isinstance(meta_val, dict) and meta_val.get("value") is not None:
-                data[field] = meta_val["value"]
-        return data
-
+    address = serializers.SerializerMethodField()
+    
+    def get_address(self, obj):
+        """Get formatted address for frontend compatibility."""
+        if obj.normalized_address:
+            return obj.normalized_address
+        else:
+            # Build address from components
+            parts = []
+            if obj.street:
+                parts.append(obj.street)
+            if obj.number:
+                parts.append(str(obj.number))
+            if obj.building_type and obj.floor:
+                parts.append(f"{obj.building_type} {obj.floor}")
+            if obj.apartment:
+                parts.append(f"דירה {obj.apartment}")
+            if obj.city:
+                parts.append(obj.city)
+            return " ".join(parts) if parts else None
+    
     class Meta:
         model = Asset
         fields = [
             'id', 'scope_type', 'city', 'neighborhood', 'street', 'number',
-            'gush', 'helka', 'lat', 'lon', 'normalized_address', 'status',
-            'size', 'rights', 'permits', 'comps'
+            'gush', 'helka', 'subhelka', 'lat', 'lon', 'normalized_address', 'address', 'status',
+                   'building_type', 'floor', 'apartment', 'total_floors', 'rooms', 'bedrooms', 'bathrooms',
+            'area', 'total_area', 'balcony_area', 'parking_spaces', 'storage_room',
+            'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',
+            'last_renovation', 'price', 'price_per_sqm', 'rent_estimate', 'zoning',
+            'building_rights', 'permit_status', 'permit_date', 'is_demo',
+            'last_enriched_at', 'created_at', 'created_by', 'last_updated_by'
         ]
 
 

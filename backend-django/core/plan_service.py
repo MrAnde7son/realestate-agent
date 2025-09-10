@@ -68,6 +68,11 @@ class PlanService:
         return user_plan
     
     @staticmethod
+    def assign_default_plan(user: User) -> UserPlan:
+        """Assign default plan to a new user (alias for assign_free_plan_to_user)."""
+        return PlanService.assign_free_plan_to_user(user)
+    
+    @staticmethod
     def validate_asset_creation(user: User) -> Dict[str, Any]:
         """Validate if user can create a new asset."""
         try:
@@ -220,6 +225,10 @@ class PlanService:
         """Upgrade user to a new plan."""
         try:
             new_plan_type = PlanType.objects.get(name=new_plan_name)
+            
+            # Check if plan is active
+            if not new_plan_type.is_active:
+                raise PlanValidationError(f"Plan '{new_plan_name}' is not available")
             
             # Deactivate current plan
             UserPlan.objects.filter(user=user, is_active=True).update(is_active=False)

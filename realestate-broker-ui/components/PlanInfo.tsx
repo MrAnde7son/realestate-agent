@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/button'
-// import { Progress } from '@/components/ui/progress' // Component doesn't exist yet
-import { PlanInfo, PlanType } from '@/lib/auth'
+import { PlanInfo } from '@/lib/auth'
 import { authAPI } from '@/lib/auth'
 import { AlertCircle, CheckCircle, Crown, Zap, Star } from 'lucide-react'
 
@@ -21,7 +19,6 @@ const planIcons = {
 
 export default function PlanInfoComponent({ className }: PlanInfoProps) {
   const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null)
-  const [planTypes, setPlanTypes] = useState<PlanType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -32,27 +29,13 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
   const loadPlanData = async () => {
     try {
       setLoading(true)
-      const [planInfoData, planTypesData] = await Promise.all([
-        authAPI.getPlanInfo(),
-        authAPI.getPlanTypes()
-      ])
+      const planInfoData = await authAPI.getPlanInfo()
       setPlanInfo(planInfoData)
-      setPlanTypes(planTypesData.plans)
     } catch (err) {
       console.error('Error loading plan data:', err)
       setError('Failed to load plan information')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleUpgrade = async (planName: string) => {
-    try {
-      await authAPI.upgradePlan(planName)
-      await loadPlanData() // Reload plan data
-    } catch (err) {
-      console.error('Error upgrading plan:', err)
-      setError('Failed to upgrade plan')
     }
   }
 
@@ -147,28 +130,6 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
           </div>
         </div>
 
-        {/* Upgrade Options */}
-        {planInfo.plan_name !== 'pro' && (
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">שדרוג חבילה:</h4>
-            <div className="space-y-1">
-              {planTypes
-                .filter(plan => plan.name !== planInfo.plan_name)
-                .map(plan => (
-                  <Button
-                    key={plan.name}
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-between"
-                    onClick={() => handleUpgrade(plan.name)}
-                  >
-                    <span>{plan.display_name}</span>
-                    <span>{plan.price} ₪</span>
-                  </Button>
-                ))}
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   )

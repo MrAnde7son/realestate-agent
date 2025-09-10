@@ -288,6 +288,13 @@ cd backend-django && python manage.py runserver
 cd realestate-broker-ui && npm run dev
 ```
 
+### Test Accounts
+```bash
+# Test accounts with specific plans:
+# Admin: admin@example.com / admin123 (Pro Plan - Unlimited assets)
+# Demo: demo@example.com / demo123 (Basic Plan - 25 assets)
+```
+
 ### Testing
 ```bash
 # Run all checks
@@ -313,6 +320,15 @@ cd backend-django && python manage.py migrate
 
 # Initialize plan types
 cd backend-django && python manage.py init_plans
+
+# Check user plan assignments
+cd backend-django && python manage.py shell -c "
+from core.models import User
+admin = User.objects.get(email='admin@example.com')
+demo = User.objects.get(email='demo@example.com')
+print(f'Admin: {admin.current_plan.plan_type.name if admin.current_plan else \"No plan\"}')
+print(f'Demo: {demo.current_plan.plan_type.name if demo.current_plan else \"No plan\"}')
+"
 ```
 
 ### Monitoring

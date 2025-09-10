@@ -1728,10 +1728,13 @@ def upgrade_plan(request):
         if not data or not data.get("plan_name"):
             return Response({"error": "plan_name is required"}, status=status.HTTP_400_BAD_REQUEST)
         
-        from .plan_service import PlanService
+        from .plan_service import PlanService, PlanValidationError
         new_plan = PlanService.upgrade_user_plan(request.user, data["plan_name"])
         serializer = UserPlanSerializer(new_plan)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except PlanValidationError as e:
+        logger.warning(f"Plan validation error for user {request.user.email}: {e}")
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Error upgrading plan for user {request.user.email}: {e}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

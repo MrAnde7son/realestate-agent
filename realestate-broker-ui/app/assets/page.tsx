@@ -46,7 +46,6 @@ import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
-import PlanInfo from "@/components/PlanInfo";
 import PlanLimitDialog from "@/components/PlanLimitDialog";
 
 const DEFAULT_RADIUS_METERS = 100;
@@ -526,17 +525,6 @@ export default function AssetsPage() {
           </div>
         </div>
 
-        {/* Plan Information */}
-        {isAuthenticated && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              {/* Main content will go here */}
-            </div>
-            <div className="lg:col-span-1">
-              <PlanInfo />
-            </div>
-          </div>
-        )}
 
         {/* Asset Creation Sheet - Keep the form but remove the trigger button */}
         {isAuthenticated && (

@@ -1,4 +1,6 @@
-import React from 'react'
+'use client'
+
+import React, { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -7,6 +9,9 @@ import { ContactSupportDialog, ConsultationDialog } from '@/components/support/d
 import { Badge } from '@/components/ui/Badge'
 import { Check, Star, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import PlanInfo from '@/components/PlanInfo'
+import { useAuth } from '@/lib/auth-context'
+import { authAPI, PlanInfo as PlanInfoType } from '@/lib/auth'
 
 const plans = [
   {
@@ -27,9 +32,7 @@ const plans = [
       "ללא תמיכה טלפונית"
     ],
     popular: false,
-    icon: Star,
-    buttonText: "התחל עכשיו",
-    buttonVariant: "outline" as const
+    icon: Star
   },
   {
     name: "חבילה בסיסית",
@@ -49,9 +52,7 @@ const plans = [
       "ללא אינטגרציה עם מערכות חיצוניות"
     ],
     popular: true,
-    icon: Zap,
-    buttonText: "בחר חבילה",
-    buttonVariant: "default" as const
+    icon: Zap
   },
   {
     name: "חבילה מקצועית",
@@ -72,13 +73,68 @@ const plans = [
     ],
     limitations: [],
     popular: false,
-    icon: Zap,
-    buttonText: "בחר חבילה",
-    buttonVariant: "default" as const
+    icon: Zap
   }
 ]
 
 export default function BillingPage() {
+  const { isAuthenticated } = useAuth()
+  const [currentPlan, setCurrentPlan] = useState<PlanInfoType | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadCurrentPlan()
+    } else {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  const loadCurrentPlan = async () => {
+    try {
+      const planInfo = await authAPI.getPlanInfo()
+      setCurrentPlan(planInfo)
+    } catch (error) {
+      console.error('Error loading current plan:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getPlanButtonText = (planName: string) => {
+    if (!currentPlan) return "התחל עכשיו"
+    
+    const planMap: Record<string, string> = {
+      "חבילה חינמית": "free",
+      "חבילה בסיסית": "basic", 
+      "חבילה מקצועית": "pro"
+    }
+    
+    const planKey = planMap[planName]
+    if (planKey === currentPlan.plan_name) {
+      return "החבילה הנוכחית"
+    }
+    
+    return "בחר חבילה"
+  }
+
+  const getPlanButtonVariant = (planName: string) => {
+    if (!currentPlan) return "outline" as const
+    
+    const planMap: Record<string, string> = {
+      "חבילה חינמית": "free",
+      "חבילה בסיסית": "basic",
+      "חבילה מקצועית": "pro"
+    }
+    
+    const planKey = planMap[planName]
+    if (planKey === currentPlan.plan_name) {
+      return "secondary" as const
+    }
+    
+    return planName === "חבילה בסיסית" ? "default" as const : "outline" as const
+  }
+
   return (
     <DashboardLayout>
       <DashboardShell>
@@ -86,6 +142,13 @@ export default function BillingPage() {
           heading="חבילות ותשלומים" 
           text="בחר את החבילה המתאימה לצרכים שלך" 
         />
+        
+        {/* Current Plan Information */}
+        {isAuthenticated && (
+          <div className="mb-8">
+            <PlanInfo />
+          </div>
+        )}
         
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => {
@@ -147,10 +210,11 @@ export default function BillingPage() {
                 <CardFooter>
                   <Button 
                     className="w-full" 
-                    variant={plan.buttonVariant}
+                    variant={getPlanButtonVariant(plan.name)}
                     size="lg"
+                    disabled={loading}
                   >
-                    {plan.buttonText}
+                    {getPlanButtonText(plan.name)}
                   </Button>
                 </CardFooter>
               </Card>

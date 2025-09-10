@@ -175,11 +175,30 @@ class UserPlan(models.Model):
             return False
         return timezone.now() > self.expires_at
     
-    def can_use_feature(self, feature_name):
+    def can_use_feature(self, feature_name, amount=1):
         """Check if user can use a specific feature based on their plan."""
         if not self.is_active or self.is_expired():
             return False
         
+        # Handle asset limits
+        if feature_name == 'assets':
+            if self.plan_type.asset_limit == -1:  # Unlimited
+                return True
+            return (self.assets_used + amount) <= self.plan_type.asset_limit
+        
+        # Handle report limits
+        if feature_name == 'reports':
+            if self.plan_type.report_limit == -1:  # Unlimited
+                return True
+            return (self.reports_used + amount) <= self.plan_type.report_limit
+        
+        # Handle alert limits
+        if feature_name == 'alerts':
+            if self.plan_type.alert_limit == -1:  # Unlimited
+                return True
+            return (self.alerts_used + amount) <= self.plan_type.alert_limit
+        
+        # Handle boolean features
         feature_map = {
             'advanced_analytics': self.plan_type.advanced_analytics,
             'data_export': self.plan_type.data_export,

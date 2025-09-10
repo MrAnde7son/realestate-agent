@@ -17,42 +17,51 @@ User = get_user_model()
 @pytest.mark.django_db
 class TestPlanTypeModel:
     """Test cases for PlanType model"""
+    
+    def _get_unique_plan_name(self, base_name):
+        """Generate a unique plan name for testing"""
+        import time
+        return f"test_{base_name}_{int(time.time() * 1000)}"
 
     def test_create_plan_type(self):
         """Test creating a plan type"""
-        plan_type = PlanType.objects.create(
-            name='free',
-            display_name='Free Plan',
-            description='Free plan for basic users',
-            price=Decimal('0.00'),
-            currency='ILS',
-            billing_period='monthly',
-            asset_limit=5,
-            report_limit=10,
-            alert_limit=5,
-            advanced_analytics=False,
-            data_export=False,
-            api_access=False,
-            priority_support=False,
-            custom_reports=False,
-            is_active=True
+        plan_type, created = PlanType.objects.get_or_create(
+            name='test_free',
+            defaults={
+                'display_name': 'Test Free Plan',
+                'description': 'Test free plan for basic users',
+                'price': Decimal('0.00'),
+                'currency': 'ILS',
+                'billing_period': 'monthly',
+                'asset_limit': 5,
+                'report_limit': 10,
+                'alert_limit': 5,
+                'advanced_analytics': False,
+                'data_export': False,
+                'api_access': False,
+                'priority_support': False,
+                'custom_reports': False,
+                'is_active': True
+            }
         )
         
-        assert plan_type.name == 'free'
-        assert plan_type.display_name == 'Free Plan'
+        assert plan_type.name == 'test_free'
+        assert plan_type.display_name == 'Test Free Plan'
         assert plan_type.price == Decimal('0.00')
         assert plan_type.asset_limit == 5
         assert plan_type.is_active is True
-        assert str(plan_type) == 'Free Plan (free)'
+        assert str(plan_type) == 'Test Free Plan (test_free)'
 
     def test_plan_type_choices(self):
         """Test plan type choices validation"""
         # Valid choices
         for choice in ['free', 'basic', 'pro']:
-            plan_type = PlanType.objects.create(
+            plan_type, created = PlanType.objects.get_or_create(
                 name=choice,
-                display_name=f'{choice.title()} Plan',
-                asset_limit=5
+                defaults={
+                    'display_name': f'{choice.title()} Plan',
+                    'asset_limit': 5
+                }
             )
             assert plan_type.name == choice
 
@@ -78,9 +87,9 @@ class TestPlanTypeModel:
 
     def test_plan_type_unique_name(self):
         """Test that plan type names must be unique"""
-        PlanType.objects.create(
+        plan_type, created = PlanType.objects.get_or_create(
             name='free',
-            display_name='Free Plan'
+            defaults={'display_name': 'Free Plan'}
         )
         
         with pytest.raises(Exception):  # IntegrityError or ValidationError
@@ -102,10 +111,12 @@ class TestUserPlanModel:
             password='testpass123'
         )
         
-        plan_type = PlanType.objects.create(
-            name='basic',
-            display_name='Basic Plan',
-            asset_limit=25
+        plan_type, _ = PlanType.objects.get_or_create(
+            name='test_basic',
+            defaults={
+                'display_name': 'Test Basic Plan',
+                'asset_limit': 25
+            }
         )
         
         user_plan = UserPlan.objects.create(
@@ -131,9 +142,9 @@ class TestUserPlanModel:
             password='testpass123'
         )
         
-        plan_type = PlanType.objects.create(
+        plan_type, created = PlanType.objects.get_or_create(
             name='free',
-            display_name='Free Plan'
+            defaults={'display_name': 'Free Plan'}
         )
         
         user_plan = UserPlan.objects.create(
@@ -157,23 +168,25 @@ class TestUserPlanModel:
             password='testpass123'
         )
         
-        plan_type = PlanType.objects.create(
+        plan_type, created = PlanType.objects.get_or_create(
             name='basic',
-            display_name='Basic Plan'
+            defaults={'display_name': 'Basic Plan'}
         )
         
         # Create expired plan
-        expired_date = datetime.now() - timedelta(days=1)
+        from django.utils import timezone
+        expired_date = timezone.now() - timedelta(days=1)
         user_plan = UserPlan.objects.create(
             user=user,
             plan_type=plan_type,
-            expires_at=expired_date
+            expires_at=expired_date,
+            is_active=False  # Make it inactive to allow another active plan
         )
         
         assert user_plan.is_expired() is True
         
         # Create non-expired plan
-        future_date = datetime.now() + timedelta(days=30)
+        future_date = timezone.now() + timedelta(days=30)
         user_plan_future = UserPlan.objects.create(
             user=user,
             plan_type=plan_type,
@@ -190,12 +203,14 @@ class TestUserPlanModel:
             password='testpass123'
         )
         
-        plan_type = PlanType.objects.create(
+        plan_type, created = PlanType.objects.get_or_create(
             name='basic',
-            display_name='Basic Plan',
-            asset_limit=25,
-            advanced_analytics=True,
-            data_export=True
+            defaults={
+                'display_name': 'Basic Plan',
+                'asset_limit': 25,
+                'advanced_analytics': True,
+                'data_export': True
+            }
         )
         
         user_plan = UserPlan.objects.create(
@@ -220,10 +235,12 @@ class TestUserPlanModel:
             password='testpass123'
         )
         
-        plan_type = PlanType.objects.create(
-            name='basic',
-            display_name='Basic Plan',
-            asset_limit=25
+        plan_type, _ = PlanType.objects.get_or_create(
+            name='test_basic',
+            defaults={
+                'display_name': 'Test Basic Plan',
+                'asset_limit': 25
+            }
         )
         
         user_plan = UserPlan.objects.create(
@@ -242,10 +259,12 @@ class TestUserPlanModel:
             password='testpass123'
         )
         
-        plan_type = PlanType.objects.create(
-            name='pro',
-            display_name='Pro Plan',
-            asset_limit=-1  # Unlimited
+        plan_type, _ = PlanType.objects.get_or_create(
+            name='test_pro',
+            defaults={
+                'display_name': 'Test Pro Plan',
+                'asset_limit': -1  # Unlimited
+            }
         )
         
         user_plan = UserPlan.objects.create(
@@ -274,9 +293,9 @@ class TestUserPlanMethods:
         assert user.current_plan is None
         
         # Create active plan
-        plan_type = PlanType.objects.create(
+        plan_type, created = PlanType.objects.get_or_create(
             name='basic',
-            display_name='Basic Plan'
+            defaults={'display_name': 'Basic Plan'}
         )
         
         user_plan = UserPlan.objects.create(
@@ -299,10 +318,12 @@ class TestUserPlanMethods:
         assert user.get_asset_limit() == 5
         
         # With plan
-        plan_type = PlanType.objects.create(
-            name='basic',
-            display_name='Basic Plan',
-            asset_limit=25
+        plan_type, _ = PlanType.objects.get_or_create(
+            name='test_basic',
+            defaults={
+                'display_name': 'Test Basic Plan',
+                'asset_limit': 25
+            }
         )
         
         UserPlan.objects.create(
@@ -327,7 +348,8 @@ class TestUserPlanMethods:
         # Create 5 assets
         for i in range(5):
             Asset.objects.create(
-                address=f"Test Address {i}",
+                scope_type="address",
+                street=f"Test Street {i}",
                 city="Test City",
                 price=100000,
                 rooms=3,
@@ -338,10 +360,12 @@ class TestUserPlanMethods:
         assert user.can_create_asset() is False
         
         # Create basic plan
-        plan_type = PlanType.objects.create(
-            name='basic',
-            display_name='Basic Plan',
-            asset_limit=25
+        plan_type, _ = PlanType.objects.get_or_create(
+            name='test_basic',
+            defaults={
+                'display_name': 'Test Basic Plan',
+                'asset_limit': 25
+            }
         )
         
         UserPlan.objects.create(
@@ -362,10 +386,12 @@ class TestUserPlanMethods:
         )
         
         # Create basic plan with limit of 10
-        plan_type = PlanType.objects.create(
-            name='basic',
-            display_name='Basic Plan',
-            asset_limit=10
+        plan_type, created = PlanType.objects.get_or_create(
+            name='test_basic_10',
+            defaults={
+                'display_name': 'Test Basic Plan',
+                'asset_limit': 10
+            }
         )
         
         UserPlan.objects.create(
@@ -377,7 +403,8 @@ class TestUserPlanMethods:
         # Create 10 assets
         for i in range(10):
             Asset.objects.create(
-                address=f"Test Address {i}",
+                scope_type="address",
+                street=f"Test Street {i}",
                 city="Test City",
                 price=100000,
                 rooms=3,
@@ -396,10 +423,12 @@ class TestUserPlanMethods:
         )
         
         # Create pro plan with unlimited assets
-        plan_type = PlanType.objects.create(
-            name='pro',
-            display_name='Pro Plan',
-            asset_limit=-1  # Unlimited
+        plan_type, _ = PlanType.objects.get_or_create(
+            name='test_pro',
+            defaults={
+                'display_name': 'Test Pro Plan',
+                'asset_limit': -1  # Unlimited
+            }
         )
         
         UserPlan.objects.create(
@@ -411,7 +440,8 @@ class TestUserPlanMethods:
         # Create many assets
         for i in range(100):
             Asset.objects.create(
-                address=f"Test Address {i}",
+                scope_type="address",
+                street=f"Test Street {i}",
                 city="Test City",
                 price=100000,
                 rooms=3,
@@ -430,10 +460,12 @@ class TestUserPlanMethods:
         )
         
         # Create inactive plan
-        plan_type_inactive = PlanType.objects.create(
+        plan_type_inactive, created = PlanType.objects.get_or_create(
             name='free',
-            display_name='Free Plan',
-            asset_limit=5
+            defaults={
+                'display_name': 'Free Plan',
+                'asset_limit': 5
+            }
         )
         
         UserPlan.objects.create(
@@ -443,10 +475,12 @@ class TestUserPlanMethods:
         )
         
         # Create active plan
-        plan_type_active = PlanType.objects.create(
+        plan_type_active, created = PlanType.objects.get_or_create(
             name='basic',
-            display_name='Basic Plan',
-            asset_limit=25
+            defaults={
+                'display_name': 'Basic Plan',
+                'asset_limit': 25
+            }
         )
         
         UserPlan.objects.create(

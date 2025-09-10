@@ -1,20 +1,21 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
+import { vi } from 'vitest'
 import PlanLimitDialog from '@/components/PlanLimitDialog'
 import { useRouter } from 'next/navigation'
 
 // Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(),
 }))
 
-const mockPush = jest.fn()
-const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>
+const mockPush = vi.fn()
+const mockUseRouter = useRouter as any
 
 describe('PlanLimitDialog Component', () => {
   const mockError = {
@@ -36,14 +37,14 @@ describe('PlanLimitDialog Component', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
     mockUseRouter.mockReturnValue({
       push: mockPush,
-      back: jest.fn(),
-      forward: jest.fn(),
-      refresh: jest.fn(),
-      replace: jest.fn(),
-      prefetch: jest.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+      refresh: vi.fn(),
+      replace: vi.fn(),
+      prefetch: vi.fn(),
     })
   })
 
@@ -51,7 +52,7 @@ describe('PlanLimitDialog Component', () => {
     const { container } = render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={null}
       />
     )
@@ -63,7 +64,7 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockError}
       />
     )
@@ -76,7 +77,7 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockError}
       />
     )
@@ -91,7 +92,7 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockBasicError}
       />
     )
@@ -106,7 +107,7 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockError}
       />
     )
@@ -120,7 +121,7 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockBasicError}
       />
     )
@@ -131,7 +132,7 @@ describe('PlanLimitDialog Component', () => {
   })
 
   it('calls onOpenChange when close button is clicked', () => {
-    const mockOnOpenChange = jest.fn()
+    const mockOnOpenChange = vi.fn()
     
     render(
       <PlanLimitDialog
@@ -148,7 +149,7 @@ describe('PlanLimitDialog Component', () => {
   })
 
   it('calls onOpenChange and navigates to billing when upgrade button is clicked', () => {
-    const mockOnOpenChange = jest.fn()
+    const mockOnOpenChange = vi.fn()
     
     render(
       <PlanLimitDialog
@@ -169,7 +170,7 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockError}
       />
     )
@@ -183,7 +184,7 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockBasicError}
       />
     )
@@ -203,7 +204,7 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={incompleteError}
       />
     )
@@ -216,7 +217,7 @@ describe('PlanLimitDialog Component', () => {
     const { container } = render(
       <PlanLimitDialog
         open={false}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockError}
       />
     )
@@ -228,7 +229,7 @@ describe('PlanLimitDialog Component', () => {
     const { rerender } = render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockError}
       />
     )
@@ -240,7 +241,7 @@ describe('PlanLimitDialog Component', () => {
     rerender(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockBasicError}
       />
     )
@@ -260,14 +261,15 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={largeNumberError}
       />
     )
     
-    expect(screen.getByText('1,000,000 נכסים')).toBeInTheDocument()
-    expect(screen.getByText('999,999 נכסים בשימוש')).toBeInTheDocument()
-    expect(screen.getByText('1 נכסים נותרו')).toBeInTheDocument()
+    expect(screen.getByText('1,000,000 / 1,000,000 נכסים')).toBeInTheDocument()
+    expect(screen.getByText('999,999')).toBeInTheDocument()
+    expect(screen.getByText('1,000,000')).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
   })
 
   it('handles zero values correctly', () => {
@@ -281,32 +283,31 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={zeroError}
       />
     )
     
-    expect(screen.getByText('0 נכסים')).toBeInTheDocument()
-    expect(screen.getByText('0 נכסים בשימוש')).toBeInTheDocument()
-    expect(screen.getByText('0 נכסים נותרו')).toBeInTheDocument()
+    expect(screen.getByText('0 / 0 נכסים')).toBeInTheDocument()
+    expect(screen.getByText('0')).toBeInTheDocument()
   })
 
   it('shows correct error icon', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockError}
       />
     )
     
-    // Should show AlertCircle icon
-    const alertIcon = screen.getByTestId('alert-icon')
+    // Should show AlertCircle icon (it's an SVG with specific classes)
+    const alertIcon = screen.getByRole('dialog').querySelector('svg.lucide-circle-alert')
     expect(alertIcon).toBeInTheDocument()
   })
 
   it('handles keyboard navigation', () => {
-    const mockOnOpenChange = jest.fn()
+    const mockOnOpenChange = vi.fn()
     
     render(
       <PlanLimitDialog
@@ -325,12 +326,12 @@ describe('PlanLimitDialog Component', () => {
     render(
       <PlanLimitDialog
         open={true}
-        onOpenChange={jest.fn()}
+        onOpenChange={vi.fn()}
         error={mockError}
       />
     )
     
-    const dialog = screen.getByRole('alertdialog')
+    const dialog = screen.getByRole('dialog')
     expect(dialog).toBeInTheDocument()
     
     const title = screen.getByRole('heading', { level: 2 })

@@ -48,12 +48,12 @@ def setup_database():
     
     if admin_exists and demo_exists:
         print("\nTest accounts:")
-        print("Admin: admin@example.com / admin123")
-        print("Demo: demo@example.com / demo123")
+        print("Admin: admin@example.com / admin123 (Pro Plan - Unlimited assets)")
+        print("Demo: demo@example.com / demo123 (Basic Plan - 25 assets)")
     else:
         print("\n⚠ Some users are missing. Check the migration output above.")
     
-    print("\nNote: Users are now created automatically by migrations.")
+    print("\nNote: Users and their plans are now created automatically by migrations.")
     print("This ensures they exist after every deployment without conflicts.")
     print("\nTo start the server:")
     print("python manage.py runserver")

@@ -46,6 +46,8 @@ import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
+import PlanInfo from "@/components/PlanInfo";
+import PlanLimitDialog from "@/components/PlanLimitDialog";
 
 const DEFAULT_RADIUS_METERS = 100;
 
@@ -85,6 +87,8 @@ export default function AssetsPage() {
 
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
+  const [planLimitError, setPlanLimitError] = useState<any>(null);
+  const [showPlanLimitDialog, setShowPlanLimitDialog] = useState(false);
 
   const fetchCitySuggestions = async (query: string) => {
     if (!query) {
@@ -420,11 +424,18 @@ export default function AssetsPage() {
       } else {
         const errorData = await response.json();
         console.error("Failed to create asset:", errorData);
-        toast({
-          title: "שגיאה",
-          description: `שגיאה ביצירת הנכס: ${errorData.error || 'שגיאה לא ידועה'}`,
-          variant: "destructive",
-        });
+        
+        // Handle plan limit errors
+        if (response.status === 403 && errorData.error === 'asset_limit_exceeded') {
+          setPlanLimitError(errorData);
+          setShowPlanLimitDialog(true);
+        } else {
+          toast({
+            title: "שגיאה",
+            description: `שגיאה ביצירת הנכס: ${errorData.error || 'שגיאה לא ידועה'}`,
+            variant: "destructive",
+          });
+        }
       }
     } catch (error) {
       console.error("Error creating asset:", error);
@@ -514,6 +525,18 @@ export default function AssetsPage() {
             </p>
           </div>
         </div>
+
+        {/* Plan Information */}
+        {isAuthenticated && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              {/* Main content will go here */}
+            </div>
+            <div className="lg:col-span-1">
+              <PlanInfo />
+            </div>
+          </div>
+        )}
 
         {/* Asset Creation Sheet - Keep the form but remove the trigger button */}
         {isAuthenticated && (
@@ -801,6 +824,15 @@ export default function AssetsPage() {
             מציג {filteredAssets.length} מתוך {assets.length} נכסים
           </p>
         </div>
+
+        {/* Plan Limit Dialog */}
+        {planLimitError && (
+          <PlanLimitDialog
+            open={showPlanLimitDialog}
+            onOpenChange={setShowPlanLimitDialog}
+            error={planLimitError}
+          />
+        )}
 
       </div>
     </DashboardLayout>

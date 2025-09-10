@@ -38,7 +38,7 @@ from .models import (
 )
 
 from .listing_builder import build_listing
-from .serializers import AlertRuleSerializer, AlertEventSerializer, AssetContributionSerializer, UserProfileSerializer
+from .serializers import AlertRuleSerializer, AlertEventSerializer, AssetContributionSerializer, UserProfileSerializer, PlanTypeSerializer, UserPlanSerializer, UserPlanInfoSerializer
 
 # Import utility functions
 try:
@@ -1060,6 +1060,20 @@ def assets(request):
         user = getattr(request, "user", None)
         is_authenticated = user and getattr(user, "is_authenticated", False)
         
+        # Validate plan limits for authenticated users
+        if is_authenticated:
+            from .plan_service import PlanService
+            validation_result = PlanService.validate_asset_creation(user)
+            if not validation_result['can_create']:
+                return Response({
+                    'error': validation_result['error'],
+                    'message': validation_result['message'],
+                    'current_plan': validation_result.get('current_plan'),
+                    'asset_limit': validation_result.get('asset_limit'),
+                    'assets_used': validation_result.get('assets_used'),
+                    'remaining': validation_result.get('remaining', 0)
+                }, status=status.HTTP_403_FORBIDDEN)
+        
         # Create asset record with attribution
         asset_data = {
             "scope_type": scope_type,
@@ -1099,6 +1113,10 @@ def assets(request):
             # Update user profile stats
             profile, created = UserProfile.objects.get_or_create(user=user)
             profile.update_contribution_stats('creation')
+            
+            # Update plan usage
+            from .plan_service import PlanService
+            PlanService.update_asset_usage(user, 1)
         
         logger.info("Asset creation - User: %s, Authenticated: %s", 
                    user, is_authenticated)
@@ -1671,3 +1689,49 @@ def add_contribution(request, asset_id):
     except Exception as e:
         logger.error("Error adding contribution: %s", e)
         return Response({"error": "Failed to add contribution"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_plan_info(request):
+    """Get current user's plan information."""
+    try:
+        from .plan_service import PlanService
+        plan_info = PlanService.get_user_plan_info(request.user)
+        serializer = UserPlanInfoSerializer(plan_info)
+        return Response(serializer.data)
+    except Exception as e:
+        logger.error(f"Error getting plan info for user {request.user.email}: {e}")
+        return Response({"error": "Failed to get plan information"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def plan_types(request):
+    """Get all available plan types."""
+    try:
+        from .models import PlanType
+        plans = PlanType.objects.filter(is_active=True).order_by('price')
+        serializer = PlanTypeSerializer(plans, many=True)
+        return Response({"plans": serializer.data})
+    except Exception as e:
+        logger.error(f"Error getting plan types: {e}")
+        return Response({"error": "Failed to get plan types"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def upgrade_plan(request):
+    """Upgrade user to a new plan."""
+    try:
+        data = parse_json(request)
+        if not data or not data.get("plan_name"):
+            return Response({"error": "plan_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from .plan_service import PlanService
+        new_plan = PlanService.upgrade_user_plan(request.user, data["plan_name"])
+        serializer = UserPlanSerializer(new_plan)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        logger.error(f"Error upgrading plan for user {request.user.email}: {e}")
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

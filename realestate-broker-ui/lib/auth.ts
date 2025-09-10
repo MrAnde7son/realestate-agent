@@ -66,6 +66,61 @@ export interface OnboardingStatus {
   completed: boolean
 }
 
+export interface PlanInfo {
+  plan_name: string
+  display_name: string
+  description: string
+  price: number
+  currency: string
+  billing_period: string
+  is_active: boolean
+  is_expired: boolean
+  expires_at?: string
+  limits: {
+    assets: {
+      limit: number
+      used: number
+      remaining: number
+    }
+    reports: {
+      limit: number
+      used: number
+      remaining: number
+    }
+    alerts: {
+      limit: number
+      used: number
+      remaining: number
+    }
+  }
+  features: {
+    advanced_analytics: boolean
+    data_export: boolean
+    api_access: boolean
+    priority_support: boolean
+    custom_reports: boolean
+  }
+}
+
+export interface PlanType {
+  id: number
+  name: string
+  display_name: string
+  description: string
+  price: number
+  currency: string
+  billing_period: string
+  asset_limit: number
+  report_limit: number
+  alert_limit: number
+  advanced_analytics: boolean
+  data_export: boolean
+  api_access: boolean
+  priority_support: boolean
+  custom_reports: boolean
+  is_active: boolean
+}
+
 const API_BASE_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 class AuthAPI {
@@ -164,6 +219,21 @@ class AuthAPI {
 
   async getOnboardingStatus(): Promise<OnboardingStatus> {
     return this.request<OnboardingStatus>('/onboarding-status/')
+  }
+
+  async getPlanInfo(): Promise<PlanInfo> {
+    return this.request<PlanInfo>('/plans/info/')
+  }
+
+  async getPlanTypes(): Promise<{ plans: PlanType[] }> {
+    return this.request<{ plans: PlanType[] }>('/plans/types/')
+  }
+
+  async upgradePlan(planName: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/plans/upgrade/', {
+      method: 'POST',
+      body: JSON.stringify({ plan_name: planName }),
+    })
   }
 
   // Token management

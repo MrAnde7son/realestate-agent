@@ -233,10 +233,23 @@ export async function POST(req: Request) {
       })
 
       if (!backendResponse.ok) {
-        const errorText = await backendResponse.text()
-        console.error('Backend asset creation failed:', backendResponse.status, errorText)
+        const errorData = await backendResponse.json().catch(() => ({}))
+        console.error('Backend asset creation failed:', backendResponse.status, errorData)
+        
+        // Handle plan limit errors specifically
+        if (backendResponse.status === 403 && errorData.error === 'asset_limit_exceeded') {
+          return NextResponse.json({
+            error: 'asset_limit_exceeded',
+            message: errorData.message,
+            current_plan: errorData.current_plan,
+            asset_limit: errorData.asset_limit,
+            assets_used: errorData.assets_used,
+            remaining: errorData.remaining
+          }, { status: 403 })
+        }
+        
         return NextResponse.json(
-          { error: 'Failed to create asset in backend', details: errorText },
+          { error: 'Failed to create asset in backend', details: errorData.error || 'Unknown error' },
           { status: backendResponse.status }
         )
       }

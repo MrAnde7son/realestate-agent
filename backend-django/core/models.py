@@ -48,6 +48,154 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
+    @property
+    def current_plan(self):
+        """Get the user's current active plan."""
+        try:
+            return self.user_plans.filter(is_active=True).first()
+        except UserPlan.DoesNotExist:
+            return None
+
+    def get_asset_limit(self):
+        """Get the asset limit for the user's current plan."""
+        plan = self.current_plan
+        if not plan:
+            return 5  # Default to free plan limit
+        return plan.plan_type.asset_limit
+
+    def can_create_asset(self):
+        """Check if user can create a new asset based on their plan limit."""
+        if not self.current_plan:
+            # Default to free plan
+            return self.created_assets.count() < 5
+        
+        plan = self.current_plan.plan_type
+        if plan.asset_limit == -1:  # Unlimited
+            return True
+        
+        return self.created_assets.count() < plan.asset_limit
+
+
+class PlanType(models.Model):
+    """Plan type model defining different subscription tiers."""
+    
+    PLAN_CHOICES = [
+        ('free', 'Free'),
+        ('basic', 'Basic'),
+        ('pro', 'Professional'),
+    ]
+    
+    name = models.CharField(max_length=20, choices=PLAN_CHOICES, unique=True)
+    display_name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    currency = models.CharField(max_length=3, default='ILS')
+    billing_period = models.CharField(max_length=20, default='monthly')  # monthly, yearly
+    
+    # Feature limits
+    asset_limit = models.IntegerField(default=5)  # -1 for unlimited
+    report_limit = models.IntegerField(default=10)  # -1 for unlimited
+    alert_limit = models.IntegerField(default=5)  # -1 for unlimited
+    
+    # Feature flags
+    advanced_analytics = models.BooleanField(default=False)
+    data_export = models.BooleanField(default=False)
+    api_access = models.BooleanField(default=False)
+    priority_support = models.BooleanField(default=False)
+    custom_reports = models.BooleanField(default=False)
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self):
+        return f"{self.display_name} ({self.name})"
+
+
+class UserPlan(models.Model):
+    """User subscription plan tracking."""
+    
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="user_plans"
+    )
+    plan_type = models.ForeignKey(
+        PlanType,
+        on_delete=models.CASCADE,
+        related_name="user_plans"
+    )
+    
+    # Subscription details
+    is_active = models.BooleanField(default=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    auto_renew = models.BooleanField(default=True)
+    
+    # Payment tracking
+    stripe_subscription_id = models.CharField(max_length=100, blank=True, null=True)
+    stripe_customer_id = models.CharField(max_length=100, blank=True, null=True)
+    last_payment_at = models.DateTimeField(null=True, blank=True)
+    next_payment_at = models.DateTimeField(null=True, blank=True)
+    
+    # Usage tracking
+    assets_used = models.IntegerField(default=0)
+    reports_used = models.IntegerField(default=0)
+    alerts_used = models.IntegerField(default=0)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['expires_at']),
+            models.Index(fields=['stripe_subscription_id']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user'],
+                condition=models.Q(is_active=True),
+                name='unique_active_user_plan'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.plan_type.display_name}"
+    
+    def is_expired(self):
+        """Check if the plan has expired."""
+        if not self.expires_at:
+            return False
+        return timezone.now() > self.expires_at
+    
+    def can_use_feature(self, feature_name):
+        """Check if user can use a specific feature based on their plan."""
+        if not self.is_active or self.is_expired():
+            return False
+        
+        feature_map = {
+            'advanced_analytics': self.plan_type.advanced_analytics,
+            'data_export': self.plan_type.data_export,
+            'api_access': self.plan_type.api_access,
+            'priority_support': self.plan_type.priority_support,
+            'custom_reports': self.plan_type.custom_reports,
+        }
+        
+        return feature_map.get(feature_name, False)
+    
+    def get_remaining_assets(self):
+        """Get remaining asset slots for the user."""
+        if self.plan_type.asset_limit == -1:  # Unlimited
+            return -1
+        return max(0, self.plan_type.asset_limit - self.assets_used)
+
 
 class OnboardingProgress(models.Model):
     user = models.OneToOneField(

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile
+from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile, PlanType, UserPlan
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -278,3 +278,53 @@ class AssetWithAttributionSerializer(AssetSerializer):
     def get_contribution_count(self, obj):
         """Get total number of contributions for this asset."""
         return obj.contributions.count()
+
+
+class PlanTypeSerializer(serializers.ModelSerializer):
+    """Serializer for plan types."""
+    
+    class Meta:
+        model = PlanType
+        fields = [
+            'id', 'name', 'display_name', 'description', 'price', 'currency', 'billing_period',
+            'asset_limit', 'report_limit', 'alert_limit', 'advanced_analytics', 'data_export',
+            'api_access', 'priority_support', 'custom_reports', 'is_active'
+        ]
+
+
+class UserPlanSerializer(serializers.ModelSerializer):
+    """Serializer for user plans."""
+    plan_type = PlanTypeSerializer(read_only=True)
+    is_expired = serializers.SerializerMethodField()
+    remaining_assets = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserPlan
+        fields = [
+            'id', 'plan_type', 'is_active', 'started_at', 'expires_at', 'auto_renew',
+            'last_payment_at', 'next_payment_at', 'assets_used', 'reports_used', 'alerts_used',
+            'is_expired', 'remaining_assets'
+        ]
+    
+    def get_is_expired(self, obj):
+        """Check if the plan has expired."""
+        return obj.is_expired()
+    
+    def get_remaining_assets(self, obj):
+        """Get remaining asset slots."""
+        return obj.get_remaining_assets()
+
+
+class UserPlanInfoSerializer(serializers.Serializer):
+    """Serializer for comprehensive user plan information."""
+    plan_name = serializers.CharField()
+    display_name = serializers.CharField()
+    description = serializers.CharField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    currency = serializers.CharField()
+    billing_period = serializers.CharField()
+    is_active = serializers.BooleanField()
+    is_expired = serializers.BooleanField()
+    expires_at = serializers.DateTimeField(allow_null=True)
+    limits = serializers.DictField()
+    features = serializers.DictField()

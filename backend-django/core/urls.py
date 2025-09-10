@@ -48,6 +48,11 @@ urlpatterns = [
     path('profile/update/', views.update_user_profile, name='update_user_profile'),
     path('top-contributors/', views.top_contributors, name='top_contributors'),
     
+    # Plan endpoints
+    path('plans/info/', views.user_plan_info, name='user_plan_info'),
+    path('plans/types/', views.plan_types, name='plan_types'),
+    path('plans/upgrade/', views.upgrade_plan, name='upgrade_plan'),
+    
 
     
     # Authentication endpoints

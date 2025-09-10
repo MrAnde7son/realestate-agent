@@ -54,8 +54,8 @@ class URLUtils:
         if any(phrase in price_lower for phrase in ['לאצוין', 'price', 'upon', 'request', 'call', 'contact']):
             return None  # Return None for "price upon request" listings
         
-        # If still no valid price, return None
-        return None
+        # If still no valid price, return the original text (for cases like 'approx')
+        return price_text
     
     @staticmethod
     def extract_number(text):

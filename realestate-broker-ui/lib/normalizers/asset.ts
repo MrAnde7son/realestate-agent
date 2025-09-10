@@ -5,6 +5,7 @@ export type Asset = {
   neighborhood?: string | null;
   street?: string | null;
   number?: number | null;
+  apartment?: string | null;
   type?: string | null;
   bedrooms?: number | null;
   rooms?: number | null;
@@ -128,6 +129,7 @@ export function normalizeFromBackend(row: any): Asset {
     neighborhood: row.neighborhood ?? null,
     street: row.street ?? null,
     number: row.number ?? null,
+    apartment: row.apartment ?? null,
     type: determineAssetType(row),
     bedrooms: row.bedrooms ?? null,
     rooms: row.rooms ?? row.bedrooms ?? null,

@@ -36,19 +36,11 @@ class ApiClient {
     }
 
     try {
-      console.log('📡 API Client - Making request:', { url, method: options.method || 'GET' })
       
       const response = await fetch(url, config)
       
-      console.log('📨 API Client - Response:', { 
-        url, 
-        status: response.status, 
-        ok: response.ok 
-      })
-      
       // Handle 401 Unauthorized - token expired or invalid
       if (response.status === 401) {
-        console.log('🔄 API Client - 401 received, clearing tokens')
         
         // Clear tokens
         authAPI.clearTokens()
@@ -56,7 +48,6 @@ class ApiClient {
         // Only redirect to login if we had a token (user was authenticated)
         // Don't redirect if this was a request without authentication (public pages)
         if (token && typeof window !== 'undefined') {
-          console.log('🔄 API Client - Redirecting to login because user was authenticated')
           window.location.href = '/auth'
         }
         
@@ -75,7 +66,6 @@ class ApiClient {
       try {
         data = await response.json()
       } catch (parseError) {
-        console.error('❌ API Client - Failed to parse response:', parseError)
         error = 'Failed to parse response'
       }
       
@@ -91,7 +81,6 @@ class ApiClient {
       }
       
     } catch (error) {
-      console.error('❌ API Client - Request failed:', error)
       return {
         data: undefined,
         error: error instanceof Error ? error.message : 'Request failed',

@@ -246,6 +246,7 @@ class Asset(models.Model):
         max_length=50, blank=True, null=True
     )  # דירה, בית פרטי, etc.
     floor = models.IntegerField(blank=True, null=True)
+    apartment = models.CharField(max_length=20, blank=True, null=True)
     total_floors = models.IntegerField(blank=True, null=True)
     rooms = models.IntegerField(blank=True, null=True)
     bedrooms = models.IntegerField(blank=True, null=True)

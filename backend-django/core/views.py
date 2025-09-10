@@ -1067,6 +1067,7 @@ def assets(request):
             "neighborhood": data.get("neighborhood"),
             "street": data.get("street"),
             "number": data.get("number"),
+            "apartment": data.get("apartment"),
             "gush": data.get("gush"),
             "helka": data.get("helka"),
             "subhelka": data.get("subhelka"),
@@ -1261,32 +1262,20 @@ def asset_detail(request, asset_id):
                 "created_at": contrib.created_at.isoformat(),
             })
 
-        # Return asset details with attribution
-        return JsonResponse(
-            {
-                "id": asset.id,
-                "scope_type": asset.scope_type,
-                "city": asset.city,
-                "neighborhood": asset.neighborhood,
-                "street": asset.street,
-                "number": asset.number,
-                "gush": asset.gush,
-                "helka": asset.helka,
-                "subhelka": asset.subhelka,
-                "lat": asset.lat,
-                "lon": asset.lon,
-                "normalized_address": asset.normalized_address,
-                "status": asset.status,
-                "meta": asset.meta,
-                "created_at": (
-                    asset.created_at.isoformat() if asset.created_at else None
-                ),
-                "attribution": attribution_info,
-                "recent_contributions": contributions_list,
-                "records": records_by_source,
-                "transactions": transaction_list,
-            }
-        )
+        # Use serializer to get properly formatted asset data with _meta
+        from .serializers import AssetSerializer
+        serializer = AssetSerializer(asset)
+        asset_data = serializer.data
+        
+        # Add additional data not in the serializer
+        asset_data.update({
+            "attribution": attribution_info,
+            "recent_contributions": contributions_list,
+            "records": records_by_source,
+            "transactions": transaction_list,
+        })
+        
+        return JsonResponse(asset_data)
 
     except Exception as e:
         logger.error("Error retrieving asset %s: %s", asset_id, e)

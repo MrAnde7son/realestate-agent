@@ -647,6 +647,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <div className="text-sm text-muted-foreground">תת חלקה</div>
               <div className="font-medium">{renderValue(asset.subhelka, 'subhelka')}</div>
             </div>
+            <div>
+              <div className="text-sm text-muted-foreground">מספר דירה</div>
+              <div className="font-medium">{renderValue(asset.apartment, 'apartment')}</div>
+            </div>
           </CardContent>
         </Card>
 

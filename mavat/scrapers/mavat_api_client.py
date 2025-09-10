@@ -353,9 +353,9 @@ class MavatAPIClient:
             "plNumber": "",
             "plName": query or "",
             "blockNumber": gush or block_number or "",
-            "toBlockNumber": "",
+            "toBlockNumber": gush or block_number or "",
             "parcelNumber": helka or parcel_number or "",
-            "toParcelNumber": "",
+            "toParcelNumber": helka or parcel_number or "",
             "modelCity": {
                 "DESCRIPTION": city or "",
                 "CODE": -1

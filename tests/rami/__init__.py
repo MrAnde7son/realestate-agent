@@ -1,1 +1,0 @@
-"""RAMI client tests."""

@@ -95,6 +95,9 @@ class MavatAPIClient:
             "Referer": "https://mavat.iplan.gov.il/SV3?searchEntity=0&searchType=0&entityType=0&searchMethod=2",
         })
         
+        # Set credentials to include cookies
+        self.session.cookies.update({})
+        
         # Cache for lookup tables
         self._lookup_cache = {}
         self._token = None
@@ -109,48 +112,77 @@ class MavatAPIClient:
             return self._token
             
         try:
-            # First, visit the Mavat search page to get session cookies
-            response = self.session.get(
-                "https://mavat.iplan.gov.il/SV3?searchEntity=0&searchType=0&entityType=0&searchMethod=2",
-                timeout=30
-            )
-            response.raise_for_status()
-            
-            # Look for token in the page content
             import re
-            token_match = re.search(r'"token":"([^"]+)"', response.text)
-            if token_match:
-                self._token = token_match.group(1)
-                return self._token
             
-            # If no token found in page, try to extract from a search request
-            # This is a fallback method
-            search_page_response = self.session.get(
+            # Try multiple approaches to get a valid token
+            token_sources = [
+                # Method 1: Direct search page
+                "https://mavat.iplan.gov.il/SV3?searchEntity=0&searchType=0&entityType=0&searchMethod=2",
+                # Method 2: Main search page
                 "https://mavat.iplan.gov.il/SV3",
-                timeout=30
-            )
-            search_page_response.raise_for_status()
-            
-            # Look for token in various places
-            token_patterns = [
-                r'"token":"([^"]+)"',
-                r'token["\']?\s*:\s*["\']([^"\']+)["\']',
-                r'value=["\']([^"\']{100,})["\']',  # Long token-like values
+                # Method 3: Try the API directly to see if it gives us a token
+                "https://mavat.iplan.gov.il/rest/api/sv3/Search"
             ]
             
-            for pattern in token_patterns:
-                matches = re.findall(pattern, search_page_response.text)
-                if matches:
-                    # Take the longest match as it's likely the token
-                    self._token = max(matches, key=len)
-                    return self._token
+            for url in token_sources:
+                try:
+                    response = self.session.get(url, timeout=30)
+                    response.raise_for_status()
+                    
+                    # Look for token in various patterns
+                    token_patterns = [
+                        r'"token":"([^"]+)"',
+                        r'token["\']?\s*:\s*["\']([^"\']+)["\']',
+                        r'value=["\']([^"\']{50,})["\']',  # Token-like values
+                        r'name=["\']token["\']\s+value=["\']([^"\']+)["\']',  # Form input
+                        r'<input[^>]*name=["\']token["\']\s+value=["\']([^"\']+)["\']',  # HTML input
+                    ]
+                    
+                    for pattern in token_patterns:
+                        matches = re.findall(pattern, response.text, re.IGNORECASE)
+                        if matches:
+                            # Take the longest match as it's likely the token
+                            token = max(matches, key=len)
+                            if len(token) > 10:  # Basic validation
+                                self._token = token
+                                return self._token
+                    
+                    # Also try to find any long alphanumeric strings that might be tokens
+                    long_strings = re.findall(r'[A-Za-z0-9+/]{50,}={0,2}', response.text)
+                    if long_strings:
+                        # Take the longest one that looks like a token
+                        potential_token = max(long_strings, key=len)
+                        if len(potential_token) > 50:
+                            self._token = potential_token
+                            return self._token
+                            
+                except Exception:
+                    continue
+            
+            # If all methods fail, try a different approach - make a test search request
+            # to see if we can get a token from the response
+            try:
+                test_response = self.session.post(
+                    self.SEARCH_URL,
+                    json={"test": "token_request"},
+                    timeout=30
+                )
+                if test_response.status_code == 401:
+                    # Extract token from error response
+                    error_text = test_response.text
+                    token_match = re.search(r'"token":"([^"]+)"', error_text)
+                    if token_match:
+                        self._token = token_match.group(1)
+                        return self._token
+            except Exception:
+                pass
             
             # If still no token, return empty string
             self._token = ""
             return self._token
             
         except Exception as e:
-            print(f"Warning: Could not get authentication token: {e}")
+            # Token extraction failed - this is expected due to CAPTCHA requirements
             self._token = ""
             return self._token
     
@@ -205,7 +237,7 @@ class MavatAPIClient:
             List of district lookup items
         """
         lookup_tables = self.get_lookup_tables(force_refresh)
-        return lookup_tables.get("4", [])
+        return lookup_tables.get("District", [])
     
     def get_cities(self, force_refresh: bool = False) -> List[MavatLookupItem]:
         """Get available cities.
@@ -217,7 +249,7 @@ class MavatAPIClient:
             List of city lookup items
         """
         lookup_tables = self.get_lookup_tables(force_refresh)
-        return lookup_tables.get("5", [])
+        return lookup_tables.get("CityCounty", [])
     
     def get_plan_areas(self, force_refresh: bool = False) -> List[MavatLookupItem]:
         """Get available plan areas.
@@ -229,7 +261,7 @@ class MavatAPIClient:
             List of plan area lookup items
         """
         lookup_tables = self.get_lookup_tables(force_refresh)
-        return lookup_tables.get("6", [])
+        return lookup_tables.get("PlanArea", [])
     
     def get_streets(self, force_refresh: bool = False) -> List[MavatLookupItem]:
         """Get available streets.
@@ -241,7 +273,7 @@ class MavatAPIClient:
             List of street lookup items
         """
         lookup_tables = self.get_lookup_tables(force_refresh)
-        return lookup_tables.get("7", [])
+        return lookup_tables.get("Street", [])
     
     def get_authorities(self, force_refresh: bool = False) -> List[MavatLookupItem]:
         """Get available authorities.
@@ -253,7 +285,7 @@ class MavatAPIClient:
             List of authority lookup items
         """
         lookup_tables = self.get_lookup_tables(force_refresh)
-        return lookup_tables.get("8", [])
+        return lookup_tables.get("Committies", [])
     
     def get_plan_types(self, force_refresh: bool = False) -> List[MavatLookupItem]:
         """Get available plan types.
@@ -265,7 +297,7 @@ class MavatAPIClient:
             List of plan type lookup items
         """
         lookup_tables = self.get_lookup_tables(force_refresh)
-        return lookup_tables.get("9", [])
+        return lookup_tables.get("EntityTypes", [])
     
     def get_statuses(self, force_refresh: bool = False) -> List[MavatLookupItem]:
         """Get available plan statuses.
@@ -277,7 +309,7 @@ class MavatAPIClient:
             List of status lookup items
         """
         lookup_tables = self.get_lookup_tables(force_refresh)
-        return lookup_tables.get("10", [])
+        return lookup_tables.get("UnifiedStatus", [])
     
     def search_lookup_by_text(
         self, 
@@ -344,6 +376,30 @@ class MavatAPIClient:
             List of MavatSearchHit objects
         """
         # Build search parameters - prioritize gush/helka over city names
+        # Use proper city codes if available, otherwise use -1
+        city_code = -1
+        district_code = -1
+        plan_area_code = -1
+        jurst_area_code = -1
+        city_description = city or ""
+        
+        # Try to get proper codes from lookup tables if city is provided
+        if city:
+            try:
+                cities = self.get_cities()
+                for city_item in cities:
+                    if city.lower() in city_item.description.lower():
+                        city_code = int(float(city_item.code))
+                        city_description = city_item.description
+                        # Extract district and plan area codes from raw data
+                        raw_data = city_item.raw or {}
+                        district_code = int(float(raw_data.get('DISTRICT_CODE', -1)))
+                        plan_area_code = int(float(raw_data.get('PLAN_AREA_CODE', -1)))
+                        jurst_area_code = int(float(raw_data.get('JURST_AREA_CODE', -1)))
+                        break
+            except Exception:
+                pass  # Fall back to -1 if lookup fails
+        
         search_params = {
             "searchEntity": 1,  # 1 = Plans
             "plNumber": "",
@@ -353,20 +409,25 @@ class MavatAPIClient:
             "parcelNumber": helka or parcel_number or "",
             "toParcelNumber": helka or parcel_number or "",
             "modelCity": {
-                "DESCRIPTION": city or "",
-                "CODE": -1
+                "DISTRICT_CODE": district_code,
+                "PLAN_AREA_CODE": plan_area_code,
+                "JURST_AREA_CODE": jurst_area_code,
+                "CODE": city_code,
+                "DESCRIPTION": city_description
             },
             "intStreetCode": {
                 "DESCRIPTION": street or "",
                 "CODE": -1
             },
             "intPlanArea": {
-                "DESCRIPTION": plan_area or "",
-                "CODE": -1
+                "DISTRICT_CODE": district_code,
+                "CODE": plan_area_code,
+                "DESCRIPTION": city_description
             },
             "intDistrict": {
-                "DESCRIPTION": district or "",
-                "CODE": -1
+                "CODE": district_code,
+                "DESCRIPTION": city_description,
+                "DISTRICT_LOCAL": 1
             },
             "intLevelOfAuthority": {
                 "ENTITY_TYPE_CODE": 1,
@@ -404,6 +465,11 @@ class MavatAPIClient:
                 json=search_params,
                 timeout=30
             )
+            
+            # Enhanced error handling for 401
+            if response.status_code == 401:
+                raise RuntimeError(f"Authentication failed (401): {response.text[:200]}")
+            
             response.raise_for_status()
             
             data = response.json()

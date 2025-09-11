@@ -457,9 +457,29 @@ class NadlanDealsScraper:
     async def _fetch_deals_by_neighborhood(self, neigh_id: str) -> List[Deal]:
         """Fetch deals by neighborhood using Playwright."""
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=self.headless)
+            # Launch browser with additional options for stability
+            browser = await pw.chromium.launch(
+                headless=self.headless,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding'
+                ]
+            )
             try:
-                ctx = await browser.new_context()
+                # Create context with additional options
+                ctx = await browser.new_context(
+                    ignore_https_errors=True,
+                    viewport={'width': 1280, 'height': 720},
+                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+                )
                 page = await ctx.new_page()
 
                 # Capture the first /api/deal response
@@ -473,9 +493,19 @@ class NadlanDealsScraper:
 
                 page.on("response", _maybe_res)
 
-                # Navigate to the neighborhood page
+                # Navigate to the neighborhood page with retry logic
                 url = f"https://www.nadlan.gov.il/?view=neighborhood&id={neigh_id}&page=deals"
-                await page.goto(url, timeout=int(self.timeout * 1000))
+                
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await page.goto(url, timeout=int(self.timeout * 1000), wait_until='domcontentloaded')
+                        break
+                    except Exception as e:
+                        if attempt == max_retries - 1:
+                            raise e
+                        logger.warning(f"Navigation attempt {attempt + 1} failed: {e}, retrying...")
+                        await asyncio.sleep(1)
 
                 # Wait for /api/deal response
                 resp: Response = await asyncio.wait_for(fut, timeout=self.timeout + 10)
@@ -491,9 +521,29 @@ class NadlanDealsScraper:
     async def _fetch_deals_by_street(self, street_id: str) -> List[Deal]:
         """Fetch deals by street using Playwright."""
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=self.headless)
+            # Launch browser with additional options for stability
+            browser = await pw.chromium.launch(
+                headless=self.headless,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding'
+                ]
+            )
             try:
-                ctx = await browser.new_context()
+                # Create context with additional options
+                ctx = await browser.new_context(
+                    ignore_https_errors=True,
+                    viewport={'width': 1280, 'height': 720},
+                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+                )
                 page = await ctx.new_page()
 
                 # Capture the first /api/deal response
@@ -507,9 +557,19 @@ class NadlanDealsScraper:
 
                 page.on("response", _maybe_res)
 
-                # Navigate to the street page
+                # Navigate to the street page with retry logic
                 url = f"https://www.nadlan.gov.il/?view=street&id={street_id}&page=deals"
-                await page.goto(url, timeout=int(self.timeout * 1000))
+                
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await page.goto(url, timeout=int(self.timeout * 1000), wait_until='domcontentloaded')
+                        break
+                    except Exception as e:
+                        if attempt == max_retries - 1:
+                            raise e
+                        logger.warning(f"Navigation attempt {attempt + 1} failed: {e}, retrying...")
+                        await asyncio.sleep(1)
 
                 # Wait for /api/deal response
                 resp: Response = await asyncio.wait_for(fut, timeout=self.timeout + 10)

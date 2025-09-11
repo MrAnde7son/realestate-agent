@@ -16,7 +16,7 @@ from yad2.scrapers.yad2_scraper import RealEstateListing
 from orchestration.collectors.yad2_collector import Yad2Collector
 from orchestration.collectors.gis_collector import GISCollector
 from orchestration.collectors.gov_collector import GovCollector
-from orchestration.collectors.rami_collector import RamiCollector
+from gov.rami import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
 from orchestration.observability import (
     COLLECTOR_FAILURE,
@@ -100,14 +100,14 @@ class DataPipeline:
         "yad2": float(os.getenv("YAD2_TIMEOUT", "30")),
         "gis": float(os.getenv("GIS_TIMEOUT", "30")),
         "gov": float(os.getenv("GOV_TIMEOUT", "60")),
-        "rami": float(os.getenv("RAMI_TIMEOUT", "60")),
+        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
         "mavat": float(os.getenv("MAVAT_TIMEOUT", "60")),
     }
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),
         "gis": int(os.getenv("GIS_RETRIES", "0")),
         "gov": int(os.getenv("GOV_RETRIES", "0")),
-        "rami": int(os.getenv("RAMI_RETRIES", "0")),
+        "gov_rami": int(os.getenv("GOV_RAMI_RETRIES", "0")),
         "mavat": int(os.getenv("MAVAT_RETRIES", "0")),
     }
 
@@ -371,19 +371,19 @@ class DataPipeline:
                 try:
                     logger.info("📋 Collecting RAMI plans...")
                     plans = self._collect_with_observability(
-                        "rami",
+                        "gov_rami",
                         self.rami.collect,
                         block=block,
                         parcel=parcel,
-                        timeout=self.TIMEOUTS.get("rami"),
-                        retries=self.RETRIES.get("rami", 0),
+                        timeout=self.TIMEOUTS.get("gov_rami"),
+                        retries=self.RETRIES.get("gov_rami", 0),
                         asset_id=asset_id,
                     )
-                    track("collector_success", source="rami")
+                    track("collector_success", source="gov_rami")
                     logger.info(f"📋 RAMI plans collected: {len(plans)} plans")
                 except Exception as e:
                     plans = []
-                    track("collector_fail", source="rami", error_code=str(e))
+                    track("collector_fail", source="gov_rami", error_code=str(e))
                     logger.warning(f"⚠️ RAMI collection failed: {e}")
             
             # Get Mavat plans once for the address
@@ -435,8 +435,8 @@ class DataPipeline:
 
                     # ---------------- RAMI plans (collected once above) ----------------
                     if plans:
-                        self._add_source_record(session, db_listing.id, "rami", plans)
-                        results.append({"source": "rami", "data": plans})
+                        self._add_source_record(session, db_listing.id, "gov_rami", plans)
+                        results.append({"source": "gov_rami", "data": plans})
 
                     # ---------------- Mavat plans (collected once above) ----------------
                     if mavat_plans:

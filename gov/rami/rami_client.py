@@ -118,7 +118,6 @@ class RamiClient:
     def create_search_params(
         self,
         plan_number: str = "",
-        city: Optional[int] = None,
         gush: str = "",
         chelka: str = "",
         statuses: Optional[List[int]] = None,

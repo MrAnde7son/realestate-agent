@@ -104,21 +104,21 @@ def sample_lookup_response():
     """Sample lookup table response from the API."""
     return [
         {
-            "type": "4",
+            "type": "District",
             "result": [
                 {"CODE": "5", "DESCRIPTION": "Tel Aviv"},
                 {"CODE": "6", "DESCRIPTION": "Haifa"}
             ]
         },
         {
-            "type": "5",
+            "type": "CityCounty",
             "result": [
                 {"CODE": "5000", "DESCRIPTION": "Tel Aviv-Yafo"},
                 {"CODE": "6000", "DESCRIPTION": "Haifa"}
             ]
         },
         {
-            "type": "7",
+            "type": "Street",
             "result": [
                 {"CODE": "461", "DESCRIPTION": "Hayarkon"},
                 {"CODE": "462", "DESCRIPTION": "Dizengoff"}

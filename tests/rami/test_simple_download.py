@@ -3,8 +3,8 @@
 
 import requests
 
-import tests.test_utils  # This sets up the Python path
-from rami.rami_client import RamiClient
+import tests.utils.test_utils  # This sets up the Python path
+from gov.rami.rami_client import RamiClient
 
 
 def test_direct_vs_client():

@@ -47,21 +47,21 @@ class TestMavatAPIClient:
         """Sample lookup table response from the API."""
         return [
             {
-                "type": "4",
+                "type": "District",
                 "result": [
                     {"CODE": "5", "DESCRIPTION": "תל-אביב"},
                     {"CODE": "6", "DESCRIPTION": "חיפה"}
                 ]
             },
             {
-                "type": "5",
+                "type": "CityCounty",
                 "result": [
                     {"CODE": "5000", "DESCRIPTION": "תל אביב-יפו"},
                     {"CODE": "6000", "DESCRIPTION": "חיפה"}
                 ]
             },
             {
-                "type": "7",
+                "type": "Street",
                 "result": [
                     {"CODE": "461", "DESCRIPTION": "הירקון"},
                     {"CODE": "462", "DESCRIPTION": "דיזנגוף"}
@@ -125,16 +125,16 @@ class TestMavatAPIClient:
         result = api_client.get_lookup_tables()
         
         # Verify the result
-        assert "4" in result  # Districts
-        assert "5" in result  # Cities
-        assert "7" in result  # Streets
+        assert "District" in result  # Districts
+        assert "CityCounty" in result  # Cities
+        assert "Street" in result  # Streets
         
-        assert len(result["4"]) == 2  # 2 districts
-        assert len(result["5"]) == 2  # 2 cities
-        assert len(result["7"]) == 2  # 2 streets
+        assert len(result["District"]) == 2  # 2 districts
+        assert len(result["CityCounty"]) == 2  # 2 cities
+        assert len(result["Street"]) == 2  # 2 streets
         
         # Check first district
-        district = result["4"][0]
+        district = result["District"][0]
         assert district.code == "5"
         assert district.description == "תל-אביב"
         
@@ -207,8 +207,8 @@ class TestMavatAPIClient:
         """Test lookup table retrieval with malformed response."""
         # Mock malformed response
         malformed_response = [
-            {"type": "4", "result": "not a list"},  # result should be a list
-            {"type": "5"},  # missing result
+            {"type": "District", "result": "not a list"},  # result should be a list
+            {"type": "CityCounty"},  # missing result
             {"result": [{"CODE": "5000"}]}  # missing type
         ]
         
@@ -286,7 +286,7 @@ class TestMavatAPIClient:
         
         # Add plan areas to the response
         sample_lookup_response.append({
-            "type": "6",
+            "type": "PlanArea",
             "result": [
                 {"CODE": "507", "DESCRIPTION": "תל אביב-יפו"},
                 {"CODE": "607", "DESCRIPTION": "חיפה"}
@@ -324,8 +324,8 @@ class TestMavatAPIClient:
         
         api_client.session.get.return_value = mock_response
         
-        # Search for "תל" only in cities table (type 5)
-        results = api_client.search_lookup_by_text("תל", table_type="5")
+        # Search for "תל" only in cities table (CityCounty)
+        results = api_client.search_lookup_by_text("תל", table_type="CityCounty")
         
         assert len(results) == 1
         assert "תל אביב-יפו" in results[0].description

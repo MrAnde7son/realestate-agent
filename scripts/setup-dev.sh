@@ -94,7 +94,7 @@ print_info "Installing development dependencies..."
 pip install pytest pytest-cov black flake8
 
 # Install service-specific dependencies
-services=("backend-django" "yad2" "gov" "mavat" "rami" "gis" "orchestration" "db" "utils")
+services=("backend-django" "yad2" "gov" "mavat" "gis" "orchestration" "db" "utils")
 
 for service in "${services[@]}"; do
     if [ -d "$service" ] && [ -f "$service/requirements.txt" ]; then

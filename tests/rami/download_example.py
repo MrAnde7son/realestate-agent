@@ -11,7 +11,7 @@ def setup_python_path():
     """Ensure the project root is in Python path."""
     # First try to import test_utils (preferred method)
     try:
-        import tests.test_utils  # This sets up the Python path
+        import tests.utils.test_utils  # This sets up the Python path
         return
     except (ImportError, ModuleNotFoundError):
         pass
@@ -50,7 +50,7 @@ def setup_python_path():
 # Set up the path
 setup_python_path()
 
-from rami.rami_client import RamiClient
+from gov.rami.rami_client import RamiClient
 
 
 def download_tel_aviv_plans_example():

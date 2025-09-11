@@ -134,7 +134,7 @@ class MavatScraper:
 
     def _launch(self):
         self._ensure_playwright()
-        return sync_playwright().start()
+        return sync_playwright()
 
     def search_text(self, text: str, limit: int = 20) -> List[MavatSearchHit]:
         """Search Mavat for plans matching a free text query.

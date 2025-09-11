@@ -516,13 +516,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="בחר שפה" />
                         </SelectTrigger>
-                        <SelectContent className="bg-white">
-                          <SelectItem value="he" className="bg-white hover:bg-gray-100 focus:bg-gray-100">עברית</SelectItem>
-                          <SelectItem value="en" className="bg-white hover:bg-gray-100 focus:bg-gray-100">English</SelectItem>
-                          <SelectItem value="ru" className="bg-white hover:bg-gray-100 focus:bg-gray-100">Русский</SelectItem>
-                          <SelectItem value="fr" className="bg-white hover:bg-gray-100 focus:bg-gray-100">Français</SelectItem>
-                          <SelectItem value="es" className="bg-white hover:bg-gray-100 focus:bg-gray-100">Español</SelectItem>
-                          <SelectItem value="ar" className="bg-white hover:bg-gray-100 focus:bg-gray-100">العربية</SelectItem>
+                        <SelectContent>
+                          <SelectItem value="he">עברית</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="ru">Русский</SelectItem>
+                          <SelectItem value="fr">Français</SelectItem>
+                          <SelectItem value="es">Español</SelectItem>
+                          <SelectItem value="ar">العربية</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

@@ -236,20 +236,9 @@ class TestCollectorsIntegration:
 
             # Test 6: Scrape actual listings
             logger.info("Testing actual listing scraping...")
-            try:
-                assets = scraper.scrape_all_pages(max_pages=1, delay=0)
-                assert isinstance(assets, list)
-                if len(assets) > 0:
-                    logger.info(f"✓ Successfully scraped {len(assets)} assets")
-                    # Log details of first asset for verification
-                    first_asset = assets[0]
-                    logger.info(f"✓ First asset: {first_asset.title} - {first_asset.price:,} NIS")
-                else:
-                    logger.warning("⚠ No assets found (this might be expected for this search)")
-            except Exception as scrape_error:
-                logger.warning(f"⚠ Scraping failed: {scrape_error}")
-                # Don't fail the test if scraping fails, just log it
-                assets = []
+            assets = scraper.scrape_all_pages(max_pages=1, delay=0)
+            assert isinstance(assets, list)
+            assert len(assets) > 0
 
             logger.info("✓ Yad2 Scraper tests passed")
             return True

@@ -26,7 +26,7 @@ sys.path.insert(0, str(project_root))
 from gis.gis_client import TelAvivGS
 from gov.decisive import fetch_decisive_appraisals
 from gov.nadlan.scraper import NadlanDealsScraper
-from mavat.scrapers.mavat_api_client import MavatAPIClient
+from mavat.scrapers.mavat_selenium_client import MavatSeleniumClient
 from gov.rami.rami_client import RamiClient
 from yad2.scrapers.yad2_scraper import Yad2Scraper
 from yad2.search_helper import Yad2SearchHelper
@@ -60,47 +60,76 @@ class TestCollectorsIntegration:
             shutil.rmtree(self.temp_dir)
             logger.info(f"Cleaned up temp directory: {self.temp_dir}")
 
-    def test_mavat_api_client(self):
-        """Test Mavat API client functionality."""
-        logger.info("Testing Mavat API Client...")
+    def test_mavat_selenium_client(self):
+        """Test Mavat Selenium client functionality."""
+        logger.info("Testing Mavat Selenium Client...")
 
-        client = MavatAPIClient()
+        with MavatSeleniumClient(headless=True) as client:
+            # Test 1: Check accessibility
+            logger.info("Testing accessibility...")
+            is_accessible = client.is_accessible()
+            assert is_accessible, "Mavat system should be accessible"
+            logger.info("✓ Mavat system is accessible")
 
-        # Test 1: Get lookup tables
-        logger.info("Testing lookup tables...")
-        lookup_tables = client.get_lookup_tables()
-        assert isinstance(lookup_tables, dict)
-        assert len(lookup_tables) > 0
-        logger.info(f"✓ Found {len(lookup_tables)} lookup tables")
+            # Test 2: Search for plans in Tel Aviv
+            logger.info("Testing plan search in Tel Aviv...")
+            plans = client.search_plans(city=TEST_CITY, limit=5)
+            assert isinstance(plans, list) and len(plans) > 0
+            logger.info(f"✓ Found {len(plans)} plans in {TEST_CITY}")
 
-        # Test 2: Get cities
-        logger.info("Testing cities lookup...")
-        cities = client.get_cities()
-        assert isinstance(cities, list)
-        assert len(cities) > 0
-        logger.info(f"✓ Found {len(cities)} cities")
+            # Test 3: Search for plans by street
+            logger.info("Testing plan search by street...")
+            street_plans = client.search_plans(street=TEST_STREET, limit=3)
+            assert isinstance(street_plans, list) and len(street_plans) > 0
+            logger.info(f"✓ Found {len(street_plans)} plans for street {TEST_STREET}")
 
-        # Test 3: Search for plans in Tel Aviv
-        logger.info("Testing plan search in Tel Aviv...")
-        plans = client.search_plans(city=TEST_CITY, limit=5)
-        assert isinstance(plans, list)
-        logger.info(f"✓ Found {len(plans)} plans in {TEST_CITY}")
+            # Test 4: Search with query
+            logger.info("Testing plan search with query...")
+            query_plans = client.search_plans(query=TEST_CITY, limit=3)
+            assert isinstance(query_plans, list) and len(query_plans) > 0
+            logger.info(f"✓ Found {len(query_plans)} plans for query {TEST_CITY}")
 
-        # Test 4: Search for plans by street
-        logger.info("Testing plan search by street...")
-        street_plans = client.search_plans(street=TEST_STREET, limit=3)
-        assert isinstance(street_plans, list)
-        logger.info(f"✓ Found {len(street_plans)} plans for street {TEST_STREET}")
+            # Test 5: PDF download functionality for plan ג/ 5000 (known to have PDF)
+            logger.info("Testing PDF download functionality for plan ג/ 5000...")
+            try:
+                pdf_data = client.fetch_pdf("ג/ 5000")
+                assert isinstance(pdf_data, bytes), "PDF data should be bytes"
+                assert len(pdf_data) > 0, "PDF should not be empty"
+                logger.info(f"✓ Successfully downloaded PDF for plan ג/ 5000 ({len(pdf_data)} bytes)")
+            except Exception as e:
+                logger.error(f"❌ Failed to download PDF for plan ג/ 5000: {e}")
+                raise  # Re-raise to fail the test since this plan should have a PDF
 
-        # Test 5: Search lookup by text
-        logger.info("Testing lookup search...")
-        search_results = client.search_lookup_by_text(
-            TEST_CITY, table_type="CityCounty"
-        )
-        assert isinstance(search_results, list)
-        logger.info(f"✓ Found {len(search_results)} lookup results for {TEST_CITY}")
+        logger.info("✓ Mavat Selenium Client tests passed")
 
-        logger.info("✓ Mavat API Client tests passed")
+    def test_mavat_collector_integration(self):
+        """Test MavatCollector integration with PDF download."""
+        logger.info("Testing MavatCollector integration...")
+        
+        from orchestration.collectors.mavat_collector import MavatCollector
+        
+        collector = MavatCollector()
+        
+        # Test search functionality
+        logger.info("Testing collector search functionality...")
+        results = collector.search_plans(query=TEST_CITY, limit=3)
+        assert isinstance(results, list)
+        logger.info(f"✓ Collector found {len(results)} plans")
+        
+        # Test PDF download through collector for plan ג/ 5000 (known to have PDF)
+        logger.info("Testing PDF download through collector for plan ג/ 5000...")
+        try:
+            # Use the underlying client to test PDF download
+            with collector.client as client:
+                pdf_data = client.fetch_pdf("ג/ 5000")
+                assert isinstance(pdf_data, bytes), "PDF data should be bytes"
+                assert len(pdf_data) > 0, "PDF should not be empty"
+                logger.info(f"✓ Successfully downloaded PDF through collector for plan ג/ 5000 ({len(pdf_data)} bytes)")
+        except Exception as e:
+            logger.error(f"❌ Failed to download PDF through collector for plan ג/ 5000: {e}")
+            raise  # Re-raise to fail the test since this plan should have a PDF
+        
+        logger.info("✓ MavatCollector integration tests passed")
 
     def test_yad2_scraper(self):
         """Test Yad2 scraper functionality."""
@@ -441,14 +470,23 @@ class TestCollectorsIntegration:
         results = {}
         
         # Test each collector individually with error handling
-        logger.info("\n--- Testing Mavat API Client ---")
+        logger.info("\n--- Testing Mavat Selenium Client ---")
         try:
-            self.test_mavat_api_client()
+            self.test_mavat_selenium_client()
             results['mavat'] = "PASSED"
-            logger.info("✓ Mavat API Client - PASSED")
+            logger.info("✓ Mavat Selenium Client - PASSED")
         except Exception as e:
             results['mavat'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ Mavat API Client - FAILED: {str(e)}")
+            logger.error(f"✗ Mavat Selenium Client - FAILED: {str(e)}")
+
+        logger.info("\n--- Testing MavatCollector Integration ---")
+        try:
+            self.test_mavat_collector_integration()
+            results['mavat_collector'] = "PASSED"
+            logger.info("✓ MavatCollector Integration - PASSED")
+        except Exception as e:
+            results['mavat_collector'] = f"FAILED: {str(e)}"
+            logger.error(f"✗ MavatCollector Integration - FAILED: {str(e)}")
 
         logger.info("\n--- Testing Yad2 Scraper ---")
         try:
@@ -519,14 +557,14 @@ class TestCollectorsIntegration:
         return results
 
     def test_mavat_only(self):
-        """Test only Mavat API Client."""
-        logger.info("Testing Mavat API Client only...")
+        """Test only Mavat Selenium Client."""
+        logger.info("Testing Mavat Selenium Client only...")
         try:
-            self.test_mavat_api_client()
-            logger.info("✓ Mavat API Client - PASSED")
+            self.test_mavat_selenium_client()
+            logger.info("✓ Mavat Selenium Client - PASSED")
             return True
         except Exception as e:
-            logger.error(f"✗ Mavat API Client - FAILED: {str(e)}")
+            logger.error(f"✗ Mavat Selenium Client - FAILED: {str(e)}")
             return False
 
     def test_yad2_only(self):

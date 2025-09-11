@@ -19,8 +19,6 @@
 # Yad2 Real Estate Module
 -r yad2/requirements.txt
 
-# RAMI Module (now part of gov/)
-
 # Additional Global Dependencies
 # =============================
 

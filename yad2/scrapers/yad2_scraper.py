@@ -62,27 +62,13 @@ class Yad2Scraper:
         """Get all property type codes with names."""
         return self.param_reference.get_property_types()
     
-    def search_property_types(self, search_term=None):
-        """Search property types by name or get all if no search term."""
-        all_types = self.get_property_types()
-        
-        if not search_term:
-            return all_types
-        
-        # Filter by search term
-        search_term_lower = search_term.lower()
-        return {
-            code: name for code, name in all_types.items()
-            if search_term_lower in name.lower()
-        }
-    
     def get_property_type_by_code(self, code):
         """Get property type name by code."""
         if not code:
             return None
         return self.get_property_types().get(int(code))
     
-    def fetch_location_data(self, search_text: str) -> dict:
+    def fetch_location_autocomplete(self, search_text: str) -> dict:
         """Fetch location data from Yad2 address autocomplete API."""
         try:
             url = f"{self.api_base_url}/address-autocomplete/realestate/v2"

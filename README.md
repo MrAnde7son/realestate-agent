@@ -60,15 +60,12 @@ realestate-agent/
 │   │   ├── mcp/server.py          # MCP server for LLM integration
 │   │   ├── cli/interactive.py     # Interactive CLI utilities
 │   │   └── examples/demo.py       # Demonstration script
-│   ├── gov/                       # Government data (includes transactions, RAMI and decisive) 
-│   │   ├── rami_client.py         # RAMI TabaSearch API client
-│   │   └── mcp/server.py          # Planning documents MCP server
 │   ├── gis/                       # Tel Aviv GIS integration
 │   │   ├── gis_client.py          # Tel Aviv ArcGIS client & CLI
 │   │   ├── parse_zchuyot.py       # Building privilege parser
 │   │   └── mcp/server.py          # GIS data MCP server
 │   ├── mavat/                     # National planning portal (MAVAT) tools
-│   └── gov/                       # Government data services
+│   └── gov/                       # Government data services (includes transactions, RAMI and decisive)
 │       └── mcp/                   # Gov.il data MCP server
 │           ├── server.py          # Government datasets & comparables
 │           ├── decisive.py        # Decisive appraisal data

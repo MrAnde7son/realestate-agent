@@ -16,7 +16,7 @@ from yad2.scrapers.yad2_scraper import RealEstateListing
 from orchestration.collectors.yad2_collector import Yad2Collector
 from orchestration.collectors.gis_collector import GISCollector
 from orchestration.collectors.gov_collector import GovCollector
-from gov.rami import RamiCollector
+from orchestration.collectors.rami_collector import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
 from orchestration.observability import (
     COLLECTOR_FAILURE,

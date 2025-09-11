@@ -17,7 +17,6 @@ This MCP server provides comprehensive access to Yad2 real estate data, includin
 
 ### 🏘️ Property Types Management
 - **get_all_property_types**: Complete property type catalog
-- **search_property_types**: Find types by name (Hebrew/English)
 - **get_property_type_details**: Detailed property information
 - **convert_property_type**: Format conversion (code/Hebrew/English)
 - **get_property_type_recommendations**: AI-powered recommendations
@@ -80,9 +79,6 @@ result = await search_real_estate(
 ```python
 # Get all property types
 all_types = await get_all_property_types()
-
-# Search for apartment types
-apartments = await search_property_types(search_term="דירה")
 
 # Get detailed information
 details = await get_property_type_details(property_code=1)

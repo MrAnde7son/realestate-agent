@@ -36,6 +36,7 @@ from gov.nadlan.scraper import NadlanDealsScraper
 from mavat.scrapers.mavat_api_client import MavatAPIClient
 from gov.rami.rami_client import RamiClient
 from yad2.scrapers.yad2_scraper import Yad2Scraper
+from yad2.search_helper import Yad2SearchHelper
 
 # Test address
 TEST_ADDRESS = "רוזוב 14 תל אביב"
@@ -132,42 +133,123 @@ class TestCollectorsIntegration:
             assert len(property_types) > 0
             logger.info(f"✓ Found {len(property_types)} property types")
 
-            # Test 3: Search property types
-            logger.info("Testing property type search...")
-            search_results = scraper.search_property_types("דירה")
-            assert isinstance(search_results, dict)
-            assert len(search_results) > 0
-            logger.info(f"✓ Found {len(search_results)} apartment types")
-
-            # Test 4: Fetch location data
-            logger.info("Testing location data fetch...")
-            location_data = scraper.fetch_location_data(TEST_ADDRESS)
-            if location_data:
-                assert isinstance(location_data, dict)
-                logger.info(
-                    f"✓ Found location data: {location_data.get('search_text')}"
-                )
+            # Test 3: Parse address and test location autocomplete
+            logger.info("Testing address parsing...")
+            parsed_address = Yad2SearchHelper.parse_address(TEST_ADDRESS)
+            assert isinstance(parsed_address, dict)
+            assert 'street' in parsed_address
+            assert 'number' in parsed_address
+            assert 'city' in parsed_address
+            assert 'neighborhood' in parsed_address
+            logger.info(f"✓ Parsed address: {parsed_address}")
+            
+            # Test location autocomplete for individual components
+            logger.info("Testing location autocomplete...")
+            
+            # Test street autocomplete
+            street_data = scraper.fetch_location_autocomplete(parsed_address['street'])
+            if street_data:
+                assert isinstance(street_data, dict)
+                logger.info(f"✓ Found street autocomplete data: {street_data.get('search_text')}")
             else:
-                logger.warning("⚠ No location data found (this might be expected)")
+                logger.warning("⚠ No street autocomplete data found (this might be expected)")
+            
+            # Test city autocomplete
+            city_data = scraper.fetch_location_autocomplete(parsed_address['city'])
+            if city_data:
+                assert isinstance(city_data, dict)
+                logger.info(f"✓ Found city autocomplete data: {city_data.get('search_text')}")
+            else:
+                logger.warning("⚠ No city autocomplete data found (this might be expected)")
+            
+            # Test neighborhood autocomplete (if available)
+            if parsed_address['neighborhood']:
+                neighborhood_data = scraper.fetch_location_autocomplete(parsed_address['neighborhood'])
+                if neighborhood_data:
+                    assert isinstance(neighborhood_data, dict)
+                    logger.info(f"✓ Found neighborhood autocomplete data: {neighborhood_data.get('search_text')}")
+                else:
+                    logger.warning("⚠ No neighborhood autocomplete data found (this might be expected)")
 
-            # Test 5: Set search parameters
-            logger.info("Testing search parameters...")
-            scraper.set_search_parameters(
-                property="1",  # דירה
-                city=TEST_CITY,
-                rooms="3,4,5",
-            )
+            # Test 4: Get location codes from autocomplete and set search parameters
+            logger.info("Testing location code resolution...")
+            
+            # Get city data and extract city ID
+            city_data = scraper.fetch_location_autocomplete(parsed_address['city'])
+            city_id = None
+            if city_data and city_data.get('cities'):
+                city_id = city_data['cities'][0].get('cityId')
+                logger.info(f"✓ Found city ID: {city_id}")
+            
+            # Get neighborhood data and extract neighborhood ID (if neighborhood exists)
+            neighborhood_id = None
+            if parsed_address['neighborhood']:
+                neighborhood_data = scraper.fetch_location_autocomplete(parsed_address['neighborhood'])
+                if neighborhood_data and neighborhood_data.get('hoods'):
+                    neighborhood_id = neighborhood_data['hoods'][0].get('hoodId')
+                    logger.info(f"✓ Found neighborhood ID: {neighborhood_id}")
+            
+            # Set search parameters using actual location IDs
+            search_params = {
+            }
+            
+            # Add city ID if available
+            if city_id:
+                search_params['city'] = city_id
+                logger.info(f"✓ Added city ID to search: {city_id}")
+            
+            # Add neighborhood ID if available
+            if neighborhood_id:
+                search_params['neighborhood'] = neighborhood_id
+                logger.info(f"✓ Added neighborhood ID to search: {neighborhood_id}")
+            
+            # Add street ID for more precise searching (prefer ID over name)
+            street_id = None
+            if parsed_address['street']:
+                # Try to get street ID from autocomplete data
+                street_data = scraper.fetch_location_autocomplete(parsed_address['street'])
+                if street_data and street_data.get('streets'):
+                    # Find the street that matches our city
+                    for street in street_data['streets']:
+                        if street.get('cityId') == str(city_id):
+                            street_id = street.get('streetId')
+                            logger.info(f"✓ Found street ID for {parsed_address['street']} in city {city_id}: {street_id}")
+                            break
+                
+                if street_id:
+                    search_params['street'] = street_id
+                    logger.info(f"✓ Added street ID to search: {street_id}")
+            
+            logger.info(f"Setting search parameters: {search_params}")
+            scraper.set_search_parameters(**search_params)
             summary = scraper.get_search_summary()
             assert isinstance(summary, dict)
             assert "search_url" in summary
             logger.info("✓ Search parameters set successfully")
 
-            # Test 6: Build search URL
+            # Test 5: Build search URL
             logger.info("Testing search URL building...")
             search_url = scraper.build_search_url(page=1)
             assert isinstance(search_url, str)
             assert "yad2.co.il" in search_url
             logger.info(f"✓ Search URL built: {search_url}")
+
+            # Test 6: Scrape actual listings
+            logger.info("Testing actual listing scraping...")
+            try:
+                assets = scraper.scrape_all_pages(max_pages=1, delay=0)
+                assert isinstance(assets, list)
+                if len(assets) > 0:
+                    logger.info(f"✓ Successfully scraped {len(assets)} assets")
+                    # Log details of first asset for verification
+                    first_asset = assets[0]
+                    logger.info(f"✓ First asset: {first_asset.title} - {first_asset.price:,} NIS")
+                else:
+                    logger.warning("⚠ No assets found (this might be expected for this search)")
+            except Exception as scrape_error:
+                logger.warning(f"⚠ Scraping failed: {scrape_error}")
+                # Don't fail the test if scraping fails, just log it
+                assets = []
 
             logger.info("✓ Yad2 Scraper tests passed")
             return True

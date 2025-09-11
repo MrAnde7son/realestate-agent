@@ -89,6 +89,8 @@ class MavatAPIClient:
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
             "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "Origin": "https://mavat.iplan.gov.il",
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
@@ -103,88 +105,35 @@ class MavatAPIClient:
         self._token = None
     
     def _get_auth_token(self) -> str:
-        """Get authentication token from Mavat website.
+        """Get authentication token from Mavat API.
+        
+        Based on HAR file analysis, tokens are generated via POST requests to the search API.
+        However, the API requires captcha validation, so we'll return a placeholder token
+        and let the search method handle the captcha error properly.
         
         Returns:
-            Authentication token string
+            Authentication token string (empty if captcha is required)
         """
         if self._token:
             return self._token
             
+        # The Mavat API requires captcha validation for token generation
+        # We'll return an empty token and let the search method handle the error
+        self._token = ""
+        return self._token
+    
+    def is_api_accessible(self) -> bool:
+        """Check if the Mavat API is accessible without captcha.
+        
+        Returns:
+            True if API is accessible, False if captcha is required
+        """
         try:
-            import re
-            
-            # Try multiple approaches to get a valid token
-            token_sources = [
-                # Method 1: Direct search page
-                "https://mavat.iplan.gov.il/SV3?searchEntity=0&searchType=0&entityType=0&searchMethod=2",
-                # Method 2: Main search page
-                "https://mavat.iplan.gov.il/SV3",
-                # Method 3: Try the API directly to see if it gives us a token
-                "https://mavat.iplan.gov.il/rest/api/sv3/Search"
-            ]
-            
-            for url in token_sources:
-                try:
-                    response = self.session.get(url, timeout=30)
-                    response.raise_for_status()
-                    
-                    # Look for token in various patterns
-                    token_patterns = [
-                        r'"token":"([^"]+)"',
-                        r'token["\']?\s*:\s*["\']([^"\']+)["\']',
-                        r'value=["\']([^"\']{50,})["\']',  # Token-like values
-                        r'name=["\']token["\']\s+value=["\']([^"\']+)["\']',  # Form input
-                        r'<input[^>]*name=["\']token["\']\s+value=["\']([^"\']+)["\']',  # HTML input
-                    ]
-                    
-                    for pattern in token_patterns:
-                        matches = re.findall(pattern, response.text, re.IGNORECASE)
-                        if matches:
-                            # Take the longest match as it's likely the token
-                            token = max(matches, key=len)
-                            if len(token) > 10:  # Basic validation
-                                self._token = token
-                                return self._token
-                    
-                    # Also try to find any long alphanumeric strings that might be tokens
-                    long_strings = re.findall(r'[A-Za-z0-9+/]{50,}={0,2}', response.text)
-                    if long_strings:
-                        # Take the longest one that looks like a token
-                        potential_token = max(long_strings, key=len)
-                        if len(potential_token) > 50:
-                            self._token = potential_token
-                            return self._token
-                            
-                except Exception:
-                    continue
-            
-            # If all methods fail, try a different approach - make a test search request
-            # to see if we can get a token from the response
-            try:
-                test_response = self.session.post(
-                    self.SEARCH_URL,
-                    json={"test": "token_request"},
-                    timeout=30
-                )
-                if test_response.status_code == 401:
-                    # Extract token from error response
-                    error_text = test_response.text
-                    token_match = re.search(r'"token":"([^"]+)"', error_text)
-                    if token_match:
-                        self._token = token_match.group(1)
-                        return self._token
-            except Exception:
-                pass
-            
-            # If still no token, return empty string
-            self._token = ""
-            return self._token
-            
-        except Exception as e:
-            # Token extraction failed - this is expected due to CAPTCHA requirements
-            self._token = ""
-            return self._token
+            # Try to access lookup tables which don't require captcha
+            response = self.session.get(self.LOOKUP_URL, timeout=10)
+            return response.status_code == 200
+        except Exception:
+            return False
     
     def get_lookup_tables(self, force_refresh: bool = False) -> Dict[str, List[MavatLookupItem]]:
         """Get all available lookup tables for districts, cities, streets, etc.
@@ -468,7 +417,14 @@ class MavatAPIClient:
             
             # Enhanced error handling for 401
             if response.status_code == 401:
-                raise RuntimeError(f"Authentication failed (401): {response.text[:200]}")
+                try:
+                    error_data = response.json()
+                    if "CaptchaNotValid" in str(error_data):
+                        raise RuntimeError(f"Mavat API requires captcha validation. The API is protected by anti-bot measures that prevent automated access. Error: {error_data}")
+                    else:
+                        raise RuntimeError(f"Authentication failed (401): {error_data}")
+                except json.JSONDecodeError:
+                    raise RuntimeError(f"Authentication failed (401): {response.text[:200]}")
             
             response.raise_for_status()
             

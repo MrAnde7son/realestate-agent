@@ -12,18 +12,11 @@ This test file tests each collector individually to ensure they're working prope
 - RAMI Client
 """
 
-import asyncio
-import json
 import logging
 import os
 import sys
 import tempfile
-import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-import pytest
-import requests
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent

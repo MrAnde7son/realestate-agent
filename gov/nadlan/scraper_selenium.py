@@ -279,114 +279,66 @@ class NadlanDealsScraper:
         search_box.clear()
         search_box.send_keys(query)
         
-        # Wait a bit for autocomplete suggestions to appear
-        time.sleep(2)
+        # Submit the search by pressing Enter
+        search_box.send_keys(Keys.RETURN)
         
-        # Check if autocomplete suggestions appeared
-        suggestions = self.driver.find_elements(By.CSS_SELECTOR, 
-            ".autocomplete, .suggestions, .dropdown, [class*='suggestion'], [class*='autocomplete']")
+        # Wait for results to load
+        time.sleep(5)
         
+        # Check if we got redirected to a specific address page
+        current_url = self.driver.current_url
+        if "view=address" in current_url and "id=" in current_url:
+            # Extract address ID from URL
+            import re
+            match = re.search(r'id=(\d+)', current_url)
+            if match:
+                address_id = match.group(1)
+                # Try to extract neighborhood ID from the page
+                neighborhood_id = self._extract_neighborhood_id_from_page()
+                
+                return [{
+                    'type': 'address',
+                    'key': address_id,
+                    'value': query,
+                    'neighborhood_id': neighborhood_id,
+                    'rank': 0
+                }]
+        
+        # If no direct address match, try to find results on the page
         results = []
         
-        if suggestions:
-            logger.info(f"Found {len(suggestions)} autocomplete suggestions")
-            for suggestion in suggestions[:limit]:
+        # Look for address suggestions or results
+        try:
+            # Look for any clickable elements that might be address results
+            address_elements = self.driver.find_elements(By.CSS_SELECTOR, 
+                "div[class*='result'], div[class*='address'], div[class*='item'], a[href*='view=address']")
+            
+            for element in address_elements[:limit]:
                 try:
-                    text = suggestion.text.strip()
-                    if text and text != query:
-                        # Try to click on the suggestion
-                        suggestion.click()
-                        time.sleep(2)
-                        
-                        # Check if we got redirected to a specific address page
-                        current_url = self.driver.current_url
-                        if "view=address" in current_url and "id=" in current_url:
-                            import re
-                            match = re.search(r'id=(\d+)', current_url)
-                            if match:
-                                address_id = match.group(1)
-                                neighborhood_id = self._extract_neighborhood_id_from_page()
-                                
-                                results.append({
-                                    'type': 'address',
-                                    'key': address_id,
-                                    'value': text,
-                                    'neighborhood_id': neighborhood_id,
-                                    'rank': len(results)
-                                })
-                                break  # Found a match, stop looking
-                except Exception as e:
-                    logger.debug(f"Error processing suggestion: {e}")
-                    continue
-        
-        # If no suggestions or no results from suggestions, try submitting the search
-        if not results:
-            # Submit the search by pressing Enter
-            search_box.send_keys(Keys.RETURN)
-            time.sleep(5)
-            
-            # Check if we got redirected to a specific address page
-            current_url = self.driver.current_url
-            if "view=address" in current_url and "id=" in current_url:
-                # Extract address ID from URL
-                import re
-                match = re.search(r'id=(\d+)', current_url)
-                if match:
-                    address_id = match.group(1)
-                    # Try to extract neighborhood ID from the page
-                    neighborhood_id = self._extract_neighborhood_id_from_page()
+                    href = element.get_attribute('href')
+                    text = element.text.strip()
                     
-                    return [{
-                        'type': 'address',
-                        'key': address_id,
-                        'value': query,
-                        'neighborhood_id': neighborhood_id,
-                        'rank': 0
-                    }]
-            
-            # Look for address suggestions or results on the page
-            try:
-                # Look for any clickable elements that might be address results
-                address_elements = self.driver.find_elements(By.CSS_SELECTOR, 
-                    "div[class*='result'], div[class*='address'], div[class*='item'], a[href*='view=address']")
-                
-                for element in address_elements[:limit]:
-                    try:
-                        href = element.get_attribute('href')
-                        text = element.text.strip()
-                        
-                        if href and 'view=address' in href and text:
-                            # Extract address ID from href
-                            match = re.search(r'id=(\d+)', href)
-                            if match:
-                                address_id = match.group(1)
-                                neighborhood_id = self._extract_neighborhood_id_from_page()
-                                
-                                results.append({
-                                    'type': 'address',
-                                    'key': address_id,
-                                    'value': text,
-                                    'neighborhood_id': neighborhood_id,
-                                    'rank': len(results)
-                                })
-                    except:
-                        continue
-                        
-            except Exception as e:
-                logger.warning(f"Error finding address results: {e}")
+                    if href and 'view=address' in href and text:
+                        # Extract address ID from href
+                        match = re.search(r'id=(\d+)', href)
+                        if match:
+                            address_id = match.group(1)
+                            neighborhood_id = self._extract_neighborhood_id_from_page()
+                            
+                            results.append({
+                                'type': 'address',
+                                'key': address_id,
+                                'value': text,
+                                'neighborhood_id': neighborhood_id,
+                                'rank': len(results)
+                            })
+                except:
+                    continue
+                    
+        except Exception as e:
+            logger.warning(f"Error finding address results: {e}")
         
-        # If still no results found, try using the known working address ID
-        if not results and "רוזוב" in query and "תל אביב" in query:
-            logger.info("Using known working address ID for רוזוב 14 תל אביב")
-            results = [{
-                'type': 'address',
-                'key': '53780411',
-                'value': 'רוזוב 14, תל אביב-יפו',
-                'neighborhood_id': '65210004',
-                'rank': 0
-            }]
-        
-        # If still no results found, try to search using the govmap API directly
+        # If no results found, try to search using the govmap API directly
         if not results:
             results = self._search_address_govmap_api(query, limit)
         

@@ -25,13 +25,15 @@ class TestEmailAlert:
         """Test email alert with SendGrid."""
         with patch.dict(os.environ, {"SENDGRID_API_KEY": "test_key", "EMAIL_FROM": "test@example.com"}):
             with patch('orchestration.alerts.sendgrid') as mock_sendgrid:
-                mock_client = MagicMock()
-                mock_sendgrid.SendGridAPIClient.return_value = mock_client
-                
-                alert = EmailAlert("test@example.com")
-                alert.send("Test message")
-                
-                mock_client.send.assert_called_once()
+                with patch('orchestration.alerts.Mail') as mock_mail:
+                    mock_client = MagicMock()
+                    mock_sendgrid.SendGridAPIClient.return_value = mock_client
+                    mock_mail.return_value = MagicMock()
+                    
+                    alert = EmailAlert("test@example.com")
+                    alert.send("Test message")
+                    
+                    mock_client.send.assert_called_once()
     
     def test_email_alert_smtp_fallback(self):
         """Test email alert with SMTP fallback."""

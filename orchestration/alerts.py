@@ -10,9 +10,15 @@ from typing import Any, Dict, List, Optional
 
 try:  # optional dependency for WhatsApp via Twilio
     from twilio.rest import Client  # type: ignore
-except ImportError:  # pragma: no cover - twilio may not be installed at runtime
+except ImportError:  
     Client = None  # type: ignore
 
+try:  # optional dependency for email via SendGrid
+    import sendgrid  # type: ignore
+    from sendgrid.helpers.mail import Mail  # type: ignore
+except ImportError: 
+    sendgrid = None  # type: ignore
+    Mail = None  # type: ignore
 
 class Alert(ABC):
     """Abstract alert channel."""
@@ -45,11 +51,8 @@ class EmailAlert(Alert):
 
         # Try SendGrid first if available
         sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
-        if sendgrid_api_key:
+        if sendgrid_api_key and sendgrid and Mail:
             try:
-                import sendgrid  # type: ignore
-                from sendgrid.helpers.mail import Mail  # type: ignore
-                
                 sg = sendgrid.SendGridAPIClient(api_key=sendgrid_api_key)
                 mail = Mail(
                     from_email=os.getenv("EMAIL_FROM", "no-reply@nadlaner.com"),

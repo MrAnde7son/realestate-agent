@@ -82,7 +82,7 @@ class TestAlertManagementCommand(TestCase):
             "TWILIO_AUTH_TOKEN": "test_token",
             "TWILIO_WHATSAPP_FROM": "whatsapp:+14155238886"
         }):
-            with patch('orchestration.alerts.create_notifier_for_user') as mock_create:
+            with patch('core.management.commands.test_alerts.create_notifier_for_user') as mock_create:
                 mock_notifier = MagicMock()
                 mock_notifier.alerts = [MagicMock(), MagicMock()]
                 mock_create.return_value = mock_notifier

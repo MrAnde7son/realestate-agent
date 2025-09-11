@@ -17,6 +17,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+import pytest
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -63,6 +64,7 @@ class TestCollectorsIntegration:
             logger.info(f"Cleaned up temp directory: {self.temp_dir}")
 
 
+    @pytest.mark.mavat
     def test_mavat_collector_integration(self):
         """Test MavatCollector integration with comprehensive functionality testing."""
         logger.info("Testing MavatCollector integration...")
@@ -115,6 +117,7 @@ class TestCollectorsIntegration:
         
         logger.info("✓ MavatCollector integration tests passed")
 
+    @pytest.mark.yad2
     def test_yad2_scraper(self):
         """Test Yad2 scraper functionality."""
         logger.info("Testing Yad2 Scraper...")
@@ -241,6 +244,7 @@ class TestCollectorsIntegration:
 
         logger.info("✓ Yad2 Scraper tests passed")
 
+    @pytest.mark.nadlan
     def test_nadlan_scraper(self):
         """Test Nadlan scraper functionality."""
         logger.info("Testing Nadlan Scraper...")
@@ -278,6 +282,7 @@ class TestCollectorsIntegration:
 
         logger.info("✓ Nadlan Scraper tests passed")
 
+    @pytest.mark.decisive
     def test_decisive_appraisal(self):
         """Test Decisive Appraisal functionality."""
         logger.info("Testing Decisive Appraisal...")
@@ -299,6 +304,7 @@ class TestCollectorsIntegration:
 
         logger.info("✓ Decisive Appraisal tests passed")
 
+    @pytest.mark.gis
     def test_gis_client(self):
         """Test GIS client functionality."""
         logger.info("Testing GIS Client...")
@@ -397,6 +403,7 @@ class TestCollectorsIntegration:
 
         logger.info("✓ GIS Client tests passed")
 
+    @pytest.mark.rami
     def test_rami_client(self):
         """Test RAMI client functionality."""
         logger.info("Testing RAMI Client...")
@@ -444,6 +451,7 @@ class TestCollectorsIntegration:
 
         logger.info("✓ RAMI Client tests passed")
 
+    @pytest.mark.govmap
     def test_govmap_client(self):
         """Test GovMap client functionality."""
         logger.info("Testing GovMap Client...")
@@ -509,6 +517,7 @@ class TestCollectorsIntegration:
 
         logger.info("✓ GovMap Client tests passed")
 
+    @pytest.mark.govmap
     def test_govmap_collector(self):
         """Test GovMap collector functionality."""
         logger.info("Testing GovMap Collector...")
@@ -558,224 +567,32 @@ class TestCollectorsIntegration:
 
         logger.info("✓ GovMap Collector tests passed")
 
-    def test_all_collectors(self):
-        """Test all collectors in sequence with individual error handling."""
+
+
+
+def main():
+    """Run the integration tests directly (for standalone execution)."""
+    test_instance = TestCollectorsIntegration()
+    test_instance.setup_method()
+
+    try:
+        # Run all individual collector tests
         logger.info("=" * 60)
         logger.info("RUNNING INTEGRATION TESTS FOR ALL COLLECTORS")
         logger.info(f"Test Address: {TEST_ADDRESS}")
         logger.info("=" * 60)
 
-        results = {}
-        
-        # Test each collector individually with error handling
-        logger.info("\n--- Testing Mavat Collector ---")
-        try:
-            self.test_mavat_collector_integration()
-            results['mavat'] = "PASSED"
-            logger.info("✓ Mavat Collector - PASSED")
-        except Exception as e:
-            results['mavat'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ Mavat Collector - FAILED: {str(e)}")
+        # Test each collector individually
+        test_instance.test_mavat_collector_integration()
+        test_instance.test_yad2_scraper()
+        test_instance.test_nadlan_scraper()
+        test_instance.test_decisive_appraisal()
+        test_instance.test_gis_client()
+        test_instance.test_rami_client()
+        test_instance.test_govmap_client()
+        test_instance.test_govmap_collector()
 
-        logger.info("\n--- Testing Yad2 Scraper ---")
-        try:
-            self.test_yad2_scraper()
-            results['yad2'] = "PASSED"
-            logger.info("✓ Yad2 Scraper - PASSED")
-        except Exception as e:
-            results['yad2'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ Yad2 Scraper - FAILED: {str(e)}")
-
-        logger.info("\n--- Testing Nadlan Scraper ---")
-        try:
-            self.test_nadlan_scraper()
-            results['nadlan'] = "PASSED"
-            logger.info("✓ Nadlan Scraper - PASSED")
-        except Exception as e:
-            results['nadlan'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ Nadlan Scraper - FAILED: {str(e)}")
-
-        logger.info("\n--- Testing Decisive Appraisal ---")
-        try:
-            self.test_decisive_appraisal()
-            results['decisive'] = "PASSED"
-            logger.info("✓ Decisive Appraisal - PASSED")
-        except Exception as e:
-            results['decisive'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ Decisive Appraisal - FAILED: {str(e)}")
-
-        logger.info("\n--- Testing GIS Client ---")
-        try:
-            self.test_gis_client()
-            results['gis'] = "PASSED"
-            logger.info("✓ GIS Client - PASSED")
-        except Exception as e:
-            results['gis'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ GIS Client - FAILED: {str(e)}")
-
-        logger.info("\n--- Testing RAMI Client ---")
-        try:
-            self.test_rami_client()
-            results['rami'] = "PASSED"
-            logger.info("✓ RAMI Client - PASSED")
-        except Exception as e:
-            results['rami'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ RAMI Client - FAILED: {str(e)}")
-
-        logger.info("\n--- Testing GovMap Client ---")
-        try:
-            self.test_govmap_client()
-            results['govmap_client'] = "PASSED"
-            logger.info("✓ GovMap Client - PASSED")
-        except Exception as e:
-            results['govmap_client'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ GovMap Client - FAILED: {str(e)}")
-
-        logger.info("\n--- Testing GovMap Collector ---")
-        try:
-            self.test_govmap_collector()
-            results['govmap_collector'] = "PASSED"
-            logger.info("✓ GovMap Collector - PASSED")
-        except Exception as e:
-            results['govmap_collector'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ GovMap Collector - FAILED: {str(e)}")
-
-        # Summary
-        logger.info("\n" + "=" * 60)
-        logger.info("TEST SUMMARY")
-        logger.info("=" * 60)
-        
-        passed_count = sum(1 for status in results.values() if status == "PASSED")
-        total_count = len(results)
-        
-        for collector, status in results.items():
-            if status == "PASSED":
-                logger.info(f"✓ {collector.upper()}: {status}")
-            else:
-                logger.info(f"✗ {collector.upper()}: {status}")
-        
-        logger.info(f"\nOverall: {passed_count}/{total_count} collectors working")
-        
-        if passed_count == total_count:
-            logger.info("🎉 All collectors are working correctly!")
-        else:
-            logger.warning(f"⚠ {total_count - passed_count} collectors need attention")
-        
-        return results
-
-    def test_mavat_only(self):
-        """Test only Mavat Collector."""
-        logger.info("Testing Mavat Collector only...")
-        try:
-            self.test_mavat_collector_integration()
-            logger.info("✓ Mavat Collector - PASSED")
-            return True
-        except Exception as e:
-            logger.error(f"✗ Mavat Collector - FAILED: {str(e)}")
-            return False
-
-    def test_yad2_only(self):
-        """Test only Yad2 Scraper."""
-        logger.info("Testing Yad2 Scraper only...")
-        try:
-            self.test_yad2_scraper()
-            logger.info("✓ Yad2 Scraper - PASSED")
-            return True
-        except Exception as e:
-            logger.error(f"✗ Yad2 Scraper - FAILED: {str(e)}")
-            return False
-
-    def test_nadlan_only(self):
-        """Test only Nadlan Scraper."""
-        logger.info("Testing Nadlan Scraper only...")
-        try:
-            self.test_nadlan_scraper()
-            logger.info("✓ Nadlan Scraper - PASSED")
-            return True
-        except Exception as e:
-            logger.error(f"✗ Nadlan Scraper - FAILED: {str(e)}")
-            return False
-
-    def test_decisive_only(self):
-        """Test only Decisive Appraisal."""
-        logger.info("Testing Decisive Appraisal only...")
-        try:
-            self.test_decisive_appraisal()
-            logger.info("✓ Decisive Appraisal - PASSED")
-            return True
-        except Exception as e:
-            logger.error(f"✗ Decisive Appraisal - FAILED: {str(e)}")
-            return False
-
-    def test_gis_only(self):
-        """Test only GIS Client."""
-        logger.info("Testing GIS Client only...")
-        try:
-            self.test_gis_client()
-            logger.info("✓ GIS Client - PASSED")
-            return True
-        except Exception as e:
-            logger.error(f"✗ GIS Client - FAILED: {str(e)}")
-            return False
-
-    def test_rami_only(self):
-        """Test only RAMI Client."""
-        logger.info("Testing RAMI Client only...")
-        try:
-            self.test_rami_client()
-            logger.info("✓ RAMI Client - PASSED")
-            return True
-        except Exception as e:
-            logger.error(f"✗ RAMI Client - FAILED: {str(e)}")
-            return False
-
-    def test_govmap_only(self):
-        """Test only GovMap Client and Collector."""
-        logger.info("Testing GovMap Client and Collector only...")
-        try:
-            self.test_govmap_client()
-            self.test_govmap_collector()
-            logger.info("✓ GovMap - PASSED")
-            return True
-        except Exception as e:
-            logger.error(f"✗ GovMap - FAILED: {str(e)}")
-            return False
-
-
-def main():
-    """Run the integration tests."""
-    import sys
-    
-    test_instance = TestCollectorsIntegration()
-    test_instance.setup_method()
-
-    try:
-        # Check for command line arguments to run specific tests
-        if len(sys.argv) > 1:
-            test_name = sys.argv[1].lower()
-            if test_name == "mavat":
-                result = test_instance.test_mavat_only()
-            elif test_name == "yad2":
-                result = test_instance.test_yad2_only()
-            elif test_name == "nadlan":
-                result = test_instance.test_nadlan_only()
-            elif test_name == "decisive":
-                result = test_instance.test_decisive_only()
-            elif test_name == "gis":
-                result = test_instance.test_gis_only()
-            elif test_name == "rami":
-                result = test_instance.test_rami_only()
-            elif test_name == "govmap":
-                result = test_instance.test_govmap_only()
-            else:
-                print(f"Unknown test: {test_name}")
-                print("Available tests: mavat, yad2, nadlan, decisive, gis, rami, govmap")
-                return False
-            return result
-        else:
-            # Run all tests
-            results = test_instance.test_all_collectors()
-            return results
+        logger.info("🎉 All collectors tested successfully!")
     finally:
         test_instance.teardown_method()
 

@@ -1,44 +1,14 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "realestate-agent"
-version = "0.1.0"
-description = "Real estate data collection and analysis tools"
-authors = [{name = "Your Name"}]
-requires-python = ">=3.8"
-dependencies = [
-    "requests",
-    "beautifulsoup4",
-    "lxml",
-    "pdfplumber",
-    "fastmcp",
-    "python-dateutil",
-    "pyproj",
-    "pytest",
-    "SQLAlchemy",
-    "psycopg2-binary",
-    "APScheduler",
-    "celery",
-    "django",
-    "djangorestframework",
-    "django-cors-headers",
-    "twilio",
-    "python-decouple",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-cov",
-    "black",
-    "flake8",
-]
-
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "-v --tb=short"
+markers = [
+    "django: marks tests as django tests",
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+    "asyncio: marks tests as asyncio tests",
+    "mavat: marks tests for Mavat collector",
+    "yad2: marks tests for Yad2 scraper",
+    "nadlan: marks tests for Nadlan scraper",
+    "decisive: marks tests for Decisive appraisal",
+    "gis: marks tests for GIS client",
+    "rami: marks tests for RAMI client",
+    "govmap: marks tests for GovMap client and collector",
+]

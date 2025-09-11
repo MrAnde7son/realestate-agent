@@ -112,6 +112,23 @@ class Yad2Scraper:
         """Fetch a page with retry logic."""
         try:
             response = request_with_retry(self.session.get, url, timeout=30)
+            
+            # Check for various captcha indicators
+            response_text = response.text.lower()
+            captcha_indicators = [
+                "shieldsquare captcha",
+                "captcha",
+                "cloudflare",
+                "access denied",
+                "blocked",
+                "robot",
+                "bot detection"
+            ]
+            
+            for indicator in captcha_indicators:
+                if indicator in response_text:
+                    raise RuntimeError(f"Captcha/Blocking detected: {indicator}")
+            
             return BeautifulSoup(response.content, 'html.parser')
         except requests.RequestException as e:
             print(f"Failed to fetch page: {e}")
@@ -178,10 +195,18 @@ class Yad2Scraper:
         url = self.build_search_url(page)
         print(f"Scraping page {page} from: {url}")
         
-        soup = self.fetch_page(url)
-        if not soup:
-            print(f"Failed to fetch page {page}")
-            return []
+        try:
+            soup = self.fetch_page(url)
+            if not soup:
+                print(f"Failed to fetch page {page}")
+                return []
+        except RuntimeError as e:
+            if "captcha" in str(e).lower() or "blocking" in str(e).lower():
+                print(f"Captcha/Blocking detected on page {page}: {e}")
+                raise e  # Re-raise captcha errors
+            else:
+                print(f"Error fetching page {page}: {e}")
+                return []
         
         # Try multiple selectors for different page layouts
         items = soup.select("a.item-layout_itemLink__CZZ7w")

@@ -1,0 +1,13 @@
+# GovMap Module Requirements
+# =========================
+
+# Core Dependencies
+requests>=2.25.0
+pyproj>=3.2.0
+
+# MCP Server (optional)
+fastmcp==2.11.3
+
+# Development & Testing
+pytest>=6.2.0
+pytest-asyncio>=0.15.0

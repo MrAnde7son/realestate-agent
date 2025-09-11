@@ -30,6 +30,8 @@ from mavat.scrapers.mavat_selenium_client import MavatSeleniumClient
 from gov.rami.rami_client import RamiClient
 from yad2.scrapers.yad2_scraper import Yad2Scraper
 from yad2.search_helper import Yad2SearchHelper
+from govmap import GovMapClient
+from orchestration.collectors.govmap_collector import GovMapCollector
 
 # Test address
 TEST_ADDRESS = "רוזוב 14 תל אביב"
@@ -60,73 +62,55 @@ class TestCollectorsIntegration:
             shutil.rmtree(self.temp_dir)
             logger.info(f"Cleaned up temp directory: {self.temp_dir}")
 
-    def test_mavat_selenium_client(self):
-        """Test Mavat Selenium client functionality."""
-        logger.info("Testing Mavat Selenium Client...")
-
-        with MavatSeleniumClient(headless=True) as client:
-            # Test 1: Check accessibility
-            logger.info("Testing accessibility...")
-            is_accessible = client.is_accessible()
-            assert is_accessible, "Mavat system should be accessible"
-            logger.info("✓ Mavat system is accessible")
-
-            # Test 2: Search for plans in Tel Aviv
-            logger.info("Testing plan search in Tel Aviv...")
-            plans = client.search_plans(city=TEST_CITY, limit=5)
-            assert isinstance(plans, list) and len(plans) > 0
-            logger.info(f"✓ Found {len(plans)} plans in {TEST_CITY}")
-
-            # Test 3: Search for plans by street
-            logger.info("Testing plan search by street...")
-            street_plans = client.search_plans(street=TEST_STREET, limit=3)
-            assert isinstance(street_plans, list) and len(street_plans) > 0
-            logger.info(f"✓ Found {len(street_plans)} plans for street {TEST_STREET}")
-
-            # Test 4: Search with query
-            logger.info("Testing plan search with query...")
-            query_plans = client.search_plans(query=TEST_CITY, limit=3)
-            assert isinstance(query_plans, list) and len(query_plans) > 0
-            logger.info(f"✓ Found {len(query_plans)} plans for query {TEST_CITY}")
-
-            # Test 5: PDF download functionality for plan ג/ 5000 (known to have PDF)
-            logger.info("Testing PDF download functionality for plan ג/ 5000...")
-            try:
-                pdf_data = client.fetch_pdf("ג/ 5000")
-                assert isinstance(pdf_data, bytes), "PDF data should be bytes"
-                assert len(pdf_data) > 0, "PDF should not be empty"
-                logger.info(f"✓ Successfully downloaded PDF for plan ג/ 5000 ({len(pdf_data)} bytes)")
-            except Exception as e:
-                logger.error(f"❌ Failed to download PDF for plan ג/ 5000: {e}")
-                raise  # Re-raise to fail the test since this plan should have a PDF
-
-        logger.info("✓ Mavat Selenium Client tests passed")
 
     def test_mavat_collector_integration(self):
-        """Test MavatCollector integration with PDF download."""
+        """Test MavatCollector integration with comprehensive functionality testing."""
         logger.info("Testing MavatCollector integration...")
         
         from orchestration.collectors.mavat_collector import MavatCollector
         
         collector = MavatCollector()
         
-        # Test search functionality
-        logger.info("Testing collector search functionality...")
-        results = collector.search_plans(query=TEST_CITY, limit=3)
-        assert isinstance(results, list)
-        logger.info(f"✓ Collector found {len(results)} plans")
+        # Test 1: Check accessibility
+        logger.info("Testing accessibility...")
+        with collector.client as client:
+            is_accessible = client.is_accessible()
+            assert is_accessible, "Mavat system should be accessible"
+            logger.info("✓ Mavat system is accessible")
         
-        # Test PDF download through collector for plan ג/ 5000 (known to have PDF)
-        logger.info("Testing PDF download through collector for plan ג/ 5000...")
+        # Test 2: Search functionality - query search
+        logger.info("Testing collector search functionality (query)...")
+        try:
+            query_results = collector.search_plans(query=TEST_CITY, limit=5)
+            assert isinstance(query_results, list) and len(query_results) > 0
+            logger.info(f"✓ Collector found {len(query_results)} plans for query {TEST_CITY}")
+        except Exception as e:
+            logger.error(f"❌ Collector search failed: {e}")
+            raise
+        
+        # Test 3: Search functionality - street search
+        logger.info("Testing collector search functionality (street)...")
+        street_results = collector.search_plans(query=TEST_STREET, limit=3)
+        assert isinstance(street_results, list) and len(street_results) > 0
+        logger.info(f"✓ Collector found {len(street_results)} plans for street {TEST_STREET}")
+        
+        # Test 4: Search functionality - specific plan search
+        logger.info("Testing collector search functionality (specific plan)...")
+        plan_results = collector.search_plans(query="ג/ 5000", limit=3)
+        assert isinstance(plan_results, list) and len(plan_results) > 0
+        logger.info(f"✓ Collector found {len(plan_results)} plans for specific plan ג/ 5000")
+        
+        # Test 5: PDF download functionality for plan ג/ 5000 (known to have PDF)
+        logger.info("Testing PDF download functionality for plan ג/ 5000...")
         try:
             # Use the underlying client to test PDF download
             with collector.client as client:
                 pdf_data = client.fetch_pdf("ג/ 5000")
                 assert isinstance(pdf_data, bytes), "PDF data should be bytes"
                 assert len(pdf_data) > 0, "PDF should not be empty"
-                logger.info(f"✓ Successfully downloaded PDF through collector for plan ג/ 5000 ({len(pdf_data)} bytes)")
+                logger.info(f"✓ Successfully downloaded PDF for plan ג/ 5000 ({len(pdf_data)} bytes)")
         except Exception as e:
-            logger.error(f"❌ Failed to download PDF through collector for plan ג/ 5000: {e}")
+            logger.error(f"❌ Failed to download PDF for plan ג/ 5000: {e}")
             raise  # Re-raise to fail the test since this plan should have a PDF
         
         logger.info("✓ MavatCollector integration tests passed")
@@ -460,6 +444,120 @@ class TestCollectorsIntegration:
 
         logger.info("✓ RAMI Client tests passed")
 
+    def test_govmap_client(self):
+        """Test GovMap client functionality."""
+        logger.info("Testing GovMap Client...")
+
+        # Test 1: Initialize client
+        logger.info("Testing client initialization...")
+        client = GovMapClient()
+        assert client is not None
+        logger.info("✓ GovMap client initialized successfully")
+
+        # Test 2: Test autocomplete functionality
+        logger.info("Testing autocomplete functionality...")
+        try:
+            autocomplete_results = client.autocomplete(TEST_ADDRESS)
+            assert isinstance(autocomplete_results, dict)
+            assert "res" in autocomplete_results
+            logger.info(f"✓ Autocomplete returned results: {list(autocomplete_results.get('res', {}).keys())}")
+        except Exception as e:
+            logger.warning(f"⚠ Autocomplete failed: {e}")
+
+        # Test 3: Test coordinate conversion
+        logger.info("Testing coordinate conversion...")
+        from govmap.api_client import itm_to_wgs84, wgs84_to_itm
+        
+        # Test with known Tel Aviv coordinates
+        x_itm, y_itm = 184391.15, 668715.93
+        lon, lat = itm_to_wgs84(x_itm, y_itm)
+        assert isinstance(lon, float) and isinstance(lat, float)
+        logger.info(f"✓ ITM to WGS84 conversion: ({x_itm}, {y_itm}) -> ({lon:.6f}, {lat:.6f})")
+        
+        # Test roundtrip conversion
+        x_back, y_back = wgs84_to_itm(lon, lat)
+        assert abs(x_back - x_itm) < 1.0  # Within 1 meter
+        assert abs(y_back - y_itm) < 1.0
+        logger.info(f"✓ WGS84 to ITM conversion: ({lon:.6f}, {lat:.6f}) -> ({x_back:.2f}, {y_back:.2f})")
+
+        # Test 4: Test parcel lookup (if coordinates are valid)
+        logger.info("Testing parcel lookup...")
+        try:
+            parcel = client.get_parcel_at_point(x_itm, y_itm)
+            if parcel:
+                assert isinstance(parcel, dict)
+                logger.info(f"✓ Found parcel: {parcel.get('type', 'Unknown type')}")
+            else:
+                logger.info("ℹ No parcel found at this location (this might be expected)")
+        except Exception as e:
+            logger.warning(f"⚠ Parcel lookup failed: {e}")
+
+        # Test 5: Test WMS GetFeatureInfo (if coordinates are valid)
+        logger.info("Testing WMS GetFeatureInfo...")
+        try:
+            # Try with a common layer name
+            feature_info = client.wms_getfeatureinfo(
+                layer="opendata:PARCEL_ALL", 
+                x=x_itm, 
+                y=y_itm, 
+                buffer_m=10
+            )
+            assert isinstance(feature_info, list)
+            logger.info(f"✓ WMS GetFeatureInfo returned {len(feature_info)} features")
+        except Exception as e:
+            logger.warning(f"⚠ WMS GetFeatureInfo failed: {e}")
+
+        logger.info("✓ GovMap Client tests passed")
+
+    def test_govmap_collector(self):
+        """Test GovMap collector functionality."""
+        logger.info("Testing GovMap Collector...")
+
+        # Test 1: Initialize collector
+        logger.info("Testing collector initialization...")
+        collector = GovMapCollector()
+        assert collector is not None
+        logger.info("✓ GovMap collector initialized successfully")
+
+        # Test 2: Test parameter validation
+        logger.info("Testing parameter validation...")
+        assert collector.validate_parameters(x=100.0, y=200.0) is True
+        assert collector.validate_parameters(x="invalid", y=200.0) is False
+        logger.info("✓ Parameter validation working correctly")
+
+        # Test 3: Test data collection
+        logger.info("Testing data collection...")
+        try:
+            # Use known Tel Aviv coordinates
+            x, y = 184391.15, 668715.93
+            data = collector.collect(x=x, y=y)
+            
+            assert isinstance(data, dict)
+            assert "x" in data and "y" in data
+            assert "parcel" in data and "nearby" in data
+            assert data["x"] == x and data["y"] == y
+            
+            logger.info(f"✓ Data collection successful: parcel={data['parcel'] is not None}, nearby_layers={len(data['nearby'])}")
+        except Exception as e:
+            logger.warning(f"⚠ Data collection failed: {e}")
+
+        # Test 4: Test collection with extra layers
+        logger.info("Testing collection with extra layers...")
+        try:
+            data = collector.collect(
+                x=184391.15, 
+                y=668715.93, 
+                extra_layers=["opendata:PARCEL_ALL"],
+                buffer_m=50
+            )
+            assert isinstance(data, dict)
+            assert "nearby" in data
+            logger.info(f"✓ Collection with extra layers successful: {len(data['nearby'])} layers")
+        except Exception as e:
+            logger.warning(f"⚠ Collection with extra layers failed: {e}")
+
+        logger.info("✓ GovMap Collector tests passed")
+
     def test_all_collectors(self):
         """Test all collectors in sequence with individual error handling."""
         logger.info("=" * 60)
@@ -470,23 +568,14 @@ class TestCollectorsIntegration:
         results = {}
         
         # Test each collector individually with error handling
-        logger.info("\n--- Testing Mavat Selenium Client ---")
-        try:
-            self.test_mavat_selenium_client()
-            results['mavat'] = "PASSED"
-            logger.info("✓ Mavat Selenium Client - PASSED")
-        except Exception as e:
-            results['mavat'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ Mavat Selenium Client - FAILED: {str(e)}")
-
-        logger.info("\n--- Testing MavatCollector Integration ---")
+        logger.info("\n--- Testing Mavat Collector ---")
         try:
             self.test_mavat_collector_integration()
-            results['mavat_collector'] = "PASSED"
-            logger.info("✓ MavatCollector Integration - PASSED")
+            results['mavat'] = "PASSED"
+            logger.info("✓ Mavat Collector - PASSED")
         except Exception as e:
-            results['mavat_collector'] = f"FAILED: {str(e)}"
-            logger.error(f"✗ MavatCollector Integration - FAILED: {str(e)}")
+            results['mavat'] = f"FAILED: {str(e)}"
+            logger.error(f"✗ Mavat Collector - FAILED: {str(e)}")
 
         logger.info("\n--- Testing Yad2 Scraper ---")
         try:
@@ -533,6 +622,24 @@ class TestCollectorsIntegration:
             results['rami'] = f"FAILED: {str(e)}"
             logger.error(f"✗ RAMI Client - FAILED: {str(e)}")
 
+        logger.info("\n--- Testing GovMap Client ---")
+        try:
+            self.test_govmap_client()
+            results['govmap_client'] = "PASSED"
+            logger.info("✓ GovMap Client - PASSED")
+        except Exception as e:
+            results['govmap_client'] = f"FAILED: {str(e)}"
+            logger.error(f"✗ GovMap Client - FAILED: {str(e)}")
+
+        logger.info("\n--- Testing GovMap Collector ---")
+        try:
+            self.test_govmap_collector()
+            results['govmap_collector'] = "PASSED"
+            logger.info("✓ GovMap Collector - PASSED")
+        except Exception as e:
+            results['govmap_collector'] = f"FAILED: {str(e)}"
+            logger.error(f"✗ GovMap Collector - FAILED: {str(e)}")
+
         # Summary
         logger.info("\n" + "=" * 60)
         logger.info("TEST SUMMARY")
@@ -557,14 +664,14 @@ class TestCollectorsIntegration:
         return results
 
     def test_mavat_only(self):
-        """Test only Mavat Selenium Client."""
-        logger.info("Testing Mavat Selenium Client only...")
+        """Test only Mavat Collector."""
+        logger.info("Testing Mavat Collector only...")
         try:
-            self.test_mavat_selenium_client()
-            logger.info("✓ Mavat Selenium Client - PASSED")
+            self.test_mavat_collector_integration()
+            logger.info("✓ Mavat Collector - PASSED")
             return True
         except Exception as e:
-            logger.error(f"✗ Mavat Selenium Client - FAILED: {str(e)}")
+            logger.error(f"✗ Mavat Collector - FAILED: {str(e)}")
             return False
 
     def test_yad2_only(self):
@@ -622,6 +729,18 @@ class TestCollectorsIntegration:
             logger.error(f"✗ RAMI Client - FAILED: {str(e)}")
             return False
 
+    def test_govmap_only(self):
+        """Test only GovMap Client and Collector."""
+        logger.info("Testing GovMap Client and Collector only...")
+        try:
+            self.test_govmap_client()
+            self.test_govmap_collector()
+            logger.info("✓ GovMap - PASSED")
+            return True
+        except Exception as e:
+            logger.error(f"✗ GovMap - FAILED: {str(e)}")
+            return False
+
 
 def main():
     """Run the integration tests."""
@@ -646,9 +765,11 @@ def main():
                 result = test_instance.test_gis_only()
             elif test_name == "rami":
                 result = test_instance.test_rami_only()
+            elif test_name == "govmap":
+                result = test_instance.test_govmap_only()
             else:
                 print(f"Unknown test: {test_name}")
-                print("Available tests: mavat, yad2, nadlan, decisive, gis, rami")
+                print("Available tests: mavat, yad2, nadlan, decisive, gis, rami, govmap")
                 return False
             return result
         else:

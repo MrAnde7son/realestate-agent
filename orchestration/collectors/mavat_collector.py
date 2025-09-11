@@ -36,23 +36,24 @@ class MavatCollector(BaseCollector):
         """
         try:
             # Search by block and parcel using Selenium client
-            plans = self.client.search_plans(gush=block, helka=parcel, city=city)
-            
-            # Convert to consistent format
-            formatted_plans = []
-            for plan in plans:
-                formatted_plans.append({
-                    "plan_id": plan.plan_id,
-                    "title": plan.title,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                })
-            
-            return formatted_plans
+            with self.client as client:
+                plans = client.search_plans(gush=block, helka=parcel, city=city)
+                
+                # Convert to consistent format
+                formatted_plans = []
+                for plan in plans:
+                    formatted_plans.append({
+                        "plan_id": plan.plan_id,
+                        "title": plan.title,
+                        "status": plan.status,
+                        "authority": plan.authority,
+                        "entity_number": plan.entity_number,
+                        "approval_date": plan.approval_date,
+                        "status_date": plan.status_date,
+                        "raw": plan.raw
+                    })
+                
+                return formatted_plans
         except Exception:
             return []
 
@@ -77,24 +78,25 @@ class MavatCollector(BaseCollector):
             A list of plan summaries in consistent format.
         """
         try:
-            plans = self.client.search_plans(city=city, district=district, 
+            with self.client as client:
+                plans = client.search_plans(city=city, district=district, 
                                            street=street, limit=limit)
-            
-            # Convert to consistent format
-            formatted_plans = []
-            for plan in plans:
-                formatted_plans.append({
-                    "plan_id": plan.plan_id,
-                    "title": plan.title,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                })
-            
-            return formatted_plans
+                
+                # Convert to consistent format
+                formatted_plans = []
+                for plan in plans:
+                    formatted_plans.append({
+                        "plan_id": plan.plan_id,
+                        "title": plan.title,
+                        "status": plan.status,
+                        "authority": plan.authority,
+                        "entity_number": plan.entity_number,
+                        "approval_date": plan.approval_date,
+                        "status_date": plan.status_date,
+                        "raw": plan.raw
+                    })
+                
+                return formatted_plans
         except Exception:
             return []
 
@@ -114,24 +116,28 @@ class MavatCollector(BaseCollector):
             A list of plan summaries in consistent format.
         """
         try:
-            plans = self.client.search_plans(query=query, limit=limit)
-            
-            # Convert to consistent format
-            formatted_plans = []
-            for plan in plans:
-                formatted_plans.append({
-                    "plan_id": plan.plan_id,
-                    "title": plan.title,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                })
-            
-            return formatted_plans
-        except Exception:
+            with self.client as client:
+                plans = client.search_plans(query=query, limit=limit)
+                
+                # Convert to consistent format
+                formatted_plans = []
+                for plan in plans:
+                    formatted_plans.append({
+                        "plan_id": plan.plan_id,
+                        "title": plan.title,
+                        "status": plan.status,
+                        "authority": plan.authority,
+                        "entity_number": plan.entity_number,
+                        "approval_date": plan.approval_date,
+                        "status_date": plan.status_date,
+                        "raw": plan.raw
+                    })
+                
+                return formatted_plans
+        except Exception as e:
+            # Log the error for debugging
+            import logging
+            logging.error(f"MavatCollector.search_plans failed: {e}")
             return []
 
     def get_plan_details(self, plan_id: str) -> Optional[Dict[str, Any]]:
@@ -149,20 +155,21 @@ class MavatCollector(BaseCollector):
             or None if the plan is not found.
         """
         try:
-            plan = self.client.get_plan_details(plan_id)
-            
-            return {
-                "plan_id": plan.plan_id,
-                "plan_name": plan.plan_name,
-                "status": plan.status,
-                "authority": plan.authority,
-                "jurisdiction": plan.jurisdiction,
-                "last_update": plan.last_update,
-                "entity_number": plan.entity_number,
-                "approval_date": plan.approval_date,
-                "status_date": plan.status_date,
-                "raw": plan.raw
-            }
+            with self.client as client:
+                plan = client.get_plan_details(plan_id)
+                
+                return {
+                    "plan_id": plan.plan_id,
+                    "plan_name": plan.plan_name,
+                    "status": plan.status,
+                    "authority": plan.authority,
+                    "jurisdiction": plan.jurisdiction,
+                    "last_update": plan.last_update,
+                    "entity_number": plan.entity_number,
+                    "approval_date": plan.approval_date,
+                    "status_date": plan.status_date,
+                    "raw": plan.raw
+                }
         except Exception:
             return None
 

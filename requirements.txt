@@ -16,6 +16,9 @@
 # GIS Module
 -r gis/requirements.txt
 
+# GovMap Module
+-r govmap/requirements.txt
+
 # Yad2 Real Estate Module
 -r yad2/requirements.txt
 

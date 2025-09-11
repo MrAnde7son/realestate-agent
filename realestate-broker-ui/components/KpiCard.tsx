@@ -41,7 +41,7 @@ export function KpiCard({
   const cardContent = (
     <Card
       className={cn(
-        "transition-all duration-200 cursor-pointer",
+        "transition-all duration-200 cursor-pointer h-full flex flex-col",
         t.border,
         showHoverEffect && t.hover,
         showHoverEffect && "hover:shadow-lg hover:-translate-y-0.5",
@@ -55,7 +55,7 @@ export function KpiCard({
         </CardTitle>
         {icon ? <div className={cn("size-5", t.icon)}>{icon}</div> : null}
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col justify-between">
         <div className={cn("text-2xl font-semibold leading-none", t.value)}>{value}</div>
         {children ? <div className="mt-2 text-xs text-muted-foreground">{children}</div> : null}
       </CardContent>

@@ -129,37 +129,37 @@ class TestNadlanDealsScraper:
             assert scraper is not None
         # Context manager should work without errors
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_get_deals_by_neighborhood_id_success(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._fetch_deals_by_neighborhood_id_selenium')
+    def test_get_deals_by_neighborhood_id_success(self, mock_fetch):
         """Test successful retrieval of deals by neighborhood ID."""
-        # Mock the async result
+        # Mock the selenium result
         mock_deals = [
             Deal(address="רחוב הרצל 1", deal_amount=1500000.0)
         ]
-        mock_asyncio_run.return_value = mock_deals
+        mock_fetch.return_value = mock_deals
         
         deals = self.scraper.get_deals_by_neighborhood_id("12345")
         
         assert len(deals) == 1
         assert deals[0].address == "רחוב הרצל 1"
         assert deals[0].deal_amount == 1500000.0
-        mock_asyncio_run.assert_called_once()
+        mock_fetch.assert_called_once_with("12345")
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_get_deals_by_neighborhood_id_failure(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._fetch_deals_by_neighborhood_id_selenium')
+    def test_get_deals_by_neighborhood_id_failure(self, mock_fetch):
         """Test handling of failures in get_deals_by_neighborhood_id."""
-        mock_asyncio_run.side_effect = Exception("Test error")
+        mock_fetch.side_effect = Exception("Test error")
         
         with pytest.raises(NadlanAPIError, match="Failed to fetch deals for neighborhood 12345"):
             self.scraper.get_deals_by_neighborhood_id("12345")
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_search_address_success(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._search_address_selenium')
+    def test_search_address_success(self, mock_fetch):
         """Test successful address search."""
         mock_results = [
             {"type": "neighborhood", "value": "רמת החייל", "neighborhood_id": "65210036"}
         ]
-        mock_asyncio_run.return_value = mock_results
+        mock_fetch.return_value = mock_results
         
         results = self.scraper.search_address("רמת החייל")
         
@@ -167,16 +167,17 @@ class TestNadlanDealsScraper:
         assert results[0]["value"] == "רמת החייל"
         assert results[0]["neighborhood_id"] == "65210036"
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_search_address_failure(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._search_address_selenium')
+    def test_search_address_failure(self, mock_fetch):
         """Test handling of failures in address search."""
-        mock_asyncio_run.side_effect = Exception("Test error")
+        mock_fetch.side_effect = Exception("Test error")
         
         with pytest.raises(NadlanAPIError, match="Failed to search for address 'רמת החייל'"):
             self.scraper.search_address("רמת החייל")
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_get_deals_by_address_success(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper.get_deals_by_address_id')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper.search_address')
+    def test_get_deals_by_address_success(self, mock_search, mock_get_deals):
         """Test successful retrieval of deals by address."""
         # Mock the search results
         search_results = [
@@ -188,8 +189,8 @@ class TestNadlanDealsScraper:
             Deal(address="רחוב הרצל 1", deal_amount=1500000.0)
         ]
         
-        # First call returns search results, second call returns deals
-        mock_asyncio_run.side_effect = [search_results, mock_deals]
+        mock_search.return_value = search_results
+        mock_get_deals.return_value = mock_deals
         
         deals = self.scraper.get_deals_by_address("רמת החייל")
         
@@ -197,27 +198,27 @@ class TestNadlanDealsScraper:
         assert deals[0].address == "רחוב הרצל 1"
         assert deals[0].deal_amount == 1500000.0
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_get_deals_by_address_no_search_results(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper.search_address')
+    def test_get_deals_by_address_no_search_results(self, mock_search):
         """Test handling when no addresses are found."""
-        mock_asyncio_run.return_value = []
+        mock_search.return_value = []
         
         with pytest.raises(NadlanAPIError, match="No addresses found for query: רמת החייל"):
             self.scraper.get_deals_by_address("רמת החייל")
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_get_deals_by_address_no_neighborhood_id(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper.search_address')
+    def test_get_deals_by_address_no_neighborhood_id(self, mock_search):
         """Test handling when neighborhood ID cannot be determined."""
         search_results = [
             {"type": "neighborhood", "value": "רמת החייל", "neighborhood_id": None}
         ]
-        mock_asyncio_run.return_value = search_results
+        mock_search.return_value = search_results
         
         with pytest.raises(NadlanAPIError, match="Could not determine neighborhood ID for: רמת החייל"):
             self.scraper.get_deals_by_address("רמת החייל")
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_get_neighborhood_info_success(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._get_neighborhood_info_selenium')
+    def test_get_neighborhood_info_success(self, mock_fetch):
         """Test successful retrieval of neighborhood info."""
         mock_info = {
             "neigh_id": "65210036",
@@ -225,7 +226,7 @@ class TestNadlanDealsScraper:
             "setl_id": "5000",
             "setl_name": "תל אביב-יפו"
         }
-        mock_asyncio_run.return_value = mock_info
+        mock_fetch.return_value = mock_info
         
         info = self.scraper.get_neighborhood_info("65210036")
         
@@ -234,10 +235,10 @@ class TestNadlanDealsScraper:
         assert info["setl_id"] == "5000"
         assert info["setl_name"] == "תל אביב-יפו"
     
-    @patch('gov.nadlan.scraper.asyncio.run')
-    def test_get_neighborhood_info_failure(self, mock_asyncio_run):
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._get_neighborhood_info_selenium')
+    def test_get_neighborhood_info_failure(self, mock_fetch):
         """Test handling of failures in get_neighborhood_info."""
-        mock_asyncio_run.side_effect = Exception("Test error")
+        mock_fetch.side_effect = Exception("Test error")
         
         with pytest.raises(NadlanAPIError, match="Failed to fetch neighborhood info for 65210036"):
             self.scraper.get_neighborhood_info("65210036")
@@ -260,27 +261,7 @@ class TestNadlanDealsScraper:
         assert result is None
 
 
-class TestLegacyFunctions:
-    """Test legacy function compatibility."""
-    
-    @patch('gov.nadlan.scraper.NadlanDealsScraper')
-    def test_legacy_get_deals_by_neighborhood_id(self, mock_scraper_class):
-        """Test legacy get_deals_by_neighborhood_id function."""
-        from gov.nadlan.scraper import get_deals_by_neighborhood_id
-
-        # Mock the scraper instance
-        mock_scraper = Mock()
-        mock_deals = [
-            Deal(address="רחוב הרצל 1", deal_amount=1500000.0)
-        ]
-        mock_scraper.get_deals_by_neighborhood_id.return_value = mock_deals
-        mock_scraper_class.return_value.__enter__.return_value = mock_scraper
-        
-        deals = get_deals_by_neighborhood_id("12345")
-        
-        assert len(deals) == 1
-        assert deals[0]["address"] == "רחוב הרצל 1"
-        assert deals[0]["deal_amount"] == 1500000.0
+# Legacy function tests removed - functions no longer exist
 
 
 if __name__ == "__main__":

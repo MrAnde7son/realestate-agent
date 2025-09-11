@@ -119,7 +119,7 @@ class TestMavatCollectorErrorHandling:
         try:
             from orchestration.collectors.mavat_collector import MavatCollector
             
-            with patch('orchestration.collectors.mavat_collector.MavatAPIClient') as mock_client_class:
+            with patch('orchestration.collectors.mavat_collector.MavatSeleniumClient') as mock_client_class:
                 mock_client = Mock()
                 mock_client.search_by_block_parcel.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client
@@ -137,7 +137,7 @@ class TestMavatCollectorErrorHandling:
         try:
             from orchestration.collectors.mavat_collector import MavatCollector
             
-            with patch('orchestration.collectors.mavat_collector.MavatAPIClient') as mock_client_class:
+            with patch('orchestration.collectors.mavat_collector.MavatSeleniumClient') as mock_client_class:
                 mock_client = Mock()
                 mock_client.search_by_location.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client
@@ -154,7 +154,7 @@ class TestMavatCollectorErrorHandling:
         try:
             from orchestration.collectors.mavat_collector import MavatCollector
             
-            with patch('orchestration.collectors.mavat_collector.MavatAPIClient') as mock_client_class:
+            with patch('orchestration.collectors.mavat_collector.MavatSeleniumClient') as mock_client_class:
                 mock_client = Mock()
                 mock_client.search_plans.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client
@@ -171,7 +171,7 @@ class TestMavatCollectorErrorHandling:
         try:
             from orchestration.collectors.mavat_collector import MavatCollector
             
-            with patch('orchestration.collectors.mavat_collector.MavatAPIClient') as mock_client_class:
+            with patch('orchestration.collectors.mavat_collector.MavatSeleniumClient') as mock_client_class:
                 mock_client = Mock()
                 mock_client.get_cities.side_effect = Exception("Test error")
                 mock_client_class.return_value = mock_client

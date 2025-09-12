@@ -84,6 +84,15 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "govmap: marks tests for GovMap client and collector"
     )
+    config.addinivalue_line(
+        "markers", "integration: marks tests as integration tests"
+    )
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow running tests"
+    )
+    config.addinivalue_line(
+        "markers", "external_service: marks tests that depend on external services"
+    )
     
     # Set up Django
     try:

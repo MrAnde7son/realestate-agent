@@ -65,6 +65,8 @@ class TestCollectorsIntegration:
 
 
     @pytest.mark.mavat
+    @pytest.mark.integration
+    @pytest.mark.slow
     def test_mavat_collector_integration(self):
         """Test MavatCollector integration with comprehensive functionality testing."""
         logger.info("Testing MavatCollector integration...")
@@ -118,6 +120,9 @@ class TestCollectorsIntegration:
         logger.info("✓ MavatCollector integration tests passed")
 
     @pytest.mark.yad2
+    @pytest.mark.integration
+    @pytest.mark.slow
+    @pytest.mark.external_service
     def test_yad2_scraper(self):
         """Test Yad2 scraper functionality."""
         logger.info("Testing Yad2 Scraper...")
@@ -245,6 +250,9 @@ class TestCollectorsIntegration:
         logger.info("✓ Yad2 Scraper tests passed")
 
     @pytest.mark.nadlan
+    @pytest.mark.integration
+    @pytest.mark.slow
+    @pytest.mark.external_service
     def test_nadlan_scraper(self):
         """Test Nadlan scraper functionality."""
         logger.info("Testing Nadlan Scraper...")
@@ -283,6 +291,9 @@ class TestCollectorsIntegration:
         logger.info("✓ Nadlan Scraper tests passed")
 
     @pytest.mark.decisive
+    @pytest.mark.integration
+    @pytest.mark.slow
+    @pytest.mark.external_service
     def test_decisive_appraisal(self):
         """Test Decisive Appraisal functionality."""
         logger.info("Testing Decisive Appraisal...")

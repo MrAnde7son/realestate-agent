@@ -84,19 +84,22 @@ class TestCollectorsIntegration:
         
         # Test 2: Search functionality - query search
         logger.info("Testing collector search functionality (query)...")
-        try:
-            query_results = collector.search_plans(query=TEST_CITY, limit=5)
-            assert isinstance(query_results, list) and len(query_results) > 0
-            logger.info(f"✓ Collector found {len(query_results)} plans for query {TEST_CITY}")
-        except Exception as e:
-            logger.error(f"❌ Collector search failed: {e}")
-            raise
+        query_results = collector.search_plans(query=TEST_CITY, limit=5)
+        assert isinstance(query_results, list) and len(query_results) > 0
+        logger.info(f"✓ Collector found {len(query_results)} plans for query {TEST_CITY}")
+        
+        # Add delay between searches to avoid rate limiting
+        import time
+        time.sleep(3)
         
         # Test 3: Search functionality - street search
         logger.info("Testing collector search functionality (street)...")
         street_results = collector.search_plans(query=TEST_STREET, limit=3)
         assert isinstance(street_results, list) and len(street_results) > 0
         logger.info(f"✓ Collector found {len(street_results)} plans for street {TEST_STREET}")
+        
+        # Add delay between searches to avoid rate limiting
+        time.sleep(3)
         
         # Test 4: Search functionality - specific plan search
         logger.info("Testing collector search functionality (specific plan)...")

@@ -272,8 +272,30 @@ class NadlanDealsScraper:
         self.driver.get("https://www.nadlan.gov.il/")
         time.sleep(3)
         
-        # Find the search input field
-        search_box = self.driver.find_element(By.ID, "myInput2")
+        # Find the search input field - try multiple selectors
+        search_box = None
+        search_selectors = [
+            (By.ID, "myInput2"),  # Original selector
+            (By.CSS_SELECTOR, "input[type='text']"),  # Generic text input
+            (By.CSS_SELECTOR, "input[placeholder*='חיפוש']"),  # Hebrew search placeholder
+            (By.CSS_SELECTOR, "input[placeholder*='כתובת']"),  # Hebrew address placeholder
+            (By.CSS_SELECTOR, "input[placeholder*='address']"),  # English address placeholder
+            (By.CSS_SELECTOR, "input[class*='search']"),  # Search class
+            (By.CSS_SELECTOR, "input[class*='input']"),  # Input class
+            (By.CSS_SELECTOR, "input[id*='search']"),  # Search ID
+            (By.CSS_SELECTOR, "input[id*='input']"),  # Input ID
+        ]
+        
+        for by, selector in search_selectors:
+            try:
+                search_box = self.driver.find_element(by, selector)
+                logger.info(f"Found search input using selector: {selector}")
+                break
+            except:
+                continue
+        
+        if not search_box:
+            raise NadlanAPIError("Could not find search input field on Nadlan website - site structure may have changed")
         
         # Clear and enter the search query
         search_box.clear()

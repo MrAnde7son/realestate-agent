@@ -1,0 +1,1769 @@
+openapi: 3.0.3
+info:
+  title: Real Estate API
+  version: 1.0.0
+  description: API schema for assets, permits and plans
+paths:
+  /api/alert-events/:
+    get:
+      operationId: alert_events_retrieve
+      description: Get alert events for the current user.
+      tags:
+      - alert-events
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/alert-test/:
+    post:
+      operationId: alert_test_create
+      description: Send a test alert to verify channels are working.
+      tags:
+      - alert-test
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/alerts/:
+    get:
+      operationId: alerts_retrieve
+      tags:
+      - alerts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: alerts_create
+      tags:
+      - alerts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: alerts_update
+      tags:
+      - alerts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: alerts_destroy
+      tags:
+      - alerts
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/analytics/page-view:
+    post:
+      operationId: analytics_page_view_create
+      description: Track page views from frontend.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/analytics/session-end:
+    post:
+      operationId: analytics_session_end_create
+      description: Track session end from frontend.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/analytics/timeseries:
+    get:
+      operationId: analytics_timeseries_retrieve
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/analytics/top-failures:
+    get:
+      operationId: analytics_top_failures_retrieve
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/analytics/track:
+    post:
+      operationId: analytics_track_create
+      description: Track analytics events from frontend.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/assets/:
+    get:
+      operationId: assets_retrieve
+      description: |-
+        Handle assets - GET (list all) or POST (create new).
+
+        GET: Returns all assets in listing format
+        POST: Creates a new asset and enqueues enrichment pipeline
+
+        Expected JSON payload for POST:
+        {
+            "scope": {
+                "type": "address|neighborhood|street|city|parcel",
+                "value": "string",
+                "city": "string"
+            },
+            "address": "string",
+            "city": "string",
+            "street": "string",
+            "number": "integer",
+            "gush": "string",
+            "helka": "string",
+            "radius": "integer"
+        }
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: assets_create
+      description: |-
+        Handle assets - GET (list all) or POST (create new).
+
+        GET: Returns all assets in listing format
+        POST: Creates a new asset and enqueues enrichment pipeline
+
+        Expected JSON payload for POST:
+        {
+            "scope": {
+                "type": "address|neighborhood|street|city|parcel",
+                "value": "string",
+                "city": "string"
+            },
+            "address": "string",
+            "city": "string",
+            "street": "string",
+            "number": "integer",
+            "gush": "string",
+            "helka": "string",
+            "radius": "integer"
+        }
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: assets_destroy
+      description: |-
+        Handle assets - GET (list all) or POST (create new).
+
+        GET: Returns all assets in listing format
+        POST: Creates a new asset and enqueues enrichment pipeline
+
+        Expected JSON payload for POST:
+        {
+            "scope": {
+                "type": "address|neighborhood|street|city|parcel",
+                "value": "string",
+                "city": "string"
+            },
+            "address": "string",
+            "city": "string",
+            "street": "string",
+            "number": "integer",
+            "gush": "string",
+            "helka": "string",
+            "radius": "integer"
+        }
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/assets/{asset_id}/add-contribution/:
+    post:
+      operationId: assets_add_contribution_create
+      description: Add a new contribution to an asset.
+      parameters:
+      - in: path
+        name: asset_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/assets/{asset_id}/contributions/:
+    get:
+      operationId: assets_contributions_retrieve
+      description: Get all contributions for a specific asset.
+      parameters:
+      - in: path
+        name: asset_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/assets/{asset_id}/share-message/:
+    post:
+      operationId: assets_share_message_create
+      description: Generate a marketing message for an asset using LLM.
+      parameters:
+      - in: path
+        name: asset_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/assets/{id}/:
+    get:
+      operationId: assets_retrieve_2
+      description: Get details of a specific asset by ID
+      summary: Retrieve an asset
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this asset.
+        required: true
+      tags:
+      - Assets
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+    put:
+      operationId: assets_update
+      description: Update an existing asset
+      summary: Update an asset
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this asset.
+        required: true
+      tags:
+      - Assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+    patch:
+      operationId: assets_partial_update
+      description: Partially update an existing asset
+      summary: Partially update an asset
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this asset.
+        required: true
+      tags:
+      - Assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetRequest'
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+    delete:
+      operationId: assets_destroy_2
+      description: Delete an asset by ID
+      summary: Delete an asset
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this asset.
+        required: true
+      tags:
+      - Assets
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/assets/stats/:
+    get:
+      operationId: assets_stats_retrieve
+      description: Get statistics about assets
+      summary: Get asset statistics
+      tags:
+      - Assets
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+  /api/auth/change-password/:
+    post:
+      operationId: auth_change_password_create
+      description: Change user password endpoint.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/auth/google/callback/:
+    get:
+      operationId: auth_google_callback_retrieve
+      description: Handle Google OAuth callback via the auth service.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/google/login/:
+    get:
+      operationId: auth_google_login_retrieve
+      description: Initiate Google OAuth login flow using the auth service.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: Authenticate user with email and password
+      summary: User login
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required:
+              - email
+              - password
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Login successful
+                examples:
+                  application/json:
+                    access: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                    refresh: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                    user:
+                      id: 1
+                      email: user@example.com
+                      username: user
+                      role: member
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Invalid credentials
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                description: Authentication failed
+          description: ''
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: User logout endpoint.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/auth/profile/:
+    get:
+      operationId: auth_profile_retrieve
+      description: Get current user profile.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: Refresh JWT token.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: Register a new user account
+      summary: User registration
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                username:
+                  type: string
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+              required:
+              - email
+              - password
+              - username
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                description: User created successfully
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Invalid input data
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                description: User already exists
+          description: ''
+  /api/auth/update-profile/:
+    put:
+      operationId: auth_update_profile_update
+      description: Update current user profile.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/connect-payment/:
+    post:
+      operationId: connect_payment_create
+      tags:
+      - connect-payment
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/contributions/:
+    get:
+      operationId: contributions_retrieve
+      description: Get all contributions made by the current user.
+      tags:
+      - contributions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/demo/start/:
+    post:
+      operationId: demo_start_create
+      description: Create a demo user and seed sample assets.
+      tags:
+      - demo
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/me:
+    get:
+      operationId: me_retrieve
+      tags:
+      - me
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/onboarding-status/:
+    get:
+      operationId: onboarding_status_retrieve
+      tags:
+      - onboarding-status
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/permits/:
+    get:
+      operationId: permits_list
+      description: Retrieve a list of all building permits
+      summary: List all permits
+      tags:
+      - Permits
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Permit'
+          description: ''
+    post:
+      operationId: permits_create
+      description: Create a new building permit
+      summary: Create a new permit
+      tags:
+      - Permits
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermitRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PermitRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PermitRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permit'
+          description: ''
+  /api/permits/{id}/:
+    get:
+      operationId: permits_retrieve
+      description: Get details of a specific permit by ID
+      summary: Retrieve a permit
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this permit.
+        required: true
+      tags:
+      - Permits
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permit'
+          description: ''
+    put:
+      operationId: permits_update
+      description: Update an existing permit
+      summary: Update a permit
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this permit.
+        required: true
+      tags:
+      - Permits
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermitRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PermitRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PermitRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permit'
+          description: ''
+    patch:
+      operationId: permits_partial_update
+      description: Partially update an existing permit
+      summary: Partially update a permit
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this permit.
+        required: true
+      tags:
+      - Permits
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPermitRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPermitRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPermitRequest'
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permit'
+          description: ''
+    delete:
+      operationId: permits_destroy
+      description: Delete a permit by ID
+      summary: Delete a permit
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this permit.
+        required: true
+      tags:
+      - Permits
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/plans/:
+    get:
+      operationId: plans_list
+      description: Retrieve a list of all urban planning documents
+      summary: List all plans
+      tags:
+      - Plans
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+          description: ''
+    post:
+      operationId: plans_create
+      description: Create a new urban planning document
+      summary: Create a new plan
+      tags:
+      - Plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+  /api/plans/{id}/:
+    get:
+      operationId: plans_retrieve
+      description: Get details of a specific plan by ID
+      summary: Retrieve a plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plan.
+        required: true
+      tags:
+      - Plans
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+    put:
+      operationId: plans_update
+      description: Update an existing plan
+      summary: Update a plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plan.
+        required: true
+      tags:
+      - Plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlanRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+    patch:
+      operationId: plans_partial_update
+      description: Partially update an existing plan
+      summary: Partially update a plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plan.
+        required: true
+      tags:
+      - Plans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlanRequest'
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+          description: ''
+    delete:
+      operationId: plans_destroy
+      description: Delete a plan by ID
+      summary: Delete a plan
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plan.
+        required: true
+      tags:
+      - Plans
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/plans/info/:
+    get:
+      operationId: plans_info_retrieve
+      description: Get current user's plan information.
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/plans/types/:
+    get:
+      operationId: plans_types_retrieve
+      description: Get all available plan types.
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/plans/upgrade/:
+    post:
+      operationId: plans_upgrade_create
+      description: Upgrade user to a new plan.
+      tags:
+      - plans
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/profile/:
+    get:
+      operationId: profile_retrieve
+      description: Get or create user profile with contribution statistics.
+      tags:
+      - profile
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/profile/update/:
+    put:
+      operationId: profile_update_update
+      description: Update user profile preferences.
+      tags:
+      - profile
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/reports/:
+    get:
+      operationId: reports_retrieve
+      description: Create a PDF report for a listing or list existing reports.
+      tags:
+      - reports
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: reports_create
+      description: Create a PDF report for a listing or list existing reports.
+      tags:
+      - reports
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: reports_destroy
+      description: Create a PDF report for a listing or list existing reports.
+      tags:
+      - reports
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/settings/:
+    get:
+      operationId: settings_retrieve
+      description: Retrieve or update user settings.
+      tags:
+      - settings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: settings_update
+      description: Retrieve or update user settings.
+      tags:
+      - settings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/support/bug:
+    post:
+      operationId: support_bug_create
+      tags:
+      - support
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/support/consultation:
+    post:
+      operationId: support_consultation_create
+      tags:
+      - support
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/support/contact:
+    post:
+      operationId: support_contact_create
+      tags:
+      - support
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/top-contributors/:
+    get:
+      operationId: top_contributors_retrieve
+      description: Get top contributors by various metrics.
+      tags:
+      - top-contributors
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /r/{token}:
+    get:
+      operationId: r_retrieve
+      description: Render a read-only view of an asset for sharing.
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - r
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+components:
+  schemas:
+    Asset:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        scope_type:
+          $ref: '#/components/schemas/ScopeTypeEnum'
+        city:
+          type: string
+          nullable: true
+          maxLength: 100
+        neighborhood:
+          type: string
+          nullable: true
+          maxLength: 100
+        street:
+          type: string
+          nullable: true
+          maxLength: 200
+        number:
+          type: integer
+          nullable: true
+        gush:
+          type: string
+          nullable: true
+          maxLength: 20
+        helka:
+          type: string
+          nullable: true
+          maxLength: 20
+        subhelka:
+          type: string
+          nullable: true
+          maxLength: 20
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lon:
+          type: number
+          format: double
+          nullable: true
+        normalized_address:
+          type: string
+          nullable: true
+          maxLength: 500
+        address:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        building_type:
+          type: string
+          nullable: true
+          maxLength: 50
+        floor:
+          type: integer
+          nullable: true
+        apartment:
+          type: string
+          nullable: true
+          maxLength: 20
+        total_floors:
+          type: integer
+          nullable: true
+        rooms:
+          type: integer
+          nullable: true
+        bedrooms:
+          type: integer
+          nullable: true
+        bathrooms:
+          type: integer
+          nullable: true
+        area:
+          type: number
+          format: double
+          nullable: true
+        total_area:
+          type: number
+          format: double
+          nullable: true
+        balcony_area:
+          type: number
+          format: double
+          nullable: true
+        parking_spaces:
+          type: integer
+          nullable: true
+        storage_room:
+          type: boolean
+        elevator:
+          type: boolean
+        air_conditioning:
+          type: boolean
+        furnished:
+          type: boolean
+        renovated:
+          type: boolean
+        year_built:
+          type: integer
+          nullable: true
+        last_renovation:
+          type: integer
+          nullable: true
+        price:
+          type: integer
+          nullable: true
+        price_per_sqm:
+          type: integer
+          nullable: true
+        rent_estimate:
+          type: integer
+          nullable: true
+        zoning:
+          type: string
+          nullable: true
+          maxLength: 100
+        building_rights:
+          type: string
+          nullable: true
+          maxLength: 200
+        permit_status:
+          type: string
+          nullable: true
+          maxLength: 50
+        permit_date:
+          type: string
+          format: date
+          nullable: true
+        is_demo:
+          type: boolean
+        last_enriched_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: integer
+          nullable: true
+          description: User who originally created this asset
+        last_updated_by:
+          type: integer
+          nullable: true
+          description: User who last updated this asset
+      required:
+      - scope_type
+    AssetRequest:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        scope_type:
+          $ref: '#/components/schemas/ScopeTypeEnum'
+        city:
+          type: string
+          nullable: true
+          maxLength: 100
+        neighborhood:
+          type: string
+          nullable: true
+          maxLength: 100
+        street:
+          type: string
+          nullable: true
+          maxLength: 200
+        number:
+          type: integer
+          nullable: true
+        gush:
+          type: string
+          nullable: true
+          maxLength: 20
+        helka:
+          type: string
+          nullable: true
+          maxLength: 20
+        subhelka:
+          type: string
+          nullable: true
+          maxLength: 20
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lon:
+          type: number
+          format: double
+          nullable: true
+        normalized_address:
+          type: string
+          nullable: true
+          maxLength: 500
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        building_type:
+          type: string
+          nullable: true
+          maxLength: 50
+        floor:
+          type: integer
+          nullable: true
+        apartment:
+          type: string
+          nullable: true
+          maxLength: 20
+        total_floors:
+          type: integer
+          nullable: true
+        rooms:
+          type: integer
+          nullable: true
+        bedrooms:
+          type: integer
+          nullable: true
+        bathrooms:
+          type: integer
+          nullable: true
+        area:
+          type: number
+          format: double
+          nullable: true
+        total_area:
+          type: number
+          format: double
+          nullable: true
+        balcony_area:
+          type: number
+          format: double
+          nullable: true
+        parking_spaces:
+          type: integer
+          nullable: true
+        storage_room:
+          type: boolean
+        elevator:
+          type: boolean
+        air_conditioning:
+          type: boolean
+        furnished:
+          type: boolean
+        renovated:
+          type: boolean
+        year_built:
+          type: integer
+          nullable: true
+        last_renovation:
+          type: integer
+          nullable: true
+        price:
+          type: integer
+          nullable: true
+        price_per_sqm:
+          type: integer
+          nullable: true
+        rent_estimate:
+          type: integer
+          nullable: true
+        zoning:
+          type: string
+          nullable: true
+          maxLength: 100
+        building_rights:
+          type: string
+          nullable: true
+          maxLength: 200
+        permit_status:
+          type: string
+          nullable: true
+          maxLength: 50
+        permit_date:
+          type: string
+          format: date
+          nullable: true
+        is_demo:
+          type: boolean
+        last_enriched_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_by:
+          type: integer
+          nullable: true
+          description: User who originally created this asset
+        last_updated_by:
+          type: integer
+          nullable: true
+          description: User who last updated this asset
+      required:
+      - scope_type
+    PatchedAssetRequest:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        scope_type:
+          $ref: '#/components/schemas/ScopeTypeEnum'
+        city:
+          type: string
+          nullable: true
+          maxLength: 100
+        neighborhood:
+          type: string
+          nullable: true
+          maxLength: 100
+        street:
+          type: string
+          nullable: true
+          maxLength: 200
+        number:
+          type: integer
+          nullable: true
+        gush:
+          type: string
+          nullable: true
+          maxLength: 20
+        helka:
+          type: string
+          nullable: true
+          maxLength: 20
+        subhelka:
+          type: string
+          nullable: true
+          maxLength: 20
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lon:
+          type: number
+          format: double
+          nullable: true
+        normalized_address:
+          type: string
+          nullable: true
+          maxLength: 500
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        building_type:
+          type: string
+          nullable: true
+          maxLength: 50
+        floor:
+          type: integer
+          nullable: true
+        apartment:
+          type: string
+          nullable: true
+          maxLength: 20
+        total_floors:
+          type: integer
+          nullable: true
+        rooms:
+          type: integer
+          nullable: true
+        bedrooms:
+          type: integer
+          nullable: true
+        bathrooms:
+          type: integer
+          nullable: true
+        area:
+          type: number
+          format: double
+          nullable: true
+        total_area:
+          type: number
+          format: double
+          nullable: true
+        balcony_area:
+          type: number
+          format: double
+          nullable: true
+        parking_spaces:
+          type: integer
+          nullable: true
+        storage_room:
+          type: boolean
+        elevator:
+          type: boolean
+        air_conditioning:
+          type: boolean
+        furnished:
+          type: boolean
+        renovated:
+          type: boolean
+        year_built:
+          type: integer
+          nullable: true
+        last_renovation:
+          type: integer
+          nullable: true
+        price:
+          type: integer
+          nullable: true
+        price_per_sqm:
+          type: integer
+          nullable: true
+        rent_estimate:
+          type: integer
+          nullable: true
+        zoning:
+          type: string
+          nullable: true
+          maxLength: 100
+        building_rights:
+          type: string
+          nullable: true
+          maxLength: 200
+        permit_status:
+          type: string
+          nullable: true
+          maxLength: 50
+        permit_date:
+          type: string
+          format: date
+          nullable: true
+        is_demo:
+          type: boolean
+        last_enriched_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_by:
+          type: integer
+          nullable: true
+          description: User who originally created this asset
+        last_updated_by:
+          type: integer
+          nullable: true
+          description: User who last updated this asset
+    PatchedPermitRequest:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        asset:
+          type: integer
+        permit_number:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        status:
+          type: string
+          maxLength: 50
+        issued_date:
+          type: string
+          format: date
+          nullable: true
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+        file_url:
+          type: string
+          maxLength: 500
+    PatchedPlanRequest:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        asset:
+          type: integer
+        plan_number:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        status:
+          type: string
+          maxLength: 50
+        effective_date:
+          type: string
+          format: date
+          nullable: true
+        file_url:
+          type: string
+          maxLength: 500
+    Permit:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        asset:
+          type: integer
+        permit_number:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        status:
+          type: string
+          maxLength: 50
+        issued_date:
+          type: string
+          format: date
+          nullable: true
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+        file_url:
+          type: string
+          maxLength: 500
+      required:
+      - asset
+      - permit_number
+    PermitRequest:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        asset:
+          type: integer
+        permit_number:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        status:
+          type: string
+          maxLength: 50
+        issued_date:
+          type: string
+          format: date
+          nullable: true
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+        file_url:
+          type: string
+          maxLength: 500
+      required:
+      - asset
+      - permit_number
+    Plan:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        asset:
+          type: integer
+        plan_number:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        status:
+          type: string
+          maxLength: 50
+        effective_date:
+          type: string
+          format: date
+          nullable: true
+        file_url:
+          type: string
+          maxLength: 500
+      required:
+      - asset
+      - plan_number
+    PlanRequest:
+      type: object
+      description: Adds _meta section with field lineage information.
+      properties:
+        asset:
+          type: integer
+        plan_number:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        status:
+          type: string
+          maxLength: 50
+        effective_date:
+          type: string
+          format: date
+          nullable: true
+        file_url:
+          type: string
+          maxLength: 500
+      required:
+      - asset
+      - plan_number
+    ScopeTypeEnum:
+      enum:
+      - address
+      - neighborhood
+      - street
+      - city
+      - parcel
+      type: string
+      description: |-
+        * `address` - Address
+        * `neighborhood` - Neighborhood
+        * `street` - Street
+        * `city` - City
+        * `parcel` - Parcel
+    StatusEnum:
+      enum:
+      - pending
+      - enriching
+      - done
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `enriching` - Enriching
+        * `done` - Done
+        * `failed` - Failed
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: http://localhost:8000
+  description: Development server
+- url: https://api.nadlaner.com
+  description: Production server
+tags:
+- name: Authentication
+  description: User authentication and authorization
+- name: Assets
+  description: Real estate asset management
+- name: Permits
+  description: Building permits and approvals
+- name: Plans
+  description: Urban planning and development plans
+- name: Alerts
+  description: Alert rules and notifications
+- name: Analytics
+  description: Usage analytics and reporting
+- name: Support
+  description: Support and consultation services
+- name: User Management
+  description: User profiles and settings

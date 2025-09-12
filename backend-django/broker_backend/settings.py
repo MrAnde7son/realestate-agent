@@ -157,6 +157,28 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Real Estate API',
     'DESCRIPTION': 'API schema for assets, permits and plans',
     'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'COMPONENT_NO_READ_ONLY_REQUIRED': True,
+    'ENUM_NAME_OVERRIDES': {
+        'UserRoleEnum': 'core.models.User.Role',
+        'PlanTypeEnum': 'core.models.PlanType.PLAN_CHOICES',
+    },
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SERVERS': [
+        {'url': 'http://localhost:8000', 'description': 'Development server'},
+        {'url': 'https://api.nadlaner.com', 'description': 'Production server'},
+    ],
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'User authentication and authorization'},
+        {'name': 'Assets', 'description': 'Real estate asset management'},
+        {'name': 'Permits', 'description': 'Building permits and approvals'},
+        {'name': 'Plans', 'description': 'Urban planning and development plans'},
+        {'name': 'Alerts', 'description': 'Alert rules and notifications'},
+        {'name': 'Analytics', 'description': 'Usage analytics and reporting'},
+        {'name': 'Support', 'description': 'Support and consultation services'},
+        {'name': 'User Management', 'description': 'User profiles and settings'},
+    ],
 }
 
 # JWT settings

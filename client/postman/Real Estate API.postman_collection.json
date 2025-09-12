@@ -1,0 +1,416 @@
+{
+  "info": {
+    "name": "Real Estate API",
+    "description": "Collection for the Real Estate API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"username\": \"newuser\",\n  \"first_name\": \"New\",\n  \"last_name\": \"User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"your-refresh-token-here\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "profile", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Name\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/update-profile/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "update-profile", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Assets",
+      "item": [
+        {
+          "name": "List Assets",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/assets/",
+              "host": ["{{baseUrl}}"],
+              "path": ["assets", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Asset",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/assets/1/",
+              "host": ["{{baseUrl}}"],
+              "path": ["assets", "1", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Asset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"123 Main St\",\n  \"street\": \"Main St\",\n  \"number\": 123,\n  \"city\": \"Tel Aviv\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assets/",
+              "host": ["{{baseUrl}}"],
+              "path": ["assets", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Asset",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"123 Main St, Updated\",\n  \"city\": \"Jerusalem\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/assets/1/",
+              "host": ["{{baseUrl}}"],
+              "path": ["assets", "1", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Asset",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/assets/1/",
+              "host": ["{{baseUrl}}"],
+              "path": ["assets", "1", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Asset Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/assets/stats/",
+              "host": ["{{baseUrl}}"],
+              "path": ["assets", "stats", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Permits",
+      "item": [
+        {
+          "name": "List Permits",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permits/",
+              "host": ["{{baseUrl}}"],
+              "path": ["permits", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Permit",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/permits/1/",
+              "host": ["{{baseUrl}}"],
+              "path": ["permits", "1", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Permit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permit_number\": \"PERMIT-001\",\n  \"status\": \"active\",\n  \"description\": \"Building permit for new construction\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/permits/",
+              "host": ["{{baseUrl}}"],
+              "path": ["permits", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Plans",
+      "item": [
+        {
+          "name": "List Plans",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/plans/",
+              "host": ["{{baseUrl}}"],
+              "path": ["plans", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Plan",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/plans/1/",
+              "host": ["{{baseUrl}}"],
+              "path": ["plans", "1", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_number\": \"PLAN-001\",\n  \"title\": \"Urban Development Plan\",\n  \"status\": \"approved\",\n  \"description\": \"Comprehensive urban development plan\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/plans/",
+              "host": ["{{baseUrl}}"],
+              "path": ["plans", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Timeseries Data",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/analytics/timeseries",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "timeseries"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Top Failures",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/analytics/top-failures",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "top-failures"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "Get Alerts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/alerts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["alerts", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Price Alert\",\n  \"condition\": \"price > 1000000\",\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/alerts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["alerts", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

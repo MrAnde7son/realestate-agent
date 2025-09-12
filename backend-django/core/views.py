@@ -19,6 +19,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 
 import logging
 
@@ -93,6 +95,40 @@ def _update_onboarding(user, step):
 
 
 # Authentication views
+@extend_schema(
+    summary="User login",
+    description="Authenticate user with email and password",
+    tags=["Authentication"],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'email': {'type': 'string', 'format': 'email'},
+                'password': {'type': 'string'},
+            },
+            'required': ['email', 'password']
+        }
+    },
+    responses={
+        200: {
+            'description': 'Login successful',
+            'examples': {
+                'application/json': {
+                    'access': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
+                    'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
+                    'user': {
+                        'id': 1,
+                        'email': 'user@example.com',
+                        'username': 'user',
+                        'role': 'member'
+                    }
+                }
+            }
+        },
+        400: {'description': 'Invalid credentials'},
+        401: {'description': 'Authentication failed'}
+    }
+)
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def auth_login(request):
@@ -132,6 +168,29 @@ def auth_login(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@extend_schema(
+    summary="User registration",
+    description="Register a new user account",
+    tags=["Authentication"],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'email': {'type': 'string', 'format': 'email'},
+                'password': {'type': 'string', 'minLength': 8},
+                'username': {'type': 'string'},
+                'first_name': {'type': 'string'},
+                'last_name': {'type': 'string'},
+            },
+            'required': ['email', 'password', 'username']
+        }
+    },
+    responses={
+        201: {'description': 'User created successfully'},
+        400: {'description': 'Invalid input data'},
+        409: {'description': 'User already exists'}
+    }
+)
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def auth_register(request):

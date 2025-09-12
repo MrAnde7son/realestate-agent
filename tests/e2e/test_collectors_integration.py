@@ -378,8 +378,8 @@ class TestCollectorsIntegration:
         
         assert isinstance(appraisals, list), "Appraisals should be a list"
         if len(appraisals) == 0:
-            logger.warning("⚠ No appraisals found - this might indicate rate limiting or network issues in CI")
-            pytest.skip("No appraisals found - likely due to CI environment constraints")
+            logger.warning("⚠ No appraisals found - government site may have changed to use dynamic content loading")
+            pytest.skip("No appraisals found - government site may require JavaScript for dynamic content loading")
         logger.info(f"✓ Found {len(appraisals)} decisive appraisals")
 
         # Test 2: Check appraisal structure

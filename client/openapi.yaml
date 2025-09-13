@@ -3,216 +3,216 @@ info:
   title: Real Estate API
   version: 1.0.0
   description: API schema for assets, permits and plans
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://staging.nadlaner.com
+    description: Staging server
+  - url: https://api.nadlaner.com
+    description: Production server
 paths:
   /api/alert-events/:
     get:
       operationId: alert_events_retrieve
       description: Get alert events for the current user.
       tags:
-      - alert-events
+      - Alerts
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/alert-test/:
     post:
       operationId: alert_test_create
       description: Send a test alert to verify channels are working.
       tags:
-      - alert-test
+      - Alerts
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/alerts/:
     get:
       operationId: alerts_retrieve
       tags:
-      - alerts
+      - Alerts
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
     post:
       operationId: alerts_create
       tags:
-      - alerts
+      - Alerts
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
     put:
       operationId: alerts_update
       tags:
-      - alerts
+      - Alerts
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
     delete:
       operationId: alerts_destroy
       tags:
-      - alerts
+      - Alerts
       security:
       - jwtAuth: []
       responses:
         '204':
-          description: No response body
+          description: No content
   /api/analytics/page-view:
     post:
       operationId: analytics_page_view_create
       description: Track page views from frontend.
       tags:
-      - analytics
+      - Analytics
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/analytics/session-end:
     post:
       operationId: analytics_session_end_create
       description: Track session end from frontend.
       tags:
-      - analytics
+      - Analytics
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/analytics/timeseries:
     get:
       operationId: analytics_timeseries_retrieve
       tags:
-      - analytics
+      - Analytics
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/analytics/top-failures:
     get:
       operationId: analytics_top_failures_retrieve
       tags:
-      - analytics
+      - Analytics
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/analytics/track:
     post:
       operationId: analytics_track_create
       description: Track analytics events from frontend.
       tags:
-      - analytics
+      - Analytics
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/assets/:
     get:
-      operationId: assets_retrieve
-      description: |-
-        Handle assets - GET (list all) or POST (create new).
-
-        GET: Returns all assets in listing format
-        POST: Creates a new asset and enqueues enrichment pipeline
-
-        Expected JSON payload for POST:
-        {
-            "scope": {
-                "type": "address|neighborhood|street|city|parcel",
-                "value": "string",
-                "city": "string"
-            },
-            "address": "string",
-            "city": "string",
-            "street": "string",
-            "number": "integer",
-            "gush": "string",
-            "helka": "string",
-            "radius": "integer"
-        }
+      operationId: assets_list
+      summary: List all assets
       tags:
-      - assets
+      - Assets
       security:
       - jwtAuth: []
-      - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Asset'
     post:
       operationId: assets_create
-      description: |-
-        Handle assets - GET (list all) or POST (create new).
-
-        GET: Returns all assets in listing format
-        POST: Creates a new asset and enqueues enrichment pipeline
-
-        Expected JSON payload for POST:
-        {
-            "scope": {
-                "type": "address|neighborhood|street|city|parcel",
-                "value": "string",
-                "city": "string"
-            },
-            "address": "string",
-            "city": "string",
-            "street": "string",
-            "number": "integer",
-            "gush": "string",
-            "helka": "string",
-            "radius": "integer"
-        }
+      summary: Create a new asset
       tags:
-      - assets
+      - Assets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
       security:
       - jwtAuth: []
-      - {}
       responses:
-        '200':
-          description: No response body
+        '201':
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
     delete:
       operationId: assets_destroy
-      description: |-
-        Handle assets - GET (list all) or POST (create new).
-
-        GET: Returns all assets in listing format
-        POST: Creates a new asset and enqueues enrichment pipeline
-
-        Expected JSON payload for POST:
-        {
-            "scope": {
-                "type": "address|neighborhood|street|city|parcel",
-                "value": "string",
-                "city": "string"
-            },
-            "address": "string",
-            "city": "string",
-            "street": "string",
-            "number": "integer",
-            "gush": "string",
-            "helka": "string",
-            "radius": "integer"
-        }
+      summary: Delete assets
       tags:
-      - assets
+      - Assets
       security:
       - jwtAuth: []
-      - {}
       responses:
         '204':
-          description: No response body
+          description: No content
   /api/assets/{asset_id}/add-contribution/:
     post:
       operationId: assets_add_contribution_create
@@ -224,12 +224,16 @@ paths:
           type: integer
         required: true
       tags:
-      - assets
+      - Assets
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/assets/{asset_id}/contributions/:
     get:
       operationId: assets_contributions_retrieve
@@ -241,12 +245,16 @@ paths:
           type: integer
         required: true
       tags:
-      - assets
+      - Assets
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/assets/{asset_id}/share-message/:
     post:
       operationId: assets_share_message_create
@@ -258,13 +266,17 @@ paths:
           type: integer
         required: true
       tags:
-      - assets
+      - Assets
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/assets/{id}/:
     get:
       operationId: assets_retrieve_2
@@ -376,7 +388,7 @@ paths:
       - {}
       responses:
         '204':
-          description: No response body
+          description: No content
   /api/assets/stats/:
     get:
       operationId: assets_stats_retrieve
@@ -399,36 +411,48 @@ paths:
       operationId: auth_change_password_create
       description: Change user password endpoint.
       tags:
-      - auth
+      - Authentication
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/auth/google/callback/:
     get:
       operationId: auth_google_callback_retrieve
       description: Handle Google OAuth callback via the auth service.
       tags:
-      - auth
+      - Authentication
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/auth/google/login/:
     get:
       operationId: auth_google_login_retrieve
       description: Initiate Google OAuth login flow using the auth service.
       tags:
-      - auth
+      - Authentication
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/auth/login/:
     post:
       operationId: auth_login_create
@@ -486,35 +510,47 @@ paths:
       operationId: auth_logout_create
       description: User logout endpoint.
       tags:
-      - auth
+      - Authentication
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/auth/profile/:
     get:
       operationId: auth_profile_retrieve
       description: Get current user profile.
       tags:
-      - auth
+      - Authentication
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/auth/refresh/:
     post:
       operationId: auth_refresh_create
       description: Refresh JWT token.
       tags:
-      - auth
+      - Authentication
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/auth/register/:
     post:
       operationId: auth_register_create
@@ -571,65 +607,89 @@ paths:
       operationId: auth_update_profile_update
       description: Update current user profile.
       tags:
-      - auth
+      - Authentication
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/connect-payment/:
     post:
       operationId: connect_payment_create
       tags:
-      - connect-payment
+      - Connect Payment
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/contributions/:
     get:
       operationId: contributions_retrieve
       description: Get all contributions made by the current user.
       tags:
-      - contributions
+      - Contributions
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/demo/start/:
     post:
       operationId: demo_start_create
       description: Create a demo user and seed sample assets.
       tags:
-      - demo
+      - Demo
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/me:
     get:
       operationId: me_retrieve
       tags:
-      - me
+      - Me
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/onboarding-status/:
     get:
       operationId: onboarding_status_retrieve
       tags:
-      - onboarding-status
+      - Onboarding Status
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/permits/:
     get:
       operationId: permits_list
@@ -788,7 +848,7 @@ paths:
       - {}
       responses:
         '204':
-          description: No response body
+          description: No content
   /api/plans/:
     get:
       operationId: plans_list
@@ -947,159 +1007,211 @@ paths:
       - {}
       responses:
         '204':
-          description: No response body
+          description: No content
   /api/plans/info/:
     get:
       operationId: plans_info_retrieve
       description: Get current user's plan information.
       tags:
-      - plans
+      - Plans
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/plans/types/:
     get:
       operationId: plans_types_retrieve
       description: Get all available plan types.
       tags:
-      - plans
+      - Plans
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/plans/upgrade/:
     post:
       operationId: plans_upgrade_create
       description: Upgrade user to a new plan.
       tags:
-      - plans
+      - Plans
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/profile/:
     get:
       operationId: profile_retrieve
       description: Get or create user profile with contribution statistics.
       tags:
-      - profile
+      - Profile
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/profile/update/:
     put:
       operationId: profile_update_update
       description: Update user profile preferences.
       tags:
-      - profile
+      - Profile
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/reports/:
     get:
       operationId: reports_retrieve
       description: Create a PDF report for a listing or list existing reports.
       tags:
-      - reports
+      - Reports
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
     post:
       operationId: reports_create
       description: Create a PDF report for a listing or list existing reports.
       tags:
-      - reports
+      - Reports
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
     delete:
       operationId: reports_destroy
       description: Create a PDF report for a listing or list existing reports.
       tags:
-      - reports
+      - Reports
       security:
       - jwtAuth: []
       - {}
       responses:
         '204':
-          description: No response body
+          description: No content
   /api/settings/:
     get:
       operationId: settings_retrieve
       description: Retrieve or update user settings.
       tags:
-      - settings
+      - Settings
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
     put:
       operationId: settings_update
       description: Retrieve or update user settings.
       tags:
-      - settings
+      - Settings
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/support/bug:
     post:
       operationId: support_bug_create
       tags:
-      - support
+      - Support
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/support/consultation:
     post:
       operationId: support_consultation_create
       tags:
-      - support
+      - Support
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/support/contact:
     post:
       operationId: support_contact_create
       tags:
-      - support
+      - Support
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /api/top-contributors/:
     get:
       operationId: top_contributors_retrieve
       description: Get top contributors by various metrics.
       tags:
-      - top-contributors
+      - Top Contributors
       security:
       - jwtAuth: []
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
   /r/{token}:
     get:
       operationId: r_retrieve
@@ -1111,13 +1223,17 @@ paths:
           type: string
         required: true
       tags:
-      - r
+      - Shared
       security:
       - jwtAuth: []
       - {}
       responses:
         '200':
-          description: No response body
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
 components:
   schemas:
     Asset:
@@ -1745,11 +1861,6 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-servers:
-- url: http://localhost:8000
-  description: Development server
-- url: https://api.nadlaner.com
-  description: Production server
 tags:
 - name: Authentication
   description: User authentication and authorization

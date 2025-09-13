@@ -10,9 +10,17 @@ The Real Estate API provides a comprehensive REST API for managing real estate a
 
 ### Interactive Documentation
 
-- **Swagger UI**: `http://localhost:8000/api/docs/` - Interactive API explorer
-- **ReDoc**: `http://localhost:8000/api/docs/redoc/` - Clean, responsive documentation
-- **OpenAPI YAML**: `http://localhost:8000/api/docs/openapi.yaml` - Raw OpenAPI specification
+To view documentation for non-local environments, update the base URL accordingly (e.g., \`https://staging.nadlaner.com\` or \`https://api.nadlaner.com\`).
+
+- **Swagger UI (local)**: `http://localhost:8000/api/docs/` - Interactive API explorer
+- **Swagger UI (staging)**: `https://staging.nadlaner.com/api/docs/` - Staging environment
+- **Swagger UI (production)**: `https://api.nadlaner.com/api/docs/` - Production environment
+- **ReDoc (local)**: `http://localhost:8000/api/docs/redoc/` - Clean, responsive documentation
+- **ReDoc (staging)**: `https://staging.nadlaner.com/api/docs/redoc/` - Staging environment
+- **ReDoc (production)**: `https://api.nadlaner.com/api/docs/redoc/` - Production environment
+- **OpenAPI YAML (local)**: `http://localhost:8000/api/docs/openapi.yaml` - Raw specification
+- **OpenAPI YAML (staging)**: `https://staging.nadlaner.com/api/docs/openapi.yaml`
+- **OpenAPI YAML (production)**: `https://api.nadlaner.com/api/docs/openapi.yaml`
 
 ### API Endpoints
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { appraisalByAsset } from '@/lib/data'
+import { appraisalByAsset, compsByAsset } from '@/lib/data'
 
 export async function GET(
   request: NextRequest,
@@ -10,8 +10,10 @@ export async function GET(
 
   try {
     // Try to fetch from backend first
-    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/appraisal/`)
-    
+    const backendResponse = await fetch(
+      `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/appraisal/`
+    )
+
     if (backendResponse.ok) {
       const data = await backendResponse.json()
       return NextResponse.json(data)
@@ -21,5 +23,8 @@ export async function GET(
   }
 
   // Fallback to mock data
-  return NextResponse.json(appraisalByAsset(numericId))
+  return NextResponse.json({
+    appraisal: appraisalByAsset(numericId),
+    comps: compsByAsset(numericId)
+  })
 }

@@ -41,6 +41,24 @@ class PlanService:
             if created:
                 created_plans.append(plan_type)
                 logger.info(f"Created plan type: {plan_type.name}")
+            else:
+                # Update existing plan limits if they've changed
+                updated_fields = []
+                for field, value in limits.items():
+                    if getattr(plan_type, field) != value:
+                        setattr(plan_type, field, value)
+                        updated_fields.append(field)
+                display_name = PLAN_DISPLAY_NAMES.get(plan_name, plan_name.title())
+                description = PLAN_DESCRIPTIONS.get(plan_name, '')
+                if plan_type.display_name != display_name:
+                    plan_type.display_name = display_name
+                    updated_fields.append('display_name')
+                if plan_type.description != description:
+                    plan_type.description = description
+                    updated_fields.append('description')
+                if updated_fields:
+                    plan_type.save(update_fields=updated_fields)
+                    logger.info(f"Updated plan type: {plan_type.name}")
         
         return created_plans
     
@@ -131,7 +149,7 @@ class PlanService:
                 'error': 'validation_error',
                 'message': 'An error occurred while validating your plan. Please try again.',
                 'current_plan': 'unknown',
-                'asset_limit': 5,
+                'asset_limit': 1,
                 'assets_used': 0
             }
     
@@ -207,7 +225,7 @@ class PlanService:
                 'is_expired': False,
                 'expires_at': None,
                 'limits': {
-                    'assets': {'limit': 5, 'used': 0, 'remaining': 5},
+                    'assets': {'limit': 1, 'used': 0, 'remaining': 1},
                     'reports': {'limit': 10, 'used': 0, 'remaining': 10},
                     'alerts': {'limit': 5, 'used': 0, 'remaining': 5}
                 },

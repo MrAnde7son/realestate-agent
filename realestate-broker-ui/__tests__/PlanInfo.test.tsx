@@ -54,7 +54,7 @@ describe('PlanInfo Component', () => {
     is_expired: false,
     expires_at: null,
     limits: {
-      assets: { limit: 5, used: 3, remaining: 2 },
+      assets: { limit: 1, used: 0, remaining: 1 },
       reports: { limit: 10, used: 1, remaining: 9 },
       alerts: { limit: 5, used: 0, remaining: 5 }
     },
@@ -136,7 +136,7 @@ describe('PlanInfo Component', () => {
     expect(screen.getByText('Free plan for basic users')).toBeInTheDocument()
     
     // Check limits
-    expect(screen.getByText('3 / 5')).toBeInTheDocument()
+    expect(screen.getByText('0 / 1')).toBeInTheDocument()
   })
 
   it('renders unlimited plan correctly for pro plan', async () => {

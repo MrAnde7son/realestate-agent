@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from decimal import Decimal
 
 from core.models import PlanType, UserPlan
+from core.plan_service import PlanService
 
 User = get_user_model()
 
@@ -46,6 +47,7 @@ class TestUserPlanAssignments:
     def test_demo_user_has_free_plan(self):
         """Test that demo@example.com has free plan"""
         try:
+            PlanService.get_or_create_plan_types()
             demo_user = User.objects.get(email='demo@example.com')
             
             # Check that demo has a plan
@@ -53,11 +55,11 @@ class TestUserPlanAssignments:
             
             # Check that it's the free plan
             assert demo_user.current_plan.plan_type.name == 'free'
-            assert demo_user.current_plan.plan_type.display_name == 'Free Plan'
+            assert demo_user.current_plan.plan_type.display_name == 'חבילה חינמית'
             
             # Check free plan features
             plan_type = demo_user.current_plan.plan_type
-            assert plan_type.asset_limit == 5
+            assert plan_type.asset_limit == 1
             assert plan_type.api_access is False
             assert plan_type.advanced_analytics is False
             assert plan_type.data_export is False
@@ -96,11 +98,12 @@ class TestUserPlanAssignments:
     def test_demo_user_plan_limits(self):
         """Test demo user plan limits and features"""
         try:
+            PlanService.get_or_create_plan_types()
             demo_user = User.objects.get(email='demo@example.com')
             plan_info = demo_user.current_plan.plan_type
             
-            # Test asset limits (free plan has 5 assets)
-            assert demo_user.get_asset_limit() == 5
+            # Test asset limits (free plan has 1 asset)
+            assert demo_user.get_asset_limit() == 1
             
             # Test feature access (free plan has no advanced features)
             assert plan_info.advanced_analytics is False
@@ -157,6 +160,7 @@ class TestUserPlanAssignments:
     def test_plan_assignments_usage_tracking(self):
         """Test that plan assignments have proper usage tracking"""
         try:
+            PlanService.get_or_create_plan_types()
             admin_user = User.objects.get(email='admin@example.com')
             demo_user = User.objects.get(email='demo@example.com')
             
@@ -171,7 +175,7 @@ class TestUserPlanAssignments:
             
             # Check remaining assets calculation
             assert admin_user.current_plan.get_remaining_assets() == -1  # Unlimited
-            assert demo_user.current_plan.get_remaining_assets() == 5  # Free plan limit
+            assert demo_user.current_plan.get_remaining_assets() == 1  # Free plan limit
             
         except User.DoesNotExist:
             pytest.skip("Users not found - may not be created in test environment")

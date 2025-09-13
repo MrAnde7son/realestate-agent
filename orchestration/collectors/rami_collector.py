@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from rami.rami_client import RamiClient
+from gov.rami.rami_client import RamiClient
 
 from .base_collector import BaseCollector
 
@@ -13,15 +13,19 @@ class RamiCollector(BaseCollector):
     def __init__(self, client: Optional[RamiClient] = None) -> None:
         self.client = client or RamiClient()
 
-    def collect(self, block: str, parcel: str) -> List[Dict[str, Any]]:
-        """Collect RAMI plans for a given block/parcel."""
+    def collect(self, gush: str, chelka: str) -> List[Dict[str, Any]]:
+        """Collect RAMI plans for a given gush (block) and chelka (parcel)."""
         try:
-            # Search for plans by block and parcel
-            plans = self.client.search_plans(block=block, parcel=parcel)
+            # Create search parameters using the same logic as the test
+            search_params = self.client.create_search_params(gush=gush, chelka=chelka)
             
-            # Convert to consistent format
+            # Fetch plans using the same method as the test
+            plans_df = self.client.fetch_plans(search_params)
+            
+            # Convert DataFrame to list of dictionaries
             formatted_plans = []
-            for plan in plans:
+            for _, plan_row in plans_df.iterrows():
+                plan = plan_row.to_dict()
                 formatted_plans.append({
                     "planNumber": plan.get("planNumber", ""),
                     "planId": plan.get("planId", ""),
@@ -36,5 +40,5 @@ class RamiCollector(BaseCollector):
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for RAMI data collection."""
-        required_params = ['block', 'parcel']
+        required_params = ['gush', 'chelka']
         return all(param in kwargs for param in required_params)

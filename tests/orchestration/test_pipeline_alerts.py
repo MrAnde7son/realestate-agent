@@ -8,11 +8,11 @@ from db.database import SQLAlchemyDatabase
 def test_load_user_notifiers_initializes_for_each_active_alert(monkeypatch):
     calls = []
 
-    def fake_create(user, criteria):
-        calls.append((user, criteria))
+    def fake_create(alert_rule):
+        calls.append((alert_rule.user, alert_rule.params))
         return object()
 
-    monkeypatch.setattr(data_pipeline, "create_notifier_for_user", fake_create)
+    monkeypatch.setattr("orchestration.alerts.create_notifier_for_alert_rule", fake_create)
 
     class DummyUser:
         pass
@@ -20,8 +20,8 @@ def test_load_user_notifiers_initializes_for_each_active_alert(monkeypatch):
     user1, user2 = DummyUser(), DummyUser()
 
     alerts = [
-        types.SimpleNamespace(user=user1, criteria={"city": "TLV"}),
-        types.SimpleNamespace(user=user2, criteria={"price": 100}),
+        types.SimpleNamespace(user=user1, channels=["email"], params={"city": "TLV"}),
+        types.SimpleNamespace(user=user2, channels=["whatsapp"], params={"price": 100}),
     ]
 
     class DummyManager:
@@ -36,7 +36,7 @@ def test_load_user_notifiers_initializes_for_each_active_alert(monkeypatch):
     class DummyAlertModel:
         objects = DummyManager()
 
-    monkeypatch.setattr(data_pipeline, "Alert", DummyAlertModel)
+    monkeypatch.setattr(data_pipeline, "AlertRule", DummyAlertModel)
 
     notifiers = data_pipeline._load_user_notifiers()
     assert len(calls) == 2

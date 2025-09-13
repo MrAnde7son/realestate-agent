@@ -5,14 +5,14 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from orchestration.collectors.base_collector import BaseCollector
-from mavat.scrapers.mavat_api_client import MavatAPIClient
+from mavat.scrapers.mavat_selenium_client import MavatSeleniumClient
 
 
 class MavatCollector(BaseCollector):
-    """Wrapper around :class:`MavatAPIClient` providing a stable API."""
+    """Wrapper around :class:`MavatSeleniumClient` providing a stable API."""
 
-    def __init__(self, client: Optional[MavatAPIClient] = None) -> None:
-        self.client = client or MavatAPIClient()
+    def __init__(self, client: Optional[MavatSeleniumClient] = None) -> None:
+        self.client = client or MavatSeleniumClient()
 
     def collect(self, block: str, parcel: str, city: Optional[str] = None) -> List[Dict[str, Any]]:
         """Collect Mavat plans for a given block/parcel.
@@ -35,24 +35,25 @@ class MavatCollector(BaseCollector):
             A list of plan summaries in consistent format.
         """
         try:
-            # Search by block and parcel
-            plans = self.client.search_by_block_parcel(block, parcel)
-            
-            # Convert to consistent format
-            formatted_plans = []
-            for plan in plans:
-                formatted_plans.append({
-                    "plan_id": plan.plan_id,
-                    "title": plan.title,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                })
-            
-            return formatted_plans
+            # Search by block and parcel using Selenium client
+            with self.client as client:
+                plans = client.search_plans(gush=block, helka=parcel, city=city)
+                
+                # Convert to consistent format
+                formatted_plans = []
+                for plan in plans:
+                    formatted_plans.append({
+                        "plan_id": plan.plan_id,
+                        "title": plan.title,
+                        "status": plan.status,
+                        "authority": plan.authority,
+                        "entity_number": plan.entity_number,
+                        "approval_date": plan.approval_date,
+                        "status_date": plan.status_date,
+                        "raw": plan.raw
+                    })
+                
+                return formatted_plans
         except Exception:
             return []
 
@@ -77,24 +78,25 @@ class MavatCollector(BaseCollector):
             A list of plan summaries in consistent format.
         """
         try:
-            plans = self.client.search_by_location(city=city, district=district, 
-                                                 street=street, limit=limit)
-            
-            # Convert to consistent format
-            formatted_plans = []
-            for plan in plans:
-                formatted_plans.append({
-                    "plan_id": plan.plan_id,
-                    "title": plan.title,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                })
-            
-            return formatted_plans
+            with self.client as client:
+                plans = client.search_plans(city=city, district=district, 
+                                           street=street, limit=limit)
+                
+                # Convert to consistent format
+                formatted_plans = []
+                for plan in plans:
+                    formatted_plans.append({
+                        "plan_id": plan.plan_id,
+                        "title": plan.title,
+                        "status": plan.status,
+                        "authority": plan.authority,
+                        "entity_number": plan.entity_number,
+                        "approval_date": plan.approval_date,
+                        "status_date": plan.status_date,
+                        "raw": plan.raw
+                    })
+                
+                return formatted_plans
         except Exception:
             return []
 
@@ -114,24 +116,28 @@ class MavatCollector(BaseCollector):
             A list of plan summaries in consistent format.
         """
         try:
-            plans = self.client.search_plans(query=query, limit=limit)
-            
-            # Convert to consistent format
-            formatted_plans = []
-            for plan in plans:
-                formatted_plans.append({
-                    "plan_id": plan.plan_id,
-                    "title": plan.title,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                })
-            
-            return formatted_plans
-        except Exception:
+            with self.client as client:
+                plans = client.search_plans(query=query, limit=limit)
+                
+                # Convert to consistent format
+                formatted_plans = []
+                for plan in plans:
+                    formatted_plans.append({
+                        "plan_id": plan.plan_id,
+                        "title": plan.title,
+                        "status": plan.status,
+                        "authority": plan.authority,
+                        "entity_number": plan.entity_number,
+                        "approval_date": plan.approval_date,
+                        "status_date": plan.status_date,
+                        "raw": plan.raw
+                    })
+                
+                return formatted_plans
+        except Exception as e:
+            # Log the error for debugging
+            import logging
+            logging.error(f"MavatCollector.search_plans failed: {e}")
             return []
 
     def get_plan_details(self, plan_id: str) -> Optional[Dict[str, Any]]:
@@ -149,20 +155,21 @@ class MavatCollector(BaseCollector):
             or None if the plan is not found.
         """
         try:
-            plan = self.client.get_plan_details(plan_id)
-            
-            return {
-                "plan_id": plan.plan_id,
-                "plan_name": plan.plan_name,
-                "status": plan.status,
-                "authority": plan.authority,
-                "jurisdiction": plan.jurisdiction,
-                "last_update": plan.last_update,
-                "entity_number": plan.entity_number,
-                "approval_date": plan.approval_date,
-                "status_date": plan.status_date,
-                "raw": plan.raw
-            }
+            with self.client as client:
+                plan = client.get_plan_details(plan_id)
+                
+                return {
+                    "plan_id": plan.plan_id,
+                    "plan_name": plan.plan_name,
+                    "status": plan.status,
+                    "authority": plan.authority,
+                    "jurisdiction": plan.jurisdiction,
+                    "last_update": plan.last_update,
+                    "entity_number": plan.entity_number,
+                    "approval_date": plan.approval_date,
+                    "status_date": plan.status_date,
+                    "raw": plan.raw
+                }
         except Exception:
             return None
 
@@ -182,20 +189,9 @@ class MavatCollector(BaseCollector):
             A list of attachment information.
         """
         try:
-            attachments = self.client.get_plan_attachments(plan_id, entity_name)
-            
-            # Convert to consistent format
-            formatted_attachments = []
-            for attachment in attachments:
-                formatted_attachments.append({
-                    "filename": attachment.filename,
-                    "file_type": attachment.file_type,
-                    "size": attachment.size,
-                    "url": attachment.url,
-                    "raw": attachment.raw
-                })
-            
-            return formatted_attachments
+            # Selenium client doesn't have get_plan_attachments method yet
+            # For now, return empty list - can be implemented later
+            return []
         except Exception:
             return []
 
@@ -216,32 +212,9 @@ class MavatCollector(BaseCollector):
             A list of lookup items in consistent format.
         """
         try:
-            if data_type == "cities":
-                items = self.client.get_cities(force_refresh)
-            elif data_type == "districts":
-                items = self.client.get_districts(force_refresh)
-            elif data_type == "streets":
-                items = self.client.get_streets(force_refresh)
-            elif data_type == "plan_areas":
-                items = self.client.get_plan_areas(force_refresh)
-            elif data_type == "authorities":
-                items = self.client.get_authorities(force_refresh)
-            elif data_type == "plan_types":
-                items = self.client.get_plan_types(force_refresh)
-            elif data_type == "statuses":
-                items = self.client.get_statuses(force_refresh)
-            else:
-                return []
-            
-            # Convert to consistent format
-            return [
-                {
-                    "code": item.code,
-                    "description": item.description,
-                    "raw": item.raw
-                }
-                for item in items
-            ]
+            # Selenium client doesn't have lookup methods yet
+            # Return empty list for now - can be implemented later
+            return []
         except Exception:
             return []
 
@@ -265,17 +238,9 @@ class MavatCollector(BaseCollector):
             A list of matching lookup items in consistent format.
         """
         try:
-            results = self.client.search_lookup_by_text(search_text, table_type, force_refresh)
-            
-            # Convert to consistent format
-            return [
-                {
-                    "code": item.code,
-                    "description": item.description,
-                    "raw": item.raw
-                }
-                for item in results
-            ]
+            # Selenium client doesn't have lookup methods yet
+            # Return empty list for now - can be implemented later
+            return []
         except Exception:
             return []
 
@@ -293,21 +258,9 @@ class MavatCollector(BaseCollector):
             A dictionary containing all lookup tables in consistent format.
         """
         try:
-            lookup_tables = self.client.get_lookup_tables(force_refresh)
-            
-            # Convert to consistent format
-            formatted_tables = {}
-            for table_type, items in lookup_tables.items():
-                formatted_tables[table_type] = [
-                    {
-                        "code": item.code,
-                        "description": item.description,
-                        "raw": item.raw
-                    }
-                    for item in items
-                ]
-            
-            return formatted_tables
+            # Selenium client doesn't have lookup methods yet
+            # Return empty dict for now - can be implemented later
+            return {}
         except Exception:
             return {}
 

@@ -126,7 +126,7 @@ echo ""
 echo "=== DATA SERVICES VALIDATION ==="
 
 # Check each data service
-services=("yad2" "gov" "mavat" "rami" "gis" "orchestration" "db" "utils")
+services=("yad2" "gov" "mavat" "gis" "orchestration" "db" "utils")
 
 for service in "${services[@]}"; do
     if [ -d "$service" ]; then

@@ -60,15 +60,12 @@ realestate-agent/
 │   │   ├── mcp/server.py          # MCP server for LLM integration
 │   │   ├── cli/interactive.py     # Interactive CLI utilities
 │   │   └── examples/demo.py       # Demonstration script
-│   ├── rami/                      # Israeli planning documents
-│   │   ├── rami_client.py         # RAMI TabaSearch API client
-│   │   └── mcp/server.py          # Planning documents MCP server
 │   ├── gis/                       # Tel Aviv GIS integration
 │   │   ├── gis_client.py          # Tel Aviv ArcGIS client & CLI
 │   │   ├── parse_zchuyot.py       # Building privilege parser
 │   │   └── mcp/server.py          # GIS data MCP server
 │   ├── mavat/                     # National planning portal (MAVAT) tools
-│   └── gov/                       # Government data services
+│   └── gov/                       # Government data services (includes transactions, RAMI and decisive)
 │       └── mcp/                   # Gov.il data MCP server
 │           ├── server.py          # Government datasets & comparables
 │           ├── decisive.py        # Decisive appraisal data
@@ -103,9 +100,8 @@ realestate-agent/
 ├── 🧪 TESTING & UTILITIES
 │   ├── tests/                     # Comprehensive test suite
 │   │   ├── yad2/                  # Real estate scraping tests
-│   │   ├── rami/                  # Planning documents tests
-│   │   ├── gis/                   # GIS integration tests
 │   │   ├── gov/                   # Government data tests
+│   │   ├── gis/                   # GIS integration tests
 │   │   └── core/                  # Integration tests
 │   ├── db/                        # Database utilities
 │   ├── utils/                     # Utility scripts
@@ -231,10 +227,9 @@ Copy-Item -Force .\claude_config.json "$env:APPDATA\Claude\claude_desktop_config
 **Individual Servers:**
 ```bash
 python -m yad2.mcp.server      # Real estate scraping (port 8001)
-python -m rami.mcp.server      # Planning documents (port 8002)
-python -m gis.mcp.server       # Tel Aviv GIS (port 8003)
-python -m gov.mcp.server       # Government data (port 8004)
-python -m mavat.mcp.server     # National planning portal (port 8005)
+python -m gis.mcp.server       # Tel Aviv GIS (port 8002)
+python -m gov.mcp.server       # Government data (port 8003)
+python -m mavat.mcp.server     # National planning portal (port 8004)
 ```
 
 ### 4️⃣ Quick Examples
@@ -285,7 +280,7 @@ pytest
 
 # Run specific module tests
 python -m yad2.tests.test_core
-python tests/rami/test_rami_client.py
+python tests/gov/test_rami_client.py
 python tests/gis/test_gis_client.py
 python tests/gov/test_decisive_appraisal.py
 ```
@@ -294,7 +289,7 @@ python tests/gov/test_decisive_appraisal.py
 
 - Python API:
 ```python
-from rami.rami_client import RamiClient
+from gov.rami.rami_client import RamiClient
 
 # Search for Tel Aviv plans
 client = RamiClient()
@@ -318,10 +313,10 @@ results = client.download_multiple_plans_documents(
 - Run Examples:
 ```bash
 # Download planning documents example
-python tests/rami/download_example.py
+python tests/gov/download_example.py
 
 # Test MCP server
-python tests/rami/test_mcp_server.py
+python tests/gov/test_mcp_server.py
 ```
 
 #### GIS (Tel Aviv) Usage
@@ -470,12 +465,8 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 **Example Queries:**
 - *"Find 4-room apartments in Tel Aviv under 8M NIS with parking and elevator"*
 - *"Search penthouses in Jerusalem with balcony, renovated, price range 5-15M"*
-
-### 🏛️ RAMI Planning Documents Server (`python -m rami.mcp.server`)
-
 **Document Tools:**
 - **`search_plans`** — General planning document search
-- **`search_tel_aviv_plans`** — Pre-configured Tel Aviv searches
 - **`download_plan_documents`** — Download specific plan documents
 - **`download_multiple_plans_documents`** — Bulk downloads
 - **`get_document_types_info`** — Available document types reference
@@ -511,7 +502,7 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - *"Find building permits within 50m of Dizengoff 50"*
 - *"What's the land use classification for coordinates 184320, 668548?"*
 
-### 📊 Government Data Server (`python -m gov.mcp.server`)
+### 🏛️ Government Data Server (`python -m gov.mcp.server`)
 
 **Data Access Tools:**
 - **`package_search/show`** — Search government datasets (data.gov.il)
@@ -552,7 +543,6 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 **Individual Servers:**
 ```bash
 python -m yad2.mcp.server     # Real estate scraping
-python -m rami.mcp.server     # Planning documents
 python -m gis.mcp.server      # Tel Aviv GIS data
 python -m gov.mcp.server      # Government datasets
 python -m mavat.mcp.server    # National planning portal
@@ -596,8 +586,8 @@ pytest -q
 python -m yad2.tests.test_core
 
 # RAMI planning document tests
-python tests/rami/test_rami_client.py
-python tests/rami/test_mcp_server.py
+python tests/gov/test_rami_client.py
+python tests/gov/test_mcp_server.py
 
 # GIS tests
 python tests/gis/test_gis_client.py
@@ -606,16 +596,16 @@ python tests/gis/test_gis_client.py
 python tests/gov/test_decisive_appraisal.py
 
 # Test robust import system
-python tests/rami/test_robust_imports.py
+python tests/gov/test_robust_imports.py
 ```
 
 **Run Examples:**
 ```bash
 # Download planning documents
-python tests/rami/download_example.py
+python tests/gov/download_example.py
 
 # Test RAMI pagination
-python tests/rami/test_pagination.py
+python tests/gov/test_pagination.py
 ```
 
 ### Test Coverage
@@ -689,7 +679,7 @@ def setup_python_path():
 setup_python_path()
 
 # Now imports work reliably:
-from rami.rami_client import RamiClient
+from gov.rami.rami_client import RamiClient
 ```
 
 ## 📊 Data Export Format
@@ -780,7 +770,7 @@ If you encounter import problems in test files:
 3. **Check working directory**: Run `pwd` to confirm you're in `/path/to/realestate-agent`
 4. **Test the import system**:
    ```bash
-   python tests/rami/test_robust_imports.py
+   python tests/gov/test_robust_imports.py
    ```
 
 ### MCP Server Issues
@@ -792,7 +782,7 @@ If MCP servers won't start:
 3. **Test individual servers**:
    ```bash
    python -c "from yad2.mcp.server import mcp; print('Yad2 OK')"
-   python -c "from rami.mcp.server import mcp; print('RAMI OK')"
+   python -c "from gov.mcp.server import mcp; print('GOV OK')"
    python -c "from gis.mcp.server import mcp; print('GIS OK')"
    ```
 4. **Check ports**: Ensure no conflicts on default MCP ports

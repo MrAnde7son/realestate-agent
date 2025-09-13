@@ -62,27 +62,13 @@ class Yad2Scraper:
         """Get all property type codes with names."""
         return self.param_reference.get_property_types()
     
-    def search_property_types(self, search_term=None):
-        """Search property types by name or get all if no search term."""
-        all_types = self.get_property_types()
-        
-        if not search_term:
-            return all_types
-        
-        # Filter by search term
-        search_term_lower = search_term.lower()
-        return {
-            code: name for code, name in all_types.items()
-            if search_term_lower in name.lower()
-        }
-    
     def get_property_type_by_code(self, code):
         """Get property type name by code."""
         if not code:
             return None
         return self.get_property_types().get(int(code))
     
-    def fetch_location_data(self, search_text: str) -> dict:
+    def fetch_location_autocomplete(self, search_text: str) -> dict:
         """Fetch location data from Yad2 address autocomplete API."""
         try:
             url = f"{self.api_base_url}/address-autocomplete/realestate/v2"
@@ -126,6 +112,23 @@ class Yad2Scraper:
         """Fetch a page with retry logic."""
         try:
             response = request_with_retry(self.session.get, url, timeout=30)
+            
+            # Check for various captcha indicators
+            response_text = response.text.lower()
+            captcha_indicators = [
+                "shieldsquare captcha",
+                "captcha",
+                "cloudflare",
+                "access denied",
+                "blocked",
+                "robot",
+                "bot detection"
+            ]
+            
+            for indicator in captcha_indicators:
+                if indicator in response_text:
+                    raise RuntimeError(f"Captcha/Blocking detected: {indicator}")
+            
             return BeautifulSoup(response.content, 'html.parser')
         except requests.RequestException as e:
             print(f"Failed to fetch page: {e}")
@@ -192,10 +195,18 @@ class Yad2Scraper:
         url = self.build_search_url(page)
         print(f"Scraping page {page} from: {url}")
         
-        soup = self.fetch_page(url)
-        if not soup:
-            print(f"Failed to fetch page {page}")
-            return []
+        try:
+            soup = self.fetch_page(url)
+            if not soup:
+                print(f"Failed to fetch page {page}")
+                return []
+        except RuntimeError as e:
+            if "captcha" in str(e).lower() or "blocking" in str(e).lower():
+                print(f"Captcha/Blocking detected on page {page}: {e}")
+                raise e  # Re-raise captcha errors
+            else:
+                print(f"Error fetching page {page}: {e}")
+                return []
         
         # Try multiple selectors for different page layouts
         items = soup.select("a.item-layout_itemLink__CZZ7w")

@@ -12,6 +12,6 @@ __all__ = [
     'Yad2Collector', 
     'GISCollector',
     'GovCollector',
-    'RamiCollector',
     'MavatCollector',
+    'RamiCollector',
 ]

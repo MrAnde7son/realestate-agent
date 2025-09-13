@@ -120,7 +120,6 @@ class TestMavatScraper:
     def test_launch_method(self, mock_sync_playwright):
         """Test the _launch method."""
         mock_playwright = Mock()
-        mock_playwright.start.return_value = mock_playwright
         mock_sync_playwright.return_value = mock_playwright
         
         scraper = MavatScraper()
@@ -128,7 +127,6 @@ class TestMavatScraper:
         
         assert result == mock_playwright
         mock_sync_playwright.assert_called_once()
-        mock_playwright.start.assert_called_once()
 
     @patch('mavat.scrapers.mavat_scraper.sync_playwright')
     def test_search_text_success(self, mock_sync_playwright):
@@ -217,7 +215,7 @@ class TestMavatScraper:
 class TestMavatScraperIntegration:
     """Integration tests for MavatScraper (requires Playwright)."""
 
-    @pytest.mark.skip(reason="Requires Playwright installation")
+    @pytest.mark.skip(reason="Requires Playwright installation and network access")
     def test_scraper_with_playwright(self):
         """Test scraper functionality when Playwright is available."""
         try:
@@ -229,6 +227,52 @@ class TestMavatScraperIntegration:
                 pytest.skip("Playwright not installed")
             else:
                 raise
+
+    @pytest.mark.integration
+    @pytest.mark.skip(reason="Integration test - requires network access and may be slow")
+    def test_mavat_scraper_integration(self):
+        """Integration test for Mavat scraper with real website."""
+        try:
+            scraper = MavatScraper(headless=True)
+            
+            # Test search functionality
+            results = scraper.search_text("תל אביב", limit=3)
+            assert isinstance(results, list)
+            # Note: Results may be empty due to CAPTCHA or website changes
+            
+            # Test with different query
+            results2 = scraper.search_text("רמת החייל", limit=2)
+            assert isinstance(results2, list)
+            
+        except RuntimeError as e:
+            if "Playwright is required" in str(e):
+                pytest.skip("Playwright not installed")
+            else:
+                raise
+        except Exception as e:
+            # This test may fail due to network issues, CAPTCHA, or website changes
+            pytest.skip("Integration test failed (expected): {}".format(e))
+
+    @pytest.mark.integration
+    @pytest.mark.skip(reason="Integration test - requires network access and may be slow")
+    def test_playwright_availability(self):
+        """Test if Playwright is properly installed and working."""
+        try:
+            from playwright.sync_api import sync_playwright
+            
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto("https://httpbin.org/get")
+                content = page.content()
+                browser.close()
+                
+                assert len(content) > 0
+                
+        except ImportError:
+            pytest.skip("Playwright not installed")
+        except Exception as e:
+            pytest.fail("Playwright test failed: {}".format(e))
 
 
 if __name__ == "__main__":

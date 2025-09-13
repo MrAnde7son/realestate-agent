@@ -24,7 +24,7 @@ Usage Examples:
 3. Search by location: search_by_location(city="תל אביב", street="הירקון")
 4. Search by block/parcel: search_by_block_parcel(block_number="666", parcel_number="1")
 5. Get cities: get_cities()
-6. Search lookup: search_lookup("תל אביב", table_type="5")
+6. Search lookup: search_lookup("תל אביב", table_type="CityCounty")
 """
 
 import os

@@ -117,10 +117,8 @@ def evaluate_alerts_for_asset(asset_id: int) -> int:
     Returns:
         Number of alert events created
     """
-    import hashlib
-    from django.utils import timezone
-    from .models import Asset, AlertRule, AlertEvent, Snapshot
-    from orchestration.alerts import create_notifier_for_user
+    from .models import Asset, Snapshot
+    from orchestration.alerts import create_notifier_for_alert_rule
     
     try:
         asset = Asset.objects.get(id=asset_id)
@@ -145,6 +143,7 @@ def evaluate_alerts_for_asset(asset_id: int) -> int:
     
     # Get both global and asset-specific rules
     from django.db import models
+    from .models import AlertRule
     rules = AlertRule.objects.filter(
         user=user,
         active=True
@@ -172,7 +171,6 @@ def _evaluate_rule(rule, asset, latest_snapshot, previous_snapshot) -> bool:
     import hashlib
     from django.utils import timezone
     from .models import AlertEvent
-    from orchestration.alerts import create_notifier_for_user
     
     trigger_type = rule.trigger_type
     params = rule.params or {}
@@ -209,7 +207,6 @@ def _evaluate_rule(rule, asset, latest_snapshot, previous_snapshot) -> bool:
 def _evaluate_price_drop(rule, asset, latest_snapshot, previous_snapshot, payload_hash: str) -> bool:
     """Evaluate price drop alert."""
     from .models import AlertEvent
-    from orchestration.alerts import create_notifier_for_user
     
     if not previous_snapshot:
         return False
@@ -483,13 +480,13 @@ def _evaluate_listing_removed(rule, asset, latest_snapshot, previous_snapshot, p
 
 def _send_immediate_notification(rule, event):
     """Send immediate notification for an alert event."""
-    from orchestration.alerts import create_notifier_for_user
+    from orchestration.alerts import create_notifier_for_alert_rule
     from django.utils import timezone
     
-    user = rule.user
-    notifier = create_notifier_for_user(user, {})
+    notifier = create_notifier_for_alert_rule(rule)
     
     if not notifier:
+        logger.warning("No notifier created for rule %s", rule.id)
         return
     
     # Create message based on trigger type
@@ -551,7 +548,7 @@ def alerts_daily_digest():
     from django.utils import timezone
     from datetime import timedelta
     from .models import AlertEvent, AlertRule
-    from orchestration.alerts import create_notifier_for_user
+    from orchestration.alerts import create_notifier_for_alert_rule
     import uuid
     
     # Get undelivered events from last 24 hours
@@ -579,7 +576,9 @@ def alerts_daily_digest():
             User = get_user_model()
             user = User.objects.get(id=user_id)
             
-            notifier = create_notifier_for_user(user, {})
+            # Get the first alert rule for this user to create notifier
+            first_rule = user_event_list[0].alert_rule
+            notifier = create_notifier_for_alert_rule(first_rule)
             if not notifier:
                 continue
             

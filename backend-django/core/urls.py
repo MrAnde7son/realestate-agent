@@ -1,11 +1,18 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from django.http import HttpResponse
+from drf_spectacular.renderers import OpenApiYamlRenderer
+from drf_spectacular.openapi import AutoSchema
 
 from . import views
 from . import views_analytics as va
 from . import views_support as vs
 from .api import AssetViewSet, PermitViewSet, PlanViewSet
+
+class OpenApiYamlView(SpectacularAPIView):
+    """Custom view to serve OpenAPI spec in YAML format."""
+    renderer_classes = [OpenApiYamlRenderer]
 
 router = DefaultRouter()
 router.register(r'assets', AssetViewSet)
@@ -67,6 +74,8 @@ urlpatterns = [
     path('auth/google/callback/', views.auth_google_callback, name='auth_google_callback'),
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
     path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('docs/openapi.yaml', OpenApiYamlView.as_view(), name='openapi-yaml'),
     path('me', views.me),
     path('', include(router.urls)),
 ]

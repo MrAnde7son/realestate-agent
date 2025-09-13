@@ -4,7 +4,8 @@ Provides unified search functions with automatic parameter resolution
 """
 
 import logging
-from typing import Dict, Optional
+import re
+from typing import Dict, Optional, Tuple
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +17,68 @@ class Yad2SearchHelper:
     # Cache for property types and locations to avoid repeated API calls
     _property_types_cache: Optional[Dict] = None
     _locations_cache: Dict = {}
+    
+    @staticmethod
+    def parse_address(address: str) -> Dict[str, str]:
+        """
+        Parse a full address string into components (street, number, city, neighborhood).
+        
+        Args:
+            address: Full address string (e.g., "רוזוב 14 תל אביב")
+            
+        Returns:
+            Dict with parsed components: {'street': str, 'number': str, 'city': str, 'neighborhood': str}
+        """
+        if not address:
+            return {'street': '', 'number': '', 'city': '', 'neighborhood': ''}
+        
+        # Common Israeli cities for pattern matching
+        israeli_cities = [
+            'תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'נתניה', 'אשדוד', 'פתח תקווה',
+            'אשקלון', 'רחובות', 'הרצליה', 'כפר סבא', 'ראשון לציון', 'רמלה', 'לוד',
+            'נצרת', 'עכו', 'טבריה', 'אילת', 'דימונה', 'קרית שמונה', 'נהריה',
+            'ראש העין', 'פתח תקוה', 'גבעתיים', 'רמת גן', 'הוד השרון', 'כפר סבא'
+        ]
+        
+        # Common neighborhoods in Tel Aviv
+        tel_aviv_neighborhoods = [
+            'רמת החיל', 'רמת אביב', 'פלורנטין', 'נווה צדק', 'כרם התימנים',
+            'שכונת מונטיפיורי', 'הצפון הישן', 'הדר יוסף', 'רמת גן', 'גבעתיים'
+        ]
+        
+        # Extract number from address
+        number_match = re.search(r'(\d+)', address)
+        number = number_match.group(1) if number_match else ''
+        
+        # Remove number from address for further processing
+        address_without_number = re.sub(r'\d+', '', address).strip()
+        
+        # Find city
+        city = ''
+        for city_name in israeli_cities:
+            if city_name in address_without_number:
+                city = city_name
+                address_without_number = address_without_number.replace(city_name, '').strip()
+                break
+        
+        # Find neighborhood (only if city is Tel Aviv)
+        neighborhood = ''
+        if city == 'תל אביב':
+            for hood_name in tel_aviv_neighborhoods:
+                if hood_name in address_without_number:
+                    neighborhood = hood_name
+                    address_without_number = address_without_number.replace(hood_name, '').strip()
+                    break
+        
+        # What's left should be the street name
+        street = address_without_number.strip()
+        
+        return {
+            'street': street,
+            'number': number,
+            'city': city,
+            'neighborhood': neighborhood
+        }
     
     @classmethod
     def get_property_type_code(cls, property_name: str) -> Optional[int]:
@@ -44,26 +107,44 @@ class Yad2SearchHelper:
                 logger.info(f"Found property type '{property_name}' with code: {code} (English)")
                 return code
             
-            # Fallback to MCP server if not found in existing utils
-            from .mcp.server import search_property_types
+        except Exception as e:
+            logger.error(f"Error getting property type code for '{property_name}': {e}")
+    
+    @classmethod
+    def get_street_id(cls, street_name: str, city_id: int) -> Optional[str]:
+        """
+        Get street ID for a given street name and city ID
+        
+        Args:
+            street_name: Street name
+            city_id: City ID
             
-            result = search_property_types(search_term=property_name)
-            if result.get('success') and result.get('exact_matches'):
-                # Get the first exact match
-                code = list(result['exact_matches'].keys())[0]
-                logger.info(f"Found property type '{property_name}' with code: {code} (MCP)")
-                return int(code)
+        Returns:
+            Street ID or None if not found
+        """
+        try:
+            # Import here to avoid circular imports
+            from .mcp.server import search_locations
             
-            # If no exact match, try to find similar
-            if result.get('total_found', 0) > 0:
-                logger.warning(f"No exact match for '{property_name}', but found {result['total_found']} similar results")
-                
+            result = search_locations(search_text=street_name)
+            if not result.get('success'):
+                logger.error(f"Failed to search for street: {street_name}")
+                return None
+            
+            streets = result.get('streets', [])
+            for street in streets:
+                if street.get('cityId') == str(city_id):
+                    street_id = street.get('streetId')
+                    logger.info(f"Found street '{street_name}' in city {city_id} with ID: {street_id}")
+                    return street_id
+            
+            logger.warning(f"Street '{street_name}' not found in city {city_id}")
             return None
             
         except Exception as e:
-            logger.error(f"Error getting property type code for '{property_name}': {e}")
+            logger.error(f"Error getting street ID for '{street_name}': {e}")
             return None
-    
+
     @classmethod
     def get_location_codes(cls, city_name: str, neighborhood_name: Optional[str] = None) -> Dict[str, int]:
         """

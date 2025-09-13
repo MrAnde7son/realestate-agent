@@ -7,9 +7,8 @@ This monorepo contains:
 - **Backend**: Django REST API (`backend-django/`)
 - **Data Services**: Python services for data collection
   - `yad2/` - Yad2 real estate scraping
-  - `gov/` - Government data (nadlan, decisive)
+  - `gov/` - Government data (nadlan, decisive, rami)
   - `mavat/` - Planning data collection
-  - `rami/` - RAMI planning system
   - `gis/` - GIS data processing
 - **Orchestration**: Data pipeline and scheduling (`orchestration/`)
 - **Database**: Shared database models (`db/`)
@@ -87,7 +86,7 @@ This monorepo contains:
 
 ---
 
-### 3. Data Services (Python) - `yad2/`, `gov/`, `mavat/`, `rami/`, `gis/`
+### 3. Data Services (Python) - `yad2/`, `gov/`, `mavat/`, `gis/`
 
 #### Service Development
 - [ ] Follow established patterns in existing services
@@ -216,7 +215,6 @@ pytest tests/
 pytest tests/yad2/
 pytest tests/gov/
 pytest tests/mavat/
-pytest tests/rami/
 pytest tests/gis/
 
 # Run integration tests

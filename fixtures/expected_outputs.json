@@ -1,0 +1,325 @@
+{
+  "description": "Expected outputs for scrapers and parsers - gold file tests",
+  "version": "1.0",
+  "created_at": "2024-01-15T10:00:00Z",
+  "test_cases": {
+    "yad2_scraper": {
+      "description": "Expected output from Yad2 scraper for test URL",
+      "input_url": "https://www.yad2.co.il/realestate/forsale?city=5000&property=1&rooms=4+&maxPrice=3000000",
+      "expected_output": {
+        "total_results": 25,
+        "pages_scraped": 2,
+        "listings": [
+          {
+            "listing_id": "123456",
+            "title": "דירה 4 חדרים ברמת החייל - הרצל 15",
+            "price": 2500000,
+            "area": 85.5,
+            "rooms": 4,
+            "bedrooms": 3,
+            "bathrooms": 2,
+            "property_type": "דירה",
+            "city": "תל אביב",
+            "neighborhood": "רמת החייל",
+            "street": "הרצל",
+            "number": 15,
+            "floor": 3,
+            "total_floors": 8,
+            "elevator": true,
+            "parking": 1,
+            "balcony": true,
+            "renovated": true,
+            "year_built": 2015,
+            "features": ["מעלית", "חניה", "מרפסת", "מזגן"],
+            "description": "דירה מרווחת ומעוצבת ברמת החייל",
+            "agent_name": "יוסי כהן",
+            "agent_phone": "050-1234567",
+            "photos": [
+              "https://img.yad2.co.il/images/123456_1.jpg",
+              "https://img.yad2.co.il/images/123456_2.jpg"
+            ],
+            "url": "https://www.yad2.co.il/item/123456",
+            "posted_date": "2024-01-10T08:30:00Z",
+            "updated_date": "2024-01-15T10:00:00Z"
+          }
+        ],
+        "search_url": "https://www.yad2.co.il/realestate/forsale?city=5000&property=1&rooms=4%2B&maxPrice=3000000",
+        "scraped_at": "2024-01-15T10:00:00Z"
+      }
+    },
+    "gis_geocoding": {
+      "description": "Expected output from GIS geocoding service",
+      "input": {
+        "street": "הרצל",
+        "house_number": 15
+      },
+      "expected_output": {
+        "x": 184320.5,
+        "y": 668548.2,
+        "srid": 2039,
+        "address": "הרצל 15, רמת החייל, תל אביב",
+        "confidence": 0.95
+      }
+    },
+    "gis_permits": {
+      "description": "Expected output from GIS building permits query",
+      "input": {
+        "x": 184320.5,
+        "y": 668548.2,
+        "radius": 30
+      },
+      "expected_output": {
+        "count": 1,
+        "permits": [
+          {
+            "permit_number": "2024/001",
+            "address": "הרצל 15, רמת החייל, תל אביב",
+            "status": "בביצוע",
+            "issue_date": "2024-01-15",
+            "expiry_date": "2026-01-15",
+            "building_type": "מגורים",
+            "floors": 8,
+            "units": 16,
+            "total_area": 1280,
+            "contractor": "חברת בנייה בע״מ",
+            "architect": "אדריכל יוסי לוי",
+            "description": "בניית בניין מגורים 8 קומות",
+            "conditions": [
+              "חיבור לתשתיות",
+              "חניה לפי התקן",
+              "גישה לנכים"
+            ],
+            "pdf_path": "permits/2024_001.pdf"
+          }
+        ]
+      }
+    },
+    "gis_land_use": {
+      "description": "Expected output from GIS land use query",
+      "input": {
+        "x": 184320.5,
+        "y": 668548.2
+      },
+      "expected_output": {
+        "land_use_main": "מגורים א'",
+        "land_use_detailed": "מגורים צפופים",
+        "zoning": "מגורים א'",
+        "building_rights": "8 קומות + גג",
+        "max_height": 24,
+        "max_units": 16,
+        "max_area": 1280,
+        "parking_required": 8,
+        "green_area_required": 0.15,
+        "setback_front": 3,
+        "setback_rear": 5,
+        "setback_sides": 2
+      }
+    },
+    "nadlan_transactions": {
+      "description": "Expected output from Nadlan transactions scraper",
+      "input": {
+        "address": "רמת החייל",
+        "limit": 20
+      },
+      "expected_output": {
+        "query_type": "address",
+        "address": "רמת החייל",
+        "deals_count": 15,
+        "deals": [
+          {
+            "address": "הרצל 12",
+            "price": 2400000,
+            "area": 82,
+            "rooms": 4,
+            "date": "2024-01-10",
+            "property_type": "דירה",
+            "neighborhood": "רמת החייל",
+            "city": "תל אביב"
+          },
+          {
+            "address": "הרצל 18",
+            "price": 2600000,
+            "area": 88,
+            "rooms": 4,
+            "date": "2024-01-08",
+            "property_type": "דירה",
+            "neighborhood": "רמת החייל",
+            "city": "תל אביב"
+          }
+        ],
+        "average_price": 2500000,
+        "average_price_per_sqm": 28571,
+        "transaction_count": 15,
+        "period": "2024-01-01 to 2024-01-15",
+        "source": "nadlan.gov.il"
+      }
+    },
+    "rami_plans": {
+      "description": "Expected output from RAMI plans search",
+      "input": {
+        "gush": "6638",
+        "chelka": "96",
+        "city": 5000
+      },
+      "expected_output": {
+        "total_records": 2,
+        "plans": [
+          {
+            "plan_id": 12345,
+            "plan_number": "תמ״א 38",
+            "title": "תכנית מתאר מקומית רמת החייל",
+            "status": "מאושר",
+            "authority": "עיריית תל אביב",
+            "date": "2023-06-01",
+            "area": "רמת החייל",
+            "gush": "6638",
+            "chelka": "96",
+            "building_rights": "8 קומות + גג",
+            "max_height": 24,
+            "max_units": 16,
+            "parking_ratio": 0.5,
+            "green_area_ratio": 0.15
+          }
+        ],
+        "search_params": {
+          "gush": "6638",
+          "chelka": "96",
+          "city": 5000
+        }
+      }
+    },
+    "mavat_plans": {
+      "description": "Expected output from Mavat plans search",
+      "input": {
+        "query": "רמת החייל",
+        "limit": 10
+      },
+      "expected_output": {
+        "total_results": 5,
+        "plans": [
+          {
+            "plan_id": "67890",
+            "title": "תכנית מתאר מקומית רמת החייל",
+            "status": "מאושר",
+            "authority": "עיריית תל אביב",
+            "area": "רמת החייל",
+            "street": "הרצל",
+            "block_number": "6638",
+            "parcel_number": "96",
+            "plan_type": "תכנית מתאר מקומית",
+            "date": "2023-06-01",
+            "description": "תכנית מתאר מקומית לפיתוח רמת החייל",
+            "building_rights": "8 קומות + גג",
+            "max_height": 24,
+            "parking_required": 8,
+            "green_area_required": 0.15
+          }
+        ],
+        "pagination": {
+          "current_page": 1,
+          "total_pages": 1,
+          "has_next": false
+        }
+      }
+    },
+    "govmap_parcel": {
+      "description": "Expected output from GovMap parcel lookup",
+      "input": {
+        "x": 184320.5,
+        "y": 668548.2
+      },
+      "expected_output": {
+        "feature": {
+          "gush": "6638",
+          "helka": "96",
+          "subhelka": "1",
+          "area": 500.0,
+          "land_use": "מגורים",
+          "zoning": "מגורים א'",
+          "coordinates": {
+            "x": 184320.5,
+            "y": 668548.2,
+            "srid": 2039
+          }
+        }
+      }
+    },
+    "decisive_appraisal": {
+      "description": "Expected output from decisive appraisal scraper",
+      "input": {
+        "block": "6638",
+        "plot": "96",
+        "max_pages": 1
+      },
+      "expected_output": {
+        "total_results": 3,
+        "appraisals": [
+          {
+            "case_number": "12345/2024",
+            "address": "הרצל 15, רמת החייל, תל אביב",
+            "appraisal_value": 2500000,
+            "date": "2024-01-15",
+            "status": "אושר",
+            "appraiser": "שמאי מוסמך יוסי לוי",
+            "property_type": "דירה",
+            "area": 85.5,
+            "rooms": 4,
+            "description": "הערכת שווי לדירה ברמת החייל"
+          }
+        ]
+      }
+    }
+  },
+  "integration_tests": {
+    "data_pipeline": {
+      "description": "Expected output from complete data pipeline",
+      "input": {
+        "address": "הרצל 15, תל אביב",
+        "house_number": 15
+      },
+      "expected_output": {
+        "asset": {
+          "id": "asset_001",
+          "address": "הרצל 15, תל אביב",
+          "city": "תל אביב",
+          "neighborhood": "רמת החייל",
+          "price": 2500000,
+          "area": 85.5,
+          "rooms": 4,
+          "zoning": "מגורים א'",
+          "building_rights": "8 קומות + גג",
+          "permit_status": "בביצוע"
+        },
+        "source_records": [
+          {
+            "source": "yad2",
+            "data_count": 1,
+            "confidence": 0.95
+          },
+          {
+            "source": "gis_permit",
+            "data_count": 1,
+            "confidence": 0.90
+          },
+          {
+            "source": "gis_rights",
+            "data_count": 1,
+            "confidence": 0.88
+          },
+          {
+            "source": "nadlan",
+            "data_count": 15,
+            "confidence": 0.85
+          },
+          {
+            "source": "rami_plan",
+            "data_count": 2,
+            "confidence": 0.92
+          }
+        ],
+        "processing_time": "< 5 minutes",
+        "data_quality": "high"
+      }
+    }
+  }
+}

@@ -223,9 +223,9 @@ def test_individual_collectors_e2e():
         gov_results = gov.collect(address="רוטשילד", block="", parcel="")
         logger.info(f"✅ Gov: {len(gov_results)} data items")
         
-        from orchestration.collectors.rami_collector import RamiCollector
+        from gov.rami import RamiCollector
         rami = RamiCollector()
-        rami_results = rami.collect(block="", parcel="")
+        rami_results = rami.collect(gush="", chelka="")
         logger.info(f"✅ RAMI: {len(rami_results)} plans")
         
         from orchestration.collectors.mavat_collector import MavatCollector

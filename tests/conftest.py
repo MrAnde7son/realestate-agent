@@ -10,6 +10,7 @@ import sys
 
 import pytest
 
+
 # Store the original system paths
 original_sys_path = list(sys.path)
 
@@ -60,7 +61,40 @@ print("=========================")
 
 # Set up Django only when needed
 def pytest_configure(config):
-    """Configure Django only when needed."""
+    """Configure pytest with custom markers and Django."""
+    # Register custom markers
+    config.addinivalue_line(
+        "markers", "mavat: marks tests for Mavat collector"
+    )
+    config.addinivalue_line(
+        "markers", "yad2: marks tests for Yad2 scraper"
+    )
+    config.addinivalue_line(
+        "markers", "nadlan: marks tests for Nadlan scraper"
+    )
+    config.addinivalue_line(
+        "markers", "decisive: marks tests for Decisive appraisal"
+    )
+    config.addinivalue_line(
+        "markers", "gis: marks tests for GIS client"
+    )
+    config.addinivalue_line(
+        "markers", "rami: marks tests for RAMI client"
+    )
+    config.addinivalue_line(
+        "markers", "govmap: marks tests for GovMap client and collector"
+    )
+    config.addinivalue_line(
+        "markers", "integration: marks tests as integration tests"
+    )
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow running tests"
+    )
+    config.addinivalue_line(
+        "markers", "external_service: marks tests that depend on external services"
+    )
+    
+    # Set up Django
     try:
         import django
         from django.core.management import call_command
@@ -69,6 +103,10 @@ def pytest_configure(config):
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')
         os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-testing')
         os.environ.setdefault('DEBUG', 'True')
+        
+        # Set DYLD_LIBRARY_PATH for WeasyPrint on Apple Silicon
+        if os.name == 'posix' and os.uname().machine == 'arm64':
+            os.environ['DYLD_LIBRARY_PATH'] = '/opt/homebrew/lib'
         
         # Configure Django for testing
         django.setup()
@@ -104,21 +142,21 @@ def sample_lookup_response():
     """Sample lookup table response from the API."""
     return [
         {
-            "type": "4",
+            "type": "District",
             "result": [
                 {"CODE": "5", "DESCRIPTION": "Tel Aviv"},
                 {"CODE": "6", "DESCRIPTION": "Haifa"}
             ]
         },
         {
-            "type": "5",
+            "type": "CityCounty",
             "result": [
                 {"CODE": "5000", "DESCRIPTION": "Tel Aviv-Yafo"},
                 {"CODE": "6000", "DESCRIPTION": "Haifa"}
             ]
         },
         {
-            "type": "7",
+            "type": "Street",
             "result": [
                 {"CODE": "461", "DESCRIPTION": "Hayarkon"},
                 {"CODE": "462", "DESCRIPTION": "Dizengoff"}

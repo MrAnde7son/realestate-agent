@@ -21,13 +21,6 @@
           "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
         }
       },
-      "rami": {
-        "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
-        "args": ["-m", "rami.mcp.server"],
-        "env": {
-          "PYTHONPATH": "/Users/imizrahi/Documents/Git/realestate-agent"
-        }
-      },
       "mavat": {
         "command": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
         "args": ["-m", "mavat.mcp.server"],

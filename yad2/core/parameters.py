@@ -34,6 +34,8 @@ class Yad2SearchParameters:
             
             # Property details
             'rooms': None,        # Number of rooms (e.g., "3-4", "4+")
+            'minRooms': None,     # Minimum number of rooms
+            'maxRooms': None,     # Maximum number of rooms
             'floor': None,        # Floor range (e.g., "1-3", "4+")
             'size': None,         # Property size in sqm
             'minSize': None,      # Minimum size
@@ -87,7 +89,7 @@ class Yad2SearchParameters:
             # Basic validation
             if value is not None and value != '':
                 if key in ['maxPrice', 'minPrice', 'topArea', 'area', 'city', 'neighborhood', 
-                          'parking', 'minSize', 'maxSize', 'buildingFloors', 'fromFloor', 
+                          'parking', 'minSize', 'maxSize', 'minRooms', 'maxRooms', 'buildingFloors', 'fromFloor', 
                           'toFloor', 'yearBuilt', 'minYear', 'maxYear', 'page']:
                     try:
                         self.parameters[key] = int(value)
@@ -218,6 +220,16 @@ class Yad2ParameterReference:
             'description': 'Number of rooms',
             'example': '3-4, 4+, 2.5-3.5',
             'type': 'string'
+        },
+        'minRooms': {
+            'description': 'Minimum number of rooms',
+            'example': 3,
+            'type': 'integer'
+        },
+        'maxRooms': {
+            'description': 'Maximum number of rooms',
+            'example': 5,
+            'type': 'integer'
         },
         'floor': {
             'description': 'Floor range',

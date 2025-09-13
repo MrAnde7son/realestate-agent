@@ -45,29 +45,20 @@ class TestMavatAPIClient:
     @pytest.fixture
     def sample_lookup_response(self):
         """Sample lookup table response from the API."""
-        return [
-            {
-                "type": "4",
-                "result": [
-                    {"CODE": "5", "DESCRIPTION": "תל-אביב"},
-                    {"CODE": "6", "DESCRIPTION": "חיפה"}
-                ]
-            },
-            {
-                "type": "5",
-                "result": [
-                    {"CODE": "5000", "DESCRIPTION": "תל אביב-יפו"},
-                    {"CODE": "6000", "DESCRIPTION": "חיפה"}
-                ]
-            },
-            {
-                "type": "7",
-                "result": [
-                    {"CODE": "461", "DESCRIPTION": "הירקון"},
-                    {"CODE": "462", "DESCRIPTION": "דיזנגוף"}
-                ]
-            }
-        ]
+        return {
+            "District": [
+                {"CODE": "5", "DESCRIPTION": "תל-אביב"},
+                {"CODE": "6", "DESCRIPTION": "חיפה"}
+            ],
+            "CityCounty": [
+                {"CODE": "5000", "DESCRIPTION": "תל אביב-יפו"},
+                {"CODE": "6000", "DESCRIPTION": "חיפה"}
+            ],
+            "Street": [
+                {"CODE": "461", "DESCRIPTION": "הירקון"},
+                {"CODE": "462", "DESCRIPTION": "דיזנגוף"}
+            ]
+        }
 
     @pytest.fixture
     def sample_search_response(self):
@@ -125,16 +116,16 @@ class TestMavatAPIClient:
         result = api_client.get_lookup_tables()
         
         # Verify the result
-        assert "4" in result  # Districts
-        assert "5" in result  # Cities
-        assert "7" in result  # Streets
+        assert "District" in result  # Districts
+        assert "CityCounty" in result  # Cities
+        assert "Street" in result  # Streets
         
-        assert len(result["4"]) == 2  # 2 districts
-        assert len(result["5"]) == 2  # 2 cities
-        assert len(result["7"]) == 2  # 2 streets
+        assert len(result["District"]) == 2  # 2 districts
+        assert len(result["CityCounty"]) == 2  # 2 cities
+        assert len(result["Street"]) == 2  # 2 streets
         
         # Check first district
-        district = result["4"][0]
+        district = result["District"][0]
         assert district.code == "5"
         assert district.description == "תל-אביב"
         
@@ -206,11 +197,11 @@ class TestMavatAPIClient:
     def test_get_lookup_tables_malformed_response(self, api_client):
         """Test lookup table retrieval with malformed response."""
         # Mock malformed response
-        malformed_response = [
-            {"type": "4", "result": "not a list"},  # result should be a list
-            {"type": "5"},  # missing result
-            {"result": [{"CODE": "5000"}]}  # missing type
-        ]
+        malformed_response = {
+            "District": "not a list",  # should be a list
+            "CityCounty": [{"CODE": "5000"}],  # valid entry
+            "InvalidTable": None,  # invalid entry
+        }
         
         mock_response = Mock()
         mock_response.json.return_value = malformed_response
@@ -222,7 +213,9 @@ class TestMavatAPIClient:
         result = api_client.get_lookup_tables()
         
         # Should only have valid entries
-        assert len(result) == 0  # No valid entries in malformed response
+        assert len(result) == 1  # Only CityCounty should be valid
+        assert "CityCounty" in result
+        assert len(result["CityCounty"]) == 1
 
     def test_get_districts(self, api_client, sample_lookup_response):
         """Test getting districts from lookup tables."""
@@ -277,21 +270,18 @@ class TestMavatAPIClient:
 
     def test_get_plan_areas(self, api_client, sample_lookup_response):
         """Test getting plan areas from lookup tables."""
+        # Add plan areas to the response
+        sample_lookup_response["PlanArea"] = [
+            {"CODE": "507", "DESCRIPTION": "תל אביב-יפו"},
+            {"CODE": "607", "DESCRIPTION": "חיפה"}
+        ]
+        
         # Mock the session response
         mock_response = Mock()
         mock_response.json.return_value = sample_lookup_response
         mock_response.raise_for_status.return_value = None
         
         api_client.session.get.return_value = mock_response
-        
-        # Add plan areas to the response
-        sample_lookup_response.append({
-            "type": "6",
-            "result": [
-                {"CODE": "507", "DESCRIPTION": "תל אביב-יפו"},
-                {"CODE": "607", "DESCRIPTION": "חיפה"}
-            ]
-        })
         
         plan_areas = api_client.get_plan_areas()
         
@@ -324,8 +314,8 @@ class TestMavatAPIClient:
         
         api_client.session.get.return_value = mock_response
         
-        # Search for "תל" only in cities table (type 5)
-        results = api_client.search_lookup_by_text("תל", table_type="5")
+        # Search for "תל" only in cities table (CityCounty)
+        results = api_client.search_lookup_by_text("תל", table_type="CityCounty")
         
         assert len(results) == 1
         assert "תל אביב-יפו" in results[0].description
@@ -408,7 +398,7 @@ class TestMavatAPIClient:
         
         # Search with location parameters
         results = api_client.search_plans(
-            city="תל אביב",
+            city="תל-אביב",
             district="תל-אביב",
             street="הירקון",
             limit=5
@@ -420,7 +410,7 @@ class TestMavatAPIClient:
         call_args = api_client.session.post.call_args
         search_params = call_args[1]['json']
         
-        assert search_params['modelCity']['DESCRIPTION'] == "תל אביב"
+        assert search_params['modelCity']['DESCRIPTION'] == "תל-אביב"
         assert search_params['intDistrict']['DESCRIPTION'] == "תל-אביב"
         assert search_params['intStreetCode']['DESCRIPTION'] == "הירקון"
         assert search_params['toResult'] == 5
@@ -605,7 +595,7 @@ class TestMavatAPIClient:
         api_client.session.post.return_value = mock_response
         
         results = api_client.search_by_location(
-            city="תל אביב",
+            city="תל-אביב",
             district="תל-אביב",
             street="הירקון"
         )
@@ -616,7 +606,7 @@ class TestMavatAPIClient:
         call_args = api_client.session.post.call_args
         search_params = call_args[1]['json']
         
-        assert search_params['modelCity']['DESCRIPTION'] == "תל אביב"
+        assert search_params['modelCity']['DESCRIPTION'] == "תל-אביב"
         assert search_params['intDistrict']['DESCRIPTION'] == "תל-אביב"
         assert search_params['intStreetCode']['DESCRIPTION'] == "הירקון"
 

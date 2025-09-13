@@ -157,6 +157,28 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Real Estate API',
     'DESCRIPTION': 'API schema for assets, permits and plans',
     'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'COMPONENT_NO_READ_ONLY_REQUIRED': True,
+    'ENUM_NAME_OVERRIDES': {
+        'UserRoleEnum': 'core.models.User.Role',
+        'PlanTypeEnum': 'core.models.PlanType.PLAN_CHOICES',
+    },
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SERVERS': [
+        {'url': 'http://localhost:8000', 'description': 'Development server'},
+        {'url': 'https://api.nadlaner.com', 'description': 'Production server'},
+    ],
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'User authentication and authorization'},
+        {'name': 'Assets', 'description': 'Real estate asset management'},
+        {'name': 'Permits', 'description': 'Building permits and approvals'},
+        {'name': 'Plans', 'description': 'Urban planning and development plans'},
+        {'name': 'Alerts', 'description': 'Alert rules and notifications'},
+        {'name': 'Analytics', 'description': 'Usage analytics and reporting'},
+        {'name': 'Support', 'description': 'Support and consultation services'},
+        {'name': 'User Management', 'description': 'User profiles and settings'},
+    ],
 }
 
 # JWT settings
@@ -210,6 +232,26 @@ APPEND_SLASH = True
 
 USE_X_FORWARDED_HOST = True
 
-DEFAULT_FROM_EMAIL = "no-reply@nadlaner.com"
+# Email Configuration
+DEFAULT_FROM_EMAIL = config('EMAIL_FROM', default='no-reply@nadlaner.com')
+
+# SendGrid Configuration
+SENDGRID_API_KEY = config('SENDGRID_API_KEY', default='')
+if SENDGRID_API_KEY:
+    EMAIL_BACKEND = 'sendgrid.backends.mail.SendgridBackend'
+    SENDGRID_API_KEY = SENDGRID_API_KEY
+else:
+    # Fallback to SMTP
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = config('SMTP_HOST', default='smtp.gmail.com')
+    EMAIL_PORT = config('SMTP_PORT', default=587, cast=int)
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = config('SMTP_USER', default='')
+    EMAIL_HOST_PASSWORD = config('SMTP_PASSWORD', default='')
+
+# WhatsApp Configuration (Twilio)
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+TWILIO_WHATSAPP_FROM = config('TWILIO_WHATSAPP_FROM', default='whatsapp:+14155238886')
 SUPPORT_SLACK_WEBHOOK = os.getenv("SUPPORT_SLACK_WEBHOOK", "")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

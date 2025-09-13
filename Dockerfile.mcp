@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     libssl-dev \
     libpq-dev \
+    curl \
     libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
     libgdk-pixbuf-xlib-2.0-0 libjpeg62-turbo libfreetype6 fontconfig fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*

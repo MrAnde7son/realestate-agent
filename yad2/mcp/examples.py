@@ -49,18 +49,13 @@ class Yad2MCPExamples:
         print("1. Getting all property types...")
         # all_types = await self.client.call("get_all_property_types")
         
-        # Search for specific property types
-        print("2. Searching for apartment types...")
-        search_params = {"search_term": "דירה"}
-        # apartments = await self.client.call("search_property_types", search_params)
-        
         # Get details about a specific property type
-        print("3. Getting details for apartment (code 1)...")
+        print("2. Getting details for apartment (code 1)...")
         details_params = {"property_code": 1}
         # details = await self.client.call("get_property_type_details", details_params)
         
         # Convert to English
-        print("4. Converting to English...")
+        print("3. Converting to English...")
         convert_params = {
             "value": "1",
             "from_format": "yad2",

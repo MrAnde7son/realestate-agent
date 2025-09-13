@@ -13,3 +13,7 @@ opentelemetry-exporter-otlp>=1.17.0
 pytest>=6.2.0
 pytest-asyncio>=0.15.0
 pytest-mock>=3.6.0
+
+# Alert Notifications
+twilio>=8.0.0
+sendgrid>=6.0.0

@@ -21,7 +21,7 @@ SECTION_TITLES_HE = {
 # Plan configuration
 PLAN_LIMITS = {
     'free': {
-        'asset_limit': 5,
+        'asset_limit': 1,
         'report_limit': 10,
         'alert_limit': 5,
         'advanced_analytics': False,

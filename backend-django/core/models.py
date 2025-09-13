@@ -60,14 +60,14 @@ class User(AbstractUser):
         """Get the asset limit for the user's current plan."""
         plan = self.current_plan
         if not plan:
-            return 5  # Default to free plan limit
+            return 1  # Default to free plan limit
         return plan.plan_type.asset_limit
 
     def can_create_asset(self):
         """Check if user can create a new asset based on their plan limit."""
         if not self.current_plan:
             # Default to free plan
-            return self.created_assets.count() < 5
+            return self.created_assets.count() < 1
         
         plan = self.current_plan.plan_type
         if plan.asset_limit == -1:  # Unlimited

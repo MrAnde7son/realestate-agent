@@ -31,7 +31,7 @@ class TestPlanService:
             name='free',
             defaults={
                 'display_name': 'Free Plan',
-                'asset_limit': 5
+                'asset_limit': 1
             }
         )
         
@@ -74,7 +74,7 @@ class TestPlanService:
             name='free',
             defaults={
                 'display_name': 'Free Plan',
-                'asset_limit': 5
+                'asset_limit': 1
             }
         )
         
@@ -170,13 +170,14 @@ class TestPlanService:
             email='test@example.com',
             password='testpass123'
         )
-        
+
+        PlanService.get_or_create_plan_types()
         # Should assign default plan and return info
         plan_info = PlanService.get_user_plan_info(user)
         
         assert plan_info['plan_name'] == 'free'
-        assert plan_info['display_name'] == 'Free Plan'
-        assert plan_info['limits']['assets']['limit'] == 5
+        assert plan_info['display_name'] == 'חבילה חינמית'
+        assert plan_info['limits']['assets']['limit'] == 1
 
     def test_validate_asset_creation_success(self):
         """Test successful asset creation validation"""
@@ -314,7 +315,7 @@ class TestPlanService:
             name='free',
             defaults={
                 'display_name': 'Free Plan',
-                'asset_limit': 5
+                'asset_limit': 1
             }
         )
         
@@ -369,7 +370,7 @@ class TestPlanService:
             name='free',
             defaults={
                 'display_name': 'Free Plan',
-                'asset_limit': 5
+                'asset_limit': 1
             }
         )
         
@@ -395,7 +396,7 @@ class TestPlanService:
             name='free',
             defaults={
                 'display_name': 'Free Plan',
-                'asset_limit': 5
+                'asset_limit': 1
             }
         )
         
@@ -473,7 +474,7 @@ class TestPlanService:
             name='free',
             defaults={
                 'display_name': 'Free Plan',
-                'asset_limit': 5
+                'asset_limit': 1
             }
         )
         

@@ -33,7 +33,7 @@ class TestPlanTypeModel:
                 'price': Decimal('0.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
-                'asset_limit': 5,
+                'asset_limit': 1,
                 'report_limit': 10,
                 'alert_limit': 5,
                 'advanced_analytics': False,
@@ -48,7 +48,7 @@ class TestPlanTypeModel:
         assert plan_type.name == 'test_free'
         assert plan_type.display_name == 'Test Free Plan'
         assert plan_type.price == Decimal('0.00')
-        assert plan_type.asset_limit == 5
+        assert plan_type.asset_limit == 1
         assert plan_type.is_active is True
         assert str(plan_type) == 'Test Free Plan (test_free)'
 
@@ -60,7 +60,7 @@ class TestPlanTypeModel:
                 name=choice,
                 defaults={
                     'display_name': f'{choice.title()} Plan',
-                    'asset_limit': 5
+                    'asset_limit': 1 if choice == 'free' else 5
                 }
             )
             assert plan_type.name == choice
@@ -315,7 +315,7 @@ class TestUserPlanMethods:
         )
         
         # No plan - should return default limit
-        assert user.get_asset_limit() == 5
+        assert user.get_asset_limit() == 1
         
         # With plan
         plan_type, _ = PlanType.objects.get_or_create(
@@ -342,11 +342,11 @@ class TestUserPlanMethods:
             password='testpass123'
         )
         
-        # No plan - should allow up to 5 assets
+        # No plan - should allow up to 1 asset
         assert user.can_create_asset() is True
-        
-        # Create 5 assets
-        for i in range(5):
+
+        # Create 1 asset
+        for i in range(1):
             Asset.objects.create(
                 scope_type="address",
                 street=f"Test Street {i}",
@@ -355,7 +355,7 @@ class TestUserPlanMethods:
                 rooms=3,
                 created_by=user
             )
-        
+
         # Should not allow more assets without plan
         assert user.can_create_asset() is False
         
@@ -464,7 +464,7 @@ class TestUserPlanMethods:
             name='free',
             defaults={
                 'display_name': 'Free Plan',
-                'asset_limit': 5
+                'asset_limit': 1
             }
         )
         

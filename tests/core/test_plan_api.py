@@ -39,7 +39,7 @@ class TestPlanAPIEndpoints:
                 'price': Decimal('0.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
-                'asset_limit': 5,
+                'asset_limit': 1,
                 'report_limit': 10,
                 'alert_limit': 5,
                 'advanced_analytics': False,

@@ -263,17 +263,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   }
 
   const manualDocs =
-    asset.documents?.filter(
+    asset?.documents?.filter(
       (d: any) => d.type === 'tabu' || d.type === 'condo_plan'
     ) ?? []
   const permitDocs =
-    asset.documents?.filter((d: any) => d.type === 'permit') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'permit') ?? []
   const rightsDocs =
-    asset.documents?.filter((d: any) => d.type === 'rights') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'rights') ?? []
   const decisiveDocs =
-    asset.documents?.filter((d: any) => d.type === 'appraisal_decisive') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'appraisal_decisive') ?? []
   const rmiDocs =
-    asset.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
 
   const handleGenerateReport = async (selected: string[]) => {
     if (!id) return

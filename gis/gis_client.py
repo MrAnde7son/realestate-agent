@@ -246,8 +246,8 @@ class TelAvivGS:
                 return None
                 
             # Extract block and parcel values
-            block = blocks[0].get("ms_block")
-            parcel = parcels[0].get("ms_parcel")
+            block = blocks[0].get("ms_gush")
+            parcel = parcels[0].get("ms_chelka")
             
             self._logger.info("Extracted values", extra={"block": block, "parcel": parcel, "blocks": blocks, "parcels": parcels})
             

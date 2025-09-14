@@ -44,8 +44,8 @@ def test_privilege_page(tmp_path):
         parcels = gs.get_parcels(x, y)
         result = gs.get_building_privilege_page(x, y, save_dir=str(save_dir))
 
-    assert len(blocks) == 1 and blocks[0]["ms_block"] == "6638"
-    assert len(parcels) == 1 and parcels[0]["ms_parcel"] == "572"
+    assert len(blocks) == 1 and blocks[0]["ms_gush"] == "6638"
+    assert len(parcels) == 1 and parcels[0]["ms_chelka"] == "572"
     assert result is not None
     assert result["block"] == "6638"
     assert result["parcel"] == "572"

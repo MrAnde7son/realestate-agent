@@ -25,9 +25,9 @@ export type Asset = {
     phone?: string | null;
     email?: string | null;
   } | null;
-  gush?: string | null;
-  helka?: string | null;
-  subhelka?: string | null;
+  block?: string | null;
+  parcel?: string | null;
+  subparcel?: string | null;
   lat?: number | null;
   lon?: number | null;
   normalizedAddress?: string | null;
@@ -146,9 +146,9 @@ export function normalizeFromBackend(row: any): Asset {
     images: row.images ?? row.photos ?? [],
     features: row.features ?? null,
     contactInfo: row.contactInfo ?? row.contact_info ?? null,
-    gush: row.gush ?? null,
-    helka: row.helka ?? null,
-    subhelka: row.subhelka ?? null,
+    block: row.block ?? null,
+    parcel: row.parcel ?? null,
+    subparcel: row.subparcel ?? null,
     lat: row.lat ?? null,
     lon: row.lon ?? null,
     normalizedAddress: row.normalizedAddress ?? row.normalized_address ?? null,

@@ -153,9 +153,9 @@ describe('/api/assets', () => {
           type: 'parcel' as const,
           value: '1/2'
         },
-        gush: '1',
-        helka: '2',
-        subhelka: '3'
+        block: '1',
+        parcel: '2',
+        subparcel: '3'
       }
       const request = createMockRequest(mockParcelAsset)
 
@@ -163,15 +163,15 @@ describe('/api/assets', () => {
       const data = await response.json()
 
       expect(response.status).toBe(201)
-      expect(data.asset.gush).toBe('1')
-      expect(data.asset.helka).toBe('2')
-      expect(data.asset.subhelka).toBe('3')
+      expect(data.asset.block).toBe('1')
+      expect(data.asset.parcel).toBe('2')
+      expect(data.asset.subparcel).toBe('3')
 
       const [, fetchOptions] = (global.fetch as any).mock.calls[0]
       const sentBody = JSON.parse(fetchOptions.body)
-      expect(sentBody.gush).toBe('1')
-      expect(sentBody.helka).toBe('2')
-      expect(sentBody.subhelka).toBe('3')
+      expect(sentBody.block).toBe('1')
+      expect(sentBody.parcel).toBe('2')
+      expect(sentBody.subparcel).toBe('3')
     })
 
     it('validates required fields', async () => {

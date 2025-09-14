@@ -637,15 +637,15 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </div>
             <div>
               <div className="text-sm text-muted-foreground">גוש</div>
-              <div className="font-medium">{renderValue(asset.gush, 'gush')}</div>
+              <div className="font-medium">{renderValue(asset.block, 'block')}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">חלקה</div>
-              <div className="font-medium">{renderValue(asset.helka, 'helka')}</div>
+              <div className="font-medium">{renderValue(asset.parcel, 'parcel')}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">תת חלקה</div>
-              <div className="font-medium">{renderValue(asset.subhelka, 'subhelka')}</div>
+              <div className="font-medium">{renderValue(asset.subparcel, 'subparcel')}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">מספר דירה</div>

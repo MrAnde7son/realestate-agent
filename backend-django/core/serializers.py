@@ -60,7 +60,7 @@ class AssetSerializer(MetaSerializerMixin):
         model = Asset
         fields = [
             'id', 'scope_type', 'city', 'neighborhood', 'street', 'number',
-            'gush', 'helka', 'subhelka', 'lat', 'lon', 'normalized_address', 'address', 'status',
+            'block', 'parcel', 'subparcel', 'lat', 'lon', 'normalized_address', 'address', 'status',
                    'building_type', 'floor', 'apartment', 'total_floors', 'rooms', 'bedrooms', 'bathrooms',
             'area', 'total_area', 'balcony_area', 'parking_spaces', 'storage_room',
             'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',

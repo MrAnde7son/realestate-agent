@@ -13,11 +13,11 @@ class RamiCollector(BaseCollector):
     def __init__(self, client: Optional[RamiClient] = None) -> None:
         self.client = client or RamiClient()
 
-    def collect(self, gush: str, chelka: str) -> List[Dict[str, Any]]:
-        """Collect RAMI plans for a given gush (block) and chelka (parcel)."""
+    def collect(self, block: str, parcel: str) -> List[Dict[str, Any]]:
+        """Collect RAMI plans for a given block (block) and parcel (parcel)."""
         try:
             # Create search parameters using the same logic as the test
-            search_params = self.client.create_search_params(gush=gush, chelka=chelka)
+            search_params = self.client.create_search_params(block=block, parcel=parcel)
             
             # Fetch plans using the same method as the test
             plans_df = self.client.fetch_plans(search_params)
@@ -40,5 +40,5 @@ class RamiCollector(BaseCollector):
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for RAMI data collection."""
-        required_params = ['gush', 'chelka']
+        required_params = ['block', 'parcel']
         return all(param in kwargs for param in required_params)

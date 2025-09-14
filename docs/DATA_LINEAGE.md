@@ -96,8 +96,8 @@ graph TB
 |-------------|-----------|----------------|------------|
 | `lat` | `x`, `y` coordinates | Geocoding conversion | `gis_permit` |
 | `lon` | `x`, `y` coordinates | Geocoding conversion | `gis_permit` |
-| `gush` | `block` data | Extracted from parcel info | `gis_permit` |
-| `helka` | `parcel` data | Extracted from parcel info | `gis_permit` |
+| `block` | `block` data | Extracted from parcel info | `gis_permit` |
+| `parcel` | `parcel` data | Extracted from parcel info | `gis_permit` |
 | `zoning` | `land_use_main` | Direct mapping | `gis_rights` |
 | `building_rights` | `land_use_detailed` | Direct mapping | `gis_rights` |
 | `permit_status` | `permits.status` | Status aggregation | `gis_permit` |
@@ -156,9 +156,9 @@ graph TB
 
 | Asset Field | GovMap Field | Transformation | Provenance |
 |-------------|--------------|----------------|------------|
-| `gush` | `parcel.gush` | Direct mapping | `govmap` |
-| `helka` | `parcel.helka` | Direct mapping | `govmap` |
-| `subhelka` | `parcel.subhelka` | Direct mapping | `govmap` |
+| `block` | `parcel.block` | Direct mapping | `govmap` |
+| `parcel` | `parcel.parcel` | Direct mapping | `govmap` |
+| `subparcel` | `parcel.subparcel` | Direct mapping | `govmap` |
 
 **Raw Data Storage**: Stored in `SourceRecord.raw` as JSON with source `"govmap"`
 

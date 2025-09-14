@@ -63,8 +63,8 @@ def download_tel_aviv_plans_example():
     search_params = {
         'planNumber': '',
         'city': 5000,  # Tel Aviv city code
-        'gush': '',
-        'chelka': '',
+        'block': '',
+        'parcel': '',
         'statuses': None,
         'planTypes': [72, 21, 1, 8, 9, 10],  # Subset of plan types
         'fromStatusDate': None,

@@ -322,38 +322,40 @@ class DataPipeline:
             block = ""
             parcel = ""
             
-            if listings:  # Only get GIS data if we have listings
-                try:
-                    logger.info("🗺️ Collecting GIS data for address...")
-                    gis_data = self._collect_with_observability(
-                        "gis",
-                        self.gis.collect,
-                        address=address,
-                        house_number=house_number,
-                        timeout=self.TIMEOUTS.get("gis"),
-                        retries=self.RETRIES.get("gis", 0),
-                        asset_id=asset_id,
-                    )
-                    track("collector_success", source="gis")
-                    block = gis_data.get("block", "")
-                    parcel = gis_data.get("parcel", "")
-                    logger.info(f"📍 GIS data collected: block={block}, parcel={parcel}")
-                except Exception as e:
-                    gis_data = {}
-                    track("collector_fail", source="gis", error_code=str(e))
-                    logger.warning(f"⚠️ GIS collection failed: {e}")
+            # Always try to get GIS data, regardless of Yad2 results
+            try:
+                logger.info("🗺️ Collecting GIS data for address...")
+                gis_data = self._collect_with_observability(
+                    "gis",
+                    self.gis.collect,
+                    address=address,
+                    house_number=house_number,
+                    timeout=self.TIMEOUTS.get("gis"),
+                    retries=self.RETRIES.get("gis", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="gis")
+                block = gis_data.get("block", "")
+                parcel = gis_data.get("parcel", "")
+                logger.info(f"📍 GIS data collected: block={block}, parcel={parcel}")
+            except Exception as e:
+                gis_data = {}
+                track("collector_fail", source="gis", error_code=str(e))
+                logger.warning(f"⚠️ GIS collection failed: {e}")
             
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}
             if block and parcel:
                 try:
                     logger.info("🏛️ Collecting government data...")
+                    # Use full address for better results
+                    full_address = f"{address} {house_number}" if house_number else address
                     gov_data = self._collect_with_observability(
                         "gov",
                         self.gov.collect,
                         block=block,
                         parcel=parcel,
-                        address=address,
+                        address=full_address,
                         timeout=self.TIMEOUTS.get("gov"),
                         retries=self.RETRIES.get("gov", 0),
                         asset_id=asset_id,
@@ -408,6 +410,7 @@ class DataPipeline:
                     logger.warning(f"⚠️ Mavat collection failed: {e}")
             
             try:
+                # Process listings if any exist
                 for i, listing in enumerate(listings, 1):
                     logger.info(f"🏠 Processing listing {i}/{len(listings)}: {listing.title}")
                     # Store listing in DB and add to return list
@@ -456,6 +459,28 @@ class DataPipeline:
                                 source=notifier.__class__.__name__,
                                 error_code=str(e),
                             )
+                
+                # If no listings, still add collected data to results
+                if not listings:
+                    logger.info("📊 No Yad2 listings found, but adding collected data to results")
+                    
+                    # Add GIS data to results
+                    if gis_data:
+                        results.append({"source": "gis", "data": gis_data})
+                    
+                    # Add government data to results
+                    if gov_data.get("decisive"):
+                        results.append({"source": "decisive", "data": gov_data["decisive"]})
+                    if gov_data.get("transactions"):
+                        results.append({"source": "transactions", "data": gov_data["transactions"]})
+                    
+                    # Add RAMI plans to results
+                    if plans:
+                        results.append({"source": "gov_rami", "data": plans})
+                    
+                    # Add Mavat plans to results
+                    if mavat_plans:
+                        results.append({"source": "mavat", "data": mavat_plans})
 
                 session.commit()
                 
@@ -525,6 +550,15 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
                 elif result.get('source') == 'transactions':
                     # Extract transaction data
                     payload['gov_transactions'] = result.get('data', [])
+            elif hasattr(result, 'listing_id'):
+                # Direct Yad2 listing object
+                payload['listing_id'] = result.listing_id
+                if hasattr(result, 'price'):
+                    payload['price'] = result.price
+                if hasattr(result, 'rooms'):
+                    payload['rooms'] = result.rooms
+                if hasattr(result, 'size'):
+                    payload['area'] = result.size
         
         # Create snapshot
         Snapshot.objects.create(

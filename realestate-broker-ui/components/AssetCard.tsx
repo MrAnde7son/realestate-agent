@@ -14,7 +14,7 @@ function exportAssetCsv(asset: Asset) {
   const headers = [
     'id', 'address', 'city', 'neighborhood', 'street', 'number', 'type', 'bedrooms', 'rooms', 'bathrooms',
     'area', 'totalArea', 'balconyArea', 'parkingSpaces', 'price', 'pricePerSqm', 'pricePerSqmDisplay',
-    'description', 'gush', 'helka', 'subhelka', 'lat', 'lon', 'normalizedAddress', 'buildingType',
+    'description', 'block', 'parcel', 'subparcel', 'lat', 'lon', 'normalizedAddress', 'buildingType',
     'floor', 'totalFloors', 'storageRoom', 'elevator', 'airConditioning', 'furnished', 'renovated',
     'yearBuilt', 'lastRenovation', 'deltaVsAreaPct', 'domPercentile', 'competition1km', 'zoning',
     'riskFlags', 'priceGapPct', 'expectedPriceRange', 'remainingRightsSqm', 'program', 'lastPermitQ',

@@ -87,9 +87,9 @@
       "url": "https://gis.tel-aviv.gov.il/rights/6638/96",
       "file_path": "rights/6638_96.pdf",
       "raw": {
-        "gush": "6638",
-        "helka": "96",
-        "subhelka": "1",
+        "block": "6638",
+        "parcel": "96",
+        "subparcel": "1",
         "coordinates": {
           "x": 184320.5,
           "y": 668548.2,
@@ -164,8 +164,8 @@
         "authority": "עיריית תל אביב",
         "date": "2023-06-01",
         "area": "רמת החייל",
-        "gush": "6638",
-        "chelka": "96",
+        "block": "6638",
+        "parcel": "96",
         "building_rights": "8 קומות + גג",
         "max_height": 24,
         "max_units": 16,

@@ -28,7 +28,7 @@ Nadlaner™ is a trademark of MrAnde7son.
 ### 🏛️ Planning & Government Data (RAMI)
 - **📄 Israeli Planning Documents**: Direct access to land.gov.il TabaSearch API
 - **🗂️ Document Downloads**: Automatic download of regulations (תקנון), blueprints (תשריט), appendices (נספח), and archives (ממ"ג)
-- **🔍 Smart Search**: Search by plan number, city, gush/chelka, or multiple criteria
+- **🔍 Smart Search**: Search by plan number, city, block/parcel, or multiple criteria
 - **🇮🇱 Tel Aviv Optimized**: Pre-configured searches for Tel Aviv metropolitan area
 
 ### 🗺️ GIS & Location Intelligence
@@ -246,7 +246,7 @@ python -c "from yad2.cli import InteractiveCLI; InteractiveCLI().main_menu()"
 #### 🤖 Natural Language Queries (with Claude/LLM)
 After setting up MCP servers, you can ask:
 - *"Find 4-room apartments in Tel Aviv under 8 million NIS with parking"*
-- *"Get planning documents for Gush 6638 Chelka 96"*
+- *"Get planning documents for Block 6638 Percel 96"*
 - *"Find building permits near Dizengoff 50"*
 - *"Analyze comparable transactions in Ramat Aviv"*
 
@@ -351,7 +351,7 @@ The RAMI system provides access to official Israeli planning documents from land
 
 - **Plan Number**: Specific plan identifier (e.g., "תמ\"א 38", "מתא/7")
 - **City Code**: Municipality identifier (5000 = Tel Aviv, 6200 = Jerusalem)
-- **Gush/Chelka**: Block and plot numbers for precise location targeting
+- **Block/Percel**: Block and plot numbers for precise location targeting
 - **Plan Types**: Various planning categories (residential, commercial, infrastructure)
 - **Status Filters**: Planning approval stages and dates
 
@@ -478,7 +478,7 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - **ממ"ג (mmg)** — Digital planning archives (ZIP)
 
 **Example Queries:**
-- *"Find planning documents for Gush 6638 Chelka 96"*
+- *"Find planning documents for Block 6638 Percel 96"*
 - *"Download blueprints for plan תמ״א 38 in Tel Aviv"*
 
 ### 🗺️ Tel Aviv GIS Server (`python -m gis.mcp.server`)
@@ -556,7 +556,7 @@ python -m mavat.mcp.server    # National planning portal
 - "Analyze the price distribution of the last search"
 
 **Planning Document Queries:**
-- "Find planning documents for Gush 6638 Chelka 96"
+- "Find planning documents for Block 6638 Parcel 96"
 - "Download blueprints for plan תמ\"א 38 in Tel Aviv"
 - "Search for all approved plans in Tel Aviv from 2023"
 

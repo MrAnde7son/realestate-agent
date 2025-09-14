@@ -96,9 +96,9 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         <div className="text-xs text-sub">
             {row.original.city ?? '—'}
             {row.original.neighborhood ? ` · ${row.original.neighborhood}` : ''}
-            {row.original.gush ? ` · גוש ${row.original.gush}` : ''}
-            {row.original.helka ? ` חלקה ${row.original.helka}` : ''}
-            {row.original.subhelka ? ` תת חלקה ${row.original.subhelka}` : ''}
+            {row.original.block ? ` · גוש ${row.original.block}` : ''}
+            {row.original.parcel ? ` חלקה ${row.original.parcel}` : ''}
+            {row.original.subparcel ? ` תת חלקה ${row.original.subparcel}` : ''}
             · {row.original.type ?? '—'} · {row.original.area !== undefined && row.original.area !== null ? `${fmtNumber(row.original.area)} מ"ר נטו` : '—'}
         </div>
       </div>

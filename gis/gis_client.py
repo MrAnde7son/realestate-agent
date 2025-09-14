@@ -237,7 +237,7 @@ class TelAvivGS:
         try:
             self._logger.info("Getting building privilege page", extra={"x": x, "y": y})
             
-            # Get blocks (gush) and parcels (helka) for the location
+            # Get blocks (block) and parcels (parcel) for the location
             blocks = self.get_blocks(x, y)
             parcels = self.get_parcels(x, y)
             
@@ -245,29 +245,29 @@ class TelAvivGS:
                 self._logger.warning("No blocks or parcels found for location", extra={"x": x, "y": y})
                 return None
                 
-            # Extract gush and helka values
-            gush = blocks[0].get("ms_gush")
-            helka = parcels[0].get("ms_chelka")
+            # Extract block and parcel values
+            block = blocks[0].get("ms_block")
+            parcel = parcels[0].get("ms_parcel")
             
-            self._logger.info("Extracted values", extra={"gush": gush, "helka": helka, "blocks": blocks, "parcels": parcels})
+            self._logger.info("Extracted values", extra={"block": block, "parcel": parcel, "blocks": blocks, "parcels": parcels})
             
-            if not gush or not helka:
-                self._logger.warning("Missing gush or helka values", extra={"gush": gush, "helka": helka})
+            if not block or not parcel:
+                self._logger.warning("Missing block or parcel values", extra={"block": block, "parcel": parcel})
                 return None
                 
-            self._logger.info("Found gush and helka", extra={"gush": gush, "helka": helka})
+            self._logger.info("Found block and parcel", extra={"block": block, "parcel": parcel})
             
             # Construct the privilege page URL
-            privilege_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?gush={gush}&helka={helka}&iriaMode=internet"
+            privilege_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?block={block}&parcel={parcel}&iriaMode=internet"
             
-            self._logger.info("Constructed privilege URL", extra={"url": privilege_url, "gush": gush, "helka": helka})
+            self._logger.info("Constructed privilege URL", extra={"url": privilege_url, "block": block, "parcel": parcel})
             
             # Create save directory if it doesn't exist
             if save_dir:
                 os.makedirs(save_dir, exist_ok=True)
             
             self._logger.info(
-                "Downloading privilege page", extra={"url": privilege_url, "gush": gush, "helka": helka}
+                "Downloading privilege page", extra={"url": privilege_url, "block": block, "parcel": parcel}
             )
             r = requests.get(privilege_url, headers=self.HDRS, timeout=30, allow_redirects=True)
             r.raise_for_status()
@@ -293,7 +293,7 @@ class TelAvivGS:
                     ext = ".html"
                     content_type_detected = "html"
             
-            filename = f"privilege_gush_{gush}_helka_{helka}{ext}"
+            filename = f"privilege_block_{block}_parcel_{parcel}{ext}"
             dest_path = os.path.join(save_dir, filename)
 
             # Save the content
@@ -306,8 +306,8 @@ class TelAvivGS:
             result = {
                 "file_path": dest_path,
                 "content_type": content_type_detected,
-                "gush": gush,
-                "helka": helka,
+                "block": block,
+                "parcel": parcel,
                 "parcels": [],
                 "pdf_data": [],
                 "message": f"Building privilege page downloaded ({content_type_detected})"
@@ -362,33 +362,33 @@ class TelAvivGS:
             self._logger.error(f"Unexpected error in get_building_privilege_page: {e}", exc_info=True)
             return {"success": False, "error": str(e), "message": f"Unexpected error: {e}"}
 
-    def get_gush_helka_info(self, x: float, y: float) -> Dict[str, Any]:
+    def get_block_parcel_info(self, x: float, y: float) -> Dict[str, Any]:
         """
-        Simple function to get gush and helka information without downloading the privilege page.
+        Simple function to get block and parcel information without downloading the privilege page.
         This helps debug issues with the main function.
         """
         try:
-            # Get blocks (gush) and parcels (helka) for the location
+            # Get blocks (block) and parcels (parcel) for the location
             blocks = self.get_blocks(x, y)
             parcels = self.get_parcels(x, y)
             
             if not blocks or not parcels:
                 return {"error": "No blocks or parcels found", "blocks": blocks, "parcels": parcels}
                 
-            # Extract gush and helka values
-            gush = blocks[0].get("ms_gush")
-            helka = parcels[0].get("ms_chelka")
+            # Extract block and parcel values
+            block = blocks[0].get("ms_block")
+            parcel = parcels[0].get("ms_parcel")
             
-            if not gush or not helka:
-                return {"error": "Missing gush or helka values", "gush": gush, "helka": helka}
+            if not block or not parcel:
+                return {"error": "Missing block or parcel values", "block": block, "parcel": parcel}
                 
             # Construct the privilege page URL
-            privilege_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?gush={gush}&helka={helka}&iriaMode=internet"
+            privilege_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?block={block}&parcel={parcel}&iriaMode=internet"
             
             return {
                 "success": True,
-                "gush": gush,
-                "helka": helka,
+                "block": block,
+                "parcel": parcel,
                 "url": privilege_url,
                 "blocks": blocks,
                 "parcels": parcels

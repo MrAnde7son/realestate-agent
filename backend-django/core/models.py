@@ -401,9 +401,9 @@ class Asset(models.Model):
     neighborhood = models.CharField(max_length=100, blank=True, null=True)
     street = models.CharField(max_length=200, blank=True, null=True)
     number = models.IntegerField(blank=True, null=True)
-    gush = models.CharField(max_length=20, blank=True, null=True)
-    helka = models.CharField(max_length=20, blank=True, null=True)
-    subhelka = models.CharField(max_length=20, blank=True, null=True)
+    block = models.CharField(max_length=20, blank=True, null=True)
+    parcel = models.CharField(max_length=20, blank=True, null=True)
+    subparcel = models.CharField(max_length=20, blank=True, null=True)
     lat = models.FloatField(blank=True, null=True)
     lon = models.FloatField(blank=True, null=True)
     normalized_address = models.CharField(max_length=500, blank=True, null=True)
@@ -454,9 +454,9 @@ class Asset(models.Model):
             models.Index(fields=["city"]),
             models.Index(fields=["neighborhood"]),
             models.Index(fields=["street"]),
-            models.Index(fields=["gush"]),
-            models.Index(fields=["helka"]),
-            models.Index(fields=["subhelka"]),
+            models.Index(fields=["block"]),
+            models.Index(fields=["parcel"]),
+            models.Index(fields=["subparcel"]),
             models.Index(fields=["normalized_address"]),
             models.Index(fields=["status"]),
             models.Index(fields=["building_type"]),

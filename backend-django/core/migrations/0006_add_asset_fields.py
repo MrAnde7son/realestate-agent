@@ -112,7 +112,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='asset',
-            name='subhelka',
+            name='subparcel',
             field=models.CharField(blank=True, max_length=20, null=True),
         ),
         migrations.AddField(
@@ -137,7 +137,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='asset',
-            index=models.Index(fields=['subhelka'], name='core_asset_subhelk_ec1101_idx'),
+            index=models.Index(fields=['subparcel'], name='core_asset_subhelk_ec1101_idx'),
         ),
         migrations.AddIndex(
             model_name='asset',

@@ -1013,8 +1013,8 @@ def tabu(request):
                 "rows": [
                     {
                         "id": 1,
-                        "gush": "1234",
-                        "helka": "56",
+                        "block": "1234",
+                        "parcel": "56",
                         "owner": "בעלים לדוגמה",
                         "area": "150",
                         "usage": "מגורים",
@@ -1043,8 +1043,8 @@ def assets(request):
         "city": "string",
         "street": "string",
         "number": "integer",
-        "gush": "string",
-        "helka": "string",
+        "block": "string",
+        "parcel": "string",
         "radius": "integer"
     }
     """
@@ -1141,9 +1141,9 @@ def assets(request):
             "street": data.get("street"),
             "number": data.get("number"),
             "apartment": data.get("apartment"),
-            "gush": data.get("gush"),
-            "helka": data.get("helka"),
-            "subhelka": data.get("subhelka"),
+            "block": data.get("block"),
+            "parcel": data.get("parcel"),
+            "subparcel": data.get("subparcel"),
             "status": "pending",
             "created_by": user if is_authenticated else None,
             "last_updated_by": user if is_authenticated else None,

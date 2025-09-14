@@ -20,8 +20,8 @@ class Migration(migrations.Migration):
                 ('neighborhood', models.CharField(blank=True, max_length=100, null=True)),
                 ('street', models.CharField(blank=True, max_length=200, null=True)),
                 ('number', models.IntegerField(blank=True, null=True)),
-                ('gush', models.CharField(blank=True, max_length=20, null=True)),
-                ('helka', models.CharField(blank=True, max_length=20, null=True)),
+                ('block', models.CharField(blank=True, max_length=20, null=True)),
+                ('parcel', models.CharField(blank=True, max_length=20, null=True)),
                 ('lat', models.FloatField(blank=True, null=True)),
                 ('lon', models.FloatField(blank=True, null=True)),
                 ('normalized_address', models.CharField(blank=True, max_length=500, null=True)),
@@ -78,11 +78,11 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='asset',
-            index=models.Index(fields=['gush'], name='core_asset_gush_dc43e9_idx'),
+            index=models.Index(fields=['block'], name='core_asset_block_dc43e9_idx'),
         ),
         migrations.AddIndex(
             model_name='asset',
-            index=models.Index(fields=['helka'], name='core_asset_helka_38f908_idx'),
+            index=models.Index(fields=['parcel'], name='core_asset_parcel_38f908_idx'),
         ),
         migrations.AddIndex(
             model_name='asset',

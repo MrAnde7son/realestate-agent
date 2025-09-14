@@ -118,8 +118,8 @@ class RamiClient:
     def create_search_params(
         self,
         plan_number: str = "",
-        gush: str = "",
-        chelka: str = "",
+        block: str = "",
+        parcel: str = "",
         statuses: Optional[List[int]] = None,
         plan_types: Optional[List[int]] = None,
         from_status_date: Optional[str] = None,
@@ -131,8 +131,8 @@ class RamiClient:
         Args:
             plan_number: Plan number to search for
             city: City code (e.g., 5000 for Tel Aviv)
-            gush: Gush (block) number
-            chelka: Chelka (parcel) number
+            block: block (block) number
+            parcel: parcel (parcel) number
             statuses: List of status codes to filter by
             plan_types: List of plan type codes to filter by
             from_status_date: Start date for status filter (YYYY-MM-DD)
@@ -147,8 +147,8 @@ class RamiClient:
         
         return {
             "planNumber": plan_number,
-            "gush": gush,
-            "chelka": chelka,
+            "block": block,
+            "parcel": parcel,
             "statuses": statuses,
             "planTypes": plan_types,
             "fromStatusDate": from_status_date,

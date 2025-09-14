@@ -56,8 +56,8 @@ class GISCollector(BaseCollector):
 
     def _extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
         """Extract block and parcel numbers from GIS data."""
-        block = data.get("blocks", [{}])[0].get("ms_gush", "")
-        parcel = data.get("parcels", [{}])[0].get("ms_chelka", "")
+        block = data.get("blocks", [{}])[0].get("ms_block", "")
+        parcel = data.get("parcels", [{}])[0].get("ms_parcel", "")
         return block, parcel
 
     def validate_parameters(self, **kwargs) -> bool:

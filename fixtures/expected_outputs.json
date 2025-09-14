@@ -157,8 +157,8 @@
     "rami_plans": {
       "description": "Expected output from RAMI plans search",
       "input": {
-        "gush": "6638",
-        "chelka": "96",
+        "block": "6638",
+        "parcel": "96",
         "city": 5000
       },
       "expected_output": {
@@ -172,8 +172,8 @@
             "authority": "עיריית תל אביב",
             "date": "2023-06-01",
             "area": "רמת החייל",
-            "gush": "6638",
-            "chelka": "96",
+            "block": "6638",
+            "parcel": "96",
             "building_rights": "8 קומות + גג",
             "max_height": 24,
             "max_units": 16,
@@ -182,8 +182,8 @@
           }
         ],
         "search_params": {
-          "gush": "6638",
-          "chelka": "96",
+          "block": "6638",
+          "parcel": "96",
           "city": 5000
         }
       }
@@ -230,9 +230,9 @@
       },
       "expected_output": {
         "feature": {
-          "gush": "6638",
-          "helka": "96",
-          "subhelka": "1",
+          "block": "6638",
+          "parcel": "96",
+          "subparcel": "1",
           "area": 500.0,
           "land_use": "מגורים",
           "zoning": "מגורים א'",

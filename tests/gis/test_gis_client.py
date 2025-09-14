@@ -102,8 +102,8 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
     save_dir = tmp_path / "privilege_pages"
     
     # Mock responses for blocks and parcels queries
-    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
     
     # Mock the privilege page content (PDF)
     privilege_content = b"%PDF-1.4\n%Test PDF content for privilege page"
@@ -113,7 +113,7 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:  # parcels layer
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
@@ -127,14 +127,14 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
         assert result is not None
         assert isinstance(result, dict), "Result should be a dictionary"
         assert result["file_path"] is not None
-        assert "privilege_gush_6638_helka_572.pdf" in result["file_path"]
+        assert "privilege_block_6638_parcel_572.pdf" in result["file_path"]
         assert result["file_path"].startswith(str(save_dir))
         assert result["content_type"] == "pdf"
-        assert result["gush"] == "6638"
-        assert result["helka"] == "572"
+        assert result["block"] == "6638"
+        assert result["parcel"] == "572"
         
         # Check file was created
-        pdf_path = save_dir / "privilege_gush_6638_helka_572.pdf"
+        pdf_path = save_dir / "privilege_block_6638_parcel_572.pdf"
         assert pdf_path.exists()
         assert pdf_path.read_bytes() == privilege_content
 
@@ -144,8 +144,8 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
-    blocks_payload = {"features": [{"attributes": {"ms_gush": "1234"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_chelka": "56"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_block": "1234"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_parcel": "56"}}]}
     
     # Mock HTML response with linked PDF
     sample_pdf_path = "tests/samples/202581210827_zchuyot.pdf"
@@ -159,7 +159,7 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=1234&helka=56" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?block=1234&parcel=56" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = html_content
@@ -179,10 +179,10 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
         assert result is not None
         assert isinstance(result, dict), "Result should be a dictionary"
         assert result["file_path"] is not None
-        assert "privilege_gush_1234_helka_56.html" in result["file_path"]
+        assert "privilege_block_1234_parcel_56.html" in result["file_path"]
         assert result["content_type"] == "html"
-        assert result["gush"] == "1234"
-        assert result["helka"] == "56"
+        assert result["block"] == "1234"
+        assert result["parcel"] == "56"
         assert isinstance(result["parcels"], list), "Parcels should be a list for HTML content"
 
         # Ensure linked PDF was downloaded and parsed
@@ -193,7 +193,7 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
         assert isinstance(linked_pdf["data"], dict)
         
         # Check HTML file was created
-        html_path = save_dir / "privilege_gush_1234_helka_56.html"
+        html_path = save_dir / "privilege_block_1234_parcel_56.html"
         assert html_path.exists()
         assert html_path.read_bytes() == html_content
 
@@ -223,7 +223,7 @@ def test_get_building_privilege_page_no_parcels(monkeypatch, tmp_path):
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
-    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
     parcels_payload = {"features": []}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -238,13 +238,13 @@ def test_get_building_privilege_page_no_parcels(monkeypatch, tmp_path):
         assert result is None
 
 
-def test_get_building_privilege_page_missing_gush(monkeypatch, tmp_path):
-    """Test when gush value is missing from blocks data"""
+def test_get_building_privilege_page_missing_block(monkeypatch, tmp_path):
+    """Test when block value is missing from blocks data"""
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
     blocks_payload = {"features": [{"attributes": {"other_field": "value"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
@@ -258,12 +258,12 @@ def test_get_building_privilege_page_missing_gush(monkeypatch, tmp_path):
         assert result is None
 
 
-def test_get_building_privilege_page_missing_helka(monkeypatch, tmp_path):
-    """Test when helka value is missing from parcels data"""
+def test_get_building_privilege_page_missing_parcel(monkeypatch, tmp_path):
+    """Test when parcel value is missing from parcels data"""
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
-    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
     parcels_payload = {"features": [{"attributes": {"other_field": "value"}}]}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -283,8 +283,8 @@ def test_get_building_privilege_page_download_failure(monkeypatch, tmp_path):
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
-    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
@@ -309,8 +309,8 @@ def test_get_building_privilege_page_custom_save_dir(monkeypatch, tmp_path):
     gs = TelAvivGS()
     custom_dir = tmp_path / "custom_privilege_dir"
     
-    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
     privilege_content = b"%PDF-1.4\n%Test content"
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -318,7 +318,7 @@ def test_get_building_privilege_page_custom_save_dir(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
@@ -335,7 +335,7 @@ def test_get_building_privilege_page_custom_save_dir(monkeypatch, tmp_path):
         assert str(custom_dir) in result["file_path"]
         assert custom_dir.exists()
         
-        pdf_path = custom_dir / "privilege_gush_6638_helka_572.pdf"
+        pdf_path = custom_dir / "privilege_block_6638_parcel_572.pdf"
         assert pdf_path.exists()
 
 
@@ -343,8 +343,8 @@ def test_get_building_privilege_page_no_save_dir(monkeypatch, tmp_path):
     """Test when save_dir is None (should not save file)"""
     gs = TelAvivGS()
     
-    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
     privilege_content = b"%PDF-1.4\n%Test content"
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -352,7 +352,7 @@ def test_get_building_privilege_page_no_save_dir(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
@@ -369,11 +369,11 @@ def test_get_building_privilege_page_no_save_dir(monkeypatch, tmp_path):
         assert result is not None
         assert isinstance(result, dict), "Result should be a dictionary"
         assert result["file_path"] is not None
-        assert "privilege_gush_6638_helka_572.pdf" in result["file_path"]
+        assert "privilege_block_6638_parcel_572.pdf" in result["file_path"]
 
 
 def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
-    """Test using the actual PDF file to verify gush and helka extraction"""
+    """Test using the actual PDF file to verify block and parcel extraction"""
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
@@ -383,15 +383,15 @@ def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
         real_pdf_content = f.read()
     
     # Mock responses for blocks and parcels queries using the real values from the PDF
-    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:  # blocks layer
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:  # parcels layer
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = real_pdf_content
@@ -405,14 +405,14 @@ def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
         assert result is not None
         assert isinstance(result, dict), "Result should be a dictionary"
         assert result["file_path"] is not None
-        assert "privilege_gush_6638_helka_572.pdf" in result["file_path"]
+        assert "privilege_block_6638_parcel_572.pdf" in result["file_path"]
         assert result["file_path"].startswith(str(save_dir))
         assert result["content_type"] == "pdf"
-        assert result["gush"] == "6638"
-        assert result["helka"] == "572"
+        assert result["block"] == "6638"
+        assert result["parcel"] == "572"
         
         # Check file was created with the real PDF content
-        downloaded_pdf_path = save_dir / "privilege_gush_6638_helka_572.pdf"
+        downloaded_pdf_path = save_dir / "privilege_block_6638_parcel_572.pdf"
         assert downloaded_pdf_path.exists()
         assert downloaded_pdf_path.read_bytes() == real_pdf_content
 

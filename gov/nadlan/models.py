@@ -16,9 +16,9 @@ class Deal:
     year_built: Optional[str] = None
     area: Optional[float] = None
     # Parcel information
-    parcel_gush: Optional[str] = None      # גוש
-    parcel_helka: Optional[str] = None     # חלקה
-    parcel_sub_helka: Optional[str] = None # תת-חלקה
+    parcel_block: Optional[str] = None      # גוש
+    parcel_parcel: Optional[str] = None     # חלקה
+    parcel_sub_parcel: Optional[str] = None # תת-חלקה
     raw: Optional[Dict[str, Any]] = None
 
     @staticmethod
@@ -72,13 +72,13 @@ class Deal:
 
     @staticmethod
     def _parse_parcel_num(parcel_num: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
-        """Parse parcel number into gush, helka, and sub-helka.
+        """Parse parcel number into block, parcel, and sub-parcel.
         
         Args:
-            parcel_num: Parcel number in format "gush-helka-sub_helka" (e.g., "6638-68-5")
+            parcel_num: Parcel number in format "block-parcel-sub_parcel" (e.g., "6638-68-5")
             
         Returns:
-            Tuple of (gush, helka, sub_helka)
+            Tuple of (block, parcel, sub_parcel)
         """
         if not parcel_num:
             return None, None, None
@@ -100,7 +100,7 @@ class Deal:
     def from_item(cls, d: Dict[str, Any]) -> "Deal":
         # Parse parcel number
         parcel_num = d.get("parcelNum") or d.get("ParcelNum")
-        gush, helka, sub_helka = cls._parse_parcel_num(parcel_num)
+        block, parcel, sub_parcel = cls._parse_parcel_num(parcel_num)
         
         return cls(
             address=d.get("address") or d.get("AssetAddress"),
@@ -112,9 +112,9 @@ class Deal:
             year_built=(str(d.get("yearBuilt") or d.get("BuildingYear") or "") or None),
             area=cls._parse_number(d.get("area") or d.get("TotalArea")),
             # Parcel information
-            parcel_gush=gush,
-            parcel_helka=helka,
-            parcel_sub_helka=sub_helka,
+            parcel_block=block,
+            parcel_parcel=parcel,
+            parcel_sub_parcel=sub_parcel,
             raw=d,
         )
 

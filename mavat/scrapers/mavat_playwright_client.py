@@ -133,8 +133,8 @@ class MavatPlaywrightClient:
         district: Optional[str] = None,
         plan_area: Optional[str] = None,
         street: Optional[str] = None,
-        gush: Optional[str] = None,
-        helka: Optional[str] = None,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
         block_number: Optional[str] = None,
         parcel_number: Optional[str] = None,
         status: Optional[str] = None,
@@ -148,8 +148,8 @@ class MavatPlaywrightClient:
             district: District name
             plan_area: Plan area name
             street: Street name
-            gush: Gush (block) number
-            helka: Helka (parcel) number
+            block: block (block) number
+            parcel: parcel (parcel) number
             block_number: Block number
             parcel_number: Parcel number
             status: Plan status filter
@@ -168,10 +168,10 @@ class MavatPlaywrightClient:
                 search_params.append(f"text={quote(query)}")
             if city:
                 search_params.append(f"city={quote(city)}")
-            if gush:
-                search_params.append(f"gush={gush}")
-            if helka:
-                search_params.append(f"helka={helka}")
+            if block:
+                search_params.append(f"block={block}")
+            if parcel:
+                search_params.append(f"parcel={parcel}")
             
             url = self.SEARCH_URL
             if search_params:

@@ -164,14 +164,14 @@ async def get_building_privilege_page(
     result = gs.get_building_privilege_page(x, y, save_dir=save_dir)
 
     if not result:
-        await ctx.warning("Failed to download building privilege page - gush/helka values not found")
+        await ctx.warning("Failed to download building privilege page - block/parcel values not found")
         return {
             "success": False,
             "file_path": None,
             "content_type": None,
             "parcels": [],
             "pdf_data": None,
-            "message": "Could not download building privilege page - gush/helka values not found",
+            "message": "Could not download building privilege page - block/parcel values not found",
         }
 
     msg = result.get("message", "Building privilege page downloaded")

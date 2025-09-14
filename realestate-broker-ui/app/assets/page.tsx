@@ -317,9 +317,9 @@ export default function AssetsPage() {
       street: z.string().optional(),
       houseNumber: z.string().optional(),
       apartment: z.string().optional(),
-      gush: z.string().optional(),
-      helka: z.string().optional(),
-      subHelka: z.string().optional(),
+      block: z.string().optional(),
+      parcel: z.string().optional(),
+      subparcel: z.string().optional(),
       radius: z.number().int().positive().default(DEFAULT_RADIUS_METERS),
     })
     .superRefine((data, ctx) => {
@@ -339,17 +339,17 @@ export default function AssetsPage() {
           });
         }
       } else {
-        if (!data.gush) {
+        if (!data.block) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ["gush"],
+            path: ["block"],
             message: "גוש נדרש",
           });
         }
-        if (!data.helka) {
+        if (!data.parcel) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ["helka"],
+            path: ["parcel"],
             message: "חלקה נדרשת",
           });
         }
@@ -366,9 +366,9 @@ export default function AssetsPage() {
       street: "",
       houseNumber: "",
       apartment: "",
-      gush: "",
-      helka: "",
-      subHelka: "",
+      block: "",
+      parcel: "",
+      subparcel: "",
       radius: DEFAULT_RADIUS_METERS,
     },
   });
@@ -392,11 +392,11 @@ export default function AssetsPage() {
           : {
               scope: {
                 type: "parcel",
-                value: `${data.gush}/${data.helka}`,
+                value: `${data.block}/${data.parcel}`,
               },
-              gush: data.gush,
-              helka: data.helka,
-              subhelka: data.subHelka,
+              block: data.block,
+              parcel: data.parcel,
+              subparcel: data.subparcel,
               radius: data.radius,
             };
 
@@ -642,43 +642,43 @@ export default function AssetsPage() {
                     {form.watch("locationType") === "parcel" && (
                       <>
                         <div className="space-y-2">
-                          <Label htmlFor="gush">גוש</Label>
+                          <Label htmlFor="block">גוש</Label>
                           <Input
-                            id="gush"
+                            id="block"
                             placeholder="הזן מספר גוש"
-                            className={form.formState.errors.gush ? "border-error" : ""}
-                            {...form.register("gush")}
-                            aria-invalid={!!form.formState.errors.gush}
-                            aria-describedby={form.formState.errors.gush ? "gush-error" : undefined}
+                            className={form.formState.errors.block ? "border-error" : ""}
+                            {...form.register("block")}
+                            aria-invalid={!!form.formState.errors.block}
+                            aria-describedby={form.formState.errors.block ? "block-error" : undefined}
                           />
-                          {form.formState.errors.gush && (
-                            <p id="gush-error" className="text-sm text-error">
-                              {form.formState.errors.gush.message}
+                          {form.formState.errors.block && (
+                            <p id="block-error" className="text-sm text-error">
+                              {form.formState.errors.block.message}
                             </p>
                           )}
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="helka">חלקה</Label>
+                          <Label htmlFor="parcel">חלקה</Label>
                           <Input
-                            id="helka"
+                            id="parcel"
                             placeholder="הזן מספר חלקה"
-                            className={form.formState.errors.helka ? "border-error" : ""}
-                            {...form.register("helka")}
-                            aria-invalid={!!form.formState.errors.helka}
-                            aria-describedby={form.formState.errors.helka ? "helka-error" : undefined}
+                            className={form.formState.errors.parcel ? "border-error" : ""}
+                            {...form.register("parcel")}
+                            aria-invalid={!!form.formState.errors.parcel}
+                            aria-describedby={form.formState.errors.parcel ? "parcel-error" : undefined}
                           />
-                          {form.formState.errors.helka && (
-                            <p id="helka-error" className="text-sm text-error">
-                              {form.formState.errors.helka.message}
+                          {form.formState.errors.parcel && (
+                            <p id="parcel-error" className="text-sm text-error">
+                              {form.formState.errors.parcel.message}
                             </p>
                           )}
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="subHelka">תת חלקה</Label>
+                          <Label htmlFor="subparcel">תת חלקה</Label>
                           <Input
-                            id="subHelka"
+                            id="subparcel"
                             placeholder="הזן מספר תת חלקה"
-                            {...form.register("subHelka")}
+                            {...form.register("subparcel")}
                           />
                         </div>
                       </>

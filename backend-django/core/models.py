@@ -497,6 +497,32 @@ class Asset(models.Model):
             logger.error("Error deleting asset %s: %s", self.id, e)
             return False
 
+    def set_property(self, key, value, meta_prefix=""):
+        """Generic setter that updates both meta and direct asset fields."""
+        if value is None:
+            return
+        
+        # Store in meta field
+        meta_key = f"{meta_prefix}_{key}" if meta_prefix else key
+        if not self.meta:
+            self.meta = {}
+        self.meta[meta_key] = value
+        
+        # Also store directly on asset if the field exists
+        if hasattr(self, key):
+            try:
+                setattr(self, key, value)
+            except Exception as e:
+                logger.debug(f"Could not set asset.{key}: {e}")
+        
+        # Store the original key in meta for easy access
+        self.meta[key] = value
+
+    def set_properties(self, data_dict, meta_prefix=""):
+        """Bulk setter for multiple properties."""
+        for key, value in data_dict.items():
+            self.set_property(key, value, meta_prefix)
+
 
 class SourceRecord(models.Model):
     """Source record model for storing data from external sources."""

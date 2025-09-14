@@ -21,8 +21,8 @@ def _make_response(status: int = 200, json_payload: Dict = None, text: str = "",
 def test_privilege_page(tmp_path):
     gs = TelAvivGS()
     x, y = 184320.94, 668548.65
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     privilege_content = b"%PDF-1.4\n%Test PDF content"
 
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -56,8 +56,8 @@ def test_privilege_page(tmp_path):
 def test_block_parcel_extraction():
     gs = TelAvivGS()
     x, y = 184320.94, 668548.65
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
 
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:

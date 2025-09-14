@@ -57,6 +57,7 @@ export function useDashboardData() {
         let topAreas: Array<{ area: string; assets: number; avgPrice: number; trend: number }> = []
         let totalPropertyValue = 0
         let propertyReturns: number[] = []
+        let assetPriceByMonth: Record<string, { sum: number; count: number }> = {}
 
         if (assetsRes.status === 'fulfilled' && assetsRes.value.ok) {
           const assets = assetsRes.value.data?.rows || []
@@ -71,17 +72,31 @@ export function useDashboardData() {
             const type = asset.propertyType || asset.type || 'לא ידוע'
             typeCounts[type] = (typeCounts[type] || 0) + 1
 
-            // Calculate individual property return
-            const price = asset.price || 0
-            const rent = asset.monthlyRent || asset.rent || 0
-            
-            if (price > 0 && rent > 0) {
-              // Annual return for this property = (Monthly Rent * 12) / Property Price * 100
-              const annualReturn = (rent * 12 / price) * 100
-              propertyReturns.push(annualReturn)
+            // Use cap rate if available, otherwise fallback to rent/price
+            if (asset.capRatePct !== undefined && asset.capRatePct !== null) {
+              propertyReturns.push(asset.capRatePct)
+            } else {
+              const price = asset.price || 0
+              const rent = asset.monthlyRent || asset.rent || 0
+              if (price > 0 && rent > 0) {
+                const annualReturn = (rent * 12 / price) * 100
+                propertyReturns.push(annualReturn)
+              }
             }
-            
+
+            const price = asset.price || 0
             totalPropertyValue += price
+
+            // Track average price by month
+            if (price > 0 && asset.created_at) {
+              const d = new Date(asset.created_at)
+              const key = `${d.getFullYear()}-${d.getMonth()}`
+              if (!assetPriceByMonth[key]) {
+                assetPriceByMonth[key] = { sum: 0, count: 0 }
+              }
+              assetPriceByMonth[key].sum += price
+              assetPriceByMonth[key].count++
+            }
 
             // Analyze areas
             const area = asset.city || 'לא ידוע'
@@ -90,7 +105,7 @@ export function useDashboardData() {
             }
             areaData[area].count++
             areaData[area].totalPrice += price
-            areaData[area].totalRent += rent
+            areaData[area].totalRent += asset.monthlyRent || asset.rent || 0
           })
 
           // Convert to arrays
@@ -115,10 +130,7 @@ export function useDashboardData() {
         let averageReturn = 0
         if (propertyReturns.length > 0) {
           const sumReturns = propertyReturns.reduce((sum, ret) => sum + ret, 0)
-          averageReturn = Math.round((sumReturns / propertyReturns.length) * 100) / 100 // Round to 2 decimal places
-        } else {
-          // Fallback to a reasonable default if no data
-          averageReturn = 5.5
+          averageReturn = Math.round((sumReturns / propertyReturns.length) * 100) / 100
         }
 
         // Process alerts data
@@ -136,20 +148,52 @@ export function useDashboardData() {
           totalReports = reports.length
         }
 
-        // Generate market data based on actual property data
-        const months = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני']
-        const baseAvgPrice = totalPropertyValue > 0 ? totalPropertyValue / totalassets : 3000000
-        const marketData = months.map((month, index) => {
-          const priceVariation = 1 + (index * 0.02) + (Math.random() * 0.1 - 0.05) // Gradual increase with some variation
-          const avgPrice = Math.round(baseAvgPrice * priceVariation)
-          const transactions = Math.round(45 + (index * 2) + (Math.random() * 15 - 7.5))
-          const volume = avgPrice * transactions
-          
+        // Fetch comparables for all assets to build market data
+        let comparables: any[] = []
+        if (assetsRes.status === 'fulfilled' && assetsRes.value.ok) {
+          const assets = assetsRes.value.data?.rows || []
+          const compResponses = await Promise.allSettled(
+            assets.map((a: any) => api.get(`/api/assets/${a.id}/appraisal`))
+          )
+          compResponses.forEach(res => {
+            if (res.status === 'fulfilled' && res.value.ok) {
+              comparables.push(...(res.value.data?.comps || []))
+            }
+          })
+        }
+
+        const compByMonth: Record<string, { count: number; volume: number }> = {}
+        comparables.forEach(comp => {
+          if (comp.date && comp.price) {
+            const d = new Date(comp.date)
+            const key = `${d.getFullYear()}-${d.getMonth()}`
+            if (!compByMonth[key]) {
+              compByMonth[key] = { count: 0, volume: 0 }
+            }
+            compByMonth[key].count++
+            compByMonth[key].volume += comp.price
+          }
+        })
+
+        // Build last six months keys and labels
+        const monthEntries: Array<{ key: string; label: string }> = []
+        const now = new Date()
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+          monthEntries.push({
+            key: `${d.getFullYear()}-${d.getMonth()}`,
+            label: d.toLocaleString('he-IL', { month: 'long' })
+          })
+        }
+
+        const marketData = monthEntries.map(({ key, label }) => {
+          const priceInfo = assetPriceByMonth[key]
+          const compInfo = compByMonth[key]
           return {
-            month,
-            avgPrice,
-            transactions,
-            volume
+            month: label,
+            avgPrice: priceInfo ? Math.round(priceInfo.sum / priceInfo.count) : 0,
+            transactions: compInfo?.count || 0,
+            volume: compInfo?.volume || 0
           }
         })
 
@@ -165,35 +209,46 @@ export function useDashboardData() {
           else marketTrend = 'stable'
         }
 
-        // Generate recent activity (replace with real API data)
-        const recentActivity = [
-          {
-            id: '1',
-            type: 'asset' as const,
-            title: 'דירה חדשה נוספה - רחוב דיזנגוף 123',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            value: 2800000
-          },
-          {
-            id: '2',
-            type: 'alert' as const,
-            title: 'התראה חדשה - דירות 4 חדרים בתל אביב',
-            timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: '3',
-            type: 'client' as const,
-            title: 'לקוח חדש נרשם - משפחת כהן',
-            timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: '4',
-            type: 'transaction' as const,
-            title: 'עסקה הושלמה - רחוב הרצל 45',
-            timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            value: 3200000
-          }
-        ]
+        // Build recent activity from assets and alerts
+        const recentActivity: Array<{
+          id: string
+          type: 'asset' | 'alert' | 'client' | 'transaction'
+          title: string
+          timestamp: string
+          value?: number
+        }> = []
+
+        if (assetsRes.status === 'fulfilled' && assetsRes.value.ok) {
+          const assets = assetsRes.value.data?.rows || []
+          assets.forEach((a: any) => {
+            if (a.created_at) {
+              recentActivity.push({
+                id: String(a.id),
+                type: 'asset',
+                title: `נכס חדש - ${a.address}`,
+                timestamp: a.created_at,
+                value: a.price
+              })
+            }
+          })
+        }
+
+        if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
+          const alerts = alertsRes.value.data?.alerts || []
+          alerts.forEach((alert: any) => {
+            recentActivity.push({
+              id: String(alert.id || alert.ruleId || Math.random()),
+              type: 'alert',
+              title: alert.name || alert.title || 'התראה חדשה',
+              timestamp: alert.created_at || new Date().toISOString()
+            })
+          })
+        }
+
+        recentActivity.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )
+        recentActivity.splice(4)
 
         const dashboardData: DashboardData = {
           totalassets,

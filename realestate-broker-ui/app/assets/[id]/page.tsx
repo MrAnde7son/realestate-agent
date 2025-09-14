@@ -66,6 +66,9 @@ const getSourceDisplay = (source: string): string => {
 export default function AssetDetail({ params }: { params: { id: string } }) {
   const { trackFeatureUsage } = useAnalytics()
   const [asset, setAsset] = useState<any>(null)
+  const [comparables, setComparables] = useState<any[]>([])
+  const [appraisal, setAppraisal] = useState<any | null>(null)
+  const [permits, setPermits] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
@@ -105,6 +108,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       ? `${value.toFixed(digits)}%`
       : null
 
+  const avgCompPricePerSqm = comparables.length
+    ? Math.round(
+        comparables.reduce(
+          (sum, c) => sum + (c.pricePerSqm || 0),
+          0
+        ) / comparables.length
+      )
+    : null
+
+  const permitRadius = asset?._meta?.radius ?? 50
+
   useEffect(() => {
     setLoading(true)
     fetch(`/api/assets/${id}`)
@@ -118,6 +132,29 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         setError('שגיאה בטעינת הנכס')
       })
       .finally(() => setLoading(false))
+  }, [id])
+
+  useEffect(() => {
+    fetch(`/api/assets/${id}/appraisal`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load appraisal')
+        return res.json()
+      })
+      .then(data => {
+        setComparables(data.comps || [])
+        setAppraisal(data.appraisal || null)
+      })
+      .catch(err => console.error('Error loading appraisal:', err))
+  }, [id])
+
+  useEffect(() => {
+    fetch(`/api/assets/${id}/permits`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load permits')
+        return res.json()
+      })
+      .then(data => setPermits(data.permits || []))
+      .catch(err => console.error('Error loading permits:', err))
   }, [id])
 
   useEffect(() => {
@@ -1101,24 +1138,24 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
             <Card>
               <CardHeader>
-                <CardTitle>היתרים פעילים ברדיוס 50 מטר</CardTitle>
+                <CardTitle>היתרים פעילים ברדיוס {permitRadius} מטר</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="text-center py-4">
-                    <div className="text-2xl font-bold">3</div>
+                    <div className="text-2xl font-bold">{permits.length}</div>
                     <div className="text-muted-foreground">בקשות היתר פעילות</div>
                   </div>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <div className="p-3 border rounded">
-                      <div className="font-medium">רח&apos; הרצל 125</div>
-                      <div className="text-sm text-muted-foreground">שיפוץ כללי • Q1/24</div>
+                  {permits.length > 0 && (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {permits.map((p: any) => (
+                        <div key={p.id || p.permit_number} className="p-3 border rounded">
+                          <div className="font-medium">{p.description || p.permit_number || '—'}</div>
+                          <div className="text-sm text-muted-foreground">{p.status || p.issued_date || ''}</div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="p-3 border rounded">
-                      <div className="font-medium">רח&apos; הרצל 121</div>
-                      <div className="text-sm text-muted-foreground">הוספת יחידה • Q2/24</div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1134,27 +1171,30 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
                         ? formatCurrency(asset.pricePerSqm)
                         : '—'}
-                      <DataBadge source={asset?._meta?.pricePerSqm?.source} fetchedAt={asset?._meta?.pricePerSqm?.fetched_at} />
+                      <DataBadge
+                        source={asset?._meta?.pricePerSqm?.source}
+                        fetchedAt={asset?._meta?.pricePerSqm?.fetched_at}
+                      />
                     </div>
                     <div className="text-sm text-muted-foreground">מחיר למ״ר - נכס זה</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
-                        ? formatCurrency(Math.round(asset.pricePerSqm * 0.95))
+                      {avgCompPricePerSqm !== null
+                        ? formatCurrency(avgCompPricePerSqm)
                         : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">ממוצע באזור</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
-                        ? `${Math.round(((asset.pricePerSqm / (asset.pricePerSqm * 0.95)) - 1) * 100)}%`
+                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null && avgCompPricePerSqm !== null
+                        ? `${Math.round(((asset.pricePerSqm / avgCompPricePerSqm) - 1) * 100)}%`
                         : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">פער מהאזור</div>
                   </div>
-                  </div>
+                </div>
                 </CardBody>
               </Card>
 
@@ -1165,36 +1205,27 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardContent>
                 <div className="space-y-3">
                   <div className="grid gap-3">
-                    <div className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
-                      <div>
-                        <div className="font-medium">רח&apos; בן יהודה 45</div>
-                        <div className="text-sm text-muted-foreground">80 מ״ר • 3 חדרים • 10/01/24</div>
+                    {comparables.map((comp: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse"
+                      >
+                        <div>
+                          <div className="font-medium">{comp.address}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {comp.area !== undefined ? `${comp.area} מ״ר` : ''}
+                            {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
+                            {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold">{formatCurrency(comp.price)}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {formatCurrency(comp.pricePerSqm)}/מ״ר
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold">₪2.75M</div>
-                        <div className="text-sm text-muted-foreground">₪34,375/מ״ר</div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
-                      <div>
-                        <div className="font-medium">רח&apos; דיזנגוף 67</div>
-                        <div className="text-sm text-muted-foreground">90 מ״ר • 3.5 חדרים • 05/01/24</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold">₪2.90M</div>
-                        <div className="text-sm text-muted-foreground">₪32,222/מ״ר</div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
-                      <div>
-                        <div className="font-medium">רח&apos; הרצל 130</div>
-                        <div className="text-sm text-muted-foreground">85 מ״ר • 3 חדרים • 28/12/23</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold">₪2.65M</div>
-                        <div className="text-sm text-muted-foreground">₪31,176/מ״ר</div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                   <div className="pt-2 border-t text-center">
                     <div className="text-sm text-muted-foreground">
@@ -1212,61 +1243,73 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <h3 className="font-medium mb-2">הכרעות שמאי</h3>
-                    <div className="space-y-2">
-                      <div className="p-3 border rounded">
-                        <div className="font-medium">הכרעת שמאי מייעץ</div>
-                        <div className="text-sm text-muted-foreground">
-                          גוש 6638, חלקה 96 • 20/07/2025
+                {appraisal ? (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <h3 className="font-medium mb-2">הכרעות שמאי</h3>
+                        <div className="space-y-2">
+                          <div className="p-3 border rounded">
+                            <div className="font-medium">{appraisal.appraiser}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {appraisal.date && new Date(appraisal.date).toLocaleDateString('he-IL')}
+                            </div>
+                            <div className="text-sm">{formatCurrency(appraisal.appraisedValue)}</div>
+                          </div>
                         </div>
-                        <div className="text-sm">₪2.8M לדירת 85 מ״ר</div>
                       </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium mb-2">שומות רמ״י</h3>
-                    <div className="space-y-2">
-                      <div className="p-3 border rounded">
-                        <div className="font-medium">שומת רמ״י מעודכנת</div>
-                        <div className="text-sm text-muted-foreground">Q4/2024</div>
-                        <div className="text-sm">₪30,500/מ״ר</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>השוואת שומות</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">₪2.8M</div>
-                        <div className="text-sm text-muted-foreground">הכרעת שמאי</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">
-                          {asset.area !== undefined && asset.area !== null
-                            ? `₪${Math.round(asset.area * 30500 / 1000000 * 100) / 100}M`
-                            : '—'}
+                      <div>
+                        <h3 className="font-medium mb-2">שומות רמ״י</h3>
+                        <div className="space-y-2">
+                          <div className="p-3 border rounded">
+                            <div className="font-medium">שומת רמ״י מעודכנת</div>
+                            <div className="text-sm text-muted-foreground">
+                              {appraisal.date && new Date(appraisal.date).toLocaleDateString('he-IL')}
+                            </div>
+                            <div className="text-sm">
+                              {asset?.area
+                                ? `${formatCurrency(Math.round(appraisal.marketValue / asset.area))}/מ״ר`
+                                : formatCurrency(appraisal.marketValue)}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-sm text-muted-foreground">שומת רמ״י</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">
-                          {asset.price !== undefined && asset.price !== null
-                            ? `₪${(asset.price / 1000000).toFixed(1)}M`
-                            : '—'}
-                        </div>
-                        <div className="text-sm text-muted-foreground">מחיר מבוקש</div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>השוואת שומות</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold">
+                              {formatCurrency(appraisal.appraisedValue)}
+                            </div>
+                            <div className="text-sm text-muted-foreground">הכרעת שמאי</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold">
+                              {formatCurrency(appraisal.marketValue)}
+                            </div>
+                            <div className="text-sm text-muted-foreground">שומת רמ״י</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold">
+                              {asset.price !== undefined && asset.price !== null
+                                ? `₪${(asset.price / 1000000).toFixed(1)}M`
+                                : '—'}
+                            </div>
+                            <div className="text-sm text-muted-foreground">מחיר מבוקש</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (
+                  <div className="text-center text-muted-foreground">אין נתוני שומה זמינים</div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

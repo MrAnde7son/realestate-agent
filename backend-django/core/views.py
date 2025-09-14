@@ -721,10 +721,37 @@ def sync_address(request):
 
         # Start enrichment pipeline
         try:
-            run_data_pipeline.delay(asset.id)
-            message = (
-                f"Asset enrichment started for {street} {number} (Asset ID: {asset.id})"
-            )
+            # Check if Celery is enabled
+            from django.conf import settings
+            if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
+                run_data_pipeline.delay(asset.id)
+                message = (
+                    f"Asset enrichment started for {street} {number} (Asset ID: {asset.id})"
+                )
+            else:
+                # Run asynchronously in background thread when Celery is disabled
+                import threading
+                
+                def run_pipeline_async():
+                    try:
+                        run_data_pipeline(asset.id)
+                        logger.info("Background data pipeline completed for asset %s", asset.id)
+                    except Exception as e:
+                        logger.error("Background data pipeline failed for asset %s: %s", asset.id, e)
+                        # Update asset status to error
+                        try:
+                            asset_obj = Asset.objects.get(id=asset.id)
+                            asset_obj.status = "failed"
+                            asset_obj.last_enrich_error = str(e)
+                            asset_obj.save()
+                        except Exception as save_error:
+                            logger.error("Failed to update asset status: %s", save_error)
+                
+                thread = threading.Thread(target=run_pipeline_async, daemon=True)
+                thread.start()
+                message = (
+                    f"Asset enrichment started for {street} {number} (Asset ID: {asset.id})"
+                )
         except Exception as e:
             message = f"Asset created but enrichment failed: {str(e)}"
 
@@ -1188,13 +1215,40 @@ def assets(request):
         track_feature_usage("asset_creation", user=user, asset_id=asset_id)
         _update_onboarding(user, "add_first_asset")
 
-        # Enqueue Celery task if available
+        # Enqueue Celery task if available, otherwise run in background thread
         job_id = None
         try:
-            result = run_data_pipeline.delay(asset_id)
-            job_id = result.id
+            # Check if Celery is enabled
+            from django.conf import settings
+            if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
+                result = run_data_pipeline.delay(asset_id)
+                job_id = result.id
+                logger.info("Enqueued enrichment task with job ID: %s", job_id)
+            else:
+                # Run asynchronously in background thread when Celery is disabled
+                import threading
+                logger.info("Celery disabled, running data pipeline in background thread")
+                
+                def run_pipeline_async():
+                    try:
+                        run_data_pipeline(asset_id)
+                        logger.info("Background data pipeline completed for asset %s", asset_id)
+                    except Exception as e:
+                        logger.error("Background data pipeline failed for asset %s: %s", asset_id, e)
+                        # Update asset status to error
+                        try:
+                            asset = Asset.objects.get(id=asset_id)
+                            asset.status = "failed"
+                            asset.last_enrich_error = str(e)
+                            asset.save()
+                        except Exception as save_error:
+                            logger.error("Failed to update asset status: %s", save_error)
+                
+                thread = threading.Thread(target=run_pipeline_async, daemon=True)
+                thread.start()
+                logger.info("Started background data pipeline thread for asset %s", asset_id)
         except Exception as e:
-            logger.error("Failed to enqueue enrichment task: %s", e)
+            logger.error("Failed to start enrichment task: %s", e)
             # Update asset status to error
             try:
                 asset = Asset.objects.get(id=asset_id)

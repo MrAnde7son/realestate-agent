@@ -376,8 +376,8 @@ class TelAvivGS:
                 return {"error": "No blocks or parcels found", "blocks": blocks, "parcels": parcels}
                 
             # Extract block and parcel values
-            block = blocks[0].get("ms_block")
-            parcel = parcels[0].get("ms_parcel")
+            block = blocks[0].get("ms_gush")
+            parcel = parcels[0].get("ms_chelka")
             
             if not block or not parcel:
                 return {"error": "Missing block or parcel values", "block": block, "parcel": parcel}

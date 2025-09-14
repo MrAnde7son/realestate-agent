@@ -484,8 +484,11 @@ class DataPipeline:
 
                 session.commit()
                 
-                # Create snapshot for alert evaluation
+                # Update Asset model with collected data
                 if asset_id:
+                    _update_asset_with_collected_data(asset_id, block, parcel, gis_data, gov_data, plans, mavat_plans, listings)
+                    
+                    # Create snapshot for alert evaluation
                     _create_asset_snapshot(asset_id, results)
                     
                     # Trigger alert evaluation
@@ -504,6 +507,114 @@ class DataPipeline:
             logger.info(f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
             
             return results
+
+
+def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: List[Dict[str, Any]]) -> None:
+    """Update the Asset model with all collected data from GIS, Gov, Mavat, and Yad2."""
+    try:
+        import os
+        import sys
+        
+        # Add Django backend to path
+        backend_path = os.path.join(os.path.dirname(__file__), "..", "backend-django")
+        if backend_path not in sys.path:
+            sys.path.insert(0, backend_path)
+        
+        import django
+        if not django.conf.settings.configured:
+            os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
+            django.setup()
+        
+        from core.models import Asset
+        
+        asset = Asset.objects.get(id=asset_id)
+        
+        # Update basic asset information
+        if block:
+            asset.block = block
+        if parcel:
+            asset.parcel = parcel
+            
+        # Update coordinates if available
+        if gis_data.get('x') and gis_data.get('y'):
+            asset.lat = gis_data.get('x')
+            asset.lon = gis_data.get('y')
+            
+        # Update normalized address
+        if asset.street and asset.number:
+            asset.normalized_address = f"{asset.street} {asset.number}"
+            if asset.apartment:
+                asset.normalized_address += f" דירה {asset.apartment}"
+            if asset.city:
+                asset.normalized_address += f" {asset.city}"
+        
+        # Initialize meta field if it doesn't exist
+        if not asset.meta:
+            asset.meta = {}
+        
+        # Update with GIS data
+        if gis_data:
+            asset.meta['gis_data'] = {
+                'building_permits': gis_data.get('permits', []),
+                'land_use_rights': gis_data.get('rights', []),
+                'shelters': gis_data.get('shelters', []),
+                'green_areas': gis_data.get('green', []),
+                'noise_levels': gis_data.get('noise', []),
+                'blocks': gis_data.get('blocks', []),
+                'parcels': gis_data.get('parcels', []),
+                'coordinates': {
+                    'x': gis_data.get('x'),
+                    'y': gis_data.get('y')
+                }
+            }
+        
+        # Update with government data
+        if gov_data:
+            asset.meta['government_data'] = {
+                'decisive_appraisals': gov_data.get('decisive', []),
+                'transaction_history': gov_data.get('transactions', [])
+            }
+        
+        # Update with RAMI plans
+        if plans:
+            asset.meta['rami_plans'] = plans
+        
+        # Update with Mavat plans
+        if mavat_plans:
+            asset.meta['mavat_plans'] = mavat_plans
+        
+        # Update with Yad2 listings
+        if listings:
+            asset.meta['yad2_listings'] = listings
+            
+            # Extract key market data for quick access
+            if listings:
+                prices = [listing.get('price') for listing in listings if listing.get('price')]
+                areas = [listing.get('area') for listing in listings if listing.get('area')]
+                
+                if prices:
+                    asset.meta['market_data'] = {
+                        'min_price': min(prices),
+                        'max_price': max(prices),
+                        'avg_price': sum(prices) / len(prices),
+                        'price_count': len(prices)
+                    }
+                
+                if areas:
+                    asset.meta['market_data']['min_area'] = min(areas)
+                    asset.meta['market_data']['max_area'] = max(areas)
+                    asset.meta['market_data']['avg_area'] = sum(areas) / len(areas)
+                    asset.meta['market_data']['area_count'] = len(areas)
+        
+        # Update last enrichment timestamp
+        from django.utils import timezone
+        asset.meta['last_enrichment'] = timezone.now().isoformat()
+        
+        asset.save()
+        logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
+        
+    except Exception as e:
+        logger.error("Failed to update asset %s with collected data: %s", asset_id, e)
 
 
 def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:

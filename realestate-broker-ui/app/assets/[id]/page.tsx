@@ -68,6 +68,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [asset, setAsset] = useState<any>(null)
   const [comparables, setComparables] = useState<any[]>([])
   const [appraisal, setAppraisal] = useState<any | null>(null)
+  const [permits, setPermits] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
@@ -116,6 +117,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       )
     : null
 
+  const permitRadius = asset?._meta?.radius ?? 50
+
   useEffect(() => {
     setLoading(true)
     fetch(`/api/assets/${id}`)
@@ -142,6 +145,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         setAppraisal(data.appraisal || null)
       })
       .catch(err => console.error('Error loading appraisal:', err))
+  }, [id])
+
+  useEffect(() => {
+    fetch(`/api/assets/${id}/permits`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load permits')
+        return res.json()
+      })
+      .then(data => setPermits(data.permits || []))
+      .catch(err => console.error('Error loading permits:', err))
   }, [id])
 
   useEffect(() => {
@@ -1125,24 +1138,24 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
             <Card>
               <CardHeader>
-                <CardTitle>היתרים פעילים ברדיוס 50 מטר</CardTitle>
+                <CardTitle>היתרים פעילים ברדיוס {permitRadius} מטר</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="text-center py-4">
-                    <div className="text-2xl font-bold">3</div>
+                    <div className="text-2xl font-bold">{permits.length}</div>
                     <div className="text-muted-foreground">בקשות היתר פעילות</div>
                   </div>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <div className="p-3 border rounded">
-                      <div className="font-medium">רח&apos; הרצל 125</div>
-                      <div className="text-sm text-muted-foreground">שיפוץ כללי • Q1/24</div>
+                  {permits.length > 0 && (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {permits.map((p: any) => (
+                        <div key={p.id || p.permit_number} className="p-3 border rounded">
+                          <div className="font-medium">{p.description || p.permit_number || '—'}</div>
+                          <div className="text-sm text-muted-foreground">{p.status || p.issued_date || ''}</div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="p-3 border rounded">
-                      <div className="font-medium">רח&apos; הרצל 121</div>
-                      <div className="text-sm text-muted-foreground">הוספת יחידה • Q2/24</div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

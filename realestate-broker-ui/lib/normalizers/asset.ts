@@ -116,6 +116,23 @@ export type Asset = {
     source?: string;
     created_at: string;
   }>;
+  snapshot?: {
+    id: number;
+    created_at: string;
+    ppsqm?: number | null;
+    payload: {
+      blocks?: Array<any>;
+      parcels?: Array<any>;
+      permits?: Array<any>;
+      rights?: Array<any>;
+      shelters?: Array<any>;
+      green?: Array<any>;
+      noise?: Array<any>;
+      x?: number;
+      y?: number;
+      [key: string]: any;
+    };
+  };
 };
 
 export function determineAssetType(asset: any): string | null {
@@ -214,5 +231,6 @@ export function normalizeFromBackend(row: any): Asset {
     _meta: row._meta ?? undefined,
     attribution: row.attribution ?? undefined,
     recent_contributions: row.recent_contributions ?? undefined,
+    snapshot: row.snapshot ?? undefined,
   };
 }

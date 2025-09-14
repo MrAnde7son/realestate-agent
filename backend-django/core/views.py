@@ -1294,6 +1294,18 @@ def asset_detail(request, asset_id):
                 }
             )
 
+        # Get latest snapshot data
+        from .models import Snapshot
+        latest_snapshot = Snapshot.objects.filter(asset_id=asset_id).order_by('-created_at').first()
+        snapshot_data = {}
+        if latest_snapshot:
+            snapshot_data = {
+                "id": latest_snapshot.id,
+                "created_at": latest_snapshot.created_at.isoformat(),
+                "ppsqm": latest_snapshot.ppsqm,
+                "payload": latest_snapshot.payload,
+            }
+
         # Get attribution information
         attribution_info = {}
         if asset.created_by:
@@ -1350,6 +1362,7 @@ def asset_detail(request, asset_id):
             "recent_contributions": contributions_list,
             "records": records_by_source,
             "transactions": transaction_list,
+            "snapshot": snapshot_data,
         })
         
         return JsonResponse(asset_data)

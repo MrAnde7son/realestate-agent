@@ -33,7 +33,7 @@ class SQLAlchemyDatabase(Database):
     def __init__(self, database_url=None):
         self.database_url = database_url or os.getenv(
             "DATABASE_URL",
-            "sqlite:///./realestate.db",
+            "sqlite:///./backend-django/db.sqlite3",
         )
         self.engine = None
         self.SessionLocal = None

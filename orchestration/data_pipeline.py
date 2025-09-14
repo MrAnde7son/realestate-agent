@@ -550,6 +550,29 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
                 elif result.get('source') == 'transactions':
                     # Extract transaction data
                     payload['gov_transactions'] = result.get('data', [])
+                elif result.get('source') == 'gis':
+                    # Extract GIS data
+                    gis_data = result.get('data', {})
+                    if gis_data:
+                        payload.update({
+                            'blocks': gis_data.get('blocks', []),
+                            'parcels': gis_data.get('parcels', []),
+                            'permits': gis_data.get('permits', []),
+                            'rights': gis_data.get('rights', []),
+                            'shelters': gis_data.get('shelters', []),
+                            'green': gis_data.get('green', []),
+                            'noise': gis_data.get('noise', []),
+                            'block': gis_data.get('block', ''),
+                            'parcel': gis_data.get('parcel', ''),
+                            'x': gis_data.get('x'),
+                            'y': gis_data.get('y')
+                        })
+                elif result.get('source') == 'gov_rami':
+                    # Extract RAMI plans data
+                    payload['rami_plans'] = result.get('data', [])
+                elif result.get('source') == 'mavat':
+                    # Extract Mavat plans data
+                    payload['mavat_plans'] = result.get('data', [])
             elif hasattr(result, 'listing_id'):
                 # Direct Yad2 listing object
                 payload['listing_id'] = result.listing_id

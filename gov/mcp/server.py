@@ -125,8 +125,8 @@ async def search_rami_plans(
     ctx: Context,
     plan_number: str = "",
     city: Optional[int] = None,
-    gush: str = "",
-    chelka: str = "",
+    block: str = "",
+    parcel: str = "",
     statuses: Optional[List[int]] = None,
     plan_types: Optional[List[int]] = None,
     from_status_date: Optional[str] = None,
@@ -138,8 +138,8 @@ async def search_rami_plans(
     Args:
         plan_number: Plan number to search for
         city: City code (e.g., 5000 for Tel Aviv area)
-        gush: Gush (block) number
-        chelka: Chelka (plot) number
+        block: block (block) number
+        parcel: parcel (plot) number
         statuses: List of status codes to filter by
         plan_types: List of plan type codes to filter by
         from_status_date: Start date for status filter (YYYY-MM-DD)
@@ -154,8 +154,8 @@ async def search_rami_plans(
     search_params = {
         "planNumber": plan_number,
         "city": city,
-        "gush": gush,
-        "chelka": chelka,
+        "block": block,
+        "parcel": parcel,
         "statuses": statuses,
         "planTypes": plan_types,
         "fromStatusDate": from_status_date,

@@ -225,7 +225,7 @@ def test_individual_collectors_e2e():
         
         from gov.rami import RamiCollector
         rami = RamiCollector()
-        rami_results = rami.collect(gush="", chelka="")
+        rami_results = rami.collect(block="", parcel="")
         logger.info(f"✅ RAMI: {len(rami_results)} plans")
         
         from orchestration.collectors.mavat_collector import MavatCollector

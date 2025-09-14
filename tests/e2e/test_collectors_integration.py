@@ -469,11 +469,11 @@ class TestCollectorsIntegration:
 
             # Test 8: Get building privilege info
             logger.info("Testing building privilege info...")
-            privilege_info = gis_client.get_gush_helka_info(x, y)
+            privilege_info = gis_client.get_block_parcel_info(x, y)
             assert isinstance(privilege_info, dict)
             if privilege_info.get("success"):
                 logger.info(
-                    f"✓ Found gush: {privilege_info.get('gush')}, helka: {privilege_info.get('helka')}"
+                    f"✓ Found block: {privilege_info.get('block')}, parcel: {privilege_info.get('parcel')}"
                 )
             else:
                 logger.warning(
@@ -506,7 +506,7 @@ class TestCollectorsIntegration:
 
         # Test 2: Search for plans in Tel Aviv area
         logger.info("Testing plan search...")
-        search_params = client.create_search_params(gush="6345")
+        search_params = client.create_search_params(block="6345")
         plans_df = client.fetch_plans(search_params)
         assert plans_df is not None
         logger.info(f"✓ Found {len(plans_df)} plans")

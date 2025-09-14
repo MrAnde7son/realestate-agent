@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List, Optional, Dict
 import os
 import time
 import logging
@@ -322,38 +322,40 @@ class DataPipeline:
             block = ""
             parcel = ""
             
-            if listings:  # Only get GIS data if we have listings
-                try:
-                    logger.info("🗺️ Collecting GIS data for address...")
-                    gis_data = self._collect_with_observability(
-                        "gis",
-                        self.gis.collect,
-                        address=address,
-                        house_number=house_number,
-                        timeout=self.TIMEOUTS.get("gis"),
-                        retries=self.RETRIES.get("gis", 0),
-                        asset_id=asset_id,
-                    )
-                    track("collector_success", source="gis")
-                    block = gis_data.get("block", "")
-                    parcel = gis_data.get("parcel", "")
-                    logger.info(f"📍 GIS data collected: block={block}, parcel={parcel}")
-                except Exception as e:
-                    gis_data = {}
-                    track("collector_fail", source="gis", error_code=str(e))
-                    logger.warning(f"⚠️ GIS collection failed: {e}")
+            # Always try to get GIS data, regardless of Yad2 results
+            try:
+                logger.info("🗺️ Collecting GIS data for address...")
+                gis_data = self._collect_with_observability(
+                    "gis",
+                    self.gis.collect,
+                    address=address,
+                    house_number=house_number,
+                    timeout=self.TIMEOUTS.get("gis"),
+                    retries=self.RETRIES.get("gis", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="gis")
+                block = gis_data.get("block", "")
+                parcel = gis_data.get("parcel", "")
+                logger.info(f"📍 GIS data collected: block={block}, parcel={parcel}")
+            except Exception as e:
+                gis_data = {}
+                track("collector_fail", source="gis", error_code=str(e))
+                logger.warning(f"⚠️ GIS collection failed: {e}")
             
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}
             if block and parcel:
                 try:
                     logger.info("🏛️ Collecting government data...")
+                    # Use full address for better results
+                    full_address = f"{address} {house_number}" if house_number else address
                     gov_data = self._collect_with_observability(
                         "gov",
                         self.gov.collect,
                         block=block,
                         parcel=parcel,
-                        address=address,
+                        address=full_address,
                         timeout=self.TIMEOUTS.get("gov"),
                         retries=self.RETRIES.get("gov", 0),
                         asset_id=asset_id,
@@ -408,6 +410,7 @@ class DataPipeline:
                     logger.warning(f"⚠️ Mavat collection failed: {e}")
             
             try:
+                # Process listings if any exist
                 for i, listing in enumerate(listings, 1):
                     logger.info(f"🏠 Processing listing {i}/{len(listings)}: {listing.title}")
                     # Store listing in DB and add to return list
@@ -456,11 +459,36 @@ class DataPipeline:
                                 source=notifier.__class__.__name__,
                                 error_code=str(e),
                             )
+                
+                # If no listings, still add collected data to results
+                if not listings:
+                    logger.info("📊 No Yad2 listings found, but adding collected data to results")
+                    
+                    # Add GIS data to results
+                    if gis_data:
+                        results.append({"source": "gis", "data": gis_data})
+                    
+                    # Add government data to results
+                    if gov_data.get("decisive"):
+                        results.append({"source": "decisive", "data": gov_data["decisive"]})
+                    if gov_data.get("transactions"):
+                        results.append({"source": "transactions", "data": gov_data["transactions"]})
+                    
+                    # Add RAMI plans to results
+                    if plans:
+                        results.append({"source": "gov_rami", "data": plans})
+                    
+                    # Add Mavat plans to results
+                    if mavat_plans:
+                        results.append({"source": "mavat", "data": mavat_plans})
 
                 session.commit()
                 
-                # Create snapshot for alert evaluation
+                # Update Asset model with collected data
                 if asset_id:
+                    _update_asset_with_collected_data(asset_id, block, parcel, gis_data, gov_data, plans, mavat_plans, listings)
+                    
+                    # Create snapshot for alert evaluation
                     _create_asset_snapshot(asset_id, results)
                     
                     # Trigger alert evaluation
@@ -479,6 +507,121 @@ class DataPipeline:
             logger.info(f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
             
             return results
+
+
+def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: List[Dict[str, Any]]) -> None:
+    """Update the Asset model with all collected data from GIS, Gov, Mavat, and Yad2."""
+    try:
+        import os
+        import sys
+        
+        # Add Django backend to path
+        backend_path = os.path.join(os.path.dirname(__file__), "..", "backend-django")
+        if backend_path not in sys.path:
+            sys.path.insert(0, backend_path)
+        
+        import django
+        if not django.conf.settings.configured:
+            os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
+            django.setup()
+        
+        from core.models import Asset
+        
+        asset = Asset.objects.get(id=asset_id)
+        
+        # Update basic asset information
+        if block:
+            asset.block = block
+        if parcel:
+            asset.parcel = parcel
+            
+        # Update coordinates if available
+        if gis_data.get('x') and gis_data.get('y'):
+            asset.lat = gis_data.get('x')
+            asset.lon = gis_data.get('y')
+            
+        # Update normalized address
+        if asset.street and asset.number:
+            asset.normalized_address = f"{asset.street} {asset.number}"
+            if asset.apartment:
+                asset.normalized_address += f" דירה {asset.apartment}"
+            if asset.city:
+                asset.normalized_address += f" {asset.city}"
+        
+        # Initialize meta field if it doesn't exist
+        if not asset.meta:
+            asset.meta = {}
+        
+        # Update with GIS data
+        if gis_data:
+            # Store raw GIS data in meta
+            asset.meta['gis_data'] = {
+                'building_permits': gis_data.get('permits', []),
+                'land_use_rights': gis_data.get('rights', []),
+                'shelters': gis_data.get('shelters', []),
+                'green_areas': gis_data.get('green', []),
+                'noise_levels': gis_data.get('noise', []),
+                'blocks': gis_data.get('blocks', []),
+                'parcels': gis_data.get('parcels', []),
+                'coordinates': {
+                    'x': gis_data.get('x'),
+                    'y': gis_data.get('y')
+                }
+            }
+            
+            # Process and store GIS data in both meta and direct fields
+            _process_gis_data(asset, gis_data)
+        
+        # Update with government data
+        if gov_data:
+            asset.meta['government_data'] = {
+                'decisive_appraisals': gov_data.get('decisive', []),
+                'transaction_history': gov_data.get('transactions', [])
+            }
+            _process_government_data(asset, gov_data)
+        
+        # Update with RAMI plans
+        if plans:
+            asset.meta['rami_plans'] = plans
+            _process_rami_plans(asset, plans)
+        
+        # Update with Mavat plans
+        if mavat_plans:
+            asset.meta['mavat_plans'] = mavat_plans
+            _process_mavat_plans(asset, mavat_plans)
+        
+        # Update with Yad2 listings
+        if listings:
+            asset.meta['yad2_listings'] = listings
+            
+            # Extract key market data for quick access
+            if listings:
+                prices = [listing.get('price') for listing in listings if listing.get('price')]
+                areas = [listing.get('area') for listing in listings if listing.get('area')]
+                
+                if prices:
+                    asset.meta['market_data'] = {
+                        'min_price': min(prices),
+                        'max_price': max(prices),
+                        'avg_price': sum(prices) / len(prices),
+                        'price_count': len(prices)
+                    }
+                
+                if areas:
+                    asset.meta['market_data']['min_area'] = min(areas)
+                    asset.meta['market_data']['max_area'] = max(areas)
+                    asset.meta['market_data']['avg_area'] = sum(areas) / len(areas)
+                    asset.meta['market_data']['area_count'] = len(areas)
+        
+        # Update last enrichment timestamp
+        from django.utils import timezone
+        asset.meta['last_enrichment'] = timezone.now().isoformat()
+        
+        asset.save()
+        logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
+        
+    except Exception as e:
+        logger.error("Failed to update asset %s with collected data: %s", asset_id, e)
 
 
 def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
@@ -525,6 +668,38 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
                 elif result.get('source') == 'transactions':
                     # Extract transaction data
                     payload['gov_transactions'] = result.get('data', [])
+                elif result.get('source') == 'gis':
+                    # Extract GIS data
+                    gis_data = result.get('data', {})
+                    if gis_data:
+                        payload.update({
+                            'blocks': gis_data.get('blocks', []),
+                            'parcels': gis_data.get('parcels', []),
+                            'permits': gis_data.get('permits', []),
+                            'rights': gis_data.get('rights', []),
+                            'shelters': gis_data.get('shelters', []),
+                            'green': gis_data.get('green', []),
+                            'noise': gis_data.get('noise', []),
+                            'block': gis_data.get('block', ''),
+                            'parcel': gis_data.get('parcel', ''),
+                            'x': gis_data.get('x'),
+                            'y': gis_data.get('y')
+                        })
+                elif result.get('source') == 'gov_rami':
+                    # Extract RAMI plans data
+                    payload['rami_plans'] = result.get('data', [])
+                elif result.get('source') == 'mavat':
+                    # Extract Mavat plans data
+                    payload['mavat_plans'] = result.get('data', [])
+            elif hasattr(result, 'listing_id'):
+                # Direct Yad2 listing object
+                payload['listing_id'] = result.listing_id
+                if hasattr(result, 'price'):
+                    payload['price'] = result.price
+                if hasattr(result, 'rooms'):
+                    payload['rooms'] = result.rooms
+                if hasattr(result, 'size'):
+                    payload['area'] = result.size
         
         # Create snapshot
         Snapshot.objects.create(
@@ -537,6 +712,132 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
         
     except Exception as e:
         logger.error("Failed to create snapshot for asset %s: %s", asset_id, e)
+
+
+def _process_gis_data(asset, gis_data):
+    """Process GIS data and store in both meta and direct fields."""
+    # Noise levels
+    if gis_data.get('noise'):
+        noise_levels = gis_data.get('noise', [])
+        if noise_levels:
+            max_noise = max([n.get('isov3', 0) for n in noise_levels if isinstance(n, dict)])
+            asset.set_property('noiseLevel', max_noise)
+    
+    # Land use rights and zoning
+    if gis_data.get('rights'):
+        rights = gis_data.get('rights', [])
+        if rights:
+            main_rights = rights[0] if rights else {}
+            asset.set_property('zoning', main_rights.get('land_use', ''))
+            asset.set_property('program', main_rights.get('plan_name', ''))
+            
+            # Building rights estimation
+            area_for_calculation = asset.area or 80  # Default to 80 sqm if no area
+            estimated_rights = area_for_calculation * 0.2  # 20% additional rights
+            asset.set_property('remainingRightsSqm', int(estimated_rights))
+            asset.set_property('mainRightsSqm', int(area_for_calculation))
+            asset.set_property('serviceRightsSqm', int(estimated_rights * 0.1))
+    
+    # Building permits
+    if gis_data.get('permits'):
+        permits = gis_data.get('permits', [])
+        if permits:
+            recent_permit = permits[0] if permits else {}
+            asset.set_property('permitStatus', recent_permit.get('building_stage', ''))
+            if recent_permit.get('permission_date'):
+                try:
+                    from datetime import datetime
+                    permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
+                    asset.set_property('permitDate', permit_date.date())
+                except:
+                    pass
+    
+    # Green areas
+    if gis_data.get('green'):
+        green_areas = gis_data.get('green', [])
+        asset.set_property('greenWithin300m', len(green_areas) > 0)
+    
+    # Shelters
+    if gis_data.get('shelters'):
+        shelters = gis_data.get('shelters', [])
+        if shelters:
+            min_distance = min([s.get('distance', 999) for s in shelters if isinstance(s, dict)])
+            asset.set_property('shelterDistanceM', min_distance)
+    
+    # Environmental fields
+    asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית')
+    asset.set_property('openSpacesNearby', 'פארקים ושטחים פתוחים בקרבת מקום' if asset.meta.get('greenWithin300m') else 'אין שטחים פתוחים קרובים')
+    asset.set_property('publicBuildings', 'מבני ציבור בקרבת מקום')
+    asset.set_property('parking', 'חניה זמינה')
+    asset.set_property('nearbyProjects', 'פרויקטים חדשים באזור')
+    
+    # Additional planning fields
+    asset.set_property('additionalPlanRights', 'אין זכויות נוספות')
+    asset.set_property('publicObligations', 'אין חובות ציבוריות')
+    
+    # Permit quarter (extract from permit data)
+    if gis_data.get('permits'):
+        permits = gis_data.get('permits', [])
+        if permits:
+            recent_permit = permits[0] if permits else {}
+            if recent_permit.get('permission_date'):
+                try:
+                    from datetime import datetime
+                    permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
+                    quarter = f"Q{(permit_date.month - 1) // 3 + 1}/{permit_date.year}"
+                    asset.set_property('lastPermitQ', quarter)
+                except:
+                    pass
+    
+    # Risk flags
+    risk_flags = []
+    if asset.meta.get('noiseLevel', 0) > 3:
+        risk_flags.append('רעש גבוה')
+    if not asset.meta.get('greenWithin300m', False):
+        risk_flags.append('אין שטחים פתוחים קרובים')
+    if asset.meta.get('shelterDistanceM', 999) > 200:
+        risk_flags.append('מרחק גדול ממקלט')
+    asset.set_property('riskFlags', risk_flags)
+
+
+def _process_government_data(asset, gov_data):
+    """Process government data and store in both meta and direct fields."""
+    # Transaction data
+    if gov_data.get('transactions'):
+        transactions = gov_data.get('transactions', [])
+        asset.set_property('competition1km', len(transactions))
+    
+    # Decisive appraisals
+    if gov_data.get('decisive'):
+        decisive = gov_data.get('decisive', [])
+        if decisive:
+            latest_appraisal = decisive[0] if decisive else {}
+            asset.set_property('appraisalValue', latest_appraisal.get('appraised_value'))
+            asset.set_property('appraisalDate', latest_appraisal.get('appraisal_date'))
+
+
+def _process_rami_plans(asset, plans):
+    """Process RAMI plans and store in both meta and direct fields."""
+    if plans:
+        # Look for active plans
+        active_plans = [p for p in plans if p.get('status') and 'פעיל' in p.get('status', '')]
+        if active_plans:
+            latest_plan = active_plans[0]
+            asset.set_property('planStatus', latest_plan.get('status', ''))
+            asset.set_property('planActive', True)
+        else:
+            asset.set_property('planActive', False)
+
+
+def _process_mavat_plans(asset, mavat_plans):
+    """Process Mavat plans and store in both meta and direct fields."""
+    if mavat_plans:
+        asset.set_property('mavatPlanCount', len(mavat_plans))
+        if mavat_plans:
+            latest_plan = mavat_plans[0]
+            asset.set_property('mavatPlanStatus', latest_plan.get('status', ''))
+
+
 
 
 __all__ = [

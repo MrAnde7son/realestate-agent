@@ -21,6 +21,10 @@ export async function GET(
         : data
 
       if (backendAsset) {
+        // Debug: Log what we're getting from backend
+        console.log('Backend asset keys:', Object.keys(backendAsset))
+        console.log('Snapshot in backend asset:', !!backendAsset.snapshot)
+        
         // Extract data from meta field and merge with asset data
         const meta = backendAsset.meta || {}
         const enrichedAsset = {
@@ -62,6 +66,8 @@ export async function GET(
           // Pass through attribution data
           attribution: backendAsset.attribution,
           recent_contributions: backendAsset.recent_contributions,
+          // Pass through snapshot data
+          snapshot: backendAsset.snapshot,
         }
 
         const asset: any = normalizeFromBackend(enrichedAsset)
@@ -73,6 +79,10 @@ export async function GET(
           metaData[camel] = value
         }
         asset._meta = metaData
+
+        // Debug: Check if snapshot is in the normalized asset
+        console.log('Normalized asset has snapshot:', !!asset.snapshot)
+        console.log('Snapshot data:', asset.snapshot)
 
         return NextResponse.json({ asset })
       }

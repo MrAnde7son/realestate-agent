@@ -298,8 +298,8 @@ class MavatAPIClient:
         district: Optional[str] = None,
         plan_area: Optional[str] = None,
         street: Optional[str] = None,
-        gush: Optional[str] = None,
-        helka: Optional[str] = None,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
         block_number: Optional[str] = None,
         parcel_number: Optional[str] = None,
         status: Optional[str] = None,
@@ -324,7 +324,7 @@ class MavatAPIClient:
         Returns:
             List of MavatSearchHit objects
         """
-        # Build search parameters - prioritize gush/helka over city names
+        # Build search parameters - prioritize block/parcel over city names
         # Use proper city codes if available, otherwise use -1
         city_code = -1
         district_code = -1
@@ -353,10 +353,10 @@ class MavatAPIClient:
             "searchEntity": 1,  # 1 = Plans
             "plNumber": "",
             "plName": query or "",
-            "blockNumber": gush or block_number or "",
-            "toBlockNumber": gush or block_number or "",
-            "parcelNumber": helka or parcel_number or "",
-            "toParcelNumber": helka or parcel_number or "",
+            "blockNumber": block or block_number or "",
+            "toBlockNumber": block or block_number or "",
+            "parcelNumber": parcel or parcel_number or "",
+            "toParcelNumber": parcel or parcel_number or "",
             "modelCity": {
                 "DISTRICT_CODE": district_code,
                 "PLAN_AREA_CODE": plan_area_code,
@@ -555,25 +555,25 @@ class MavatAPIClient:
             limit=limit
         )
     
-    def search_by_gush_helka(
+    def search_by_block_parcel(
         self,
-        gush: str,
-        helka: str,
+        block: str,
+        parcel: str,
         limit: int = 20
     ) -> List[MavatSearchHit]:
-        """Search for plans by gush and helka numbers.
+        """Search for plans by block and parcel numbers.
         
         Args:
-            gush: Gush (block) number
-            helka: Helka (parcel) number
+            block: block (block) number
+            parcel: parcel (parcel) number
             limit: Maximum results
             
         Returns:
             List of MavatSearchHit objects
         """
         return self.search_plans(
-            gush=gush,
-            helka=helka,
+            block=block,
+            parcel=parcel,
             limit=limit
         )
     

@@ -14,12 +14,12 @@ def test_parse_html_privilege_page():
     <html>
     <head>
         <script>
-        var is_opts = '<SELECT NAME=opts DIR=rtl STYLE=`font-size:8pt` SIZE=6 onChange=f_option(this)>  <OPTION VALUE=`gush=6632&helka=3200&status=0&street=4844&house=0&chasum=0&`>מגרש: 3200 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: אזור תעסוקה שטח: 12826.81 מ``ר)</OPTION>  <OPTION VALUE=`gush=6632&helka=3214&status=0&street=4844&house=0&chasum=0&`>מגרש: 3214 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: מגורים שטח: 3702.89 מ``ר)</OPTION>  <OPTION VALUE=`gush=6632&helka=3215&status=0&street=1258&house=504&chasum=0&`>מגרש: 3215 מוסדר  -  רחוב פרופס מס` 504  (יעוד קרקע: דרך קיימת שטח: 16599.68 מ``ר)</OPTION>  <OPTION VALUE=`gush=6632&helka=3233&status=0&street=4844&house=0&chasum=0&`>מגרש: 3233 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: דרך מוצעת שטח: 5265.48 מ``ר)</OPTION> </SELECT>';
+        var is_opts = '<SELECT NAME=opts DIR=rtl STYLE=`font-size:8pt` SIZE=6 onChange=f_option(this)>  <OPTION VALUE=`block=6632&parcel=3200&status=0&street=4844&house=0&chasum=0&`>מגרש: 3200 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: אזור תעסוקה שטח: 12826.81 מ``ר)</OPTION>  <OPTION VALUE=`block=6632&parcel=3214&status=0&street=4844&house=0&chasum=0&`>מגרש: 3214 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: מגורים שטח: 3702.89 מ``ר)</OPTION>  <OPTION VALUE=`block=6632&parcel=3215&status=0&street=1258&house=504&chasum=0&`>מגרש: 3215 מוסדר  -  רחוב פרופס מס` 504  (יעוד קרקע: דרך קיימת שטח: 16599.68 מ``ר)</OPTION>  <OPTION VALUE=`block=6632&parcel=3233&status=0&street=4844&house=0&chasum=0&`>מגרש: 3233 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: דרך מוצעת שטח: 5265.48 מ``ר)</OPTION> </SELECT>';
         </script>
     </head>
     <body>
         <select>
-            <option value="gush=6632&helka=3200&status=0&street=4844&house=0&chasum=0&">מגרש: 3200 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: אזור תעסוקה שטח: 12826.81 מ``ר)</option>
+            <option value="block=6632&parcel=3200&status=0&street=4844&house=0&chasum=0&">מגרש: 3200 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: אזור תעסוקה שטח: 12826.81 מ``ר)</option>
         </select>
     </body>
     </html>
@@ -31,8 +31,8 @@ def test_parse_html_privilege_page():
     
     # Check first parcel
     first_parcel = parcels[0]
-    assert first_parcel['gush'] == '6632'
-    assert first_parcel['helka'] == '3200'
+    assert first_parcel['block'] == '6632'
+    assert first_parcel['parcel'] == '3200'
     assert first_parcel['parcel_number'] == '3200'
     assert first_parcel['parcel_status'] == 'מוסדר'
     assert first_parcel['street_name'] == 'רחוב קדושי השואה'
@@ -41,16 +41,16 @@ def test_parse_html_privilege_page():
     
     # Check second parcel
     second_parcel = parcels[1]
-    assert second_parcel['gush'] == '6632'
-    assert second_parcel['helka'] == '3214'
+    assert second_parcel['block'] == '6632'
+    assert second_parcel['parcel'] == '3214'
     assert second_parcel['parcel_number'] == '3214'
     assert second_parcel['land_use'] == 'מגורים'
     assert second_parcel['area'] == '3702.89'
     
     # Check third parcel with house number
     third_parcel = parcels[2]
-    assert third_parcel['gush'] == '6632'
-    assert third_parcel['helka'] == '3215'
+    assert third_parcel['block'] == '6632'
+    assert third_parcel['parcel'] == '3215'
     assert third_parcel['house_number'] == '504'
     assert third_parcel['land_use'] == 'דרך קיימת'
     assert third_parcel['area'] == '16599.68'
@@ -105,8 +105,8 @@ def test_parse_zchuyot_pdf():
     assert isinstance(basic, dict), "Basic info should be a dictionary"
     assert "issue_date" in basic, "Basic info should contain issue_date"
     assert "address" in basic, "Basic info should contain address"
-    assert "gush" in basic, "Basic info should contain gush"
-    assert "helka" in basic, "Basic info should contain helka"
+    assert "block" in basic, "Basic info should contain block"
+    assert "parcel" in basic, "Basic info should contain parcel"
     assert "parcel_area_sqm" in basic, "Basic info should contain parcel_area_sqm"
     
     # Validate plans structure

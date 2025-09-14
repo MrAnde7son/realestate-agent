@@ -3,7 +3,7 @@
 Parse Tel-Aviv "Zchuyot" (rights) PDF -> structured JSON for MCP server.
 
 Extracts:
-- header: issue_date, address, gush/helka, parcel area (if present)
+- header: issue_date, address, block/parcel, parcel area (if present)
 - alerts (התראות)
 - plans in force: local / citywide / national-regional (+ in planning if present)
 - policy docs (מדיניות תכנונית)
@@ -80,8 +80,8 @@ def parse_header(text: str) -> Dict[str, Any]:
     out = {
         "issue_date": None,
         "address": None,
-        "gush": None,
-        "helka": None,
+        "block": None,
+        "parcel": None,
         "parcel_area_sqm": None,
     }
     # תאריך הפקה
@@ -97,8 +97,8 @@ def parse_header(text: str) -> Dict[str, Any]:
     # גוש/חלקה
     g = find_first([r"גוש\s*[:\-]?\s*(\d{1,6})"], text)
     h = find_first([r"חלקה\s*[:\-]?\s*(\d{1,6})"], text)
-    out["gush"] = safe_int(g)
-    out["helka"] = safe_int(h)
+    out["block"] = safe_int(g)
+    out["parcel"] = safe_int(h)
 
     # שטח חלקה/מגרש (אם קיים)
     area = find_first([
@@ -336,7 +336,7 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
                 
                 if value and text:
                     # Parse the value string to extract parameters
-                    # Format: gush=6632&helka=3200&status=0&street=4844&house=0&chasum=0&
+                    # Format: block=6632&parcel=3200&status=0&street=4844&house=0&chasum=0&
                     params = {}
                     for param in value.split('&'):
                         if '=' in param:
@@ -346,8 +346,8 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
                     # Extract parcel details from text
                     # Format: מגרש: 3200 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: אזור תעסוקה שטח: 12826.81 מ``ר)
                     parcel_info = {
-                        'gush': params.get('gush'),
-                        'helka': params.get('helka'),
+                        'block': params.get('block'),
+                        'parcel': params.get('parcel'),
                         'status': params.get('status'),
                         'street': params.get('street'),
                         'house': params.get('house'),
@@ -407,7 +407,7 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
                 value = option.get('value', '')
                 text = option.get_text(strip=True)
                 
-                if value and text and 'gush=' in value:
+                if value and text and 'block=' in value:
                     # Parse the value string
                     params = {}
                     for param in value.split('&'):
@@ -416,8 +416,8 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
                             params[key] = val
                     
                     parcel_info = {
-                        'gush': params.get('gush'),
-                        'helka': params.get('helka'),
+                        'block': params.get('block'),
+                        'parcel': params.get('parcel'),
                         'status': params.get('status'),
                         'street': params.get('street'),
                         'house': params.get('house'),

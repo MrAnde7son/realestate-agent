@@ -25,7 +25,7 @@ class Yad2Collector(BaseCollector):
     def _fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
         """Fetch Yad2 listings for a given address."""
         try:
-            location = self.client.fetch_location_data(address)
+            location = self.client.fetch_location_autocomplete(address)
             if location:
                 city = location.get("cities") or []
                 streets = location.get("streets") or []

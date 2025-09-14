@@ -310,8 +310,8 @@ graph TB
 **Inputs**:
 - `plan_number` (str): Plan number
 - `city` (int, optional): City code
-- `gush` (str): Block number
-- `chelka` (str): Plot number
+- `block` (str): Block number
+- `parcel` (str): Plot number
 - `statuses` (list, optional): Status codes
 - `plan_types` (list, optional): Plan type codes
 - `from_status_date` (str, optional): Start date (YYYY-MM-DD)
@@ -572,8 +572,8 @@ zoning = await get_land_use_main(coords["x"], coords["y"])
 
 # 4. Get planning data
 plans = await search_rami_plans(
-    gush=coords["gush"],
-    chelka=coords["helka"]
+    block=coords["block"],
+    parcel=coords["parcel"]
 )
 ```
 

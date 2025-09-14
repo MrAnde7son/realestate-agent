@@ -30,7 +30,7 @@ def test_privilege_page(tmp_path):
             return _make_response(json_payload=blocks_payload)
         if "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        if "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
+        if "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
@@ -47,13 +47,13 @@ def test_privilege_page(tmp_path):
     assert len(blocks) == 1 and blocks[0]["ms_gush"] == "6638"
     assert len(parcels) == 1 and parcels[0]["ms_chelka"] == "572"
     assert result is not None
-    assert result["gush"] == "6638"
-    assert result["helka"] == "572"
+    assert result["block"] == "6638"
+    assert result["parcel"] == "572"
     assert result["content_type"] == "pdf"
-    assert (save_dir / "privilege_gush_6638_helka_572.pdf").exists()
+    assert (save_dir / "privilege_block_6638_parcel_572.pdf").exists()
 
 
-def test_gush_helka_extraction():
+def test_block_parcel_extraction():
     gs = TelAvivGS()
     x, y = 184320.94, 668548.65
     blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
@@ -67,8 +67,8 @@ def test_gush_helka_extraction():
         raise AssertionError(f"Unexpected URL: {url}")
 
     with mock.patch("requests.get", side_effect=fake_get):
-        result = gs.get_gush_helka_info(x, y)
+        result = gs.get_block_parcel_info(x, y)
 
     assert result["success"] is True
-    assert result["gush"] == "6638"
-    assert result["helka"] == "572"
+    assert result["block"] == "6638"
+    assert result["parcel"] == "572"

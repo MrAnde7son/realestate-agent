@@ -401,9 +401,9 @@ class Asset(models.Model):
     neighborhood = models.CharField(max_length=100, blank=True, null=True)
     street = models.CharField(max_length=200, blank=True, null=True)
     number = models.IntegerField(blank=True, null=True)
-    gush = models.CharField(max_length=20, blank=True, null=True)
-    helka = models.CharField(max_length=20, blank=True, null=True)
-    subhelka = models.CharField(max_length=20, blank=True, null=True)
+    block = models.CharField(max_length=20, blank=True, null=True)
+    parcel = models.CharField(max_length=20, blank=True, null=True)
+    subparcel = models.CharField(max_length=20, blank=True, null=True)
     lat = models.FloatField(blank=True, null=True)
     lon = models.FloatField(blank=True, null=True)
     normalized_address = models.CharField(max_length=500, blank=True, null=True)
@@ -454,9 +454,9 @@ class Asset(models.Model):
             models.Index(fields=["city"]),
             models.Index(fields=["neighborhood"]),
             models.Index(fields=["street"]),
-            models.Index(fields=["gush"]),
-            models.Index(fields=["helka"]),
-            models.Index(fields=["subhelka"]),
+            models.Index(fields=["block"]),
+            models.Index(fields=["parcel"]),
+            models.Index(fields=["subparcel"]),
             models.Index(fields=["normalized_address"]),
             models.Index(fields=["status"]),
             models.Index(fields=["building_type"]),
@@ -496,6 +496,32 @@ class Asset(models.Model):
             # Log the error but don't fail the deletion
             logger.error("Error deleting asset %s: %s", self.id, e)
             return False
+
+    def set_property(self, key, value, meta_prefix=""):
+        """Generic setter that updates both meta and direct asset fields."""
+        if value is None:
+            return
+        
+        # Store in meta field
+        meta_key = f"{meta_prefix}_{key}" if meta_prefix else key
+        if not self.meta:
+            self.meta = {}
+        self.meta[meta_key] = value
+        
+        # Also store directly on asset if the field exists
+        if hasattr(self, key):
+            try:
+                setattr(self, key, value)
+            except Exception as e:
+                logger.debug(f"Could not set asset.{key}: {e}")
+        
+        # Store the original key in meta for easy access
+        self.meta[key] = value
+
+    def set_properties(self, data_dict, meta_prefix=""):
+        """Bulk setter for multiple properties."""
+        for key, value in data_dict.items():
+            self.set_property(key, value, meta_prefix)
 
 
 class SourceRecord(models.Model):

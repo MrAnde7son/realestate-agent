@@ -15,6 +15,11 @@ class DummyTask:
         self.calls.append((asset_id, max_pages))
         return type("AsyncResult", (), {"id": self.job_id})()
 
+    def __call__(self, asset_id, max_pages=1):
+        """Called when run_data_pipeline is called directly (not as Celery task)"""
+        self.calls.append((asset_id, max_pages))
+        return []
+
 
 def test_assets_post_triggers_pipeline(monkeypatch):
     factory = RequestFactory()
@@ -31,6 +36,10 @@ def test_assets_post_triggers_pipeline(monkeypatch):
     dummy_asset = type("Asset", (), {"id": 1})()
     monkeypatch.setattr(Asset.objects, "create", lambda **kw: dummy_asset)
 
+    # Mock Celery settings to make it appear available
+    from django.conf import settings
+    monkeypatch.setattr(settings, 'CELERY_BROKER_URL', 'redis://localhost:6379/0')
+
     dummy = DummyTask()
     monkeypatch.setattr(views, "run_data_pipeline", dummy)
 
@@ -41,6 +50,7 @@ def test_assets_post_triggers_pipeline(monkeypatch):
     assert dummy.calls == [(dummy_asset.id, 1)]
     # For DRF Response, access data directly instead of parsing content
     data = response.data
+    # Now that Celery is mocked as available, job_id should be returned
     assert data["job_id"] == dummy.job_id
 
 

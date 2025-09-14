@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import json
 import statistics
 import re
@@ -37,6 +38,7 @@ from .models import (
     ShareToken,
     AssetContribution,
     UserProfile,
+    Snapshot
 )
 
 from .listing_builder import build_listing
@@ -388,8 +390,10 @@ def auth_google_callback(request):
         result = auth_service.handle_google_callback(request, frontend_url)
         if result["success"]:
             return redirect(result["data"]["redirect_url"])
+        response_data = {"error": result["error"]}
+        response_data.update(result.get("data", {}))
         return Response(
-            {"error": result["error"], **result.get("data", {})},
+            response_data,
             status=result["status"],
         )
     except Exception as e:
@@ -418,8 +422,8 @@ def me(request):
 def demo_start(request):
     """Create a demo user and seed sample assets."""
     User = get_user_model()
-    username = f"demo_{get_random_string(8)}"
-    email = f"{username}@demo.local"
+    username = "demo_{}".format(get_random_string(8))
+    email = "{}@demo.local".format(username)
     password = get_random_string(12)
     user = User.objects.create_user(
         username=username,
@@ -458,12 +462,13 @@ def demo_start(request):
     ]
 
     for data in sample_assets:
-        Asset.objects.create(
-            **data,
-            status="done",
-            is_demo=True,
-            meta={"demo": True},
-        )
+        asset_data = data.copy()
+        asset_data.update({
+            "status": "done",
+            "is_demo": True,
+            "meta": {"demo": True},
+        })
+        Asset.objects.create(**asset_data)
 
     from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -721,31 +726,58 @@ def sync_address(request):
 
         # Start enrichment pipeline
         try:
-            run_data_pipeline.delay(asset.id)
-            message = (
-                f"Asset enrichment started for {street} {number} (Asset ID: {asset.id})"
-            )
+            # Check if Celery is enabled
+            from django.conf import settings
+            if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
+                run_data_pipeline.delay(asset.id)
+                message = (
+                    "Asset enrichment started for {} {} (Asset ID: {})".format(street, number, asset.id)
+                )
+            else:
+                # Run asynchronously in background thread when Celery is disabled
+                import threading
+                
+                def run_pipeline_async():
+                    try:
+                        run_data_pipeline(asset.id)
+                        logger.info("Background data pipeline completed for asset %s", asset.id)
+                    except Exception as e:
+                        logger.error("Background data pipeline failed for asset %s: %s", asset.id, e)
+                        # Update asset status to error
+                        try:
+                            asset_obj = Asset.objects.get(id=asset.id)
+                            asset_obj.status = "failed"
+                            asset_obj.last_enrich_error = str(e)
+                            asset_obj.save()
+                        except Exception as save_error:
+                            logger.error("Failed to update asset status: %s", save_error)
+                
+                thread = threading.Thread(target=run_pipeline_async, daemon=True)
+                thread.start()
+                message = (
+                    "Asset enrichment started for {} {} (Asset ID: {})".format(street, number, asset.id)
+                )
         except Exception as e:
-            message = f"Asset created but enrichment failed: {str(e)}"
+            message = "Asset created but enrichment failed: {}".format(str(e))
 
         # Return asset info
         assets = [
             {
                 "id": asset.id,
                 "source": "asset",
-                "external_id": f"asset_{asset.id}",
-                "title": f"Asset for {street} {number}",
-                "address": f"{street} {number}",
+                "external_id": "asset_{}".format(asset.id),
+                "title": "Asset for {} {}".format(street, number),
+                "address": "{} {}".format(street, number),
                 "status": asset.status,
                 "message": message,
             }
         ]
 
         return JsonResponse(
-            {"rows": assets, "message": message, "address": f"{street} {number}"}
+            {"rows": assets, "message": message, "address": "{} {}".format(street, number)}
         )
     except ValueError as e:
-        return JsonResponse({"error": f"Validation error: {str(e)}"}, status=400)
+        return JsonResponse({"error": "Validation error: {}".format(str(e))}, status=400)
     except Exception as e:
         # Log the full error for debugging
         import logging
@@ -780,7 +812,7 @@ def reports(request):
 
             if success:
                 return Response(
-                    {"message": f"Report {report_id} deleted successfully"}, status=200
+                    {"message": "Report {} deleted successfully".format(report_id)}, status=200
                 )
             else:
                 return Response({"error": "Failed to delete report"}, status=500)
@@ -969,7 +1001,7 @@ def mortgage_analyze(request):
             },
             "notes": [
                 "אינפורמטיבי בלבד",
-                f"LTV 70%, ריבית {annual_rate_pct}%, תקופה {term_years}y",
+                "LTV 70%, ריבית {}%, תקופה {}y".format(annual_rate_pct, term_years),
             ],
         }
     )
@@ -1013,8 +1045,8 @@ def tabu(request):
                 "rows": [
                     {
                         "id": 1,
-                        "gush": "1234",
-                        "helka": "56",
+                        "block": "1234",
+                        "parcel": "56",
                         "owner": "בעלים לדוגמה",
                         "area": "150",
                         "usage": "מגורים",
@@ -1043,8 +1075,8 @@ def assets(request):
         "city": "string",
         "street": "string",
         "number": "integer",
-        "gush": "string",
-        "helka": "string",
+        "block": "string",
+        "parcel": "string",
         "radius": "integer"
     }
     """
@@ -1063,7 +1095,7 @@ def assets(request):
 
             if asset.delete_asset():
                 return Response(
-                    {"message": f"Asset {asset_id} deleted successfully"}, status=200
+                    {"message": "Asset {} deleted successfully".format(asset_id)}, status=200
                 )
             else:
                 return Response({"error": "Failed to delete asset"}, status=500)
@@ -1097,7 +1129,7 @@ def assets(request):
         }
     else:
         entry["count"] += 1
-    cache_key = f"assets_post_{ip}"
+    cache_key = "assets_post_{}".format(ip)
     cache_count = cache.get(cache_key, 0)
     if cache_count >= ASSETS_POST_LIMIT:
         return Response({"error": "Too many requests"}, status=429)
@@ -1141,9 +1173,9 @@ def assets(request):
             "street": data.get("street"),
             "number": data.get("number"),
             "apartment": data.get("apartment"),
-            "gush": data.get("gush"),
-            "helka": data.get("helka"),
-            "subhelka": data.get("subhelka"),
+            "block": data.get("block"),
+            "parcel": data.get("parcel"),
+            "subparcel": data.get("subparcel"),
             "status": "pending",
             "created_by": user if is_authenticated else None,
             "last_updated_by": user if is_authenticated else None,
@@ -1165,7 +1197,7 @@ def assets(request):
                 asset=asset,
                 user=user,
                 contribution_type='creation',
-                description=f"נוצר נכס עבור {scope_type}: {data.get('city', 'מיקום לא ידוע')}",
+                description="נוצר נכס עבור {}: {}".format(scope_type, data.get('city', 'מיקום לא ידוע')),
                 source='manual'
             )
             
@@ -1188,13 +1220,40 @@ def assets(request):
         track_feature_usage("asset_creation", user=user, asset_id=asset_id)
         _update_onboarding(user, "add_first_asset")
 
-        # Enqueue Celery task if available
+        # Enqueue Celery task if available, otherwise run in background thread
         job_id = None
         try:
-            result = run_data_pipeline.delay(asset_id)
-            job_id = result.id
+            # Check if Celery is enabled
+            from django.conf import settings
+            if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
+                result = run_data_pipeline.delay(asset_id)
+                job_id = result.id
+                logger.info("Enqueued enrichment task with job ID: %s", job_id)
+            else:
+                # Run asynchronously in background thread when Celery is disabled
+                import threading
+                logger.info("Celery disabled, running data pipeline in background thread")
+                
+                def run_pipeline_async():
+                    try:
+                        run_data_pipeline(asset_id)
+                        logger.info("Background data pipeline completed for asset %s", asset_id)
+                    except Exception as e:
+                        logger.error("Background data pipeline failed for asset %s: %s", asset_id, e)
+                        # Update asset status to error
+                        try:
+                            asset = Asset.objects.get(id=asset_id)
+                            asset.status = "failed"
+                            asset.last_enrich_error = str(e)
+                            asset.save()
+                        except Exception as save_error:
+                            logger.error("Failed to update asset status: %s", save_error)
+                
+                thread = threading.Thread(target=run_pipeline_async, daemon=True)
+                thread.start()
+                logger.info("Started background data pipeline thread for asset %s", asset_id)
         except Exception as e:
-            logger.error("Failed to enqueue enrichment task: %s", e)
+            logger.error("Failed to start enrichment task: %s", e)
             # Update asset status to error
             try:
                 asset = Asset.objects.get(id=asset_id)
@@ -1294,19 +1353,30 @@ def asset_detail(request, asset_id):
                 }
             )
 
+        # Get latest snapshot data
+        latest_snapshot = Snapshot.objects.filter(asset_id=asset_id).order_by('-created_at').first()
+        snapshot_data = {}
+        if latest_snapshot:
+            snapshot_data = {
+                "id": latest_snapshot.id,
+                "created_at": latest_snapshot.created_at.isoformat(),
+                "ppsqm": latest_snapshot.ppsqm,
+                "payload": latest_snapshot.payload,
+            }
+
         # Get attribution information
         attribution_info = {}
         if asset.created_by:
             attribution_info["created_by"] = {
                 "id": asset.created_by.id,
                 "email": asset.created_by.email,
-                "name": f"{asset.created_by.first_name} {asset.created_by.last_name}".strip() or asset.created_by.email,
+                "name": "{} {}".format(asset.created_by.first_name, asset.created_by.last_name).strip() or asset.created_by.email,
             }
         if asset.last_updated_by:
             attribution_info["last_updated_by"] = {
                 "id": asset.last_updated_by.id,
                 "email": asset.last_updated_by.email,
-                "name": f"{asset.last_updated_by.first_name} {asset.last_updated_by.last_name}".strip() or asset.last_updated_by.email,
+                "name": "{} {}".format(asset.last_updated_by.first_name, asset.last_updated_by.last_name).strip() or asset.last_updated_by.email,
             }
         
         # Get recent contributions (last 5)
@@ -1329,7 +1399,7 @@ def asset_detail(request, asset_id):
                 "id": contrib.id,
                 "user": {
                     "email": contrib.user.email,
-                    "name": f"{contrib.user.first_name} {contrib.user.last_name}".strip() or contrib.user.email,
+                    "name": "{} {}".format(contrib.user.first_name, contrib.user.last_name).strip() or contrib.user.email,
                 },
                 "type": contrib.contribution_type,
                 "type_display": contribution_translations.get(contrib.contribution_type, contrib.get_contribution_type_display()),
@@ -1350,6 +1420,7 @@ def asset_detail(request, asset_id):
             "recent_contributions": contributions_list,
             "records": records_by_source,
             "transactions": transaction_list,
+            "snapshot": snapshot_data,
         })
         
         return JsonResponse(asset_data)
@@ -1397,8 +1468,8 @@ def asset_share_message(request, asset_id):
 
     data_json = json.dumps(listing, ensure_ascii=False)
     prompt = (
-        f"Create an engaging {language} marketing message for social media and messaging apps about a property for sale. "
-        f"Use this data:\n{data_json}\n"
+        "Create an engaging {} marketing message for social media and messaging apps about a property for sale. "
+        "Use this data:\n{}\n".format(language, data_json)
     )
 
     message = None
@@ -1410,7 +1481,7 @@ def asset_share_message(request, asset_id):
                 messages=[
                     {
                         "role": "system",
-                        "content": f"You write short real estate marketing messages in {language}.",
+                        "content": "You write short real estate marketing messages in {}.".format(language),
                     },
                     {"role": "user", "content": prompt},
                 ],
@@ -1425,16 +1496,16 @@ def asset_share_message(request, asset_id):
         price = listing.get("price")
         rooms = listing.get("rooms")
         area = listing.get("netSqm")
-        price_s = f" במחיר {price:,.0f}₪" if price else ""
-        rooms_s = f"{int(rooms)} חדרים" if rooms else "דירה"
-        area_s = f' {int(area)} מ"ר' if area else ""
-        message = f"למכירה {rooms_s}{area_s} ב{addr}{price_s}."
+        price_s = " במחיר {:,}₪".format(price) if price else ""
+        rooms_s = "{} חדרים".format(int(rooms)) if rooms else "דירה"
+        area_s = ' {} מ"ר'.format(int(area)) if area else ""
+        message = "למכירה {}{} ב{}{}.".format(rooms_s, area_s, addr, price_s)
 
     logger.info("Marketing message generated for asset %s", asset_id)
 
     token = secrets.token_urlsafe(16)
     ShareToken.objects.create(asset=asset, token=token)
-    share_url = f"/r/{token}"
+    share_url = "/r/{}".format(token)
 
     return Response({"text": message, "share_url": share_url})
 
@@ -1760,7 +1831,7 @@ def user_plan_info(request):
         serializer = UserPlanInfoSerializer(plan_info)
         return Response(serializer.data)
     except Exception as e:
-        logger.error(f"Error getting plan info for user {request.user.email}: {e}")
+        logger.error("Error getting plan info for user {}: {}".format(request.user.email, e))
         return Response({"error": "Failed to get plan information"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -1774,7 +1845,7 @@ def plan_types(request):
         serializer = PlanTypeSerializer(plans, many=True)
         return Response({"plans": serializer.data})
     except Exception as e:
-        logger.error(f"Error getting plan types: {e}")
+        logger.error("Error getting plan types: {}".format(e))
         return Response({"error": "Failed to get plan types"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -1792,8 +1863,8 @@ def upgrade_plan(request):
         serializer = UserPlanSerializer(new_plan)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     except PlanValidationError as e:
-        logger.warning(f"Plan validation error for user {request.user.email}: {e}")
+        logger.warning("Plan validation error for user {}: {}".format(request.user.email, e))
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error(f"Error upgrading plan for user {request.user.email}: {e}")
+        logger.error("Error upgrading plan for user {}: {}".format(request.user.email, e))
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

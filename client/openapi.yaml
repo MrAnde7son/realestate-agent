@@ -1260,15 +1260,15 @@ components:
         number:
           type: integer
           nullable: true
-        gush:
+        block:
           type: string
           nullable: true
           maxLength: 20
-        helka:
+        parcel:
           type: string
           nullable: true
           maxLength: 20
-        subhelka:
+        subparcel:
           type: string
           nullable: true
           maxLength: 20
@@ -1409,15 +1409,15 @@ components:
         number:
           type: integer
           nullable: true
-        gush:
+        block:
           type: string
           nullable: true
           maxLength: 20
-        helka:
+        parcel:
           type: string
           nullable: true
           maxLength: 20
-        subhelka:
+        subparcel:
           type: string
           nullable: true
           maxLength: 20
@@ -1551,15 +1551,15 @@ components:
         number:
           type: integer
           nullable: true
-        gush:
+        block:
           type: string
           nullable: true
           maxLength: 20
-        helka:
+        parcel:
           type: string
           nullable: true
           maxLength: 20
-        subhelka:
+        subparcel:
           type: string
           nullable: true
           maxLength: 20

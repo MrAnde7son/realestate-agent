@@ -37,7 +37,7 @@ class MavatCollector(BaseCollector):
         try:
             # Search by block and parcel using Selenium client
             with self.client as client:
-                plans = client.search_plans(gush=block, helka=parcel, city=city)
+                plans = client.search_plans(block=block, parcel=parcel, city=city)
                 
                 # Convert to consistent format
                 formatted_plans = []

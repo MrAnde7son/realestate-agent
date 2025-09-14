@@ -56,8 +56,8 @@ def test_limited_download():
     search_params = {
         'planNumber': '',
         'city': 5000,  # Tel Aviv
-        'gush': '',
-        'chelka': '',
+        'block': '',
+        'parcel': '',
         'statuses': None,
         'planTypes': [72, 21],  # Limited plan types for testing
         'fromStatusDate': None,

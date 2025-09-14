@@ -64,16 +64,17 @@ def build_listing(
         meta.get("pricePerSqm")
     )
 
-    return {
+    # Build the base listing data
+    listing_data = {
         "id": asset.id,
         "address": address,
         "city": asset.city,
         "neighborhood": asset.neighborhood,
         "street": asset.street,
         "number": asset.number,
-        "gush": asset.gush,
-        "helka": asset.helka,
-        "subhelka": asset.subhelka,
+        "block": asset.block,
+        "parcel": asset.parcel,
+        "subparcel": asset.subparcel,
         "type": ptype,
         "rooms": rooms,
         "bedrooms": bedrooms,
@@ -81,28 +82,23 @@ def build_listing(
         "totalSqm": total_sqm,
         "price": price,
         "pricePerSqm": ppsqm,
-        "remainingRightsSqm": meta.get("remainingRightsSqm"),
-        "program": meta.get("program"),
-        "lastPermitQ": meta.get("lastPermitQ"),
-        "noiseLevel": meta.get("noiseLevel"),
-        "competition1km": meta.get("competition1km"),
+        "asset_status": asset.status,
+        "lat": asset.lat,
+        "lon": asset.lon,
+        "normalizedAddress": asset.normalized_address,
+    }
+    
+    # Add all meta fields to the listing data
+    for key, value in meta.items():
+        if key not in ['gis_data', 'government_data', 'rami_plans', 'mavat_plans', 'yad2_listings', 'market_data', 'last_enrichment']:
+            listing_data[key] = value
+    
+    # Add specific fields with fallback logic
+    listing_data.update({
         "zoning": _first_nonempty(asset.zoning, meta.get("zoning")),
-        "priceGapPct": meta.get("priceGapPct"),
-        "expectedPriceRange": meta.get("expectedPriceRange"),
-        "modelPrice": meta.get("modelPrice"),
-        "confidencePct": meta.get("confidencePct"),
-        "capRatePct": meta.get("capRatePct"),
         "rentEstimate": _first_nonempty(asset.rent_estimate, meta.get("rentEstimate")),
         "riskFlags": meta.get("riskFlags") or [],
         "documents": meta.get("documents") or [],
-        "asset_status": asset.status,
-        # Additional fields expected by frontend
-        "deltaVsAreaPct": meta.get("deltaVsAreaPct"),
-        "domPercentile": meta.get("domPercentile"),
-        "antennaDistanceM": meta.get("antennaDistanceM"),
-        "greenWithin300m": meta.get("greenWithin300m"),
-        "shelterDistanceM": meta.get("shelterDistanceM"),
-        # Additional fields that might be in the frontend
         "bathrooms": _first_nonempty(asset.bathrooms, meta.get("bathrooms")),
         "balconyArea": _first_nonempty(asset.balcony_area, meta.get("balconyArea")),
         "parkingSpaces": _first_nonempty(asset.parking_spaces, meta.get("parkingSpaces")),
@@ -115,10 +111,9 @@ def build_listing(
         "lastRenovation": _first_nonempty(asset.last_renovation, meta.get("lastRenovation")),
         "floor": _first_nonempty(asset.floor, meta.get("floor")),
         "totalFloors": _first_nonempty(asset.total_floors, meta.get("totalFloors")),
-        "lat": asset.lat,
-        "lon": asset.lon,
-        "normalizedAddress": asset.normalized_address,
         "buildingRights": _first_nonempty(asset.building_rights, meta.get("buildingRights")),
         "permitStatus": _first_nonempty(asset.permit_status, meta.get("permitStatus")),
         "permitDate": asset.permit_date.isoformat() if asset.permit_date else None,
-    }
+    })
+    
+    return listing_data

@@ -25,9 +25,9 @@ export type Asset = {
     phone?: string | null;
     email?: string | null;
   } | null;
-  gush?: string | null;
-  helka?: string | null;
-  subhelka?: string | null;
+  block?: string | null;
+  parcel?: string | null;
+  subparcel?: string | null;
   lat?: number | null;
   lon?: number | null;
   normalizedAddress?: string | null;
@@ -116,6 +116,23 @@ export type Asset = {
     source?: string;
     created_at: string;
   }>;
+  snapshot?: {
+    id: number;
+    created_at: string;
+    ppsqm?: number | null;
+    payload: {
+      blocks?: Array<any>;
+      parcels?: Array<any>;
+      permits?: Array<any>;
+      rights?: Array<any>;
+      shelters?: Array<any>;
+      green?: Array<any>;
+      noise?: Array<any>;
+      x?: number;
+      y?: number;
+      [key: string]: any;
+    };
+  };
 };
 
 export function determineAssetType(asset: any): string | null {
@@ -146,9 +163,9 @@ export function normalizeFromBackend(row: any): Asset {
     images: row.images ?? row.photos ?? [],
     features: row.features ?? null,
     contactInfo: row.contactInfo ?? row.contact_info ?? null,
-    gush: row.gush ?? null,
-    helka: row.helka ?? null,
-    subhelka: row.subhelka ?? null,
+    block: row.block ?? null,
+    parcel: row.parcel ?? null,
+    subparcel: row.subparcel ?? null,
     lat: row.lat ?? null,
     lon: row.lon ?? null,
     normalizedAddress: row.normalizedAddress ?? row.normalized_address ?? null,
@@ -214,5 +231,6 @@ export function normalizeFromBackend(row: any): Asset {
     _meta: row._meta ?? undefined,
     attribution: row.attribution ?? undefined,
     recent_contributions: row.recent_contributions ?? undefined,
+    snapshot: row.snapshot ?? undefined,
   };
 }

@@ -37,6 +37,7 @@ from .models import (
     ShareToken,
     AssetContribution,
     UserProfile,
+    Snapshot
 )
 
 from .listing_builder import build_listing
@@ -1349,7 +1350,6 @@ def asset_detail(request, asset_id):
             )
 
         # Get latest snapshot data
-        from .models import Snapshot
         latest_snapshot = Snapshot.objects.filter(asset_id=asset_id).order_by('-created_at').first()
         snapshot_data = {}
         if latest_snapshot:

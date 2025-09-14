@@ -66,7 +66,7 @@ class AssetSerializer(MetaSerializerMixin):
             'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',
             'last_renovation', 'price', 'price_per_sqm', 'rent_estimate', 'zoning',
             'building_rights', 'permit_status', 'permit_date', 'is_demo',
-            'last_enriched_at', 'created_at', 'created_by', 'last_updated_by'
+            'last_enriched_at', 'created_at'
         ]
 
 

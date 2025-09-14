@@ -57,8 +57,8 @@ def test_pipeline_sends_alerts(monkeypatch):
     class DummyGIS:
         def collect(self, address, house_number):
             return {
-                "blocks": [{"ms_block": "1"}],
-                "parcels": [{"ms_parcel": "2"}],
+                "blocks": [{"ms_gush": "1"}],
+                "parcels": [{"ms_chelka": "2"}],
                 "block": "1",
                 "parcel": "2",
             }

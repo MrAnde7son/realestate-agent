@@ -38,8 +38,8 @@ class FakeGISCollector(GISCollector):
 
     def collect(self, address, house_number):
         return {
-            "blocks": [{"ms_block": "1"}],
-            "parcels": [{"ms_parcel": "2"}],
+            "blocks": [{"ms_gush": "1"}],
+            "parcels": [{"ms_chelka": "2"}],
             "permits": [{"permit": "p"}],
             "rights": [{"land": "use"}],
             "shelters": [{"shelter": 1}],

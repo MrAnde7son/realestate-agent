@@ -102,8 +102,8 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
     save_dir = tmp_path / "privilege_pages"
     
     # Mock responses for blocks and parcels queries
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     
     # Mock the privilege page content (PDF)
     privilege_content = b"%PDF-1.4\n%Test PDF content for privilege page"
@@ -144,8 +144,8 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
-    blocks_payload = {"features": [{"attributes": {"ms_block": "1234"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "56"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "1234"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "56"}}]}
     
     # Mock HTML response with linked PDF
     sample_pdf_path = "tests/samples/202581210827_zchuyot.pdf"
@@ -223,7 +223,7 @@ def test_get_building_privilege_page_no_parcels(monkeypatch, tmp_path):
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
     parcels_payload = {"features": []}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -244,7 +244,7 @@ def test_get_building_privilege_page_missing_block(monkeypatch, tmp_path):
     save_dir = tmp_path / "privilege_pages"
     
     blocks_payload = {"features": [{"attributes": {"other_field": "value"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
@@ -263,7 +263,7 @@ def test_get_building_privilege_page_missing_parcel(monkeypatch, tmp_path):
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
     parcels_payload = {"features": [{"attributes": {"other_field": "value"}}]}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -283,8 +283,8 @@ def test_get_building_privilege_page_download_failure(monkeypatch, tmp_path):
     gs = TelAvivGS()
     save_dir = tmp_path / "privilege_pages"
     
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
@@ -309,8 +309,8 @@ def test_get_building_privilege_page_custom_save_dir(monkeypatch, tmp_path):
     gs = TelAvivGS()
     custom_dir = tmp_path / "custom_privilege_dir"
     
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     privilege_content = b"%PDF-1.4\n%Test content"
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -343,8 +343,8 @@ def test_get_building_privilege_page_no_save_dir(monkeypatch, tmp_path):
     """Test when save_dir is None (should not save file)"""
     gs = TelAvivGS()
     
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     privilege_content = b"%PDF-1.4\n%Test content"
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
@@ -383,8 +383,8 @@ def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
         real_pdf_content = f.read()
     
     # Mock responses for blocks and parcels queries using the real values from the PDF
-    blocks_payload = {"features": [{"attributes": {"ms_block": "6638"}}]}
-    parcels_payload = {"features": [{"attributes": {"ms_parcel": "572"}}]}
+    blocks_payload = {"features": [{"attributes": {"ms_gush": "6638"}}]}
+    parcels_payload = {"features": [{"attributes": {"ms_chelka": "572"}}]}
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:  # blocks layer

@@ -963,7 +963,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {asset.noiseLevel !== undefined && asset.noiseLevel !== null ? `${asset.noiseLevel}/5` : '—'}
+                      {!!asset.noiseLevel ? `${asset.noiseLevel}/5` : '—'}
                       <DataBadge source={asset?._meta?.noiseLevel?.source} fetchedAt={asset?._meta?.noiseLevel?.fetched_at} />
                     </div>
                     <div className="text-sm text-muted-foreground">רמת רעש</div>
@@ -971,7 +971,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {asset.greenWithin300m !== undefined && asset.greenWithin300m !== null ? (
+                      {!!asset.greenWithin300m ? (
                         <>
                           <Badge variant={asset.greenWithin300m ? 'success' : 'error'}>
                             {asset.greenWithin300m ? 'כן' : 'לא'}

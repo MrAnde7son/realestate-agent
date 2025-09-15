@@ -17,7 +17,6 @@ import {
   Calculator, 
   Home, 
   Users, 
-  DollarSign, 
   Percent, 
   Plus, 
   Trash2, 
@@ -148,7 +147,7 @@ export default function DealExpensesPage() {
                   מחיר הנכס
                 </Label>
                 <div className="relative">
-                  <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
                   <Input 
                     id="price" 
                     type="number" 
@@ -159,7 +158,7 @@ export default function DealExpensesPage() {
                   />
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {fmtCurrency(price)} ₪
+                  {fmtCurrency(price)}
                 </div>
               </div>
               
@@ -334,7 +333,7 @@ export default function DealExpensesPage() {
                         <div className="space-y-2">
                           <Label className="text-xs">סכום קבוע</Label>
                           <div className="relative">
-                            <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
                             <Input
                               placeholder="0"
                               type="number"

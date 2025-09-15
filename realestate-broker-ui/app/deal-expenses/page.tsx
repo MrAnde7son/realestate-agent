@@ -186,7 +186,7 @@ export default function DealExpensesPage() {
       ['', ''],
       ['פרטי הנכס', ''],
       ['מחיר הנכס', fmtCurrency(price)],
-      ['שטח הנכס', `${area} מ"ר`],
+      ['שטח הנכס', `${area} מ&quot;ר`],
       ['', ''],
       ['מס רכישה', ''],
       ...result.breakdown.map((item, index) => [
@@ -196,20 +196,20 @@ export default function DealExpensesPage() {
          item.track === 'bereaved' ? 'משפחה שכולה' : item.track})`,
         fmtCurrency(item.tax)
       ]),
-      ['סה"כ מס רכישה', fmtCurrency(result.totalTax)],
+      ['סה&quot;כ מס רכישה', fmtCurrency(result.totalTax)],
       ['', ''],
       ['הוצאות שירות', ''],
       ...result.serviceBreakdown.map(item => [item.label, fmtCurrency(item.cost)]),
-      ['סה"כ הוצאות שירות', fmtCurrency(result.serviceTotal)],
+      ['סה&quot;כ הוצאות שירות', fmtCurrency(result.serviceTotal)],
       ['', ''],
       ['סיכום', ''],
       ['מחיר הנכס', fmtCurrency(price)],
       ['מס רכישה', fmtCurrency(result.totalTax)],
       ['הוצאות שירות', fmtCurrency(result.serviceTotal)],
-      ['סה"כ לתשלום', fmtCurrency(result.total)],
+      ['סה&quot;כ לתשלום', fmtCurrency(result.total)],
       ['', ''],
-      ['מחיר למ"ר לפני הוצאות', fmtCurrency(result.pricePerSqBefore)],
-      ['מחיר למ"ר אחרי הוצאות', fmtCurrency(result.pricePerSqAfter)]
+      ['מחיר למ&quot;ר לפני הוצאות', fmtCurrency(result.pricePerSqBefore)],
+      ['מחיר למ&quot;ר אחרי הוצאות', fmtCurrency(result.pricePerSqAfter)]
     ]
 
     const csvContent = csvData.map(row => row.join(',')).join('\n')
@@ -263,7 +263,7 @@ export default function DealExpensesPage() {
           </div>
           <div class="row">
             <span class="label">שטח הנכס:</span>
-            <span class="value">${area} מ"ר</span>
+            <span class="value">${area} מ&quot;ר</span>
           </div>
         </div>
 
@@ -282,7 +282,7 @@ export default function DealExpensesPage() {
             </div>
           `).join('')}
           <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
-            <span class="label">סה"כ מס רכישה:</span>
+            <span class="label">סה&quot;כ מס רכישה:</span>
             <span class="value">${fmtCurrency(result.totalTax)}</span>
           </div>
         </div>
@@ -296,20 +296,20 @@ export default function DealExpensesPage() {
             </div>
           `).join('')}
           <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
-            <span class="label">סה"כ הוצאות שירות:</span>
+            <span class="label">סה&quot;כ הוצאות שירות:</span>
             <span class="value">${fmtCurrency(result.serviceTotal)}</span>
           </div>
         </div>
 
         <div class="total">
           <div class="row">
-            <span class="label">סה"כ לתשלום:</span>
+            <span class="label">סה&quot;כ לתשלום:</span>
             <span class="value">${fmtCurrency(result.total)}</span>
           </div>
         </div>
 
         <div class="section">
-          <h2>מחיר למ"ר</h2>
+          <h2>מחיר למ&quot;ר</h2>
           <div class="row">
             <span class="label">לפני הוצאות:</span>
             <span class="value">${fmtCurrency(result.pricePerSqBefore)}</span>
@@ -398,7 +398,7 @@ export default function DealExpensesPage() {
                             {selectedAsset.neighborhood && ` • ${selectedAsset.neighborhood}`}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            {selectedAsset.area} מ"ר • {fmtCurrency(selectedAsset.price || 0)}
+                            {selectedAsset.area} מ&quot;ר • {fmtCurrency(selectedAsset.price || 0)}
                             {selectedAsset.rooms && ` • ${selectedAsset.rooms} חדרים`}
                           </div>
                         </div>
@@ -444,7 +444,7 @@ export default function DealExpensesPage() {
                                   {asset.neighborhood && ` • ${asset.neighborhood}`}
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
-                                  {asset.area} מ"ר • {fmtCurrency(asset.price || 0)}
+                                  {asset.area} מ&quot;ר • {fmtCurrency(asset.price || 0)}
                                   {asset.rooms && ` • ${asset.rooms} חדרים`}
                                 </div>
                               </button>

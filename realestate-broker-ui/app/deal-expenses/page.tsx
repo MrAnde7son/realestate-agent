@@ -383,46 +383,27 @@ export default function DealExpensesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Summary Cards */}
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card variant="outlined" className="p-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {fmtCurrency(result.totalTax)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">מס רכישה</div>
-                  </div>
-                </Card>
-                <Card variant="outlined" className="p-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {fmtCurrency(result.serviceTotal)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">הוצאות שירות</div>
-                  </div>
-                </Card>
-                <Card variant="outlined" className="p-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">
-                      {fmtCurrency(result.total)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">סה&quot;כ לתשלום</div>
-                  </div>
-                </Card>
-              </div>
-
-              <Separator />
 
               {/* Detailed Breakdown */}
               <div className="space-y-4">
-                <h4 className="font-semibold">פירוט מס רכישה</h4>
+                <h4 className="font-semibold">פירוט הוצאות העסקה</h4>
                 <div className="space-y-2">
+                  {/* Property Price */}
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Home className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">מחיר הנכס</span>
+                    </div>
+                    <span className="font-semibold">{fmtCurrency(price)}</span>
+                  </div>
+
+                  {/* Purchase Tax Breakdown */}
                   {result.breakdown.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                    <div key={`tax-${index}`} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                       <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <Scale className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">
-                          {item.buyer.name || `רוכש ${index + 1}`}
+                          מס רכישה - {item.buyer.name || `רוכש ${index + 1}`}
                         </span>
                         <Badge variant="outline" className="text-xs">
                           {item.track === 'regular' ? 'רגיל' : 
@@ -434,6 +415,26 @@ export default function DealExpensesPage() {
                       <span className="font-semibold">{fmtCurrency(item.tax)}</span>
                     </div>
                   ))}
+
+                  {/* Service Costs Breakdown */}
+                  {result.serviceBreakdown.map((item, index) => (
+                    <div key={`service-${index}`} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Calculator className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{item.label}</span>
+                      </div>
+                      <span className="font-semibold">{fmtCurrency(item.cost)}</span>
+                    </div>
+                  ))}
+
+                  {/* Total */}
+                  <div className="flex justify-between items-center p-4 bg-primary/10 rounded-lg border-2 border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                      <span className="font-bold text-lg">סה&quot;כ לתשלום</span>
+                    </div>
+                    <span className="font-bold text-xl text-primary">{fmtCurrency(result.total)}</span>
+                  </div>
                 </div>
               </div>
 

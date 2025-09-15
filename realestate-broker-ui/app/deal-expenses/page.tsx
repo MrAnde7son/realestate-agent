@@ -425,7 +425,10 @@ export default function DealExpensesPage() {
                           {item.buyer.name || `רוכש ${index + 1}`}
                         </span>
                         <Badge variant="outline" className="text-xs">
-                          {item.track}
+                          {item.track === 'regular' ? 'רגיל' : 
+                           item.track === 'oleh' ? 'עולה חדש' :
+                           item.track === 'disabled' ? 'נכה/עיוור' :
+                           item.track === 'bereaved' ? 'משפחה שכולה' : item.track}
                         </Badge>
                       </div>
                       <span className="font-semibold">{fmtCurrency(item.tax)}</span>

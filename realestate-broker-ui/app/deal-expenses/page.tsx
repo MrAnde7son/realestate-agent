@@ -26,7 +26,10 @@ import {
   Sofa,
   FileText,
   TrendingUp,
-  Info
+  Info,
+  Download,
+  FileSpreadsheet,
+  FileImage
 } from 'lucide-react'
 
 export default function DealExpensesPage() {
@@ -96,6 +99,166 @@ export default function DealExpensesPage() {
     const pricePerSqBefore = area > 0 ? price / area : 0
     const pricePerSqAfter = area > 0 ? total / area : 0
     setResult({ totalTax, breakdown, serviceTotal, serviceBreakdown, total, pricePerSqBefore, pricePerSqAfter })
+  }
+
+  function exportToCSV() {
+    if (!result) return
+
+    const csvData = [
+      ['מחשבון הוצאות עסקה', ''],
+      ['תאריך', new Date().toLocaleDateString('he-IL')],
+      ['', ''],
+      ['פרטי הנכס', ''],
+      ['מחיר הנכס', fmtCurrency(price)],
+      ['שטח הנכס', `${area} מ"ר`],
+      ['', ''],
+      ['מס רכישה', ''],
+      ...result.breakdown.map((item, index) => [
+        `מס רכישה - ${item.buyer.name || `רוכש ${index + 1}`} (${item.track === 'regular' ? 'רגיל' : 
+         item.track === 'oleh' ? 'עולה חדש' :
+         item.track === 'disabled' ? 'נכה/עיוור' :
+         item.track === 'bereaved' ? 'משפחה שכולה' : item.track})`,
+        fmtCurrency(item.tax)
+      ]),
+      ['סה"כ מס רכישה', fmtCurrency(result.totalTax)],
+      ['', ''],
+      ['הוצאות שירות', ''],
+      ...result.serviceBreakdown.map(item => [item.label, fmtCurrency(item.cost)]),
+      ['סה"כ הוצאות שירות', fmtCurrency(result.serviceTotal)],
+      ['', ''],
+      ['סיכום', ''],
+      ['מחיר הנכס', fmtCurrency(price)],
+      ['מס רכישה', fmtCurrency(result.totalTax)],
+      ['הוצאות שירות', fmtCurrency(result.serviceTotal)],
+      ['סה"כ לתשלום', fmtCurrency(result.total)],
+      ['', ''],
+      ['מחיר למ"ר לפני הוצאות', fmtCurrency(result.pricePerSqBefore)],
+      ['מחיר למ"ר אחרי הוצאות', fmtCurrency(result.pricePerSqAfter)]
+    ]
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `חישוב_הוצאות_עסקה_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
+  function exportToPDF() {
+    if (!result) return
+
+    // Create a new window for PDF generation
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="he">
+      <head>
+        <meta charset="UTF-8">
+        <title>חישוב הוצאות עסקה</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .header h1 { color: #2563eb; margin-bottom: 10px; }
+          .section { margin-bottom: 25px; }
+          .section h2 { color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
+          .row { display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; }
+          .row:nth-child(even) { background-color: #f9fafb; }
+          .label { font-weight: bold; }
+          .value { color: #059669; font-weight: bold; }
+          .total { background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
+          .total .value { font-size: 1.2em; color: #1d4ed8; }
+          .badge { background-color: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 10px; }
+          .footer { margin-top: 30px; text-align: center; color: #6b7280; font-size: 0.9em; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>מחשבון הוצאות עסקה</h1>
+          <p>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
+        </div>
+
+        <div class="section">
+          <h2>פרטי הנכס</h2>
+          <div class="row">
+            <span class="label">מחיר הנכס:</span>
+            <span class="value">${fmtCurrency(price)}</span>
+          </div>
+          <div class="row">
+            <span class="label">שטח הנכס:</span>
+            <span class="value">${area} מ"ר</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>מס רכישה</h2>
+          ${result.breakdown.map((item, index) => `
+            <div class="row">
+              <span class="label">
+                מס רכישה - ${item.buyer.name || `רוכש ${index + 1}`}
+                <span class="badge">${item.track === 'regular' ? 'רגיל' : 
+                 item.track === 'oleh' ? 'עולה חדש' :
+                 item.track === 'disabled' ? 'נכה/עיוור' :
+                 item.track === 'bereaved' ? 'משפחה שכולה' : item.track}</span>
+              </span>
+              <span class="value">${fmtCurrency(item.tax)}</span>
+            </div>
+          `).join('')}
+          <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
+            <span class="label">סה"כ מס רכישה:</span>
+            <span class="value">${fmtCurrency(result.totalTax)}</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>הוצאות שירות</h2>
+          ${result.serviceBreakdown.map(item => `
+            <div class="row">
+              <span class="label">${item.label}:</span>
+              <span class="value">${fmtCurrency(item.cost)}</span>
+            </div>
+          `).join('')}
+          <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
+            <span class="label">סה"כ הוצאות שירות:</span>
+            <span class="value">${fmtCurrency(result.serviceTotal)}</span>
+          </div>
+        </div>
+
+        <div class="total">
+          <div class="row">
+            <span class="label">סה"כ לתשלום:</span>
+            <span class="value">${fmtCurrency(result.total)}</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>מחיר למ"ר</h2>
+          <div class="row">
+            <span class="label">לפני הוצאות:</span>
+            <span class="value">${fmtCurrency(result.pricePerSqBefore)}</span>
+          </div>
+          <div class="row">
+            <span class="label">אחרי הוצאות:</span>
+            <span class="value">${fmtCurrency(result.pricePerSqAfter)}</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>נוצר על ידי מחשבון הוצאות עסקה - ${new Date().toLocaleDateString('he-IL')}</p>
+        </div>
+      </body>
+      </html>
+    `
+
+    printWindow.document.write(htmlContent)
+    printWindow.document.close()
+    printWindow.focus()
+    
+    // Wait for content to load then print
+    setTimeout(() => {
+      printWindow.print()
+    }, 500)
   }
 
   return (
@@ -367,6 +530,20 @@ export default function DealExpensesPage() {
             חשב הוצאות
           </Button>
         </div>
+
+        {/* Export Buttons */}
+        {result && (
+          <div className="flex justify-center gap-4 mt-4">
+            <Button onClick={exportToCSV} variant="outline" size="sm">
+              <FileSpreadsheet className="h-4 w-4 ml-2" />
+              ייצא ל-CSV
+            </Button>
+            <Button onClick={exportToPDF} variant="outline" size="sm">
+              <FileImage className="h-4 w-4 ml-2" />
+              ייצא ל-PDF
+            </Button>
+          </div>
+        )}
 
         {/* Results */}
         {result && (

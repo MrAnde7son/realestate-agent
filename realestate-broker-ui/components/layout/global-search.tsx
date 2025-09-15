@@ -38,16 +38,16 @@ const searchItems = [
     description: "התראות ועדכונים"
   },
   {
-    title: "מחשבון משכנתא",
-    href: "/mortgage/analyze",
-    icon: "🧮",
-    description: "חישוב משכנתא וניתוח"
-  },
-  {
     title: "דוחות",
     href: "/reports",
     icon: "📊",
     description: "דוחות שוק וניתוחים"
+  },
+  {
+    title: "מחשבון משכנתא",
+    href: "/mortgage/analyze",
+    icon: "🧮",
+    description: "חישוב משכנתא וניתוח"
   },
   {
     title: "פרופיל",

@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { fmtCurrency } from '@/lib/utils'
 import { Buyer, calculatePurchaseTax } from '@/lib/purchase-tax'
 import { calculateServiceCosts, type ServiceInput } from '@/lib/deal-expenses'
+import type { Asset } from '@/lib/normalizers/asset'
 import { 
   Calculator, 
   Home, 
@@ -29,7 +30,10 @@ import {
   Info,
   Download,
   FileSpreadsheet,
-  FileImage
+  FileImage,
+  Search,
+  X,
+  MapPin
 } from 'lucide-react'
 
 export default function DealExpensesPage() {
@@ -38,6 +42,13 @@ export default function DealExpensesPage() {
   const [buyers, setBuyers] = useState<Buyer[]>([{ name: '', sharePct: 100, isFirstHome: true }])
   const [vatRate, setVatRate] = useState(0.18)
   const [vatUpdated, setVatUpdated] = useState('')
+  
+  // Asset selection state
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
+  const [assetSearchQuery, setAssetSearchQuery] = useState('')
+  const [showAssetDropdown, setShowAssetDropdown] = useState(false)
+  const [loadingAssets, setLoadingAssets] = useState(false)
 
   type ServiceKey = 'broker' | 'lawyer' | 'appraiser' | 'renovation' | 'furniture'
   type ServiceState = Record<ServiceKey, { percent?: number; amount?: number; includesVat: boolean }>
@@ -70,6 +81,71 @@ export default function DealExpensesPage() {
       })
       .catch(() => {})
   }, [])
+
+  // Load assets when component mounts
+  useEffect(() => {
+    loadAssets()
+  }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Element
+      if (showAssetDropdown && !target.closest('.asset-dropdown-container')) {
+        setShowAssetDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showAssetDropdown])
+
+  async function loadAssets() {
+    setLoadingAssets(true)
+    try {
+      const response = await fetch('/api/assets')
+      if (response.ok) {
+        const data = await response.json()
+        setAssets(data.rows || [])
+      }
+    } catch (error) {
+      console.error('Error loading assets:', error)
+    } finally {
+      setLoadingAssets(false)
+    }
+  }
+
+  function handleAssetSelect(asset: Asset) {
+    setSelectedAsset(asset)
+    setAssetSearchQuery('')
+    setShowAssetDropdown(false)
+    
+    // Populate price and area from selected asset
+    if (asset.price) {
+      setPrice(asset.price)
+    }
+    if (asset.area) {
+      setArea(asset.area)
+    }
+  }
+
+  function handleAssetClear() {
+    setSelectedAsset(null)
+    setAssetSearchQuery('')
+    setShowAssetDropdown(false)
+  }
+
+  function getFilteredAssets() {
+    if (!assetSearchQuery.trim()) return assets.slice(0, 10) // Show first 10 if no search
+    
+    const query = assetSearchQuery.toLowerCase()
+    return assets.filter(asset => 
+      asset.address?.toLowerCase().includes(query) ||
+      asset.city?.toLowerCase().includes(query) ||
+      asset.street?.toLowerCase().includes(query) ||
+      asset.neighborhood?.toLowerCase().includes(query)
+    ).slice(0, 10)
+  }
 
   function handleBuyerChange(index: number, field: keyof Buyer, value: any) {
     const list = [...buyers]
@@ -305,6 +381,91 @@ export default function DealExpensesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Asset Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  בחר נכס קיים (אופציונלי)
+                </Label>
+                <div className="relative">
+                  {selectedAsset ? (
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex-1">
+                          <div className="font-medium">{selectedAsset.address}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {selectedAsset.city}
+                            {selectedAsset.neighborhood && ` • ${selectedAsset.neighborhood}`}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {selectedAsset.area} מ"ר • {fmtCurrency(selectedAsset.price || 0)}
+                            {selectedAsset.rooms && ` • ${selectedAsset.rooms} חדרים`}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleAssetClear}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="relative asset-dropdown-container">
+                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="חפש נכס לפי כתובת, עיר או שכונה..."
+                        value={assetSearchQuery}
+                        onChange={e => {
+                          setAssetSearchQuery(e.target.value)
+                          setShowAssetDropdown(true)
+                        }}
+                        onFocus={() => setShowAssetDropdown(true)}
+                        className="pr-10"
+                      />
+                      {showAssetDropdown && (
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {loadingAssets ? (
+                            <div className="p-3 text-center text-muted-foreground">
+                              טוען נכסים...
+                            </div>
+                          ) : getFilteredAssets().length > 0 ? (
+                            getFilteredAssets().map(asset => (
+                              <button
+                                key={asset.id}
+                                className="w-full text-right p-3 hover:bg-muted/50 border-b last:border-b-0"
+                                onClick={() => handleAssetSelect(asset)}
+                              >
+                                <div className="font-medium">{asset.address}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {asset.city}
+                                  {asset.neighborhood && ` • ${asset.neighborhood}`}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {asset.area} מ"ר • {fmtCurrency(asset.price || 0)}
+                                  {asset.rooms && ` • ${asset.rooms} חדרים`}
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="p-3 text-center text-muted-foreground">
+                              לא נמצאו נכסים
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  בחירת נכס תמלא אוטומטית את המחיר והשטח
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="space-y-2">
                 <Label htmlFor="price" className="text-sm font-medium">
                   מחיר הנכס

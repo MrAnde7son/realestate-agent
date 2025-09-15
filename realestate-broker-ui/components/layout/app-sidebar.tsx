@@ -56,13 +56,13 @@ const baseNavigation = [
     icon: BarChart3,
   },
   {
-    name: "מחשבון משכנתא",
-    href: "/mortgage/analyze",
+    name: "מחשבון הוצאות",
+    href: "/deal-expenses",
     icon: Calculator,
   },
   {
-    name: "מחשבון הוצאות",
-    href: "/deal-expenses",
+    name: "מחשבון משכנתא",
+    href: "/mortgage/analyze",
     icon: Calculator,
   },
 ];

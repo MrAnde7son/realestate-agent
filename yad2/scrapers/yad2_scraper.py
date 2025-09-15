@@ -7,6 +7,7 @@ Essential Yad2 scraper with clean, focused implementation.
 """
 
 import json
+import logging
 import time
 from datetime import datetime
 from urllib.parse import urljoin
@@ -22,6 +23,9 @@ from ..core import (
     Yad2ParameterReference,
     Yad2SearchParameters,
 )
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 
 class Yad2Scraper:
@@ -87,11 +91,11 @@ class Yad2Scraper:
                     'streets': data.get('streets', [])
                 }
             else:
-                print(f"Failed to fetch location data: {response.status_code}")
+                logger.warning(f"Failed to fetch location data: {response.status_code}")
                 return None
                 
         except Exception as e:
-            print(f"Error fetching location data: {e}")
+            logger.error(f"Error fetching location data: {e}")
             return None
     
     def set_search_parameters(self, **kwargs):
@@ -100,7 +104,7 @@ class Yad2Scraper:
             try:
                 self.search_params.set_parameter(key, value)
             except ValueError as e:
-                print(f"Warning: {e}")
+                logger.warning(f"Warning: {e}")
     
     def build_search_url(self, page=1):
         """Build the search URL with current parameters."""
@@ -131,7 +135,7 @@ class Yad2Scraper:
             
             return BeautifulSoup(response.content, 'html.parser')
         except requests.RequestException as e:
-            print(f"Failed to fetch page: {e}")
+            logger.error(f"Failed to fetch page: {e}")
             return None
     
     def extract_listing_info(self, listing_element):
@@ -187,25 +191,25 @@ class Yad2Scraper:
             return listing
             
         except Exception as e:
-            print(f"Error extracting listing info: {e}")
+            logger.error(f"Error extracting listing info: {e}")
             return None
     
     def scrape_page(self, page=1):
         """Scrape a single page of assets."""
         url = self.build_search_url(page)
-        print(f"Scraping page {page} from: {url}")
+        logger.info(f"Scraping page {page} from: {url}")
         
         try:
             soup = self.fetch_page(url)
             if not soup:
-                print(f"Failed to fetch page {page}")
+                logger.warning(f"Failed to fetch page {page}")
                 return []
         except RuntimeError as e:
             if "captcha" in str(e).lower() or "blocking" in str(e).lower():
-                print(f"Captcha/Blocking detected on page {page}: {e}")
+                logger.warning(f"Captcha/Blocking detected on page {page}: {e}")
                 raise e  # Re-raise captcha errors
             else:
-                print(f"Error fetching page {page}: {e}")
+                logger.error(f"Error fetching page {page}: {e}")
                 return []
         
         # Try multiple selectors for different page layouts
@@ -221,10 +225,10 @@ class Yad2Scraper:
             items = soup.find_all('div', class_=lambda x: x and ('item' in x.lower() or 'listing' in x.lower()))
         
         if not items:
-            print(f"No assets found on page {page}")
+            logger.info(f"No assets found on page {page}")
             return []
         
-        print(f"Found {len(items)} assets")
+        logger.info(f"Found {len(items)} assets")
         
         assets = []
         for item in items:
@@ -245,20 +249,27 @@ class Yad2Scraper:
                 assets = self.scrape_page(page)
                 
                 if not assets:
-                    print(f"No more assets found on page {page}")
+                    logger.info(f"No more assets found on page {page}")
                     break
                 
                 all_assets.extend(assets)
-                print(f"Page {page}: Found {len(assets)} assets (Total: {len(all_assets)})")
+                logger.info(f"Page {page}: Found {len(assets)} assets (Total: {len(all_assets)})")
                 
                 if page < max_pages:
                     time.sleep(delay)
                     
             except KeyboardInterrupt:
-                print("Scraping interrupted by user")
+                logger.info("Scraping interrupted by user")
                 break
+            except RuntimeError as e:
+                if "captcha" in str(e).lower() or "blocking" in str(e).lower():
+                    logger.warning(f"Captcha/Blocking detected on page {page}: {e}")
+                    raise e  # Re-raise captcha errors so test can catch them
+                else:
+                    logger.error(f"Runtime error on page {page}: {e}")
+                    continue
             except Exception as e:
-                print(f"Error scraping page {page}: {e}")
+                logger.error(f"Error scraping page {page}: {e}")
                 continue
         
         self.assets = all_assets
@@ -314,7 +325,7 @@ class Yad2Scraper:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         
-        print(f"Saved {len(self.assets)} assets to {filename}")
+        logger.info(f"Saved {len(self.assets)} assets to {filename}")
         return filename
     
     @classmethod

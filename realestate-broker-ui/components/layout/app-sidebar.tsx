@@ -60,6 +60,11 @@ const baseNavigation = [
     href: "/mortgage/analyze",
     icon: Calculator,
   },
+  {
+    name: "מחשבון הוצאות",
+    href: "/deal-expenses",
+    icon: Calculator,
+  },
 ];
 
 interface AppSidebarProps {

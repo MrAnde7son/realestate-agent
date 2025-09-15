@@ -3,14 +3,32 @@
 import React, { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/Card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/Badge'
+import { Separator } from '@/components/ui/separator'
 import { fmtCurrency } from '@/lib/utils'
 import { Buyer, calculatePurchaseTax } from '@/lib/purchase-tax'
 import { calculateServiceCosts, type ServiceInput } from '@/lib/deal-expenses'
+import { 
+  Calculator, 
+  Home, 
+  Users, 
+  DollarSign, 
+  Percent, 
+  Plus, 
+  Trash2, 
+  Building, 
+  Scale, 
+  Hammer, 
+  Sofa,
+  FileText,
+  TrendingUp,
+  Info
+} from 'lucide-react'
 
 export default function DealExpensesPage() {
   const [price, setPrice] = useState(3_000_000)
@@ -84,69 +102,193 @@ export default function DealExpensesPage() {
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader heading="מחשבון הוצאות עסקה" text={`מע"מ נוכחי ${(vatRate * 100).toFixed(1)}%`} />
+        <DashboardHeader 
+          heading="מחשבון הוצאות עסקה" 
+          text="חישוב מדויק של כל העלויות הכרוכות ברכישת נכס"
+        />
 
-        {/* Transaction details & Buyers */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>פרטי עסקה</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="price">מחיר הנכס</Label>
-                <Input id="price" type="number" value={price} onChange={e => setPrice(parseInt(e.target.value) || 0)} />
+        {/* VAT Rate Display */}
+        <Card className="mb-6">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <Label htmlFor="area">שטח (מ&quot;ר)</Label>
-                <Input id="area" type="number" value={area} onChange={e => setArea(parseInt(e.target.value) || 0)} />
+                <div className="text-sm text-muted-foreground">מע&quot;מ נוכחי</div>
+                <div className="text-2xl font-bold">{(vatRate * 100).toFixed(1)}%</div>
+              </div>
+            </div>
+            {vatUpdated && (
+              <Badge variant="neutral">
+                עדכון אחרון: {new Date(vatUpdated).toLocaleDateString('he-IL')}
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Transaction details & Buyers */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Transaction Details */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <Home className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <CardTitle>פרטי הנכס</CardTitle>
+                  <CardDescription>הזן את פרטי הנכס לרכישה</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="price" className="text-sm font-medium">
+                  מחיר הנכס
+                </Label>
+                <div className="relative">
+                  <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="price" 
+                    type="number" 
+                    value={price} 
+                    onChange={e => setPrice(parseInt(e.target.value) || 0)}
+                    className="pr-10"
+                    placeholder="3,000,000"
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {fmtCurrency(price)} ₪
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="area" className="text-sm font-medium">
+                  שטח הנכס
+                </Label>
+                <div className="relative">
+                  <Building className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="area" 
+                    type="number" 
+                    value={area} 
+                    onChange={e => setArea(parseInt(e.target.value) || 0)}
+                    className="pr-10"
+                    placeholder="100"
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {area} מ&quot;ר
+                </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Buyers */}
           <Card>
             <CardHeader>
-              <CardTitle>רוכשים</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {buyers.map((b, i) => (
-                <div key={i} className="border rounded p-2 space-y-2">
-                  <div className="flex gap-2">
-                    <Input placeholder="שם" value={b.name} onChange={e => handleBuyerChange(i, 'name', e.target.value)} />
-                    <Input placeholder="%" type="number" value={b.sharePct} onChange={e => handleBuyerChange(i, 'sharePct', parseFloat(e.target.value) || 0)} />
-                    {buyers.length > 1 && (
-                      <Button variant="destructive" onClick={() => removeBuyer(i)}>
-                        X
-                      </Button>
-                    )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                    <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <div className="flex flex-wrap gap-4">
-                    <label className="flex items-center space-x-2 space-x-reverse">
-                      <Switch checked={b.isFirstHome} onCheckedChange={v => handleBuyerChange(i, 'isFirstHome', v)} />
-                      <span>דירה יחידה</span>
-                    </label>
-                    <label className="flex items-center space-x-2 space-x-reverse">
-                      <Switch checked={b.isReplacementHome} onCheckedChange={v => handleBuyerChange(i, 'isReplacementHome', v)} />
-                      <span>דירה חלופית</span>
-                    </label>
-                    <label className="flex items-center space-x-2 space-x-reverse">
-                      <Switch checked={b.oleh} onCheckedChange={v => handleBuyerChange(i, 'oleh', v)} />
-                      <span>עולה חדש</span>
-                    </label>
-                    <label className="flex items-center space-x-2 space-x-reverse">
-                      <Switch checked={b.disabled} onCheckedChange={v => handleBuyerChange(i, 'disabled', v)} />
-                      <span>נכה/עיוור</span>
-                    </label>
-                    <label className="flex items-center space-x-2 space-x-reverse">
-                      <Switch checked={b.bereavedFamily} onCheckedChange={v => handleBuyerChange(i, 'bereavedFamily', v)} />
-                      <span>משפחה שכולה</span>
-                    </label>
+                  <div>
+                    <CardTitle>רוכשים</CardTitle>
+                    <CardDescription>הגדר את פרטי הרוכשים</CardDescription>
                   </div>
                 </div>
+                <Button onClick={addBuyer} size="sm" variant="outline">
+                  <Plus className="h-4 w-4" />
+                  הוסף רוכש
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {buyers.map((buyer, index) => (
+                <Card key={index} variant="outlined" className="p-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">רוכש {index + 1}</h4>
+                      {buyers.length > 1 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => removeBuyer(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs">שם הרוכש</Label>
+                        <Input 
+                          placeholder="שם מלא" 
+                          value={buyer.name} 
+                          onChange={e => handleBuyerChange(index, 'name', e.target.value)} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">אחוז בעלות</Label>
+                        <div className="relative">
+                          <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input 
+                            placeholder="100" 
+                            type="number" 
+                            value={buyer.sharePct} 
+                            onChange={e => handleBuyerChange(index, 'sharePct', parseFloat(e.target.value) || 0)}
+                            className="pr-10"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <Label className="text-xs text-muted-foreground">הטבות מיוחדות</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                          <Switch 
+                            checked={buyer.isFirstHome} 
+                            onCheckedChange={v => handleBuyerChange(index, 'isFirstHome', v)} 
+                          />
+                          <span className="text-sm">דירה יחידה</span>
+                        </label>
+                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                          <Switch 
+                            checked={buyer.isReplacementHome} 
+                            onCheckedChange={v => handleBuyerChange(index, 'isReplacementHome', v)} 
+                          />
+                          <span className="text-sm">דירה חלופית</span>
+                        </label>
+                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                          <Switch 
+                            checked={buyer.oleh} 
+                            onCheckedChange={v => handleBuyerChange(index, 'oleh', v)} 
+                          />
+                          <span className="text-sm">עולה חדש</span>
+                        </label>
+                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                          <Switch 
+                            checked={buyer.disabled} 
+                            onCheckedChange={v => handleBuyerChange(index, 'disabled', v)} 
+                          />
+                          <span className="text-sm">נכה/עיוור</span>
+                        </label>
+                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer col-span-2">
+                          <Switch 
+                            checked={buyer.bereavedFamily} 
+                            onCheckedChange={v => handleBuyerChange(index, 'bereavedFamily', v)} 
+                          />
+                          <span className="text-sm">משפחה שכולה</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               ))}
-              <Button onClick={addBuyer} variant="secondary">
-                הוסף רוכש
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -154,63 +296,168 @@ export default function DealExpensesPage() {
         {/* Service costs */}
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>עלויות נלוות</CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                <Calculator className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <CardTitle>עלויות נלוות</CardTitle>
+                <CardDescription>הוסף עלויות שירות ושיפוץ</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {(Object.keys(services) as ServiceKey[]).map((key) => (
-              <div key={key} className="grid gap-2">
-                <div className="font-medium">{labelMap[key]}</div>
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                  <Input
-                    placeholder="%"
-                    type="number"
-                    value={services[key].percent ?? ''}
-                    onChange={e => handleServiceChange(key, 'percent', parseFloat(e.target.value) || 0)}
-                  />
-                  <Input
-                    placeholder="₪"
-                    type="number"
-                    value={services[key].amount ?? ''}
-                    onChange={e => handleServiceChange(key, 'amount', parseFloat(e.target.value) || 0)}
-                  />
-                  <label className="flex items-center space-x-2 space-x-reverse col-span-2 md:col-span-1">
-                    <Switch
-                      checked={services[key].includesVat}
-                      onCheckedChange={v => handleServiceChange(key, 'includesVat', v)}
-                    />
-                      <span>כולל מע&quot;מ?</span>
-                  </label>
-                </div>
-              </div>
-            ))}
+            <div className="grid gap-6 md:grid-cols-2">
+              {(Object.keys(services) as ServiceKey[]).map((key) => (
+                <Card key={key} variant="outlined" className="p-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      {getServiceIcon(key)}
+                      <span className="font-medium">{labelMap[key]}</span>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs">אחוז מהמחיר</Label>
+                          <div className="relative">
+                            <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="0"
+                              type="number"
+                              value={services[key].percent ?? ''}
+                              onChange={e => handleServiceChange(key, 'percent', parseFloat(e.target.value) || 0)}
+                              className="pr-10"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">סכום קבוע</Label>
+                          <div className="relative">
+                            <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="0"
+                              type="number"
+                              value={services[key].amount ?? ''}
+                              onChange={e => handleServiceChange(key, 'amount', parseFloat(e.target.value) || 0)}
+                              className="pr-10"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                        <Switch
+                          checked={services[key].includesVat}
+                          onCheckedChange={v => handleServiceChange(key, 'includesVat', v)}
+                        />
+                        <span className="text-sm">כולל מע&quot;מ</span>
+                      </label>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
-        <div className="flex justify-end mt-4">
-          <Button onClick={calculate}>חשב</Button>
+        {/* Calculate Button */}
+        <div className="flex justify-center mt-8">
+          <Button onClick={calculate} size="lg" className="px-8">
+            <Calculator className="h-5 w-5 ml-2" />
+            חשב הוצאות
+          </Button>
         </div>
 
+        {/* Results */}
         {result && (
-          <Card className="mt-6">
+          <Card className="mt-8">
             <CardHeader>
-              <CardTitle>תוצאות</CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <CardTitle>תוצאות החישוב</CardTitle>
+                  <CardDescription>סיכום מפורט של כל העלויות</CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="font-semibold">מס רכישה כולל: {fmtCurrency(result.totalTax)}</div>
-              <ul className="pl-4 list-disc space-y-1">
-                {result.breakdown.map((b, i) => (
-                  <li key={i}>
-                    {(b.buyer.name || `רוכש ${i + 1}`)}: {fmtCurrency(b.tax)} ({b.track})
-                  </li>
-                ))}
-              </ul>
-              <div className="font-semibold mt-2">הוצאות שירות ושיפוץ: {fmtCurrency(result.serviceTotal)}</div>
-                <div className="font-semibold">סה&quot;כ לתשלום: {fmtCurrency(result.total)}</div>
-                <div>מחיר למ&quot;ר לפני: {fmtCurrency(result.pricePerSqBefore)}</div>
-                <div>מחיר למ&quot;ר אחרי: {fmtCurrency(result.pricePerSqAfter)}</div>
-                {vatUpdated && (
-                  <div className="text-sm text-muted-foreground">עדכון מע&quot;מ: {new Date(vatUpdated).toLocaleDateString('he-IL')}</div>
-                )}
+            <CardContent className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card variant="outlined" className="p-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {fmtCurrency(result.totalTax)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">מס רכישה</div>
+                  </div>
+                </Card>
+                <Card variant="outlined" className="p-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {fmtCurrency(result.serviceTotal)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">הוצאות שירות</div>
+                  </div>
+                </Card>
+                <Card variant="outlined" className="p-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary">
+                      {fmtCurrency(result.total)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">סה&quot;כ לתשלום</div>
+                  </div>
+                </Card>
+              </div>
+
+              <Separator />
+
+              {/* Detailed Breakdown */}
+              <div className="space-y-4">
+                <h4 className="font-semibold">פירוט מס רכישה</h4>
+                <div className="space-y-2">
+                  {result.breakdown.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          {item.buyer.name || `רוכש ${index + 1}`}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {item.track}
+                        </Badge>
+                      </div>
+                      <span className="font-semibold">{fmtCurrency(item.tax)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Price per square meter */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">מחיר למ&quot;ר לפני הוצאות</h4>
+                  <div className="text-2xl font-bold text-muted-foreground">
+                    {fmtCurrency(result.pricePerSqBefore)}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">מחיר למ&quot;ר אחרי הוצאות</h4>
+                  <div className="text-2xl font-bold text-primary">
+                    {fmtCurrency(result.pricePerSqAfter)}
+                  </div>
+                </div>
+              </div>
+
+              {vatUpdated && (
+                <div className="text-xs text-muted-foreground text-center pt-4 border-t">
+                  עדכון מע&quot;מ אחרון: {new Date(vatUpdated).toLocaleDateString('he-IL')}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -225,4 +472,15 @@ const labelMap: Record<string, string> = {
   appraiser: 'שמאי',
   renovation: 'שיפוץ',
   furniture: 'ריהוט',
+}
+
+const getServiceIcon = (key: string) => {
+  const iconMap: Record<string, React.ReactNode> = {
+    broker: <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
+    lawyer: <FileText className="h-4 w-4 text-purple-600 dark:text-purple-400" />,
+    appraiser: <Scale className="h-4 w-4 text-green-600 dark:text-green-400" />,
+    renovation: <Hammer className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
+    furniture: <Sofa className="h-4 w-4 text-pink-600 dark:text-pink-400" />,
+  }
+  return iconMap[key] || <Calculator className="h-4 w-4 text-muted-foreground" />
 }

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Globe, Bell, Shield, Palette, Database, Zap } from 'lucide-react'
+import { Globe, Bell, Shield, Palette, Database, Zap, FileText } from 'lucide-react'
 import { ContactSupportDialog, BugReportDialog } from '@/components/support/dialogs'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import Link from 'next/link'
@@ -314,6 +314,17 @@ export default function SettingsPage() {
                   <Link href="/user-guide">
                     <Globe className="h-4 w-4 ml-2" />
                     מדריך משתמש
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  asChild
+                >
+                  <Link href="/terms-of-use">
+                    <FileText className="h-4 w-4 ml-2" />
+                    תנאי שימוש
                   </Link>
                 </Button>
                 <ContactSupportDialog>

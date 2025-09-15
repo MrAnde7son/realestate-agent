@@ -497,31 +497,61 @@ class Asset(models.Model):
             logger.error("Error deleting asset %s: %s", self.id, e)
             return False
 
-    def set_property(self, key, value, meta_prefix=""):
-        """Generic setter that updates both meta and direct asset fields."""
+    def set_property(self, key, value, source=None, url=None, meta_prefix=""):
+        """Unified setter that updates both direct fields and metadata."""
         if value is None:
             return
         
-        # Store in meta field
-        meta_key = f"{meta_prefix}_{key}" if meta_prefix else key
+        # Initialize meta field if it doesn't exist
         if not self.meta:
             self.meta = {}
-        self.meta[meta_key] = value
         
-        # Also store directly on asset if the field exists
+        # Store the value directly on the asset if the field exists
         if hasattr(self, key):
             try:
                 setattr(self, key, value)
             except Exception as e:
                 logger.debug(f"Could not set asset.{key}: {e}")
         
-        # Store the original key in meta for easy access
+        # Store metadata for this property
+        meta_key = f"{meta_prefix}_{key}" if meta_prefix else key
+        self.meta[meta_key] = {
+            "value": value,
+            "source": source or "unknown",
+            "fetched_at": timezone.now().isoformat(),
+            "url": url
+        }
+        
+        # Also store the original key in meta for backward compatibility
         self.meta[key] = value
 
-    def set_properties(self, data_dict, meta_prefix=""):
-        """Bulk setter for multiple properties."""
+    def set_properties(self, data_dict, source=None, url=None, meta_prefix=""):
+        """Bulk setter for multiple properties with unified metadata."""
         for key, value in data_dict.items():
-            self.set_property(key, value, meta_prefix)
+            self.set_property(key, value, source, url, meta_prefix)
+    
+    def get_property_meta(self, key):
+        """Get metadata for a specific property."""
+        if not self.meta:
+            return None
+        return self.meta.get(key)
+    
+    def get_property_value(self, key):
+        """Get the value of a property (from direct field or meta)."""
+        # First try direct field
+        if hasattr(self, key):
+            value = getattr(self, key)
+            if value is not None:
+                return value
+        
+        # Fall back to meta
+        if self.meta and key in self.meta:
+            meta = self.meta[key]
+            if isinstance(meta, dict):
+                return meta.get("value")
+            return meta
+        
+        return None
 
 
 class SourceRecord(models.Model):

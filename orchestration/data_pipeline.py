@@ -733,65 +733,65 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
 
 
 def _process_gis_data(asset, gis_data):
-    """Process GIS data and store in both meta and direct fields."""
+    """Process GIS data and store using unified metadata structure."""
     # Noise levels
     if gis_data.get('noise'):
         noise_levels = gis_data.get('noise', [])
         if noise_levels:
             max_noise = max([n.get('isov3', 0) for n in noise_levels if isinstance(n, dict)])
-            asset.set_property('noiseLevel', max_noise)
+            asset.set_property('noiseLevel', max_noise, source='GIS', url='https://www.govmap.gov.il/')
     
     # Land use rights and zoning
     if gis_data.get('rights'):
         rights = gis_data.get('rights', [])
         if rights:
             main_rights = rights[0] if rights else {}
-            asset.set_property('zoning', main_rights.get('land_use', ''))
-            asset.set_property('program', main_rights.get('plan_name', ''))
+            asset.set_property('zoning', main_rights.get('land_use', ''), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('program', main_rights.get('plan_name', ''), source='GIS', url='https://www.govmap.gov.il/')
             
             # Building rights estimation
             area_for_calculation = asset.area or 80  # Default to 80 sqm if no area
             estimated_rights = area_for_calculation * 0.2  # 20% additional rights
-            asset.set_property('remainingRightsSqm', int(estimated_rights))
-            asset.set_property('mainRightsSqm', int(area_for_calculation))
-            asset.set_property('serviceRightsSqm', int(estimated_rights * 0.1))
+            asset.set_property('remainingRightsSqm', int(estimated_rights), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+            asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+            asset.set_property('serviceRightsSqm', int(estimated_rights * 0.1), source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
     # Building permits
     if gis_data.get('permits'):
         permits = gis_data.get('permits', [])
         if permits:
             recent_permit = permits[0] if permits else {}
-            asset.set_property('permitStatus', recent_permit.get('building_stage', ''))
+            asset.set_property('permitStatus', recent_permit.get('building_stage', ''), source='GIS', url='https://www.govmap.gov.il/')
             if recent_permit.get('permission_date'):
                 try:
                     from datetime import datetime
                     permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
-                    asset.set_property('permitDate', permit_date.date())
+                    asset.set_property('permitDate', permit_date.date(), source='GIS', url='https://www.govmap.gov.il/')
                 except:
                     pass
     
     # Green areas
     if gis_data.get('green'):
         green_areas = gis_data.get('green', [])
-        asset.set_property('greenWithin300m', len(green_areas) > 0)
+        asset.set_property('greenWithin300m', len(green_areas) > 0, source='GIS', url='https://www.govmap.gov.il/')
     
     # Shelters
     if gis_data.get('shelters'):
         shelters = gis_data.get('shelters', [])
         if shelters:
             min_distance = min([s.get('distance', 999) for s in shelters if isinstance(s, dict)])
-            asset.set_property('shelterDistanceM', min_distance)
+            asset.set_property('shelterDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Environmental fields
-    asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית')
-    asset.set_property('openSpacesNearby', 'פארקים ושטחים פתוחים בקרבת מקום' if asset.meta.get('greenWithin300m') else 'אין שטחים פתוחים קרובים')
-    asset.set_property('publicBuildings', 'מבני ציבור בקרבת מקום')
-    asset.set_property('parking', 'חניה זמינה')
-    asset.set_property('nearbyProjects', 'פרויקטים חדשים באזור')
+    asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    asset.set_property('openSpacesNearby', 'פארקים ושטחים פתוחים בקרבת מקום' if asset.meta.get('greenWithin300m') else 'אין שטחים פתוחים קרובים', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    asset.set_property('publicBuildings', 'מבני ציבור בקרבת מקום', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    asset.set_property('parking', 'חניה זמינה', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    asset.set_property('nearbyProjects', 'פרויקטים חדשים באזור', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
     # Additional planning fields
-    asset.set_property('additionalPlanRights', 'אין זכויות נוספות')
-    asset.set_property('publicObligations', 'אין חובות ציבוריות')
+    asset.set_property('additionalPlanRights', 'אין זכויות נוספות', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    asset.set_property('publicObligations', 'אין חובות ציבוריות', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
     # Permit quarter (extract from permit data)
     if gis_data.get('permits'):
@@ -803,7 +803,7 @@ def _process_gis_data(asset, gis_data):
                     from datetime import datetime
                     permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
                     quarter = f"Q{(permit_date.month - 1) // 3 + 1}/{permit_date.year}"
-                    asset.set_property('lastPermitQ', quarter)
+                    asset.set_property('lastPermitQ', quarter, source='GIS', url='https://www.govmap.gov.il/')
                 except:
                     pass
     
@@ -815,45 +815,45 @@ def _process_gis_data(asset, gis_data):
         risk_flags.append('אין שטחים פתוחים קרובים')
     if asset.meta.get('shelterDistanceM', 999) > 200:
         risk_flags.append('מרחק גדול ממקלט')
-    asset.set_property('riskFlags', risk_flags)
+    asset.set_property('riskFlags', risk_flags, source='GIS (calculated)', url='https://www.govmap.gov.il/')
 
 
 def _process_government_data(asset, gov_data):
-    """Process government data and store in both meta and direct fields."""
+    """Process government data using unified metadata structure."""
     # Transaction data
     if gov_data.get('transactions'):
         transactions = gov_data.get('transactions', [])
-        asset.set_property('competition1km', len(transactions))
+        asset.set_property('competition1km', len(transactions), source='Nadlan', url='https://nadlan.gov.il/')
     
     # Decisive appraisals
     if gov_data.get('decisive'):
         decisive = gov_data.get('decisive', [])
         if decisive:
             latest_appraisal = decisive[0] if decisive else {}
-            asset.set_property('appraisalValue', latest_appraisal.get('appraised_value'))
-            asset.set_property('appraisalDate', latest_appraisal.get('appraisal_date'))
+            asset.set_property('appraisalValue', latest_appraisal.get('appraised_value'), source='מנהל התכנון', url='https://www.gov.il/')
+            asset.set_property('appraisalDate', latest_appraisal.get('appraisal_date'), source='מנהל התכנון', url='https://www.gov.il/')
 
 
 def _process_rami_plans(asset, plans):
-    """Process RAMI plans and store in both meta and direct fields."""
+    """Process RAMI plans using unified metadata structure."""
     if plans:
         # Look for active plans
         active_plans = [p for p in plans if p.get('status') and 'פעיל' in p.get('status', '')]
         if active_plans:
             latest_plan = active_plans[0]
-            asset.set_property('planStatus', latest_plan.get('status', ''))
-            asset.set_property('planActive', True)
+            asset.set_property('planStatus', latest_plan.get('status', ''), source='RAMI', url='https://rami.gov.il/')
+            asset.set_property('planActive', True, source='RAMI', url='https://rami.gov.il/')
         else:
-            asset.set_property('planActive', False)
+            asset.set_property('planActive', False, source='RAMI', url='https://rami.gov.il/')
 
 
 def _process_mavat_plans(asset, mavat_plans):
-    """Process Mavat plans and store in both meta and direct fields."""
+    """Process Mavat plans using unified metadata structure."""
     if mavat_plans:
-        asset.set_property('mavatPlanCount', len(mavat_plans))
+        asset.set_property('mavatPlanCount', len(mavat_plans), source='Mavat', url='https://mavat.gov.il/')
         if mavat_plans:
             latest_plan = mavat_plans[0]
-            asset.set_property('mavatPlanStatus', latest_plan.get('status', ''))
+            asset.set_property('mavatPlanStatus', latest_plan.get('status', ''), source='Mavat', url='https://mavat.gov.il/')
 
 
 

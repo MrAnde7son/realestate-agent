@@ -13,6 +13,7 @@ import { Globe, Bell, Shield, Palette, Database, Zap, FileText } from 'lucide-re
 import { ContactSupportDialog, BugReportDialog } from '@/components/support/dialogs'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import Link from 'next/link'
+import { apiClient } from '@/lib/api-client'
 
 interface UserSettings {
   language: string
@@ -32,10 +33,9 @@ export default function SettingsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/settings')
+        const res = await apiClient.get('/api/settings')
         if (res.ok) {
-          const data = await res.json()
-          setSettings(data)
+          setSettings(res.data)
         }
       } catch (err) {
         console.error('Failed to load settings', err)
@@ -46,15 +46,15 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     try {
-      const res = await fetch('/api/settings', {
+      const res = await apiClient.request('/api/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       })
-      if (!res.ok) {
-        throw new Error('Failed to save settings')
+      if (res.ok) {
+        alert('Settings saved successfully')
+      } else {
+        throw new Error(res.error || 'Failed to save settings')
       }
-      alert('Settings saved successfully')
     } catch (err) {
       console.error('Failed to save settings', err)
       alert('Failed to save settings')

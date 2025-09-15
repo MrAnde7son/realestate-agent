@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/Badge'
 import { FileText, Download, Eye, Calendar, MapPin, Trash2, ExternalLink, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { apiClient } from '@/lib/api-client'
 
 type Report = {
   id: number
@@ -37,12 +38,16 @@ export default function ReportsPage() {
   const [clickedRow, setClickedRow] = useState<number | null>(null)
 
   useEffect(() => {
-    fetch('/api/reports')
-      .then(res => res.json())
-      .then(data => {
-        // Handle both array and object responses
-        const reportsData = Array.isArray(data) ? data : (data.reports || [])
-        setReports(reportsData)
+    apiClient.get('/api/reports')
+      .then(res => {
+        if (res.ok) {
+          // Handle both array and object responses
+          const reportsData = Array.isArray(res.data) ? res.data : (res.data.reports || [])
+          setReports(reportsData)
+        } else {
+          console.error('Failed to load reports:', res.error)
+          setReports([])
+        }
         setLoading(false)
       })
       .catch(err => {
@@ -72,9 +77,8 @@ export default function ReportsPage() {
 
     setDeleting(reportId)
     try {
-      const response = await fetch('/api/reports', {
+      const response = await apiClient.request('/api/reports', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportId })
       })
 
@@ -84,8 +88,7 @@ export default function ReportsPage() {
         // Show success message (you could add a toast notification here)
         alert('הדוח נמחק בהצלחה')
       } else {
-        const error = await response.json()
-        alert(`שגיאה במחיקת הדוח: ${error.error}`)
+        alert(`שגיאה במחיקת הדוח: ${response.error}`)
       }
     } catch (error) {
       console.error('Error deleting report:', error)

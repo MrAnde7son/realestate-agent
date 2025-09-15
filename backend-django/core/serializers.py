@@ -3,29 +3,36 @@ from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, Ale
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
-    """Adds _meta section with field lineage information."""
+    """Adds _meta section with field lineage information for unified metadata structure."""
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         meta = getattr(instance, "meta", {}) or {}
         field_meta = {}
         
-        # Extract values and attribution information from meta field
+        # Process unified metadata structure
         for key, value in meta.items():
-            if isinstance(value, dict):
-                # Extract the actual value if it exists
+            if isinstance(value, dict) and "value" in value:
+                # This is a unified metadata entry
                 actual_value = value.get("value")
                 if actual_value is not None:
                     data[key] = actual_value
                 
                 # Extract attribution information
                 source = value.get("source")
-                fetched = value.get("fetched_at") or value.get("fetchedAt")
+                fetched = value.get("fetched_at")
                 url = value.get("url")
-                if source and fetched and url:
-                    field_meta[key] = {"source": source, "fetched_at": fetched, "url": url}
-                elif source and fetched:
-                    field_meta[key] = {"source": source, "fetched_at": fetched}
+                
+                if source and fetched:
+                    field_meta[key] = {
+                        "source": source,
+                        "fetched_at": fetched
+                    }
+                    if url:
+                        field_meta[key]["url"] = url
+            elif not isinstance(value, dict):
+                # This is a simple value (backward compatibility)
+                data[key] = value
         
         # Add _meta section if we have attribution data
         if field_meta:

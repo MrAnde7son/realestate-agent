@@ -170,9 +170,7 @@ export default function AlertsPage() {
     }
 
     try {
-      const response = await fetch(`/api/alerts?ruleId=${ruleId}`, {
-        method: 'DELETE',
-      })
+      const response = await api.delete(`/api/alerts?ruleId=${ruleId}`)
 
       if (response.ok) {
         setAlertRules(prev => prev.filter(rule => rule.id !== ruleId))

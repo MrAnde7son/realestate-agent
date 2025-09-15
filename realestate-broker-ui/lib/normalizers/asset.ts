@@ -90,7 +90,11 @@ export type Asset = {
   legalRestrictions?: string | null;
   urbanRenewalPotential?: string | null;
   bettermentLevy?: string | null;
-  _meta?: Record<string, any>;
+  _meta?: Record<string, {
+    source?: string;
+    fetched_at?: string;
+    url?: string;
+  }>;
   attribution?: {
     created_by?: {
       id: number;

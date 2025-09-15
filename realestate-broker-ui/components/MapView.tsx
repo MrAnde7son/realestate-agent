@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { MapLayerService, LayerConfig } from '@/lib/map-layer-service'
 import type { Asset } from '@/lib/normalizers/asset'
+import { validateCoordinates, areCoordinatesMissing } from '@/lib/coordinate-utils'
 
 interface MapViewProps {
   assets: Asset[]
@@ -161,6 +162,73 @@ export default function MapView({
     geocodingService.current = new GeocodingService()
   }, [])
 
+  // Add asset markers to map
+  const addAssetMarkers = useCallback(() => {
+    if (!map.current || !assets.length) return
+
+    // Remove existing markers
+    const existingMarkers = document.querySelectorAll('.asset-marker')
+    existingMarkers.forEach(marker => marker.remove())
+
+    let validMarkersCount = 0
+
+    // Add new markers
+    assets.forEach((asset, index) => {
+      // Skip assets with no coordinates (null/undefined) - this is normal
+      if (areCoordinatesMissing(asset.lat, asset.lon)) {
+        return
+      }
+
+      // Validate and convert coordinates using the coordinate utility
+      const coords = validateCoordinates(asset.lat, asset.lon)
+      
+      if (!coords) {
+        console.warn(`Invalid coordinates for asset ${asset.id}: lat=${asset.lat}, lon=${asset.lon}`)
+        return
+      }
+
+      const { lat, lon } = coords
+
+      const markerEl = document.createElement('div')
+      markerEl.className = 'asset-marker'
+      markerEl.style.cssText = `
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: #10b981;
+        border: 3px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+      `
+      markerEl.innerHTML = `<span>${index + 1}</span>`
+
+      markerEl.addEventListener('click', () => {
+        onAssetClick(asset)
+      })
+
+      markerEl.addEventListener('mouseenter', () => {
+        markerEl.style.transform = 'scale(1.1)'
+        markerEl.style.transition = 'transform 0.2s'
+      })
+
+      markerEl.addEventListener('mouseleave', () => {
+        markerEl.style.transform = 'scale(1)'
+      })
+
+      new Marker(markerEl)
+        .setLngLat([lon, lat])
+        .addTo(map.current)
+      
+      validMarkersCount++
+    })
+  }, [assets, onAssetClick])
+
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return
@@ -296,16 +364,29 @@ export default function MapView({
           layerService.current.destroy()
         }
         
-        // Remove all sources and layers before removing the map
+        // Remove all layers and sources before removing the map
         try {
-          const sources = map.current.getStyle().sources
-          Object.keys(sources).forEach(sourceId => {
-            if (map.current.getSource(sourceId)) {
-              map.current.removeSource(sourceId)
-            }
-          })
+          const style = map.current.getStyle()
+          if (style && style.layers) {
+            // Remove all layers first (in reverse order to avoid dependency issues)
+            const layerIds = style.layers.map((layer: any) => layer.id).reverse()
+            layerIds.forEach((layerId: string) => {
+              if (map.current.getLayer(layerId)) {
+                map.current.removeLayer(layerId)
+              }
+            })
+          }
+          
+          // Then remove all sources
+          if (style && style.sources) {
+            Object.keys(style.sources).forEach(sourceId => {
+              if (map.current.getSource(sourceId)) {
+                map.current.removeSource(sourceId)
+              }
+            })
+          }
         } catch (error) {
-          console.warn('Error cleaning up sources:', error)
+          console.warn('Error cleaning up layers and sources:', error)
         }
         
         // Remove the map
@@ -323,75 +404,7 @@ export default function MapView({
         drawInitialized.current = false
       }
     }
-  }, [center, zoom])
-
-  // Add asset markers to map
-  const addAssetMarkers = useCallback(() => {
-    if (!map.current || !assets.length) return
-
-    // Remove existing markers
-    const existingMarkers = document.querySelectorAll('.asset-marker')
-    existingMarkers.forEach(marker => marker.remove())
-
-    let validMarkersCount = 0
-
-    // Add new markers
-    assets.forEach((asset, index) => {
-      // Validate coordinates - check for null, undefined, empty string, or invalid numbers
-      if (!asset.lat || !asset.lon || 
-          String(asset.lat) === '' || String(asset.lon) === '' ||
-          isNaN(Number(asset.lat)) || isNaN(Number(asset.lon))) {
-        return
-      }
-
-      const lat = Number(asset.lat)
-      const lon = Number(asset.lon)
-      
-      // Additional validation for coordinate ranges
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        console.warn(`Invalid coordinates for asset ${asset.id}: lat=${lat}, lon=${lon}`)
-        return
-      }
-
-      const markerEl = document.createElement('div')
-      markerEl.className = 'asset-marker'
-      markerEl.style.cssText = `
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background-color: #10b981;
-        border: 3px solid white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        font-size: 12px;
-      `
-      markerEl.innerHTML = `<span>${index + 1}</span>`
-
-      markerEl.addEventListener('click', () => {
-        onAssetClick(asset)
-      })
-
-      markerEl.addEventListener('mouseenter', () => {
-        markerEl.style.transform = 'scale(1.1)'
-        markerEl.style.transition = 'transform 0.2s'
-      })
-
-      markerEl.addEventListener('mouseleave', () => {
-        markerEl.style.transform = 'scale(1)'
-      })
-
-      new Marker(markerEl)
-        .setLngLat([lon, lat])
-        .addTo(map.current)
-      
-      validMarkersCount++
-    })
-  }, [assets, onAssetClick])
+  }, [center, zoom, addAssetMarkers])
 
   // Update markers when assets change
   useEffect(() => {

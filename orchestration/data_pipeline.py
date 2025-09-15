@@ -537,8 +537,26 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gi
             
         # Update coordinates if available
         if gis_data.get('x') and gis_data.get('y'):
-            asset.lat = gis_data.get('x')
-            asset.lon = gis_data.get('y')
+            # Convert ITM coordinates (EPSG:2039) to WGS84 (EPSG:4326)
+            # GIS returns x,y in ITM format, but we need lat,lon in WGS84
+            try:
+                from govmap.api_client import itm_to_wgs84
+                x_itm = gis_data.get('x')
+                y_itm = gis_data.get('y')
+                lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+                asset.lat = lat_wgs84
+                asset.lon = lon_wgs84
+                logger.info("Converted ITM to WGS84 coordinates", extra={
+                    "itm_x": x_itm, "itm_y": y_itm, 
+                    "wgs84_lat": lat_wgs84, "wgs84_lon": lon_wgs84
+                })
+            except Exception as e:
+                logger.warning("Failed to convert ITM coordinates to WGS84", extra={
+                    "error": str(e), "x": gis_data.get('x'), "y": gis_data.get('y')
+                })
+                # Fallback: store as-is (will be handled by frontend conversion)
+                asset.lat = gis_data.get('x')
+                asset.lon = gis_data.get('y')
             
         # Update normalized address
         if asset.street and asset.number:

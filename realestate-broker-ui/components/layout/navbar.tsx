@@ -10,10 +10,10 @@ export function Navbar() {
             <span className="text-xl font-bold">🏠 Real Estate Pro</span>
           </Link>
         </div>
-        
+
         <div className="flex items-center space-x-4">
-          <Link 
-            href="/assets" 
+          <Link
+            href="/assets"
             className={cn(
               "text-sm font-medium transition-colors hover:text-primary",
               "text-muted-foreground"
@@ -21,8 +21,8 @@ export function Navbar() {
           >
             נכסים
           </Link>
-          <Link 
-            href="/alerts" 
+          <Link
+            href="/alerts"
             className={cn(
               "text-sm font-medium transition-colors hover:text-primary",
               "text-muted-foreground"
@@ -30,8 +30,8 @@ export function Navbar() {
           >
             התראות
           </Link>
-          <Link 
-            href="/mortgage/analyze" 
+          <Link
+            href="/mortgage/analyze"
             className={cn(
               "text-sm font-medium transition-colors hover:text-primary",
               "text-muted-foreground"
@@ -39,8 +39,18 @@ export function Navbar() {
           >
             משכנתא
           </Link>
+          <Link
+            href="/deal-expenses"
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-primary",
+              "text-muted-foreground"
+            )}
+          >
+            מחשבון הוצאות
+          </Link>
         </div>
       </nav>
     </div>
   )
 }
+

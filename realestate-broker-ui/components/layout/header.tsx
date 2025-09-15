@@ -25,6 +25,7 @@ const mobileNavigation = [
   { name: "בית", href: "/", icon: Home },
   { name: "נכסים", href: "/assets", icon: Building },
   { name: "התראות", href: "/alerts", icon: AlertCircle },
+  { name: "מחשבון הוצאות", href: "/deal-expenses", icon: Calculator },
   { name: "מחשבון משכנתא", href: "/mortgage/analyze", icon: Calculator },
   { name: "דוחות", href: "/reports", icon: BarChart3 },
   { name: "פרופיל", href: "/profile", icon: User },

@@ -14,6 +14,7 @@ import { fmtCurrency } from '@/lib/utils'
 import { Buyer, calculatePurchaseTax } from '@/lib/purchase-tax'
 import { calculateServiceCosts, type ServiceInput } from '@/lib/deal-expenses'
 import type { Asset } from '@/lib/normalizers/asset'
+import { useAnalytics } from '@/hooks/useAnalytics'
 import { 
   Calculator, 
   Home, 
@@ -37,6 +38,8 @@ import {
 } from 'lucide-react'
 
 export default function DealExpensesPage() {
+  const { trackCalculatorUsage, trackCalculatorCalculation, trackCalculatorExport } = useAnalytics()
+  
   const [price, setPrice] = useState(3_000_000)
   const [area, setArea] = useState(100)
   const [buyers, setBuyers] = useState<Buyer[]>([{ name: '', sharePct: 100, isFirstHome: true }])
@@ -80,7 +83,10 @@ export default function DealExpensesPage() {
         }
       })
       .catch(() => {})
-  }, [])
+    
+    // Track calculator page view
+    trackCalculatorUsage('expense', 'page_view')
+  }, [trackCalculatorUsage])
 
   // Load assets when component mounts
   useEffect(() => {
@@ -119,6 +125,15 @@ export default function DealExpensesPage() {
     setSelectedAsset(asset)
     setAssetSearchQuery('')
     setShowAssetDropdown(false)
+    
+    // Track asset selection
+    trackCalculatorUsage('expense', 'asset_selected', {
+      asset_id: asset.id,
+      asset_address: asset.address,
+      asset_city: asset.city,
+      asset_price: asset.price,
+      asset_area: asset.area
+    })
     
     // Populate price and area from selected asset
     if (asset.price) {
@@ -163,9 +178,51 @@ export default function DealExpensesPage() {
 
   function handleServiceChange(key: ServiceKey, field: string, value: any) {
     setServices(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }))
+    
+    // Track service input change
+    trackCalculatorUsage('expense', 'service_input_change', {
+      service_key: key,
+      field,
+      value,
+      includes_vat: field === 'includesVat' ? value : services[key].includesVat
+    })
+  }
+
+  // Input change handlers with analytics
+  const handlePriceChange = (value: number) => {
+    setPrice(value)
+    trackCalculatorUsage('expense', 'input_change', {
+      field: 'price',
+      value,
+      selected_asset_id: selectedAsset?.id
+    })
+  }
+
+  const handleAreaChange = (value: number) => {
+    setArea(value)
+    trackCalculatorUsage('expense', 'input_change', {
+      field: 'area',
+      value,
+      selected_asset_id: selectedAsset?.id
+    })
   }
 
   function calculate() {
+    // Track calculation start
+    trackCalculatorUsage('expense', 'calculation_start', {
+      input_data: {
+        price,
+        area,
+        buyers_count: buyers.length,
+        vatRate,
+        selected_asset_id: selectedAsset?.id,
+        services: Object.keys(services).filter(key => {
+          const service = services[key as ServiceKey]
+          return service && ((service.percent ?? 0) > 0 || (service.amount ?? 0) > 0)
+        })
+      }
+    })
+    
     const { totalTax, breakdown } = calculatePurchaseTax(price, buyers)
     const serviceInputs: ServiceInput[] = (
       Object.keys(services) as ServiceKey[]
@@ -174,11 +231,38 @@ export default function DealExpensesPage() {
     const total = price + totalTax + serviceTotal
     const pricePerSqBefore = area > 0 ? price / area : 0
     const pricePerSqAfter = area > 0 ? total / area : 0
-    setResult({ totalTax, breakdown, serviceTotal, serviceBreakdown, total, pricePerSqBefore, pricePerSqAfter })
+    
+    const result = { totalTax, breakdown, serviceTotal, serviceBreakdown, total, pricePerSqBefore, pricePerSqAfter }
+    setResult(result)
+    
+    // Track calculation completion
+    trackCalculatorCalculation('expense', {
+      price,
+      area,
+      buyers_count: buyers.length,
+      vatRate,
+      selected_asset_id: selectedAsset?.id
+    }, {
+      totalTax,
+      serviceTotal,
+      total,
+      pricePerSqBefore,
+      pricePerSqAfter,
+      breakdown_count: breakdown.length,
+      service_breakdown_count: serviceBreakdown.length
+    })
   }
 
   function exportToCSV() {
     if (!result) return
+
+    // Track export action
+    trackCalculatorExport('expense', 'csv', {
+      total_amount: result.total,
+      price: price,
+      area: area,
+      buyers_count: buyers.length
+    })
 
     const csvData = [
       ['מחשבון הוצאות עסקה', ''],
@@ -222,6 +306,14 @@ export default function DealExpensesPage() {
 
   function exportToPDF() {
     if (!result) return
+
+    // Track export action
+    trackCalculatorExport('expense', 'pdf', {
+      total_amount: result.total,
+      price: price,
+      area: area,
+      buyers_count: buyers.length
+    })
 
     // Create a new window for PDF generation
     const printWindow = window.open('', '_blank')
@@ -476,7 +568,7 @@ export default function DealExpensesPage() {
                     id="price" 
                     type="number" 
                     value={price} 
-                    onChange={e => setPrice(parseInt(e.target.value) || 0)}
+                    onChange={e => handlePriceChange(parseInt(e.target.value) || 0)}
                     className="pr-10"
                     placeholder="3,000,000"
                   />
@@ -496,7 +588,7 @@ export default function DealExpensesPage() {
                     id="area" 
                     type="number" 
                     value={area} 
-                    onChange={e => setArea(parseInt(e.target.value) || 0)}
+                    onChange={e => handleAreaChange(parseInt(e.target.value) || 0)}
                     className="pr-10"
                     placeholder="100"
                   />

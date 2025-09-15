@@ -191,6 +191,65 @@ def track_performance(
     )
 
 
+def track_calculator_usage(
+    calculator_type: str,
+    action: str,
+    *,
+    user=None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Track calculator usage events."""
+    track(
+        "calculator_usage",
+        user=user,
+        meta={
+            **(meta or {}),
+            "calculator_type": calculator_type,
+            "action": action,
+        }
+    )
+
+
+def track_calculator_calculation(
+    calculator_type: str,
+    input_data: Dict[str, Any],
+    result_data: Optional[Dict[str, Any]] = None,
+    *,
+    user=None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Track calculator calculation events."""
+    track(
+        "calculator_calculation",
+        user=user,
+        meta={
+            **(meta or {}),
+            "calculator_type": calculator_type,
+            "input_data": input_data,
+            "result_data": result_data or {},
+        }
+    )
+
+
+def track_calculator_export(
+    calculator_type: str,
+    export_format: str,
+    *,
+    user=None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Track calculator export events."""
+    track(
+        "calculator_export",
+        user=user,
+        meta={
+            **(meta or {}),
+            "calculator_type": calculator_type,
+            "export_format": export_format,
+        }
+    )
+
+
 def rollup_day(date):
     """Enhanced rollup function with comprehensive metrics."""
     events = AnalyticsEvent.objects.filter(created_at__date=date)
@@ -231,6 +290,18 @@ def rollup_day(date):
     daily.searches_performed = events.filter(event='search_performed').count()
     daily.filters_applied = events.filter(event='feature_usage', meta__feature='filter').count()
     daily.exports_downloaded = events.filter(event='feature_usage', meta__feature='export').count()
+    
+    # Calculator usage metrics
+    daily.mortgage_calculator_usage = events.filter(
+        event='calculator_usage', 
+        meta__calculator_type='mortgage'
+    ).count()
+    daily.expense_calculator_usage = events.filter(
+        event='calculator_usage', 
+        meta__calculator_type='expense'
+    ).count()
+    daily.calculator_calculations = events.filter(event='calculator_calculation').count()
+    daily.calculator_exports = events.filter(event='calculator_export').count()
     
     # Conversion metrics
     daily.signup_conversions = events.filter(event='user_signup').count()

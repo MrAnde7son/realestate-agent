@@ -10,8 +10,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { calculateAllScenarios, calculateLTV, calculateAffordability, type MortgageInput, type MortgageCalculation } from '@/lib/mortgage'
 import { Loader2, Calculator } from 'lucide-react'
+import { useAnalytics } from '@/hooks/useAnalytics'
 
 export default function MortgageAnalyzePage() {
+  const { trackCalculatorUsage, trackCalculatorCalculation } = useAnalytics()
+  
   const [input, setInput] = useState<MortgageInput>({
     loanAmount: 2800000,
     loanTermYears: 25,
@@ -28,6 +31,8 @@ export default function MortgageAnalyzePage() {
   useEffect(() => {
     // Fetch current BOI rate on component mount
     fetchBOIRate()
+    // Track calculator page view
+    trackCalculatorUsage('mortgage', 'page_view')
   }, [])
 
   useEffect(() => {
@@ -53,14 +58,61 @@ export default function MortgageAnalyzePage() {
 
   const calculateMortgage = async () => {
     setCalculating(true)
+    
+    // Track calculation start
+    trackCalculatorUsage('mortgage', 'calculation_start', {
+      input_data: {
+        loanAmount: input.loanAmount,
+        loanTermYears: input.loanTermYears,
+        propertyValue: input.propertyValue,
+        monthlyIncome,
+        boiRate
+      }
+    })
+    
     // Add small delay to show loading state
     await new Promise(resolve => setTimeout(resolve, 500))
     const results = calculateAllScenarios(input, boiRate)
     setCalculations(results)
+    
+    // Track calculation completion
+    trackCalculatorCalculation('mortgage', {
+      loanAmount: input.loanAmount,
+      loanTermYears: input.loanTermYears,
+      propertyValue: input.propertyValue,
+      monthlyIncome,
+      boiRate
+    }, {
+      scenariosCount: results.length,
+      ltv: calculateLTV(input.loanAmount, input.propertyValue),
+      minMonthlyPayment: Math.min(...results.map(r => r.monthlyPayment)),
+      maxMonthlyPayment: Math.max(...results.map(r => r.monthlyPayment))
+    })
+    
     setCalculating(false)
   }
 
   const ltv = calculateLTV(input.loanAmount, input.propertyValue)
+
+  // Input change handlers with analytics
+  const handleInputChange = (field: keyof MortgageInput, value: number) => {
+    const newInput = { ...input, [field]: value }
+    setInput(newInput)
+    trackCalculatorUsage('mortgage', 'input_change', {
+      field,
+      value,
+      input_data: newInput
+    })
+  }
+
+  const handleMonthlyIncomeChange = (value: number) => {
+    setMonthlyIncome(value)
+    trackCalculatorUsage('mortgage', 'input_change', {
+      field: 'monthlyIncome',
+      value,
+      input_data: { ...input, monthlyIncome: value }
+    })
+  }
 
   // Custom scenarios for comparison
   const customScenarios = [
@@ -112,7 +164,7 @@ export default function MortgageAnalyzePage() {
                 <Input 
                   type="number" 
                   value={input.propertyValue}
-                  onChange={(e) => setInput({...input, propertyValue: parseInt(e.target.value) || 0})}
+                  onChange={(e) => handleInputChange('propertyValue', parseInt(e.target.value) || 0)}
                   placeholder="3,500,000" 
                 />
               </div>
@@ -121,7 +173,7 @@ export default function MortgageAnalyzePage() {
                 <Input 
                   type="number" 
                   value={input.loanAmount}
-                  onChange={(e) => setInput({...input, loanAmount: parseInt(e.target.value) || 0})}
+                  onChange={(e) => handleInputChange('loanAmount', parseInt(e.target.value) || 0)}
                   placeholder="2,800,000" 
                 />
               </div>
@@ -130,7 +182,7 @@ export default function MortgageAnalyzePage() {
                 <Input 
                   type="number" 
                   value={input.loanTermYears}
-                  onChange={(e) => setInput({...input, loanTermYears: parseInt(e.target.value) || 0})}
+                  onChange={(e) => handleInputChange('loanTermYears', parseInt(e.target.value) || 0)}
                   placeholder="25" 
                 />
               </div>
@@ -139,7 +191,7 @@ export default function MortgageAnalyzePage() {
                 <Input 
                   type="number" 
                   value={monthlyIncome}
-                  onChange={(e) => setMonthlyIncome(parseInt(e.target.value) || 0)}
+                  onChange={(e) => handleMonthlyIncomeChange(parseInt(e.target.value) || 0)}
                   placeholder="35,000" 
                 />
               </div>

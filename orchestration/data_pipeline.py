@@ -784,7 +784,10 @@ def _process_gis_data(asset, gis_data):
     
     # Environmental fields
     asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית', source='GIS (calculated)', url='https://www.govmap.gov.il/')
-    asset.set_property('openSpacesNearby', 'פארקים ושטחים פתוחים בקרבת מקום' if asset.meta.get('greenWithin300m') else 'אין שטחים פתוחים קרובים', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    
+    # Get greenWithin300m value for conditional logic
+    green_within_300m = asset.get_property_value('greenWithin300m')
+    asset.set_property('openSpacesNearby', 'פארקים ושטחים פתוחים בקרבת מקום' if green_within_300m else 'אין שטחים פתוחים קרובים', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     asset.set_property('publicBuildings', 'מבני ציבור בקרבת מקום', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     asset.set_property('parking', 'חניה זמינה', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     asset.set_property('nearbyProjects', 'פרויקטים חדשים באזור', source='GIS (calculated)', url='https://www.govmap.gov.il/')
@@ -807,13 +810,15 @@ def _process_gis_data(asset, gis_data):
                 except:
                     pass
     
-    # Risk flags
+    # Risk flags - use get_property_value for unified access
     risk_flags = []
-    if asset.meta.get('noiseLevel', 0) > 3:
+    noise_level = asset.get_property_value('noiseLevel') or 0
+    if noise_level > 3:
         risk_flags.append('רעש גבוה')
-    if not asset.meta.get('greenWithin300m', False):
+    if not green_within_300m:
         risk_flags.append('אין שטחים פתוחים קרובים')
-    if asset.meta.get('shelterDistanceM', 999) > 200:
+    shelter_distance = asset.get_property_value('shelterDistanceM') or 999
+    if shelter_distance > 200:
         risk_flags.append('מרחק גדול ממקלט')
     asset.set_property('riskFlags', risk_flags, source='GIS (calculated)', url='https://www.govmap.gov.il/')
 

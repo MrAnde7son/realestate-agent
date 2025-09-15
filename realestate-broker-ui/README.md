@@ -12,10 +12,12 @@ A modern, professional Next.js 15 dashboard for real estate brokers and agents. 
 - **Quick Actions**: Save, share, and manage property assets
 
 ### 🗺️ Interactive Mapping
-- **Mapbox Integration**: High-quality maps with property pins
+- **MapLibre GL Integration**: Open-source maps with property pins
 - **Location Analysis**: Neighborhood insights and proximity data
 - **Custom Markers**: Property-specific map markers with details
-- **Layer Controls**: Toggle different data layers (schools, transport, etc.)
+- **Layer Controls**: Toggle different data layers (government data, zoning, etc.)
+- **Search & Geocoding**: Location search with autocomplete
+- **Drawing Tools**: Polygon drawing and measurement tools
 
 ### 🚨 Real-time Alert System
 - **Custom Alert Rules**: Set complex criteria for property notifications
@@ -59,7 +61,8 @@ A modern, professional Next.js 15 dashboard for real estate brokers and agents. 
 
 ### Visualization & Maps
 - **Recharts** - Chart and data visualization
-- **Mapbox GL** - Interactive maps
+- **MapLibre GL** - Open-source interactive maps
+- **Mapbox Draw** - Drawing and measurement tools
 - **Lucide React** - Modern icon library
 - **Tabler Icons** - Additional icon set
 
@@ -99,8 +102,8 @@ Edit `.env.local` with your settings:
 BACKEND_URL=http://localhost:8000
 NEXT_PUBLIC_WS_URL=ws://localhost:8000
 
-# Mapbox Configuration
-NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_mapbox_token
+# Map Configuration (Optional - MapView uses OpenStreetMap by default)
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_key
 
 # Feature Flags
 NEXT_PUBLIC_ENABLE_ANALYTICS=true
@@ -196,7 +199,7 @@ Built on Shadcn/ui for consistency and accessibility:
 
 #### Feature Components
 - **`AssetsTable.tsx`**: Advanced property assets table
-- **`Map.tsx`**: Mapbox integration with property pins
+- **`MapView.tsx`**: Comprehensive map component with layers, search, and drawing tools
 - **Theme components**: Dark/light mode support
 
 ### Data Management
@@ -236,7 +239,7 @@ pnpm test:coverage
 ### Example Test Files
 - `app/assets/page.test.tsx` - assets page functionality
 - `app/alerts/page.test.tsx` - Alert system testing
-- `components/Map.test.tsx` - Map component testing
+- `components/MapView.test.tsx` - MapView component testing
 
 ## 🎨 Design System
 
@@ -333,7 +336,7 @@ pnpm export
 **Production Settings:**
 ```env
 BACKEND_URL=https://api.yourbroker.com
-NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_production_token
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_key
 NEXT_PUBLIC_DEBUG=false
 NEXT_PUBLIC_ANALYTICS_ID=your_analytics_id
 ```
@@ -399,7 +402,8 @@ pnpm install
 ```
 
 #### Map Integration Issues
-- Verify Mapbox token is valid
+- MapView uses OpenStreetMap by default (no token required)
+- For enhanced search, set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 - Check browser console for API errors
 - Ensure HTTPS for production deployments
 
@@ -413,4 +417,4 @@ pnpm install
 - **Next.js Documentation**: https://nextjs.org/docs
 - **Shadcn/ui Components**: https://ui.shadcn.com
 - **Tailwind CSS**: https://tailwindcss.com/docs
-- **Mapbox GL**: https://docs.mapbox.com/mapbox-gl-js
+- **MapLibre GL**: https://maplibre.org/maplibre-gl-js-docs/

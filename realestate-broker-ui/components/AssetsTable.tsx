@@ -270,8 +270,8 @@ interface AssetsTableProps {
   }
   onRefresh?: () => void
   onAddNew?: () => void
-  viewMode?: 'table' | 'cards'
-  onViewModeChange?: (mode: 'table' | 'cards') => void
+  viewMode?: 'table' | 'cards' | 'map'
+  onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
   bulkActions?: Array<{
     label: string
     action: () => void

@@ -42,6 +42,7 @@ import OnboardingProgress from "@/components/OnboardingProgress";
 import { selectOnboardingState, getCompletionPct } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
+import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -69,7 +70,7 @@ export default function AssetsPage() {
     const val = searchParams.get("priceMax");
     return val ? Number(val) : undefined;
   });
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
   const { user, isAuthenticated, refreshUser } = useAuth();
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
   const router = useRouter();
@@ -702,12 +703,15 @@ export default function AssetsPage() {
             )}
 
 
-        {/* Assets Table */}
+        {/* Assets View */}
         <Card id="main-content">
           <CardHeader>
             <CardTitle>נכסים זמינים</CardTitle>
             <CardDescription>
-              טבלת נכסים עם נתוני שמאות, תכנון וניתוח שווי
+              {viewMode === 'map' 
+                ? 'מפת נכסים עם שכבות מידע ממשלתיות ועירוניות'
+                : 'טבלת נכסים עם נתוני שמאות, תכנון וניתוח שווי'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -752,6 +756,17 @@ export default function AssetsPage() {
                   ))}
                 </div>
               </div>
+            ) : viewMode === 'map' ? (
+              <MapView
+                key={`map-${viewMode}-${filteredAssets.length}`}
+                assets={filteredAssets}
+                center={[34.7818, 32.0853]}
+                zoom={12}
+                onAssetClick={(asset) => router.push(`/assets/${asset.id}`)}
+                searchValue={search}
+                onSearchChange={setSearch}
+                height="600px"
+              />
             ) : (
               <AssetsTable 
                 data={filteredAssets} 

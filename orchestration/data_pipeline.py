@@ -556,6 +556,33 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="gis")
+            except Exception as e:
+                # If GIS geocoding failed but we have coordinates from GovMap, try using those
+                if x_itm is not None and y_itm is not None:
+                    logger.info(f"🔄 GIS geocoding failed, trying with GovMap coordinates: ITM({x_itm}, {y_itm})")
+                    try:
+                        # Use GovMap coordinates directly for GIS data collection
+                        gis_data = {
+                            "blocks": self.gis.client.get_blocks(x_itm, y_itm),
+                            "parcels": self.gis.client.get_parcels(x_itm, y_itm),
+                            "permits": self.gis.client.get_building_permits(x_itm, y_itm),
+                            "rights": self.gis.client.get_land_use_main(x_itm, y_itm),
+                            "shelters": self.gis.client.get_shelters(x_itm, y_itm),
+                            "green": self.gis.client.get_green_areas(x_itm, y_itm),
+                            "noise": self.gis.client.get_noise_levels(x_itm, y_itm),
+                        }
+                        block_gis, parcel_gis = self.gis._extract_block_parcel(gis_data)
+                        gis_data.update({"block": block_gis, "parcel": parcel_gis, "x": x_itm, "y": y_itm})
+                        track("collector_success", source="gis")
+                        logger.info(f"✅ GIS data collected using GovMap coordinates: block={block_gis}, parcel={parcel_gis}")
+                    except Exception as coord_e:
+                        logger.warning(f"⚠️ Failed to collect GIS data with GovMap coordinates: {coord_e}")
+                        gis_data = {}
+                        track("collector_fail", source="gis", error_code=str(coord_e))
+                else:
+                    gis_data = {}
+                    track("collector_fail", source="gis", error_code=str(e))
+                    logger.warning(f"⚠️ GIS collection failed: {e}")
                 
                 # Use GIS coordinates as fallback if GovMap autocomplete failed
                 if x_itm is None and y_itm is None and gis_data.get('x') and gis_data.get('y'):
@@ -575,10 +602,6 @@ class DataPipeline:
                     parcel = gis_data.get('parcel', '')
                 
                 logger.info(f"📍 GIS data collected: block={gis_data.get('block', 'N/A')}, parcel={gis_data.get('parcel', 'N/A')}")
-            except Exception as e:
-                gis_data = {}
-                track("collector_fail", source="gis", error_code=str(e))
-                logger.warning(f"⚠️ GIS collection failed: {e}")
             
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}

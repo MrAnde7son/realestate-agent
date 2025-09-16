@@ -238,26 +238,50 @@ class GovMapClient:
         Returns:
             Dictionary containing parcel data
         """
-        try:
-            headers = {
-                "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
-                "Sec-Fetch-Dest": "empty",
-                "Sec-Fetch-Mode": "cors",
-                "Sec-Fetch-Site": "same-origin",
-            }
-            
-            # Format coordinates as in the URL pattern
-            coord_string = f"({x}%20{y})"
-            url = f"{self.parcel_search_url}/{coord_string}"
-            
-            r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
-            if r.status_code != 200:
-                raise GovMapError(f"Parcel search HTTP {r.status_code}")
-            return r.json()
-        except Exception as e:
-            logger.error(f"GovMap parcel search failed: {e}")
-            raise GovMapError(f"Parcel search failed: {e}")
+        headers = {
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+        }
+        
+        # Format coordinates as in the URL pattern
+        coord_string = f"({x}%20{y})"
+        url = f"{self.parcel_search_url}/{coord_string}"
+        
+        # Try up to 3 times with exponential backoff
+        for attempt in range(3):
+            try:
+                r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
+                if r.status_code == 200:
+                    return r.json()
+                elif r.status_code == 500:
+                    # Server error - retry with backoff
+                    if attempt < 2:  # Don't retry on last attempt
+                        import time
+                        time.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s
+                        logger.warning(f"GovMap parcel search HTTP 500, retrying attempt {attempt + 2}/3 for coordinates ({x}, {y})")
+                        continue
+                    else:
+                        logger.warning(f"GovMap parcel search failed after 3 attempts with HTTP 500 for coordinates ({x}, {y})")
+                        raise GovMapError(f"Parcel search HTTP {r.status_code}")
+                else:
+                    # Other HTTP errors - don't retry
+                    logger.warning(f"GovMap parcel search returned HTTP {r.status_code} for coordinates ({x}, {y})")
+                    raise GovMapError(f"Parcel search HTTP {r.status_code}")
+            except Exception as e:
+                if attempt < 2:  # Don't retry on last attempt
+                    import time
+                    time.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s
+                    logger.warning(f"GovMap parcel search failed, retrying attempt {attempt + 2}/3 for coordinates ({x}, {y}): {e}")
+                    continue
+                else:
+                    logger.warning(f"GovMap parcel search failed after 3 attempts for coordinates ({x}, {y}): {e}")
+                    raise GovMapError(f"Parcel search failed: {e}")
+        
+        # This should never be reached, but just in case
+        raise GovMapError("Parcel search failed after all retry attempts")
 
 
     def get_base_layers(self) -> Dict[str, Any]:

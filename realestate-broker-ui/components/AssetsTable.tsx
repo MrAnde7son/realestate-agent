@@ -15,6 +15,7 @@ import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import TableToolbar from './TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import ImageGallery from './ImageGallery'
 
 function RiskCell({ flags }: { flags?: string[] }){
   if(!flags || flags.length===0) return <Badge variant='success'>ללא</Badge>;
@@ -97,17 +98,31 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     header:'נכס',
     accessorKey:'address',
     cell: ({ row }) => (
-      <div>
-        <div className="font-semibold">
-          <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
-        </div>
-        <div className="text-xs text-sub">
-            {row.original.city ?? '—'}
-            {row.original.neighborhood ? ` · ${row.original.neighborhood}` : ''}
-            {row.original.block ? ` · גוש ${row.original.block}` : ''}
-            {row.original.parcel ? ` חלקה ${row.original.parcel}` : ''}
-            {row.original.subparcel ? ` תת חלקה ${row.original.subparcel}` : ''}
-            · {row.original.type ?? '—'} · {row.original.area !== undefined && row.original.area !== null ? `${fmtNumber(row.original.area)} מ"ר נטו` : '—'}
+      <div className="flex gap-3 items-start">
+        {/* Image preview */}
+        {row.original.images && row.original.images.length > 0 && (
+          <div className="flex-shrink-0">
+            <ImageGallery 
+              images={row.original.images} 
+              size="sm" 
+              maxDisplay={1}
+              showThumbnails={false}
+            />
+          </div>
+        )}
+        
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold">
+            <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
+          </div>
+          <div className="text-xs text-sub">
+              {row.original.city ?? '—'}
+              {row.original.neighborhood ? ` · ${row.original.neighborhood}` : ''}
+              {row.original.block ? ` · גוש ${row.original.block}` : ''}
+              {row.original.parcel ? ` חלקה ${row.original.parcel}` : ''}
+              {row.original.subparcel ? ` תת חלקה ${row.original.subparcel}` : ''}
+              · {row.original.type ?? '—'} · {row.original.area !== undefined && row.original.area !== null ? `${fmtNumber(row.original.area)} מ"ר נטו` : '—'}
+          </div>
         </div>
       </div>
     )

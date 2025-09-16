@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { Bed, Bath, Ruler, Eye, FileText } from 'lucide-react'
+import ImageGallery from './ImageGallery'
 
 function exportAssetCsv(asset: Asset) {
   // Export all available fields from the Asset type
@@ -62,7 +63,17 @@ export default function AssetCard({ asset }: AssetCardProps) {
     status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
 
   return (
-    <Card className="p-4 space-y-2">
+    <Card className="p-4 space-y-3">
+      {/* Images */}
+      {asset.images && asset.images.length > 0 && (
+        <ImageGallery 
+          images={asset.images} 
+          size="md" 
+          maxDisplay={2}
+          className="mb-2"
+        />
+      )}
+      
       <div className="flex justify-between items-start gap-2">
         <div className="font-bold truncate flex-1">{asset.address ?? '—'}</div>
         <Badge variant={statusVariant}>{statusLabel}</Badge>

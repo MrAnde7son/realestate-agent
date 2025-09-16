@@ -152,7 +152,7 @@ export default function DealExpensesPage() {
         }
       }))
     }
-  }, [area])
+  }, [area, defaultValues.renovation.amount, defaultValues.renovation.includesVat])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -478,13 +478,13 @@ export default function DealExpensesPage() {
       ['פרטי הנכס', ''],
       ['סוג הנכס', propertyTypeLabel],
       ['מחיר הנכס', fmtCurrency(price)],
-      ['שטח הנכס', `${area} מ&quot;ר`],
+      ['שטח הנכס', `${area} מ"ר`],
     ]
 
     if (isLand) {
       csvData.push(
-        ['שטח בנוי מתוכנן', `${constructionArea} מ&quot;ר`],
-        ['עלות בנייה למ&quot;ר', fmtCurrency(constructionCostPerSqm)],
+        ['שטח בנוי מתוכנן', `${constructionArea} מ"ר`],
+        ['עלות בנייה למ"ר', fmtCurrency(constructionCostPerSqm)],
         ['האם העלות שהוזנה כוללת מע"מ', constructionIncludesVat ? 'כן' : 'לא']
       )
     }
@@ -499,14 +499,14 @@ export default function DealExpensesPage() {
          item.track === 'bereaved' ? 'משפחה שכולה' : item.track === 'land' ? 'קרקע' : item.track})`,
         fmtCurrency(item.tax)
       ]),
-      ['סה&quot;כ מס רכישה', fmtCurrency(result.totalTax)]
+      ['סה"כ מס רכישה', fmtCurrency(result.totalTax)]
     )
 
     if (isLand) {
       csvData.push(
         ['', ''],
         ['עלויות בנייה', ''],
-        ['סה&quot;כ עלות בנייה', fmtCurrency(result.constructionCost)]
+        ['סה"כ עלות בנייה', fmtCurrency(result.constructionCost)]
       )
     }
 
@@ -514,7 +514,7 @@ export default function DealExpensesPage() {
       ['', ''],
       ['הוצאות עיסקה', ''],
       ...result.serviceBreakdown.map(item => [item.label, fmtCurrency(item.cost)]),
-      ['סה&quot;כ הוצאות עיסקה', fmtCurrency(result.serviceTotal)],
+      ['סה"כ הוצאות עיסקה', fmtCurrency(result.serviceTotal)],
       ['', ''],
       ['סיכום', ''],
       ['מחיר הנכס', fmtCurrency(price)],
@@ -527,10 +527,10 @@ export default function DealExpensesPage() {
     }
 
     csvData.push(
-      ['סה&quot;כ לתשלום', fmtCurrency(result.total)],
+      ['סה"כ לתשלום', fmtCurrency(result.total)],
       ['', ''],
-      ['מחיר למ&quot;ר לפני הוצאות', fmtCurrency(result.pricePerSqBefore)],
-      ['מחיר למ&quot;ר אחרי הוצאות', fmtCurrency(result.pricePerSqAfter)]
+      ['מחיר למ"ר לפני הוצאות', fmtCurrency(result.pricePerSqBefore)],
+      ['מחיר למ"ר אחרי הוצאות', fmtCurrency(result.pricePerSqAfter)]
     )
 
     const csvContent = csvData.map(row => row.join(',')).join('\n')

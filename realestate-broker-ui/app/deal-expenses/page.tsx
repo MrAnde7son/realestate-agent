@@ -18,27 +18,28 @@ import type { Asset } from '@/lib/normalizers/asset'
 import { useAnalytics } from '@/hooks/useAnalytics'
 
 type PropertyType = 'residential' | 'land'
-import { 
-  Calculator, 
-  Home, 
-  Users, 
-  Percent, 
-  Plus, 
-  Trash2, 
-  Building, 
-  Scale, 
-  Hammer, 
+import {
+  Calculator,
+  Home,
+  Users,
+  Percent,
+  Plus,
+  Trash2,
+  Building,
+  Scale,
+  Hammer,
   Sofa,
   FileText,
   TrendingUp,
   Info,
-  Download,
   FileSpreadsheet,
   FileImage,
   Search,
   X,
   MapPin,
-  LandPlot
+  LandPlot,
+  PiggyBank,
+  ClipboardCheck
 } from 'lucide-react'
 
 export default function DealExpensesPage() {
@@ -62,10 +63,19 @@ export default function DealExpensesPage() {
   const [showAssetDropdown, setShowAssetDropdown] = useState(false)
   const [loadingAssets, setLoadingAssets] = useState(false)
 
-  type ServiceKey = 'broker' | 'lawyer' | 'appraiser' | 'renovation' | 'furniture'
+  type ServiceKey =
+    | 'broker'
+    | 'mortgage'
+    | 'inspection'
+    | 'lawyer'
+    | 'appraiser'
+    | 'renovation'
+    | 'furniture'
   type ServiceState = Record<ServiceKey, { percent?: number; amount?: number; includesVat: boolean }>
   const [services, setServices] = useState<ServiceState>({
     broker: { percent: 0, amount: 0, includesVat: false },
+    mortgage: { percent: 0, amount: 0, includesVat: false },
+    inspection: { percent: 0, amount: 0, includesVat: false },
     lawyer: { percent: 0, amount: 0, includesVat: false },
     appraiser: { percent: 0, amount: 0, includesVat: false },
     renovation: { percent: 0, amount: 0, includesVat: false },
@@ -963,7 +973,7 @@ export default function DealExpensesPage() {
               </div>
               <div>
                 <CardTitle>עלויות נלוות</CardTitle>
-                <CardDescription>הוסף עלויות שירות ושיפוץ</CardDescription>
+                <CardDescription>הוסף עלויות שירות כמו עמלת תיווך, יועץ משכנתא ובדק בית</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -1161,7 +1171,9 @@ export default function DealExpensesPage() {
 }
 
 const labelMap: Record<string, string> = {
-  broker: 'מתווך',
+  broker: 'עמלת תיווך',
+  mortgage: 'יועץ משכנתא',
+  inspection: 'בדק בית',
   lawyer: 'עו"ד',
   appraiser: 'שמאי',
   renovation: 'שיפוץ',
@@ -1171,6 +1183,8 @@ const labelMap: Record<string, string> = {
 const getServiceIcon = (key: string) => {
   const iconMap: Record<string, React.ReactNode> = {
     broker: <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
+    mortgage: <PiggyBank className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
+    inspection: <ClipboardCheck className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
     lawyer: <FileText className="h-4 w-4 text-purple-600 dark:text-purple-400" />,
     appraiser: <Scale className="h-4 w-4 text-green-600 dark:text-green-400" />,
     renovation: <Hammer className="h-4 w-4 text-orange-600 dark:text-orange-400" />,

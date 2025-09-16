@@ -403,14 +403,14 @@ export default function DealExpensesPage() {
 
     csvData.push(
       ['', ''],
-      ['הוצאות שירות', ''],
+      ['הוצאות עיסקה', ''],
       ...result.serviceBreakdown.map(item => [item.label, fmtCurrency(item.cost)]),
-      ['סה&quot;כ הוצאות שירות', fmtCurrency(result.serviceTotal)],
+      ['סה&quot;כ הוצאות עיסקה', fmtCurrency(result.serviceTotal)],
       ['', ''],
       ['סיכום', ''],
       ['מחיר הנכס', fmtCurrency(price)],
       ['מס רכישה', fmtCurrency(result.totalTax)],
-      ['הוצאות שירות', fmtCurrency(result.serviceTotal)]
+      ['הוצאות עיסקה', fmtCurrency(result.serviceTotal)]
     )
 
     if (isLand) {
@@ -539,7 +539,7 @@ export default function DealExpensesPage() {
         ` : ''}
 
         <div class="section">
-          <h2>הוצאות שירות</h2>
+          <h2>הוצאות עיסקה</h2>
           ${result.serviceBreakdown.map(item => `
             <div class="row">
               <span class="label">${item.label}:</span>
@@ -547,7 +547,7 @@ export default function DealExpensesPage() {
             </div>
           `).join('')}
           <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
-            <span class="label">סה&quot;כ הוצאות שירות:</span>
+            <span class="label">סה&quot;כ הוצאות עיסקה:</span>
             <span class="value">${fmtCurrency(result.serviceTotal)}</span>
           </div>
         </div>
@@ -973,7 +973,7 @@ export default function DealExpensesPage() {
               </div>
               <div>
                 <CardTitle>עלויות נלוות</CardTitle>
-                <CardDescription>הוסף עלויות שירות כמו עמלת תיווך, יועץ משכנתא ובדק בית</CardDescription>
+                <CardDescription>הוסף עלויות עיסקה כמו עורך דין, עמלת תיווך, יועץ משכנתא ועוד</CardDescription>
               </div>
             </div>
           </CardHeader>

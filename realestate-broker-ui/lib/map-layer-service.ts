@@ -134,7 +134,9 @@ export class MapLayerService {
           },
           layout: {
             visibility: config.visible ? 'visible' : 'none'
-          }
+          },
+          minzoom: config.minzoom,
+          maxzoom: config.maxzoom
         }
       } else if (config.type === 'geojson') {
         layer = {
@@ -142,12 +144,14 @@ export class MapLayerService {
           type: 'fill',
           source: sourceId,
           paint: {
-            'fill-color': '#0080ff',
+            'fill-color': config.style?.fillColor || '#0080ff',
             'fill-opacity': config.opacity
           },
           layout: {
             visibility: config.visible ? 'visible' : 'none'
-          }
+          },
+          minzoom: config.minzoom,
+          maxzoom: config.maxzoom
         }
       } else if (config.type === 'vector') {
         layer = {
@@ -156,17 +160,22 @@ export class MapLayerService {
           source: sourceId,
           'source-layer': config.id,
           paint: {
-            'fill-color': '#0080ff',
+            'fill-color': config.style?.fillColor || '#0080ff',
             'fill-opacity': config.opacity
           },
           layout: {
             visibility: config.visible ? 'visible' : 'none'
-          }
+          },
+          minzoom: config.minzoom,
+          maxzoom: config.maxzoom
         }
       }
 
       try {
         this.map.addLayer(layer)
+
+        // Set visibility after adding the layer to ensure it's respected
+        this.map.setLayoutProperty(layerId, 'visibility', config.visible ? 'visible' : 'none')
 
         // Store layer reference
         this.layers.set(config.id, {
@@ -204,16 +213,14 @@ export class MapLayerService {
   private buildWMSUrl(config: LayerConfig): string {
     if (!config.getMapUrl) return ''
     
-    // Replace the external WMS URL with our proxy
-    const originalUrl = config.getMapUrl
-    const proxyUrl = originalUrl.replace(
-      'https://open.govmap.gov.il/geoserver/opendata/wms',
-      '/api/wms-proxy'
-    )
+    // Extract layer name from the WMS URL
+    const url = new URL(config.getMapUrl)
+    const layersParam = url.searchParams.get('LAYERS')
     
-    // Convert WMS GetMap URL to a tile URL template that MapLibre can use
-    // MapLibre will replace {bbox-epsg-3857} with actual bbox values
-    return proxyUrl
+    if (!layersParam) return ''
+    
+    // Create tile URL template for our WMS tile proxy
+    return `/api/wms-tile-proxy?layer=${layersParam}&z={z}&x={x}&y={y}`
   }
 
   toggleLayer(layerId: string): void {

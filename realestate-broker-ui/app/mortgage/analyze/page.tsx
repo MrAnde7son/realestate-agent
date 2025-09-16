@@ -33,7 +33,7 @@ export default function MortgageAnalyzePage() {
     fetchBOIRate()
     // Track calculator page view
     trackCalculatorUsage('mortgage', 'page_view')
-  }, [trackCalculatorUsage])
+  }, []) // Remove trackCalculatorUsage from dependencies to prevent infinite loop
 
   useEffect(() => {
     const results = calculateAllScenarios(input, boiRate)

@@ -133,7 +133,7 @@ export default function DealExpensesPage() {
     
     // Track calculator page view
     trackCalculatorUsage('expense', 'page_view')
-  }, [trackCalculatorUsage])
+  }, []) // Remove trackCalculatorUsage from dependencies to prevent infinite loop
 
   // Load assets when component mounts
   useEffect(() => {

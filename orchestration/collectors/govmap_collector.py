@@ -24,39 +24,74 @@ class GovMapCollector(BaseCollector):
     def __init__(self, client: Optional[GovMapClient] = None) -> None:
         self.client = client or GovMapClient()
 
+    def autocomplete(self, query: str) -> Dict[str, Any]:
+        """Get autocomplete results for an address query.
+        
+        Parameters
+        ----------
+        query : Address query string
+        
+        Returns
+        -------
+        Dict containing autocomplete results
+        """
+        return self.client.autocomplete(query)
+
     def collect(
         self,
         *,
         x: float,
         y: float,
-        parcel_layer: str = "opendata:PARCEL_ALL",
-        extra_layers: Optional[list[str]] = None,
-        buffer_m: int = 150,
     ) -> Dict[str, Any]:
-        """Collect parcel at point + selected nearby layers.
+        """Collect data from GovMap using the new API endpoints.
 
         Parameters
         ----------
         x, y : EPSG:2039 coordinates of the target point.
-        parcel_layer : WFS/WMS layer name for parcels.
-        extra_layers : optional list of layer names to query with WMS GetFeatureInfo around the point.
-        buffer_m : search buffer for WMS queries.
         """
         out: Dict[str, Any] = {
             "x": x,
             "y": y,
-            "parcel": None,
-            "nearby": {},
+            "api_data": {},
         }
 
-        # 1) parcel at point
-        parcel = self.client.get_parcel_at_point(x, y, layer=parcel_layer)
-        out["parcel"] = parcel
+        # Collect data from all new API endpoints
+        try:
+            # Get parcel data from new API
+            parcel_api_data = self.client.get_parcel_data(x, y)
+            out["api_data"]["parcel"] = parcel_api_data
+        except Exception as e:
+            # Log but don't fail the entire collection
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to get parcel data from new API: {e}")
 
-        # 2) nearby layers (risk/amenities/etc.)
-        for layer in (extra_layers or []):
-            info = self.client.wms_getfeatureinfo(layer=layer, x=x, y=y, buffer_m=buffer_m)
-            out["nearby"][layer] = [fi.attributes for fi in info]
+        try:
+            # Get layers catalog
+            layers_catalog = self.client.get_layers_catalog()
+            out["api_data"]["layers_catalog"] = layers_catalog
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to get layers catalog: {e}")
+
+        try:
+            # Get search types
+            search_types = self.client.get_search_types()
+            out["api_data"]["search_types"] = search_types
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to get search types: {e}")
+
+        try:
+            # Get base layers
+            base_layers = self.client.get_base_layers()
+            out["api_data"]["base_layers"] = base_layers
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to get base layers: {e}")
 
         return out
 

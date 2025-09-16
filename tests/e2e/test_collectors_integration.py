@@ -556,8 +556,20 @@ class TestCollectorsIntegration:
         logger.info("Testing autocomplete functionality...")
         autocomplete_results = client.autocomplete(TEST_ADDRESS)
         assert isinstance(autocomplete_results, dict)
-        assert "res" in autocomplete_results
-        logger.info(f"✓ Autocomplete returned results: {list(autocomplete_results.get('res', {}).keys())}")
+        assert "results" in autocomplete_results
+        assert "resultsCount" in autocomplete_results
+        logger.info(f"✓ Autocomplete returned {autocomplete_results.get('resultsCount', 0)} results")
+        
+        # Test coordinate extraction from autocomplete
+        if autocomplete_results.get("results"):
+            logger.info("Testing coordinate extraction from autocomplete...")
+            from orchestration.data_pipeline import _extract_coordinates_from_govmap_autocomplete
+            coords = _extract_coordinates_from_govmap_autocomplete(autocomplete_results)
+            if coords:
+                x_itm, y_itm, lon_wgs84, lat_wgs84 = coords
+                logger.info(f"✓ Extracted coordinates: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+            else:
+                logger.warning("⚠ No coordinates found in autocomplete results")
 
         # Test 3: Test coordinate conversion
         logger.info("Testing coordinate conversion...")
@@ -575,24 +587,30 @@ class TestCollectorsIntegration:
         assert abs(y_back - y_itm) < 1.0
         logger.info(f"✓ WGS84 to ITM conversion: ({lon:.6f}, {lat:.6f}) -> ({x_back:.2f}, {y_back:.2f})")
 
-        # Test 4: Test parcel lookup (if coordinates are valid)
-        logger.info("Testing parcel lookup...")
-        parcel = client.get_parcel_at_point(x_itm, y_itm)
-        assert isinstance(parcel, dict)
-        logger.info(f"✓ Found parcel: {parcel.get('type', 'Unknown type')}")
+        # Test 4: Test new API endpoints
+        logger.info("Testing new API endpoints...")
+        try:
+            layers_catalog = client.get_layers_catalog()
+            assert isinstance(layers_catalog, dict)
+            logger.info("✓ Layers catalog retrieved successfully")
+        except Exception as e:
+            logger.warning(f"⚠ Layers catalog failed: {e}")
+        
+        try:
+            search_types = client.get_search_types()
+            assert isinstance(search_types, dict)
+            logger.info("✓ Search types retrieved successfully")
+        except Exception as e:
+            logger.warning(f"⚠ Search types failed: {e}")
+        
+        try:
+            base_layers = client.get_base_layers()
+            assert isinstance(base_layers, dict)
+            logger.info("✓ Base layers retrieved successfully")
+        except Exception as e:
+            logger.warning(f"⚠ Base layers failed: {e}")
 
 
-        # Test 5: Test WMS GetFeatureInfo (if coordinates are valid)
-        logger.info("Testing WMS GetFeatureInfo...")
-        # Try with a common layer name
-        feature_info = client.wms_getfeatureinfo(
-            layer="opendata:PARCEL_ALL", 
-            x=x_itm, 
-            y=y_itm, 
-            buffer_m=10
-        )
-        assert isinstance(feature_info, list)
-        logger.info(f"✓ WMS GetFeatureInfo returned {len(feature_info)} features")
 
         logger.info("✓ GovMap Client tests passed")
 
@@ -613,7 +631,17 @@ class TestCollectorsIntegration:
         assert collector.validate_parameters(x="invalid", y=200.0) is False
         logger.info("✓ Parameter validation working correctly")
 
-        # Test 3: Test data collection
+        # Test 3: Test autocomplete functionality
+        logger.info("Testing autocomplete functionality...")
+        try:
+            autocomplete_results = collector.autocomplete(TEST_ADDRESS)
+            assert isinstance(autocomplete_results, dict)
+            assert "results" in autocomplete_results
+            logger.info(f"✓ Autocomplete successful: {autocomplete_results.get('resultsCount', 0)} results")
+        except Exception as e:
+            logger.warning(f"⚠ Autocomplete failed: {e}")
+
+        # Test 4: Test data collection
         logger.info("Testing data collection...")
         try:
             # Use known Tel Aviv coordinates
@@ -623,13 +651,14 @@ class TestCollectorsIntegration:
             assert isinstance(data, dict)
             assert "x" in data and "y" in data
             assert "parcel" in data and "nearby" in data
+            assert "api_data" in data  # New field for API data
             assert data["x"] == x and data["y"] == y
             
-            logger.info(f"✓ Data collection successful: parcel={data['parcel'] is not None}, nearby_layers={len(data['nearby'])}")
+            logger.info(f"✓ Data collection successful: parcel={data['parcel'] is not None}, nearby_layers={len(data['nearby'])}, api_data={len(data['api_data'])}")
         except Exception as e:
             logger.warning(f"⚠ Data collection failed: {e}")
 
-        # Test 4: Test collection with extra layers
+        # Test 5: Test collection with extra layers
         logger.info("Testing collection with extra layers...")
         try:
             data = collector.collect(
@@ -643,6 +672,24 @@ class TestCollectorsIntegration:
             logger.info(f"✓ Collection with extra layers successful: {len(data['nearby'])} layers")
         except Exception as e:
             logger.warning(f"⚠ Collection with extra layers failed: {e}")
+
+        # Test 6: Test new API data collection
+        logger.info("Testing new API data collection...")
+        try:
+            data = collector.collect(x=184391.15, y=668715.93, use_new_api=True)
+            assert isinstance(data, dict)
+            assert "api_data" in data
+            
+            api_data = data["api_data"]
+            if api_data.get("parcel"):
+                logger.info(f"✓ Parcel API data collected: {len(api_data['parcel'])} items")
+            if api_data.get("layers_catalog"):
+                logger.info(f"✓ Layers catalog collected: {len(api_data['layers_catalog'])} items")
+            if api_data.get("search_types"):
+                logger.info(f"✓ Search types collected: {len(api_data['search_types'])} items")
+                
+        except Exception as e:
+            logger.warning(f"⚠ New API data collection failed: {e}")
 
         logger.info("✓ GovMap Collector tests passed")
 

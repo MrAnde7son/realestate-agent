@@ -76,6 +76,7 @@ class GovMapClient:
         self.layers_catalog_url = "https://www.govmap.gov.il/api/layers-catalog/catalog"
         self.search_types_url = "https://www.govmap.gov.il/api/search-service/getTypes"
         self.parcel_search_url = "https://www.govmap.gov.il/api/layers-catalog/apps/parcel-search/address"
+        self.base_layers_url = "https://www.govmap.gov.il/api/layers-catalog/baseLayers?language=he"
         self.http = session or requests.Session()
         self.timeout = timeout
         self.http.headers.update({
@@ -258,102 +259,14 @@ class GovMapClient:
             logger.error(f"GovMap parcel search failed: {e}")
             raise GovMapError(f"Parcel search failed: {e}")
 
-    # ------------------------------ WMS -------------------------------
-    def wms_getfeatureinfo(
-        self,
-        *,
-        layer: str,
-        x: float,
-        y: float,
-        info_format: str = "application/json",
-        buffer_m: int = 5,
-        srs: str = "EPSG:2039",
-    ) -> List[WMSFeatureInfo]:
-        """GetFeatureInfo around a point by synthesizing a tiny bbox around (x,y).
-        Works well when WFS is not available for a layer.
-        """
-        size = 256  # px
-        half = buffer_m
-        minx, miny = x - half, y - half
-        maxx, maxy = x + half, y + half
-        bbox = f"{minx},{miny},{maxx},{maxy}"
 
-        params = {
-            "service": "WMS",
-            "version": "1.1.1",
-            "request": "GetFeatureInfo",
-            "layers": layer,
-            "query_layers": layer,
-            "srs": srs,
-            "bbox": bbox,
-            "width": size,
-            "height": size,
-            "info_format": info_format,
-            # click at center
-            "x": size // 2,
-            "y": size // 2,
-        }
-        r = self.http.get(self.wms_url, params=params, timeout=self.timeout)
-        if r.status_code != 200:
-            raise GovMapError(f"WMS GetFeatureInfo HTTP {r.status_code}: {r.text[:200]}")
-        data = r.json() if info_format.endswith("json") else {"features": []}
-        out: List[WMSFeatureInfo] = []
-        for f in data.get("features", []):
-            attrs = f.get("properties") or f.get("attributes") or {}
-            out.append(WMSFeatureInfo(layer=layer, attributes=attrs))
-        return out
-
-    # ------------------------------ WFS -------------------------------
-    def wfs_get_features(
-        self,
-        *,
-        layer: str,
-        max_features: int = 50,
-        cql_filter: Optional[str] = None,
-        srs: str = "EPSG:2039",
-        output_format: str = "application/json",
-    ) -> Dict[str, Any]:
-        params = {
-            "service": "WFS",
-            "version": "1.0.0",
-            "request": "GetFeature",
-            "typeName": layer,
-            "srsName": srs,
-            "maxFeatures": max_features,
-            "outputFormat": output_format,
-        }
-        if cql_filter:
-            params["CQL_FILTER"] = cql_filter
-        r = self.http.get(self.wfs_url, params=params, timeout=self.timeout)
-        if r.status_code != 200:
-            raise GovMapError(f"WFS GetFeature HTTP {r.status_code}: {r.text[:200]}")
-        return r.json()
-
-    # ------------------------- Higher-level ---------------------------
-    def get_parcel_at_point(
-        self,
-        x: float,
-        y: float,
-        *,
-        layer: str = "opendata:PARCEL_ALL",  # allow override if naming differs
-        geom_fields: Iterable[str] = ("the_geom", "geom"),
-    ) -> Optional[Dict[str, Any]]:
-        """Return the parcel feature that intersects (x,y) (EPSG:2039)."""
-        # Try WFS first with CQL INTERSECTS
-        for gf in geom_fields:
-            try:
-                cql = f"INTERSECTS({gf},POINT({x} {y}))"
-                data = self.wfs_get_features(layer=layer, max_features=1, cql_filter=cql)
-                feats = data.get("features", [])
-                if feats:
-                    return feats[0]
-            except Exception as e:
-                logger.debug("WFS INTERSECTS failed", extra={"geom_field": gf, "err": str(e)})
-        # Fallback to WMS GetFeatureInfo
+    def get_base_layers(self) -> Dict[str, Any]:
+        """Get base layers from GovMap API."""
         try:
-            info = self.wms_getfeatureinfo(layer=layer, x=x, y=y)
-            if info:
-                return {"type": "Feature", "properties": info[0].attributes}
+            r = self.http.get(self.base_layers_url, timeout=self.timeout)
+            if r.status_code != 200:
+                raise GovMapError(f"Base layers HTTP {r.status_code}")
+            return r.json()
         except Exception as e:
-            logger.debug("WMS GetFeatureInfo fallback failed", extra={"err": str(e)})
-        return None
+            logger.error(f"GovMap base layers failed: {e}")
+            raise GovMapError(f"Base layers failed: {e}")

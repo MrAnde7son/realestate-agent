@@ -44,19 +44,10 @@ class GovMapAutocomplete:
 
     def top_neighborhood_id(self, query: str) -> str | None:
         data = self.search(query)
-        res = data.get("res", {})
-        for bucket in ("NEIGHBORHOOD", "POI_MID_POINT", "STREET", "SETTLEMENT", "BUILDING"):
-            for item in res.get(bucket, [])[:5]:
-                key = item.get("Key", "")
-                if key and "id=" in key:
-                    # heuristic: parse id param if present in key/url-like string
-                    try:
-                        import urllib.parse as up
-                        q = up.urlparse(key)
-                        qs = up.parse_qs(q.query)
-                        nid = qs.get("id", [None])[0]
-                        if nid:
-                            return str(nid)
-                    except Exception:
-                        pass
+        results = data.get("results", [])
+        for result in results[:5]:
+            # Check if this is a neighborhood or POI result
+            data_type = result.get("data", {}).get("type", "")
+            if data_type in ("NEIGHBORHOOD", "POI_MID_POINT", "STREET", "SETTLEMENT", "BUILDING"):
+                return result.get("id")
         return None

@@ -21,20 +21,25 @@ def test_search_success():
     """Test successful search request"""
     scraper = GovMapAutocomplete()
     payload = {
-        "res": {
-            "NEIGHBORHOOD": [{"Key": "test_key", "Value": "Test Neighborhood"}],
-            "STREET": [{"Key": "street_key", "Value": "Test Street"}]
-        }
+        "results": [
+            {
+                "id": "test_id",
+                "originalText": "test query",
+                "score": 100.0,
+                "data": {},
+                "shape": "POINT(3877998.167083787 3778264.858683848)"
+            }
+        ],
+        "resultsCount": 1,
+        "aggregations": []
     }
 
-    def fake_get(url, params=None, headers=None, timeout=30, verify=False):
-        assert "AutoComplete" in url
-        assert params["query"] == "test query"
-        assert params["ids"] == "276267023"
-        assert params["gid"] == "govmap"
+    def fake_post(url, json=None, headers=None, timeout=30, verify=False):
+        assert "autocomplete" in url
+        assert json["searchText"] == "test query"
         return _make_response(json_payload=payload)
 
-    with mock.patch.object(scraper.sess, 'get', side_effect=fake_get):
+    with mock.patch('requests.Session.post', side_effect=fake_post):
         result = scraper.search("test query")
         assert result == payload
 
@@ -42,15 +47,20 @@ def test_search_success():
 def test_search_custom_params():
     """Test search with custom parameters"""
     scraper = GovMapAutocomplete()
-    payload = {"res": {}}
+    payload = {
+        "results": [],
+        "resultsCount": 0,
+        "aggregations": []
+    }
 
-    def fake_get(url, params=None, headers=None, timeout=30, verify=False):
-        assert params["ids"] == "custom_ids"
-        assert params["gid"] == "custom_gid"
+    def fake_post(url, json=None, headers=None, timeout=30, verify=False):
+        assert json["searchText"] == "test query"
+        assert json["language"] == "he"
+        assert json["maxResults"] == 10
         return _make_response(json_payload=payload)
 
-    with mock.patch.object(scraper.sess, 'get', side_effect=fake_get):
-        result = scraper.search("test query", ids="custom_ids", gid="custom_gid")
+    with mock.patch('requests.Session.post', side_effect=fake_post):
+        result = scraper.search("test query", language="he", max_results=10)
         assert result == payload
 
 
@@ -58,10 +68,10 @@ def test_search_error():
     """Test search with HTTP error"""
     scraper = GovMapAutocomplete()
 
-    def fake_get(url, params=None, headers=None, timeout=30, verify=False):
+    def fake_post(url, json=None, headers=None, timeout=30, verify=False):
         return _make_response(status=500, text="Server Error")
 
-    with mock.patch.object(scraper.sess, 'get', side_effect=fake_get):
+    with mock.patch('requests.Session.post', side_effect=fake_post):
         try:
             scraper.search("test query")
             assert False, "Expected requests.HTTPError"
@@ -73,61 +83,65 @@ def test_top_neighborhood_id_found():
     """Test top_neighborhood_id when neighborhood is found"""
     scraper = GovMapAutocomplete()
     payload = {
-        "res": {
-            "NEIGHBORHOOD": [
-                {"Key": "https://example.com?id=12345", "Value": "Test Neighborhood"}
-            ],
-            "STREET": [
-                {"Key": "https://example.com?id=67890", "Value": "Test Street"}
-            ]
-        }
+        "results": [
+            {
+                "id": "neighborhood_12345",
+                "originalText": "test query",
+                "score": 100.0,
+                "data": {"type": "NEIGHBORHOOD"},
+                "shape": "POINT(3877998.167083787 3778264.858683848)"
+            }
+        ],
+        "resultsCount": 1,
+        "aggregations": []
     }
 
-    def fake_get(url, params=None, headers=None, timeout=30, verify=False):
+    def fake_post(url, json=None, headers=None, timeout=30, verify=False):
         return _make_response(json_payload=payload)
 
-    with mock.patch.object(scraper.sess, 'get', side_effect=fake_get):
+    with mock.patch('requests.Session.post', side_effect=fake_post):
         result = scraper.top_neighborhood_id("test query")
-        assert result == "12345"
+        assert result == "neighborhood_12345"
 
 
 def test_top_neighborhood_id_poi_fallback():
     """Test top_neighborhood_id with POI fallback when no neighborhood"""
     scraper = GovMapAutocomplete()
     payload = {
-        "res": {
-            "POI_MID_POINT": [
-                {"Key": "https://example.com?id=54321", "Value": "Test POI"}
-            ],
-            "STREET": [
-                {"Key": "https://example.com?id=67890", "Value": "Test Street"}
-            ]
-        }
+        "results": [
+            {
+                "id": "poi_54321",
+                "originalText": "test query",
+                "score": 100.0,
+                "data": {"type": "POI_MID_POINT"},
+                "shape": "POINT(3877998.167083787 3778264.858683848)"
+            }
+        ],
+        "resultsCount": 1,
+        "aggregations": []
     }
 
-    def fake_get(url, params=None, headers=None, timeout=30, verify=False):
+    def fake_post(url, json=None, headers=None, timeout=30, verify=False):
         return _make_response(json_payload=payload)
 
-    with mock.patch.object(scraper.sess, 'get', side_effect=fake_get):
+    with mock.patch('requests.Session.post', side_effect=fake_post):
         result = scraper.top_neighborhood_id("test query")
-        assert result == "54321"
+        assert result == "poi_54321"
 
 
 def test_top_neighborhood_id_no_id_in_key():
-    """Test top_neighborhood_id when key doesn't contain id parameter"""
+    """Test top_neighborhood_id when no valid results found"""
     scraper = GovMapAutocomplete()
     payload = {
-        "res": {
-            "NEIGHBORHOOD": [
-                {"Key": "https://example.com/other", "Value": "Test Neighborhood"}
-            ]
-        }
+        "results": [],
+        "resultsCount": 0,
+        "aggregations": []
     }
 
-    def fake_get(url, params=None, headers=None, timeout=30, verify=False):
+    def fake_post(url, json=None, headers=None, timeout=30, verify=False):
         return _make_response(json_payload=payload)
 
-    with mock.patch.object(scraper.sess, 'get', side_effect=fake_get):
+    with mock.patch('requests.Session.post', side_effect=fake_post):
         result = scraper.top_neighborhood_id("test query")
         assert result is None
 
@@ -135,33 +149,20 @@ def test_top_neighborhood_id_no_id_in_key():
 def test_top_neighborhood_id_no_results():
     """Test top_neighborhood_id when no results are found"""
     scraper = GovMapAutocomplete()
-    payload = {"res": {}}
-
-    def fake_get(url, params=None, headers=None, timeout=30, verify=False):
-        return _make_response(json_payload=payload)
-
-    with mock.patch.object(scraper.sess, 'get', side_effect=fake_get):
-        result = scraper.top_neighborhood_id("test query")
-        assert result is None
-
-
-def test_top_neighborhood_id_malformed_url():
-    """Test top_neighborhood_id with malformed URL in key"""
-    scraper = GovMapAutocomplete()
     payload = {
-        "res": {
-            "NEIGHBORHOOD": [
-                {"Key": "not-a-url", "Value": "Test Neighborhood"}
-            ]
-        }
+        "results": [],
+        "resultsCount": 0,
+        "aggregations": []
     }
 
-    def fake_get(url, params=None, headers=None, timeout=30, verify=False):
+    def fake_post(url, json=None, headers=None, timeout=30, verify=False):
         return _make_response(json_payload=payload)
 
-    with mock.patch.object(scraper.sess, 'get', side_effect=fake_get):
+    with mock.patch('requests.Session.post', side_effect=fake_post):
         result = scraper.top_neighborhood_id("test query")
         assert result is None
+
+
 
 
 def test_scraper_initialization():

@@ -19,7 +19,7 @@ from orchestration.collectors.gov_collector import GovCollector
 from orchestration.collectors.govmap_collector import GovMapCollector
 from orchestration.collectors.rami_collector import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
-from govmap.api_client import GovMapClient, itm_to_wgs84
+from govmap.api_client import itm_to_wgs84
 from orchestration.observability import (
     COLLECTOR_FAILURE,
     COLLECTOR_LATENCY,
@@ -104,8 +104,48 @@ def _extract_coordinates_from_govmap_autocomplete(autocomplete_result: Dict[str,
                 # Look for coordinates in various possible fields
                 coords = None
                 
+                # Check for shape field with POINT string (new API format)
+                if "shape" in result and isinstance(result["shape"], str):
+                    shape = result["shape"]
+                    if shape.startswith("POINT("):
+                        # Extract coordinates from POINT string like "POINT(3877998.167083787 3778264.858683848)"
+                        coords_str = shape[6:-1]  # Remove "POINT(" and ")"
+                        parts = coords_str.split()
+                        if len(parts) >= 2:
+                            try:
+                                x_raw = float(parts[0])
+                                y_raw = float(parts[1])
+                                
+                                # Check if coordinates are in GovMap format (large numbers)
+                                if abs(x_raw) > 1000000 and abs(y_raw) > 1000000:
+                                    # Convert from GovMap coordinate system to WGS84
+                                    # GovMap uses a simple linear relationship: lon = x * 0.0000089792, lat = y * 0.0000084961
+                                    lon_wgs84 = x_raw * 0.0000089792
+                                    lat_wgs84 = y_raw * 0.0000084961
+                                    
+                                    # Convert WGS84 to ITM for consistency
+                                    from govmap.api_client import wgs84_to_itm
+                                    x_itm, y_itm = wgs84_to_itm(lon_wgs84, lat_wgs84)
+                                    
+                                    logger.info(f"Extracted Web Mercator coordinates from GovMap autocomplete: WebMerc({x_raw}, {y_raw}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f}) -> ITM({x_itm}, {y_itm})")
+                                    return (x_itm, y_itm, lon_wgs84, lat_wgs84)
+                                else:
+                                    # Assume ITM coordinates
+                                    x_itm = x_raw
+                                    y_itm = y_raw
+                                    
+                                    # Convert to WGS84
+                                    lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+                                    
+                                    logger.info(f"Extracted ITM coordinates from GovMap autocomplete: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+                                    return (x_itm, y_itm, lon_wgs84, lat_wgs84)
+                                    
+                            except (ValueError, TypeError) as e:
+                                logger.debug(f"Failed to parse coordinates from shape '{shape}': {e}")
+                                continue
+                
                 # Check for geometry field
-                if "geometry" in result:
+                elif "geometry" in result:
                     geom = result["geometry"]
                     if "coordinates" in geom:
                         coords = geom["coordinates"]
@@ -262,8 +302,7 @@ class DataPipeline:
         self.rami = rami or RamiCollector()
         self.mavat = mavat or MavatCollector()
         
-        # Add GovMap client for autocomplete
-        self.govmap_client = GovMapClient()
+        # Note: GovMap client is now accessed through the collector
 
         # Expose Prometheus metrics endpoint
         start_metrics_server(int(os.getenv("METRICS_PORT", "8000")))
@@ -449,7 +488,7 @@ class DataPipeline:
                 full_address = f"{address} {house_number}" if house_number else address
                 autocomplete_result = self._collect_with_observability(
                     "govmap_autocomplete",
-                    self.govmap_client.autocomplete,
+                    self.govmap.autocomplete,
                     query=full_address,
                     timeout=self.TIMEOUTS.get("govmap_autocomplete"),
                     retries=self.RETRIES.get("govmap_autocomplete", 0),
@@ -500,69 +539,8 @@ class DataPipeline:
                     track("collector_fail", source="govmap", error_code=str(e))
                     logger.warning(f"⚠️ GovMap collection failed: {e}")
 
-                # Try to get additional GovMap data using the new API endpoints
-                try:
-                    logger.info("🔍 Collecting additional GovMap data...")
-                    
-                    # Get parcel data using the new API
-                    parcel_data = self._collect_with_observability(
-                        "govmap_parcel_api",
-                        self.govmap_client.get_parcel_data,
-                        x=x_itm,
-                        y=y_itm,
-                        timeout=self.TIMEOUTS.get("govmap"),
-                        retries=self.RETRIES.get("govmap", 0),
-                        asset_id=asset_id,
-                    )
-                    
-                    # Merge parcel data into govmap_data
-                    if parcel_data:
-                        govmap_data["parcel_api_data"] = parcel_data
-                        logger.info("✅ GovMap parcel API data collected successfully")
-                    
-                except Exception as e:
-                    track("collector_fail", source="govmap_parcel_api", error_code=str(e))
-                    logger.warning(f"⚠️ GovMap parcel API data collection failed: {e}")
-
-                # Try to get layers catalog data
-                try:
-                    logger.info("📚 Collecting GovMap layers catalog...")
-                    layers_catalog = self._collect_with_observability(
-                        "govmap_layers_catalog",
-                        self.govmap_client.get_layers_catalog,
-                        language="he",
-                        timeout=self.TIMEOUTS.get("govmap"),
-                        retries=self.RETRIES.get("govmap", 0),
-                        asset_id=asset_id,
-                    )
-                    
-                    if layers_catalog:
-                        govmap_data["layers_catalog"] = layers_catalog
-                        logger.info("✅ GovMap layers catalog collected successfully")
-                    
-                except Exception as e:
-                    track("collector_fail", source="govmap_layers_catalog", error_code=str(e))
-                    logger.warning(f"⚠️ GovMap layers catalog collection failed: {e}")
-
-                # Try to get search types data
-                try:
-                    logger.info("🔍 Collecting GovMap search types...")
-                    search_types = self._collect_with_observability(
-                        "govmap_search_types",
-                        self.govmap_client.get_search_types,
-                        language="he",
-                        timeout=self.TIMEOUTS.get("govmap"),
-                        retries=self.RETRIES.get("govmap", 0),
-                        asset_id=asset_id,
-                    )
-                    
-                    if search_types:
-                        govmap_data["search_types"] = search_types
-                        logger.info("✅ GovMap search types collected successfully")
-                    
-                except Exception as e:
-                    track("collector_fail", source="govmap_search_types", error_code=str(e))
-                    logger.warning(f"⚠️ GovMap search types collection failed: {e}")
+                # Note: Additional GovMap data (parcel API, layers catalog, search types) 
+                # is now collected by the enhanced GovMap collector above
             
             # Get GIS data (supplementary or fallback for coordinates)
             gis_data = {}

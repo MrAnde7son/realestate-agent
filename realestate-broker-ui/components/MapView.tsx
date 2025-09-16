@@ -521,7 +521,7 @@ export default function MapView({
       )}
 
       {/* Search Bar */}
-      <div className={`absolute top-4 z-20 ${onBackToTable ? 'left-48 right-4' : 'left-4 right-4'}`}>
+      <div className={`absolute top-4 z-20 ${onBackToTable ? 'left-48 right-24' : 'left-4 right-24'}`}>
         <div className="relative">
           <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

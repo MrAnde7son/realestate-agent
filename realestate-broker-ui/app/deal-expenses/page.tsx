@@ -10,11 +10,14 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/Badge'
 import { Separator } from '@/components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { fmtCurrency } from '@/lib/utils'
 import { Buyer, calculatePurchaseTax } from '@/lib/purchase-tax'
 import { calculateServiceCosts, type ServiceInput } from '@/lib/deal-expenses'
 import type { Asset } from '@/lib/normalizers/asset'
 import { useAnalytics } from '@/hooks/useAnalytics'
+
+type PropertyType = 'residential' | 'land'
 import { 
   Calculator, 
   Home, 
@@ -34,7 +37,8 @@ import {
   FileImage,
   Search,
   X,
-  MapPin
+  MapPin,
+  LandPlot
 } from 'lucide-react'
 
 export default function DealExpensesPage() {
@@ -42,9 +46,14 @@ export default function DealExpensesPage() {
   
   const [price, setPrice] = useState(3_000_000)
   const [area, setArea] = useState(100)
+  const [propertyType, setPropertyType] = useState<PropertyType>('residential')
   const [buyers, setBuyers] = useState<Buyer[]>([{ name: '', sharePct: 100, isFirstHome: true }])
   const [vatRate, setVatRate] = useState(0.18)
   const [vatUpdated, setVatUpdated] = useState('')
+
+  const [constructionArea, setConstructionArea] = useState(0)
+  const [constructionCostPerSqm, setConstructionCostPerSqm] = useState(0)
+  const [constructionIncludesVat, setConstructionIncludesVat] = useState(false)
   
   // Asset selection state
   const [assets, setAssets] = useState<Asset[]>([])
@@ -63,6 +72,12 @@ export default function DealExpensesPage() {
     furniture: { percent: 0, amount: 0, includesVat: false },
   })
 
+  const isLand = propertyType === 'land'
+  const baseConstructionEstimate = isLand ? (constructionArea || 0) * (constructionCostPerSqm || 0) : 0
+  const effectiveConstructionCost = isLand
+    ? (constructionIncludesVat ? baseConstructionEstimate : baseConstructionEstimate * (1 + vatRate))
+    : 0
+
   const [result, setResult] = useState<null | {
     totalTax: number
     breakdown: { buyer: Buyer; tax: number; track: string }[]
@@ -71,6 +86,7 @@ export default function DealExpensesPage() {
     total: number
     pricePerSqBefore: number
     pricePerSqAfter: number
+    constructionCost: number
   }>(null)
 
   useEffect(() => {
@@ -125,7 +141,7 @@ export default function DealExpensesPage() {
     setSelectedAsset(asset)
     setAssetSearchQuery('')
     setShowAssetDropdown(false)
-    
+
     // Track asset selection
     trackCalculatorUsage('expense', 'asset_selected', {
       asset_id: asset.id,
@@ -141,6 +157,18 @@ export default function DealExpensesPage() {
     }
     if (asset.area) {
       setArea(asset.area)
+    }
+
+    if (asset.type) {
+      const normalizedType = asset.type.toLowerCase()
+      const assetIsLand = normalizedType.includes('קרקע') || normalizedType.includes('land')
+      setPropertyType(assetIsLand ? 'land' : 'residential')
+      trackCalculatorUsage('expense', 'input_change', {
+        field: 'propertyType',
+        value: assetIsLand ? 'land' : 'residential',
+        selected_asset_id: asset.id,
+        source: 'asset_select'
+      })
     }
   }
 
@@ -207,14 +235,57 @@ export default function DealExpensesPage() {
     })
   }
 
+  const handlePropertyTypeChange = (value: PropertyType) => {
+    setPropertyType(value)
+    trackCalculatorUsage('expense', 'input_change', {
+      field: 'propertyType',
+      value,
+      selected_asset_id: selectedAsset?.id
+    })
+  }
+
+  const handleConstructionAreaChange = (value: number) => {
+    setConstructionArea(value)
+    trackCalculatorUsage('expense', 'input_change', {
+      field: 'constructionArea',
+      value,
+      property_type: propertyType,
+      selected_asset_id: selectedAsset?.id
+    })
+  }
+
+  const handleConstructionCostChange = (value: number) => {
+    setConstructionCostPerSqm(value)
+    trackCalculatorUsage('expense', 'input_change', {
+      field: 'constructionCostPerSqm',
+      value,
+      property_type: propertyType,
+      selected_asset_id: selectedAsset?.id
+    })
+  }
+
+  const handleConstructionVatChange = (value: boolean) => {
+    setConstructionIncludesVat(value)
+    trackCalculatorUsage('expense', 'input_change', {
+      field: 'constructionIncludesVat',
+      value,
+      property_type: propertyType,
+      selected_asset_id: selectedAsset?.id
+    })
+  }
+
   function calculate() {
     // Track calculation start
     trackCalculatorUsage('expense', 'calculation_start', {
       input_data: {
         price,
         area,
+        propertyType,
         buyers_count: buyers.length,
         vatRate,
+        constructionArea,
+        constructionCostPerSqm,
+        constructionIncludesVat,
         selected_asset_id: selectedAsset?.id,
         services: Object.keys(services).filter(key => {
           const service = services[key as ServiceKey]
@@ -222,29 +293,44 @@ export default function DealExpensesPage() {
         })
       }
     })
-    
-    const { totalTax, breakdown } = calculatePurchaseTax(price, buyers)
+
+    const { totalTax, breakdown } = calculatePurchaseTax(price, buyers, { propertyType })
     const serviceInputs: ServiceInput[] = (
       Object.keys(services) as ServiceKey[]
     ).map((k) => ({ label: labelMap[k], ...services[k] }))
     const { total: serviceTotal, breakdown: serviceBreakdown } = calculateServiceCosts(price, serviceInputs, vatRate)
-    const total = price + totalTax + serviceTotal
+    const constructionCost = effectiveConstructionCost
+    const total = price + totalTax + serviceTotal + constructionCost
     const pricePerSqBefore = area > 0 ? price / area : 0
     const pricePerSqAfter = area > 0 ? total / area : 0
-    
-    const result = { totalTax, breakdown, serviceTotal, serviceBreakdown, total, pricePerSqBefore, pricePerSqAfter }
+
+    const result = {
+      totalTax,
+      breakdown,
+      serviceTotal,
+      serviceBreakdown,
+      total,
+      pricePerSqBefore,
+      pricePerSqAfter,
+      constructionCost
+    }
     setResult(result)
-    
+
     // Track calculation completion
     trackCalculatorCalculation('expense', {
       price,
       area,
+      propertyType,
       buyers_count: buyers.length,
       vatRate,
+      constructionArea,
+      constructionCostPerSqm,
+      constructionIncludesVat,
       selected_asset_id: selectedAsset?.id
     }, {
       totalTax,
       serviceTotal,
+      constructionCost,
       total,
       pricePerSqBefore,
       pricePerSqAfter,
@@ -264,23 +350,48 @@ export default function DealExpensesPage() {
       buyers_count: buyers.length
     })
 
+    const propertyTypeLabel = isLand ? 'קרקע' : 'נכס בנוי'
+
     const csvData = [
       ['מחשבון הוצאות עסקה', ''],
       ['תאריך', new Date().toLocaleDateString('he-IL')],
       ['', ''],
       ['פרטי הנכס', ''],
+      ['סוג הנכס', propertyTypeLabel],
       ['מחיר הנכס', fmtCurrency(price)],
       ['שטח הנכס', `${area} מ&quot;ר`],
+    ]
+
+    if (isLand) {
+      csvData.push(
+        ['שטח בנוי מתוכנן', `${constructionArea} מ&quot;ר`],
+        ['עלות בנייה למ&quot;ר', fmtCurrency(constructionCostPerSqm)],
+        ['האם העלות שהוזנה כוללת מע"מ', constructionIncludesVat ? 'כן' : 'לא']
+      )
+    }
+
+    csvData.push(
       ['', ''],
       ['מס רכישה', ''],
       ...result.breakdown.map((item, index) => [
-        `מס רכישה - ${item.buyer.name || `רוכש ${index + 1}`} (${item.track === 'regular' ? 'רגיל' : 
+        `מס רכישה - ${item.buyer.name || `רוכש ${index + 1}`} (${item.track === 'regular' ? 'רגיל' :
          item.track === 'oleh' ? 'עולה חדש' :
          item.track === 'disabled' ? 'נכה/עיוור' :
-         item.track === 'bereaved' ? 'משפחה שכולה' : item.track})`,
+         item.track === 'bereaved' ? 'משפחה שכולה' : item.track === 'land' ? 'קרקע' : item.track})`,
         fmtCurrency(item.tax)
       ]),
-      ['סה&quot;כ מס רכישה', fmtCurrency(result.totalTax)],
+      ['סה&quot;כ מס רכישה', fmtCurrency(result.totalTax)]
+    )
+
+    if (isLand) {
+      csvData.push(
+        ['', ''],
+        ['עלויות בנייה', ''],
+        ['סה&quot;כ עלות בנייה', fmtCurrency(result.constructionCost)]
+      )
+    }
+
+    csvData.push(
       ['', ''],
       ['הוצאות שירות', ''],
       ...result.serviceBreakdown.map(item => [item.label, fmtCurrency(item.cost)]),
@@ -289,12 +400,19 @@ export default function DealExpensesPage() {
       ['סיכום', ''],
       ['מחיר הנכס', fmtCurrency(price)],
       ['מס רכישה', fmtCurrency(result.totalTax)],
-      ['הוצאות שירות', fmtCurrency(result.serviceTotal)],
+      ['הוצאות שירות', fmtCurrency(result.serviceTotal)]
+    )
+
+    if (isLand) {
+      csvData.push(['עלות בנייה', fmtCurrency(result.constructionCost)])
+    }
+
+    csvData.push(
       ['סה&quot;כ לתשלום', fmtCurrency(result.total)],
       ['', ''],
       ['מחיר למ&quot;ר לפני הוצאות', fmtCurrency(result.pricePerSqBefore)],
       ['מחיר למ&quot;ר אחרי הוצאות', fmtCurrency(result.pricePerSqAfter)]
-    ]
+    )
 
     const csvContent = csvData.map(row => row.join(',')).join('\n')
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -318,6 +436,8 @@ export default function DealExpensesPage() {
     // Create a new window for PDF generation
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
+
+    const propertyTypeLabel = isLand ? 'קרקע' : 'נכס בנוי'
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -350,6 +470,10 @@ export default function DealExpensesPage() {
         <div class="section">
           <h2>פרטי הנכס</h2>
           <div class="row">
+            <span class="label">סוג הנכס:</span>
+            <span class="value">${propertyTypeLabel}</span>
+          </div>
+          <div class="row">
             <span class="label">מחיר הנכס:</span>
             <span class="value">${fmtCurrency(price)}</span>
           </div>
@@ -357,6 +481,20 @@ export default function DealExpensesPage() {
             <span class="label">שטח הנכס:</span>
             <span class="value">${area} מ&quot;ר</span>
           </div>
+          ${isLand ? `
+          <div class="row">
+            <span class="label">שטח בנוי מתוכנן:</span>
+            <span class="value">${constructionArea} מ&quot;ר</span>
+          </div>
+          <div class="row">
+            <span class="label">עלות בנייה למ&quot;ר:</span>
+            <span class="value">${fmtCurrency(constructionCostPerSqm)}</span>
+          </div>
+          <div class="row">
+            <span class="label">האם העלות שהוזנה כוללת מע"מ:</span>
+            <span class="value">${constructionIncludesVat ? 'כן' : 'לא'}</span>
+          </div>
+          ` : ''}
         </div>
 
         <div class="section">
@@ -365,10 +503,11 @@ export default function DealExpensesPage() {
             <div class="row">
               <span class="label">
                 מס רכישה - ${item.buyer.name || `רוכש ${index + 1}`}
-                <span class="badge">${item.track === 'regular' ? 'רגיל' : 
+                <span class="badge">${item.track === 'regular' ? 'רגיל' :
                  item.track === 'oleh' ? 'עולה חדש' :
                  item.track === 'disabled' ? 'נכה/עיוור' :
-                 item.track === 'bereaved' ? 'משפחה שכולה' : item.track}</span>
+                 item.track === 'bereaved' ? 'משפחה שכולה' :
+                 item.track === 'land' ? 'קרקע' : item.track}</span>
               </span>
               <span class="value">${fmtCurrency(item.tax)}</span>
             </div>
@@ -378,6 +517,16 @@ export default function DealExpensesPage() {
             <span class="value">${fmtCurrency(result.totalTax)}</span>
           </div>
         </div>
+
+        ${isLand ? `
+        <div class="section">
+          <h2>עלויות בנייה</h2>
+          <div class="row">
+            <span class="label">סה&quot;כ עלות בנייה:</span>
+            <span class="value">${fmtCurrency(result.constructionCost)}</span>
+          </div>
+        </div>
+        ` : ''}
 
         <div class="section">
           <h2>הוצאות שירות</h2>
@@ -473,6 +622,31 @@ export default function DealExpensesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="property-type" className="text-sm font-medium">
+                  סוג הנכס
+                </Label>
+                <Select value={propertyType} onValueChange={value => handlePropertyTypeChange(value as PropertyType)}>
+                  <SelectTrigger id="property-type" className="w-full">
+                    <SelectValue placeholder="בחר סוג נכס" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="residential">נכס בנוי</SelectItem>
+                    <SelectItem value="land">קרקע</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {isLand ? (
+                    <LandPlot className="h-3.5 w-3.5" />
+                  ) : (
+                    <Home className="h-3.5 w-3.5" />
+                  )}
+                  <span>סוג הנכס משפיע על מס הרכישה ועל העלויות הנלוות</span>
+                </div>
+              </div>
+
+              <Separator />
+
               {/* Asset Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
@@ -584,10 +758,10 @@ export default function DealExpensesPage() {
                 </Label>
                 <div className="relative">
                   <Building className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="area" 
-                    type="number" 
-                    value={area} 
+                  <Input
+                    id="area"
+                    type="number"
+                    value={area}
                     onChange={e => handleAreaChange(parseInt(e.target.value) || 0)}
                     className="pr-10"
                     placeholder="100"
@@ -597,6 +771,78 @@ export default function DealExpensesPage() {
                   {area} מ&quot;ר
                 </div>
               </div>
+
+              {isLand && (
+                <>
+                  <Separator />
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">עלויות בנייה משוערות</Label>
+                      <p className="text-xs text-muted-foreground">
+                        הזן את שטח הבנייה המתוכנן ועלות הבנייה למטר כדי לחשב את ההשקעה הכוללת בפרויקט
+                      </p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="construction-area" className="text-xs">
+                          שטח בנוי מתוכנן (מ&quot;ר)
+                        </Label>
+                        <div className="relative">
+                          <LandPlot className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="construction-area"
+                            type="number"
+                            value={constructionArea}
+                            onChange={e => handleConstructionAreaChange(parseFloat(e.target.value) || 0)}
+                            className="pr-10"
+                            placeholder="200"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="construction-cost" className="text-xs">
+                          עלות בנייה למ&quot;ר
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
+                          <Input
+                            id="construction-cost"
+                            type="number"
+                            value={constructionCostPerSqm}
+                            onChange={e => handleConstructionCostChange(parseFloat(e.target.value) || 0)}
+                            className="pr-10"
+                            placeholder="5,000"
+                          />
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {fmtCurrency(constructionCostPerSqm)} למ&quot;ר
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                        <Switch
+                          checked={constructionIncludesVat}
+                          onCheckedChange={handleConstructionVatChange}
+                        />
+                        <span className="text-sm">העלות שהוזנה כוללת מע&quot;מ</span>
+                      </label>
+                      <div className="text-xs text-muted-foreground text-right">
+                        {constructionIncludesVat
+                          ? 'העלות תיקח בחשבון את הסכום שהוזן ככולל מע&quot;מ'
+                          : `הסכום יחושב בהתאם למע&quot;מ הנוכחי (${(vatRate * 100).toFixed(1)}%)`}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Hammer className="h-4 w-4 text-orange-500" />
+                        <span>סה&quot;כ עלות בנייה משוערת</span>
+                      </div>
+                      <span className="font-semibold text-primary">{fmtCurrency(effectiveConstructionCost)}</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -823,6 +1069,9 @@ export default function DealExpensesPage() {
                     <div className="flex items-center gap-2">
                       <Home className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">מחיר הנכס</span>
+                      <Badge variant="outline" className="text-xs">
+                        {isLand ? 'קרקע' : 'נכס בנוי'}
+                      </Badge>
                     </div>
                     <span className="font-semibold">{fmtCurrency(price)}</span>
                   </div>
@@ -836,15 +1085,27 @@ export default function DealExpensesPage() {
                           מס רכישה - {item.buyer.name || `רוכש ${index + 1}`}
                         </span>
                         <Badge variant="outline" className="text-xs">
-                          {item.track === 'regular' ? 'רגיל' : 
+                          {item.track === 'regular' ? 'רגיל' :
                            item.track === 'oleh' ? 'עולה חדש' :
                            item.track === 'disabled' ? 'נכה/עיוור' :
-                           item.track === 'bereaved' ? 'משפחה שכולה' : item.track}
+                           item.track === 'bereaved' ? 'משפחה שכולה' :
+                           item.track === 'land' ? 'קרקע' : item.track}
                         </Badge>
                       </div>
                       <span className="font-semibold">{fmtCurrency(item.tax)}</span>
                     </div>
                   ))}
+
+                  {/* Construction Costs */}
+                  {isLand && (
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Hammer className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">סה"כ עלות בנייה</span>
+                      </div>
+                      <span className="font-semibold">{fmtCurrency(result.constructionCost)}</span>
+                    </div>
+                  )}
 
                   {/* Service Costs Breakdown */}
                   {result.serviceBreakdown.map((item, index) => (

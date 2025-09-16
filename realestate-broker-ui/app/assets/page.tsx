@@ -760,6 +760,7 @@ export default function AssetsPage() {
                 searchValue={search}
                 onSearchChange={setSearch}
                 height="600px"
+                onBackToTable={() => setViewMode('table')}
               />
             ) : (
               <AssetsTable 

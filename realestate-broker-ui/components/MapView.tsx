@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, MapPin, Search, Layers, Settings } from 'lucide-react'
+import { Loader2, MapPin, Search, Layers, Settings, ArrowLeft, List } from 'lucide-react'
 import maplibregl, { Marker } from 'maplibre-gl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,7 @@ interface MapViewProps {
   searchValue: string
   onSearchChange: (value: string) => void
   height?: string
+  onBackToTable?: () => void
 }
 
 interface GeocodingResult {
@@ -141,7 +142,8 @@ export default function MapView({
   onAssetClick,
   searchValue,
   onSearchChange,
-  height = '600px'
+  height = '600px',
+  onBackToTable
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<any>(null)
@@ -502,8 +504,24 @@ export default function MapView({
         </div>
       )}
 
+      {/* Back to Table Button */}
+      {onBackToTable && (
+        <div className="absolute top-4 left-4 z-20">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onBackToTable}
+            className="bg-white/90 backdrop-blur-sm"
+            title="חזרה לטבלה"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            חזרה לטבלה
+          </Button>
+        </div>
+      )}
+
       {/* Search Bar */}
-      <div className="absolute top-4 left-4 right-4 z-20">
+      <div className={`absolute top-4 z-20 ${onBackToTable ? 'left-48 right-4' : 'left-4 right-4'}`}>
         <div className="relative">
           <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

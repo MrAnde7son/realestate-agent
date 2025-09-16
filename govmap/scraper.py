@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 import requests
 
 class GovMapAutocomplete:
-    def __init__(self, base_url: str = "https://es.govmap.gov.il/TldSearch/api/AutoComplete", timeout: int = 30):
+    def __init__(self, base_url: str = "https://www.govmap.gov.il/api/search-service/autocomplete", timeout: int = 30):
         self.base_url = base_url
         self.timeout = timeout
         self.sess = requests.Session()
@@ -19,8 +19,26 @@ class GovMapAutocomplete:
             "Accept": "application/json, text/plain, */*",
         })
 
-    def search(self, query: str, ids: str = "276267023", gid: str = "govmap") -> Dict[str, Any]:
-        r = self.sess.get(self.base_url, params={"query": query, "ids": ids, "gid": gid}, timeout=self.timeout, verify=False)
+    def search(self, query: str, language: str = "he", max_results: int = 10) -> Dict[str, Any]:
+        # Update headers for the new API
+        self.sess.headers.update({
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+            "Content-Type": "application/json",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+        })
+        
+        # Prepare JSON body for the new API
+        payload = {
+            "searchText": query,
+            "language": language,
+            "isAccurate": False,
+            "maxResults": max_results
+        }
+        
+        r = self.sess.post(self.base_url, json=payload, timeout=self.timeout, verify=False)
         r.raise_for_status()
         return r.json()
 

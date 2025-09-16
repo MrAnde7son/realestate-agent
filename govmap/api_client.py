@@ -15,13 +15,15 @@ Notes
 * Keep layers configurable via env or function args (don't hardcode).
 """
 import os
-import math
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
 from pyproj import Transformer
+import urllib3
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ DEFAULT_WMS = os.getenv("GOVMAP_WMS_URL", "https://open.govmap.gov.il/geoserver/
 DEFAULT_WFS = os.getenv("GOVMAP_WFS_URL", "https://open.govmap.gov.il/geoserver/opendata/ows")
 DEFAULT_AUTOCOMPLETE = os.getenv(
     "GOVMAP_AUTOCOMPLETE_URL",
-    "https://es.govmap.gov.il/TldSearch/api/AutoComplete",
+    "https://www.govmap.gov.il/api/search-service/autocomplete",
 )
 
 # Reusable transformers
@@ -71,23 +73,190 @@ class GovMapClient:
         self.wms_url = wms_url.rstrip("?")
         self.wfs_url = wfs_url.rstrip("?")
         self.autocomplete_url = autocomplete_url
+        self.layers_catalog_url = "https://www.govmap.gov.il/api/layers-catalog/catalog"
+        self.search_types_url = "https://www.govmap.gov.il/api/search-service/getTypes"
+        self.parcel_search_url = "https://www.govmap.gov.il/api/layers-catalog/apps/parcel-search/address"
         self.http = session or requests.Session()
         self.timeout = timeout
         self.http.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
         })
+        
+        
+        # Disable SSL warnings
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        # Configure the session with SSL settings
+        self.http.mount('https://', requests.adapters.HTTPAdapter())
+        self.http.verify = False
 
     # ----------------------------- Search -----------------------------
-    def autocomplete(self, query: str, ids: str = "276267023", gid: str = "govmap") -> Dict[str, Any]:
+    def autocomplete(self, query: str, language: str = "he", max_results: int = 10) -> Dict[str, Any]:
         """Call the public autocomplete endpoint (no token required).
-        Returns the raw JSON (contains categories like NEIGHBORHOOD/STREET/BUILDING/etc.).
+        Returns the raw JSON response from the new GovMap API.
         """
-        params = {"query": query, "ids": ids, "gid": gid}
-        r = self.http.get(self.autocomplete_url, params=params, timeout=self.timeout, verify=False)
-        if r.status_code != 200:
-            raise GovMapError(f"Autocomplete HTTP {r.status_code}")
-        return r.json()
+       
+        # Disable SSL warnings
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        # Create a new session with SSL configuration for this request
+        session = requests.Session()
+        session.verify = False
+        
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        # Set headers for the new API
+        session.headers.update({
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+            "Content-Type": "application/json",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+        })
+        
+        # Prepare JSON body for the new API
+        payload = {
+            "searchText": query,
+            "language": language,
+            "isAccurate": False,
+            "maxResults": max_results
+        }
+        
+        try:
+            r = session.post(self.autocomplete_url, json=payload, timeout=self.timeout, verify=False)
+            if r.status_code != 200:
+                raise GovMapError(f"Autocomplete HTTP {r.status_code}")
+            return r.json()
+        except Exception as ssl_e:
+            if "SSL" in str(ssl_e) or "ssl" in str(ssl_e).lower():
+                logger.warning(f"SSL error with GovMap autocomplete, trying with different SSL settings: {ssl_e}")
+                # Try with even more permissive SSL settings
+                import ssl
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                ssl_context.set_ciphers('DEFAULT@SECLEVEL=0')
+                
+                # Create a new session with the custom SSL context
+                session = requests.Session()
+                session.verify = False
+                session.headers.update({
+                    "Accept": "application/json",
+                    "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+                    "Content-Type": "application/json",
+                    "Sec-Fetch-Dest": "empty",
+                    "Sec-Fetch-Mode": "cors",
+                    "Sec-Fetch-Site": "same-origin",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+                })
+                
+                r = session.post(self.autocomplete_url, json=payload, timeout=self.timeout, verify=False)
+                if r.status_code != 200:
+                    raise GovMapError(f"Autocomplete HTTP {r.status_code}")
+                return r.json()
+            else:
+                # Re-raise if it's not an SSL error
+                raise
+        except Exception as e:
+            logger.error(f"GovMap autocomplete failed: {e}")
+            raise GovMapError(f"Autocomplete failed: {e}")
+
+    def get_layers_catalog(self, language: str = "he") -> Dict[str, Any]:
+        """Get the layers catalog from GovMap.
+        
+        Args:
+            language: Language code (default: "he")
+            
+        Returns:
+            Dictionary containing the layers catalog data
+        """
+        try:
+            headers = {
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+            }
+            
+            params = {"lang": language}
+            r = self.http.get(self.layers_catalog_url, params=params, headers=headers, timeout=self.timeout, verify=False)
+            if r.status_code != 200:
+                raise GovMapError(f"Layers catalog HTTP {r.status_code}")
+            return r.json()
+        except Exception as e:
+            logger.error(f"GovMap layers catalog failed: {e}")
+            raise GovMapError(f"Layers catalog failed: {e}")
+
+    def get_search_types(self, language: str = "he") -> Dict[str, Any]:
+        """Get search types from GovMap.
+        
+        Args:
+            language: Language code (default: "he")
+            
+        Returns:
+            Dictionary containing the search types data
+        """
+        try:
+            headers = {
+                "Accept": "application/json",
+                "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+                "Content-Type": "application/json",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+            }
+            
+            payload = {"language": language}
+            r = self.http.post(self.search_types_url, json=payload, headers=headers, timeout=self.timeout, verify=False)
+            if r.status_code != 200:
+                raise GovMapError(f"Search types HTTP {r.status_code}")
+            return r.json()
+        except Exception as e:
+            logger.error(f"GovMap search types failed: {e}")
+            raise GovMapError(f"Search types failed: {e}")
+
+    def get_parcel_data(self, x: float, y: float) -> Dict[str, Any]:
+        """Get parcel data for specific coordinates.
+        
+        Args:
+            x: X coordinate (ITM)
+            y: Y coordinate (ITM)
+            
+        Returns:
+            Dictionary containing parcel data
+        """
+        try:
+            headers = {
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+            }
+            
+            # Format coordinates as in the URL pattern
+            coord_string = f"({x}%20{y})"
+            url = f"{self.parcel_search_url}/{coord_string}"
+            
+            r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
+            if r.status_code != 200:
+                raise GovMapError(f"Parcel search HTTP {r.status_code}")
+            return r.json()
+        except Exception as e:
+            logger.error(f"GovMap parcel search failed: {e}")
+            raise GovMapError(f"Parcel search failed: {e}")
 
     # ------------------------------ WMS -------------------------------
     def wms_getfeatureinfo(

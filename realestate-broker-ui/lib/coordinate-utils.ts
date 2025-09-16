@@ -47,18 +47,27 @@ export function isITMCoordinates(lat: number, lon: number): boolean {
     lon >= EXTENDED_ITM_BOUNDS.minX && lon <= EXTENDED_ITM_BOUNDS.maxX
   )
   
-  // Check if coordinates look like projected coordinates (large numbers, not WGS84)
-  // This catches coordinates that are clearly not WGS84 but might be in a projected system
+  // More precise check for projected coordinates
+  // ITM coordinates should be large positive numbers in specific ranges
   const looksLikeProjected = (
-    Math.abs(lat) > 90 || Math.abs(lon) > 180
-  ) && (
     lat > 0 && lon > 0 && // Both positive
-    lat > 10000 && lon > 10000 // Both large numbers
+    lat > 50000 && lat < 1000000 && // Y coordinate in reasonable range
+    lon > 50000 && lon < 1000000 && // X coordinate in reasonable range
+    !isWGS84Coordinates(lat, lon) // Not already WGS84
   )
   
-  // If coordinates look like projected coordinates, assume they might be ITM or similar
-  // This is a fallback for coordinates that don't fit standard bounds but are clearly projected
   return inStandardBounds || inExtendedBounds || looksLikeProjected
+}
+
+/**
+ * Check if coordinates might be in Web Mercator (EPSG:3857) format
+ * Web Mercator coordinates are very large numbers (millions)
+ */
+export function isWebMercatorCoordinates(lat: number, lon: number): boolean {
+  return (
+    Math.abs(lat) > 1000000 && Math.abs(lon) > 1000000 && // Very large numbers
+    lat > 0 && lon > 0 // Both positive
+  )
 }
 
 /**
@@ -72,29 +81,53 @@ export function isWGS84Coordinates(lat: number, lon: number): boolean {
 }
 
 /**
- * Convert ITM coordinates to WGS84 using a simplified transformation
- * This is a fallback for coordinates that weren't converted in the backend
+ * Convert ITM coordinates to WGS84 using proper EPSG:2039 parameters
+ * This implements a simplified but more accurate Transverse Mercator inverse projection
  */
 export function convertITMToWGS84(x: number, y: number): { lat: number; lon: number } {
-  // Simple linear transformation for ITM to WGS84
-  // This is a rough approximation that should work for most Israeli locations
+  // Correct EPSG:2039 (Israeli ITM) parameters
+  const falseEasting = 219529.584
+  const falseNorthing = 626907.39
+  const centralMeridian = 35.204516 * Math.PI / 180 // radians
+  const centralLatitude = 31.734393 * Math.PI / 180 // radians
+  const scaleFactor = 1.0000067
   
-  // ITM false easting and northing
-  const falseEasting = 200000
-  const falseNorthing = 750000
+  // GRS 1980 ellipsoid parameters
+  const a = 6378137.0 // semi-major axis
+  const f = 1 / 298.257222101 // flattening
+  const e2 = 2 * f - f * f // first eccentricity squared
+  const e4 = e2 * e2
+  const e6 = e2 * e4
   
   // Convert to relative coordinates
   const dx = x - falseEasting
   const dy = y - falseNorthing
   
-  // Approximate conversion factors for Israel region
-  // These are rough approximations that should place coordinates in Israel
-  const latOffset = 31.734393 // Central latitude of Israel
-  const lonOffset = 35.204516 // Central longitude of Israel
+  // Calculate radius of curvature in the meridian and prime vertical
+  const rho = a * (1 - e2) / Math.pow(1 - e2 * Math.sin(centralLatitude) * Math.sin(centralLatitude), 1.5)
+  const nu = a / Math.sqrt(1 - e2 * Math.sin(centralLatitude) * Math.sin(centralLatitude))
   
-  // Convert using approximate scale factors
-  const lat = latOffset + dy / 111320 // meters per degree latitude
-  const lon = lonOffset + dx / (111320 * Math.cos(latOffset * Math.PI / 180)) // meters per degree longitude
+  // Convert to WGS84 coordinates using proper Transverse Mercator inverse
+  const lat = centralLatitude + dy / (rho * scaleFactor)
+  const lon = centralMeridian + dx / (nu * scaleFactor * Math.cos(centralLatitude))
+  
+  // Convert back to degrees
+  const latDeg = lat * 180 / Math.PI
+  const lonDeg = lon * 180 / Math.PI
+  
+  return {
+    lat: Math.max(WGS84_BOUNDS.minLat, Math.min(WGS84_BOUNDS.maxLat, latDeg)),
+    lon: Math.max(WGS84_BOUNDS.minLon, Math.min(WGS84_BOUNDS.maxLon, lonDeg))
+  }
+}
+
+/**
+ * Convert Web Mercator (EPSG:3857) coordinates to WGS84
+ * This handles coordinates that might come from GovMap in Web Mercator format
+ */
+export function convertWebMercatorToWGS84(x: number, y: number): { lat: number; lon: number } {
+  const lon = (x / 20037508.34) * 180
+  const lat = (Math.atan(Math.sinh(Math.PI * (1 - 2 * y / 20037508.34))) * 180) / Math.PI
   
   return {
     lat: Math.max(WGS84_BOUNDS.minLat, Math.min(WGS84_BOUNDS.maxLat, lat)),

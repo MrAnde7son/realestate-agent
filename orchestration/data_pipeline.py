@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional, Dict
+from typing import Any, Iterable, List, Optional, Dict, Tuple
 import os
 import time
 import logging
@@ -16,8 +16,10 @@ from yad2.scrapers.yad2_scraper import RealEstateListing
 from orchestration.collectors.yad2_collector import Yad2Collector
 from orchestration.collectors.gis_collector import GISCollector
 from orchestration.collectors.gov_collector import GovCollector
+from orchestration.collectors.govmap_collector import GovMapCollector
 from orchestration.collectors.rami_collector import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
+from govmap.api_client import GovMapClient, itm_to_wgs84
 from orchestration.observability import (
     COLLECTOR_FAILURE,
     COLLECTOR_LATENCY,
@@ -85,6 +87,112 @@ def _load_user_notifiers() -> List[Notifier]:
     return notifiers
 
 
+def _extract_coordinates_from_govmap_autocomplete(autocomplete_result: Dict[str, Any]) -> Optional[Tuple[float, float, float, float]]:
+    """Extract ITM coordinates from GovMap autocomplete response.
+    
+    Returns:
+        Tuple of (x_itm, y_itm, lon_wgs84, lat_wgs84) or None if not found
+    """
+    try:
+        # The new API might have a different structure
+        # Check for both old and new response formats
+        
+        # Try new API format first
+        if "results" in autocomplete_result:
+            results = autocomplete_result.get("results", [])
+            for result in results:
+                # Look for coordinates in various possible fields
+                coords = None
+                
+                # Check for geometry field
+                if "geometry" in result:
+                    geom = result["geometry"]
+                    if "coordinates" in geom:
+                        coords = geom["coordinates"]
+                    elif "x" in geom and "y" in geom:
+                        coords = [geom["x"], geom["y"]]
+                
+                # Check for direct coordinate fields
+                elif "x" in result and "y" in result:
+                    coords = [result["x"], result["y"]]
+                elif "longitude" in result and "latitude" in result:
+                    # These might be WGS84 coordinates, convert to ITM
+                    try:
+                        from govmap.api_client import wgs84_to_itm
+                        lon_wgs84 = float(result["longitude"])
+                        lat_wgs84 = float(result["latitude"])
+                        x_itm, y_itm = wgs84_to_itm(lon_wgs84, lat_wgs84)
+                        logger.info(f"Extracted WGS84 coordinates from GovMap autocomplete: WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f}) -> ITM({x_itm}, {y_itm})")
+                        return (x_itm, y_itm, lon_wgs84, lat_wgs84)
+                    except (ValueError, TypeError) as e:
+                        logger.debug(f"Failed to convert WGS84 coordinates: {e}")
+                        continue
+                
+                if coords and len(coords) >= 2:
+                    try:
+                        x_itm = float(coords[0])
+                        y_itm = float(coords[1])
+                        
+                        # Convert to WGS84
+                        lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+                        
+                        logger.info(f"Extracted coordinates from GovMap autocomplete (new API): ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+                        return (x_itm, y_itm, lon_wgs84, lat_wgs84)
+                    except (ValueError, TypeError) as e:
+                        logger.debug(f"Failed to parse coordinates from new API: {e}")
+                        continue
+        
+        # Fallback to old API format
+        res = autocomplete_result.get("res", {})
+        
+        # Look for coordinates in different categories, prioritizing BUILDING and STREET
+        for category in ["BUILDING", "STREET", "NEIGHBORHOOD", "POI_MID_POINT", "SETTLEMENT"]:
+            items = res.get(category, [])
+            for item in items:
+                shape = item.get("Shape")
+                if shape:
+                    # Shape might be a POINT string like "POINT(184391.15 668715.93)"
+                    if isinstance(shape, str) and shape.startswith("POINT("):
+                        # Extract coordinates from POINT string
+                        coords_str = shape[6:-1]  # Remove "POINT(" and ")"
+                        parts = coords_str.split()
+                        if len(parts) >= 2:
+                            try:
+                                x_itm = float(parts[0])
+                                y_itm = float(parts[1])
+                                
+                                # Convert to WGS84
+                                lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+                                
+                                logger.info(f"Extracted coordinates from GovMap autocomplete (old API): ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+                                return (x_itm, y_itm, lon_wgs84, lat_wgs84)
+                            except (ValueError, TypeError) as e:
+                                logger.debug(f"Failed to parse coordinates from shape '{shape}': {e}")
+                                continue
+                    elif isinstance(shape, dict):
+                        # Shape might be a dict with x, y coordinates
+                        x_itm = shape.get("x") or shape.get("X")
+                        y_itm = shape.get("y") or shape.get("Y")
+                        if x_itm is not None and y_itm is not None:
+                            try:
+                                x_itm = float(x_itm)
+                                y_itm = float(y_itm)
+                                lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+                                
+                                logger.info(f"Extracted coordinates from GovMap autocomplete dict: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+                                return (x_itm, y_itm, lon_wgs84, lat_wgs84)
+                            except (ValueError, TypeError) as e:
+                                logger.debug(f"Failed to parse coordinates from shape dict: {e}")
+                                continue
+        
+        logger.warning("No coordinates found in GovMap autocomplete response")
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error extracting coordinates from GovMap autocomplete: {e}")
+        return None
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +208,8 @@ class DataPipeline:
         "yad2": float(os.getenv("YAD2_TIMEOUT", "30")),
         "gis": float(os.getenv("GIS_TIMEOUT", "30")),
         "gov": float(os.getenv("GOV_TIMEOUT", "60")),
+        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "60")),
+        "govmap_autocomplete": float(os.getenv("GOVMAP_AUTOCOMPLETE_TIMEOUT", "30")),
         "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
         "mavat": float(os.getenv("MAVAT_TIMEOUT", "60")),
     }
@@ -107,6 +217,8 @@ class DataPipeline:
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),
         "gis": int(os.getenv("GIS_RETRIES", "0")),
         "gov": int(os.getenv("GOV_RETRIES", "0")),
+        "govmap": int(os.getenv("GOVMAP_RETRIES", "0")),
+        "govmap_autocomplete": int(os.getenv("GOVMAP_AUTOCOMPLETE_RETRIES", "0")),
         "gov_rami": int(os.getenv("GOV_RAMI_RETRIES", "0")),
         "mavat": int(os.getenv("MAVAT_RETRIES", "0")),
     }
@@ -119,6 +231,7 @@ class DataPipeline:
         yad2: Optional[Yad2Collector] = None,
         gis: Optional[GISCollector] = None,
         gov: Optional[GovCollector] = None,
+        govmap: Optional[GovMapCollector] = None,
         rami: Optional[RamiCollector] = None,
         mavat: Optional[MavatCollector] = None,
     ) -> None:
@@ -145,8 +258,12 @@ class DataPipeline:
         self.yad2 = yad2 or Yad2Collector()
         self.gis = gis or GISCollector()
         self.gov = gov or GovCollector()
+        self.govmap = govmap or GovMapCollector()
         self.rami = rami or RamiCollector()
         self.mavat = mavat or MavatCollector()
+        
+        # Add GovMap client for autocomplete
+        self.govmap_client = GovMapClient()
 
         # Expose Prometheus metrics endpoint
         start_metrics_server(int(os.getenv("METRICS_PORT", "8000")))
@@ -317,14 +434,140 @@ class DataPipeline:
 
             results: List[Any] = []
             
-            # Get GIS data once for the address (not per listing)
-            gis_data = {}
+            # Get address coordinates using GovMap autocomplete
+            govmap_autocomplete_data = {}
+            x_itm = None
+            y_itm = None
+            lon_wgs84 = None
+            lat_wgs84 = None
             block = ""
             parcel = ""
             
-            # Always try to get GIS data, regardless of Yad2 results
+            # Use GovMap autocomplete to get coordinates
             try:
-                logger.info("🗺️ Collecting GIS data for address...")
+                logger.info("🗺️ Getting address coordinates from GovMap autocomplete...")
+                full_address = f"{address} {house_number}" if house_number else address
+                autocomplete_result = self._collect_with_observability(
+                    "govmap_autocomplete",
+                    self.govmap_client.autocomplete,
+                    query=full_address,
+                    timeout=self.TIMEOUTS.get("govmap_autocomplete"),
+                    retries=self.RETRIES.get("govmap_autocomplete", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="govmap_autocomplete")
+                govmap_autocomplete_data = autocomplete_result
+                
+                # Extract coordinates from autocomplete result
+                coords = _extract_coordinates_from_govmap_autocomplete(autocomplete_result)
+                if coords:
+                    x_itm, y_itm, lon_wgs84, lat_wgs84 = coords
+                    logger.info(f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+                else:
+                    logger.warning("⚠️ No coordinates found in GovMap autocomplete response")
+                    
+            except Exception as e:
+                govmap_autocomplete_data = {}
+                track("collector_fail", source="govmap_autocomplete", error_code=str(e))
+                logger.warning(f"⚠️ GovMap autocomplete failed: {e}")
+                logger.info("🔄 Falling back to GIS collector for coordinates...")
+            
+            # Get GovMap parcel data if we have coordinates
+            govmap_data = {}
+            if x_itm is not None and y_itm is not None:
+                try:
+                    logger.info("🏛️ Collecting GovMap parcel data...")
+                    govmap_data = self._collect_with_observability(
+                        "govmap",
+                        self.govmap.collect,
+                        x=x_itm,
+                        y=y_itm,
+                        timeout=self.TIMEOUTS.get("govmap"),
+                        retries=self.RETRIES.get("govmap", 0),
+                        asset_id=asset_id,
+                    )
+                    track("collector_success", source="govmap")
+                    
+                    # Extract block and parcel from GovMap data
+                    if govmap_data.get("parcel"):
+                        parcel_info = govmap_data.get("parcel", {})
+                        block = parcel_info.get("gush", "")
+                        parcel = parcel_info.get("helka", "")
+                    
+                    logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
+                except Exception as e:
+                    govmap_data = {}
+                    track("collector_fail", source="govmap", error_code=str(e))
+                    logger.warning(f"⚠️ GovMap collection failed: {e}")
+
+                # Try to get additional GovMap data using the new API endpoints
+                try:
+                    logger.info("🔍 Collecting additional GovMap data...")
+                    
+                    # Get parcel data using the new API
+                    parcel_data = self._collect_with_observability(
+                        "govmap_parcel_api",
+                        self.govmap_client.get_parcel_data,
+                        x=x_itm,
+                        y=y_itm,
+                        timeout=self.TIMEOUTS.get("govmap"),
+                        retries=self.RETRIES.get("govmap", 0),
+                        asset_id=asset_id,
+                    )
+                    
+                    # Merge parcel data into govmap_data
+                    if parcel_data:
+                        govmap_data["parcel_api_data"] = parcel_data
+                        logger.info("✅ GovMap parcel API data collected successfully")
+                    
+                except Exception as e:
+                    track("collector_fail", source="govmap_parcel_api", error_code=str(e))
+                    logger.warning(f"⚠️ GovMap parcel API data collection failed: {e}")
+
+                # Try to get layers catalog data
+                try:
+                    logger.info("📚 Collecting GovMap layers catalog...")
+                    layers_catalog = self._collect_with_observability(
+                        "govmap_layers_catalog",
+                        self.govmap_client.get_layers_catalog,
+                        language="he",
+                        timeout=self.TIMEOUTS.get("govmap"),
+                        retries=self.RETRIES.get("govmap", 0),
+                        asset_id=asset_id,
+                    )
+                    
+                    if layers_catalog:
+                        govmap_data["layers_catalog"] = layers_catalog
+                        logger.info("✅ GovMap layers catalog collected successfully")
+                    
+                except Exception as e:
+                    track("collector_fail", source="govmap_layers_catalog", error_code=str(e))
+                    logger.warning(f"⚠️ GovMap layers catalog collection failed: {e}")
+
+                # Try to get search types data
+                try:
+                    logger.info("🔍 Collecting GovMap search types...")
+                    search_types = self._collect_with_observability(
+                        "govmap_search_types",
+                        self.govmap_client.get_search_types,
+                        language="he",
+                        timeout=self.TIMEOUTS.get("govmap"),
+                        retries=self.RETRIES.get("govmap", 0),
+                        asset_id=asset_id,
+                    )
+                    
+                    if search_types:
+                        govmap_data["search_types"] = search_types
+                        logger.info("✅ GovMap search types collected successfully")
+                    
+                except Exception as e:
+                    track("collector_fail", source="govmap_search_types", error_code=str(e))
+                    logger.warning(f"⚠️ GovMap search types collection failed: {e}")
+            
+            # Get GIS data (supplementary or fallback for coordinates)
+            gis_data = {}
+            try:
+                logger.info("🗺️ Collecting GIS data...")
                 gis_data = self._collect_with_observability(
                     "gis",
                     self.gis.collect,
@@ -335,9 +578,25 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="gis")
-                block = gis_data.get("block", "")
-                parcel = gis_data.get("parcel", "")
-                logger.info(f"📍 GIS data collected: block={block}, parcel={parcel}")
+                
+                # Use GIS coordinates as fallback if GovMap autocomplete failed
+                if x_itm is None and y_itm is None and gis_data.get('x') and gis_data.get('y'):
+                    try:
+                        from govmap.api_client import itm_to_wgs84
+                        x_itm = gis_data.get('x')
+                        y_itm = gis_data.get('y')
+                        lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+                        logger.info(f"📍 Using GIS coordinates as fallback: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+                    except Exception as coord_e:
+                        logger.warning(f"⚠️ Failed to convert GIS coordinates: {coord_e}")
+                
+                # Use GIS block/parcel as fallback if GovMap failed
+                if not block and gis_data.get('block'):
+                    block = gis_data.get('block', '')
+                if not parcel and gis_data.get('parcel'):
+                    parcel = gis_data.get('parcel', '')
+                
+                logger.info(f"📍 GIS data collected: block={gis_data.get('block', 'N/A')}, parcel={gis_data.get('parcel', 'N/A')}")
             except Exception as e:
                 gis_data = {}
                 track("collector_fail", source="gis", error_code=str(e))
@@ -417,9 +676,20 @@ class DataPipeline:
                     db_listing = self._store_listing(session, listing)
                     results.append(listing)
 
-                    # ---------------- GIS (already collected above) ----------------
-                    self._add_source_record(session, db_listing.id, "gis", gis_data)
-                    results.append({"source": "gis", "data": gis_data})
+                    # ---------------- GovMap Autocomplete (already collected above) ----------------
+                    if govmap_autocomplete_data:
+                        self._add_source_record(session, db_listing.id, "govmap_autocomplete", govmap_autocomplete_data)
+                        results.append({"source": "govmap_autocomplete", "data": govmap_autocomplete_data})
+
+                    # ---------------- GovMap Parcel Data (already collected above) ----------------
+                    if govmap_data:
+                        self._add_source_record(session, db_listing.id, "govmap", govmap_data)
+                        results.append({"source": "govmap", "data": govmap_data})
+
+                    # ---------------- GIS (supplementary data) ----------------
+                    if gis_data:
+                        self._add_source_record(session, db_listing.id, "gis", gis_data)
+                        results.append({"source": "gis", "data": gis_data})
 
                     # ---------------- Gov data (collected once above) ----------------
                     self._add_source_record(session, db_listing.id, "gov", gov_data)
@@ -464,7 +734,15 @@ class DataPipeline:
                 if not listings:
                     logger.info("📊 No Yad2 listings found, but adding collected data to results")
                     
-                    # Add GIS data to results
+                    # Add GovMap autocomplete data to results
+                    if govmap_autocomplete_data:
+                        results.append({"source": "govmap_autocomplete", "data": govmap_autocomplete_data})
+                    
+                    # Add GovMap parcel data to results
+                    if govmap_data:
+                        results.append({"source": "govmap", "data": govmap_data})
+                    
+                    # Add GIS data to results (supplementary)
                     if gis_data:
                         results.append({"source": "gis", "data": gis_data})
                     
@@ -486,7 +764,7 @@ class DataPipeline:
                 
                 # Update Asset model with collected data
                 if asset_id:
-                    _update_asset_with_collected_data(asset_id, block, parcel, gis_data, gov_data, plans, mavat_plans, listings)
+                    _update_asset_with_collected_data(asset_id, block, parcel, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings, x_itm, y_itm, lon_wgs84, lat_wgs84)
                     
                     # Create snapshot for alert evaluation
                     _create_asset_snapshot(asset_id, results)
@@ -509,7 +787,7 @@ class DataPipeline:
             return results
 
 
-def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: List[Dict[str, Any]]) -> None:
+def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: List[Dict[str, Any]], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
     """Update the Asset model with all collected data from GIS, Gov, Mavat, and Yad2."""
     try:
         import os
@@ -535,23 +813,30 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gi
         if parcel:
             asset.parcel = parcel
             
-        # Update coordinates if available
-        if gis_data.get('x') and gis_data.get('y'):
-            # Convert ITM coordinates (EPSG:2039) to WGS84 (EPSG:4326)
-            # GIS returns x,y in ITM format, but we need lat,lon in WGS84
+        # Update coordinates if available (prioritize GovMap coordinates)
+        if lon_wgs84 is not None and lat_wgs84 is not None:
+            # Use coordinates from GovMap autocomplete (already converted to WGS84)
+            asset.lat = lat_wgs84
+            asset.lon = lon_wgs84
+            logger.info("Updated asset coordinates from GovMap autocomplete", extra={
+                "wgs84_lat": lat_wgs84, "wgs84_lon": lon_wgs84,
+                "itm_x": x_itm, "itm_y": y_itm
+            })
+        elif gis_data.get('x') and gis_data.get('y'):
+            # Fallback to GIS coordinates if GovMap coordinates not available
             try:
                 from govmap.api_client import itm_to_wgs84
-                x_itm = gis_data.get('x')
-                y_itm = gis_data.get('y')
-                lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                asset.lat = lat_wgs84
-                asset.lon = lon_wgs84
-                logger.info("Converted ITM to WGS84 coordinates", extra={
-                    "itm_x": x_itm, "itm_y": y_itm, 
-                    "wgs84_lat": lat_wgs84, "wgs84_lon": lon_wgs84
+                x_itm_gis = gis_data.get('x')
+                y_itm_gis = gis_data.get('y')
+                lon_wgs84_gis, lat_wgs84_gis = itm_to_wgs84(x_itm_gis, y_itm_gis)
+                asset.lat = lat_wgs84_gis
+                asset.lon = lon_wgs84_gis
+                logger.info("Updated asset coordinates from GIS (fallback)", extra={
+                    "itm_x": x_itm_gis, "itm_y": y_itm_gis, 
+                    "wgs84_lat": lat_wgs84_gis, "wgs84_lon": lon_wgs84_gis
                 })
             except Exception as e:
-                logger.warning("Failed to convert ITM coordinates to WGS84", extra={
+                logger.warning("Failed to convert GIS ITM coordinates to WGS84", extra={
                     "error": str(e), "x": gis_data.get('x'), "y": gis_data.get('y')
                 })
                 # Fallback: store as-is (will be handled by frontend conversion)
@@ -589,6 +874,31 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gi
             
             # Process and store GIS data in both meta and direct fields
             _process_gis_data(asset, gis_data)
+        
+        # Update with GovMap autocomplete data
+        if govmap_autocomplete_data:
+            asset.meta['govmap_autocomplete_data'] = {
+                'autocomplete_result': govmap_autocomplete_data,
+                'coordinates': {
+                    'x_itm': x_itm,
+                    'y_itm': y_itm,
+                    'lon_wgs84': lon_wgs84,
+                    'lat_wgs84': lat_wgs84
+                }
+            }
+            _process_govmap_autocomplete_data(asset, govmap_autocomplete_data)
+        
+        # Update with GovMap parcel data
+        if govmap_data:
+            asset.meta['govmap_data'] = {
+                'parcel': govmap_data.get('parcel', {}),
+                'nearby_layers': govmap_data.get('nearby', {}),
+                'coordinates': {
+                    'x': govmap_data.get('x'),
+                    'y': govmap_data.get('y')
+                }
+            }
+            _process_govmap_data(asset, govmap_data)
         
         # Update with government data
         if gov_data:
@@ -861,6 +1171,50 @@ def _process_mavat_plans(asset, mavat_plans):
             asset.set_property('mavatPlanStatus', latest_plan.get('status', ''), source='Mavat', url='https://mavat.gov.il/')
 
 
+def _process_govmap_autocomplete_data(asset, govmap_autocomplete_data):
+    """Process GovMap autocomplete data using unified metadata structure."""
+    try:
+        res = govmap_autocomplete_data.get("res", {})
+        
+        # Extract address information from different categories
+        for category in ["BUILDING", "STREET", "NEIGHBORHOOD", "POI_MID_POINT", "SETTLEMENT"]:
+            items = res.get(category, [])
+            if items:
+                # Use the first item from the highest priority category
+                first_item = items[0]
+                if first_item.get("Value"):
+                    asset.set_property(f'govmap_{category.lower()}_name', first_item.get("Value"), source='GovMap Autocomplete', url='https://www.govmap.gov.il/')
+                if first_item.get("Text"):
+                    asset.set_property(f'govmap_{category.lower()}_text', first_item.get("Text"), source='GovMap Autocomplete', url='https://www.govmap.gov.il/')
+                break  # Use only the first matching category
+        
+        # Set primary address source
+        asset.set_property('addressSource', 'GovMap Autocomplete', source='GovMap', url='https://www.govmap.gov.il/')
+        
+    except Exception as e:
+        logger.warning(f"Failed to process GovMap autocomplete data: {e}")
+
+
+def _process_govmap_data(asset, govmap_data):
+    """Process GovMap parcel data using unified metadata structure."""
+    if govmap_data.get('parcel'):
+        parcel = govmap_data.get('parcel', {})
+        # Extract parcel information
+        if parcel.get('gush'):
+            asset.set_property('govmapGush', parcel.get('gush'), source='GovMap', url='https://www.govmap.gov.il/')
+        if parcel.get('helka'):
+            asset.set_property('govmapHelka', parcel.get('helka'), source='GovMap', url='https://www.govmap.gov.il/')
+        if parcel.get('land_use'):
+            asset.set_property('govmapLandUse', parcel.get('land_use'), source='GovMap', url='https://www.govmap.gov.il/')
+    
+    # Process nearby layers data
+    if govmap_data.get('nearby'):
+        nearby = govmap_data.get('nearby', {})
+        for layer_name, features in nearby.items():
+            if features:
+                asset.set_property(f'govmap_{layer_name}_count', len(features), source='GovMap', url='https://www.govmap.gov.il/')
+
+
 
 
 __all__ = [
@@ -868,6 +1222,7 @@ __all__ = [
     "Yad2Collector",
     "GISCollector",
     "GovCollector",
+    "GovMapCollector",
     "RamiCollector",
     "MavatCollector",
 ]

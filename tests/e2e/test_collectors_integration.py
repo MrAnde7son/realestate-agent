@@ -554,13 +554,10 @@ class TestCollectorsIntegration:
 
         # Test 2: Test autocomplete functionality
         logger.info("Testing autocomplete functionality...")
-        try:
-            autocomplete_results = client.autocomplete(TEST_ADDRESS)
-            assert isinstance(autocomplete_results, dict)
-            assert "res" in autocomplete_results
-            logger.info(f"✓ Autocomplete returned results: {list(autocomplete_results.get('res', {}).keys())}")
-        except Exception as e:
-            logger.warning(f"⚠ Autocomplete failed: {e}")
+        autocomplete_results = client.autocomplete(TEST_ADDRESS)
+        assert isinstance(autocomplete_results, dict)
+        assert "res" in autocomplete_results
+        logger.info(f"✓ Autocomplete returned results: {list(autocomplete_results.get('res', {}).keys())}")
 
         # Test 3: Test coordinate conversion
         logger.info("Testing coordinate conversion...")
@@ -580,30 +577,22 @@ class TestCollectorsIntegration:
 
         # Test 4: Test parcel lookup (if coordinates are valid)
         logger.info("Testing parcel lookup...")
-        try:
-            parcel = client.get_parcel_at_point(x_itm, y_itm)
-            if parcel:
-                assert isinstance(parcel, dict)
-                logger.info(f"✓ Found parcel: {parcel.get('type', 'Unknown type')}")
-            else:
-                logger.info("ℹ No parcel found at this location (this might be expected)")
-        except Exception as e:
-            logger.warning(f"⚠ Parcel lookup failed: {e}")
+        parcel = client.get_parcel_at_point(x_itm, y_itm)
+        assert isinstance(parcel, dict)
+        logger.info(f"✓ Found parcel: {parcel.get('type', 'Unknown type')}")
+
 
         # Test 5: Test WMS GetFeatureInfo (if coordinates are valid)
         logger.info("Testing WMS GetFeatureInfo...")
-        try:
-            # Try with a common layer name
-            feature_info = client.wms_getfeatureinfo(
-                layer="opendata:PARCEL_ALL", 
-                x=x_itm, 
-                y=y_itm, 
-                buffer_m=10
-            )
-            assert isinstance(feature_info, list)
-            logger.info(f"✓ WMS GetFeatureInfo returned {len(feature_info)} features")
-        except Exception as e:
-            logger.warning(f"⚠ WMS GetFeatureInfo failed: {e}")
+        # Try with a common layer name
+        feature_info = client.wms_getfeatureinfo(
+            layer="opendata:PARCEL_ALL", 
+            x=x_itm, 
+            y=y_itm, 
+            buffer_m=10
+        )
+        assert isinstance(feature_info, list)
+        logger.info(f"✓ WMS GetFeatureInfo returned {len(feature_info)} features")
 
         logger.info("✓ GovMap Client tests passed")
 
@@ -673,14 +662,15 @@ def main():
         logger.info("=" * 60)
 
         # Test each collector individually
+        test_instance.test_govmap_client()
+        test_instance.test_govmap_collector()
         test_instance.test_mavat_collector_integration()
         test_instance.test_yad2_scraper()
         test_instance.test_nadlan_scraper()
         test_instance.test_decisive_appraisal()
         test_instance.test_gis_client()
         test_instance.test_rami_client()
-        test_instance.test_govmap_client()
-        test_instance.test_govmap_collector()
+
 
         logger.info("🎉 All collectors tested successfully!")
     finally:

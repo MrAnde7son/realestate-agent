@@ -754,8 +754,8 @@ export default function AssetsPage() {
               <MapView
                 key={`map-${viewMode}-${filteredAssets.length}`}
                 assets={filteredAssets}
-                center={[34.7818, 32.0853]}
-                zoom={12}
+                center={[34.98, 31.0]}
+                zoom={14}
                 onAssetClick={(asset) => router.push(`/assets/${asset.id}`)}
                 searchValue={search}
                 onSearchChange={setSearch}

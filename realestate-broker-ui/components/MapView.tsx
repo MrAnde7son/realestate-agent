@@ -168,6 +168,10 @@ export default function MapView({
   const addAssetMarkers = useCallback(() => {
     if (!map.current || !assets.length) return
 
+    console.log('MapView: Adding markers for', assets.length, 'assets')
+    console.log('MapView: Map center:', map.current.getCenter())
+    console.log('MapView: Map zoom:', map.current.getZoom())
+
     // Remove existing markers
     const existingMarkers = document.querySelectorAll('.asset-marker')
     existingMarkers.forEach(marker => marker.remove())
@@ -178,6 +182,7 @@ export default function MapView({
     assets.forEach((asset, index) => {
       // Skip assets with no coordinates (null/undefined) - this is normal
       if (areCoordinatesMissing(asset.lat, asset.lon)) {
+        console.log(`Asset ${asset.id} (${asset.address}) has missing coordinates`)
         return
       }
 
@@ -185,27 +190,30 @@ export default function MapView({
       const coords = validateCoordinates(asset.lat, asset.lon)
       
       if (!coords) {
+        console.warn(`Invalid coordinates for asset ${asset.id}: lat=${asset.lat}, lon=${asset.lon}`)
         return
       }
 
       const { lat, lon } = coords
+      console.log(`Adding marker for asset ${asset.id} at coordinates: ${lat}, ${lon}`)
 
       const markerEl = document.createElement('div')
       markerEl.className = 'asset-marker'
       markerEl.style.cssText = `
-        width: 30px;
-        height: 30px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
-        background-color: #10b981;
-        border: 3px solid white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        background-color: #ef4444;
+        border: 4px solid white;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
         font-weight: bold;
-        font-size: 12px;
+        font-size: 14px;
+        z-index: 1000;
       `
       markerEl.innerHTML = `<span>${index + 1}</span>`
 
@@ -216,18 +224,54 @@ export default function MapView({
       markerEl.addEventListener('mouseenter', () => {
         markerEl.style.transform = 'scale(1.1)'
         markerEl.style.transition = 'transform 0.2s'
+        markerEl.title = asset.address || `Asset ${asset.id}`
       })
 
       markerEl.addEventListener('mouseleave', () => {
         markerEl.style.transform = 'scale(1)'
       })
 
-      new Marker(markerEl)
+      const marker = new Marker(markerEl)
         .setLngLat([lon, lat])
         .addTo(map.current)
       
+      console.log(`Marker added for asset ${asset.id} at [${lon}, ${lat}]`)
+      
       validMarkersCount++
     })
+
+    console.log(`MapView: Marker summary - Total: ${assets.length}, Valid: ${validMarkersCount}`)
+    
+    // If we have valid markers, center the map on them
+    if (validMarkersCount > 0) {
+      const validAssets = assets.filter(asset => {
+        if (areCoordinatesMissing(asset.lat, asset.lon)) return false
+        const coords = validateCoordinates(asset.lat, asset.lon)
+        return coords !== null
+      })
+      
+      if (validAssets.length > 0) {
+        const coordinates = validAssets.map(asset => {
+          const coords = validateCoordinates(asset.lat, asset.lon)!
+          return [coords.lon, coords.lat] as [number, number]
+        })
+        
+        // Calculate bounds
+        const lons = coordinates.map(c => c[0])
+        const lats = coordinates.map(c => c[1])
+        const bounds = [
+          [Math.min(...lons), Math.min(...lats)],
+          [Math.max(...lons), Math.max(...lats)]
+        ] as [[number, number], [number, number]]
+        
+        console.log('MapView: Coordinates:', coordinates)
+        console.log('MapView: Bounds:', bounds)
+        console.log('MapView: Min/Max lons:', Math.min(...lons), Math.max(...lons))
+        console.log('MapView: Min/Max lats:', Math.min(...lats), Math.max(...lats))
+        
+        map.current.fitBounds(bounds, { padding: 50 })
+      }
+    }
   }, [assets, onAssetClick])
 
   // Initialize map

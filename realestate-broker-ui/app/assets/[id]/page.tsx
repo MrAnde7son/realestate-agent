@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building } from 'lucide-react'
+import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
@@ -414,7 +415,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 חזרה לרשימה
               </Link>
             </Button>
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold">{asset.address}</h1>
               <p className="text-muted-foreground">
                 {asset.city}
@@ -617,6 +618,23 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             )}
           </div>
         </div>
+
+        {/* Images Gallery */}
+        {asset.images && asset.images.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>תמונות הנכס</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImageGallery 
+                images={asset.images} 
+                size="lg" 
+                maxDisplay={4}
+                showThumbnails={true}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Quick Stats */}
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">

@@ -16,6 +16,8 @@ import {
   CreditCard,
   Settings,
   LogOut,
+  Receipt,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,12 +60,12 @@ const baseNavigation = [
   {
     name: "מחשבון הוצאות",
     href: "/deal-expenses",
-    icon: Calculator,
+    icon: Receipt,
   },
   {
     name: "מחשבון משכנתא",
     href: "/mortgage/analyze",
-    icon: Calculator,
+    icon: Banknote,
   },
 ];
 

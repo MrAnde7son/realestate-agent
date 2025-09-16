@@ -8,12 +8,20 @@ export interface Buyer {
   bereavedFamily?: boolean
 }
 
+export type PurchaseTaxTrack = 'regular' | 'oleh' | 'disabled' | 'bereaved' | 'land'
+
 export interface PurchaseTaxBreakdown {
   buyer: Buyer
   portionPrice: number
   tax: number
-  track: 'regular' | 'oleh' | 'disabled' | 'bereaved'
+  track: PurchaseTaxTrack
 }
+
+export interface PurchaseTaxOptions {
+  propertyType?: 'residential' | 'land'
+}
+
+const LAND_TAX_RATE = 0.06
 
 // 2025 single home brackets (freeze)
 const SINGLE_HOME_BRACKETS = [
@@ -64,16 +72,34 @@ function calcDisabled(value: number, isFirst: boolean): number {
 
 const calcBereaved = calcDisabled
 
-export function calculatePurchaseTax(price: number, buyers: Buyer[]): { totalTax: number; breakdown: PurchaseTaxBreakdown[] } {
+export function calculatePurchaseTax(
+  price: number,
+  buyers: Buyer[],
+  options: PurchaseTaxOptions = {}
+): { totalTax: number; breakdown: PurchaseTaxBreakdown[] } {
+  const propertyType = options.propertyType ?? 'residential'
+
+  if (propertyType === 'land') {
+    const breakdown = buyers.map((buyer) => {
+      const sharePct = typeof buyer.sharePct === 'number' ? buyer.sharePct : 0
+      const portionPrice = (price * sharePct) / 100
+      const tax = portionPrice * LAND_TAX_RATE
+      return { buyer, portionPrice, tax, track: 'land' as const }
+    })
+    const totalTax = breakdown.reduce((sum, item) => sum + item.tax, 0)
+    return { totalTax, breakdown }
+  }
+
   const breakdown = buyers.map((b) => {
-    const portionPrice = (price * b.sharePct) / 100
+    const sharePct = typeof b.sharePct === 'number' ? b.sharePct : 0
+    const portionPrice = (price * sharePct) / 100
     const isFirst = !!b.isFirstHome || !!b.isReplacementHome
     const regular = calcRegular(portionPrice, isFirst)
     const oleh = b.oleh ? calcOleh(portionPrice) : Infinity
     const disabled = b.disabled ? calcDisabled(portionPrice, isFirst) : Infinity
     const bereaved = b.bereavedFamily ? calcBereaved(portionPrice, isFirst) : Infinity
     const tax = Math.min(regular, oleh, disabled, bereaved)
-    let track: 'regular' | 'oleh' | 'disabled' | 'bereaved' = 'regular'
+    let track: PurchaseTaxTrack = 'regular'
     if (tax === oleh) track = 'oleh'
     else if (tax === disabled) track = 'disabled'
     else if (tax === bereaved) track = 'bereaved'

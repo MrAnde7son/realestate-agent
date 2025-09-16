@@ -10,19 +10,33 @@ export interface ServiceCost {
   cost: number
 }
 
-export function calculateServiceCosts(price: number, services: ServiceInput[], vatRate: number): { total: number; breakdown: ServiceCost[] } {
-  const breakdown = services.map((s) => {
+export function calculateServiceCosts(
+  price: number,
+  services: ServiceInput[],
+  vatRate: number
+): { total: number; breakdown: ServiceCost[] } {
+  const breakdown = services.reduce<ServiceCost[]>((acc, service) => {
     let cost = 0
-    if (typeof s.amount === 'number' && s.amount > 0) {
-      cost = s.amount
-    } else if (typeof s.percent === 'number' && s.percent > 0) {
-      cost = (price * s.percent) / 100
+
+    if (typeof service.amount === 'number' && service.amount > 0) {
+      cost = service.amount
+    } else if (typeof service.percent === 'number' && service.percent > 0) {
+      cost = (price * service.percent) / 100
     }
-    if (!s.includesVat) {
+
+    if (cost <= 0) {
+      return acc
+    }
+
+    const includesVat = service.includesVat ?? false
+    if (!includesVat) {
       cost = cost * (1 + vatRate)
     }
-    return { label: s.label, cost }
-  })
+
+    acc.push({ label: service.label, cost })
+    return acc
+  }, [])
+
   const total = breakdown.reduce((sum, s) => sum + s.cost, 0)
   return { total, breakdown }
 }

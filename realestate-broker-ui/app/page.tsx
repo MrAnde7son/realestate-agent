@@ -28,6 +28,8 @@ import {
   Car,
   TrendingDown,
   Eye,
+  Receipt,
+  Banknote,
   Heart,
   Share2,
 } from "lucide-react";
@@ -696,7 +698,7 @@ export default function HomePage() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
-                  <Calculator className="h-5 w-5 text-green-600" />
+                  <Banknote className="h-5 w-5 text-green-600" />
                 </div>
                 <CardTitle className="text-lg">מחשבון משכנתא</CardTitle>
               </div>
@@ -708,7 +710,7 @@ export default function HomePage() {
               {isAuthenticated ? (
                 <Button asChild variant="outline" className="w-full mt-4">
                   <Link href="/mortgage/analyze">
-                    <Calculator className="h-4 w-4 ml-2" />
+                    <Banknote className="h-4 w-4 ml-2" />
                     חשב משכנתא
                   </Link>
                 </Button>
@@ -718,7 +720,7 @@ export default function HomePage() {
                   variant="outline"
                   className="w-full mt-4"
                 >
-                  <Calculator className="h-4 w-4 ml-2" />
+                  <Banknote className="h-4 w-4 ml-2" />
                   התחבר למחשבון
                 </Button>
               )}

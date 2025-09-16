@@ -11,7 +11,7 @@ import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut } from "lucide-react"
+import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -25,8 +25,8 @@ const mobileNavigation = [
   { name: "בית", href: "/", icon: Home },
   { name: "נכסים", href: "/assets", icon: Building },
   { name: "התראות", href: "/alerts", icon: AlertCircle },
-  { name: "מחשבון הוצאות", href: "/deal-expenses", icon: Calculator },
-  { name: "מחשבון משכנתא", href: "/mortgage/analyze", icon: Calculator },
+  { name: "מחשבון הוצאות", href: "/deal-expenses", icon: Receipt },
+  { name: "מחשבון משכנתא", href: "/mortgage/analyze", icon: Banknote },
   { name: "דוחות", href: "/reports", icon: BarChart3 },
   { name: "פרופיל", href: "/profile", icon: User },
   { name: "חבילות ותשלומים", href: "/billing", icon: CreditCard },

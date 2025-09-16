@@ -39,7 +39,8 @@ import {
   MapPin,
   LandPlot,
   PiggyBank,
-  ClipboardCheck
+  ClipboardCheck,
+  Receipt
 } from 'lucide-react'
 
 export default function DealExpensesPage() {
@@ -52,9 +53,12 @@ export default function DealExpensesPage() {
   const [vatRate, setVatRate] = useState(0.18)
   const [vatUpdated, setVatUpdated] = useState('')
 
+  // Default construction cost per sqm
+  const defaultConstructionCost = 8000 // ₪8,000 per sqm including VAT
+
   const [constructionArea, setConstructionArea] = useState(0)
-  const [constructionCostPerSqm, setConstructionCostPerSqm] = useState(0)
-  const [constructionIncludesVat, setConstructionIncludesVat] = useState(false)
+  const [constructionCostPerSqm, setConstructionCostPerSqm] = useState(defaultConstructionCost)
+  const [constructionIncludesVat, setConstructionIncludesVat] = useState(true) // Default to including VAT
   
   // Asset selection state
   const [assets, setAssets] = useState<Asset[]>([])
@@ -72,15 +76,32 @@ export default function DealExpensesPage() {
     | 'renovation'
     | 'furniture'
   type ServiceState = Record<ServiceKey, { percent?: number; amount?: number; includesVat: boolean }>
-  const [services, setServices] = useState<ServiceState>({
-    broker: { percent: 0, amount: 0, includesVat: false },
-    mortgage: { percent: 0, amount: 0, includesVat: false },
-    inspection: { percent: 0, amount: 0, includesVat: false },
-    lawyer: { percent: 0, amount: 0, includesVat: false },
-    appraiser: { percent: 0, amount: 0, includesVat: false },
-    renovation: { percent: 0, amount: 0, includesVat: false },
-    furniture: { percent: 0, amount: 0, includesVat: false },
-  })
+  
+  // Default values based on industry standards
+  const defaultValues: ServiceState = {
+    lawyer: { percent: 1, amount: 0, includesVat: false }, // 1% + VAT
+    appraiser: { percent: 0, amount: 3000, includesVat: true }, // ₪3,000 including VAT
+    inspection: { percent: 0, amount: 2500, includesVat: true }, // ₪2,500 including VAT
+    broker: { percent: 2, amount: 0, includesVat: false }, // 2% + VAT
+    mortgage: { percent: 0, amount: 8000, includesVat: true }, // ₪8,000 including VAT
+    renovation: { percent: 0, amount: 1500, includesVat: true }, // ₪1,500 per sqm including VAT
+    furniture: { percent: 0, amount: 100000, includesVat: true }, // ₪100,000 including VAT
+  }
+  
+  // Initialize services with default values, calculating renovation based on initial area
+  const getInitialServices = (): ServiceState => {
+    const initialServices = { ...defaultValues }
+    if (area > 0) {
+      initialServices.renovation = {
+        percent: 0,
+        amount: defaultValues.renovation.amount! * area,
+        includesVat: defaultValues.renovation.includesVat
+      }
+    }
+    return initialServices
+  }
+
+  const [services, setServices] = useState<ServiceState>(getInitialServices())
 
   const isLand = propertyType === 'land'
   const baseConstructionEstimate = isLand ? (constructionArea || 0) * (constructionCostPerSqm || 0) : 0
@@ -118,6 +139,20 @@ export default function DealExpensesPage() {
   useEffect(() => {
     loadAssets()
   }, [])
+
+  // Update renovation cost when area changes (since it's calculated per sqm)
+  useEffect(() => {
+    if (area > 0) {
+      setServices(prev => ({
+        ...prev,
+        renovation: {
+          percent: 0,
+          amount: defaultValues.renovation.amount! * area,
+          includesVat: defaultValues.renovation.includesVat
+        }
+      }))
+    }
+  }, [area])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -223,6 +258,80 @@ export default function DealExpensesPage() {
       field,
       value,
       includes_vat: field === 'includesVat' ? value : services[key].includesVat
+    })
+  }
+
+  function applyDefaultValue(key: ServiceKey) {
+    const defaultValue = defaultValues[key]
+    
+    // Special handling for renovation - calculate based on area
+    if (key === 'renovation' && area > 0) {
+      const renovationAmount = defaultValue.amount! * area
+      setServices(prev => ({ 
+        ...prev, 
+        [key]: { 
+          percent: 0, 
+          amount: renovationAmount, 
+          includesVat: defaultValue.includesVat 
+        } 
+      }))
+    } else {
+      setServices(prev => ({ ...prev, [key]: { ...defaultValue } }))
+    }
+    
+    // Track default value application
+    trackCalculatorUsage('expense', 'default_value_applied', {
+      service_key: key,
+      default_value: defaultValue,
+      area: key === 'renovation' ? area : undefined
+    })
+  }
+
+  function applyAllDefaults() {
+    const updatedServices = { ...defaultValues }
+    
+    // Special handling for renovation - calculate based on area
+    if (area > 0) {
+      updatedServices.renovation = {
+        percent: 0,
+        amount: defaultValues.renovation.amount! * area,
+        includesVat: defaultValues.renovation.includesVat
+      }
+    }
+    
+    setServices(updatedServices)
+    
+    // Track all defaults application
+    trackCalculatorUsage('expense', 'all_defaults_applied', {
+      default_values: updatedServices,
+      area: area
+    })
+  }
+
+  function clearAllServices() {
+    const clearedServices: ServiceState = {
+      broker: { percent: 0, amount: 0, includesVat: false },
+      mortgage: { percent: 0, amount: 0, includesVat: false },
+      inspection: { percent: 0, amount: 0, includesVat: false },
+      lawyer: { percent: 0, amount: 0, includesVat: false },
+      appraiser: { percent: 0, amount: 0, includesVat: false },
+      renovation: { percent: 0, amount: 0, includesVat: false },
+      furniture: { percent: 0, amount: 0, includesVat: false },
+    }
+    setServices(clearedServices)
+    
+    // Track clear all
+    trackCalculatorUsage('expense', 'all_services_cleared')
+  }
+
+  function applyDefaultConstructionCost() {
+    setConstructionCostPerSqm(defaultConstructionCost)
+    setConstructionIncludesVat(true)
+    
+    // Track default construction cost application
+    trackCalculatorUsage('expense', 'default_construction_cost_applied', {
+      default_cost: defaultConstructionCost,
+      includes_vat: true
     })
   }
 
@@ -786,12 +895,29 @@ export default function DealExpensesPage() {
                 <>
                   <Separator />
                   <div className="space-y-4">
-                    <div className="space-y-1">
-                      <Label className="text-sm font-medium">עלויות בנייה משוערות</Label>
-                      <p className="text-xs text-muted-foreground">
-                        הזן את שטח הבנייה המתוכנן ועלות הבנייה למטר כדי לחשב את ההשקעה הכוללת בפרויקט
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">עלויות בנייה משוערות</Label>
+                        <p className="text-xs text-muted-foreground">
+                          הזן את שטח הבנייה המתוכנן ועלות הבנייה למטר כדי לחשב את ההשקעה הכוללת בפרויקט
+                        </p>
+                      </div>
+                      <Button 
+                        onClick={applyDefaultConstructionCost} 
+                        size="sm" 
+                        variant="outline"
+                        className="text-xs"
+                      >
+                        <TrendingUp className="h-4 w-4 ml-2" />
+                        ברירת מחדל
+                      </Button>
                     </div>
+                    
+                    {/* Default construction cost hint */}
+                    <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                      <strong>ברירת מחדל:</strong> {fmtCurrency(defaultConstructionCost)} למ&quot;ר כולל מע&quot;מ
+                    </div>
+                    
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="construction-area" className="text-xs">
@@ -840,7 +966,7 @@ export default function DealExpensesPage() {
                       <div className="text-xs text-muted-foreground text-right">
                         {constructionIncludesVat
                           ? 'העלות תיקח בחשבון את הסכום שהוזן ככולל מע&quot;מ'
-                          : `הסכום יחושב בהתאם למע&quot;מ הנוכחי (${(vatRate * 100).toFixed(1)}%)`}
+                          : `הסכום יחושב בהתאם למע"מ הנוכחי (${(vatRate * 100).toFixed(1)}%)`}
                       </div>
                     </div>
                     <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3">
@@ -967,67 +1093,108 @@ export default function DealExpensesPage() {
         {/* Service costs */}
         <Card className="mt-6">
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-                <Calculator className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                  <Receipt className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <CardTitle>עלויות נלוות</CardTitle>
+                  <CardDescription>הוסף עלויות עיסקה כמו עורך דין, עמלת תיווך, יועץ משכנתא ועוד</CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle>עלויות נלוות</CardTitle>
-                <CardDescription>הוסף עלויות עיסקה כמו עורך דין, עמלת תיווך, יועץ משכנתא ועוד</CardDescription>
+              <div className="flex gap-2">
+                <Button onClick={applyAllDefaults} size="sm" variant="outline">
+                  <TrendingUp className="h-4 w-4 ml-2" />
+                  ברירות מחדל
+                </Button>
+                <Button onClick={clearAllServices} size="sm" variant="outline">
+                  <X className="h-4 w-4 ml-2" />
+                  נקה הכל
+                </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
-              {(Object.keys(services) as ServiceKey[]).map((key) => (
-                <Card key={key} variant="outlined" className="p-4">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      {getServiceIcon(key)}
-                      <span className="font-medium">{labelMap[key]}</span>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs">אחוז מהמחיר</Label>
-                          <div className="relative">
-                            <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="0"
-                              type="number"
-                              value={services[key].percent ?? ''}
-                              onChange={e => handleServiceChange(key, 'percent', parseFloat(e.target.value) || 0)}
-                              className="pr-10"
-                            />
-                          </div>
+              {(Object.keys(services) as ServiceKey[]).map((key) => {
+                const defaultValue = defaultValues[key]
+                const isUsingDefault = 
+                  services[key].percent === defaultValue.percent && 
+                  services[key].amount === defaultValue.amount && 
+                  services[key].includesVat === defaultValue.includesVat
+                
+                return (
+                  <Card key={key} variant="outlined" className="p-4">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {getServiceIcon(key)}
+                          <span className="font-medium">{labelMap[key]}</span>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs">סכום קבוע</Label>
-                          <div className="relative">
-                            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
-                            <Input
-                              placeholder="0"
-                              type="number"
-                              value={services[key].amount ?? ''}
-                              onChange={e => handleServiceChange(key, 'amount', parseFloat(e.target.value) || 0)}
-                              className="pr-10"
-                            />
-                          </div>
-                        </div>
+                        <Button 
+                          onClick={() => applyDefaultValue(key)} 
+                          size="sm" 
+                          variant={isUsingDefault ? "default" : "outline"}
+                          className="text-xs"
+                        >
+                          {isUsingDefault ? "ברירת מחדל" : "החל ברירת מחדל"}
+                        </Button>
                       </div>
                       
-                      <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
-                        <Switch
-                          checked={services[key].includesVat}
-                          onCheckedChange={v => handleServiceChange(key, 'includesVat', v)}
-                        />
-                        <span className="text-sm">כולל מע&quot;מ</span>
-                      </label>
+                      {/* Default value hint */}
+                      <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                        <strong>ברירת מחדל:</strong> {
+                          (defaultValue.percent ?? 0) > 0 
+                            ? `${defaultValue.percent}% מהמחיר${defaultValue.includesVat ? ' (כולל מע"מ)' : ' + מע"מ'}`
+                            : key === 'renovation' 
+                              ? `${fmtCurrency(defaultValue.amount ?? 0)} למ"ר${defaultValue.includesVat ? ' (כולל מע"מ)' : ' + מע"מ'}`
+                              : `${fmtCurrency(defaultValue.amount ?? 0)}${defaultValue.includesVat ? ' (כולל מע"מ)' : ' + מע"מ'}`
+                        }
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs">אחוז מהמחיר</Label>
+                            <div className="relative">
+                              <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="0"
+                                type="number"
+                                value={services[key].percent ?? ''}
+                                onChange={e => handleServiceChange(key, 'percent', parseFloat(e.target.value) || 0)}
+                                className="pr-10"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">סכום קבוע</Label>
+                            <div className="relative">
+                              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
+                              <Input
+                                placeholder="0"
+                                type="number"
+                                value={services[key].amount ?? ''}
+                                onChange={e => handleServiceChange(key, 'amount', parseFloat(e.target.value) || 0)}
+                                className="pr-10"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                          <Switch
+                            checked={services[key].includesVat}
+                            onCheckedChange={v => handleServiceChange(key, 'includesVat', v)}
+                          />
+                          <span className="text-sm">כולל מע&quot;מ</span>
+                        </label>
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
@@ -1035,7 +1202,7 @@ export default function DealExpensesPage() {
         {/* Calculate Button */}
         <div className="flex justify-center mt-8">
           <Button onClick={calculate} size="lg" className="px-8">
-            <Calculator className="h-5 w-5 ml-2" />
+            <Receipt className="h-5 w-5 ml-2" />
             חשב הוצאות
           </Button>
         </div>
@@ -1111,7 +1278,7 @@ export default function DealExpensesPage() {
                     <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                       <div className="flex items-center gap-2">
                         <Hammer className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">סה"כ עלות בנייה</span>
+                        <span className="font-medium">סה&quot;כ עלות בנייה</span>
                       </div>
                       <span className="font-semibold">{fmtCurrency(result.constructionCost)}</span>
                     </div>

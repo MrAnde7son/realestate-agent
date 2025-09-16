@@ -64,7 +64,9 @@ export class MapLayerService {
             tiles: [config.urlTemplate!],
             tileSize: 256,
             attribution: `© ${config.label}`,
-            scheme: 'xyz'
+            scheme: 'xyz',
+            minzoom: config.minzoom,
+            maxzoom: config.maxzoom
           }
           break
 
@@ -77,7 +79,9 @@ export class MapLayerService {
             tiles: [wmsUrl],
             tileSize: 256,
             attribution: `© ${config.label}`,
-            scheme: 'xyz'
+            scheme: 'xyz',
+            minzoom: config.minzoom,
+            maxzoom: config.maxzoom
           }
           break
 
@@ -109,8 +113,13 @@ export class MapLayerService {
           break
       }
 
-      // Add source
-      this.map.addSource(sourceId, source)
+      // Add source with error handling
+      try {
+        this.map.addSource(sourceId, source)
+      } catch (sourceError) {
+        console.warn(`Failed to add source ${sourceId}:`, sourceError)
+        throw sourceError
+      }
 
       // Add layer
       let layer: any = {}
@@ -122,6 +131,9 @@ export class MapLayerService {
           source: sourceId,
           paint: {
             'raster-opacity': config.opacity
+          },
+          layout: {
+            visibility: config.visible ? 'visible' : 'none'
           }
         }
       } else if (config.type === 'geojson') {
@@ -132,6 +144,9 @@ export class MapLayerService {
           paint: {
             'fill-color': '#0080ff',
             'fill-opacity': config.opacity
+          },
+          layout: {
+            visibility: config.visible ? 'visible' : 'none'
           }
         }
       } else if (config.type === 'vector') {
@@ -143,6 +158,9 @@ export class MapLayerService {
           paint: {
             'fill-color': '#0080ff',
             'fill-opacity': config.opacity
+          },
+          layout: {
+            visibility: config.visible ? 'visible' : 'none'
           }
         }
       }
@@ -158,6 +176,14 @@ export class MapLayerService {
           opacity: config.opacity,
           visible: config.visible
         })
+
+        // Add error event listener for tile loading failures
+        this.map.on('error', (e: any) => {
+          if (e.sourceId === sourceId) {
+            console.warn(`Tile loading error for layer ${config.id}:`, e.error)
+          }
+        })
+
       } catch (layerError) {
         console.warn(`Failed to add layer ${config.id}:`, layerError)
         // Clean up the source if layer creation fails
@@ -171,6 +197,7 @@ export class MapLayerService {
 
     } catch (error) {
       console.error(`Error adding layer ${config.id}:`, error)
+      // Don't throw the error to prevent breaking other layers
     }
   }
 
@@ -252,7 +279,25 @@ export class MapLayerService {
         await this.addLayer(config as LayerConfig)
       } catch (error) {
         console.warn(`Failed to load layer ${config.id}:`, error)
-        // Continue loading other layers even if one fails
+        
+        // Try to load fallback layer for orthophoto services
+        if (config.id.includes('ortho') && !config.id.includes('openstreetmap')) {
+          try {
+            const fallbackConfig = {
+              ...config,
+              id: 'openstreetmap',
+              label: 'OpenStreetMap (Fallback)',
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              opacity: 0.6,
+              minzoom: 0,
+              maxzoom: 19
+            }
+            console.log(`Loading fallback layer for ${config.id}`)
+            await this.addLayer(fallbackConfig as LayerConfig)
+          } catch (fallbackError) {
+            console.warn(`Failed to load fallback layer for ${config.id}:`, fallbackError)
+          }
+        }
       }
     })
     await Promise.allSettled(promises)

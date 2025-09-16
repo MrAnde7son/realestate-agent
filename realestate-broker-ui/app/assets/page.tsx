@@ -42,11 +42,13 @@ import OnboardingProgress from "@/components/OnboardingProgress";
 import { selectOnboardingState, getCompletionPct } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
+import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import PlanLimitDialog from "@/components/PlanLimitDialog";
+import { apiClient } from "@/lib/api-client";
 
 const DEFAULT_RADIUS_METERS = 100;
 
@@ -69,7 +71,7 @@ export default function AssetsPage() {
     const val = searchParams.get("priceMax");
     return val ? Number(val) : undefined;
   });
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
   const { user, isAuthenticated, refreshUser } = useAuth();
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
   const router = useRouter();
@@ -205,12 +207,11 @@ export default function AssetsPage() {
   const fetchAssets = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/assets");
+      const response = await apiClient.get("/api/assets");
       if (response.ok) {
-        const data = await response.json();
-        setAssets(data.rows);
+        setAssets(response.data.rows);
       } else {
-        console.error("Failed to fetch assets");
+        console.error("Failed to fetch assets:", response.error);
       }
     } catch (error) {
       console.error("Error fetching assets:", error);
@@ -245,9 +246,8 @@ export default function AssetsPage() {
 
     setDeleting(assetId);
     try {
-      const response = await fetch("/api/assets", {
+      const response = await apiClient.request("/api/assets", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assetId }),
       });
 
@@ -259,10 +259,9 @@ export default function AssetsPage() {
           variant: "success",
         });
       } else {
-        const error = await response.json();
         toast({
           title: "שגיאה",
-          description: `שגיאה במחיקת הנכס: ${error.error}`,
+          description: `שגיאה במחיקת הנכס: ${response.error}`,
           variant: "destructive",
         });
       }
@@ -400,11 +399,8 @@ export default function AssetsPage() {
               radius: data.radius,
             };
 
-      const response = await fetch("/api/assets", {
+      const response = await apiClient.request("/api/assets", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(body),
       });
 
@@ -421,17 +417,16 @@ export default function AssetsPage() {
           variant: "success",
         });
       } else {
-        const errorData = await response.json();
-        console.error("Failed to create asset:", errorData);
+        console.error("Failed to create asset:", response.error);
         
         // Handle plan limit errors
-        if (response.status === 403 && errorData.error === 'asset_limit_exceeded') {
-          setPlanLimitError(errorData);
+        if (response.status === 403 && response.data?.error === 'asset_limit_exceeded') {
+          setPlanLimitError(response.data);
           setShowPlanLimitDialog(true);
         } else {
           toast({
             title: "שגיאה",
-            description: `שגיאה ביצירת הנכס: ${errorData.error || 'שגיאה לא ידועה'}`,
+            description: `שגיאה ביצירת הנכס: ${response.error || 'שגיאה לא ידועה'}`,
             variant: "destructive",
           });
         }
@@ -702,12 +697,15 @@ export default function AssetsPage() {
             )}
 
 
-        {/* Assets Table */}
+        {/* Assets View */}
         <Card id="main-content">
           <CardHeader>
             <CardTitle>נכסים זמינים</CardTitle>
             <CardDescription>
-              טבלת נכסים עם נתוני שמאות, תכנון וניתוח שווי
+              {viewMode === 'map' 
+                ? 'מפת נכסים עם שכבות מידע ממשלתיות ועירוניות'
+                : 'טבלת נכסים עם נתוני שמאות, תכנון וניתוח שווי'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -752,6 +750,18 @@ export default function AssetsPage() {
                   ))}
                 </div>
               </div>
+            ) : viewMode === 'map' ? (
+              <MapView
+                key={`map-${viewMode}-${filteredAssets.length}`}
+                assets={filteredAssets}
+                center={[34.98, 31.0]}
+                zoom={14}
+                onAssetClick={(asset) => router.push(`/assets/${asset.id}`)}
+                searchValue={search}
+                onSearchChange={setSearch}
+                height="600px"
+                onBackToTable={() => setViewMode('table')}
+              />
             ) : (
               <AssetsTable 
                 data={filteredAssets} 

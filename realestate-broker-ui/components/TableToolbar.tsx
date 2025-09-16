@@ -34,6 +34,7 @@ import {
   Settings,
   Grid3X3,
   List,
+  Map,
   X,
   ChevronDown,
   Plus,
@@ -90,8 +91,8 @@ interface TableToolbarProps {
   totalCount: number;
   
   // View mode
-  viewMode: 'table' | 'cards';
-  onViewModeChange: (mode: 'table' | 'cards') => void;
+  viewMode: 'table' | 'cards' | 'map';
+  onViewModeChange: (mode: 'table' | 'cards' | 'map') => void;
   
   // Actions
   onRefresh: () => void;
@@ -413,6 +414,7 @@ export default function TableToolbar({
             size="sm"
             onClick={() => onViewModeChange('table')}
             className="rounded-r-none"
+            title="תצוגת טבלה"
           >
             <List className="h-4 w-4" />
           </Button>
@@ -420,9 +422,19 @@ export default function TableToolbar({
             variant={viewMode === 'cards' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('cards')}
-            className="rounded-l-none"
+            className="rounded-none border-x"
+            title="תצוגת כרטיסים"
           >
             <Grid3X3 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'map' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onViewModeChange('map')}
+            className="rounded-l-none"
+            title="תצוגת מפה"
+          >
+            <Map className="h-4 w-4" />
           </Button>
         </div>
 

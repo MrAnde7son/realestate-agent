@@ -88,31 +88,53 @@ def build_listing(
         "normalizedAddress": asset.normalized_address,
     }
     
-    # Add all meta fields to the listing data
+    # Process unified metadata structure
+    _meta = {}
     for key, value in meta.items():
         if key not in ['gis_data', 'government_data', 'rami_plans', 'mavat_plans', 'yad2_listings', 'market_data', 'last_enrichment']:
-            listing_data[key] = value
+            if isinstance(value, dict) and "value" in value:
+                # This is a unified metadata entry
+                listing_data[key] = value.get("value")
+                _meta[key] = {
+                    "source": value.get("source"),
+                    "fetched_at": value.get("fetched_at"),
+                    "url": value.get("url")
+                }
+            else:
+                # This is a simple value (backward compatibility)
+                listing_data[key] = value
+    
+    # Add _meta to listing data if we have any metadata
+    if _meta:
+        listing_data["_meta"] = _meta
+    
+    # Helper function to get value from unified metadata
+    def get_meta_value(key):
+        value = meta.get(key)
+        if isinstance(value, dict) and "value" in value:
+            return value.get("value")
+        return value
     
     # Add specific fields with fallback logic
     listing_data.update({
-        "zoning": _first_nonempty(asset.zoning, meta.get("zoning")),
-        "rentEstimate": _first_nonempty(asset.rent_estimate, meta.get("rentEstimate")),
-        "riskFlags": meta.get("riskFlags") or [],
-        "documents": meta.get("documents") or [],
-        "bathrooms": _first_nonempty(asset.bathrooms, meta.get("bathrooms")),
-        "balconyArea": _first_nonempty(asset.balcony_area, meta.get("balconyArea")),
-        "parkingSpaces": _first_nonempty(asset.parking_spaces, meta.get("parkingSpaces")),
-        "storageRoom": _first_nonempty(asset.storage_room, meta.get("storageRoom")),
-        "elevator": _first_nonempty(asset.elevator, meta.get("elevator")),
-        "airConditioning": _first_nonempty(asset.air_conditioning, meta.get("airConditioning")),
-        "furnished": _first_nonempty(asset.furnished, meta.get("furnished")),
-        "renovated": _first_nonempty(asset.renovated, meta.get("renovated")),
-        "yearBuilt": _first_nonempty(asset.year_built, meta.get("yearBuilt")),
-        "lastRenovation": _first_nonempty(asset.last_renovation, meta.get("lastRenovation")),
-        "floor": _first_nonempty(asset.floor, meta.get("floor")),
-        "totalFloors": _first_nonempty(asset.total_floors, meta.get("totalFloors")),
-        "buildingRights": _first_nonempty(asset.building_rights, meta.get("buildingRights")),
-        "permitStatus": _first_nonempty(asset.permit_status, meta.get("permitStatus")),
+        "zoning": _first_nonempty(asset.zoning, get_meta_value("zoning")),
+        "rentEstimate": _first_nonempty(asset.rent_estimate, get_meta_value("rentEstimate")),
+        "riskFlags": get_meta_value("riskFlags") or [],
+        "documents": get_meta_value("documents") or [],
+        "bathrooms": _first_nonempty(asset.bathrooms, get_meta_value("bathrooms")),
+        "balconyArea": _first_nonempty(asset.balcony_area, get_meta_value("balconyArea")),
+        "parkingSpaces": _first_nonempty(asset.parking_spaces, get_meta_value("parkingSpaces")),
+        "storageRoom": _first_nonempty(asset.storage_room, get_meta_value("storageRoom")),
+        "elevator": _first_nonempty(asset.elevator, get_meta_value("elevator")),
+        "airConditioning": _first_nonempty(asset.air_conditioning, get_meta_value("airConditioning")),
+        "furnished": _first_nonempty(asset.furnished, get_meta_value("furnished")),
+        "renovated": _first_nonempty(asset.renovated, get_meta_value("renovated")),
+        "yearBuilt": _first_nonempty(asset.year_built, get_meta_value("yearBuilt")),
+        "lastRenovation": _first_nonempty(asset.last_renovation, get_meta_value("lastRenovation")),
+        "floor": _first_nonempty(asset.floor, get_meta_value("floor")),
+        "totalFloors": _first_nonempty(asset.total_floors, get_meta_value("totalFloors")),
+        "buildingRights": _first_nonempty(asset.building_rights, get_meta_value("buildingRights")),
+        "permitStatus": _first_nonempty(asset.permit_status, get_meta_value("permitStatus")),
         "permitDate": asset.permit_date.isoformat() if asset.permit_date else None,
     })
     

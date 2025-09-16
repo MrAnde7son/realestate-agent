@@ -10,7 +10,7 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
     >
       <table
         data-slot='table'
-        className={cn('w-full caption-bottom text-sm', className)}
+        className={cn('w-full caption-bottom text-sm table-fixed', className)}
         {...props}
       />
     </div>
@@ -115,13 +115,13 @@ export function TR({ children, className, ...props }: React.ComponentProps<'tr'>
   return <TableRow className={className} {...props}>{children}</TableRow>
 }
 
-export function TH({ children, className }: { children: React.ReactNode, className?: string }) {
-  return <TableHead className={className}>{children}</TableHead>
+export function TH({ children, className, style, ...props }: { children: React.ReactNode, className?: string, style?: React.CSSProperties } & React.ComponentProps<'th'>) {
+  return <TableHead className={className} style={style} {...props}>{children}</TableHead>
 }
 
-export function TD({ children, className, ...props }: React.ComponentProps<'td'>) {
+export function TD({ children, className, style, ...props }: React.ComponentProps<'td'>) {
   return (
-    <TableCell className={className} {...props}>
+    <TableCell className={className} style={style} {...props}>
       {children}
     </TableCell>
   )

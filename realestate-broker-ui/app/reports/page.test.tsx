@@ -20,6 +20,8 @@ describe('ReportsPage', () => {
     ];
 
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
       json: () => Promise.resolve({ reports: sampleReports })
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -31,6 +33,11 @@ describe('ReportsPage', () => {
     expect(reportRow).toBeInTheDocument();
     
     // Verify the API was called
-    expect(fetchMock).toHaveBeenCalledWith('/api/reports');
+    expect(fetchMock).toHaveBeenCalledWith('/api/reports', expect.objectContaining({
+      headers: expect.objectContaining({
+        'Content-Type': 'application/json',
+      }),
+      method: 'GET',
+    }));
   });
 });

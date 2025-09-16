@@ -255,14 +255,14 @@ export function useAnalytics() {
   }, []);
 
   return {
-    trackEvent: analytics.trackEvent.bind(analytics),
-    trackPageView: analytics.trackPageView.bind(analytics),
-    trackSearch: analytics.trackSearch.bind(analytics),
-    trackFeatureUsage: analytics.trackFeatureUsage.bind(analytics),
-    trackPerformance: analytics.trackPerformance.bind(analytics),
-    trackCalculatorUsage: analytics.trackCalculatorUsage.bind(analytics),
-    trackCalculatorCalculation: analytics.trackCalculatorCalculation.bind(analytics),
-    trackCalculatorExport: analytics.trackCalculatorExport.bind(analytics),
+    trackEvent: useCallback(analytics.trackEvent.bind(analytics), []),
+    trackPageView: useCallback(analytics.trackPageView.bind(analytics), []),
+    trackSearch: useCallback(analytics.trackSearch.bind(analytics), []),
+    trackFeatureUsage: useCallback(analytics.trackFeatureUsage.bind(analytics), []),
+    trackPerformance: useCallback(analytics.trackPerformance.bind(analytics), []),
+    trackCalculatorUsage: useCallback(analytics.trackCalculatorUsage.bind(analytics), []),
+    trackCalculatorCalculation: useCallback(analytics.trackCalculatorCalculation.bind(analytics), []),
+    trackCalculatorExport: useCallback(analytics.trackCalculatorExport.bind(analytics), []),
   };
 }
 

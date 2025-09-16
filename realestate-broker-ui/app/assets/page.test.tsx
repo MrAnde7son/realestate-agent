@@ -75,7 +75,8 @@ const mockUseAuth = {
   isAuthenticated: true,
   user: { id: '1', name: 'Test User' },
   login: vi.fn(),
-  logout: vi.fn()
+  logout: vi.fn(),
+  refreshUser: vi.fn()
 }
 
 // Test wrapper with providers

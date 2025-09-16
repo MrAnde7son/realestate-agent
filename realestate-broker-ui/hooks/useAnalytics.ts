@@ -100,6 +100,39 @@ class AnalyticsTracker {
     });
   }
 
+  trackCalculatorUsage(calculatorType: 'mortgage' | 'expense', action: string, meta?: Record<string, any>): void {
+    this.trackEvent({
+      event: 'calculator_usage',
+      meta: {
+        calculator_type: calculatorType,
+        action,
+        ...meta,
+      },
+    });
+  }
+
+  trackCalculatorCalculation(calculatorType: 'mortgage' | 'expense', inputData: Record<string, any>, resultData?: Record<string, any>): void {
+    this.trackEvent({
+      event: 'calculator_calculation',
+      meta: {
+        calculator_type: calculatorType,
+        input_data: inputData,
+        result_data: resultData,
+      },
+    });
+  }
+
+  trackCalculatorExport(calculatorType: 'mortgage' | 'expense', exportFormat: 'csv' | 'pdf' | 'excel', meta?: Record<string, any>): void {
+    this.trackEvent({
+      event: 'calculator_export',
+      meta: {
+        calculator_type: calculatorType,
+        export_format: exportFormat,
+        ...meta,
+      },
+    });
+  }
+
   startPageTimer(pagePath: string): void {
     this.currentPage = pagePath;
     this.pageStartTime = Date.now();
@@ -227,6 +260,9 @@ export function useAnalytics() {
     trackSearch: analytics.trackSearch.bind(analytics),
     trackFeatureUsage: analytics.trackFeatureUsage.bind(analytics),
     trackPerformance: analytics.trackPerformance.bind(analytics),
+    trackCalculatorUsage: analytics.trackCalculatorUsage.bind(analytics),
+    trackCalculatorCalculation: analytics.trackCalculatorCalculation.bind(analytics),
+    trackCalculatorExport: analytics.trackCalculatorExport.bind(analytics),
   };
 }
 

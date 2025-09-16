@@ -4,6 +4,7 @@ from db.database import SQLAlchemyDatabase
 from orchestration.collectors import (
     GISCollector,
     GovCollector,
+    GovMapCollector,
     MavatCollector,
     RamiCollector,
     Yad2Collector,
@@ -79,6 +80,34 @@ class FakeRamiCollector(RamiCollector):
         return [{"planNumber": "111", "planId": "222"}]
 
 
+class FakeGovMapCollector(GovMapCollector):
+    def __init__(self):
+        pass
+    
+    def autocomplete(self, query):
+        return {
+            "resultsCount": 1,
+            "results": [{
+                "address": "Fake st 1",
+                "x": 183162.21989007457,
+                "y": 667055.4977532875,
+                "city": "תל אביב",
+                "street": "Fake",
+                "house_number": 1
+            }],
+            "aggregations": []
+        }
+    
+    def collect(self, x, y):
+        return {
+            "parcel": {
+                "gush": "1",
+                "helka": "2"
+            },
+            "nearby": {}
+        }
+
+
 class FakeMavatCollector(MavatCollector):
     def __init__(self):
         pass
@@ -96,6 +125,7 @@ def test_data_pipeline_integration():
         yad2=FakeYad2Collector(),
         gis=FakeGISCollector(),
         gov=FakeGovCollector(),
+        govmap=FakeGovMapCollector(),
         rami=FakeRamiCollector(),
         mavat=FakeMavatCollector(),
         db_session=db.get_session()

@@ -540,7 +540,7 @@ export default function MapView({
               שכבות
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80" align="end">
+          <PopoverContent className="w-80 bg-white text-gray-900 border border-gray-200" align="end">
             <div className="space-y-4">
               <h4 className="font-medium">ניהול שכבות</h4>
               {layers.map((layer) => (

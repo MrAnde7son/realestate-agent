@@ -98,7 +98,8 @@ const mockUseAuth = {
   isAuthenticated: true,
   user: { id: '1', name: 'Test User', email: 'test@example.com' },
   login: vi.fn(),
-  logout: vi.fn()
+  logout: vi.fn(),
+  refreshUser: vi.fn()
 }
 
 // Test wrapper with providers
@@ -271,7 +272,12 @@ describe('Asset Management Integration', () => {
       })
 
       // Should refresh the list after successful creation
-      expect(global.fetch).toHaveBeenCalledWith('/api/assets')
+      expect(global.fetch).toHaveBeenCalledWith('/api/assets', expect.objectContaining({
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+        }),
+        method: 'GET',
+      }))
     })
 
     it('validates form input correctly', async () => {

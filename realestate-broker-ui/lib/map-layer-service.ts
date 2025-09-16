@@ -64,24 +64,34 @@ export class MapLayerService {
             tiles: [config.urlTemplate!],
             tileSize: 256,
             attribution: `© ${config.label}`,
-            // Add error handling for tile loading
-            bounds: undefined,
             scheme: 'xyz'
           }
           break
 
         case 'wms':
+          // For WMS layers, we need to use a different approach
+          // MapLibre doesn't directly support WMS, so we'll use a tile service approach
+          const wmsUrl = this.buildWMSUrl(config)
           source = {
             type: 'raster',
-            tiles: [this.buildWMSUrl(config)],
+            tiles: [wmsUrl],
             tileSize: 256,
-            attribution: `© ${config.label}`
+            attribution: `© ${config.label}`,
+            scheme: 'xyz'
           }
           break
 
         case 'geojson':
           // For GeoJSON layers, we'll need to fetch the data
-          const response = await fetch(config.urlTemplate!)
+          // Replace bbox placeholder with actual map bounds
+          const bounds = this.map.getBounds()
+          const bbox4326 = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`
+          const geojsonUrl = config.urlTemplate!.replace('{bbox-epsg-4326}', bbox4326)
+          
+          const response = await fetch(geojsonUrl)
+          if (!response.ok) {
+            throw new Error(`Failed to fetch GeoJSON: ${response.status} ${response.statusText}`)
+          }
           const geojson = await response.json()
           source = {
             type: 'geojson',
@@ -167,8 +177,16 @@ export class MapLayerService {
   private buildWMSUrl(config: LayerConfig): string {
     if (!config.getMapUrl) return ''
     
-    // WMS URL is already formatted with correct placeholders
-    return config.getMapUrl
+    // Replace the external WMS URL with our proxy
+    const originalUrl = config.getMapUrl
+    const proxyUrl = originalUrl.replace(
+      'https://open.govmap.gov.il/geoserver/opendata/wms',
+      '/api/wms-proxy'
+    )
+    
+    // Convert WMS GetMap URL to a tile URL template that MapLibre can use
+    // MapLibre will replace {bbox-epsg-3857} with actual bbox values
+    return proxyUrl
   }
 
   toggleLayer(layerId: string): void {

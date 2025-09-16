@@ -161,7 +161,7 @@ export function normalizeFromBackend(row: any): Asset {
     balconyArea: row.balconyArea ?? row.balcony_area ?? null,
     parkingSpaces: row.parkingSpaces ?? row.parking_spaces ?? null,
     price: row.price ?? null,
-    pricePerSqm: row.pricePerSqm ?? row.ppsqm ?? null,
+    pricePerSqm: row.pricePerSqm ?? row.ppsqm ?? row.price_per_sqm ?? null,
     pricePerSqmDisplay: row.pricePerSqmDisplay ?? row.price_per_sqm_display ?? null,
     description: row.description ?? null,
     images: row.images ?? row.photos ?? [],

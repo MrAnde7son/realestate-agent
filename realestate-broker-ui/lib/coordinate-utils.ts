@@ -76,19 +76,25 @@ export function isWGS84Coordinates(lat: number, lon: number): boolean {
  * This is a fallback for coordinates that weren't converted in the backend
  */
 export function convertITMToWGS84(x: number, y: number): { lat: number; lon: number } {
-  // Simple linear transformation approach
-  // This is a fallback for coordinates that should have been converted in the backend
+  // Simple linear transformation for ITM to WGS84
+  // This is a rough approximation that should work for most Israeli locations
   
-  const lat0 = 31.5 // Reference latitude (approximate center of Israel)
-  const lon0 = 35.2 // Reference longitude (approximate center of Israel)
+  // ITM false easting and northing
+  const falseEasting = 200000
+  const falseNorthing = 750000
   
-  // Scale factors (meters to degrees approximation)
-  const latScale = 1 / 111320 // degrees per meter (approximate)
-  const lonScale = 1 / (111320 * Math.cos(lat0 * Math.PI / 180)) // degrees per meter at reference latitude
+  // Convert to relative coordinates
+  const dx = x - falseEasting
+  const dy = y - falseNorthing
   
-  // Convert ITM to approximate WGS84
-  const lat = lat0 + (y - 650000) * latScale
-  const lon = lon0 + (x - 200000) * lonScale
+  // Approximate conversion factors for Israel region
+  // These are rough approximations that should place coordinates in Israel
+  const latOffset = 31.734393 // Central latitude of Israel
+  const lonOffset = 35.204516 // Central longitude of Israel
+  
+  // Convert using approximate scale factors
+  const lat = latOffset + dy / 111320 // meters per degree latitude
+  const lon = lonOffset + dx / (111320 * Math.cos(latOffset * Math.PI / 180)) // meters per degree longitude
   
   return {
     lat: Math.max(WGS84_BOUNDS.minLat, Math.min(WGS84_BOUNDS.maxLat, lat)),
@@ -111,9 +117,24 @@ export function ensureWGS84Coordinates(lat: number, lon: number): { lat: number;
     return { lat, lon }
   }
   
+  // Check if coordinates might be in ITM format but with swapped lat/lon
+  // This handles cases where the backend returns coordinates in the wrong order
+  // We check this first because both might be detected as ITM
+  if (isITMCoordinates(lon, lat)) {
+    const converted = convertITMToWGS84(lat, lon) // Swap the order for conversion
+    // Verify the converted coordinates are in Israel region
+    if (converted && converted.lat >= 29 && converted.lat <= 34 && converted.lon >= 34 && converted.lon <= 36) {
+      return converted
+    }
+  }
+  
   // If in ITM format, convert to WGS84
   if (isITMCoordinates(lat, lon)) {
-    return convertITMToWGS84(lon, lat) // Note: ITM uses X,Y order, WGS84 uses lat,lon
+    const converted = convertITMToWGS84(lon, lat) // Note: ITM uses X,Y order, WGS84 uses lat,lon
+    // Verify the converted coordinates are in Israel region
+    if (converted && converted.lat >= 29 && converted.lat <= 34 && converted.lon >= 34 && converted.lon <= 36) {
+      return converted
+    }
   }
   
   // If coordinates are outside both systems, return null (invalid)

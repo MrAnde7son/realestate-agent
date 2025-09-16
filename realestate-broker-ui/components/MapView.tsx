@@ -185,7 +185,6 @@ export default function MapView({
       const coords = validateCoordinates(asset.lat, asset.lon)
       
       if (!coords) {
-        console.warn(`Invalid coordinates for asset ${asset.id}: lat=${asset.lat}, lon=${asset.lon}`)
         return
       }
 

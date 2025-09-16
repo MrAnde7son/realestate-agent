@@ -1,6 +1,6 @@
 'use client'
 import * as React from 'react'
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { ColumnDef, flexRender, getCoreRowModel, useReactTable, ColumnResizeMode } from '@tanstack/react-table'
 import type { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
@@ -193,51 +193,59 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       const value = info.getValue() as number | undefined
       return <Badge>{typeof value === 'number' ? `${value.toFixed(1)}%` : '—'}</Badge>
     } },
-    { header:'—', id:'actions', cell: ({ row }) => (
-      <div className="flex gap-2">
-        <Link 
-          className="text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-          href={`/assets/${row.original.id}`}
-          aria-label={`צפה בפרטי נכס ${row.original.address}`}
-          title="צפה בפרטי נכס"
-        >
-          <Eye className="h-4 w-4" />
-        </Link>
-        {onOpenAlert && (
-          <button
-            onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
-            className="text-amber-600 hover:text-amber-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-            title="הגדר התראות לנכס זה"
-            aria-label={`הגדר התראות לנכס ${row.original.address}`}
+    { 
+      header:'—', 
+      id:'actions', 
+      enableResizing: false,
+      size: 0,
+      minSize: 0,
+      maxSize: 0,
+      cell: ({ row }) => (
+        <div className="flex gap-2">
+          <Link 
+            className="text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+            href={`/assets/${row.original.id}`}
+            aria-label={`צפה בפרטי נכס ${row.original.address}`}
+            title="צפה בפרטי נכס"
           >
-            <Bell className="h-4 w-4" />
-          </button>
-        )}
-        {onExport && (
-          <button
-            onClick={e => { e.stopPropagation(); onExport(row.original) }}
-            className="text-green-600 hover:text-green-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-            aria-label={`ייצא נכס ${row.original.address}`}
-            title="ייצא נכס"
-          >
-            <Download className="h-4 w-4" />
-          </button>
-        )}
-        {onDelete && (
-          <button 
-            onClick={e => { 
-              e.stopPropagation(); 
-              onDelete(row.original.id) 
-            }} 
-            className="text-red-600 hover:text-red-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-            aria-label={`מחק נכס ${row.original.address}`}
-            title="מחק נכס"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-    ) }
+            <Eye className="h-4 w-4" />
+          </Link>
+          {onOpenAlert && (
+            <button
+              onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
+              className="text-amber-600 hover:text-amber-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+              title="הגדר התראות לנכס זה"
+              aria-label={`הגדר התראות לנכס ${row.original.address}`}
+            >
+              <Bell className="h-4 w-4" />
+            </button>
+          )}
+          {onExport && (
+            <button
+              onClick={e => { e.stopPropagation(); onExport(row.original) }}
+              className="text-green-600 hover:text-green-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+              aria-label={`ייצא נכס ${row.original.address}`}
+              title="ייצא נכס"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          )}
+          {onDelete && (
+            <button 
+              onClick={e => { 
+                e.stopPropagation(); 
+                onDelete(row.original.id) 
+              }} 
+              className="text-red-600 hover:text-red-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+              aria-label={`מחק נכס ${row.original.address}`}
+              title="מחק נכס"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ) 
+    }
   ]
 }
 
@@ -281,6 +289,7 @@ interface AssetsTableProps {
 }
 
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
+const COLUMN_SIZING_KEY = 'assets-table-column-sizing'
 
 export default function AssetsTable({ 
   data = [], 
@@ -305,6 +314,19 @@ export default function AssetsTable({
         return saved ? JSON.parse(saved) : {}
       } catch (error) {
         console.warn('Failed to load column preferences:', error)
+        return {}
+      }
+    }
+    return {}
+  })
+  const [columnSizing, setColumnSizing] = React.useState<Record<string, number>>(() => {
+    // Load saved column sizing from localStorage on component mount
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(COLUMN_SIZING_KEY)
+        return saved ? JSON.parse(saved) : {}
+      } catch (error) {
+        console.warn('Failed to load column sizing:', error)
         return {}
       }
     }
@@ -342,6 +364,24 @@ export default function AssetsTable({
     })
   }, [])
 
+  // Save column sizing to localStorage whenever they change
+  const handleColumnSizingChange = React.useCallback((updaterOrValue: any) => {
+    setColumnSizing(prev => {
+      const newSizing = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(COLUMN_SIZING_KEY, JSON.stringify(newSizing))
+        } catch (error) {
+          console.warn('Failed to save column sizing:', error)
+        }
+      }
+      
+      return newSizing
+    })
+  }, [])
+
   // Create a ref to store the table instance
   const tableRef = React.useRef<any>(null)
 
@@ -363,11 +403,16 @@ export default function AssetsTable({
     columns,
     state: { 
       rowSelection,
-      columnVisibility 
+      columnVisibility,
+      columnSizing
     },
     enableRowSelection: true,
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange' as ColumnResizeMode,
+    columnResizeDirection: 'rtl',
     onRowSelectionChange: setRowSelection,
     onColumnVisibilityChange: handleColumnVisibilityChange,
+    onColumnSizingChange: handleColumnSizingChange,
     getCoreRowModel: getCoreRowModel()
   })
 
@@ -447,15 +492,41 @@ export default function AssetsTable({
           {/* Table view - show when viewMode is 'table' */}
           {viewMode === 'table' && (
             <div className="overflow-x-auto" role="region" aria-label="טבלת נכסים">
-              <Table>
+              <Table style={{ width: '100%', minWidth: table.getCenterTotalSize() }}>
                 <THead>
-                  <TR>
+                  <TR className="group">
                     {table.getFlatHeaders().map(h=>(
                       <TH 
                         key={h.id} 
-                        className={h.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                        className={`relative ${h.column.id==='address'?'sticky right-0 bg-card z-10':''} ${
+                          h.column.getCanResize() ? 'hover:bg-muted/30' : ''
+                        } ${h.column.id === 'actions' ? 'w-full' : ''}`}
+                        style={{ width: h.column.id === 'actions' ? 'auto' : h.getSize() }}
                       >
-                        {flexRender(h.column.columnDef.header, h.getContext())}
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex-1">
+                            {flexRender(h.column.columnDef.header, h.getContext())}
+                          </div>
+                          {h.column.getCanResize() && (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-2">
+                              <div className="w-1 h-4 bg-muted-foreground/40 rounded-full"></div>
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          className={`absolute top-0 left-0 h-full w-2 cursor-e-resize select-none touch-none ${
+                            h.column.getCanResize() 
+                              ? 'bg-border/30 hover:bg-primary/60 hover:w-3 transition-all duration-200' 
+                              : 'bg-transparent'
+                          }`}
+                          onMouseDown={h.getResizeHandler()}
+                          onTouchStart={h.getResizeHandler()}
+                          style={{
+                            transform: 'translateX(-50%)',
+                            zIndex: 1
+                          }}
+                          title="גרור לשינוי רוחב העמודה"
+                        />
                       </TH>
                     ))}
                   </TR>
@@ -504,7 +575,8 @@ export default function AssetsTable({
                         {row.getVisibleCells().map(cell=>(
                           <TD 
                             key={cell.id} 
-                            className={cell.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                            className={`${cell.column.id==='address'?'sticky right-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
+                            style={{ width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize() }}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TD>

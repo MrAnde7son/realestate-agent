@@ -268,6 +268,27 @@ export class MapLayerService {
     })
   }
 
+  setLayerVisibility(layerId: string, visible: boolean): void {
+    if (!this.map) return
+
+    const layer = this.layers.get(layerId)
+    if (!layer) return
+
+    this.layerVisibility[layerId] = visible
+
+    if (visible) {
+      this.map.setLayoutProperty(`${layerId}-layer`, 'visibility', 'visible')
+    } else {
+      this.map.setLayoutProperty(`${layerId}-layer`, 'visibility', 'none')
+    }
+
+    // Update layer reference
+    this.layers.set(layerId, {
+      ...layer,
+      visible
+    })
+  }
+
   getLayerVisibility(layerId: string): boolean {
     return this.layerVisibility[layerId] || false
   }

@@ -8,7 +8,7 @@ from drf_spectacular.openapi import AutoSchema
 from . import views
 from . import views_analytics as va
 from . import views_support as vs
-from .api import AssetViewSet, PermitViewSet, PlanViewSet
+from .api import AssetViewSet, PermitViewSet, PlanViewSet, compute_planning_metrics, get_planning_metrics, estimate_build_cost, get_cost_options
 
 class OpenApiYamlView(SpectacularAPIView):
     """Custom view to serve OpenAPI spec in YAML format."""
@@ -60,6 +60,13 @@ urlpatterns = [
     path('plans/types/', views.plan_types, name='plan_types'),
     path('plans/upgrade/', views.upgrade_plan, name='upgrade_plan'),
     
+    # Planning endpoints
+    path('planning/<int:asset_id>/compute/', compute_planning_metrics, name='compute_planning_metrics'),
+    path('planning/<int:asset_id>/', get_planning_metrics, name='get_planning_metrics'),
+    
+    # Cost estimation endpoints
+    path('cost/estimate/build/', estimate_build_cost, name='estimate_build_cost'),
+    path('cost/options/', get_cost_options, name='get_cost_options'),
 
     
     # Authentication endpoints

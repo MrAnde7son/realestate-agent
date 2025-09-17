@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>נדל"נר – שקיפות. יעילות. ביטחון.</title>
-    <meta name="description" content="נדל"נר - פלטפורמת נדל"ן מתקדמת עם נתוני Yad2, Madlan, Nadlan.gov.il. שמאות מקרקעין, הערכת נכסים, מס רכישה, היתרי בנייה, עסקאות דומות. כלי עבודה למתווכים, שמאים וקונים פרטיים.">
+    <title>🏡 נדל"נר — החלטות נדל״ן חכמות בדקות, לא בשבועות</title>
+    <meta name="description" content="שקיפות מלאה, חישובים אוטומטיים, דוחות מקצועיים — במקום אחד. שומה אינדיקטיבית מיידית, בדיקת תכנון, היתרים, תצ״א וקווי בניין, עלויות עסקה ומימון, מסים ושיפוץ, התראות חכמות על שינויים בנכס או בסביבה.">
     <meta name="keywords" content="נדל"ן, Yad2, Madlan, Nadlan.gov.il, שמאות מקרקעין, הערכת נכסים, מס רכישה, היתרי בנייה, עסקאות נדל"ן, מתווכים, שמאים, קונים, מכירה, קנייה, דירה, בית, נכס, תל אביב, ירושלים, חיפה, רמת גן, פתח תקווה">
     <meta name="author" content="נדל"נר">
     <meta name="robots" content="index, follow">
@@ -55,7 +55,14 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Performance optimizations -->
+    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+    
     <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Favicon -->
@@ -95,9 +102,302 @@
             width: 40px;
             height: 40px;
         }
+        .sticky-cta {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
+        }
+        .sticky-cta.show {
+            transform: translateY(0);
+        }
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .cta-button.primary {
+            background-color: #12b3a6;
+            color: white;
+            padding: 0.75rem 1.5rem;
+        }
+        .cta-button.primary:hover {
+            background-color: #0d9488;
+            transform: translateY(-1px);
+        }
+        .cta-button.secondary {
+            background-color: white;
+            color: #12b3a6;
+            border: 2px solid #12b3a6;
+            padding: 0.75rem 1.5rem;
+        }
+        .cta-button.secondary:hover {
+            background-color: #f0fdfa;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .sticky-cta {
+                padding: 0.5rem 0;
+            }
+            
+            .sticky-cta .flex {
+                flex-direction: column;
+                gap: 0.5rem;
+                align-items: center;
+            }
+            
+            .sticky-cta .flex > div:first-child {
+                order: 2;
+            }
+            
+            .sticky-cta .flex > div:last-child {
+                order: 1;
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .cta-button {
+                font-size: 0.8rem;
+                padding: 0.5rem 0.75rem;
+                white-space: nowrap;
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .hero-title {
+                font-size: 2rem;
+                line-height: 1.2;
+            }
+            
+            .hero-subtitle {
+                font-size: 1rem;
+            }
+            
+            .benefits-table {
+                font-size: 0.875rem;
+            }
+            
+            .benefits-table th,
+            .benefits-table td {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .pricing-table {
+                font-size: 0.875rem;
+            }
+            
+            .pricing-table th,
+            .pricing-table td {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+            
+            .grid.md\\:grid-cols-2.lg\\:grid-cols-4 > div {
+                text-align: center;
+            }
+            
+            /* Fix for how it works section */
+            .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+            
+            /* Mobile specific grid fixes */
+            @media (max-width: 640px) {
+                .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                    grid-template-columns: 1fr;
+                    gap: 0.75rem;
+                }
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .hero-title {
+                font-size: 1.75rem;
+            }
+            
+            .cta-button {
+                font-size: 0.75rem;
+                padding: 0.5rem 0.5rem;
+            }
+            
+            .benefits-table,
+            .pricing-table {
+                font-size: 0.8rem;
+            }
+            
+            .benefits-table th,
+            .benefits-table td,
+            .pricing-table th,
+            .pricing-table td {
+                padding: 0.5rem 0.25rem;
+            }
+            
+            .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            .grid.md\\:grid-cols-2.lg\\:grid-cols-4 > div {
+                text-align: center;
+            }
+            
+            /* Fix for how it works section */
+            .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            /* Mobile specific grid fixes */
+            @media (max-width: 640px) {
+                .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                    grid-template-columns: 1fr;
+                    gap: 0.75rem;
+                }
+            }
+            
+            .sticky-cta .cta-button {
+                font-size: 0.7rem;
+                padding: 0.4rem 0.5rem;
+            }
+            
+            /* Additional mobile fixes */
+            @media (max-width: 640px) {
+                .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 0.75rem;
+                }
+            }
+            
+            /* Mobile grid fixes for all screen sizes */
+            @media (max-width: 768px) {
+                .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 1rem;
+                }
+            }
+            
+            @media (max-width: 640px) {
+                .grid.md\\:grid-cols-2.lg\\:grid-cols-4 {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 0.75rem;
+                }
+            }
+        }
+        
+        /* Calculator responsive optimizations */
+        @media (max-width: 768px) {
+            .max-w-2xl {
+                max-width: 100%;
+                margin: 0;
+                padding: 1.5rem;
+            }
+            
+            .calculator-container h3 {
+                font-size: 1.5rem;
+            }
+            
+            .calculator-container .space-y-6 > div {
+                padding: 1rem;
+            }
+            
+            .grid.md\\:grid-cols-2 {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .flex.gap-4 {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .flex.gap-4 button {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .max-w-2xl {
+                padding: 1rem;
+            }
+            
+            .calculator-container h3 {
+                font-size: 1.25rem;
+            }
+            
+            .calculator-container .space-y-6 > div {
+                padding: 0.75rem;
+            }
+            
+            .text-2xl {
+                font-size: 1.5rem;
+            }
+            
+            .text-3xl {
+                font-size: 2rem;
+            }
+        }
+        
+        /* Performance optimizations - lazy loading handled by HTML attribute */
+        
+        /* Reduce layout shift */
+        .aspect-video {
+            aspect-ratio: 16 / 9;
+        }
+        
+        .aspect-\[4\/3\] {
+            aspect-ratio: 4 / 3;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-neutral-50 text-neutral-900">
+    <!-- STICKY CTA -->
+    <div id="sticky-cta" class="sticky-cta">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="w-6 h-6">
+                        <defs>
+                            <style>
+                                .stroke { fill: none; stroke: #12b3a6; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+                            </style>
+                        </defs>
+                        <path d="M40 8 H216 a40 40 0 0 1 40 40 V216 a40 40 0 0 1 -40 40 H40 a40 40 0 0 1 -40 -40 V48 a40 40 0 0 1 40 -40 Z" class="stroke"/>
+                        <path d="M60 128 L128 74 L196 128" class="stroke"/>
+                        <path d="M104 136 L128 114 L152 136" class="stroke"/>
+                        <path d="M96 176 L160 176" class="stroke"/>
+                    </svg>
+                    <span class="font-bold text-lg brand-teal">נדל"נר</span>
+                </div>
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <a href="#signup" class="cta-button primary text-sm sm:text-base">🔓 הפק דוח</a>
+                    <a href="#demo" class="cta-button secondary text-sm sm:text-base">📄 דוגמה</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- HERO -->
     <section class="relative overflow-hidden">
         <div class="absolute inset-0 bg-gradient-to-b from-teal-50 via-white to-white"></div>
@@ -118,29 +418,29 @@
                         </svg>
                         <span class="text-2xl font-bold brand-teal">נדל"נר</span>
                     </div>
-                    <span class="inline-block rounded-full bg-brand-teal/10 text-brand-teal px-3 py-1 text-sm font-medium">
-                        שקיפות. יעילות. ביטחון.
-                    </span>
-                    <h1 class="mt-4 text-4xl sm:text-5xl font-bold leading-tight">
-                        שקיפות מלאה וליווי 
-                        <span class="gradient-text">
-                            בנדל"ן
-                        </span>
+                    <h1 class="hero-title text-4xl sm:text-5xl font-bold leading-tight">
+                        🏡 נדל"נר - החלטות נדל״ן חכמות בדקות, לא בשבועות
                     </h1>
-                    <p class="mt-4 text-lg text-neutral-700">
-                        כל הנתונים במקום אחד: שמאות, היבטים משפטיים, משכנתאות, עלויות עסקה,
-                        כדאיות ופוטנציאל. פחות ניחושים – יותר החלטות חכמות.
+                    <p class="hero-subtitle mt-4 text-lg text-neutral-700 font-medium">
+                        <strong>שקיפות מלאה, חישובים אוטומטיים, דוחות מקצועיים - במקום אחד.</strong>
                     </p>
+                    <div class="mt-6 space-y-2 text-neutral-700">
+                        <p>🔹 שומה אינדיקטיבית מיידית</p>
+                        <p>🔹 בדיקת תכנון, היתרים, תצ״א וקווי בניין</p>
+                        <p>🔹 עלויות עסקה ומימון, מסים ושיפוץ</p>
+                        <p>🔹 התראות חכמות על שינויים בנכס או בסביבה</p>
+                    </div>
+                    <p class="mt-4 text-sm text-neutral-600">
+                        📍 נתונים ממקורות רשמיים: יד2, מדלן, רמ"י, משרדי ממשלה, ועוד.
+                    </p>
+                    <div class="mt-4 inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium">
+                        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        כבר מעל <span id="reports-counter" class="font-bold">2,000</span> דוחות הופקו
+                    </div>
 
                     <div class="mt-8 flex flex-wrap gap-3">
-                        <a href="https://app.nadlaner.com/signup" 
-                           class="inline-flex items-center justify-center rounded-lg bg-brand-teal px-5 py-3 text-white font-semibold hover:bg-brand-teal transition-colors">
-                            התחל עכשיו
-                        </a>
-                        <a href="#product" 
-                           class="inline-flex items-center justify-center rounded-lg border border-brand-teal bg-white px-5 py-3 font-semibold text-brand-teal hover:bg-brand-teal-light transition-colors">
-                            איך זה עובד?
-                        </a>
+                        <a href="#signup" class="cta-button primary">🔓 הפק דוח ראשון בחינם</a>
+                        <a href="#demo" class="cta-button secondary">📄 צפה בדוח לדוגמה</a>
                     </div>
                     <ul class="mt-6 grid grid-cols-2 gap-4 text-sm text-neutral-600">
                         <li>✅ נתוני עומק ממקורות ממשלתיים ומוניציפליים</li>
@@ -317,37 +617,98 @@
         </div>
     </section>
 
-    <!-- PRODUCT / HOW IT WORKS -->
+    <!-- HOW IT WORKS -->
     <section id="product" class="py-16 bg-neutral-50">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="grid lg:grid-cols-2 gap-10 items-center">
-                <div>
-                    <h2 class="text-2xl sm:text-3xl font-bold">איך זה עובד?</h2>
-                    <ol class="mt-6 space-y-4 text-neutral-700">
-                        <li>
-                            <b>1) קליטת נכס</b> – כתובת/גוש-חלקה/קישור מודעה. המערכת מזהה ומאמתת.
-                        </li>
-                        <li>
-                            <b>2) איסוף נתונים</b> – שמאות, עסקאות דומות, מס רכישה, רישוי/היתרים,
-                            היטלי השבחה, מגבלות תכנוניות, ועוד.
-                        </li>
-                        <li>
-                            <b>3) ניתוח כדאיות</b> – תחזית עלויות עסקה, משכנתא, שיפוץ וריהוט; פוטנציאל
-                            השבחה ותשואה.
-                        </li>
-                        <li>
-                            <b>4) מחשבון הוצאות נכס ומשכנתא</b> – חישוב מדויק של עלויות חודשיות, ריביות משכנתא,
-                            מס רכישה, היטלי השבחה, עמלות עורך דין, רישום בטאבו ועלויות נוספות.
-                        </li>
-                        <li>
-                            <b>5) דוחות ושיתוף</b> – יצוא PDF/קישור שיתופי ממותג ללקוח.
-                        </li>
-                        <li>
-                            <b>6) התראות חכמות</b> – ירידת מחיר, נכס חדש, שינוי סטטוס היתרים ומסמכים.
-                        </li>
-                    </ol>
+            <div class="text-center mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold">⚡ איך זה עובד</h2>
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div class="text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-brand-teal rounded-full flex items-center justify-center text-white text-2xl font-bold">1</div>
+                    <h3 class="text-lg font-semibold mb-2">מזינים כתובת או גוש/חלקה</h3>
+                    <p class="text-neutral-600 text-sm">פשוט הזינו את כתובת הנכס או מספרי גוש וחלקה</p>
+                </div>
+                <div class="text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-brand-teal rounded-full flex items-center justify-center text-white text-2xl font-bold">2</div>
+                    <h3 class="text-lg font-semibold mb-2">נדל"נר מאחד נתונים</h3>
+                    <p class="text-neutral-600 text-sm">משפטיים, תכנוניים וכלכליים ממקורות רשמיים</p>
+                </div>
+                <div class="text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-brand-teal rounded-full flex items-center justify-center text-white text-2xl font-bold">3</div>
+                    <h3 class="text-lg font-semibold mb-2">מקבלים דוח אינדיקטיבי</h3>
+                    <p class="text-neutral-600 text-sm">מיידי + המלצות פעולה מקצועיות</p>
+                </div>
+                <div class="text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-brand-teal rounded-full flex items-center justify-center text-white text-2xl font-bold">4</div>
+                    <h3 class="text-lg font-semibold mb-2">עוקבים אחר הנכס</h3>
+                    <p class="text-neutral-600 text-sm">ומקבלים התראות בזמן אמת על שינויים</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-                    <div class="mt-8 grid sm:grid-cols-3 gap-4 text-center">
+    <!-- STATS SECTION -->
+    <section class="py-16 bg-neutral-50">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid sm:grid-cols-3 gap-8 text-center">
+                <div class="rounded-xl bg-white ring-1 ring-neutral-200 p-4">
+                    <div class="text-2xl font-bold">↑24%</div>
+                    <div class="text-sm text-neutral-600 mt-1">האצת סגירת עסקאות למתווכים</div>
+                </div>
+                <div class="rounded-xl bg-white ring-1 ring-neutral-200 p-4">
+                    <div class="text-2xl font-bold">-60%</div>
+                    <div class="text-sm text-neutral-600 mt-1">פחות זמן עבודה לשמאי</div>
+                </div>
+                <div class="rounded-xl bg-white ring-1 ring-neutral-200 p-4">
+                    <div class="text-2xl font-bold">₪50K+</div>
+                    <div class="text-sm text-neutral-600 mt-1">חיסכון בעלויות לקונים</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BENEFITS TABLE -->
+    <section class="py-16 bg-white">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold">🧠 למה לבחור בנדל"נר</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="benefits-table w-full border-collapse border border-neutral-200 rounded-lg">
+                    <thead>
+                        <tr class="bg-neutral-50">
+                            <th class="border border-neutral-200 px-6 py-4 text-right font-semibold">יתרון</th>
+                            <th class="border border-neutral-200 px-6 py-4 text-right font-semibold">תיאור</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border border-neutral-200 px-6 py-4 font-medium">⏱ חיסכון בזמן</td>
+                            <td class="border border-neutral-200 px-6 py-4">דוחות מוכנים תוך דקה במקום שעות של איסוף נתונים</td>
+                        </tr>
+                        <tr class="bg-neutral-50">
+                            <td class="border border-neutral-200 px-6 py-4 font-medium">💰 שיפור רווחיות</td>
+                            <td class="border border-neutral-200 px-6 py-4">זיהוי נכסים משתלמים במהירות</td>
+                        </tr>
+                        <tr>
+                            <td class="border border-neutral-200 px-6 py-4 font-medium">📍 מקור אחד אמין</td>
+                            <td class="border border-neutral-200 px-6 py-4">חיבור למקורות הממשלתיים והמסחריים המובילים</td>
+                        </tr>
+                        <tr class="bg-neutral-50">
+                            <td class="border border-neutral-200 px-6 py-4 font-medium">📊 שקיפות ללקוחות</td>
+                            <td class="border border-neutral-200 px-6 py-4">דוחות ממותגים לשיתוף עם לקוחות וסגירת עסקאות</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- STATS SECTION -->
+    <section class="py-16 bg-neutral-50">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid sm:grid-cols-3 gap-8 text-center">
                         <div class="rounded-xl bg-white ring-1 ring-neutral-200 p-4">
                             <div class="text-2xl font-bold">↑24%</div>
                             <div class="text-sm text-neutral-600 mt-1">האצת סגירת עסקאות למתווכים</div>
@@ -362,106 +723,91 @@
                         </div>
                     </div>
                 </div>
-                <div class="relative">
-                    <div class="aspect-video w-full overflow-hidden rounded-2xl ring-1 ring-neutral-200 shadow bg-white">
-                        <div class="h-full w-full bg-gradient-to-br from-teal-50 to-emerald-50 p-4">
-                            <!-- מחשבון הוצאות מדמה -->
-                            <div class="h-full bg-white rounded-lg shadow-sm border border-neutral-200 p-3 flex flex-col">
-                                <!-- Header -->
-                                <div class="flex items-center gap-2 mb-3 pb-2 border-b border-neutral-200">
-                                    <div class="p-1.5 bg-teal-100 rounded-lg">
-                                        <svg class="h-4 w-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-sm font-semibold text-neutral-900">מחשבון הוצאות עסקה</h3>
-                                        <p class="text-xs text-neutral-600">חישוב מדויק של כל העלויות</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CALCULATOR SECTION -->
+    <section class="py-16 bg-white">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="relative">
+                <!-- מחשבון הוצאות עסקה - גרסה מותאמת למחשב -->
+                    <div class="calculator-container bg-white rounded-2xl border border-neutral-200 shadow-lg p-8 max-w-2xl mx-auto">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 mx-auto mb-4 bg-teal-100 rounded-full flex items-center justify-center">
+                                <svg class="h-8 w-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-2xl font-bold text-neutral-900 mb-2">מחשבון הוצאות עסקה</h3>
+                            <p class="text-neutral-600">חישוב מדויק של כל העלויות</p>
+                        </div>
+
+                        <!-- דוגמה מהירה -->
+                        <div class="space-y-6">
+                            <!-- פרטי הנכס -->
+                            <div class="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl p-6 border border-teal-100">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-lg font-semibold text-neutral-800">פרטי הנכס</span>
+                                    <span class="text-2xl font-bold text-teal-600">₪3,000,000</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm text-neutral-600">
+                                    <span>דירה 100 מ"ר, תל אביב</span>
+                                    <span class="bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs font-medium">דירה יחידה</span>
+                                </div>
+                            </div>
+
+                            <!-- עלויות מפורטות -->
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div class="space-y-3">
+                                    <h4 class="font-semibold text-neutral-700 mb-3">עלויות חובה</h4>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between items-center py-2 px-3 bg-neutral-50 rounded-lg">
+                                            <span class="text-neutral-700">מס רכישה</span>
+                                            <span class="font-semibold text-neutral-900">₪90,000</span>
+                                        </div>
+                                        <div class="flex justify-between items-center py-2 px-3 bg-neutral-50 rounded-lg">
+                                            <span class="text-neutral-700">עמלת תיווך</span>
+                                            <span class="font-semibold text-neutral-900">₪60,000</span>
+                                        </div>
                                     </div>
                                 </div>
-
-                                <!-- Form Content -->
-                                <div class="flex-1 grid grid-cols-2 gap-3">
-                                    <!-- Property Details -->
-                                    <div class="bg-neutral-50 rounded-lg p-3">
-                                        <h4 class="font-medium text-xs mb-2 text-neutral-700">פרטי הנכס</h4>
-                                        <div class="space-y-2">
-                                            <div>
-                                                <label class="text-xs text-neutral-600">מחיר הנכס</label>
-                                                <div class="text-sm font-medium">₪3,000,000</div>
-                                            </div>
-                                            <div>
-                                                <label class="text-xs text-neutral-600">שטח הנכס</label>
-                                                <div class="text-sm font-medium">100 מ"ר</div>
-                                            </div>
+                                
+                                <div class="space-y-3">
+                                    <h4 class="font-semibold text-neutral-700 mb-3">עלויות נוספות</h4>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between items-center py-2 px-3 bg-neutral-50 rounded-lg">
+                                            <span class="text-neutral-700">עורך דין</span>
+                                            <span class="font-semibold text-neutral-900">₪30,000</span>
                                         </div>
-                                    </div>
-
-                                    <!-- Buyers -->
-                                    <div class="bg-purple-50 rounded-lg p-3">
-                                        <h4 class="font-medium text-xs mb-2 text-neutral-700">רוכשים</h4>
-                                        <div class="flex items-center justify-between bg-white rounded-md p-2">
-                                            <span class="text-xs">דני כהן - 100%</span>
-                                            <span class="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">דירה יחידה</span>
+                                        <div class="flex justify-between items-center py-2 px-3 bg-neutral-50 rounded-lg">
+                                            <span class="text-neutral-700">בדק בית</span>
+                                            <span class="font-semibold text-neutral-900">₪2,500</span>
                                         </div>
-                                    </div>
-
-                                    <!-- Service Costs -->
-                                    <div class="bg-orange-50 rounded-lg p-3">
-                                        <h4 class="font-medium text-xs mb-2 text-neutral-700">עלויות נלוות</h4>
-                                        <div class="space-y-1">
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span>עמלת תיווך</span>
-                                                <span class="font-medium">₪60,000</span>
-                                            </div>
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span>עורך דין</span>
-                                                <span class="font-medium">₪30,000</span>
-                                            </div>
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span>בדק בית</span>
-                                                <span class="font-medium">₪2,500</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Results -->
-                                    <div class="bg-green-50 rounded-lg p-3 border-2 border-green-200">
-                                        <h4 class="font-medium text-xs mb-2 text-green-800">תוצאות החישוב</h4>
-                                        <div class="space-y-1">
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span class="text-neutral-700">מחיר הנכס</span>
-                                                <span class="font-medium">₪3,000,000</span>
-                                            </div>
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span class="text-neutral-700">מס רכישה</span>
-                                                <span class="font-medium">₪90,000</span>
-                                            </div>
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span class="text-neutral-700">הוצאות עיסקה</span>
-                                                <span class="font-medium">₪92,500</span>
-                                            </div>
-                                            <div class="flex justify-between items-center pt-1 border-t border-green-300">
-                                                <span class="font-semibold text-green-800 text-sm">סה"כ לתשלום</span>
-                                                <span class="font-bold text-green-800">₪3,182,500</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Action Buttons -->
-                                    <div class="col-span-2 flex gap-2 mt-2">
-                                        <button class="flex-1 bg-teal-600 text-white text-xs py-2 px-3 rounded-md font-medium">
-                                            חשב הוצאות
-                                        </button>
-                                        <button class="px-3 py-2 text-xs border border-neutral-300 rounded-md text-neutral-700">
-                                            ייצא PDF
-                                        </button>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- סיכום -->
+                            <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-neutral-900">סה"כ לתשלום</span>
+                                    <span class="text-3xl font-bold text-green-600">₪3,182,500</span>
+                                </div>
+                                <p class="text-sm text-green-700 mt-2">כולל כל העלויות והמסים</p>
+                            </div>
+
+                            <!-- כפתורי פעולה -->
+                            <div class="flex gap-4 justify-center">
+                                <button class="bg-teal-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-teal-700 transition-colors shadow-lg">
+                                    חשב הוצאות
+                                </button>
+                                <button class="px-8 py-3 border-2 border-teal-600 text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors">
+                                    ייצא PDF
+                                </button>
+                            </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -523,79 +869,82 @@
                 </p>
                 <ul class="mt-4 grid md:grid-cols-3 gap-3 text-sm text-neutral-700">
                     <li>• אינטגרציות עם יד2, אתרי הממשלה ומדלן</li>
-                    <li>• התראות ו-workflow לסגירת עסקה</li>
+                    <li>• התראות ואוטומציה לסגירת עסקה</li>
                     <li>• דוחות ממותגים והפצה דיגיטלית</li>
                 </ul>
             </div>
         </div>
     </section>
 
-    <!-- SOCIAL PROOF / QUOTES -->
+    <!-- TESTIMONIALS -->
     <section class="py-16 bg-neutral-50">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl sm:text-3xl font-bold">מה אומרים המשתמשים</h2>
-            <div class="mt-8 grid md:grid-cols-3 gap-6">
+            <div class="text-center mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold">📣 מה אומרים המשתמשים</h2>
+            </div>
+            <div class="mt-8 grid md:grid-cols-2 gap-6">
                 <div class="rounded-2xl border border-neutral-200 p-6 bg-white">
-                    <p class="text-neutral-800">"חוסך לי שעות עבודה בכל שבוע ומקפיץ את הערך ללקוח"</p>
-                    <p class="mt-3 text-sm text-neutral-600">— רעם, מתווך</p>
+                    <p class="text-neutral-800 text-lg">"המערכת חוסכת לי לפחות 3 שעות על כל נכס שאני בודק. אני שולח את הדוח ללקוח והוא חוזר מוכן לחתום."</p>
+                    <p class="mt-3 text-sm text-neutral-600 font-medium">— רעם, מתווך נדל״ן</p>
                 </div>
                 <div class="rounded-2xl border border-neutral-200 p-6 bg-white">
-                    <p class="text-neutral-800">"הנתונים מרוכזים ונקיים – פחות טלפונים, יותר מסקנות"</p>
-                    <p class="mt-3 text-sm text-neutral-600">— אילן, שמאי</p>
-                </div>
-                <div class="rounded-2xl border border-neutral-200 p-6 bg-white">
-                    <p class="text-neutral-800">"סוף סוף הבנתי את כל העלויות לפני הצעד הגדול"</p>
-                    <p class="mt-3 text-sm text-neutral-600">— דנה, קונה</p>
+                    <p class="text-neutral-800 text-lg">"כמו עוזר אישי שמאגד את כל הנתונים, רק בלי הבלאגן."</p>
+                    <p class="mt-3 text-sm text-neutral-600 font-medium">— הילה, שמאית מקרקעין</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- PRICING TEASER -->
+    <!-- PRICING PLANS -->
     <section class="py-16 bg-white" id="pricing">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl sm:text-3xl font-bold">תמחור פשוט להתחלה מהירה</h2>
-            <div class="mt-8 grid md:grid-cols-3 gap-6">
-                <div class="rounded-2xl border border-neutral-200 p-6 bg-white">
-                    <h3 class="text-lg font-semibold">חינם</h3>
-                    <div class="mt-2 text-3xl font-bold">0 ₪ <span class="text-base font-medium text-neutral-500">/ לחודש</span></div>
-                    <ul class="mt-4 space-y-2 text-sm text-neutral-700">
-                        <li>• נכס אחד</li>
-                        <li>• התראות בסיסיות</li>
-                        <li>• דוחות בסיסיים</li>
-                    </ul>
-                    <a href="https://app.nadlaner.com/signup?plan=free" 
-                       class="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-neutral-900 px-4 py-2 text-white font-semibold hover:bg-neutral-800 transition-colors">
-                        התחל בחינם
-                    </a>
-                </div>
+            <div class="text-center mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold">💼 תוכניות שימוש</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="pricing-table w-full border-collapse border border-neutral-200 rounded-lg">
+                    <thead>
+                        <tr class="bg-neutral-50">
+                            <th class="border border-neutral-200 px-6 py-4 text-right font-semibold">חבילה</th>
+                            <th class="border border-neutral-200 px-6 py-4 text-right font-semibold">מחיר</th>
+                            <th class="border border-neutral-200 px-6 py-4 text-right font-semibold">כולל</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border border-neutral-200 px-6 py-4 font-medium">חינמית</td>
+                            <td class="border border-neutral-200 px-6 py-4 font-bold text-lg">0 ₪</td>
+                            <td class="border border-neutral-200 px-6 py-4">נכס אחד במעקב, דוח בסיסי</td>
+                        </tr>
+                        <tr class="bg-neutral-50">
+                            <td class="border border-neutral-200 px-6 py-4 font-medium">מקצועית</td>
+                            <td class="border border-neutral-200 px-6 py-4 font-bold text-lg">149 ₪/חודש</td>
+                            <td class="border border-neutral-200 px-6 py-4">עד 25 נכסים, התראות חכמות, דוחות מתקדמים</td>
+                        </tr>
+                        <tr>
+                            <td class="border border-neutral-200 px-6 py-4 font-medium">משרדית</td>
+                            <td class="border border-neutral-200 px-6 py-4 font-bold text-lg">249 ₪/חודש</td>
+                            <td class="border border-neutral-200 px-6 py-4">נכסים ללא הגבלה, התראות חכמות, דוחות מתקדמים, יכולות ניתוח AI</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center mt-8">
+                <a href="#signup" class="cta-button primary">🚀 התחל עכשיו</a>
+            </div>
+        </div>
+    </section>
 
-                <div class="rounded-2xl border border-brand-teal ring-1 ring-brand-teal/20 p-6 bg-white">
-                    <h3 class="text-lg font-semibold">בסיסי (מתווכים)</h3>
-                    <div class="mt-2 text-3xl font-bold">149 ₪ <span class="text-base font-medium text-neutral-500">/ לחודש</span></div>
-                    <ul class="mt-4 space-y-2 text-sm text-neutral-700">
-                        <li>• עד 25 נכסים</li>
-                        <li>• דוחות ממותגים</li>
-                        <li>• התראות מתקדמות</li>
-                    </ul>
-                    <a href="https://app.nadlaner.com/signup?plan=broker-basic" 
-                       class="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-brand-teal px-4 py-2 text-white font-semibold hover:bg-brand-teal transition-colors">
-                        נסיון 14 יום
-                    </a>
-                </div>
-
-                <div class="rounded-2xl border border-neutral-200 p-6 bg-white">
-                    <h3 class="text-lg font-semibold">שמאי פרו</h3>
-                    <div class="mt-2 text-3xl font-bold">249 ₪ <span class="text-base font-medium text-neutral-500">/ לחודש</span></div>
-                    <ul class="mt-4 space-y-2 text-sm text-neutral-700">
-                        <li>• ייבוא נתונים סיטונאי</li>
-                        <li>• אוטומציה מתקדמת</li>
-                        <li>• תמיכה עדיפותית</li>
-                    </ul>
-                    <a href="https://app.nadlaner.com/contact?topic=appraisers" 
-                       class="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-neutral-900 px-4 py-2 text-white font-semibold hover:bg-neutral-800 transition-colors">
-                        דברו איתנו
-                    </a>
+    <!-- DISCLAIMER -->
+    <section class="py-16 bg-neutral-100">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-8">⚖️ גילוי נאות</h2>
+                <div class="max-w-4xl mx-auto bg-white rounded-2xl border border-neutral-200 p-8">
+                    <p class="text-neutral-700 text-lg leading-relaxed">
+                        המידע בדוחות הוא <strong>אינדיקטיבי בלבד</strong> ואינו מהווה שומה מוסמכת או ייעוץ פיננסי. 
+                        <strong>לשימוש מקצועי בלבד.</strong>
+                    </p>
                 </div>
             </div>
         </div>
@@ -643,11 +992,9 @@
             <p class="mt-3 text-neutral-700">
                 שקיפות מקצה לקצה, התראות חכמות ודוחות שמוכרים. הצטרף היום.
             </p>
-            <div class="mt-6">
-                <a href="https://app.nadlaner.com/signup" 
-                   class="inline-flex items-center justify-center rounded-lg bg-brand-teal px-6 py-3 text-white font-semibold hover:bg-brand-teal transition-colors">
-                    פתח חשבון
-                </a>
+            <div class="mt-6 flex flex-wrap justify-center gap-3">
+                <a href="#signup" class="cta-button primary">🔓 הפק דוח ראשון בחינם</a>
+                <a href="#demo" class="cta-button secondary">📄 צפה בדוח לדוגמה</a>
             </div>
             <p class="mt-2 text-sm text-neutral-500">אין צורך בכרטיס אשראי.</p>
         </div>
@@ -722,6 +1069,36 @@
                 }
             });
         });
+
+        // Sticky CTA functionality
+        window.addEventListener('scroll', function() {
+            const stickyCta = document.getElementById('sticky-cta');
+            if (window.scrollY > 100) {
+                stickyCta.classList.add('show');
+            } else {
+                stickyCta.classList.remove('show');
+            }
+        });
+
+        // Animated counter
+        function animateCounter() {
+            const counter = document.getElementById('reports-counter');
+            const target = 2000;
+            const increment = target / 100;
+            let current = 0;
+            
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                counter.textContent = Math.floor(current).toLocaleString();
+            }, 20);
+        }
+
+        // Start counter animation when page loads
+        window.addEventListener('load', animateCounter);
     </script>
 </body>
 </html>

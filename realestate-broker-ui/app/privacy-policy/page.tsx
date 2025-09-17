@@ -12,7 +12,7 @@ export default function PrivacyPolicyPage() {
         <DashboardHeader heading="מדיניות פרטיות" />
         <div className="space-y-6 text-sm leading-6">
           <p>
-            נדל"נר מכבד את פרטיות המשתמשים ומחויב להגן על המידע האישי שמועבר אלינו. 
+            נדל&ldquo;נר מכבד את פרטיות המשתמשים ומחויב להגן על המידע האישי שמועבר אלינו. 
             מדיניות פרטיות זו מסבירה כיצד אנו אוספים, משתמשים ומגנים על המידע שלך.
           </p>
 
@@ -25,7 +25,7 @@ export default function PrivacyPolicyPage() {
                 <li><strong>מידע אישי:</strong> שם, כתובת אימייל, מספר טלפון ופרטי תשלום</li>
                 <li><strong>מידע שימוש:</strong> נתונים על השימוש בפלטפורמה, דפים שנצפו ופעולות שבוצעו</li>
                 <li><strong>מידע טכני:</strong> כתובת IP, סוג דפדפן, מערכת הפעלה וזמן גישה</li>
-                <li><strong>מידע נדל"ן:</strong> כתובות נכסים, פרטי עסקאות ונתונים פיננסיים</li>
+                <li><strong>מידע נדל&ldquo;ן:</strong> כתובות נכסים, פרטי עסקאות ונתונים פיננסיים</li>
               </ul>
             </CardContent>
           </Card>
@@ -127,9 +127,9 @@ export default function PrivacyPolicyPage() {
                 לשאלות או בקשות הקשורות לפרטיות, ניתן לפנות אלינו:
               </p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>דרך טופס "צור קשר" באפליקציה</li>
-                <li>בדף ההגדרות תחת "עזרה ותמיכה"</li>
-                <li>בדוא"ל: privacy@nadlaner.com</li>
+                <li>דרך טופס &ldquo;צור קשר&rdquo; באפליקציה</li>
+                <li>בדף ההגדרות תחת &ldquo;עזרה ותמיכה&rdquo;</li>
+                <li>בדוא&ldquo;ל: privacy@nadlaner.com</li>
               </ul>
             </CardContent>
           </Card>

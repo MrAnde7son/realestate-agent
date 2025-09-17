@@ -193,7 +193,7 @@ export default function ContactPage() {
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-50">
                   <MessageSquare className="h-5 w-5 text-brand-teal" />
                   <div>
-                    <p className="font-medium text-sm">צ'אט חי</p>
+                    <p className="font-medium text-sm">צ&apos;אט חי</p>
                     <p className="text-xs text-neutral-600">קבל עזרה מיידית מצוות התמיכה</p>
                   </div>
                 </div>

@@ -151,28 +151,66 @@
                 </div>
 
                 <div class="relative">
-                    <!-- Placeholder for hero image -->
-                    <div class="aspect-[4/3] w-full overflow-hidden rounded-2xl ring-1 ring-neutral-200 shadow-sm bg-white">
-                        <div class="h-full w-full bg-gradient-to-br from-teal-100 to-emerald-100 flex items-center justify-center">
-                            <div class="text-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="w-16 h-16 mx-auto mb-4">
+                    <!-- Hero image: Aerial view of Israel -->
+                    <div class="aspect-[4/3] w-full overflow-hidden rounded-2xl ring-1 ring-neutral-200 shadow-lg bg-white">
+                        <div class="relative h-full w-full">
+                            <!-- Background: Stylized aerial view of Israel -->
+                            <div class="absolute inset-0 bg-gradient-to-br from-blue-50 via-teal-50 to-emerald-50"></div>
+                            
+                            <!-- Israel outline with modern styling -->
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <svg viewBox="0 0 400 200" class="w-full h-full opacity-90">
+                                    <!-- Israel coastline and borders -->
+                                    <path d="M50 80 Q80 60 120 70 Q160 65 200 75 Q240 70 280 80 Q320 85 350 90 L360 100 Q370 120 365 140 Q360 160 350 170 Q340 180 320 175 Q280 170 240 175 Q200 180 160 175 Q120 170 80 175 Q60 180 50 170 Q45 150 50 130 Q48 100 50 80 Z" 
+                                          fill="url(#israelGradient)" 
+                                          stroke="#12b3a6" 
+                                          stroke-width="2"/>
+                                    
+                                    <!-- Major cities as dots -->
+                                    <circle cx="200" cy="100" r="4" fill="#12b3a6" class="animate-pulse"/>
+                                    <circle cx="180" cy="90" r="3" fill="#0d9488"/>
+                                    <circle cx="220" cy="110" r="3" fill="#0d9488"/>
+                                    <circle cx="160" cy="120" r="3" fill="#0d9488"/>
+                                    <circle cx="240" cy="95" r="3" fill="#0d9488"/>
+                                    
+                                    <!-- Gradient definition -->
                                     <defs>
-                                        <style>
-                                            .stroke { fill: none; stroke: #12b3a6; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
-                                        </style>
+                                        <linearGradient id="israelGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#f0fdfa;stop-opacity:1" />
+                                            <stop offset="50%" style="stop-color:#ccfbf1;stop-opacity:1" />
+                                            <stop offset="100%" style="stop-color:#99f6e4;stop-opacity:1" />
+                                        </linearGradient>
                                     </defs>
-                                    <path d="M40 8 H216 a40 40 0 0 1 40 40 V216 a40 40 0 0 1 -40 40 H40 a40 40 0 0 1 -40 -40 V48 a40 40 0 0 1 40 -40 Z" class="stroke"/>
-                                    <path d="M60 128 L128 74 L196 128" class="stroke"/>
-                                    <path d="M104 136 L128 114 L152 136" class="stroke"/>
-                                    <path d="M96 176 L160 176" class="stroke"/>
                                 </svg>
-                                <p class="text-lg font-medium text-neutral-700">נדל"נר</p>
-                                <p class="text-sm text-neutral-500">כל הנתונים במקום אחד</p>
+                            </div>
+                            
+                            <!-- Overlay with branding -->
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="text-center bg-white/80 backdrop-blur-sm rounded-xl px-6 py-4 shadow-lg">
+                                    <div class="flex items-center justify-center gap-2 mb-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="w-8 h-8">
+                                            <defs>
+                                                <style>
+                                                    .stroke { fill: none; stroke: #12b3a6; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+                                                </style>
+                                            </defs>
+                                            <path d="M40 8 H216 a40 40 0 0 1 40 40 V216 a40 40 0 0 1 -40 40 H40 a40 40 0 0 1 -40 -40 V48 a40 40 0 0 1 40 -40 Z" class="stroke"/>
+                                            <path d="M60 128 L128 74 L196 128" class="stroke"/>
+                                            <path d="M104 136 L128 114 L152 136" class="stroke"/>
+                                            <path d="M96 176 L160 176" class="stroke"/>
+                                        </svg>
+                                        <span class="text-xl font-bold brand-teal">נדל"נר</span>
+                                    </div>
+                                    <p class="text-sm font-medium text-neutral-700">כל הנתונים במקום אחד</p>
+                                    <p class="text-xs text-neutral-500 mt-1">בכל ערי ישראל</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="absolute -bottom-6 -left-6 rounded-xl bg-white/90 backdrop-blur ring-1 ring-neutral-200 px-4 py-3 shadow">
-                        <p class="text-sm">
+                    
+                    <!-- Floating feature card -->
+                    <div class="absolute -bottom-6 -left-6 rounded-xl bg-white/95 backdrop-blur ring-1 ring-neutral-200 px-4 py-3 shadow-lg">
+                        <p class="text-sm font-medium">
                             ⚡ שליפת שמאות/מסים/היתרים וקבלת כדאיות בלחיצה
                         </p>
                     </div>
@@ -298,10 +336,14 @@
                             השבחה ותשואה.
                         </li>
                         <li>
-                            <b>4) דוחות ושיתוף</b> – יצוא PDF/קישור שיתופי ממותג ללקוח.
+                            <b>4) מחשבון הוצאות נכס ומשכנתא</b> – חישוב מדויק של עלויות חודשיות, ריביות משכנתא,
+                            מס רכישה, היטלי השבחה, עמלות עורך דין, רישום בטאבו ועלויות נוספות.
                         </li>
                         <li>
-                            <b>5) התראות חכמות</b> – ירידת מחיר, נכס חדש, שינוי סטטוס היתרים ומסמכים.
+                            <b>5) דוחות ושיתוף</b> – יצוא PDF/קישור שיתופי ממותג ללקוח.
+                        </li>
+                        <li>
+                            <b>6) התראות חכמות</b> – ירידת מחיר, נכס חדש, שינוי סטטוס היתרים ומסמכים.
                         </li>
                     </ol>
 

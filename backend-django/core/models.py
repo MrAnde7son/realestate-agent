@@ -392,6 +392,7 @@ class Asset(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("enriching", "Enriching"),
+        ("syncing", "Syncing"),
         ("done", "Done"),
         ("failed", "Failed"),
     ]
@@ -445,6 +446,7 @@ class Asset(models.Model):
     is_demo = models.BooleanField(default=False)
     meta = models.JSONField(default=dict)
     last_enriched_at = models.DateTimeField(blank=True, null=True)
+    last_sync_started_at = models.DateTimeField(blank=True, null=True)
     last_enrich_error = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -2250,3 +2250,103 @@ def upgrade_plan(request):
     except Exception as e:
         logger.error("Error upgrading plan for user {}: {}".format(request.user.email, e))
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def sync_asset(request, asset_id):
+    """Sync data for an existing asset using the data pipeline.
+    
+    This endpoint triggers the data pipeline to collect fresh data
+    from all external sources for the specified asset.
+    
+    Expected JSON payload:
+    - address: str - Address to sync (optional, uses asset's address if not provided)
+    
+    Returns:
+    - 200: {"message": "Sync started", "asset_id": int} - Sync initiated successfully
+    - 404: Asset not found
+    - 400: Invalid request
+    - 500: Server error
+    """
+    try:
+        # Get the asset
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Parse request data
+        data = parse_json(request)
+        if not data:
+            data = {}
+        
+        # Use provided address or asset's address
+        address = data.get("address", asset.address)
+        if not address:
+            return Response({"error": "No address provided and asset has no address"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Extract house number from address if not provided
+        house_number = data.get("house_number")
+        if not house_number and asset.number:
+            house_number = asset.number
+        elif not house_number:
+            # Try to extract from address
+            import re
+            match = re.search(r'(\d+)', address)
+            if match:
+                house_number = int(match.group(1))
+            else:
+                house_number = 1  # Default fallback
+        
+        logger.info("Starting asset sync for asset %s with address %s %s", asset_id, address, house_number)
+        
+        # Update asset status
+        asset.status = "syncing"
+        asset.last_sync_started_at = timezone.now()
+        asset.save(update_fields=["status", "last_sync_started_at"])
+        
+        # Check if Celery is enabled
+        from django.conf import settings
+        if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
+            # Use Celery task
+            from .tasks import run_data_pipeline
+            result = run_data_pipeline.delay(asset_id, max_pages=1)
+            job_id = result.id
+            logger.info("Enqueued asset sync task with job ID: %s", job_id)
+            message = f"סנכרון נתונים התחיל עבור {address} {house_number} (מזהה נכס: {asset_id}, מזהה משימה: {job_id})"
+        else:
+            # Run asynchronously in background thread when Celery is disabled
+            import threading
+            
+            def run_sync_async():
+                try:
+                    from .tasks import run_data_pipeline
+                    run_data_pipeline(asset_id, max_pages=1)
+                    logger.info("Background asset sync completed for asset %s", asset_id)
+                except Exception as e:
+                    logger.error("Background asset sync failed for asset %s: %s", asset_id, e)
+                    # Update asset status to error
+                    try:
+                        asset_obj = Asset.objects.get(id=asset_id)
+                        asset_obj.status = "failed"
+                        asset_obj.last_enrich_error = str(e)
+                        asset_obj.save()
+                    except Exception as save_error:
+                        logger.error("Failed to update asset status: %s", save_error)
+            
+            thread = threading.Thread(target=run_sync_async, daemon=True)
+            thread.start()
+            message = f"סנכרון נתונים התחיל עבור {address} {house_number} (מזהה נכס: {asset_id})"
+        
+        return Response({
+            "message": message,
+            "asset_id": asset_id,
+            "address": address,
+            "house_number": house_number,
+            "status": "syncing"
+        })
+        
+    except Exception as e:
+        logger.error("Error starting asset sync for asset %s: %s", asset_id, e)
+        return Response({"error": "שגיאה בהתחלת סנכרון הנתונים"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

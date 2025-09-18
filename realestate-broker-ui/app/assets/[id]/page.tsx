@@ -212,7 +212,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     setSyncMessage('מסנכרן נתונים...')
     
     try {
-      const res = await fetch('/api/sync', {
+      const res = await fetch(`/api/assets/${id}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: asset.address })
@@ -220,17 +220,22 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       
       if (res.ok) {
         const result = await res.json()
-        setSyncMessage(`נמצאו ${result.rows?.length || 0} נכסים חדשים`)
-        // Optionally refresh the asset data
-        const assetRes = await fetch(`/api/assets/${id}`)
-        if (assetRes.ok) {
-          const data = await assetRes.json()
-          setAsset(data.asset || data)
-        }
-        // Clear message after 5 seconds
-        setTimeout(() => setSyncMessage(''), 5000)
+        setSyncMessage(result.message || 'סנכרון נתונים התחיל בהצלחה')
+        
+        // Refresh the asset data after a short delay to show updated status
+        setTimeout(async () => {
+          const assetRes = await fetch(`/api/assets/${id}`)
+          if (assetRes.ok) {
+            const data = await assetRes.json()
+            setAsset(data.asset || data)
+          }
+        }, 2000)
+        
+        // Clear message after 10 seconds
+        setTimeout(() => setSyncMessage(''), 10000)
       } else {
-        setSyncMessage('שגיאה בסנכרון הנתונים')
+        const errorData = await res.json().catch(() => ({}))
+        setSyncMessage(errorData.error || 'שגיאה בסנכרון הנתונים')
         setTimeout(() => setSyncMessage(''), 5000)
       }
     } catch (err) {

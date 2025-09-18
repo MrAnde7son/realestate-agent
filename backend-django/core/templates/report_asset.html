@@ -258,6 +258,100 @@
     </section>
     {% endif %}
 
+    {% if 'planning' in sections and planning_metrics %}
+    <section class="card">
+      <h2>תכנון הנכס</h2>
+      <div class="kv">
+        <div>
+          <div class="k">תכסית</div>
+          <div class="v">
+            {% if planning_metrics.coverage_pct %}
+              {{ planning_metrics.coverage_pct|floatformat:1 }}%
+            {% else %}
+              לא זמין
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="k">שטח מגרש (מ"ר)</div>
+          <div class="v">
+            {% if planning_metrics.parcel_area_m2 %}
+              {{ planning_metrics.parcel_area_m2|floatformat:0 }}
+            {% else %}
+              לא זמין
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="k">שטח בניין (מ"ר)</div>
+          <div class="v">
+            {% if planning_metrics.footprint_area_m2 %}
+              {{ planning_metrics.footprint_area_m2|floatformat:0 }}
+            {% else %}
+              לא זמין
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="k">קווי בניין</div>
+          <div class="v">
+            {% if planning_metrics.setback_violations and planning_metrics.setback_violations|length %}
+              <span class="badge" style="background: #dc2626;">הפרות</span>
+            {% else %}
+              <span class="badge" style="background: #16a34a;">תקין</span>
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="k">גובה נוכחי</div>
+          <div class="v">
+            {% if planning_metrics.height_current.floors %}
+              {{ planning_metrics.height_current.floors }} קומות
+            {% else %}
+              לא זמין
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="k">גובה מותר</div>
+          <div class="v">
+            {% if planning_metrics.height_allowed.max_floors %}
+              {{ planning_metrics.height_allowed.max_floors }} קומות
+            {% else %}
+              לא זמין
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      {% if planning_metrics.setback_violations and planning_metrics.setback_violations|length %}
+      <div style="margin-top: 4mm;">
+        <div class="k">פירוט הפרות קווי בניין:</div>
+        <ul class="list">
+          {% for violation in planning_metrics.setback_violations %}
+            <li>{{ violation.type }}: {{ violation.area_m2|floatformat:0 }} מ"ר</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      
+      {% if planning_metrics.height_delta and planning_metrics.height_delta.delta_floors %}
+      <div style="margin-top: 4mm;">
+        <div class="k">הפרש גובה:</div>
+        <div class="v">
+          {% if planning_metrics.height_delta.delta_floors > 0 %}
+            <span class="badge" style="background: #dc2626;">+{{ planning_metrics.height_delta.delta_floors }} קומות</span>
+          {% elif planning_metrics.height_delta.delta_floors < 0 %}
+            <span class="badge" style="background: #16a34a;">{{ planning_metrics.height_delta.delta_floors }} קומות</span>
+          {% else %}
+            <span class="badge" style="background: #16a34a;">תקין</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
     {% if 'appendix' in sections %}
     <section class="card">
       <h2>מסמכים וזיהוי איש קשר</h2>

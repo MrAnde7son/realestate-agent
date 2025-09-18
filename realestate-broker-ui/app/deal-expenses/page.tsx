@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { fmtCurrency } from '@/lib/utils'
 import { Buyer, calculatePurchaseTax } from '@/lib/purchase-tax'
-import { calculateServiceCosts, type ServiceInput } from '@/lib/deal-expenses'
+import { calculateServiceCosts, type ServiceInput, type BuildCostEstimate, type CostEstimateOptions, fetchBuildCostEstimate, fetchCostOptions, mergeBuildEstimateIntoDeal } from '@/lib/deal-expenses'
 import type { Asset } from '@/lib/normalizers/asset'
 import { useAnalytics } from '@/hooks/useAnalytics'
 
@@ -66,6 +66,17 @@ export default function DealExpensesPage() {
   const [assetSearchQuery, setAssetSearchQuery] = useState('')
   const [showAssetDropdown, setShowAssetDropdown] = useState(false)
   const [loadingAssets, setLoadingAssets] = useState(false)
+
+  // Dekel cost estimation state
+  const [buildEstimate, setBuildEstimate] = useState<BuildCostEstimate | null>(null)
+  const [costOptions, setCostOptions] = useState<CostEstimateOptions | null>(null)
+  const [estimateType, setEstimateType] = useState<'low' | 'base' | 'high'>('base')
+  const [useDekelEstimate, setUseDekelEstimate] = useState(false)
+  const [loadingEstimate, setLoadingEstimate] = useState(false)
+  const [dekelArea, setDekelArea] = useState(100)
+  const [dekelRegion, setDekelRegion] = useState('CENTER')
+  const [dekelQuality, setDekelQuality] = useState('standard')
+  const [dekelScope, setDekelScope] = useState<string[]>(['shell', 'finish'])
 
   type ServiceKey =
     | 'broker'
@@ -130,6 +141,11 @@ export default function DealExpensesPage() {
         }
       })
       .catch(() => {})
+    
+    // Load cost options
+    fetchCostOptions()
+      .then(setCostOptions)
+      .catch(console.error)
     
     // Track calculator page view
     trackCalculatorUsage('expense', 'page_view')
@@ -391,6 +407,69 @@ export default function DealExpensesPage() {
       property_type: propertyType,
       selected_asset_id: selectedAsset?.id
     })
+  }
+
+  const handleDekelEstimate = async () => {
+    if (!dekelArea || dekelArea <= 0) {
+      alert('אנא הזן שטח בנייה תקין')
+      return
+    }
+
+    setLoadingEstimate(true)
+    try {
+      const estimate = await fetchBuildCostEstimate(
+        dekelArea,
+        dekelScope,
+        dekelRegion,
+        dekelQuality
+      )
+      setBuildEstimate(estimate)
+      setUseDekelEstimate(true)
+      
+      // Auto-fill construction area and cost from Dekel estimate
+      setConstructionArea(dekelArea)
+      const baseCostPerSqm = estimate.metadata.base_cost_per_sqm
+      setConstructionCostPerSqm(baseCostPerSqm)
+      
+      trackCalculatorUsage('expense', 'dekel_estimate', {
+        area: dekelArea,
+        region: dekelRegion,
+        quality: dekelQuality,
+        scope: dekelScope,
+        selected_asset_id: selectedAsset?.id
+      })
+    } catch (error) {
+      console.error('Error fetching build estimate:', error)
+      alert('שגיאה בחישוב האומדן')
+    } finally {
+      setLoadingEstimate(false)
+    }
+  }
+
+  const handleUseDekelToggle = (value: boolean) => {
+    setUseDekelEstimate(value)
+    if (value && buildEstimate) {
+      // Apply the estimate to construction cost and area
+      const estimateKey = estimateType === 'low' ? 'low_cost_with_vat' : 
+                         estimateType === 'high' ? 'high_cost_with_vat' : 
+                         'base_cost_with_vat'
+      const estimatedCost = buildEstimate.totals[estimateKey]
+      setConstructionArea(dekelArea)
+      setConstructionCostPerSqm(estimatedCost / dekelArea)
+    }
+  }
+
+  const handleEstimateTypeChange = (value: 'low' | 'base' | 'high') => {
+    setEstimateType(value)
+    if (useDekelEstimate && buildEstimate) {
+      // Apply the new estimate type to construction cost and area
+      const estimateKey = value === 'low' ? 'low_cost_with_vat' : 
+                         value === 'high' ? 'high_cost_with_vat' : 
+                         'base_cost_with_vat'
+      const estimatedCost = buildEstimate.totals[estimateKey]
+      setConstructionArea(dekelArea)
+      setConstructionCostPerSqm(estimatedCost / dekelArea)
+    }
   }
 
   function calculate() {
@@ -741,31 +820,6 @@ export default function DealExpensesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="property-type" className="text-sm font-medium">
-                  סוג הנכס
-                </Label>
-                <Select value={propertyType} onValueChange={value => handlePropertyTypeChange(value as PropertyType)}>
-                  <SelectTrigger id="property-type" className="w-full">
-                    <SelectValue placeholder="בחר סוג נכס" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="residential">נכס בנוי</SelectItem>
-                    <SelectItem value="land">קרקע</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {isLand ? (
-                    <LandPlot className="h-3.5 w-3.5" />
-                  ) : (
-                    <Home className="h-3.5 w-3.5" />
-                  )}
-                  <span>סוג הנכס משפיע על מס הרכישה ועל העלויות הנלוות</span>
-                </div>
-              </div>
-
-              <Separator />
-
               {/* Asset Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
@@ -784,6 +838,7 @@ export default function DealExpensesPage() {
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {selectedAsset.area} מ&quot;ר • {fmtCurrency(selectedAsset.price || 0)}
+                            {selectedAsset.type && ` • ${selectedAsset.type}`}
                             {selectedAsset.rooms && ` • ${selectedAsset.rooms} חדרים`}
                           </div>
                         </div>
@@ -830,6 +885,7 @@ export default function DealExpensesPage() {
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
                                   {asset.area} מ&quot;ר • {fmtCurrency(asset.price || 0)}
+                                  {asset.type && ` • ${asset.type}`}
                                   {asset.rooms && ` • ${asset.rooms} חדרים`}
                                 </div>
                               </button>
@@ -845,11 +901,34 @@ export default function DealExpensesPage() {
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  בחירת נכס תמלא אוטומטית את המחיר והשטח
+                  בחירת נכס תמלא אוטומטית את סוג הנכס, המחיר והשטח
                 </div>
               </div>
 
               <Separator />
+
+              <div className="space-y-2">
+                <Label htmlFor="property-type" className="text-sm font-medium">
+                  סוג הנכס
+                </Label>
+                <Select value={propertyType} onValueChange={value => handlePropertyTypeChange(value as PropertyType)}>
+                  <SelectTrigger id="property-type" className="w-full">
+                    <SelectValue placeholder="בחר סוג נכס" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="residential">נכס בנוי</SelectItem>
+                    <SelectItem value="land">קרקע</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {isLand ? (
+                    <LandPlot className="h-3.5 w-3.5" />
+                  ) : (
+                    <Home className="h-3.5 w-3.5" />
+                  )}
+                  <span>סוג הנכס משפיע על מס הרכישה ועל העלויות הנלוות</span>
+                </div>
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="price" className="text-sm font-medium">
@@ -975,6 +1054,155 @@ export default function DealExpensesPage() {
                         <span>סה&quot;כ עלות בנייה משוערת</span>
                       </div>
                       <span className="font-semibold text-primary">{fmtCurrency(effectiveConstructionCost)}</span>
+                    </div>
+
+                    {/* Dekel Cost Estimation Panel */}
+                    <Separator className="my-4" />
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium">אומדן עלויות דקל</Label>
+                          <p className="text-xs text-muted-foreground">
+                            חישוב אומדן עלויות בנייה מבוסס על נתוני דקל
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={useDekelEstimate}
+                            onCheckedChange={handleUseDekelToggle}
+                          />
+                          <span className="text-xs">השתמש באומדן דקל</span>
+                        </div>
+                      </div>
+
+                      {costOptions && (
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="dekel-area" className="text-xs">
+                              שטח בנייה (מ&quot;ר)
+                            </Label>
+                            <Input
+                              id="dekel-area"
+                              type="number"
+                              value={dekelArea}
+                              onChange={e => setDekelArea(parseFloat(e.target.value) || 0)}
+                              placeholder="100"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="dekel-region" className="text-xs">
+                              אזור
+                            </Label>
+                            <Select value={dekelRegion} onValueChange={setDekelRegion}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {costOptions.regions.map(region => (
+                                  <SelectItem key={region.code} value={region.code}>
+                                    {region.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="dekel-quality" className="text-xs">
+                              איכות
+                            </Label>
+                            <Select value={dekelQuality} onValueChange={setDekelQuality}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {costOptions.qualities.map(quality => (
+                                  <SelectItem key={quality.code} value={quality.code}>
+                                    {quality.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">היקף עבודות</Label>
+                            <div className="space-y-1">
+                              {costOptions.scopes.map(scope => (
+                                <label key={scope.code} className="flex items-center space-x-2 space-x-reverse">
+                                  <input
+                                    type="checkbox"
+                                    checked={dekelScope.includes(scope.code)}
+                                    onChange={e => {
+                                      if (e.target.checked) {
+                                        setDekelScope([...dekelScope, scope.code])
+                                      } else {
+                                        setDekelScope(dekelScope.filter(s => s !== scope.code))
+                                      }
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <span className="text-xs">{scope.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <Button
+                        onClick={handleDekelEstimate}
+                        disabled={loadingEstimate || !dekelArea}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        {loadingEstimate ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2" />
+                            מחשב אומדן...
+                          </>
+                        ) : (
+                          <>
+                            <Calculator className="h-4 w-4 ml-2" />
+                            חשב אומדן דקל
+                          </>
+                        )}
+                      </Button>
+
+                      {buildEstimate && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs">סוג אומדן:</Label>
+                            <Select value={estimateType} onValueChange={handleEstimateTypeChange}>
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">נמוך</SelectItem>
+                                <SelectItem value="base">בסיסי</SelectItem>
+                                <SelectItem value="high">גבוה</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="grid gap-2">
+                            <div className="flex justify-between text-sm">
+                              <span>אומדן נמוך:</span>
+                              <span>{fmtCurrency(buildEstimate.totals.low_cost_with_vat)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-medium">
+                              <span>אומדן בסיסי:</span>
+                              <span>{fmtCurrency(buildEstimate.totals.base_cost_with_vat)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>אומדן גבוה:</span>
+                              <span>{fmtCurrency(buildEstimate.totals.high_cost_with_vat)}</span>
+                            </div>
+                          </div>
+
+                          <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                            <strong>הערה:</strong> אומדן זה הוא אינדיקטיבי בלבד ואינו מחליף ייעוץ מקצועי
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>

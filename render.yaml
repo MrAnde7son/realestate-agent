@@ -1,0 +1,160 @@
+services:
+  # Yad2 MCP Server - Python service for real estate data collection
+  - type: web
+    name: yad2-mcp
+    env: python
+    plan: free
+    region: oregon
+    repo: https://github.com/MrAnde7son/realestate-agent
+    branch: main
+    rootDir: yad2
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m mcp.server --host 0.0.0.0 --port 8881
+    healthCheckPath: /
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: PORT
+        value: 8881
+
+  # Real Estate Broker UI - Next.js frontend
+  - type: web
+    name: realestate-broker-ui
+    env: node
+    plan: free
+    region: oregon
+    repo: https://github.com/MrAnde7son/realestate-agent
+    branch: main
+    rootDir: realestate-broker-ui
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: NPM_CONFIG_CACHE
+        value: /opt/render/project/.npm
+
+  # Backend Django - Docker-based API service
+  - type: web
+    name: backend-django
+    env: docker
+    plan: free
+    region: oregon
+    repo: https://github.com/MrAnde7son/realestate-agent
+    branch: main
+    rootDir: backend-django
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: broker_backend.settings
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "backend-django-2cpe.onrender.com"
+
+  # Mavat MCP Server - Planning information system integration
+  - type: web
+    name: mavat-mcp
+    env: python
+    plan: free
+    region: oregon
+    repo: https://github.com/MrAnde7son/realestate-agent
+    branch: main
+    rootDir: mavat
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m mcp.server --host 0.0.0.0 --port 8882
+    healthCheckPath: /
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: PORT
+        value: 8882
+
+  # GovMap MCP Server - Government mapping and geospatial services
+  - type: web
+    name: govmap-mcp
+    env: python
+    plan: free
+    region: oregon
+    repo: https://github.com/MrAnde7son/realestate-agent
+    branch: main
+    rootDir: govmap
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m mcp.server --host 0.0.0.0 --port 8883
+    healthCheckPath: /
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: PORT
+        value: 8883
+
+  # Gov MCP Server - Government data integration (RAMI, Nadlan, Decisive)
+  - type: web
+    name: gov-mcp
+    env: python
+    plan: free
+    region: oregon
+    repo: https://github.com/MrAnde7son/realestate-agent
+    branch: main
+    rootDir: gov
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m mcp.server --host 0.0.0.0 --port 8884
+    healthCheckPath: /
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: PORT
+        value: 8884
+
+  # GIS MCP Server - Tel Aviv GIS services and geospatial analysis
+  - type: web
+    name: gis-mcp
+    env: python
+    plan: free
+    region: oregon
+    repo: https://github.com/MrAnde7son/realestate-agent
+    branch: main
+    rootDir: gis
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m mcp.server --host 0.0.0.0 --port 8885
+    healthCheckPath: /
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: PORT
+        value: 8885
+
+databases:
+  # PostgreSQL Database - Primary database for the application
+  - name: postgres-db
+    plan: free
+    region: oregon
+    version: 17
+    databaseName: postgres_db_0n63
+    databaseUser: postgres_db_0n63_user
+    ipAllowList:
+      - cidrBlock: 0.0.0.0/0
+        description: everywhere
+
+keyValueStores:
+  # Redis Cache - Key-value store for caching and session management
+  - name: redis
+    plan: free
+    region: oregon
+    version: 8.1.0
+    maxmemoryPolicy: allkeys_lru

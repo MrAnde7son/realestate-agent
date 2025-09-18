@@ -426,6 +426,11 @@ export default function DealExpensesPage() {
       setBuildEstimate(estimate)
       setUseDekelEstimate(true)
       
+      // Auto-fill construction area and cost from Dekel estimate
+      setConstructionArea(dekelArea)
+      const baseCostPerSqm = estimate.metadata.base_cost_per_sqm
+      setConstructionCostPerSqm(baseCostPerSqm)
+      
       trackCalculatorUsage('expense', 'dekel_estimate', {
         area: dekelArea,
         region: dekelRegion,
@@ -444,11 +449,25 @@ export default function DealExpensesPage() {
   const handleUseDekelToggle = (value: boolean) => {
     setUseDekelEstimate(value)
     if (value && buildEstimate) {
-      // Apply the estimate to construction cost
+      // Apply the estimate to construction cost and area
       const estimateKey = estimateType === 'low' ? 'low_cost_with_vat' : 
                          estimateType === 'high' ? 'high_cost_with_vat' : 
                          'base_cost_with_vat'
       const estimatedCost = buildEstimate.totals[estimateKey]
+      setConstructionArea(dekelArea)
+      setConstructionCostPerSqm(estimatedCost / dekelArea)
+    }
+  }
+
+  const handleEstimateTypeChange = (value: 'low' | 'base' | 'high') => {
+    setEstimateType(value)
+    if (useDekelEstimate && buildEstimate) {
+      // Apply the new estimate type to construction cost and area
+      const estimateKey = value === 'low' ? 'low_cost_with_vat' : 
+                         value === 'high' ? 'high_cost_with_vat' : 
+                         'base_cost_with_vat'
+      const estimatedCost = buildEstimate.totals[estimateKey]
+      setConstructionArea(dekelArea)
       setConstructionCostPerSqm(estimatedCost / dekelArea)
     }
   }
@@ -801,31 +820,6 @@ export default function DealExpensesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="property-type" className="text-sm font-medium">
-                  סוג הנכס
-                </Label>
-                <Select value={propertyType} onValueChange={value => handlePropertyTypeChange(value as PropertyType)}>
-                  <SelectTrigger id="property-type" className="w-full">
-                    <SelectValue placeholder="בחר סוג נכס" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="residential">נכס בנוי</SelectItem>
-                    <SelectItem value="land">קרקע</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {isLand ? (
-                    <LandPlot className="h-3.5 w-3.5" />
-                  ) : (
-                    <Home className="h-3.5 w-3.5" />
-                  )}
-                  <span>סוג הנכס משפיע על מס הרכישה ועל העלויות הנלוות</span>
-                </div>
-              </div>
-
-              <Separator />
-
               {/* Asset Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
@@ -844,6 +838,7 @@ export default function DealExpensesPage() {
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {selectedAsset.area} מ&quot;ר • {fmtCurrency(selectedAsset.price || 0)}
+                            {selectedAsset.type && ` • ${selectedAsset.type}`}
                             {selectedAsset.rooms && ` • ${selectedAsset.rooms} חדרים`}
                           </div>
                         </div>
@@ -890,6 +885,7 @@ export default function DealExpensesPage() {
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
                                   {asset.area} מ&quot;ר • {fmtCurrency(asset.price || 0)}
+                                  {asset.type && ` • ${asset.type}`}
                                   {asset.rooms && ` • ${asset.rooms} חדרים`}
                                 </div>
                               </button>
@@ -905,11 +901,34 @@ export default function DealExpensesPage() {
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  בחירת נכס תמלא אוטומטית את המחיר והשטח
+                  בחירת נכס תמלא אוטומטית את סוג הנכס, המחיר והשטח
                 </div>
               </div>
 
               <Separator />
+
+              <div className="space-y-2">
+                <Label htmlFor="property-type" className="text-sm font-medium">
+                  סוג הנכס
+                </Label>
+                <Select value={propertyType} onValueChange={value => handlePropertyTypeChange(value as PropertyType)}>
+                  <SelectTrigger id="property-type" className="w-full">
+                    <SelectValue placeholder="בחר סוג נכס" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="residential">נכס בנוי</SelectItem>
+                    <SelectItem value="land">קרקע</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {isLand ? (
+                    <LandPlot className="h-3.5 w-3.5" />
+                  ) : (
+                    <Home className="h-3.5 w-3.5" />
+                  )}
+                  <span>סוג הנכס משפיע על מס הרכישה ועל העלויות הנלוות</span>
+                </div>
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="price" className="text-sm font-medium">
@@ -1152,7 +1171,7 @@ export default function DealExpensesPage() {
                         <div className="space-y-3">
                           <div className="flex items-center gap-2">
                             <Label className="text-xs">סוג אומדן:</Label>
-                            <Select value={estimateType} onValueChange={(value: 'low' | 'base' | 'high') => setEstimateType(value)}>
+                            <Select value={estimateType} onValueChange={handleEstimateTypeChange}>
                               <SelectTrigger className="w-32">
                                 <SelectValue />
                               </SelectTrigger>

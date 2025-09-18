@@ -98,7 +98,7 @@ export async function fetchBuildCostEstimate(
   region: string = 'CENTER',
   quality: string = 'standard'
 ): Promise<BuildCostEstimate> {
-  const response = await fetch('/api/cost/estimate/build/', {
+  const response = await fetch('/api/cost/estimate/build', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -119,7 +119,7 @@ export async function fetchBuildCostEstimate(
 }
 
 export async function fetchCostOptions(): Promise<CostEstimateOptions> {
-  const response = await fetch('/api/cost/options/')
+  const response = await fetch('/api/cost/options')
   
   if (!response.ok) {
     throw new Error('Failed to fetch cost options')

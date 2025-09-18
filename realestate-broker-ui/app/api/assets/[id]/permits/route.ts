@@ -9,12 +9,21 @@ export async function GET(
   const numericId = Number(id)
 
   try {
+    // Try the new permits endpoint first
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-    const resp = await fetch(`${backendUrl}/api/permits/?asset=${numericId}`)
+    console.log(`Fetching permits from: ${backendUrl}/api/assets/${numericId}/permits/`)
+    const resp = await fetch(`${backendUrl}/api/assets/${numericId}/permits/`)
+    console.log(`Response status: ${resp.status}`)
     if (resp.ok) {
       const data = await resp.json()
-      const permits = Array.isArray(data) ? data : data.results || data.rows || []
-      return NextResponse.json({ permits })
+      console.log(`Response data:`, data)
+      const permits = data.permits || []
+      console.log(`Permits found: ${permits.length}`)
+      if (permits.length > 0) {
+        return NextResponse.json({ permits })
+      }
+    } else {
+      console.log(`Backend response not ok: ${resp.status} ${resp.statusText}`)
     }
   } catch (err) {
     console.error('Error fetching permits from backend:', err)

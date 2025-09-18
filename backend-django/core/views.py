@@ -1432,6 +1432,182 @@ def asset_detail(request, asset_id):
         )
 
 
+@csrf_exempt
+def asset_appraisal(request, asset_id):
+    """Get appraisal data for an asset including decisive appraisals and RAMI data."""
+    if request.method != "GET":
+        return JsonResponse({"error": "GET method required"}, status=405)
+
+    try:
+        # Get asset
+        try:
+            Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return JsonResponse({"error": "Asset not found"}, status=404)
+
+        # Get source records for appraisal data
+        appraisal_records = SourceRecord.objects.filter(
+            asset_id=asset_id,
+            source__in=['appraisal_decisive', 'appraisal_rmi', 'decisive', 'rami']
+        )
+        
+        # Get transactions for comparable analysis
+        transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
+        
+        # Build appraisal data
+        appraisal_data = {
+            "appraisal": None,
+            "decisive_appraisals": [],
+            "rami_appraisals": [],
+            "comparable_transactions": [],
+            "market_analysis": {}
+        }
+        
+        # Process decisive appraisals
+        decisive_records = appraisal_records.filter(source__in=['appraisal_decisive', 'decisive'])
+        for record in decisive_records:
+            if record.raw:
+                try:
+                    raw_data = json.loads(record.raw) if isinstance(record.raw, str) else record.raw
+                    appraisal_data["decisive_appraisals"].append({
+                        "id": record.id,
+                        "appraiser": raw_data.get("appraiser", "לא זמין"),
+                        "date": raw_data.get("date", record.fetched_at.isoformat() if record.fetched_at else None),
+                        "appraisedValue": raw_data.get("appraisedValue", raw_data.get("value")),
+                        "url": record.url,
+                        "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
+                    })
+                except (json.JSONDecodeError, TypeError):
+                    # Fallback for non-JSON data
+                    appraisal_data["decisive_appraisals"].append({
+                        "id": record.id,
+                        "appraiser": "לא זמין",
+                        "date": record.fetched_at.isoformat() if record.fetched_at else None,
+                        "appraisedValue": None,
+                        "url": record.url,
+                        "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
+                    })
+        
+        # Process RAMI appraisals
+        rami_records = appraisal_records.filter(source__in=['appraisal_rmi', 'rami'])
+        for record in rami_records:
+            if record.raw:
+                try:
+                    raw_data = json.loads(record.raw) if isinstance(record.raw, str) else record.raw
+                    appraisal_data["rami_appraisals"].append({
+                        "id": record.id,
+                        "date": raw_data.get("date", record.fetched_at.isoformat() if record.fetched_at else None),
+                        "marketValue": raw_data.get("marketValue", raw_data.get("value")),
+                        "url": record.url,
+                        "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
+                    })
+                except (json.JSONDecodeError, TypeError):
+                    # Fallback for non-JSON data
+                    appraisal_data["rami_appraisals"].append({
+                        "id": record.id,
+                        "date": record.fetched_at.isoformat() if record.fetched_at else None,
+                        "marketValue": None,
+                        "url": record.url,
+                        "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
+                    })
+        
+        # Process comparable transactions
+        for trans in transactions:
+            appraisal_data["comparable_transactions"].append({
+                "id": trans.id,
+                "date": trans.date.isoformat() if trans.date else None,
+                "price": trans.price,
+                "rooms": trans.rooms,
+                "area": trans.area,
+                "floor": trans.floor,
+                "address": trans.address,
+                "price_per_sqm": trans.price / trans.area if trans.price and trans.area else None
+            })
+        
+        # Calculate market analysis
+        if appraisal_data["comparable_transactions"]:
+            prices = [t["price"] for t in appraisal_data["comparable_transactions"] if t["price"]]
+            ppsqm_values = [t["price_per_sqm"] for t in appraisal_data["comparable_transactions"] if t["price_per_sqm"]]
+            
+            if prices:
+                appraisal_data["market_analysis"] = {
+                    "avg_price": sum(prices) / len(prices),
+                    "min_price": min(prices),
+                    "max_price": max(prices),
+                    "median_price": sorted(prices)[len(prices) // 2],
+                    "transaction_count": len(prices)
+                }
+            
+            if ppsqm_values:
+                appraisal_data["market_analysis"]["avg_price_per_sqm"] = sum(ppsqm_values) / len(ppsqm_values)
+                appraisal_data["market_analysis"]["min_price_per_sqm"] = min(ppsqm_values)
+                appraisal_data["market_analysis"]["max_price_per_sqm"] = max(ppsqm_values)
+        
+        # Set primary appraisal (most recent decisive or RAMI)
+        all_appraisals = appraisal_data["decisive_appraisals"] + appraisal_data["rami_appraisals"]
+        if all_appraisals:
+            # Sort by date and take the most recent
+            sorted_appraisals = sorted(all_appraisals, key=lambda x: x.get("date", ""), reverse=True)
+            appraisal_data["appraisal"] = sorted_appraisals[0]
+        
+        return JsonResponse(appraisal_data)
+
+    except Exception as e:
+        logger.error("Error retrieving appraisal data for asset %s: %s", asset_id, e)
+        return JsonResponse(
+            {"error": "Failed to retrieve appraisal data", "details": str(e)}, status=500
+        )
+
+
+@csrf_exempt
+def asset_permits(request, asset_id):
+    """Get building permits for an asset from GIS data."""
+    if request.method != "GET":
+        return JsonResponse({"error": "GET method required"}, status=405)
+
+    try:
+        # Get asset
+        try:
+            Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return JsonResponse({"error": "Asset not found"}, status=404)
+
+        # Get GIS source records for permits
+        gis_records = SourceRecord.objects.filter(
+            asset_id=asset_id,
+            source='gis'
+        )
+        
+        permits = []
+        for record in gis_records:
+            if record.raw:
+                try:
+                    raw_data = json.loads(record.raw) if isinstance(record.raw, str) else record.raw
+                    if 'permits' in raw_data and raw_data['permits']:
+                        for permit in raw_data['permits']:
+                            permits.append({
+                                "id": permit.get('request_num', permit.get('permission_num', '')),
+                                "permit_number": permit.get('permission_num', ''),
+                                "request_number": permit.get('request_num', ''),
+                                "description": permit.get('building_stage', ''),
+                                "status": permit.get('building_stage', ''),
+                                "address": permit.get('addresses', ''),
+                                "url": permit.get('url_hadmaya', ''),
+                                "date": permit.get('permission_date', ''),
+                                "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
+                            })
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        
+        return JsonResponse({"permits": permits})
+
+    except Exception as e:
+        logger.error("Error retrieving permits for asset %s: %s", asset_id, e)
+        return JsonResponse(
+            {"error": "Failed to retrieve permits", "details": str(e)}, status=500
+        )
+
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def asset_share_message(request, asset_id):

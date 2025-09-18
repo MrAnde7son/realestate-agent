@@ -45,6 +45,8 @@ urlpatterns = [
     # Asset enrichment endpoints
     path('assets/', views.assets, name='assets'),
     path('assets/<int:asset_id>/', views.asset_detail, name='asset_detail'),
+    path('assets/<int:asset_id>/appraisal/', views.asset_appraisal, name='asset_appraisal'),
+    path('assets/<int:asset_id>/permits/', views.asset_permits, name='asset_permits'),
     path('assets/<int:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
     
     # Attribution endpoints

@@ -93,7 +93,28 @@
       .hero-subtitle{ font-size:1rem; }
     }
   </style>
-</head>
+
+  <style>
+    @keyframes aerial-pan {
+      0% { transform: scale(1.05) translate(4%,-4%); }
+      100% { transform: scale(1.12) translate(-4%,4%); }
+    }
+    .aerial-layer{
+      position:absolute; inset:0;
+      background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='450' viewBox='0 0 600 450'><defs><linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'><stop stop-color='%2382b07a'/><stop offset='1' stop-color='%2398c092'/></linearGradient><linearGradient id='g2' x1='1' y1='0' x2='0' y2='1'><stop stop-color='%23b8a28c'/><stop offset='1' stop-color='%23d1c1a9'/></linearGradient></defs><rect width='600' height='450' fill='%2399aabb'/><g opacity='0.7'><rect x='0' y='0' width='200' height='150' fill='url(%23g1)'/><rect x='200' y='0' width='200' height='150' fill='%2385a07e'/><rect x='400' y='0' width='200' height='150' fill='url(%23g2)'/><rect x='0' y='150' width='200' height='150' fill='%2392a67d'/><rect x='200' y='150' width='200' height='150' fill='url(%23g2)'/><rect x='400' y='150' width='200' height='150' fill='%238da07a'/><rect x='0' y='300' width='200' height='150' fill='url(%23g2)'/><rect x='200' y='300' width='200' height='150' fill='%238b9f78'/><rect x='400' y='300' width='200' height='150' fill='url(%23g1)'/></g><g opacity='0.2' stroke='%23000' stroke-width='1'><line x1='0' y1='150' x2='600' y2='150'/><line x1='0' y1='300' x2='600' y2='300'/><line x1='200' y1='0' x2='200' y2='450'/><line x1='400' y1='0' x2='400' y2='450'/></g></svg>");
+      background-size: cover; background-position: center;
+      opacity: .22;
+      filter: saturate(0.9) contrast(0.95) brightness(1.05);
+      animation: aerial-pan 24s ease-in-out infinite alternate;
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .aerial-layer { animation: none; }
+    }
+  </style>
+    </head>
 <body class="min-h-screen bg-neutral-50 text-neutral-900">
   <!-- STICKY CTA -->
   <div id="sticky-cta" class="sticky-cta" role="region" aria-label="סרגל הרשמה מהיר">
@@ -133,15 +154,15 @@
             </svg>
             <span class="text-2xl font-bold brand-teal">נדל"נר</span>
           </div>
-          <h1 class="hero-title text-4xl sm:text-5xl font-bold leading-tight">החלטות נדל״ן חכמות בדקות, לא בשבועות</h1>
-          <p class="hero-subtitle mt-4 text-lg text-neutral-700 font-medium"><strong>שקיפות מלאה, חישובים אוטומטיים, ודוחות מקצועיים — במקום אחד.</strong></p>
+          <h1 class="hero-title text-4xl sm:text-5xl font-bold leading-tight">הכל על נדל"ן - שמאות, תכנון, משפטי ופיננסי</h1>
+          <p class="hero-subtitle mt-4 text-lg text-neutral-700 font-medium"><strong>נדל״נר מאחדת את כל המידע הקריטי לדוח אינדיקטיבי ברור.</strong> לא מחליפה בעלי מקצוע — כן חוסכת זמן וכסף עוד לפני שפוגשים אותם.</p>
           <div class="mt-6 space-y-2 text-neutral-700" aria-label="תועלות עיקריות">
             <p>🔹 שומה אינדיקטיבית מיידית</p>
             <p>🔹 בדיקת תכנון, היתרים, תצ״א וקווי בניין</p>
             <p>🔹 עלויות עסקה, מימון, מסים ושיפוץ</p>
             <p>🔹 התראות חכמות על שינויים בנכס או בסביבה</p>
           </div>
-          <p class="mt-4 text-sm text-neutral-600">📍 נתונים ממקורות רשמיים: יד2, אתרי הממשלה, רמ"י, ועוד.</p>
+          <p class="mt-4 text-sm text-neutral-600">📍 נתונים ממקורות ציבוריים ומסחריים (עסקאות, היתרים, GIS ועוד) — מעודכנים תדיר.</p>
           <div class="mt-4 inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium">
             <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse" aria-hidden="true"></span>
             כבר מעל <span id="reports-counter" class="font-bold">2,000</span> דוחות הופקו
@@ -160,28 +181,78 @@
 
         <!-- Visual -->
         <div class="relative">
-          <div class="aspect-4-3 w-full overflow-hidden rounded-2xl ring-1 ring-neutral-200 shadow-lg bg-white" id="demo">
-            <div class="absolute inset-0 bg-gradient-to-br from-blue-50 via-teal-50 to-emerald-50"></div>
+          <div class="aspect-4-3 w-full overflow-hidden rounded-2xl ring-1 ring-neutral-200 shadow-2xl bg-white" id="demo">
+            <!-- Aerial Photo Background -->
+            <div class="absolute inset-0 bg-gradient-to-br from-sky-300 via-blue-400 to-teal-500">
+              <!-- Sky gradient -->
+              <div class="absolute inset-0 bg-gradient-to-b from-blue-200 via-sky-300 to-blue-400"></div>
+              
+              <!-- Ground/buildings -->
+              <div class="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-gray-400 via-gray-300 to-gray-200"></div>
+              
+              <!-- Building silhouettes -->
+              <div class="absolute bottom-0 left-0 right-0 h-1/3">
+                <div class="absolute bottom-0 left-1/4 w-1/6 h-3/4 bg-gray-500 rounded-t-lg"></div>
+                <div class="absolute bottom-0 left-1/2 w-1/4 h-full bg-gray-600 rounded-t-lg"></div>
+                <div class="absolute bottom-0 right-1/4 w-1/5 h-4/5 bg-gray-500 rounded-t-lg"></div>
+                <div class="absolute bottom-0 right-0 w-1/6 h-2/3 bg-gray-400 rounded-t-lg"></div>
+              </div>
+              
+              <!-- Grid pattern overlay -->
+              <div class="absolute inset-0 opacity-20" style="background-image: linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 20px 20px;"></div>
+            </div>
+            
+            <!-- Overlay with data visualization elements -->
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-teal-500/30 to-emerald-600/20"></div>
+            
+            <!-- Floating data cards -->
+            <div class="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg animate-pulse">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span class="text-xs font-semibold text-gray-700">₪2.8M</span>
+              </div>
+              <p class="text-xs text-gray-600">שומה אינדיקטיבית</p>
+            </div>
+            
+            <div class="absolute top-20 right-6 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span class="text-xs font-semibold text-gray-700">היתר פעיל</span>
+              </div>
+              <p class="text-xs text-gray-600">תב״ע 2023</p>
+            </div>
+            
+            <div class="absolute bottom-20 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <span class="text-xs font-semibold text-gray-700">₪180K</span>
+              </div>
+              <p class="text-xs text-gray-600">מס רכישה</p>
+            </div>
+            
+            <!-- Central content -->
             <div class="absolute inset-0 flex items-center justify-center">
-              <div class="text-center bg-white/85 backdrop-blur-sm rounded-xl px-6 py-4 shadow-lg">
-                <div class="flex items-center justify-center gap-2 mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="w-8 h-8" aria-hidden="true">
+              <div class="text-center bg-white/95 backdrop-blur-sm rounded-2xl px-8 py-6 shadow-2xl border border-white/20">
+                <div class="flex items-center justify-center gap-3 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="w-10 h-10" aria-hidden="true">
                     <defs><style>.stroke{fill:none;stroke:#12b3a6;stroke-width:18;stroke-linecap:round;stroke-linejoin:round;}</style></defs>
                     <path d="M40 8 H216 a40 40 0 0 1 40 40 V216 a40 40 0 0 1 -40 40 H40 a40 40 0 0 1 -40 -40 V48 a40 40 0 0 1 40 -40 Z" class="stroke"/>
                     <path d="M60 128 L128 74 L196 128" class="stroke"/>
                     <path d="M104 136 L128 114 L152 136" class="stroke"/>
                     <path d="M96 176 L160 176" class="stroke"/>
                   </svg>
-                  <span class="text-xl font-bold brand-teal">דוח לדוגמה</span>
+                  <span class="text-2xl font-bold brand-teal">דוח לדוגמה</span>
                 </div>
-                <p class="text-sm font-medium text-neutral-700">הורד PDF לדוגמה או צפה בתמונות מסך</p>
-                <div class="mt-4 flex gap-2 justify-center">
-                  <a href="https://app.nadlaner.com/reports/r1.pdf" class="cta-button primary" target="_blank">⬇️ הורד PDF</a>
-                  <a href="/gallery" class="cta-button secondary">🖼️ גלריית מסכים</a>
+                <p class="text-sm font-medium text-neutral-700 mb-4">כל המידע על הנכס במקום אחד</p>
+                <div class="flex gap-3 justify-center">
+                  <a href="https://app.nadlaner.com/reports/r1.pdf" class="cta-button primary text-sm" target="_blank">⬇️ הורד PDF</a>
+                  <a href="/gallery" class="cta-button secondary text-sm">🖼️ גלריית מסכים</a>
                 </div>
               </div>
             </div>
           </div>
+          
+          <!-- Bottom info card -->
           <div class="absolute -bottom-6 -left-6 rounded-xl bg-white/95 backdrop-blur ring-1 ring-neutral-200 px-4 py-3 shadow-lg">
             <p class="text-sm font-medium">⚡ שליפת שמאות/מסים/היתרים וקבלת כדאיות בלחיצה</p>
           </div>
@@ -198,7 +269,7 @@
         נדל"נר, מאגדת תחת קורת גג אחת את כל מה שמקצועני נדל"ן, משקיעים ובעלי נכסים צריכים: שמאות אינדיקטיבית מהירה, נתוני נדל"ן ממשלתיים ומסחריים, הערכת כדאיות השקעה וממשק עבודה חכם בשפה העברית. הפלטפורמה שלנו מעניקה יתרון תחרותי בשוקי נדל"ן בכל הארץ – מתל אביב ועד באר שבע.
       </p>
       <p class="text-neutral-700 leading-relaxed">
-        בעזרת נדל"נר ניתן להפיק דוחות מיידיים, לזהות מגמות נדל"ן, להבין את השפעת המסים וההיטלים על העסקה ולהציג ללקוחות תמונה מלאה ומהימנה. אנו משלבים נתונים מיד2, GovMap, משרדי הממשלה ועוד, כדי להפוך החלטות נדל"ן למדויקות ונגישות לכל מי שעוסק בקנייה, מכירה והשבחת נכסים בישראל.
+        בעזרת נדל"נר ניתן להפיק דוחות מיידיים, לזהות מגמות נדל"ן, להבין את השפעת המסים וההיטלים על העסקה ולהציג ללקוחות תמונה מלאה ומהימנה. אנו משלבים נתונים על עסקאות, GovMap, משרדי הממשלה ועוד, כדי להפוך החלטות נדל"ן למדויקות ונגישות לכל מי שעוסק בקנייה, מכירה והשבחת נכסים בישראל.
       </p>
       <div class="grid md:grid-cols-3 gap-6" aria-label="יתרונות">
         <div class="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
@@ -437,13 +508,33 @@
   <section class="py-16 bg-white">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <h2 class="text-2xl sm:text-3xl font-bold text-center mb-12">מקורות נתונים ואינטגרציות</h2>
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div class="text-center p-6 rounded-xl border border-neutral-200 bg-white hover:shadow-sm transition"><div class="text-3xl mb-3">🏠</div><h3 class="font-semibold text-lg mb-2">יד2</h3><p class="text-sm text-neutral-600">נתוני מודעות נדל"ן, מחירים ותכונות נכסים</p></div>
-        <div class="text-center p-6 rounded-xl border border-neutral-200 bg-white hover:shadow-sm transition"><div class="text-3xl mb-3">🏛️</div><h3 class="font-semibold text-lg mb-2">אתרי הממשלה</h3><p class="text-sm text-neutral-600">עסקאות רשמיות, היתרי בנייה, רמ"י ומיסוי</p></div>
-        <div class="text-center p-6 rounded-xl border border-neutral-200 bg-white hover:shadow-sm transition"><div class="text-3xl mb-3">🗺️</div><h3 class="font-semibold text-lg mb-2">GovMap / GIS</h3><p class="text-sm text-neutral-600">שכבות תכנון, קווי בניין ותצ"א</p></div>
-        <div class="text-center p-6 rounded-xl border border-neutral-200 bg-white hover:shadow-sm transition"><div class="text-3xl mb-3">💳</div><h3 class="font-semibold text-lg mb-2">תשלומים</h3><p class="text-sm text-neutral-600">תמחור, חבילות ומנויים</p></div>
-        <div class="text-center p-6 rounded-xl border border-neutral-200 bg-white hover:shadow-sm transition"><div class="text-3xl mb-3">📤</div><h3 class="font-semibold text-lg mb-2">ייצוא</h3><p class="text-sm text-neutral-600">PDF ממותג, קישורים שיתופיים</p></div>
-        <div class="text-center p-6 rounded-xl border border-neutral-200 bg-white hover:shadow-sm transition"><div class="text-3xl mb-3">🔔</div><h3 class="font-semibold text-lg mb-2">התראות</h3><p class="text-sm text-neutral-600">נכס חדש, ירידת מחיר, שינוי בשוק, עדכון מסמכים, סטטוס היתרים</p></div>
+      
+        <div class="grid md:grid-cols-3 gap-6 mt-6">
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5">
+            <h3 class="text-lg font-semibold mb-2">מאגרים מסחריים</h3>
+            <p class="text-sm text-neutral-700">מודעות ונתוני נכסים, מגמות שוק והיסטוריית מחירים.</p>
+          </div>
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5">
+            <h3 class="text-lg font-semibold mb-2">רשומות ציבוריות וממשלתיות</h3>
+            <p class="text-sm text-neutral-700">עסקאות רשומות, היתרים, תב״ע, מידע קנייני.</p>
+          </div>
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5">
+            <h3 class="text-lg font-semibold mb-2">מערכות GIS ציבוריות</h3>
+            <p class="text-sm text-neutral-700">שכבות מפה, תצ״א, קווי בניין, יעודי קרקע והגבלות תכנוניות.</p>
+          </div>
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5">
+            <h3 class="text-lg font-semibold mb-2">נתונים פיננסיים</h3>
+            <p class="text-sm text-neutral-700">ריביות משכנתא, מדדים, ועלויות בנייה לפי מקורות ציבוריים ומסחריים.</p>
+          </div>
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5">
+            <h3 class="text-lg font-semibold mb-2">נתונים משפטיים</h3>
+            <p class="text-sm text-neutral-700">מגבלות ידועות, סוגי זכויות, עיקולים/שעבודים (ככל שקיים במאגרים ציבוריים).</p>
+          </div>
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5">
+            <h3 class="text-lg font-semibold mb-2">שומות ודוחות רשמיים</h3>
+            <p class="text-sm text-neutral-700">הצלבות עם שומות/מסמכים רשמיים כאשר זמינים, לצורך הכוונה ואימות.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -484,8 +575,8 @@
               <td class="border border-neutral-200 px-6 py-4">עד 25 נכסים, התראות חכמות, דוחות מתקדמים</td>
             </tr>
             <tr>
-              <td class="border border-neutral-200 px-6 py-4 font-medium">משרדית</td>
-              <td class="border border-neutral-200 px-6 py-4 font-bold text-lg">399 ₪/חודש</td>
+              <td class="border border-neutral-200 px-6 py-4 font-medium">עיסקית</td>
+              <td class="border border-neutral-200 px-6 py-4 font-bold text-lg">249 ₪/חודש</td>
               <td class="border border-neutral-200 px-6 py-4">נכסים ללא הגבלה, דוחות מתקדמים ממותגים, יכולות AI</td>
             </tr>
           </tbody>
@@ -512,13 +603,25 @@
     <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
       <h2 class="text-2xl sm:text-3xl font-bold">שאלות נפוצות</h2>
       <div class="mt-6 space-y-6">
-        <details class="rounded-xl border border-neutral-200 bg-white p-4"><summary class="cursor-pointer font-medium">האם הנתונים בזמן אמת?</summary><p class="mt-2 text-neutral-700">כן. אנו מושכים נתונים ממקורות רשמיים וצד-שלישי ומעדכנים תדיר.</p></details>
-        <details class="rounded-xl border border-neutral-200 bg-white p-4"><summary class="cursor-pointer font-medium">האם יש יצוא PDF וקישור שיתופי?</summary><p class="mt-2 text-neutral-700">כן. דוחות ממותגים לשיתוף מיידי.</p></details>
-        <details class="rounded-xl border border-neutral-200 bg-white p-4"><summary class="cursor-pointer font-medium">אפשר לשדרג/לבטל בכל רגע?</summary><p class="mt-2 text-neutral-700">בוודאי, הכל מנוהל ישירות מהחשבון.</p></details>
-        <details class="rounded-xl border border-neutral-200 bg-white p-4"><summary class="cursor-pointer font-medium">איך זה עובד עם יד2 ואתרי הממשלה?</summary><p class="mt-2 text-neutral-700">מדביקים קישור מודעה או מזינים כתובת, והמערכת מאחדת את כל הנתונים הרלוונטיים (אתרי הממשלה, רמ"י וכו').</p></details>
-        <details class="rounded-xl border border-neutral-200 bg-white p-4"><summary class="cursor-pointer font-medium">מה ההבדל בין Nadlaner לנדל"נר?</summary><p class="mt-2 text-neutral-700">אין הבדל – Nadlaner הוא השם הבינלאומי של נדל"נר, ואנו משתמשים גם בביטויים נדלן ונדל"ן כדי לוודא שתמצא אותנו בכל חיפוש.</p></details>
-        <details class="rounded-xl border border-neutral-200 bg-white p-4"><summary class="cursor-pointer font-medium">האם זה עובד בכל ערי ישראל?</summary><p class="mt-2 text-neutral-700">כן, בכל הערים המרכזיות והשכונות.</p></details>
-        <details class="rounded-xl border border-neutral-200 bg-white p-4"><summary class="cursor-pointer font-medium">האם הנתונים מוגנים?</summary><p class="mt-2 text-neutral-700">כן, אנו מקפידים על אבטחת מידע ופרטיות.</p></details>
+        <details class="rounded-xl border border-neutral-200 bg-white p-4">
+          <summary class="cursor-pointer text-neutral-900 font-medium">האם נדל״נר מחליף בעלי מקצוע?</summary>
+          <p class="mt-2 text-sm text-neutral-700">לא. נדל״נר מספקת תמונה אינדיקטיבית שמכינה אותך לשיחה עם שמאי, אדריכל או עו״ד — כדי לשאול את השאלות הנכונות ולחסוך זמן וכסף.</p>
+        </details>
+        
+        <details class="rounded-xl border border-neutral-200 bg-white p-4">
+          <summary class="cursor-pointer font-medium">האם זה עובד בכל ערי ישראל?</summary>
+          <p class="mt-2 text-neutral-700">כן, בכל הערים המרכזיות והשכונות.</p>
+        </details>
+        
+        <details class="rounded-xl border border-neutral-200 bg-white p-4">
+          <summary class="cursor-pointer font-medium">האם הנתונים מוגנים?</summary>
+          <p class="mt-2 text-neutral-700">כן, אנו מקפידים על אבטחת מידע ופרטיות.</p>
+        </details>
+        
+        <details class="rounded-xl border border-neutral-200 bg-white p-4">
+          <summary class="cursor-pointer text-neutral-900 font-medium">איך זה עובד עם מאגרים מסחריים ורשומות ציבוריות וממשלתיות?</summary>
+          <p class="mt-2 text-sm text-neutral-700">החיפוש מתבסס על כתובת או פרטי גוש/חלקה. אין צורך (ואי אפשר) להדביק מודעת יד שנייה — אנחנו מאתרים את הנתונים לפי המיקום ומצליבים עם רשומות ציבוריות ונתונים מסחריים.</p>
+        </details>
       </div>
     </div>
   </section>
@@ -544,7 +647,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="w-6 h-6" aria-hidden="true"><defs><style>.stroke{fill:none;stroke:#12b3a6;stroke-width:18;stroke-linecap:round;stroke-linejoin:round;}</style></defs><path d="M40 8 H216 a40 40 0 0 1 40 40 V216 a40 40 0 0 1 -40 40 H40 a40 40 0 0 1 -40 -40 V48 a40 40 0 0 1 40 -40 Z" class="stroke"/><path d="M60 128 L128 74 L196 128" class="stroke"/><path d="M104 136 L128 114 L152 136" class="stroke"/><path d="M96 176 L160 176" class="stroke"/></svg>
             <span class="font-bold text-lg brand-teal">נדל"נר</span>
           </div>
-          <p class="text-sm text-neutral-600">פלטפורמת נדל"ן מתקדמת עם נתוני יד2 ואתרי הממשלה</p>
+          <p class="text-sm text-neutral-600">פלטפורמת נדל"ן מתקדמת עם נתוני עיסקאות ואתרי הממשלה</p>
         </div>
         <div>
           <h4 class="font-semibold mb-3">שירותים</h4>

@@ -755,7 +755,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
             <TabsTrigger value="documents">מסמכים</TabsTrigger>
-            <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger>
+            {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="analysis" className="space-y-4">

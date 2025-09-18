@@ -92,7 +92,8 @@ class AssetSerializer(MetaSerializerMixin):
         if obj.meta and 'documents' in obj.meta:
             for doc in obj.meta['documents']:
                 # Only add if not already in Document model
-                if not any(d['external_id'] == doc.get('id') for d in documents):
+                # Use 'id' field for meta documents since they don't have 'external_id'
+                if not any(d.get('external_id') == doc.get('id') for d in documents):
                     documents.append(doc)
         
         return documents

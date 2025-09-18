@@ -27,13 +27,59 @@ export default function MortgageAnalyzePage() {
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [loadingBoiRate, setLoadingBoiRate] = useState<boolean>(true)
   const [calculating, setCalculating] = useState<boolean>(false)
+  const [requiredEquity, setRequiredEquity] = useState<number | null>(null)
+  const [isClient, setIsClient] = useState(false)
+  const [userEquity, setUserEquity] = useState<number>(0)
 
   useEffect(() => {
+    // Set client-side flag
+    setIsClient(true)
+    
     // Fetch current BOI rate on component mount
     fetchBOIRate()
     // Track calculator page view
     trackCalculatorUsage('mortgage', 'page_view')
   }, [trackCalculatorUsage])
+
+  useEffect(() => {
+    // Check for URL parameters from expenses calculator (only on client side)
+    if (isClient) {
+      const urlParams = new URLSearchParams(window.location.search)
+      const propertyValue = urlParams.get('propertyValue')
+      const totalExpenses = urlParams.get('totalExpenses')
+      
+      if (propertyValue || totalExpenses) {
+        // Track that data was pre-filled from expenses calculator
+        trackCalculatorUsage('mortgage', 'prefilled_from_expenses', {
+          property_value: propertyValue,
+          total_expenses: totalExpenses
+        })
+        
+        // Update input with pre-filled values
+        // propertyValue now contains the total cost (property + expenses)
+        if (propertyValue) {
+          const totalCost = parseInt(propertyValue)
+          setInput(prev => ({
+            ...prev,
+            propertyValue: totalCost,
+            loanAmount: totalCost, // Default to full amount, user can adjust
+            loanTermYears: prev.loanTermYears // Keep default term
+          }))
+        }
+        
+        // Set total expenses for display
+        if (totalExpenses) {
+          setRequiredEquity(parseInt(totalExpenses))
+        }
+      }
+    }
+  }, [isClient, trackCalculatorUsage])
+
+  useEffect(() => {
+    // Calculate loan amount based on user equity
+    const loanAmount = Math.max(0, input.propertyValue - userEquity)
+    setInput(prev => ({ ...prev, loanAmount }))
+  }, [userEquity, input.propertyValue])
 
   useEffect(() => {
     const results = calculateAllScenarios(input, boiRate)
@@ -168,14 +214,38 @@ export default function MortgageAnalyzePage() {
                   placeholder="3,500,000" 
                 />
               </div>
+              
+              {/* User Equity Input */}
               <div>
-                <label className="block text-sm font-medium mb-2">סכום הלוואה</label>
+                <label className="block text-sm font-medium mb-2">הון עצמי</label>
                 <Input 
                   type="number" 
-                  value={input.loanAmount}
-                  onChange={(e) => handleInputChange('loanAmount', parseInt(e.target.value) || 0)}
-                  placeholder="2,800,000" 
+                  value={userEquity}
+                  onChange={(e) => setUserEquity(parseInt(e.target.value) || 0)}
+                  placeholder="500,000" 
                 />
+                <div className="text-xs text-muted-foreground mt-1">
+                  סכום ההון העצמי שלך (יופחת מהמחיר הכולל)
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">סכום הלוואה</label>
+                <div className="relative">
+                  <Input 
+                    type="number" 
+                    value={input.loanAmount}
+                    readOnly
+                    className="bg-muted pr-10"
+                    placeholder="2,800,000" 
+                  />
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+                    מחושב אוטומטית
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {fmtCurrency(input.propertyValue)} - {fmtCurrency(userEquity)} = {fmtCurrency(input.loanAmount)}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">תקופת הלוואה (שנים)</label>
@@ -204,6 +274,15 @@ export default function MortgageAnalyzePage() {
                   {ltv <= 75 ? 'יחס טוב' : ltv <= 85 ? 'יחס בינוני' : 'יחס גבוה'}
                 </Badge>
               </div>
+
+              {/* Info from Expenses Calculator */}
+              {isClient && requiredEquity && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-xs text-blue-600 dark:text-blue-400 p-2 bg-blue-100 dark:bg-blue-800/30 rounded">
+                    💡 <strong>טיפ:</strong> המחיר הכולל כולל את הנכס + כל ההוצאות. הזן את ההון העצמי שלך למעלה כדי לחשב את המשכנתא הנדרשת.
+                  </div>
+                </div>
+              )}
               
               <Button 
                 className="w-full" 

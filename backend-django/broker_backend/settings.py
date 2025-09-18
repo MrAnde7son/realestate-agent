@@ -139,6 +139,15 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / "core" / "static",
 ]
+
+# Media files (user uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Document storage settings
+DOCUMENT_STORAGE_PATH = 'documents'
+MAX_DOCUMENT_SIZE = 10 * 1024 * 1024  # 10MB
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 

@@ -1083,6 +1083,9 @@ def _process_gis_data(asset, gis_data):
                     asset.set_property('permitDate', permit_date.date(), source='GIS', url='https://www.govmap.gov.il/')
                 except:
                     pass
+            
+            # Create documents from permits
+            _create_documents_from_permits(asset, permits)
     
     # Green areas
     if gis_data.get('green'):
@@ -1161,6 +1164,9 @@ def _process_government_data(asset, gov_data):
             latest_appraisal = decisive[0] if decisive else {}
             asset.set_property('appraisalValue', latest_appraisal.get('appraised_value'), source='מנהל התכנון', url='https://www.gov.il/')
             asset.set_property('appraisalDate', latest_appraisal.get('appraisal_date'), source='מנהל התכנון', url='https://www.gov.il/')
+            
+            # Create documents from appraisals
+            _create_documents_from_appraisals(asset, decisive)
 
 
 def _process_rami_plans(asset, plans):
@@ -1174,6 +1180,9 @@ def _process_rami_plans(asset, plans):
             asset.set_property('planActive', True, source='RAMI', url='https://rami.gov.il/')
         else:
             asset.set_property('planActive', False, source='RAMI', url='https://rami.gov.il/')
+        
+        # Create documents from RAMI plans
+        _create_documents_from_rami_plans(asset, plans)
 
 
 def _process_mavat_plans(asset, mavat_plans):
@@ -1227,6 +1236,139 @@ def _process_govmap_data(asset, govmap_data):
         for layer_name, features in nearby.items():
             if features:
                 asset.set_property(f'govmap_{layer_name}_count', len(features), source='GovMap', url='https://www.govmap.gov.il/')
+
+
+def _create_documents_from_permits(asset, permits):
+    """Create documents from GIS permits data."""
+    if not permits:
+        return
+    
+    # Initialize documents array if it doesn't exist
+    if 'documents' not in asset.meta:
+        asset.meta['documents'] = []
+    
+    # Create documents for each permit
+    for permit in permits:
+        if not permit:
+            continue
+            
+        # Extract permit information
+        permit_id = permit.get('request_num', permit.get('permission_num', ''))
+        permit_number = permit.get('permission_num', '')
+        request_number = permit.get('request_num', '')
+        description = permit.get('building_stage', '')
+        status = permit.get('building_stage', '')
+        address = permit.get('addresses', '')
+        url = permit.get('url_hadmaya', '')
+        
+        # Convert timestamp to date
+        permit_date = None
+        if permit.get('permission_date'):
+            try:
+                from datetime import datetime
+                permit_date = datetime.fromtimestamp(permit['permission_date'] / 1000).strftime('%Y-%m-%d')
+            except:
+                pass
+        
+        # Create document entry
+        document = {
+            'id': f"permit_{permit_id}" if permit_id else f"permit_{len(asset.meta['documents']) + 1}",
+            'type': 'permit',
+            'title': f"היתר בניה - {description}" if description else "היתר בניה",
+            'description': description,
+            'status': status,
+            'date': permit_date,
+            'url': url,
+            'source': 'GIS',
+            'permit_number': permit_number,
+            'request_number': request_number,
+            'address': address,
+            'downloadable': bool(url)
+        }
+        
+        asset.meta['documents'].append(document)
+    
+    logger.info(f"Created {len(permits)} permit documents for asset {asset.id}")
+
+
+def _create_documents_from_appraisals(asset, appraisals):
+    """Create documents from government appraisals data."""
+    if not appraisals:
+        return
+    
+    # Initialize documents array if it doesn't exist
+    if 'documents' not in asset.meta:
+        asset.meta['documents'] = []
+    
+    # Create documents for each appraisal
+    for appraisal in appraisals:
+        if not appraisal:
+            continue
+            
+        # Extract appraisal information
+        appraiser = appraisal.get('appraiser', 'לא זמין')
+        appraised_value = appraisal.get('appraised_value', appraisal.get('value'))
+        appraisal_date = appraisal.get('appraisal_date', appraisal.get('date'))
+        url = appraisal.get('url', '')
+        
+        # Create document entry
+        document = {
+            'id': f"appraisal_{len(asset.meta['documents']) + 1}",
+            'type': 'appraisal',
+            'title': f"שומה מכריעה - {appraiser}",
+            'description': f"שומה מכריעה על ידי {appraiser}",
+            'status': 'מאושר',
+            'date': appraisal_date,
+            'url': url,
+            'source': 'מנהל התכנון',
+            'appraiser': appraiser,
+            'appraised_value': appraised_value,
+            'downloadable': bool(url)
+        }
+        
+        asset.meta['documents'].append(document)
+    
+    logger.info(f"Created {len(appraisals)} appraisal documents for asset {asset.id}")
+
+
+def _create_documents_from_rami_plans(asset, plans):
+    """Create documents from RAMI plans data."""
+    if not plans:
+        return
+    
+    # Initialize documents array if it doesn't exist
+    if 'documents' not in asset.meta:
+        asset.meta['documents'] = []
+    
+    # Create documents for each plan
+    for plan in plans:
+        if not plan:
+            continue
+            
+        # Extract plan information
+        plan_number = plan.get('plan_number', plan.get('number', ''))
+        plan_name = plan.get('plan_name', plan.get('name', ''))
+        status = plan.get('status', '')
+        url = plan.get('url', '')
+        
+        # Create document entry
+        document = {
+            'id': f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{len(asset.meta['documents']) + 1}",
+            'type': 'plan',
+            'title': f"תכנית רמ״י - {plan_name}" if plan_name else f"תכנית רמ״י {plan_number}",
+            'description': f"תכנית רמ״י {plan_number}",
+            'status': status,
+            'date': plan.get('date', ''),
+            'url': url,
+            'source': 'RAMI',
+            'plan_number': plan_number,
+            'plan_name': plan_name,
+            'downloadable': bool(url)
+        }
+        
+        asset.meta['documents'].append(document)
+    
+    logger.info(f"Created {len(plans)} RAMI plan documents for asset {asset.id}")
 
 
 

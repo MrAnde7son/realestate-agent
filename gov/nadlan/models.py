@@ -104,12 +104,12 @@ class Deal:
         
         return cls(
             address=d.get("address") or d.get("AssetAddress"),
-            deal_date=d.get("dealDate") or d.get("DealDate"),
-            deal_amount=cls._num(d.get("dealAmount") or d.get("Price")),
+            deal_date=d.get("deal_date") or d.get("dealDate") or d.get("DealDate"),
+            deal_amount=cls._num(d.get("deal_amount") or d.get("dealAmount") or d.get("Price")),
             rooms=(str(d.get("rooms") or d.get("Rooms") or "") or None),
             floor=(str(d.get("floor") or d.get("Floor") or "") or None),
-            asset_type=d.get("assetType") or d.get("AssetType"),
-            year_built=(str(d.get("yearBuilt") or d.get("BuildingYear") or "") or None),
+            asset_type=d.get("asset_type") or d.get("assetType") or d.get("AssetType"),
+            year_built=(str(d.get("year_built") or d.get("yearBuilt") or d.get("BuildingYear") or "") or None),
             area=cls._parse_number(d.get("area") or d.get("TotalArea")),
             # Parcel information
             parcel_block=block,

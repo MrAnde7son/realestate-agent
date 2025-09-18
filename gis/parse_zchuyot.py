@@ -473,7 +473,8 @@ def parse_rights(block: str) -> Dict[str, Any]:
         if "גוש" in L or "חלקה" in L:
             rights.setdefault("parcel_info", []).append(L)
         
-        rights["notes"].append(L)
+        # Add note as a dictionary with the text content
+        rights["notes"].append({"text": L, "type": "general"})
     
     # Convert sets to lists for JSON serialization
     if "referred_plans" in rights:
@@ -722,9 +723,15 @@ def parse_zchuyot(pdf_path: str) -> Dict[str, Any]:
     # Process all existing notes through parse_rights to extract additional data
     if rights.get('notes'):
         for note in rights['notes']:
-            if note and note.strip():
+            # Handle both string and dictionary note formats
+            if isinstance(note, dict):
+                note_text = note.get('text', '')
+            else:
+                note_text = str(note) if note else ''
+            
+            if note_text and note_text.strip():
                 # Try to parse each note for additional rights data
-                note_rights = parse_rights(note)
+                note_rights = parse_rights(note_text)
                 
                 # Merge the additional data found in the note
                 if note_rights.get('building_coverage_percentages'):

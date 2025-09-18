@@ -1,9 +1,12 @@
+import pytest
 from core.models import Asset
 from core.serializers import AssetSerializer
 
 
+@pytest.mark.django_db
 def test_asset_serializer_meta_multiple_sources():
     asset = Asset(
+        scope_type="address",
         meta={
             "city": {
                 "value": "תל אביב",
@@ -34,6 +37,8 @@ def test_asset_serializer_meta_multiple_sources():
             },
         },
     )
+    # Save the asset to get a primary key
+    asset.save()
     data = AssetSerializer(asset).data
     assert data["city"] == "תל אביב"
     assert data["size"] == 80

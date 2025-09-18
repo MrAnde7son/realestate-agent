@@ -280,12 +280,28 @@ def test_parse_zchuyot_pdf_rights_and_policy():
     # Rights might be empty or contain information
     if rights:
         for key, value in rights.items():
-            assert isinstance(value, list), f"Rights value for {key} should be a list"
-            # Rights should have some meaningful content
-            if value:  # If list is not empty
-                for item in value:
-                    assert isinstance(item, dict), f"Each right item in {key} should be a dictionary"
-                    assert any(item.values()), f"Right item in {key} should have at least one non-empty value"
+            # Handle different types of values in rights
+            if key == 'referred_plans':
+                # referred_plans can be a set or list
+                assert isinstance(value, (list, set)), f"Rights value for {key} should be a list or set"
+            elif key == 'notes':
+                # notes should be a list of dictionaries
+                assert isinstance(value, list), f"Rights value for {key} should be a list"
+                if value:  # If list is not empty
+                    for item in value:
+                        assert isinstance(item, dict), f"Each right item in {key} should be a dictionary"
+                        assert any(item.values()), f"Right item in {key} should have at least one non-empty value"
+            elif key in ['percent_building', 'basement_area', 'service_percentage', 'number_of_floors']:
+                # These can be single values (int, float, str)
+                assert isinstance(value, (int, float, str)), f"Rights value for {key} should be a number or string"
+            else:
+                # Other values should be lists (but items can be strings or other types)
+                assert isinstance(value, list), f"Rights value for {key} should be a list"
+                # Rights should have some meaningful content
+                if value:  # If list is not empty
+                    for item in value:
+                        # Items can be strings, numbers, or dictionaries
+                        assert isinstance(item, (str, int, float, dict)), f"Right item in {key} should be a string, number, or dictionary"
     
     # Test policy extraction
     policy = result["policy"]

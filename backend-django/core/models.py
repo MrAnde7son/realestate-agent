@@ -847,6 +847,23 @@ class Report(models.Model):
 
         return f"/api/reports/file/{self.filename}"
 
+    def mark_completed(self, file_size=None, pages=None, generation_time=None):
+        """Mark the report as completed with metadata."""
+        self.status = "completed"
+        if file_size is not None:
+            self.file_size = file_size
+        if pages is not None:
+            self.pages = pages
+        if generation_time is not None:
+            self.generation_time = generation_time
+        self.save()
+
+    def mark_failed(self, error_message):
+        """Mark the report as failed with error message."""
+        self.status = "failed"
+        self.error_message = error_message
+        self.save()
+
 
 class Document(models.Model):
     """Document model for storing file metadata and managing document uploads."""
@@ -967,23 +984,6 @@ class Document(models.Model):
                 logger.error(f"Error deleting file {self.file_path}: {e}")
                 return False
         return True
-
-    def mark_completed(self, file_size=None, pages=None, generation_time=None):
-        """Mark the report as completed with metadata."""
-        self.status = "completed"
-        if file_size is not None:
-            self.file_size = file_size
-        if pages is not None:
-            self.pages = pages
-        if generation_time is not None:
-            self.generation_time = generation_time
-        self.save()
-
-    def mark_failed(self, error_message):
-        """Mark the report as failed with error message."""
-        self.status = "failed"
-        self.error_message = error_message
-        self.save()
 
     def delete_report(self):
         """Delete the report file and database record."""

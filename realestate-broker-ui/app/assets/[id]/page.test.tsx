@@ -9,7 +9,12 @@ const mockUseAuth = {
   user: { id: '1', onboarding_flags: {} },
 }
 
-vi.mock('next/navigation')
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(),
+  useSearchParams: vi.fn(() => ({
+    get: vi.fn((key: string) => key === 'tab' ? null : null)
+  }))
+}))
 vi.mock('@/lib/auth-context', () => ({
   useAuth: () => mockUseAuth,
 }))
@@ -19,9 +24,26 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
 vi.mock('@/components/ui/page-loader', () => ({
   PageLoader: () => <div>Loading...</div>
 }))
+vi.mock('@/hooks/useAnalytics', () => ({
+  useAnalytics: () => ({
+    trackFeatureUsage: vi.fn()
+  })
+}))
+vi.mock('@/components/OnboardingProgress', () => ({
+  default: () => <div>Onboarding Progress</div>
+}))
+vi.mock('@/components/ImageGallery', () => ({
+  default: () => <div>Image Gallery</div>
+}))
+vi.mock('@/components/DataBadge', () => ({
+  default: () => <div>Data Badge</div>
+}))
 
 describe('AssetDetailPage', () => {
-  const mockUseRouter = { push: vi.fn() }
+  const mockUseRouter = { 
+    push: vi.fn(),
+    replace: vi.fn()
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -61,6 +83,30 @@ describe('AssetDetailPage', () => {
         return Promise.resolve({
           ok: false,
           json: async () => ({ details: 'Quota exceeded' })
+        })
+      }
+      if (url === '/api/assets/1/appraisal') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ comps: [], appraisal: null, decisive_appraisals: [], rami_appraisals: [], comparable_transactions: [] })
+        })
+      }
+      if (url === '/api/assets/1/permits') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ permits: [] })
+        })
+      }
+      if (url === '/api/assets/1/plans') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ plans: { local: [], mavat: [] } })
+        })
+      }
+      if (url === '/api/analytics/track') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true })
         })
       }
       return Promise.reject(new Error('Unhandled fetch call'))

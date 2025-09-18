@@ -486,6 +486,25 @@ class Asset(models.Model):
 
     def __str__(self):
         return f"Asset({self.id}, {self.scope_type}, {self.status})"
+    
+    @property
+    def address(self):
+        """Return the normalized address or construct from components."""
+        if self.normalized_address:
+            return self.normalized_address
+        
+        # Construct address from components
+        parts = []
+        if self.street:
+            parts.append(self.street)
+        if self.number:
+            parts.append(str(self.number))
+        if self.apartment:
+            parts.append(f"דירה {self.apartment}")
+        if self.city:
+            parts.append(self.city)
+        
+        return " ".join(parts) if parts else None
 
     def delete_asset(self):
         """Delete the asset and its related records."""

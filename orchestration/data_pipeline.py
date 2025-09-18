@@ -556,6 +556,12 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="gis")
+                
+                # Extract block and parcel from successful GIS collection
+                if gis_data.get('block') and gis_data.get('parcel'):
+                    block = gis_data.get('block', '')
+                    parcel = gis_data.get('parcel', '')
+                    logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
             except Exception as e:
                 # If GIS geocoding failed but we have coordinates from GovMap, try using those
                 if x_itm is not None and y_itm is not None:

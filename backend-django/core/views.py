@@ -52,7 +52,8 @@ from .models import (
     ShareToken,
     AssetContribution,
     UserProfile,
-    Snapshot
+    Snapshot,
+    Plan
 )
 
 from .listing_builder import build_listing

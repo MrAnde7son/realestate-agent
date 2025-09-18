@@ -570,6 +570,7 @@ class DataPipeline:
                             "shelters": self.gis.client.get_shelters(x_itm, y_itm),
                             "green": self.gis.client.get_green_areas(x_itm, y_itm),
                             "noise": self.gis.client.get_noise_levels(x_itm, y_itm),
+                            "antennas": self.gis.client.get_cell_antennas(x_itm, y_itm),
                         }
                         block_gis, parcel_gis = self.gis._extract_block_parcel(gis_data)
                         gis_data.update({"block": block_gis, "parcel": parcel_gis, "x": x_itm, "y": y_itm})
@@ -865,6 +866,7 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 'shelters': gis_data.get('shelters', []),
                 'green_areas': gis_data.get('green', []),
                 'noise_levels': gis_data.get('noise', []),
+                'cell_antennas': gis_data.get('antennas', []),
                 'blocks': gis_data.get('blocks', []),
                 'parcels': gis_data.get('parcels', []),
                 'coordinates': {
@@ -1009,6 +1011,7 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
                             'shelters': gis_data.get('shelters', []),
                             'green': gis_data.get('green', []),
                             'noise': gis_data.get('noise', []),
+                            'antennas': gis_data.get('antennas', []),
                             'block': gis_data.get('block', ''),
                             'parcel': gis_data.get('parcel', ''),
                             'x': gis_data.get('x'),
@@ -1093,6 +1096,13 @@ def _process_gis_data(asset, gis_data):
             min_distance = min([s.get('distance', 999) for s in shelters if isinstance(s, dict)])
             asset.set_property('shelterDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
+    # Cell antennas
+    if gis_data.get('antennas'):
+        antennas = gis_data.get('antennas', [])
+        if antennas:
+            min_distance = min([a.get('distance', 999) for a in antennas if isinstance(a, dict)])
+            asset.set_property('antennaDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+    
     # Environmental fields
     asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
@@ -1131,6 +1141,9 @@ def _process_gis_data(asset, gis_data):
     shelter_distance = asset.get_property_value('shelterDistanceM') or 999
     if shelter_distance > 200:
         risk_flags.append('מרחק גדול ממקלט')
+    antenna_distance = asset.get_property_value('antennaDistanceM') or 999
+    if antenna_distance < 50:
+        risk_flags.append('קרוב מדי לאנטנה')
     asset.set_property('riskFlags', risk_flags, source='GIS (calculated)', url='https://www.govmap.gov.il/')
 
 

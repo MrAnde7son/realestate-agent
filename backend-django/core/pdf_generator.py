@@ -474,7 +474,9 @@ class HebrewPDFGenerator:
         y -= 20
         self.draw_hebrew_label(c, "שטחים ציבוריים", "≤300מ: כן", x, y)
         y -= 20
-        self.draw_hebrew_label(c, "מרחק אנטנה", "150מ", x, y)
+        antenna_distance = listing.get('antennaDistanceM', '—')
+        antenna_text = f"{antenna_distance}מ" if antenna_distance != '—' else "—"
+        self.draw_hebrew_label(c, "מרחק אנטנה", antenna_text, x, y)
 
     def _draw_risk_factors(self, c, listing: dict, y: int):
         """Draw risk factors."""

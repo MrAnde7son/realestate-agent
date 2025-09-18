@@ -306,7 +306,7 @@ export async function POST(req: Request) {
     doc.setFontSize(12);
     doc.text(`Noise Level: ${asset.noiseLevel || 'N/A'}/5`, 20, y); y += 10;
     doc.text(`Public Areas ≤300m: Yes`, 20, y); y += 10;
-    doc.text(`Antenna Distance: 150m`, 20, y); y += 10;
+    doc.text(`Antenna Distance: ${asset.antennaDistanceM ? `${asset.antennaDistanceM}m` : 'N/A'}`, 20, y); y += 10;
     
     y += 20;
     doc.setFontSize(14);

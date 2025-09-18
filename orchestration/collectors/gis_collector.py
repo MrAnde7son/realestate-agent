@@ -27,6 +27,7 @@ class GISCollector(BaseCollector):
             "shelters": self.client.get_shelters(x, y),
             "green": self.client.get_green_areas(x, y),
             "noise": self.client.get_noise_levels(x, y),
+            "antennas": self.client.get_cell_antennas(x, y),
         }
         block, parcel = self._extract_block_parcel(data)
         data.update({"block": block, "parcel": parcel, "x": x, "y": y})

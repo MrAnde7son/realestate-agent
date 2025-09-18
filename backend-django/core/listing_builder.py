@@ -136,6 +136,7 @@ def build_listing(
         "buildingRights": _first_nonempty(asset.building_rights, get_meta_value("buildingRights")),
         "permitStatus": _first_nonempty(asset.permit_status, get_meta_value("permitStatus")),
         "permitDate": asset.permit_date.isoformat() if asset.permit_date else None,
+        "antennaDistanceM": get_meta_value("antennaDistanceM"),
     })
     
     return listing_data

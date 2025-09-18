@@ -1337,7 +1337,9 @@ def _create_documents_from_permits(asset, permits):
             'permit_number': permit_number,
             'request_number': request_number,
             'address': address,
-            'downloadable': bool(url)
+            'downloadable': bool(url),
+            'external_url': url, 
+            'name': description
         }
         
         asset.meta['documents'].append(document)
@@ -1365,6 +1367,13 @@ def _create_documents_from_appraisals(asset, appraisals):
         appraisal_date = appraisal.get('appraisal_date', appraisal.get('date'))
         url = appraisal.get('url', '')
         
+        # Validate and clean URL
+        if url and not url.startswith(('http://', 'https://')):
+            if url.startswith('/'):
+                url = f"https://www.gov.il{url}"
+            else:
+                url = f"https://www.gov.il/{url}"
+        
         # Create document entry
         document = {
             'id': f"appraisal_{len(asset.meta['documents']) + 1}",
@@ -1377,7 +1386,7 @@ def _create_documents_from_appraisals(asset, appraisals):
             'source': 'מנהל התכנון',
             'appraiser': appraiser,
             'appraised_value': appraised_value,
-            'downloadable': bool(url)
+            'downloadable': bool(url and url.startswith(('http://', 'https://')))
         }
         
         asset.meta['documents'].append(document)
@@ -1405,6 +1414,13 @@ def _create_documents_from_rami_plans(asset, plans):
         status = plan.get('status', '')
         url = plan.get('url', '')
         
+        # Validate and clean URL
+        if url and not url.startswith(('http://', 'https://')):
+            if url.startswith('/'):
+                url = f"https://rami.gov.il{url}"
+            else:
+                url = f"https://rami.gov.il/{url}"
+        
         # Create document entry
         document = {
             'id': f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{len(asset.meta['documents']) + 1}",
@@ -1417,7 +1433,7 @@ def _create_documents_from_rami_plans(asset, plans):
             'source': 'RAMI',
             'plan_number': plan_number,
             'plan_name': plan_name,
-            'downloadable': bool(url)
+            'downloadable': bool(url and url.startswith(('http://', 'https://')))
         }
         
         asset.meta['documents'].append(document)

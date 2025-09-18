@@ -306,16 +306,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
   const manualDocs =
     asset?.documents?.filter(
-      (d: any) => d.type === 'tabu' || d.type === 'condo_plan'
+      (d: any) => d.type === 'tabu' || d.type === 'condo_plan' || d.type === 'contract' || d.type === 'deed' || d.type === 'other'
     ) ?? []
   const permitDocs =
     asset?.documents?.filter((d: any) => d.type === 'permit') ?? []
   const rightsDocs =
-    asset?.documents?.filter((d: any) => d.type === 'rights') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'rights' || d.type === 'plan') ?? []
   const decisiveDocs =
-    asset?.documents?.filter((d: any) => d.type === 'appraisal_decisive') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'appraisal_decisive' || (d.type === 'appraisal' && d.source === 'מנהל התכנון')) ?? []
   const rmiDocs =
-    asset?.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'appraisal_rmi' || (d.type === 'appraisal' && d.source === 'RAMI')) ?? []
 
   const handleGenerateReport = async (selected: string[]) => {
     if (!id) return
@@ -1675,21 +1675,31 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <div>
                   <h3 className="font-medium mb-2">מסמכים ידניים</h3>
                   {manualDocs.length ? (
-                    <div className="space-y-2">
-                      {manualDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
-                            </a>
-                          </Button>
+                        <div className="space-y-2">
+                          {manualDocs.map((doc: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
+                            >
+                              <span>{doc.name || doc.title}</span>
+                              <Button variant="outline" size="sm" asChild>
+                                <a 
+                                  href={doc.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => {
+                                    if (!doc.url || !doc.url.startsWith('http')) {
+                                      e.preventDefault()
+                                      alert('קישור לא זמין')
+                                    }
+                                  }}
+                                >
+                                  {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
+                                </a>
+                              </Button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
                       לא הועלו מסמכים
@@ -1706,10 +1716,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           key={idx}
                           className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
-                          <span>{doc.name}</span>
+                          <span>{doc.name || doc.title}</span>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!doc.url || !doc.url.startsWith('http')) {
+                                  e.preventDefault()
+                                  alert('קישור לא זמין')
+                                }
+                              }}
+                            >
+                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
                             </a>
                           </Button>
                         </div>
@@ -1729,10 +1749,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           key={idx}
                           className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
-                          <span>{doc.name}</span>
+                          <span>{doc.name || doc.title}</span>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!doc.url || !doc.url.startsWith('http')) {
+                                  e.preventDefault()
+                                  alert('קישור לא זמין')
+                                }
+                              }}
+                            >
+                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
                             </a>
                           </Button>
                         </div>
@@ -1752,10 +1782,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           key={idx}
                           className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
-                          <span>{doc.name}</span>
+                          <span>{doc.name || doc.title}</span>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!doc.url || !doc.url.startsWith('http')) {
+                                  e.preventDefault()
+                                  alert('קישור לא זמין')
+                                }
+                              }}
+                            >
+                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
                             </a>
                           </Button>
                         </div>
@@ -1775,10 +1815,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           key={idx}
                           className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
-                          <span>{doc.name}</span>
+                          <span>{doc.name || doc.title}</span>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!doc.url || !doc.url.startsWith('http')) {
+                                  e.preventDefault()
+                                  alert('קישור לא זמין')
+                                }
+                              }}
+                            >
+                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
                             </a>
                           </Button>
                         </div>
@@ -1788,6 +1838,51 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div className="text-sm text-muted-foreground">אין שומות</div>
                   )}
                 </div>
+
+                {/* Fallback section for uncategorized documents */}
+                {(() => {
+                  const categorizedTypes = ['tabu', 'condo_plan', 'contract', 'deed', 'other', 'permit', 'rights', 'plan', 'appraisal_decisive', 'appraisal_rmi', 'appraisal']
+                  const uncategorizedDocs = asset?.documents?.filter((d: any) => !categorizedTypes.includes(d.type)) ?? []
+                  
+                  if (uncategorizedDocs.length > 0) {
+                    return (
+                      <div>
+                        <h3 className="font-medium mb-2">מסמכים נוספים</h3>
+                        <div className="space-y-2">
+                          {uncategorizedDocs.map((doc: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
+                            >
+                              <div className="flex flex-col rtl:items-end">
+                                <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
+                                {doc.type && (
+                                  <span className="text-xs text-muted-foreground">סוג: {doc.type}</span>
+                                )}
+                              </div>
+                              <Button variant="outline" size="sm" asChild>
+                                <a 
+                                  href={doc.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => {
+                                    if (!doc.url || !doc.url.startsWith('http')) {
+                                      e.preventDefault()
+                                      alert('קישור לא זמין')
+                                    }
+                                  }}
+                                >
+                                  {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
+                                </a>
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
 
                 <div className="pt-4 text-center text-sm text-muted-foreground">
                   סה״כ {asset.documents?.length ?? 0} מסמכים זמינים

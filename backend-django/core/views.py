@@ -27,6 +27,20 @@ import logging
 
 from openai import OpenAI
 
+# Import external modules for data fetching
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+try:
+    from gov.decisive import fetch_decisive_appraisals
+    from gov.rami.rami_client import RamiClient
+    from gov.nadlan.nadlan_scraper import NadlanDealsScraper
+    EXTERNAL_MODULES_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"External modules not available: {e}")
+    EXTERNAL_MODULES_AVAILABLE = False
+
 # Import Django models
 from .models import (
     AlertRule,
@@ -1441,7 +1455,7 @@ def asset_appraisal(request, asset_id):
     try:
         # Get asset
         try:
-            Asset.objects.get(id=asset_id)
+            asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
@@ -1460,7 +1474,14 @@ def asset_appraisal(request, asset_id):
             "decisive_appraisals": [],
             "rami_appraisals": [],
             "comparable_transactions": [],
-            "market_analysis": {}
+            "market_analysis": {},
+            "asset_info": {
+                "address": asset.address,
+                "city": asset.city,
+                "area": asset.area,
+                "block": asset.block,
+                "plot": asset.parcel
+            }
         }
         
         # Process decisive appraisals
@@ -1543,6 +1564,73 @@ def asset_appraisal(request, asset_id):
                 appraisal_data["market_analysis"]["min_price_per_sqm"] = min(ppsqm_values)
                 appraisal_data["market_analysis"]["max_price_per_sqm"] = max(ppsqm_values)
         
+        # Try to fetch fresh data from external sources if modules are available
+        if EXTERNAL_MODULES_AVAILABLE:
+            try:
+                # Fetch decisive appraisals if we have block/parcel info
+                if asset.block and asset.parcel:
+                    logger.info(f"Fetching decisive appraisals for block {asset.block}, parcel {asset.parcel}")
+                    decisive_data = fetch_decisive_appraisals(str(asset.block), str(asset.parcel), max_pages=1)
+                    if decisive_data and 'decisions' in decisive_data:
+                        for decision in decisive_data['decisions']:
+                            appraisal_data["decisive_appraisals"].append({
+                                "id": f"external_{decision.get('id', '')}",
+                                "appraiser": decision.get('appraiser', 'לא זמין'),
+                                "date": decision.get('date', ''),
+                                "appraisedValue": decision.get('value', None),
+                                "url": decision.get('url', ''),
+                                "fetched_at": datetime.now().isoformat(),
+                                "source": "external_decisive"
+                            })
+                
+                # Fetch RAMI plans if we have city/block/parcel info
+                if asset.city and asset.block and asset.parcel:
+                    logger.info(f"Fetching RAMI plans for city {asset.city}, block {asset.block}, parcel {asset.parcel}")
+                    rami_client = RamiClient()
+                    search_params = {
+                        "city": int(asset.city) if str(asset.city).isdigit() else None,
+                        "block": str(asset.block),
+                        "parcel": str(asset.parcel)
+                    }
+                    rami_data = rami_client.fetch_plans(search_params)
+                    if not rami_data.empty:
+                        for _, plan in rami_data.iterrows():
+                            appraisal_data["rami_appraisals"].append({
+                                "id": f"external_rami_{plan.get('id', '')}",
+                                "date": plan.get('status_date', ''),
+                                "marketValue": plan.get('market_value', None),
+                                "url": plan.get('url', ''),
+                                "fetched_at": datetime.now().isoformat(),
+                                "source": "external_rami",
+                                "plan_number": plan.get('plan_number', ''),
+                                "status": plan.get('status', '')
+                            })
+                
+                # Fetch nadlan transactions for comparable analysis
+                if asset.address:
+                    logger.info(f"Fetching nadlan transactions for address {asset.address}")
+                    nadlan_scraper = NadlanDealsScraper()
+                    try:
+                        deals = nadlan_scraper.get_deals_by_address(asset.address)
+                        for deal in deals[:10]:  # Limit to 10 most recent
+                            deal_dict = deal.to_dict() if hasattr(deal, 'to_dict') else deal
+                            appraisal_data["comparable_transactions"].append({
+                                "id": f"external_nadlan_{deal_dict.get('id', '')}",
+                                "date": deal_dict.get('date', ''),
+                                "price": deal_dict.get('price', None),
+                                "rooms": deal_dict.get('rooms', None),
+                                "area": deal_dict.get('area', None),
+                                "floor": deal_dict.get('floor', None),
+                                "address": deal_dict.get('address', ''),
+                                "price_per_sqm": deal_dict.get('price_per_sqm', None),
+                                "source": "external_nadlan"
+                            })
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch nadlan transactions: {e}")
+                        
+            except Exception as e:
+                logger.warning(f"Failed to fetch external data: {e}")
+        
         # Set primary appraisal (most recent decisive or RAMI)
         all_appraisals = appraisal_data["decisive_appraisals"] + appraisal_data["rami_appraisals"]
         if all_appraisals:
@@ -1605,6 +1693,123 @@ def asset_permits(request, asset_id):
         logger.error("Error retrieving permits for asset %s: %s", asset_id, e)
         return JsonResponse(
             {"error": "Failed to retrieve permits", "details": str(e)}, status=500
+        )
+
+
+@csrf_exempt
+def asset_plans(request, asset_id):
+    """Get planning documents for an asset from mavat and local database."""
+    if request.method != "GET":
+        return JsonResponse({"error": "GET method required"}, status=405)
+
+    try:
+        # Get asset
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return JsonResponse({"error": "Asset not found"}, status=404)
+
+        # Get local plans from database
+        local_plans = Plan.objects.filter(asset_id=asset_id)
+        local_plans_data = []
+        for plan in local_plans:
+            local_plans_data.append({
+                "id": plan.id,
+                "plan_number": plan.plan_number,
+                "description": plan.description,
+                "status": plan.status,
+                "effective_date": plan.effective_date.isoformat() if plan.effective_date else None,
+                "file_url": plan.file_url,
+                "source": "local_database",
+                "raw": plan.raw
+            })
+
+        # Search mavat for plans related to this asset
+        mavat_plans = []
+        try:
+            # Import mavat client
+            import sys
+            import os
+            mavat_path = os.path.join(os.path.dirname(__file__), "..", "..", "mavat")
+            if mavat_path not in sys.path:
+                sys.path.insert(0, mavat_path)
+            
+            from mavat.scrapers.mavat_api_client import MavatAPIClient
+            
+            client = MavatAPIClient()
+            
+            # Search by address if available
+            if asset.address:
+                # Try to extract city and street from address
+                address_parts = asset.address.split(',')
+                if len(address_parts) >= 2:
+                    street = address_parts[0].strip()
+                    city = address_parts[1].strip()
+                    
+                    # Search mavat for plans in this location
+                    hits = client.search_plans(
+                        city=city,
+                        street=street,
+                        limit=10
+                    )
+                    
+                    for hit in hits:
+                        mavat_plans.append({
+                            "plan_id": hit.plan_id,
+                            "title": hit.title,
+                            "status": hit.status,
+                            "authority": hit.authority,
+                            "jurisdiction": hit.jurisdiction,
+                            "entity_number": hit.entity_number,
+                            "entity_name": hit.entity_name,
+                            "approval_date": hit.approval_date,
+                            "status_date": hit.status_date,
+                            "source": "mavat",
+                            "raw": hit.raw
+                        })
+            
+            # Also search by block and parcel if available
+            if asset.block and asset.parcel:
+                hits = client.search_plans(
+                    block_number=str(asset.block),
+                    parcel_number=str(asset.parcel),
+                    limit=10
+                )
+                
+                for hit in hits:
+                    # Avoid duplicates
+                    if not any(p["plan_id"] == hit.plan_id for p in mavat_plans):
+                        mavat_plans.append({
+                            "plan_id": hit.plan_id,
+                            "title": hit.title,
+                            "status": hit.status,
+                            "authority": hit.authority,
+                            "jurisdiction": hit.jurisdiction,
+                            "entity_number": hit.entity_number,
+                            "entity_name": hit.entity_name,
+                            "approval_date": hit.approval_date,
+                            "status_date": hit.status_date,
+                            "source": "mavat",
+                            "raw": hit.raw
+                        })
+                        
+        except Exception as e:
+            logger.warning("Failed to fetch mavat plans for asset %s: %s", asset_id, e)
+            # Continue without mavat data
+
+        return JsonResponse({
+            "plans": {
+                "local": local_plans_data,
+                "mavat": mavat_plans,
+                "total_local": len(local_plans_data),
+                "total_mavat": len(mavat_plans)
+            }
+        })
+
+    except Exception as e:
+        logger.error("Error retrieving plans for asset %s: %s", asset_id, e)
+        return JsonResponse(
+            {"error": "Failed to retrieve plans", "details": str(e)}, status=500
         )
 
 

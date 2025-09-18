@@ -2,6 +2,8 @@
 import os
 import sys
 
+# Add external modules to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'broker_backend.settings')

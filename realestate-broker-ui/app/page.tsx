@@ -32,6 +32,7 @@ import {
   Banknote,
   Heart,
   Share2,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/protected-route";
@@ -167,7 +168,8 @@ export default function HomePage() {
     );
   }
 
-  if (!dashboardData) {
+  // Show loading state for authenticated users
+  if (isAuthenticated && loading) {
     return (
       <DashboardLayout>
         <DashboardShell>
@@ -175,17 +177,27 @@ export default function HomePage() {
             heading="ברוכים הבאים לנדל״נר"
             text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
           />
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              לא ניתן לטעון נתוני לוח הבקרה
-            </p>
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-4" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </DashboardShell>
       </DashboardLayout>
     );
   }
 
-  if (error) {
+  // Show error state for authenticated users
+  if (isAuthenticated && error) {
     return (
       <DashboardLayout>
         <DashboardShell>
@@ -211,7 +223,39 @@ export default function HomePage() {
     );
   }
 
+  // Show no data state for authenticated users
+  if (isAuthenticated && !dashboardData) {
+    return (
+      <DashboardLayout>
+        <DashboardShell>
+          <DashboardHeader
+            heading="ברוכים הבאים לנדל״נר"
+            text="פלטפורמה חכמה מבוססת בינה מלאכותית לניהול נכסים עבור מתווכים, שמאים ומשקיעים"
+          />
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              לא ניתן לטעון נתוני לוח הבקרה
+            </p>
+          </div>
+        </DashboardShell>
+      </DashboardLayout>
+    );
+  }
+
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+
+  // Only show data if user is authenticated
+  const displayData = dashboardData || {
+    totalassets: 0,
+    activeAlerts: 0,
+    totalReports: 0,
+    averageReturn: 0,
+    marketTrend: 'stable' as const,
+    recentActivity: [],
+    marketData: [],
+    propertyTypes: [],
+    topAreas: []
+  };
 
   // Helper function to get alert icon
   const getAlertIcon = (triggerType: string) => {
@@ -305,39 +349,38 @@ export default function HomePage() {
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 items-stretch">
           <KpiCard
             title="סה״כ נכסים"
-            value={fmtNumber(dashboardData.totalassets)}
+            value={fmtNumber(displayData.totalassets)}
             icon={<Building2 className="h-5 w-5" />}
             tone="teal"
             href="/assets"
           >
-            נכסים במערכת
+            {isAuthenticated ? "נכסים במערכת" : "נכסים זמינים במערכת"}
           </KpiCard>
 
           <KpiCard
             title="כללי התראות"
-            value={isAuthenticated ? fmtNumber(alertRules.length) : fmtNumber(dashboardData.activeAlerts)}
+            value={isAuthenticated ? fmtNumber(alertRules.length) : "0"}
             icon={<Bell className="h-5 w-5" />}
             tone="red"
-            href="/alerts"
+            href={isAuthenticated ? "/alerts" : undefined}
+            onClick={!isAuthenticated ? () => handleProtectedAction("התראות") : undefined}
           >
             {isAuthenticated ? (
-              <>
-                {alertRules.length > 0 ? (
-                  <>
-                    {alertRules.filter(rule => rule.active).length} פעילים מתוך {alertRules.length} כללי התראות
-                    <div className="text-xs text-muted-foreground mt-1">
-                      לחץ לניהול התראות
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    אין כללי התראות מוגדרים
-                    <div className="text-xs text-muted-foreground mt-1">
-                      לחץ להגדרת התראות ראשונות
-                    </div>
-                  </>
-                )}
-              </>
+              alertRules.length > 0 ? (
+                <>
+                  {alertRules.filter(rule => rule.active).length} פעילים מתוך {alertRules.length} כללי התראות
+                  <div className="text-xs text-muted-foreground mt-1">
+                    לחץ לניהול התראות
+                  </div>
+                </>
+              ) : (
+                <>
+                  אין כללי התראות מוגדרים
+                  <div className="text-xs text-muted-foreground mt-1">
+                    לחץ להגדרת התראות ראשונות
+                  </div>
+                </>
+              )
             ) : (
               <>
                 התראות פעילות במערכת
@@ -350,27 +393,23 @@ export default function HomePage() {
 
           <KpiCard
             title="דוחות"
-            value={fmtNumber(dashboardData.totalReports)}
+            value={isAuthenticated ? fmtNumber(displayData.totalReports) : "0"}
             icon={<FileText className="h-5 w-5" />}
             tone="blue"
-            href="/reports"
+            href={isAuthenticated ? "/reports" : undefined}
+            onClick={!isAuthenticated ? () => handleProtectedAction("דוחות") : undefined}
           >
-            סה״כ דוחות במערכת
-            {!isAuthenticated && (
-              <div className="text-blue-600 dark:text-blue-400 mt-1">
-                התחבר לצפייה בדוחות
-              </div>
-            )}
+            {isAuthenticated ? "סה״כ דוחות במערכת" : "התחבר לצפייה בדוחות"}
           </KpiCard>
 
           <KpiCard
             title="ממוצע תשואה"
-            value={`${dashboardData.averageReturn}%`}
+            value={isAuthenticated ? `${displayData.averageReturn}%` : "0%"}
             icon={<TrendingUp className="h-5 w-5" />}
             tone="green"
             showHoverEffect={false}
           >
-            ממוצע תשואות נכסים
+            {isAuthenticated ? "ממוצע תשואות נכסים" : "התחבר לצפייה בתשואות"}
           </KpiCard>
         </div>
 
@@ -381,31 +420,59 @@ export default function HomePage() {
             <CardHeader>
               <CardTitle>מגמות שוק - מחירים ממוצעים</CardTitle>
               <CardDescription>
-                שינויי מחירים לאורך 6 החודשים האחרונים
+                {isAuthenticated 
+                  ? "שינויי מחירים לאורך 6 החודשים האחרונים"
+                  : "מגמות מחירים זמינות במערכת"
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={dashboardData.marketData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value: number) => [
-                      fmtCurrency(value),
-                      "מחיר ממוצע",
-                    ]}
-                    labelFormatter={(label) => `חודש: ${label}`}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="avgPrice"
-                    stroke="#8884d8"
-                    fill="#8884d8"
-                    fillOpacity={0.3}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {displayData.marketData && displayData.marketData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={displayData.marketData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value: number) => [
+                        fmtCurrency(value),
+                        "מחיר ממוצע",
+                      ]}
+                      labelFormatter={(label) => `חודש: ${label}`}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="avgPrice"
+                      stroke="#8884d8"
+                      fill="#8884d8"
+                      fillOpacity={0.3}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                    <TrendingUp className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium text-foreground">
+                      {isAuthenticated ? "אין נתוני שוק" : "נתוני שוק זמינים"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground max-w-sm">
+                      {isAuthenticated 
+                        ? "עדיין אין נתוני שוק זמינים במערכת"
+                        : "התחבר כדי לראות נתוני שוק מפורטים ומגמות מחירים"
+                      }
+                    </p>
+                  </div>
+                  {!isAuthenticated && (
+                    <Button onClick={() => handleProtectedAction("שוק")} className="mt-4">
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      התחבר לצפייה בנתונים
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -413,14 +480,19 @@ export default function HomePage() {
           <Card>
             <CardHeader>
               <CardTitle>התפלגות סוגי נכסים</CardTitle>
-              <CardDescription>חלוקה לפי סוגי נכסים במאגר</CardDescription>
+              <CardDescription>
+                {isAuthenticated 
+                  ? "חלוקה לפי סוגי נכסים במאגר"
+                  : "חלוקה לפי סוגי נכסים זמינים"
+                }
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {dashboardData.propertyTypes && dashboardData.propertyTypes.length > 0 ? (
+              {displayData.propertyTypes && displayData.propertyTypes.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={dashboardData.propertyTypes}
+                      data={displayData.propertyTypes}
                       cx="50%"
                       cy="50%"
                       nameKey="type"
@@ -430,7 +502,7 @@ export default function HomePage() {
                       fill="#8884d8"
                       dataKey="count"
                     >
-                      {dashboardData.propertyTypes.map((entry, index) => (
+                      {displayData.propertyTypes.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
                           fill={COLORS[index % COLORS.length]}
@@ -468,35 +540,65 @@ export default function HomePage() {
         <Card>
           <CardHeader>
             <CardTitle>נפח עסקאות ושוק</CardTitle>
-            <CardDescription>סך העסקאות ונפח השוק החודשי</CardDescription>
+            <CardDescription>
+              {isAuthenticated 
+                ? "סך העסקאות ונפח השוק החודשי"
+                : "נתוני עסקאות ושוק זמינים"
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardData.marketData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip
-                  formatter={(value: number, name: string) => [
-                    name === "transactions" ? value : fmtCurrency(value),
-                    name === "transactions" ? "עסקאות" : "נפח שוק",
-                  ]}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="transactions"
-                  fill="#8884d8"
-                  name="transactions"
-                />
-                <Bar
-                  yAxisId="right"
-                  dataKey="volume"
-                  fill="#82ca9d"
-                  name="volume"
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            {displayData.marketData && displayData.marketData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={displayData.marketData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      name === "transactions" ? value : fmtCurrency(value),
+                      name === "transactions" ? "עסקאות" : "נפח שוק",
+                    ]}
+                  />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="transactions"
+                    fill="#8884d8"
+                    name="transactions"
+                  />
+                  <Bar
+                    yAxisId="right"
+                    dataKey="volume"
+                    fill="#82ca9d"
+                    name="volume"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <BarChart3 className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-foreground">
+                    {isAuthenticated ? "אין נתוני עסקאות" : "נתוני עסקאות זמינים"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    {isAuthenticated 
+                      ? "עדיין אין נתוני עסקאות זמינים במערכת"
+                      : "התחבר כדי לראות נתוני עסקאות ונפח שוק מפורטים"
+                    }
+                  </p>
+                </div>
+                {!isAuthenticated && (
+                  <Button onClick={() => handleProtectedAction("עסקאות")} className="mt-4">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    התחבר לצפייה בנתונים
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -504,40 +606,70 @@ export default function HomePage() {
         <Card>
           <CardHeader>
             <CardTitle>ביצועי האזורים המובילים</CardTitle>
-            <CardDescription>האזורים עם הפעילות הגבוהה ביותר</CardDescription>
+            <CardDescription>
+              {isAuthenticated 
+                ? "האזורים עם הפעילות הגבוהה ביותר"
+                : "האזורים עם הפעילות הגבוהה ביותר"
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-              {dashboardData.topAreas.map((area, index) => (
-                <Link
-                  key={index}
-                  href={`/assets?city=${encodeURIComponent(area.area)}`}
-                  className="p-4 border rounded-lg hover:shadow-md transition-shadow block"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">{area.area}</h4>
-                    <Badge
-                      variant={
-                        area.trend > 5
-                          ? 'default'
-                          : area.trend > 3
-                          ? 'accent'
-                          : 'neutral'
-                      }
-                    >
-                      {area.trend > 0 ? "+" : ""}
-                      {area.trend}%
-                    </Badge>
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {fmtNumber(area.assets)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {fmtCurrency(area.avgPrice)} ממוצע
-                  </div>
-                </Link>
-              ))}
-            </div>
+            {displayData.topAreas && displayData.topAreas.length > 0 ? (
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+                {displayData.topAreas.map((area, index) => (
+                  <Link
+                    key={index}
+                    href={`/assets?city=${encodeURIComponent(area.area)}`}
+                    className="p-4 border rounded-lg hover:shadow-md transition-shadow block"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium">{area.area}</h4>
+                      <Badge
+                        variant={
+                          area.trend > 5
+                            ? 'default'
+                            : area.trend > 3
+                            ? 'accent'
+                            : 'neutral'
+                        }
+                      >
+                        {area.trend > 0 ? "+" : ""}
+                        {area.trend}%
+                      </Badge>
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {fmtNumber(area.assets)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {fmtCurrency(area.avgPrice)} ממוצע
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[200px] text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <MapPin className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-foreground">
+                    {isAuthenticated ? "אין נתוני אזורים" : "נתוני אזורים זמינים"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    {isAuthenticated 
+                      ? "עדיין אין נתוני אזורים זמינים במערכת"
+                      : "התחבר כדי לראות ביצועי אזורים ונתוני פעילות מפורטים"
+                    }
+                  </p>
+                </div>
+                {!isAuthenticated && (
+                  <Button onClick={() => handleProtectedAction("אזורים")} className="mt-4">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    התחבר לצפייה בנתונים
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

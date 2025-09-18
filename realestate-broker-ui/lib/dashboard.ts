@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from './api-client'
+import { useAuth } from './auth-context'
 
 export interface DashboardData {
   totalassets: number
@@ -34,22 +35,45 @@ export interface DashboardData {
 }
 
 export function useDashboardData() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Don't fetch data if auth is still loading
+    if (authLoading) {
+      setLoading(false)
+      setError(null)
+      setData(null)
+      return
+    }
+
+    // For unauthenticated users, only fetch public data (assets)
+    // For authenticated users, fetch all data
+
     const fetchDashboardData = async () => {
       try {
         setLoading(true)
         setError(null)
 
         // Fetch data from multiple API endpoints
-        const [assetsRes, alertsRes, reportsRes] = await Promise.allSettled([
-          api.get('/api/assets'),
-          api.get('/api/alerts'),
-          api.get('/api/reports')
-        ])
+        // For unauthenticated users, only fetch assets (public data)
+        // For authenticated users, fetch all data
+        const apiCalls = isAuthenticated 
+          ? [
+              api.get('/api/assets'),
+              api.get('/api/alerts'),
+              api.get('/api/reports')
+            ]
+          : [api.get('/api/assets')] // Only fetch assets for guests
+
+        const responses = await Promise.allSettled(apiCalls)
+        
+        // Extract responses based on authentication status
+        const [assetsRes, alertsRes, reportsRes] = isAuthenticated 
+          ? responses
+          : [responses[0], { status: 'rejected', reason: new Error('Not authenticated') }, { status: 'rejected', reason: new Error('Not authenticated') }]
 
         // Process assets data
         let totalassets = 0
@@ -133,24 +157,24 @@ export function useDashboardData() {
           averageReturn = Math.round((sumReturns / propertyReturns.length) * 100) / 100
         }
 
-        // Process alerts data
+        // Process alerts data (only for authenticated users)
         let activeAlerts = 0
-        if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
+        if (isAuthenticated && alertsRes.status === 'fulfilled' && alertsRes.value?.ok) {
           const alerts = alertsRes.value.data?.alerts || []
           // Count unread alerts as active alerts
           activeAlerts = alerts.filter((alert: any) => !alert.isRead).length
         }
 
-        // Process reports data
+        // Process reports data (only for authenticated users)
         let totalReports = 0
-        if (reportsRes.status === 'fulfilled' && reportsRes.value.ok) {
+        if (isAuthenticated && reportsRes.status === 'fulfilled' && reportsRes.value?.ok) {
           const reports = reportsRes.value.data?.rows || reportsRes.value.data?.reports || []
           totalReports = reports.length
         }
 
-        // Fetch comparables for all assets to build market data
+        // Fetch comparables for all assets to build market data (only for authenticated users)
         let comparables: any[] = []
-        if (assetsRes.status === 'fulfilled' && assetsRes.value.ok) {
+        if (isAuthenticated && assetsRes.status === 'fulfilled' && assetsRes.value.ok) {
           const assets = assetsRes.value.data?.rows || []
           const compResponses = await Promise.allSettled(
             assets.map((a: any) => api.get(`/api/assets/${a.id}/appraisal`))
@@ -233,7 +257,7 @@ export function useDashboardData() {
           })
         }
 
-        if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
+        if (isAuthenticated && alertsRes.status === 'fulfilled' && alertsRes.value?.ok) {
           const alerts = alertsRes.value.data?.alerts || []
           alerts.forEach((alert: any) => {
             recentActivity.push({
@@ -263,9 +287,19 @@ export function useDashboardData() {
         }
 
         setData(dashboardData)
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to fetch dashboard data:', err)
-        setError('Failed to load dashboard data')
+        
+        // Provide more specific error messages
+        if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+          setError('Session expired. Please log in again.')
+        } else if (err.message?.includes('Network') || err.message?.includes('fetch')) {
+          setError('Network error. Please check your connection and try again.')
+        } else if (err.message?.includes('403') || err.message?.includes('Forbidden')) {
+          setError('Access denied. You may not have permission to view this data.')
+        } else {
+          setError('Failed to load dashboard data. Please try again.')
+        }
       } finally {
         setLoading(false)
       }
@@ -277,7 +311,7 @@ export function useDashboardData() {
     const interval = setInterval(fetchDashboardData, 5 * 60 * 1000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [isAuthenticated, authLoading])
 
   return { data, loading, error }
 }

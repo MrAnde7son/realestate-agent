@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -46,8 +46,16 @@ export default function AuthPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   
-  // Get the redirect URL from query parameters
+  // Get the redirect URL and mode from query parameters
   const redirectTo = searchParams.get('redirect') || '/'
+  const mode = searchParams.get('mode')
+  
+  // Set initial mode based on URL parameter
+  React.useEffect(() => {
+    if (mode === 'signup') {
+      setIsLogin(false)
+    }
+  }, [mode])
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -105,7 +113,7 @@ export default function AuthPage() {
           <Button 
             variant={!isLogin ? "default" : "ghost"} 
             className="flex-1"
-            onClick={() => setIsLogin(false)}
+            onClick={() => router.push('/signup')}
           >
             הרשמה
           </Button>

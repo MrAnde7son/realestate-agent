@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <style>
+      .stroke { fill: none; stroke: #12b3a6; stroke-width: 22; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <path d="M40 8 H216 a40 40 0 0 1 40 40 V216 a40 40 0 0 1 -40 40 H40 a40 40 0 0 1 -40 -40 V48 a40 40 0 0 1 40 -40 Z" class="stroke"/>
+  <path d="M60 128 L128 74 L196 128" class="stroke"/>
+  <path d="M104 136 L128 114 L152 136" class="stroke"/>
+  <path d="M96 176 L160 176" class="stroke"/>
+</svg>

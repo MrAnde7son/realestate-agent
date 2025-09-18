@@ -833,9 +833,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <span>ציון כללי:</span>
                     <div className="flex items-center gap-2">
                       <div className="text-2xl font-bold">
-                        {asset.confidencePct !== undefined && asset.confidencePct !== null &&
-                        asset.capRatePct !== undefined && asset.capRatePct !== null &&
-                        asset.priceGapPct !== undefined && asset.priceGapPct !== null
+                        {!!asset.confidencePct &&
+                        !!asset.capRatePct &&
+                        !!asset.priceGapPct
                           ? Math.round(
                               (asset.confidencePct + asset.capRatePct * 20 +
                                 (asset.priceGapPct < 0
@@ -877,8 +877,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">יתרת זכויות:</span>
                       {renderValue(
-                        <Badge variant={asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null && asset.remainingRightsSqm > 0 ? 'success' : 'neutral'}>
-                          {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null ? `+${asset.remainingRightsSqm} מ״ר` : '—'}
+                        <Badge variant={!!asset.remainingRightsSqm && asset.remainingRightsSqm > 0 ? 'success' : 'neutral'}>
+                          {!!asset.remainingRightsSqm ? `+${asset.remainingRightsSqm} מ״ר` : '—'}
                         </Badge>,
                         'remainingRightsSqm'
                       )}
@@ -953,7 +953,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null && asset.area !== undefined && asset.area !== null
+                      {!!asset.remainingRightsSqm && !!asset.area
                         ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
                         : '—'}
                     </div>
@@ -961,7 +961,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null && asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null
+                      {!!asset.pricePerSqm && !!asset.remainingRightsSqm
                         ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
                         : '—'}
                     </div>
@@ -1008,7 +1008,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {asset.antennaDistanceM !== undefined && asset.antennaDistanceM !== null ? `${asset.antennaDistanceM}מ׳` : '—'}
+                      {!!asset.antennaDistanceM ? `${asset.antennaDistanceM}מ׳` : '—'}
                       <DataBadge source={asset?._meta?.antennaDistanceM?.source} fetchedAt={asset?._meta?.antennaDistanceM?.fetched_at} />
                     </div>
                     <div className="text-sm text-muted-foreground">מרחק מאנטנה</div>
@@ -1186,7 +1186,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
+                      {!!asset.pricePerSqm
                         ? formatCurrency(asset.pricePerSqm)
                         : '—'}
                       <DataBadge
@@ -1206,7 +1206,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null && avgCompPricePerSqm !== null
+                      {!!asset.pricePerSqm && !!avgCompPricePerSqm
                         ? `${Math.round(((asset.pricePerSqm / avgCompPricePerSqm) - 1) * 100)}%`
                         : '—'}
                     </div>
@@ -1231,7 +1231,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         <div>
                           <div className="font-medium">{comp.address}</div>
                           <div className="text-sm text-muted-foreground">
-                            {comp.area !== undefined ? `${comp.area} מ״ר` : ''}
+                            {!!comp.area ? `${comp.area} מ״ר` : ''}
                             {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
                             {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
                           </div>
@@ -1315,7 +1315,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           </div>
                           <div className="text-center">
                             <div className="text-2xl font-bold">
-                              {asset.price !== undefined && asset.price !== null
+                              {!!asset.price
                                 ? `₪${(asset.price / 1000000).toFixed(1)}M`
                                 : '—'}
                             </div>

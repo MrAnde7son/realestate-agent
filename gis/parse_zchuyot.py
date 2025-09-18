@@ -263,29 +263,222 @@ def parse_alerts(block: str) -> List[str]:
 
 def parse_rights(block: str) -> Dict[str, Any]:
     """
-    Try to capture common rights snippets:
+    Enhanced version that can extract comprehensive building rights data:
     - building lines (קו בניין צדדי/אחורי/חזית)
     - number of floors (מספר קומות)
     - percent (%/אחוז בנייה)
+    - area measurements in square meters
+    - building rights measurements
+    - floor area percentages (25%, 75%)
+    - basement area (מרתף)
+    - service areas (שטחי שירות)
+    - auxiliary buildings (מבני עזר)
     - references to a plan number in text
     """
     rights = {"notes": []}
     lines = [norm(l) for l in block.splitlines() if norm(l)]
+    
     for L in lines:
-        if "קו" in L and "בניין" in L:
+        # Look for building lines (קו בניין) - more flexible patterns
+        if any(word in L for word in ["קו", "בניין", "קו בניין"]):
             rights.setdefault("building_lines", []).append(L)
+        
+        # Look for building lines with backticks (from the PDF)
+        if "`מ" in L and "ןיינבוק" in L:
+            rights.setdefault("building_lines", []).append(L)
+        
+        # Look for floor information
         if re.search(r"(?:מספר\s+קומות|קומות\s*מספר)", L):
             rights["floors_note"] = L
-        m = re.search(r"(\d{2,3})\s*%(?:\s*בנ(?:י|י)ה)?", L)
-        if m:
-            rights["percent_building"] = int(m.group(1))
-        # plan refs inline (e.g., "ראה 738")
-        pref = re.findall(r"\b(\d{3,6})\b", L)
-        if pref:
-            rights.setdefault("referred_plans", set()).update(pref)
+        
+        # Look for building percentage
+        percent_match = re.search(r"(\d{2,3})\s*%(?:\s*בנ(?:י|י)ה)?", L)
+        if percent_match:
+            rights["percent_building"] = int(percent_match.group(1))
+        
+        # Look for floor area percentages and types dynamically
+        # Pattern: "שטח קומה טיפוסית 25%" or "שטח קומה שנייה 75%"
+        floor_patterns = [
+            r"שטח\s+קומה\s+(טיפוסית|ראשונה|שנייה|שלישית|רביעית|חמישית|עליונה|תחתונה)\s*(\d+)\s*%",
+            r"(\d+)\s*%\s*שטח\s+קומה\s+(טיפוסית|ראשונה|שנייה|שלישית|רביעית|חמישית|עליונה|תחתונה)",
+            r"קומה\s+(טיפוסית|ראשונה|שנייה|שלישית|רביעית|חמישית|עליונה|תחתונה)\s*(\d+)\s*%",
+            r"(\d+)\s*%\s*קומה\s+(טיפוסית|ראשונה|שנייה|שלישית|רביעית|חמישית|עליונה|תחתונה)",
+            # More flexible patterns for PDF text
+            r"(\d+)\s*%\s*(טיפוסית|ראשונה|שנייה|שלישית|רביעית|חמישית|עליונה|תחתונה)",
+            r"(טיפוסית|ראשונה|שנייה|שלישית|רביעית|חמישית|עליונה|תחתונה)\s*(\d+)\s*%",
+            # Pattern for "25%אוהש" and "75%לשרועשבתיקלח"
+            r"(\d+)\s*%\s*אוהש",
+            r"(\d+)\s*%\s*לשרועשבתיקלח"
+        ]
+        
+        for pattern in floor_patterns:
+            matches = re.findall(pattern, L)
+            for match in matches:
+                if len(match) == 2:
+                    if match[0].isdigit():
+                        percent = int(match[0])
+                        floor_type = match[1]
+                    else:
+                        percent = int(match[1])
+                        floor_type = match[0]
+                    
+                    # Map special patterns to floor types
+                    if floor_type == "אוהש":
+                        floor_type = "טיפוסית"
+                    elif floor_type == "לשרועשבתיקלח":
+                        floor_type = "שנייה"
+                    
+                    rights.setdefault("floor_details", []).append({
+                        "type": floor_type,
+                        "percentage": percent
+                    })
+                    rights.setdefault("floor_percentages", []).append(percent)
+                elif len(match) == 1 and match[0].isdigit():
+                    # Handle single percentage patterns
+                    percent = int(match[0])
+                    rights.setdefault("general_percentages", []).append(percent)
+        
+        # Look for relative floor percentages (e.g., "75% מקומה טיפוסית")
+        relative_patterns = [
+            r"(\d+)\s*%\s*מקומה\s+(טיפוסית|ראשונה|שנייה|שלישית|רביעית|חמישית|עליונה|תחתונה)",
+            r"(\d+)\s*%\s*מהקומה\s+(טיפוסית|ראשונה|שנייה|שלישית|רביעית|חמישית|עליונה|תחתונה)"
+        ]
+        
+        for pattern in relative_patterns:
+            matches = re.findall(pattern, L)
+            for match in matches:
+                percent = int(match[0])
+                base_floor = match[1]
+                rights.setdefault("relative_floor_percentages", []).append({
+                    "percentage": percent,
+                    "base_floor": base_floor
+                })
+        
+        # Look for general percentage patterns (fallback)
+        general_percent_match = re.search(r"(\d+)\s*%", L)
+        if general_percent_match:
+            percent = int(general_percent_match.group(1))
+            if 5 <= percent <= 100:  # Reasonable range for building percentages
+                rights.setdefault("general_percentages", []).append(percent)
+        
+        # Look for basement area (מרתף)
+        if "מרתף" in L:
+            basement_match = re.search(r"(\d+)\s*מ[״\"]ר", L)
+            if basement_match:
+                rights["basement_area"] = int(basement_match.group(1))
+        
+        # Look for service areas (שטחי שירות)
+        if "שטחי שירות" in L or "שירות" in L:
+            service_match = re.search(r"(\d+)\s*%", L)
+            if service_match:
+                rights["service_percentage"] = int(service_match.group(1))
+        
+        # Look for auxiliary buildings (מבני עזר)
+        if "מבני עזר" in L or "עזר" in L:
+            aux_match = re.search(r"(\d+)\s*מ[״\"]ר", L)
+            if aux_match:
+                rights["auxiliary_buildings"] = int(aux_match.group(1))
+        
+        # Look for number of floors
+        floors_match = re.search(r"(\d+)\s*קומות", L)
+        if floors_match:
+            rights["number_of_floors"] = int(floors_match.group(1))
+        
+        # Look for building coverage percentages (אחוז בנייה)
+        if "אחוז בנייה" in L or "בנייה" in L or "בחור" in L:
+            coverage_match = re.search(r"(\d+)\s*%", L)
+            if coverage_match:
+                percent = int(coverage_match.group(1))
+                if 10 <= percent <= 100:  # Reasonable range for building coverage
+                    rights.setdefault("building_coverage_percentages", []).append(percent)
+        
+        # Look for parking percentages (אחוז חניה)
+        if "חניה" in L or "חנייה" in L:
+            parking_match = re.search(r"(\d+)\s*%", L)
+            if parking_match:
+                percent = int(parking_match.group(1))
+                if 5 <= percent <= 50:  # Reasonable range for parking
+                    rights.setdefault("parking_percentages", []).append(percent)
+        
+        # Look for roof percentages (אחוז גג)
+        if "גג" in L:
+            roof_match = re.search(r"(\d+)\s*%", L)
+            if roof_match:
+                percent = int(roof_match.group(1))
+                if 10 <= percent <= 100:  # Reasonable range for roof
+                    rights.setdefault("roof_percentages", []).append(percent)
+        
+        # Look for floor area percentages (אחוז קומה)
+        if "קומה" in L and "%" in L:
+            floor_match = re.search(r"(\d+)\s*%", L)
+            if floor_match:
+                percent = int(floor_match.group(1))
+                if 5 <= percent <= 100:  # Reasonable range for floor
+                    rights.setdefault("floor_percentages", []).append(percent)
+        
+        # Look for area measurements in square meters - more flexible patterns
+        area_matches = re.findall(r"(\d+)\s*מ[״\"]ר", L)
+        if area_matches:
+            rights.setdefault("areas", []).extend([int(m) for m in area_matches])
+        
+        # Look for area measurements with backticks (from the PDF)
+        area_matches_backticks = re.findall(r"`מ(\d+)", L)
+        if area_matches_backticks:
+            rights.setdefault("areas", []).extend([int(m) for m in area_matches_backticks])
+        
+        # Look for building rights measurements with backticks
+        if "`מ" in L and "ןיינבוק" in L:
+            rights.setdefault("building_rights_areas", []).append(L)
+        
+        # Look for specific building rights patterns with backticks
+        if re.search(r"`מ(\d+).*ןיינבוק", L):
+            rights.setdefault("specific_building_rights", []).append(L)
+        
+        # Look for building rights patterns with backticks - more flexible
+        if "`מ" in L and "ןיינבוק" in L:
+            rights.setdefault("specific_building_rights", []).append(L)
+        
+        # Look for building rights patterns with backticks - even more flexible
+        if "`מ" in L:
+            rights.setdefault("building_rights_areas", []).append(L)
+        
+        # Look for building rights patterns with spaces and backticks
+        if "`מ " in L and "ןיינבוק" in L:
+            rights.setdefault("building_rights_areas", []).append(L)
+        
+        # Look for specific building rights patterns from the PDF
+        # Pattern: `מ 7ןיינבוק `מ 18ךרדבחור 19 (905)דודסוכרמבוחר
+        if "`מ" in L and "ןיינבוק" in L and "ךרדבחור" in L:
+            rights.setdefault("specific_building_rights", []).append(L)
+        
+        # Look for building rights with specific numbers
+        # Pattern: `מ 6ןיינבוק `מ 10ךרדבחור 78 (903)ם"קבוחר
+        if "`מ" in L and "ןיינבוק" in L and "ם" in L:
+            rights.setdefault("specific_building_rights", []).append(L)
+        
+        # Look for building rights measurements - more flexible
+        if "מ״ר" in L:
+            rights.setdefault("building_rights_areas", []).append(L)
+        
+        # Look for specific building rights patterns
+        if re.search(r"(\d+)\s*מ[״\"]ר.*(?:קו|בניין|זכות|בנייה)", L):
+            rights.setdefault("specific_building_rights", []).append(L)
+        
+        # Look for plan references
+        plan_refs = re.findall(r"\b(\d{3,6})\b", L)
+        if plan_refs:
+            rights.setdefault("referred_plans", set()).update(plan_refs)
+        
+        # Look for block and parcel info
+        if "גוש" in L or "חלקה" in L:
+            rights.setdefault("parcel_info", []).append(L)
+        
         rights["notes"].append(L)
+    
+    # Convert sets to lists for JSON serialization
     if "referred_plans" in rights:
         rights["referred_plans"] = sorted(list(rights["referred_plans"]))
+    
     return rights
 
 
@@ -493,6 +686,79 @@ def parse_zchuyot(pdf_path: str) -> Dict[str, Any]:
     alerts = parse_alerts(sections.get("alerts", ""))
     policy = parse_policy(sections.get("policy", ""))
     rights = parse_rights(sections.get("rights", "") + "\n" + sections.get("permit_terms", ""))
+    
+    
+    # Also try to parse from the raw_preview if it contains Hebrew text
+    if text and not rights.get('notes'):
+        # Split raw_preview into lines and process each line
+        lines = text.split('\n')
+        for line in lines:
+            if line.strip():
+                # Try to parse each line as a rights note
+                line_rights = parse_rights(line)
+                if line_rights.get('notes'):
+                    rights.setdefault('notes', []).extend(line_rights['notes'])
+                if line_rights.get('building_lines'):
+                    rights.setdefault('building_lines', []).extend(line_rights['building_lines'])
+                if line_rights.get('areas'):
+                    rights.setdefault('areas', []).extend(line_rights['areas'])
+                if line_rights.get('building_rights_areas'):
+                    rights.setdefault('building_rights_areas', []).extend(line_rights['building_rights_areas'])
+                if line_rights.get('specific_building_rights'):
+                    rights.setdefault('specific_building_rights', []).extend(line_rights['specific_building_rights'])
+                if line_rights.get('referred_plans'):
+                    rights.setdefault('referred_plans', set()).update(line_rights['referred_plans'])
+                if line_rights.get('floor_percentages'):
+                    rights.setdefault('floor_percentages', []).extend(line_rights['floor_percentages'])
+                if line_rights.get('basement_area'):
+                    rights['basement_area'] = line_rights['basement_area']
+                if line_rights.get('service_percentage'):
+                    rights['service_percentage'] = line_rights['service_percentage']
+                if line_rights.get('auxiliary_buildings'):
+                    rights['auxiliary_buildings'] = line_rights['auxiliary_buildings']
+                if line_rights.get('number_of_floors'):
+                    rights['number_of_floors'] = line_rights['number_of_floors']
+
+    # Process all existing notes through parse_rights to extract additional data
+    if rights.get('notes'):
+        for note in rights['notes']:
+            if note and note.strip():
+                # Try to parse each note for additional rights data
+                note_rights = parse_rights(note)
+                
+                # Merge the additional data found in the note
+                if note_rights.get('building_coverage_percentages'):
+                    rights.setdefault('building_coverage_percentages', []).extend(note_rights['building_coverage_percentages'])
+                if note_rights.get('parking_percentages'):
+                    rights.setdefault('parking_percentages', []).extend(note_rights['parking_percentages'])
+                if note_rights.get('roof_percentages'):
+                    rights.setdefault('roof_percentages', []).extend(note_rights['roof_percentages'])
+                if note_rights.get('floor_percentages'):
+                    rights.setdefault('floor_percentages', []).extend(note_rights['floor_percentages'])
+                if note_rights.get('general_percentages'):
+                    rights.setdefault('general_percentages', []).extend(note_rights['general_percentages'])
+                if note_rights.get('floor_details'):
+                    rights.setdefault('floor_details', []).extend(note_rights['floor_details'])
+                if note_rights.get('relative_floor_percentages'):
+                    rights.setdefault('relative_floor_percentages', []).extend(note_rights['relative_floor_percentages'])
+                if note_rights.get('building_lines'):
+                    rights.setdefault('building_lines', []).extend(note_rights['building_lines'])
+                if note_rights.get('areas'):
+                    rights.setdefault('areas', []).extend(note_rights['areas'])
+                if note_rights.get('building_rights_areas'):
+                    rights.setdefault('building_rights_areas', []).extend(note_rights['building_rights_areas'])
+                if note_rights.get('specific_building_rights'):
+                    rights.setdefault('specific_building_rights', []).extend(note_rights['specific_building_rights'])
+                if note_rights.get('referred_plans'):
+                    rights.setdefault('referred_plans', set()).update(note_rights['referred_plans'])
+                if note_rights.get('basement_area'):
+                    rights['basement_area'] = note_rights['basement_area']
+                if note_rights.get('service_percentage'):
+                    rights['service_percentage'] = note_rights['service_percentage']
+                if note_rights.get('auxiliary_buildings'):
+                    rights['auxiliary_buildings'] = note_rights['auxiliary_buildings']
+                if note_rights.get('number_of_floors'):
+                    rights['number_of_floors'] = note_rights['number_of_floors']
 
     # attach urls to nearest plan by proximity of number in url (if contains plan id)
     def attach_urls(plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

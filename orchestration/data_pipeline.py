@@ -875,6 +875,32 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 }
             }
             
+            # Try to get building privilege page data for real rights calculation
+            try:
+                from gis.gis_client import TelAvivGS
+                gis_client = TelAvivGS()
+                x = gis_data.get('x')
+                y = gis_data.get('y')
+                
+                if x and y:
+                    logger.info(f"Attempting to download building privilege page for coordinates ({x}, {y})")
+                    privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
+                    
+                    if privilege_data and privilege_data.get('content_type') == 'pdf':
+                        # Parse the privilege page
+                        from gis.parse_zchuyot import parse_zchuyot
+                        pdf_path = privilege_data['file_path']
+                        parsed_privilege_data = parse_zchuyot(pdf_path)
+                        asset.meta['privilege_page_data'] = parsed_privilege_data
+                        logger.info(f"Successfully parsed privilege page: {pdf_path}")
+                    elif privilege_data:
+                        logger.info(f"Downloaded privilege page but content type is {privilege_data.get('content_type')}, not PDF")
+                    else:
+                        logger.info("No privilege page data available")
+                        
+            except Exception as e:
+                logger.warning(f"Failed to download/parse building privilege page: {e}")
+            
             # Process and store GIS data in both meta and direct fields
             _process_gis_data(asset, gis_data)
         
@@ -1063,12 +1089,34 @@ def _process_gis_data(asset, gis_data):
             asset.set_property('zoning', main_rights.get('land_use', ''), source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('program', main_rights.get('plan_name', ''), source='GIS', url='https://www.govmap.gov.il/')
             
-            # Building rights estimation
+            # Building rights estimation - try to get real data from privilege pages
             area_for_calculation = asset.area or 80  # Default to 80 sqm if no area
-            estimated_rights = area_for_calculation * 0.2  # 20% additional rights
-            asset.set_property('remainingRightsSqm', int(estimated_rights), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+            
+            # Try to get real building rights data
+            remaining_rights_sqm = None
+            source = 'GIS (calculated)'
+            
+            # Check if we have privilege page data
+            if hasattr(asset, 'meta') and asset.meta.get('privilege_page_data'):
+                try:
+                    from gis.rights_calculator import get_remaining_rights_sqm
+                    remaining_rights_sqm = get_remaining_rights_sqm(
+                        asset.meta['privilege_page_data'], 
+                        area_for_calculation
+                    )
+                    if remaining_rights_sqm:
+                        source = 'GIS (privilege page)'
+                except Exception as e:
+                    logger.warning(f"Failed to calculate rights from privilege page: {e}")
+            
+            # Fallback to estimated calculation if no real data
+            if remaining_rights_sqm is None:
+                remaining_rights_sqm = int(area_for_calculation * 0.2)  # 20% additional rights
+                source = 'GIS (estimated)'
+            
+            asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
             asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
-            asset.set_property('serviceRightsSqm', int(estimated_rights * 0.1), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+            asset.set_property('serviceRightsSqm', int(remaining_rights_sqm * 0.1), source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
     # Building permits
     if gis_data.get('permits'):

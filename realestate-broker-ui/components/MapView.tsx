@@ -522,6 +522,45 @@ export default function MapView({
     setLayers([...layerService.current.getAllLayers()])
   }, [])
 
+  // Export map snapshot
+  const exportMapSnapshot = useCallback(async (options: { layers?: string[], withOrthophoto?: boolean } = {}) => {
+    if (!map.current) {
+      throw new Error('Map not initialized')
+    }
+
+    try {
+      // Ensure required layers are visible
+      if (options.layers) {
+        options.layers.forEach(layerId => {
+          if (layerService.current) {
+            layerService.current.setLayerVisibility(layerId, true)
+          }
+        })
+      }
+
+      if (options.withOrthophoto) {
+        // Enable orthophoto layer
+        if (layerService.current) {
+          layerService.current.setLayerVisibility('jerusalem-ortho-2025', true)
+          layerService.current.setLayerVisibility('telaviv-ortho', true)
+          layerService.current.setLayerVisibility('haifa-ortho-2023', true)
+        }
+      }
+
+      // Wait for layers to load
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Get map canvas
+      const canvas = map.current.getCanvas()
+      const dataURL = canvas.toDataURL('image/png')
+      
+      return dataURL
+    } catch (error) {
+      console.error('Error exporting map snapshot:', error)
+      throw error
+    }
+  }, [])
+
   if (error) {
     return (
       <div 

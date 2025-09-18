@@ -169,6 +169,15 @@ class HebrewPDFGenerator:
         start_time = time.time()
         try:
             listing = self.create_asset_listing(asset)
+            
+            # Get planning metrics if available
+            planning_metrics = None
+            if asset and hasattr(asset, 'planning_metrics'):
+                try:
+                    planning_metrics = asset.planning_metrics
+                except:
+                    planning_metrics = None
+            
             context = {
                 "listing": listing,
                 "font_path": Path(self.font_path).as_uri(),
@@ -193,6 +202,7 @@ class HebrewPDFGenerator:
                     else 0
                 ),
                 "sections": sections,
+                "planning_metrics": planning_metrics,
             }
 
             # Prepare context with absolute paths for static assets

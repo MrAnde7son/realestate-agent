@@ -1151,6 +1151,51 @@ class PageView(models.Model):
         ]
 
 
+class PlanningMetrics(models.Model):
+    """Planning metrics for assets including coverage, setbacks, and height analysis."""
+    
+    asset = models.OneToOneField('Asset', on_delete=models.CASCADE, related_name='planning_metrics')
+    
+    # Area calculations
+    parcel_area_m2 = models.FloatField(null=True, blank=True, help_text="Total parcel area in square meters")
+    footprint_area_m2 = models.FloatField(null=True, blank=True, help_text="Building footprint area in square meters")
+    coverage_pct = models.FloatField(null=True, blank=True, help_text="Coverage percentage (footprint/parcel)")
+    
+    # Planning envelope and violations
+    allowed_envelope_polygon = models.JSONField(null=True, blank=True, help_text="GeoJSON polygon of allowed building envelope")
+    setback_violations = models.JSONField(default=list, help_text="List of setback violations with details")
+    
+    # Height analysis
+    height_current = models.JSONField(default=dict, help_text="Current building height data")
+    height_allowed = models.JSONField(default=dict, help_text="Allowed building height data")
+    height_delta = models.JSONField(default=dict, help_text="Height difference calculations")
+    
+    # Calculation metadata
+    calc_confidence = models.CharField(
+        max_length=20, 
+        default="LOW",
+        choices=[
+            ("LOW", "Low confidence"),
+            ("MEDIUM", "Medium confidence"),
+            ("HIGH", "High confidence")
+        ],
+        help_text="Confidence level of calculations"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Planning Metrics"
+        verbose_name_plural = "Planning Metrics"
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["calc_confidence"]),
+            models.Index(fields=["updated_at"]),
+        ]
+    
+    def __str__(self):
+        return f"Planning Metrics for {self.asset}"
+
+
 class AnalyticsDaily(models.Model):
     """Daily rollups for analytics events."""
 

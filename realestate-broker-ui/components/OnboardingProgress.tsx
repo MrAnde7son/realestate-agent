@@ -4,7 +4,7 @@ import React from 'react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { Building2, FileText, Bell /*, CreditCard*/ } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { OnboardingState, getCompletionPct } from '@/onboarding/selectors'
+import { OnboardingState, getCompletionPct, isOnboardingComplete } from '@/onboarding/selectors'
 
 interface Step {
   key: keyof OnboardingState
@@ -35,7 +35,7 @@ export default function OnboardingProgress({ state }: Props) {
   const pct = getCompletionPct(state)
   
   // Hide the component when onboarding is complete
-  if (pct === 100) {
+  if (isOnboardingComplete(state)) {
     return null
   }
 

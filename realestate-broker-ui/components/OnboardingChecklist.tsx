@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { OnboardingState, getCompletionPct } from '@/onboarding/selectors'
+import { OnboardingState, getCompletionPct, isOnboardingComplete } from '@/onboarding/selectors'
 
 const steps = [
   // { key: 'connectPayment', label: 'חיבור תשלום', href: '/billing' },
@@ -18,10 +18,10 @@ type Props = { state: OnboardingState }
 
 export default function OnboardingChecklist({ state }: Props) {
   const pct = getCompletionPct(state)
-  const [open, setOpen] = useState(pct !== 100)
+  const [open, setOpen] = useState(!isOnboardingComplete(state))
   
   // Hide the component when onboarding is complete
-  if (pct === 100) {
+  if (isOnboardingComplete(state)) {
     return null
   }
 

@@ -32,10 +32,15 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from gov.decisive import fetch_decisive_appraisals
-from gov.rami.rami_client import RamiClient
-from gov.nadlan.nadlan_scraper import NadlanDealsScraper
-
+try:
+    from gov.decisive import fetch_decisive_appraisals
+    from gov.rami.rami_client import RamiClient
+    from gov.nadlan.nadlan_scraper import NadlanDealsScraper
+    EXTERNAL_MODULES_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"External modules not available: {e}")
+    EXTERNAL_MODULES_AVAILABLE = False
+    
 # Import Django models
 from .models import (
     AlertRule,
@@ -1561,7 +1566,7 @@ def asset_appraisal(request, asset_id):
                 appraisal_data["market_analysis"]["max_price_per_sqm"] = max(ppsqm_values)
         
         # Try to fetch fresh data from external sources if modules are available
-        if True:
+        if EXTERNAL_MODULES_AVAILABLE:
             try:
                 # Fetch decisive appraisals if we have block/parcel info
                 if asset.block and asset.parcel:

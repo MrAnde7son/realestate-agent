@@ -890,8 +890,13 @@ class Document(models.Model):
     """Document model for storing file metadata and managing document uploads."""
     
     DOCUMENT_TYPE_CHOICES = [
+        ("tabu", "Tabu"),
+        ("condo_plan", "Condominium Plan"),
         ("permit", "Building Permit"),
         ("appraisal", "Appraisal"),
+        ("appraisal_decisive", "Decisive Appraisal"),
+        ("appraisal_rmi", "RAMI Appraisal"),
+        ("rights", "Rights Document"),
         ("plan", "Planning Document"),
         ("contract", "Contract"),
         ("deed", "Deed"),

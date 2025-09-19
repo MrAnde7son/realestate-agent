@@ -50,9 +50,10 @@ urlpatterns = [
     path('assets/<int:asset_id>/appraisal/', views.asset_appraisal, name='asset_appraisal'),
     path('assets/<int:asset_id>/permits/', views.asset_permits, name='asset_permits'),
     path('assets/<int:asset_id>/plans/', views.asset_plans, name='asset_plans'),
+    path('assets/<int:asset_id>/rights/', vd.AssetRightsView.as_view(), name='asset_rights'),
     path('assets/<int:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
     path('assets/<int:asset_id>/sync/', views.sync_asset, name='sync_asset'),
-    
+
     # Document management endpoints
     path('assets/<int:asset_id>/documents/', vd.DocumentListView.as_view(), name='asset_documents'),
     path('assets/<int:asset_id>/documents/upload/', vd.DocumentUploadView.as_view(), name='document_upload'),

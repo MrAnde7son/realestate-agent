@@ -172,18 +172,6 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         <GlobalSearch />
       </div>
 
-      {/* Center - CTA Button */}
-      <div className="hidden md:flex items-center">
-        <Link href="/assets">
-          <Button 
-            className="bg-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/90 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
-            size="sm"
-          >
-            <Plus className="h-4 w-4 ml-2" />
-            צור ליד חדש
-          </Button>
-        </Link>
-      </div>
 
       {/* Right side - Theme toggle and user menu */}
       <div className="flex items-center gap-4">

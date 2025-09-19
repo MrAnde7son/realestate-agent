@@ -1,10 +1,14 @@
-from rest_framework import viewsets, mixins, status
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
 from django.utils import timezone
 from django.db import IntegrityError, transaction
+from django.http import HttpResponse
+import csv
+from io import StringIO
 
 from .models import Contact, Lead, LeadStatus
 from .serializers import (
@@ -21,11 +25,27 @@ from .analytics import (
 )
 
 
+class StandardPagination(PageNumberPagination):
+    """Default pagination for CRM endpoints supporting `page_size` query param."""
+
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+def should_paginate(request):
+    """Determine if pagination should be applied based on query parameters."""
+
+    params = request.query_params
+    return any(params.get(param) for param in ("page", "page_size"))
+
+
 class ContactViewSet(viewsets.ModelViewSet):
     """ViewSet for managing contacts."""
-    
+
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated, IsOwnerContact]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         """Return contacts owned by the current user."""
@@ -46,6 +66,18 @@ class ContactViewSet(viewsets.ModelViewSet):
                 'non_field_errors': ['A database error occurred while creating the contact.']
             })
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if should_paginate(request):
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(queryset, request, view=self)
+            serializer = self.get_serializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def search(self, request):
         """Search contacts by name, email, or phone."""
@@ -65,12 +97,51 @@ class ContactViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(contacts, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        """Export contacts for the authenticated user as CSV."""
+
+        queryset = self.get_queryset()
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Name", "Email", "Phone", "Tags", "Created At"])
+
+        for contact in queryset:
+            writer.writerow([
+                contact.name,
+                contact.email,
+                contact.phone,
+                "; ".join(contact.tags or []),
+                contact.created_at.isoformat()
+            ])
+
+        output.seek(0)
+
+        track_crm_export(request.user.id, "contacts", queryset.count())
+
+        response = HttpResponse(output.getvalue(), content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="contacts.csv"'
+        return response
+
 
 class LeadViewSet(viewsets.ModelViewSet):
     """ViewSet for managing leads."""
-    
+
     serializer_class = LeadSerializer
     permission_classes = [IsAuthenticated, IsOwnerContact]
+    pagination_class = StandardPagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if should_paginate(request):
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(queryset, request, view=self)
+            serializer = self.get_serializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def get_queryset(self):
         """Return leads for contacts owned by the current user."""
@@ -127,7 +198,7 @@ class LeadViewSet(viewsets.ModelViewSet):
             note_text = serializer.validated_data['text'].strip()
             if not note_text:
                 return Response(
-                    {"detail": "Note text cannot be empty"}, 
+                    {"detail": "Cannot add empty note"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
@@ -172,10 +243,34 @@ class LeadViewSet(viewsets.ModelViewSet):
         asset_id = request.query_params.get('asset_id')
         if not asset_id:
             return Response(
-                {"detail": "asset_id parameter is required"}, 
+                {"detail": "asset_id is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        leads = self.get_queryset().filter(asset_id=asset_id)
+
+        from core.models import Asset
+
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return Response(
+                {"detail": "Asset not found"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        leads = self.get_queryset().filter(asset=asset)
         serializer = self.get_serializer(leads, many=True)
         return Response(serializer.data)
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if self._should_paginate(request):
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(queryset, request, view=self)
+            serializer = self.get_serializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def _should_paginate(self, request):
+        return any(param in request.query_params for param in ("page", "page_size"))

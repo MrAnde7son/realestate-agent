@@ -8,7 +8,8 @@ from drf_spectacular.openapi import AutoSchema
 from . import views
 from . import views_analytics as va
 from . import views_support as vs
-from .api import AssetViewSet, PermitViewSet, PlanViewSet, compute_planning_metrics, get_planning_metrics, estimate_build_cost, get_cost_options
+from . import views_documents as vd
+from .api import AssetViewSet, PermitViewSet, PlanViewSet, DocumentViewSet, compute_planning_metrics, get_planning_metrics, estimate_build_cost, get_cost_options
 
 class OpenApiYamlView(SpectacularAPIView):
     """Custom view to serve OpenAPI spec in YAML format."""
@@ -18,6 +19,7 @@ router = DefaultRouter()
 router.register(r'assets', AssetViewSet)
 router.register(r'permits', PermitViewSet)
 router.register(r'plans', PlanViewSet)
+router.register(r'documents', DocumentViewSet)
 
 urlpatterns = [
     # Core endpoints
@@ -45,7 +47,18 @@ urlpatterns = [
     # Asset enrichment endpoints
     path('assets/', views.assets, name='assets'),
     path('assets/<int:asset_id>/', views.asset_detail, name='asset_detail'),
+    path('assets/<int:asset_id>/appraisal/', views.asset_appraisal, name='asset_appraisal'),
+    path('assets/<int:asset_id>/permits/', views.asset_permits, name='asset_permits'),
+    path('assets/<int:asset_id>/plans/', views.asset_plans, name='asset_plans'),
     path('assets/<int:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
+    path('assets/<int:asset_id>/sync/', views.sync_asset, name='sync_asset'),
+    
+    # Document management endpoints
+    path('assets/<int:asset_id>/documents/', vd.DocumentListView.as_view(), name='asset_documents'),
+    path('assets/<int:asset_id>/documents/upload/', vd.DocumentUploadView.as_view(), name='document_upload'),
+    path('assets/<int:asset_id>/documents/<int:document_id>/', vd.DocumentDetailView.as_view(), name='document_detail'),
+    path('assets/<int:asset_id>/documents/<int:document_id>/download/', vd.DocumentDownloadView.as_view(), name='document_download'),
+    path('assets/<int:asset_id>/documents/migrate-meta/', vd.create_document_from_meta, name='migrate_meta_documents'),
     
     # Attribution endpoints
     path('assets/<int:asset_id>/contributions/', views.asset_contributions, name='asset_contributions'),

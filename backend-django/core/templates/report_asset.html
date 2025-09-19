@@ -240,7 +240,7 @@
           <div class="k">שטחים ציבוריים ≤300מ׳</div>
           <div class="v">כן</div>
           <div class="k">מרחק אנטנה</div>
-          <div class="v">150מ׳</div>
+          <div class="v">{{ listing.antennaDistanceM|default:"—" }}{% if listing.antennaDistanceM %}מ׳{% endif %}</div>
         </div>
         <div>
           <div class="k">סיכונים</div>

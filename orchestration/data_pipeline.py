@@ -556,6 +556,12 @@ class DataPipeline:
                     asset_id=asset_id,
                 )
                 track("collector_success", source="gis")
+                
+                # Extract block and parcel from successful GIS collection
+                if gis_data.get('block') and gis_data.get('parcel'):
+                    block = gis_data.get('block', '')
+                    parcel = gis_data.get('parcel', '')
+                    logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
             except Exception as e:
                 # If GIS geocoding failed but we have coordinates from GovMap, try using those
                 if x_itm is not None and y_itm is not None:
@@ -570,6 +576,7 @@ class DataPipeline:
                             "shelters": self.gis.client.get_shelters(x_itm, y_itm),
                             "green": self.gis.client.get_green_areas(x_itm, y_itm),
                             "noise": self.gis.client.get_noise_levels(x_itm, y_itm),
+                            "antennas": self.gis.client.get_cell_antennas(x_itm, y_itm),
                         }
                         block_gis, parcel_gis = self.gis._extract_block_parcel(gis_data)
                         gis_data.update({"block": block_gis, "parcel": parcel_gis, "x": x_itm, "y": y_itm})
@@ -865,6 +872,7 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 'shelters': gis_data.get('shelters', []),
                 'green_areas': gis_data.get('green', []),
                 'noise_levels': gis_data.get('noise', []),
+                'cell_antennas': gis_data.get('antennas', []),
                 'blocks': gis_data.get('blocks', []),
                 'parcels': gis_data.get('parcels', []),
                 'coordinates': {
@@ -872,6 +880,32 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                     'y': gis_data.get('y')
                 }
             }
+            
+            # Try to get building privilege page data for real rights calculation
+            try:
+                from gis.gis_client import TelAvivGS
+                gis_client = TelAvivGS()
+                x = gis_data.get('x')
+                y = gis_data.get('y')
+                
+                if x and y:
+                    logger.info(f"Attempting to download building privilege page for coordinates ({x}, {y})")
+                    privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
+                    
+                    if privilege_data and privilege_data.get('content_type') == 'pdf':
+                        # Parse the privilege page
+                        from gis.parse_zchuyot import parse_zchuyot
+                        pdf_path = privilege_data['file_path']
+                        parsed_privilege_data = parse_zchuyot(pdf_path)
+                        asset.meta['privilege_page_data'] = parsed_privilege_data
+                        logger.info(f"Successfully parsed privilege page: {pdf_path}")
+                    elif privilege_data:
+                        logger.info(f"Downloaded privilege page but content type is {privilege_data.get('content_type')}, not PDF")
+                    else:
+                        logger.info("No privilege page data available")
+                        
+            except Exception as e:
+                logger.warning(f"Failed to download/parse building privilege page: {e}")
             
             # Process and store GIS data in both meta and direct fields
             _process_gis_data(asset, gis_data)
@@ -1009,6 +1043,7 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
                             'shelters': gis_data.get('shelters', []),
                             'green': gis_data.get('green', []),
                             'noise': gis_data.get('noise', []),
+                            'antennas': gis_data.get('antennas', []),
                             'block': gis_data.get('block', ''),
                             'parcel': gis_data.get('parcel', ''),
                             'x': gis_data.get('x'),
@@ -1060,12 +1095,34 @@ def _process_gis_data(asset, gis_data):
             asset.set_property('zoning', main_rights.get('land_use', ''), source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('program', main_rights.get('plan_name', ''), source='GIS', url='https://www.govmap.gov.il/')
             
-            # Building rights estimation
+            # Building rights estimation - try to get real data from privilege pages
             area_for_calculation = asset.area or 80  # Default to 80 sqm if no area
-            estimated_rights = area_for_calculation * 0.2  # 20% additional rights
-            asset.set_property('remainingRightsSqm', int(estimated_rights), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+            
+            # Try to get real building rights data
+            remaining_rights_sqm = None
+            source = 'GIS (calculated)'
+            
+            # Check if we have privilege page data
+            if hasattr(asset, 'meta') and asset.meta.get('privilege_page_data'):
+                try:
+                    from gis.rights_calculator import get_remaining_rights_sqm
+                    remaining_rights_sqm = get_remaining_rights_sqm(
+                        asset.meta['privilege_page_data'], 
+                        area_for_calculation
+                    )
+                    if remaining_rights_sqm:
+                        source = 'GIS (privilege page)'
+                except Exception as e:
+                    logger.warning(f"Failed to calculate rights from privilege page: {e}")
+            
+            # Fallback to estimated calculation if no real data
+            if remaining_rights_sqm is None:
+                remaining_rights_sqm = int(area_for_calculation * 0.2)  # 20% additional rights
+                source = 'GIS (estimated)'
+            
+            asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
             asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
-            asset.set_property('serviceRightsSqm', int(estimated_rights * 0.1), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+            asset.set_property('serviceRightsSqm', int(remaining_rights_sqm * 0.1), source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
     # Building permits
     if gis_data.get('permits'):
@@ -1080,6 +1137,9 @@ def _process_gis_data(asset, gis_data):
                     asset.set_property('permitDate', permit_date.date(), source='GIS', url='https://www.govmap.gov.il/')
                 except:
                     pass
+            
+            # Create documents from permits
+            _create_documents_from_permits(asset, permits)
     
     # Green areas
     if gis_data.get('green'):
@@ -1092,6 +1152,13 @@ def _process_gis_data(asset, gis_data):
         if shelters:
             min_distance = min([s.get('distance', 999) for s in shelters if isinstance(s, dict)])
             asset.set_property('shelterDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Cell antennas
+    if gis_data.get('antennas'):
+        antennas = gis_data.get('antennas', [])
+        if antennas:
+            min_distance = min([a.get('distance', 999) for a in antennas if isinstance(a, dict)])
+            asset.set_property('antennaDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Environmental fields
     asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית', source='GIS (calculated)', url='https://www.govmap.gov.il/')
@@ -1131,6 +1198,9 @@ def _process_gis_data(asset, gis_data):
     shelter_distance = asset.get_property_value('shelterDistanceM') or 999
     if shelter_distance > 200:
         risk_flags.append('מרחק גדול ממקלט')
+    antenna_distance = asset.get_property_value('antennaDistanceM') or 999
+    if antenna_distance < 50:
+        risk_flags.append('קרוב מדי לאנטנה')
     asset.set_property('riskFlags', risk_flags, source='GIS (calculated)', url='https://www.govmap.gov.il/')
 
 
@@ -1148,6 +1218,9 @@ def _process_government_data(asset, gov_data):
             latest_appraisal = decisive[0] if decisive else {}
             asset.set_property('appraisalValue', latest_appraisal.get('appraised_value'), source='מנהל התכנון', url='https://www.gov.il/')
             asset.set_property('appraisalDate', latest_appraisal.get('appraisal_date'), source='מנהל התכנון', url='https://www.gov.il/')
+            
+            # Create documents from appraisals
+            _create_documents_from_appraisals(asset, decisive)
 
 
 def _process_rami_plans(asset, plans):
@@ -1161,6 +1234,9 @@ def _process_rami_plans(asset, plans):
             asset.set_property('planActive', True, source='RAMI', url='https://rami.gov.il/')
         else:
             asset.set_property('planActive', False, source='RAMI', url='https://rami.gov.il/')
+        
+        # Create documents from RAMI plans
+        _create_documents_from_rami_plans(asset, plans)
 
 
 def _process_mavat_plans(asset, mavat_plans):
@@ -1214,6 +1290,155 @@ def _process_govmap_data(asset, govmap_data):
         for layer_name, features in nearby.items():
             if features:
                 asset.set_property(f'govmap_{layer_name}_count', len(features), source='GovMap', url='https://www.govmap.gov.il/')
+
+
+def _create_documents_from_permits(asset, permits):
+    """Create documents from GIS permits data."""
+    if not permits:
+        return
+    
+    # Initialize documents array if it doesn't exist
+    if 'documents' not in asset.meta:
+        asset.meta['documents'] = []
+    
+    # Create documents for each permit
+    for permit in permits:
+        if not permit:
+            continue
+            
+        # Extract permit information
+        permit_id = permit.get('request_num', permit.get('permission_num', ''))
+        permit_number = permit.get('permission_num', '')
+        request_number = permit.get('request_num', '')
+        description = permit.get('building_stage', '')
+        status = permit.get('building_stage', '')
+        address = permit.get('addresses', '')
+        url = permit.get('url_hadmaya', '')
+        
+        # Convert timestamp to date
+        permit_date = None
+        if permit.get('permission_date'):
+            try:
+                from datetime import datetime
+                permit_date = datetime.fromtimestamp(permit['permission_date'] / 1000).strftime('%Y-%m-%d')
+            except:
+                pass
+        
+        # Create document entry
+        document = {
+            'id': f"permit_{permit_id}" if permit_id else f"permit_{len(asset.meta['documents']) + 1}",
+            'type': 'permit',
+            'title': f"היתר בניה - {description}" if description else "היתר בניה",
+            'description': description,
+            'status': status,
+            'date': permit_date,
+            'url': url,
+            'source': 'GIS',
+            'permit_number': permit_number,
+            'request_number': request_number,
+            'address': address,
+            'downloadable': bool(url),
+            'external_url': url, 
+            'name': description
+        }
+        
+        asset.meta['documents'].append(document)
+    
+    logger.info(f"Created {len(permits)} permit documents for asset {asset.id}")
+
+
+def _create_documents_from_appraisals(asset, appraisals):
+    """Create documents from government appraisals data."""
+    if not appraisals:
+        return
+    
+    # Initialize documents array if it doesn't exist
+    if 'documents' not in asset.meta:
+        asset.meta['documents'] = []
+    
+    # Create documents for each appraisal
+    for appraisal in appraisals:
+        if not appraisal:
+            continue
+            
+        # Extract appraisal information
+        appraiser = appraisal.get('appraiser', 'לא זמין')
+        appraised_value = appraisal.get('appraised_value', appraisal.get('value'))
+        appraisal_date = appraisal.get('appraisal_date', appraisal.get('date'))
+        url = appraisal.get('url', '')
+        
+        # Validate and clean URL
+        if url and not url.startswith(('http://', 'https://')):
+            if url.startswith('/'):
+                url = f"https://www.gov.il{url}"
+            else:
+                url = f"https://www.gov.il/{url}"
+        
+        # Create document entry
+        document = {
+            'id': f"appraisal_{len(asset.meta['documents']) + 1}",
+            'type': 'appraisal',
+            'title': f"שומה מכריעה - {appraiser}",
+            'description': f"שומה מכריעה על ידי {appraiser}",
+            'status': 'מאושר',
+            'date': appraisal_date,
+            'url': url,
+            'source': 'מנהל התכנון',
+            'appraiser': appraiser,
+            'appraised_value': appraised_value,
+            'downloadable': bool(url and url.startswith(('http://', 'https://')))
+        }
+        
+        asset.meta['documents'].append(document)
+    
+    logger.info(f"Created {len(appraisals)} appraisal documents for asset {asset.id}")
+
+
+def _create_documents_from_rami_plans(asset, plans):
+    """Create documents from RAMI plans data."""
+    if not plans:
+        return
+    
+    # Initialize documents array if it doesn't exist
+    if 'documents' not in asset.meta:
+        asset.meta['documents'] = []
+    
+    # Create documents for each plan
+    for plan in plans:
+        if not plan:
+            continue
+            
+        # Extract plan information
+        plan_number = plan.get('plan_number', plan.get('number', ''))
+        plan_name = plan.get('plan_name', plan.get('name', ''))
+        status = plan.get('status', '')
+        url = plan.get('url', '')
+        
+        # Validate and clean URL
+        if url and not url.startswith(('http://', 'https://')):
+            if url.startswith('/'):
+                url = f"https://rami.gov.il{url}"
+            else:
+                url = f"https://rami.gov.il/{url}"
+        
+        # Create document entry
+        document = {
+            'id': f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{len(asset.meta['documents']) + 1}",
+            'type': 'plan',
+            'title': f"תכנית רמ״י - {plan_name}" if plan_name else f"תכנית רמ״י {plan_number}",
+            'description': f"תכנית רמ״י {plan_number}",
+            'status': status,
+            'date': plan.get('date', ''),
+            'url': url,
+            'source': 'RAMI',
+            'plan_number': plan_number,
+            'plan_name': plan_name,
+            'downloadable': bool(url and url.startswith(('http://', 'https://')))
+        }
+        
+        asset.meta['documents'].append(document)
+    
+    logger.info(f"Created {len(plans)} RAMI plan documents for asset {asset.id}")
 
 
 

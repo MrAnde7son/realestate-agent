@@ -217,12 +217,16 @@ def test_individual_collectors_e2e():
         assert isinstance(gis_results, dict), "GIS should return dictionary"
         logger.info(f"✅ GIS: {len(gis_results)} data items")
         
-        # Test other collectors (may return empty results)
+        # Test Gov collector with Nadlan integration
         from orchestration.collectors.gov_collector import GovCollector
         gov = GovCollector()
         gov_results = gov.collect(address="רוטשילד", block="", parcel="")
-        logger.info(f"✅ Gov: {len(gov_results)} data items")
+        assert isinstance(gov_results, dict), "Gov should return dictionary"
+        assert "transactions" in gov_results, "Should have transactions from Nadlan"
+        assert "decisive" in gov_results, "Should have decisive appraisals"
+        logger.info(f"✅ Gov (Nadlan): {len(gov_results.get('transactions', []))} transactions, {len(gov_results.get('decisive', []))} appraisals")
         
+        # Test other collectors (may return empty results)
         from gov.rami import RamiCollector
         rami = RamiCollector()
         rami_results = rami.collect(block="", parcel="")
@@ -301,6 +305,82 @@ def test_pipeline_data_quality():
         return False
 
 
+def test_nadlan_transaction_comparison():
+    """Test transaction comparison functionality with Nadlan data."""
+    try:
+        from orchestration.data_pipeline import DataPipeline
+        from orchestration.collectors.gov_collector import GovCollector
+        
+        logger.info("🔍 Testing Nadlan transaction comparison")
+        
+        # Test 1: Get transactions from Nadlan
+        gov_collector = GovCollector()
+        test_address = "רוטשילד 1 תל אביב"
+        
+        logger.info(f"Fetching transactions for: {test_address}")
+        transactions = gov_collector._collect_transactions(test_address)
+        
+        if not transactions:
+            logger.warning("⚠ No transactions found - skipping comparison test")
+            return True
+        
+        logger.info(f"✅ Found {len(transactions)} transactions from Nadlan")
+        
+        # Test 2: Validate transaction structure
+        for i, transaction in enumerate(transactions[:3]):  # Check first 3
+            assert isinstance(transaction, dict), f"Transaction {i} should be a dictionary"
+            
+            # Check for key fields
+            if 'address' in transaction:
+                assert isinstance(transaction['address'], str), "Address should be string"
+            
+            if 'deal_amount' in transaction and transaction['deal_amount']:
+                assert isinstance(transaction['deal_amount'], (int, float)), "Deal amount should be numeric"
+                assert transaction['deal_amount'] > 0, "Deal amount should be positive"
+            
+            if 'deal_date' in transaction:
+                assert isinstance(transaction['deal_date'], str), "Deal date should be string"
+            
+            logger.info(f"✅ Transaction {i+1} structure validated")
+        
+        # Test 3: Test price analysis
+        prices = [t.get('deal_amount') for t in transactions if t.get('deal_amount')]
+        if prices:
+            avg_price = sum(prices) / len(prices)
+            min_price = min(prices)
+            max_price = max(prices)
+            
+            logger.info(f"📊 Price analysis: avg={avg_price:,.0f}, min={min_price:,.0f}, max={max_price:,.0f}")
+            
+            # Basic price validation
+            assert min_price > 0, "Minimum price should be positive"
+            assert max_price > min_price, "Maximum price should be greater than minimum"
+        
+        # Test 4: Test with pipeline integration
+        logger.info("Testing pipeline integration...")
+        pipeline = DataPipeline()
+        results = pipeline.run("רוטשילד", 1, max_pages=1)
+        
+        # Check if pipeline includes transaction data
+        sources = analyze_results_by_source(results)
+        if 'gov' in sources:
+            gov_data = sources['gov']
+            if isinstance(gov_data, dict) and 'transactions' in gov_data:
+                pipeline_transactions = gov_data['transactions']
+                logger.info(f"✅ Pipeline includes {len(pipeline_transactions)} transactions")
+            else:
+                logger.warning("⚠ Pipeline doesn't include transaction data")
+        
+        logger.info("🎉 Nadlan transaction comparison test completed successfully!")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Nadlan transaction comparison test error: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def analyze_results_by_source(results: List[Any]) -> Dict[str, List[Any]]:
     """Analyze pipeline results and group by source."""
     sources = {}
@@ -335,6 +415,7 @@ def main():
         ("Performance Benchmark", test_pipeline_performance_benchmark),
         ("Individual Collectors", test_individual_collectors_e2e),
         ("Data Quality", test_pipeline_data_quality),
+        ("Nadlan Transaction Comparison", test_nadlan_transaction_comparison),
     ]
     
     results = {}

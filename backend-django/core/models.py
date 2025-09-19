@@ -392,6 +392,7 @@ class Asset(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("enriching", "Enriching"),
+        ("syncing", "Syncing"),
         ("done", "Done"),
         ("failed", "Failed"),
     ]
@@ -445,6 +446,7 @@ class Asset(models.Model):
     is_demo = models.BooleanField(default=False)
     meta = models.JSONField(default=dict)
     last_enriched_at = models.DateTimeField(blank=True, null=True)
+    last_sync_started_at = models.DateTimeField(blank=True, null=True)
     last_enrich_error = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -486,6 +488,25 @@ class Asset(models.Model):
 
     def __str__(self):
         return f"Asset({self.id}, {self.scope_type}, {self.status})"
+    
+    @property
+    def address(self):
+        """Return the normalized address or construct from components."""
+        if self.normalized_address:
+            return self.normalized_address
+        
+        # Construct address from components
+        parts = []
+        if self.street:
+            parts.append(self.street)
+        if self.number:
+            parts.append(str(self.number))
+        if self.apartment:
+            parts.append(f"דירה {self.apartment}")
+        if self.city:
+            parts.append(self.city)
+        
+        return " ".join(parts) if parts else None
 
     def delete_asset(self):
         """Delete the asset and its related records."""
@@ -863,6 +884,127 @@ class Report(models.Model):
         self.status = "failed"
         self.error_message = error_message
         self.save()
+
+
+class Document(models.Model):
+    """Document model for storing file metadata and managing document uploads."""
+    
+    DOCUMENT_TYPE_CHOICES = [
+        ("permit", "Building Permit"),
+        ("appraisal", "Appraisal"),
+        ("plan", "Planning Document"),
+        ("contract", "Contract"),
+        ("deed", "Deed"),
+        ("other", "Other"),
+    ]
+    
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+        ("expired", "Expired"),
+    ]
+    
+    # Core fields
+    asset = models.ForeignKey(
+        Asset, 
+        on_delete=models.CASCADE, 
+        related_name="documents",
+        help_text="Asset this document belongs to"
+    )
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="uploaded_documents",
+        help_text="User who uploaded this document"
+    )
+    
+    # Document metadata
+    title = models.CharField(max_length=200, help_text="Document title")
+    description = models.TextField(blank=True, null=True, help_text="Document description")
+    document_type = models.CharField(
+        max_length=50, 
+        choices=DOCUMENT_TYPE_CHOICES, 
+        default="other",
+        help_text="Type of document"
+    )
+    status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default="pending",
+        help_text="Document status"
+    )
+    
+    # File information
+    filename = models.CharField(max_length=255, help_text="Original filename")
+    file_path = models.CharField(max_length=500, help_text="Path to stored file")
+    file_size = models.IntegerField(help_text="File size in bytes")
+    mime_type = models.CharField(max_length=100, help_text="MIME type of the file")
+    
+    # External references
+    external_id = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        help_text="External system ID (e.g., permit number)"
+    )
+    external_url = models.URLField(
+        blank=True, 
+        null=True,
+        help_text="URL to external document"
+    )
+    source = models.CharField(
+        max_length=100, 
+        default="user_upload",
+        help_text="Source of the document"
+    )
+    
+    # Dates
+    document_date = models.DateField(
+        blank=True, 
+        null=True,
+        help_text="Date the document was issued/created"
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Additional metadata
+    meta = models.JSONField(default=dict, help_text="Additional metadata")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["user"]),
+            models.Index(fields=["document_type"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["uploaded_at"]),
+            models.Index(fields=["external_id"]),
+        ]
+        ordering = ["-uploaded_at"]
+    
+    def __str__(self):
+        return f"Document({self.id}, {self.title}, {self.document_type})"
+    
+    @property
+    def file_url(self):
+        """Return the API URL to download the document."""
+        return f"/api/assets/{self.asset_id}/documents/{self.id}/download/"
+    
+    @property
+    def is_downloadable(self):
+        """Check if document can be downloaded."""
+        return bool(self.file_path and os.path.exists(self.file_path))
+    
+    def delete_file(self):
+        """Delete the physical file from storage."""
+        if self.file_path and os.path.exists(self.file_path):
+            try:
+                os.remove(self.file_path)
+                return True
+            except OSError as e:
+                logger.error(f"Error deleting file {self.file_path}: {e}")
+                return False
+        return True
 
     def delete_report(self):
         """Delete the report file and database record."""

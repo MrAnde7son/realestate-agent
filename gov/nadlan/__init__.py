@@ -11,7 +11,15 @@ High-level API:
 
 from .models import Deal
 from .exceptions import NadlanAPIError, NadlanError, NadlanConfigError, NadlanDecodeError
-from .scraper import NadlanDealsScraper
+
+# Import scraper only if selenium is available
+try:
+    from .scraper import NadlanDealsScraper
+except ImportError:
+    # Selenium not available, define a placeholder
+    class NadlanDealsScraper:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("NadlanDealsScraper requires selenium. Install with: pip install selenium webdriver-manager")
 
 __all__ = [
     "Deal",

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile, PlanType, UserPlan
+from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile, PlanType, UserPlan, Document
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -43,6 +43,7 @@ class MetaSerializerMixin(serializers.ModelSerializer):
 
 class AssetSerializer(MetaSerializerMixin):
     address = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
     
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
@@ -63,6 +64,40 @@ class AssetSerializer(MetaSerializerMixin):
                 parts.append(obj.city)
             return " ".join(parts) if parts else None
     
+    def get_documents(self, obj):
+        """Get documents from both Document model and meta field."""
+        documents = []
+        
+        # Get documents from Document model
+        for doc in obj.documents.all():
+            documents.append({
+                'id': doc.id,
+                'title': doc.title,
+                'description': doc.description,
+                'type': doc.document_type,
+                'status': doc.status,
+                'filename': doc.filename,
+                'file_size': doc.file_size,
+                'date': doc.document_date,
+                'url': doc.file_url,
+                'source': doc.source,
+                'external_id': doc.external_id,
+                'external_url': doc.external_url,
+                'downloadable': doc.is_downloadable,
+                'uploaded_at': doc.uploaded_at,
+                'uploaded_by': str(doc.user) if doc.user else None
+            })
+        
+        # Get documents from meta field (for backward compatibility)
+        if obj.meta and 'documents' in obj.meta:
+            for doc in obj.meta['documents']:
+                # Only add if not already in Document model
+                # Use 'id' field for meta documents since they don't have 'external_id'
+                if not any(d.get('external_id') == doc.get('id') for d in documents):
+                    documents.append(doc)
+        
+        return documents
+    
     class Meta:
         model = Asset
         fields = [
@@ -73,7 +108,7 @@ class AssetSerializer(MetaSerializerMixin):
             'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',
             'last_renovation', 'price', 'price_per_sqm', 'rent_estimate', 'zoning',
             'building_rights', 'permit_status', 'permit_date', 'is_demo',
-            'last_enriched_at', 'created_at'
+            'last_enriched_at', 'created_at', 'meta', 'documents'
         ]
 
 
@@ -335,3 +370,66 @@ class UserPlanInfoSerializer(serializers.Serializer):
     expires_at = serializers.DateTimeField(allow_null=True)
     limits = serializers.DictField()
     features = serializers.DictField()
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    """Serializer for Document model."""
+    file_url = serializers.ReadOnlyField()
+    is_downloadable = serializers.ReadOnlyField()
+    uploaded_by = serializers.StringRelatedField(source='user', read_only=True)
+    
+    class Meta:
+        model = Document
+        fields = [
+            'id', 'asset', 'user', 'title', 'description', 'document_type', 
+            'status', 'filename', 'file_size', 'mime_type', 'external_id', 
+            'external_url', 'source', 'document_date', 'uploaded_at', 
+            'updated_at', 'file_url', 'is_downloadable', 'uploaded_by', 'meta'
+        ]
+        read_only_fields = ['id', 'user', 'uploaded_at', 'updated_at', 'file_url', 'is_downloadable']
+
+
+class DocumentUploadSerializer(serializers.Serializer):
+    """Serializer for document upload."""
+    file = serializers.FileField()
+    title = serializers.CharField(max_length=200)
+    description = serializers.CharField(required=False, allow_blank=True)
+    document_type = serializers.ChoiceField(choices=Document.DOCUMENT_TYPE_CHOICES, default='other')
+    document_date = serializers.DateField(required=False, allow_null=True)
+    external_id = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    external_url = serializers.URLField(required=False, allow_blank=True)
+    
+    def validate_file(self, value):
+        """Validate uploaded file."""
+        # Check file size (max 10MB)
+        max_size = 10 * 1024 * 1024  # 10MB
+        if value.size > max_size:
+            raise serializers.ValidationError(f"File size cannot exceed {max_size / (1024*1024):.1f}MB")
+        
+        # Check file type
+        allowed_types = [
+            'application/pdf',
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain'
+        ]
+        if value.content_type not in allowed_types:
+            raise serializers.ValidationError(f"File type {value.content_type} is not allowed")
+        
+        return value
+
+
+class DocumentListSerializer(serializers.ModelSerializer):
+    """Simplified serializer for document lists."""
+    file_url = serializers.ReadOnlyField()
+    is_downloadable = serializers.ReadOnlyField()
+    uploaded_by = serializers.StringRelatedField(source='user', read_only=True)
+    
+    class Meta:
+        model = Document
+        fields = [
+            'id', 'title', 'document_type', 'status', 'filename', 
+            'file_size', 'document_date', 'uploaded_at', 'file_url', 
+            'is_downloadable', 'uploaded_by'
+        ]

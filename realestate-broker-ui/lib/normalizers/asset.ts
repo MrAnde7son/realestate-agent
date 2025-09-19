@@ -206,7 +206,7 @@ export function normalizeFromBackend(row: any): Asset {
     permitStatus: row.permitStatus ?? row.permit_status ?? null,
     permitDate: row.permitDate ?? row.permit_date ?? null,
     assetStatus: row.assetStatus ?? row.asset_status ?? row.status ?? null,
-    documents: row.documents ?? [],
+    documents: Array.isArray(row.documents) ? row.documents : (row.meta?.documents || []),
     assetId: row.assetId ?? row.asset_id ?? null,
     sources: row.sources ?? null,
     primarySource: row.primarySource ?? row.primary_source ?? null,

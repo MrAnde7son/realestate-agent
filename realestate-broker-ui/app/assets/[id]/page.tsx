@@ -1,13 +1,14 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
+  CardDescription,
   CardBody,
   CardFooter,
 } from '@/components/ui/Card'
@@ -69,7 +70,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [asset, setAsset] = useState<any>(null)
   const [comparables, setComparables] = useState<any[]>([])
   const [appraisal, setAppraisal] = useState<any | null>(null)
+  const [decisiveAppraisals, setDecisiveAppraisals] = useState<any[]>([])
+  const [ramiAppraisals, setRamiAppraisals] = useState<any[]>([])
+  const [comparableTransactions, setComparableTransactions] = useState<any[]>([])
   const [permits, setPermits] = useState<any[]>([])
+  const [plans, setPlans] = useState<{local: any[], mavat: any[]}>({local: [], mavat: []})
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
@@ -83,7 +88,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [language, setLanguage] = useState('he')
   const [sectionsModal, setSectionsModal] = useState(false)
   const [sections, setSections] = useState<string[]>(ALL_SECTIONS)
+  const [activeTab, setActiveTab] = useState('analysis')
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { id } = params
   const { user, isAuthenticated } = useAuth()
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user])
@@ -144,6 +151,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .then(data => {
         setComparables(data.comps || [])
         setAppraisal(data.appraisal || null)
+        setDecisiveAppraisals(data.decisive_appraisals || [])
+        setRamiAppraisals(data.rami_appraisals || [])
+        setComparableTransactions(data.comparable_transactions || [])
       })
       .catch(err => console.error('Error loading appraisal:', err))
   }, [id])
@@ -159,6 +169,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   }, [id])
 
   useEffect(() => {
+    fetch(`/api/assets/${id}/plans`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load plans')
+        return res.json()
+      })
+      .then(data => setPlans(data.plans || {local: [], mavat: []}))
+      .catch(err => console.error('Error loading plans:', err))
+  }, [id])
+
+  useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
     if (stored) {
       try { setSections(JSON.parse(stored)) } catch {}
@@ -170,13 +190,29 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     }
   }, [])
 
+  // Initialize active tab from URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab')
+    if (tabFromUrl && ['analysis', 'permits', 'plans', 'transactions', 'appraisals', 'environment', 'documents', 'contributions'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [searchParams])
+
+  // Update URL when active tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', value)
+    router.replace(url.pathname + url.search, { scroll: false })
+  }
+
   const handleSyncData = async () => {
     if (!id || !asset?.address) return
     setSyncing(true)
     setSyncMessage('מסנכרן נתונים...')
     
     try {
-      const res = await fetch('/api/sync', {
+      const res = await fetch(`/api/assets/${id}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: asset.address })
@@ -184,17 +220,22 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       
       if (res.ok) {
         const result = await res.json()
-        setSyncMessage(`נמצאו ${result.rows?.length || 0} נכסים חדשים`)
-        // Optionally refresh the asset data
-        const assetRes = await fetch(`/api/assets/${id}`)
-        if (assetRes.ok) {
-          const data = await assetRes.json()
-          setAsset(data.asset || data)
-        }
-        // Clear message after 5 seconds
-        setTimeout(() => setSyncMessage(''), 5000)
+        setSyncMessage(result.message || 'סנכרון נתונים התחיל בהצלחה')
+        
+        // Refresh the asset data after a short delay to show updated status
+        setTimeout(async () => {
+          const assetRes = await fetch(`/api/assets/${id}`)
+          if (assetRes.ok) {
+            const data = await assetRes.json()
+            setAsset(data.asset || data)
+          }
+        }, 2000)
+        
+        // Clear message after 10 seconds
+        setTimeout(() => setSyncMessage(''), 10000)
       } else {
-        setSyncMessage('שגיאה בסנכרון הנתונים')
+        const errorData = await res.json().catch(() => ({}))
+        setSyncMessage(errorData.error || 'שגיאה בסנכרון הנתונים')
         setTimeout(() => setSyncMessage(''), 5000)
       }
     } catch (err) {
@@ -265,16 +306,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
   const manualDocs =
     asset?.documents?.filter(
-      (d: any) => d.type === 'tabu' || d.type === 'condo_plan'
+      (d: any) => d.type === 'tabu' || d.type === 'condo_plan' || d.type === 'contract' || d.type === 'deed' || d.type === 'other'
     ) ?? []
   const permitDocs =
     asset?.documents?.filter((d: any) => d.type === 'permit') ?? []
   const rightsDocs =
-    asset?.documents?.filter((d: any) => d.type === 'rights') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'rights' || d.type === 'plan') ?? []
   const decisiveDocs =
-    asset?.documents?.filter((d: any) => d.type === 'appraisal_decisive') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'appraisal_decisive' || (d.type === 'appraisal' && d.source === 'מנהל התכנון')) ?? []
   const rmiDocs =
-    asset?.documents?.filter((d: any) => d.type === 'appraisal_rmi') ?? []
+    asset?.documents?.filter((d: any) => d.type === 'appraisal_rmi' || (d.type === 'appraisal' && d.source === 'RAMI')) ?? []
 
   const handleGenerateReport = async (selected: string[]) => {
     if (!id) return
@@ -710,7 +751,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         </Card>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="analysis" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList className="flex flex-wrap md:flex-nowrap">
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="permits">היתרים</TabsTrigger>
@@ -719,6 +760,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
             <TabsTrigger value="documents">מסמכים</TabsTrigger>
+            {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="analysis" className="space-y-4">
@@ -833,9 +875,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <span>ציון כללי:</span>
                     <div className="flex items-center gap-2">
                       <div className="text-2xl font-bold">
-                        {asset.confidencePct !== undefined && asset.confidencePct !== null &&
-                        asset.capRatePct !== undefined && asset.capRatePct !== null &&
-                        asset.priceGapPct !== undefined && asset.priceGapPct !== null
+                        {!!asset.confidencePct &&
+                        !!asset.capRatePct &&
+                        !!asset.priceGapPct
                           ? Math.round(
                               (asset.confidencePct + asset.capRatePct * 20 +
                                 (asset.priceGapPct < 0
@@ -877,8 +919,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">יתרת זכויות:</span>
                       {renderValue(
-                        <Badge variant={asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null && asset.remainingRightsSqm > 0 ? 'success' : 'neutral'}>
-                          {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null ? `+${asset.remainingRightsSqm} מ״ר` : '—'}
+                        <Badge variant={!!asset.remainingRightsSqm && asset.remainingRightsSqm > 0 ? 'success' : 'neutral'}>
+                          {!!asset.remainingRightsSqm ? `+${asset.remainingRightsSqm} מ״ר` : '—'}
                         </Badge>,
                         'remainingRightsSqm'
                       )}
@@ -953,7 +995,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null && asset.area !== undefined && asset.area !== null
+                      {!!asset.remainingRightsSqm && !!asset.area
                         ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
                         : '—'}
                     </div>
@@ -961,7 +1003,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null && asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null
+                      {!!asset.pricePerSqm && !!asset.remainingRightsSqm
                         ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
                         : '—'}
                     </div>
@@ -970,6 +1012,117 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Mavat Plans */}
+            {plans.mavat && plans.mavat.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>תוכניות מ-mavat</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    תוכניות תכנון רלוונטיות מהמערכת הממשלתית
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {plans.mavat.map((plan: any, idx: number) => (
+                      <div key={idx} className="p-3 border rounded-lg">
+                        <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-sm">{plan.title}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              תוכנית מס׳ {plan.plan_id}
+                            </p>
+                          </div>
+                          <Badge variant={plan.status === 'מאושר' ? 'success' : 'neutral'}>
+                            {plan.status}
+                          </Badge>
+                        </div>
+                        <div className="grid gap-2 text-xs text-muted-foreground">
+                          {plan.authority && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span>רשות:</span>
+                              <span>{plan.authority}</span>
+                            </div>
+                          )}
+                          {plan.jurisdiction && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span>תחום שיפוט:</span>
+                              <span>{plan.jurisdiction}</span>
+                            </div>
+                          )}
+                          {plan.approval_date && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span>תאריך אישור:</span>
+                              <span>{new Date(plan.approval_date).toLocaleDateString('he-IL')}</span>
+                            </div>
+                          )}
+                          {plan.status_date && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span>תאריך סטטוס:</span>
+                              <span>{new Date(plan.status_date).toLocaleDateString('he-IL')}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-2 border-t mt-4">
+                    <div className="text-sm text-muted-foreground text-center">
+                      מקור: מערכת mavat - מידע תכנוני ממשלתי
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Local Plans */}
+            {plans.local && plans.local.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>תוכניות מקומיות</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    תוכניות שמורות במערכת המקומית
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {plans.local.map((plan: any, idx: number) => (
+                      <div key={idx} className="p-3 border rounded-lg">
+                        <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-sm">{plan.description || plan.plan_number}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              תוכנית מס׳ {plan.plan_number}
+                            </p>
+                          </div>
+                          <Badge variant={plan.status === 'מאושר' ? 'success' : 'neutral'}>
+                            {plan.status}
+                          </Badge>
+                        </div>
+                        {plan.effective_date && (
+                          <div className="text-xs text-muted-foreground">
+                            <span>תאריך תוקף: </span>
+                            <span>{new Date(plan.effective_date).toLocaleDateString('he-IL')}</span>
+                          </div>
+                        )}
+                        {plan.file_url && (
+                          <div className="mt-2">
+                            <a 
+                              href={plan.file_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-500 text-xs underline"
+                            >
+                              צפה במסמך
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="environment" className="space-y-4">
@@ -1008,7 +1161,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
                   <div className="text-center">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {asset.antennaDistanceM !== undefined && asset.antennaDistanceM !== null ? `${asset.antennaDistanceM}מ׳` : '—'}
+                      {!!asset.antennaDistanceM ? `${asset.antennaDistanceM}מ׳` : '—'}
                       <DataBadge source={asset?._meta?.antennaDistanceM?.source} fetchedAt={asset?._meta?.antennaDistanceM?.fetched_at} />
                     </div>
                     <div className="text-sm text-muted-foreground">מרחק מאנטנה</div>
@@ -1160,14 +1313,14 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="text-center py-4">
+                  <div className="text-center py-4 rtl:text-right">
                     <div className="text-2xl font-bold">{permits.length}</div>
                     <div className="text-muted-foreground">בקשות היתר פעילות</div>
                   </div>
                   {permits.length > 0 && (
                     <div className="grid gap-2 md:grid-cols-2">
                       {permits.map((p: any) => (
-                        <div key={p.id || p.permit_number} className="p-3 border rounded">
+                        <div key={p.id || p.permit_number} className="p-3 border rounded rtl:text-right">
                           <div className="font-medium">{p.description || p.permit_number || '—'}</div>
                           <div className="text-sm text-muted-foreground">{p.status || p.issued_date || ''}</div>
                         </div>
@@ -1184,9 +1337,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardHeader>עיסקאות השוואה</CardHeader>
               <CardBody className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
-                  <div className="text-center">
+                  <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
+                      {!!asset.pricePerSqm
                         ? formatCurrency(asset.pricePerSqm)
                         : '—'}
                       <DataBadge
@@ -1196,7 +1349,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     </div>
                     <div className="text-sm text-muted-foreground">מחיר למ״ר - נכס זה</div>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
                       {avgCompPricePerSqm !== null
                         ? formatCurrency(avgCompPricePerSqm)
@@ -1204,9 +1357,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     </div>
                     <div className="text-sm text-muted-foreground">ממוצע באזור</div>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
-                      {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null && avgCompPricePerSqm !== null
+                      {!!asset.pricePerSqm && !!avgCompPricePerSqm
                         ? `${Math.round(((asset.pricePerSqm / avgCompPricePerSqm) - 1) * 100)}%`
                         : '—'}
                     </div>
@@ -1231,7 +1384,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         <div>
                           <div className="font-medium">{comp.address}</div>
                           <div className="text-sm text-muted-foreground">
-                            {comp.area !== undefined ? `${comp.area} מ״ר` : ''}
+                            {!!comp.area ? `${comp.area} מ״ר` : ''}
                             {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
                             {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
                           </div>
@@ -1258,7 +1411,32 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="appraisals" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
+                <div className="flex justify-between items-center rtl:flex-row-reverse">
+                  <div>
+                    <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
+                    <CardDescription>
+                      מידע מעודכן מרמ״י, שומות מכריעות ועסקאות השוואה באזור
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Refresh appraisal data
+                      fetch(`/api/assets/${id}/appraisal`)
+                        .then(res => res.json())
+                        .then(data => {
+                          setAppraisal(data.appraisal || null)
+                          setDecisiveAppraisals(data.decisive_appraisals || [])
+                          setRamiAppraisals(data.rami_appraisals || [])
+                          setComparableTransactions(data.comparable_transactions || [])
+                        })
+                        .catch(err => console.error('Error refreshing appraisal:', err))
+                    }}
+                  >
+                    🔄 רענן מידע
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {appraisal ? (
@@ -1267,12 +1445,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       <div>
                         <h3 className="font-medium mb-2">הכרעות שמאי</h3>
                         <div className="space-y-2">
-                          <div className="p-3 border rounded">
+                          <div className="p-3 border rounded rtl:text-right">
                             <div className="font-medium">{appraisal.appraiser}</div>
                             <div className="text-sm text-muted-foreground">
                               {appraisal.date && new Date(appraisal.date).toLocaleDateString('he-IL')}
                             </div>
                             <div className="text-sm">{formatCurrency(appraisal.appraisedValue)}</div>
+                            {appraisal.source && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                מקור: {appraisal.source === 'external_decisive' ? 'שומות מכריעות' : 'מאגר פנימי'}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1280,8 +1463,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       <div>
                         <h3 className="font-medium mb-2">שומות רמ״י</h3>
                         <div className="space-y-2">
-                          <div className="p-3 border rounded">
-                            <div className="font-medium">שומת רמ״י מעודכנת</div>
+                          <div className="p-3 border rounded rtl:text-right">
+                            <div className="font-medium">
+                              {appraisal.plan_number ? `תכנית ${appraisal.plan_number}` : 'שומת רמ״י מעודכנת'}
+                            </div>
                             <div className="text-sm text-muted-foreground">
                               {appraisal.date && new Date(appraisal.date).toLocaleDateString('he-IL')}
                             </div>
@@ -1290,6 +1475,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                 ? `${formatCurrency(Math.round(appraisal.marketValue / asset.area))}/מ״ר`
                                 : formatCurrency(appraisal.marketValue)}
                             </div>
+                            {appraisal.source && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                מקור: {appraisal.source === 'external_rami' ? 'רמ״י' : 'מאגר פנימי'}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1301,21 +1491,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       </CardHeader>
                       <CardContent>
                         <div className="grid gap-4 md:grid-cols-3">
-                          <div className="text-center">
+                          <div className="text-center rtl:text-right">
                             <div className="text-2xl font-bold">
                               {formatCurrency(appraisal.appraisedValue)}
                             </div>
                             <div className="text-sm text-muted-foreground">הכרעת שמאי</div>
                           </div>
-                          <div className="text-center">
+                          <div className="text-center rtl:text-right">
                             <div className="text-2xl font-bold">
                               {formatCurrency(appraisal.marketValue)}
                             </div>
                             <div className="text-sm text-muted-foreground">שומת רמ״י</div>
                           </div>
-                          <div className="text-center">
+                          <div className="text-center rtl:text-right">
                             <div className="text-2xl font-bold">
-                              {asset.price !== undefined && asset.price !== null
+                              {!!asset.price
                                 ? `₪${(asset.price / 1000000).toFixed(1)}M`
                                 : '—'}
                             </div>
@@ -1326,7 +1516,121 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     </Card>
                   </>
                 ) : (
-                  <div className="text-center text-muted-foreground">אין נתוני שומה זמינים</div>
+                  <div className="text-center text-muted-foreground">
+                    <div className="py-8">
+                      <div className="text-lg mb-2">אין נתוני שומה זמינים</div>
+                      <div className="text-sm">
+                        המידע יטען אוטומטית מרמ״י ושומות מכריעות
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Appraisals Section */}
+                {(decisiveAppraisals.length > 0 || ramiAppraisals.length > 0) && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {decisiveAppraisals.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>כל השומות המכריעות</CardTitle>
+                          <CardDescription>
+                            {decisiveAppraisals.length} שומות נמצאו
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {decisiveAppraisals.map((app, idx) => (
+                              <div key={idx} className="p-3 border rounded rtl:text-right">
+                                <div className="font-medium">{app.appraiser}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {app.date && new Date(app.date).toLocaleDateString('he-IL')}
+                                </div>
+                                <div className="text-sm font-bold">{formatCurrency(app.appraisedValue)}</div>
+                                {app.source && (
+                                  <div className="text-xs text-blue-600 mt-1">
+                                    מקור: {app.source === 'external_decisive' ? 'שומות מכריעות' : 'מאגר פנימי'}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {ramiAppraisals.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>תכניות רמ״י</CardTitle>
+                          <CardDescription>
+                            {ramiAppraisals.length} תכניות נמצאו
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {ramiAppraisals.map((app, idx) => (
+                              <div key={idx} className="p-3 border rounded rtl:text-right">
+                                <div className="font-medium">
+                                  {app.plan_number ? `תכנית ${app.plan_number}` : 'תכנית רמ״י'}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {app.date && new Date(app.date).toLocaleDateString('he-IL')}
+                                </div>
+                                <div className="text-sm font-bold">{formatCurrency(app.marketValue)}</div>
+                                {app.status && (
+                                  <div className="text-xs text-muted-foreground">סטטוס: {app.status}</div>
+                                )}
+                                {app.source && (
+                                  <div className="text-xs text-blue-600 mt-1">
+                                    מקור: {app.source === 'external_rami' ? 'רמ״י' : 'מאגר פנימי'}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+
+                {/* Comparable Transactions Section */}
+                {comparableTransactions.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>עסקאות השוואה באזור</CardTitle>
+                      <CardDescription>
+                        {comparableTransactions.length} עסקאות נמצאו
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {comparableTransactions.map((trans, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
+                            <div>
+                              <div className="font-medium">{trans.address}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {!!trans.area ? `${trans.area} מ״ר` : ''}
+                                {trans.rooms ? ` • ${trans.rooms} חדרים` : ''}
+                                {trans.date ? ` • ${new Date(trans.date).toLocaleDateString('he-IL')}` : ''}
+                              </div>
+                              {trans.source && (
+                                <div className="text-xs text-blue-600 mt-1">
+                                  מקור: {trans.source === 'external_nadlan' ? 'נדלן' : 'מאגר פנימי'}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold">{formatCurrency(trans.price)}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {formatCurrency(trans.price_per_sqm)}/מ״ר
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </CardContent>
             </Card>
@@ -1371,21 +1675,31 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <div>
                   <h3 className="font-medium mb-2">מסמכים ידניים</h3>
                   {manualDocs.length ? (
-                    <div className="space-y-2">
-                      {manualDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
-                            </a>
-                          </Button>
+                        <div className="space-y-2">
+                          {manualDocs.map((doc: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
+                            >
+                              <span>{doc.name || doc.title}</span>
+                              <Button variant="outline" size="sm" asChild>
+                                <a 
+                                  href={doc.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => {
+                                    if (!doc.url || !doc.url.startsWith('http')) {
+                                      e.preventDefault()
+                                      alert('קישור לא זמין')
+                                    }
+                                  }}
+                                >
+                                  {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
+                                </a>
+                              </Button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
                       לא הועלו מסמכים
@@ -1402,10 +1716,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           key={idx}
                           className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
-                          <span>{doc.name}</span>
+                          <span>{doc.name || doc.title}</span>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!doc.url || !doc.url.startsWith('http')) {
+                                  e.preventDefault()
+                                  alert('קישור לא זמין')
+                                }
+                              }}
+                            >
+                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
                             </a>
                           </Button>
                         </div>
@@ -1425,10 +1749,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           key={idx}
                           className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
-                          <span>{doc.name}</span>
+                          <span>{doc.name || doc.title}</span>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!doc.url || !doc.url.startsWith('http')) {
+                                  e.preventDefault()
+                                  alert('קישור לא זמין')
+                                }
+                              }}
+                            >
+                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
                             </a>
                           </Button>
                         </div>
@@ -1448,10 +1782,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           key={idx}
                           className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
-                          <span>{doc.name}</span>
+                          <span>{doc.name || doc.title}</span>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!doc.url || !doc.url.startsWith('http')) {
+                                  e.preventDefault()
+                                  alert('קישור לא זמין')
+                                }
+                              }}
+                            >
+                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
                             </a>
                           </Button>
                         </div>
@@ -1471,10 +1815,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                           key={idx}
                           className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                         >
-                          <span>{doc.name}</span>
+                          <span>{doc.name || doc.title}</span>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={doc.url} download>
-                              הורד
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!doc.url || !doc.url.startsWith('http')) {
+                                  e.preventDefault()
+                                  alert('קישור לא זמין')
+                                }
+                              }}
+                            >
+                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
                             </a>
                           </Button>
                         </div>
@@ -1484,6 +1838,51 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div className="text-sm text-muted-foreground">אין שומות</div>
                   )}
                 </div>
+
+                {/* Fallback section for uncategorized documents */}
+                {(() => {
+                  const categorizedTypes = ['tabu', 'condo_plan', 'contract', 'deed', 'other', 'permit', 'rights', 'plan', 'appraisal_decisive', 'appraisal_rmi', 'appraisal']
+                  const uncategorizedDocs = asset?.documents?.filter((d: any) => !categorizedTypes.includes(d.type)) ?? []
+                  
+                  if (uncategorizedDocs.length > 0) {
+                    return (
+                      <div>
+                        <h3 className="font-medium mb-2">מסמכים נוספים</h3>
+                        <div className="space-y-2">
+                          {uncategorizedDocs.map((doc: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
+                            >
+                              <div className="flex flex-col rtl:items-end">
+                                <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
+                                {doc.type && (
+                                  <span className="text-xs text-muted-foreground">סוג: {doc.type}</span>
+                                )}
+                              </div>
+                              <Button variant="outline" size="sm" asChild>
+                                <a 
+                                  href={doc.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => {
+                                    if (!doc.url || !doc.url.startsWith('http')) {
+                                      e.preventDefault()
+                                      alert('קישור לא זמין')
+                                    }
+                                  }}
+                                >
+                                  {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
+                                </a>
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
 
                 <div className="pt-4 text-center text-sm text-muted-foreground">
                   סה״כ {asset.documents?.length ?? 0} מסמכים זמינים

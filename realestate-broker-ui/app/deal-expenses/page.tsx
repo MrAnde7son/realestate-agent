@@ -40,7 +40,10 @@ import {
   LandPlot,
   PiggyBank,
   ClipboardCheck,
-  Receipt
+  Receipt,
+  Banknote,
+  ArrowLeft,
+  Shield
 } from 'lucide-react'
 
 export default function DealExpensesPage() {
@@ -86,6 +89,7 @@ export default function DealExpensesPage() {
     | 'appraiser'
     | 'renovation'
     | 'furniture'
+    | 'insurance'
   type ServiceState = Record<ServiceKey, { percent?: number; amount?: number; includesVat: boolean }>
   
   // Default values based on industry standards
@@ -97,6 +101,7 @@ export default function DealExpensesPage() {
     mortgage: { percent: 0, amount: 8000, includesVat: true }, // ₪8,000 including VAT
     renovation: { percent: 0, amount: 1500, includesVat: true }, // ₪1,500 per sqm including VAT
     furniture: { percent: 0, amount: 100000, includesVat: true }, // ₪100,000 including VAT
+    insurance: { percent: 0, amount: 5000, includesVat: true }, // ₪5,000 including VAT
   }
   
   // Initialize services with default values, calculating renovation based on initial area
@@ -333,6 +338,7 @@ export default function DealExpensesPage() {
       appraiser: { percent: 0, amount: 0, includesVat: false },
       renovation: { percent: 0, amount: 0, includesVat: false },
       furniture: { percent: 0, amount: 0, includesVat: false },
+      insurance: { percent: 0, amount: 0, includesVat: false },
     }
     setServices(clearedServices)
     
@@ -774,6 +780,29 @@ export default function DealExpensesPage() {
     setTimeout(() => {
       printWindow.print()
     }, 500)
+  }
+
+  function goToMortgageCalculator() {
+    if (!result) return
+    
+    // Track navigation to mortgage calculator
+    trackCalculatorUsage('expense', 'navigate_to_mortgage', {
+      total_cost: result.total,
+      property_value: price,
+      total_expenses: result.totalTax + result.serviceTotal + result.constructionCost
+    })
+    
+    // Pass the total cost (property + all expenses) to mortgage calculator
+    // The user will input their own equity amount in the mortgage calculator
+    const totalCost = result.total // מחיר הנכס + כל ההוצאות
+    
+    // Navigate to mortgage calculator with pre-filled data
+    const params = new URLSearchParams({
+      propertyValue: totalCost.toString(),
+      totalExpenses: (result.totalTax + result.serviceTotal + result.constructionCost).toString()
+    })
+    
+    window.location.href = `/mortgage/analyze?${params.toString()}`
   }
 
   return (
@@ -1552,6 +1581,27 @@ export default function DealExpensesPage() {
                 </div>
               </div>
 
+              {/* CTA to Mortgage Calculator */}
+              <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300">
+                    <Banknote className="h-5 w-5" />
+                    <h3 className="font-semibold text-lg">רוצה לחשב משכנתא?</h3>
+                  </div>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    השתמש בתוצאות החישוב כדי לחשב משכנתא עם מחיר כולל של {fmtCurrency(result.total)} (כולל כל ההוצאות)
+                  </p>
+                  <Button 
+                    onClick={goToMortgageCalculator}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Banknote className="h-4 w-4 ml-2" />
+                    חשב משכנתא
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                  </Button>
+                </div>
+              </div>
+
               {vatUpdated && (
                 <div className="text-xs text-muted-foreground text-center pt-4 border-t">
                   עדכון מע&quot;מ אחרון: {new Date(vatUpdated).toLocaleDateString('he-IL')}
@@ -1573,6 +1623,7 @@ const labelMap: Record<string, string> = {
   appraiser: 'שמאי',
   renovation: 'שיפוץ',
   furniture: 'ריהוט',
+  insurance: 'ביטוח',
 }
 
 const getServiceIcon = (key: string) => {
@@ -1584,6 +1635,7 @@ const getServiceIcon = (key: string) => {
     appraiser: <Scale className="h-4 w-4 text-green-600 dark:text-green-400" />,
     renovation: <Hammer className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
     furniture: <Sofa className="h-4 w-4 text-pink-600 dark:text-pink-400" />,
+    insurance: <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
   }
   return iconMap[key] || <Calculator className="h-4 w-4 text-muted-foreground" />
 }

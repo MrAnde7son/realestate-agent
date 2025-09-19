@@ -289,50 +289,51 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
               <p>לא נמצאו מודעות מתאימות</p>
             </div>
           ) : (
-            <div className="border rounded-lg">
-              <Table>
+            <div className="border rounded-lg" dir="rtl">
+              <Table className="rtl:table-auto">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">כותרת</TableHead>
-                    <TableHead className="text-right">מחיר</TableHead>
-                    <TableHead className="text-right">חדרים</TableHead>
-                    <TableHead className="text-right">גודל</TableHead>
-                    <TableHead className="text-right">מקור</TableHead>
-                    <TableHead className="text-right">תאריך</TableHead>
-                    <TableHead className="text-right">פעולות</TableHead>
+                    <TableHead className="text-right rtl:text-right">כותרת</TableHead>
+                    <TableHead className="text-right rtl:text-right">מחיר</TableHead>
+                    <TableHead className="text-right rtl:text-right">חדרים</TableHead>
+                    <TableHead className="text-right rtl:text-right">גודל</TableHead>
+                    <TableHead className="text-right rtl:text-right">מקור</TableHead>
+                    <TableHead className="text-right rtl:text-right">תאריך</TableHead>
+                    <TableHead className="text-right rtl:text-right">פעולות</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredListings.map((listing) => (
                     <TableRow key={listing.id}>
-                      <TableCell className="text-right">
-                        <div>
+                      <TableCell className="text-right rtl:text-right">
+                        <div className="rtl:text-right">
                           <p className="font-medium">{listing.title}</p>
                           <p className="text-sm text-muted-foreground">{listing.address}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-right rtl:text-right font-medium">
                         {formatPrice(listing.price)}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right rtl:text-right">
                         {listing.rooms} חדרים
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right rtl:text-right">
                         {listing.size} מ"ר
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right rtl:text-right">
                         <Badge className={getSourceColor(listing.source)}>
                           {getSourceDisplay(listing.source)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right rtl:text-right">
                         {new Date(listing.date_posted).toLocaleDateString('he-IL')}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right rtl:text-right">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => window.open(listing.url, '_blank')}
+                          className="rtl:mr-0 rtl:ml-2"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>

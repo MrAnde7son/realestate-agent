@@ -23,7 +23,11 @@ class Contact(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        indexes = [models.Index(fields=["owner", "name"])]
+        indexes = [
+            models.Index(fields=["owner", "name"]),
+            models.Index(fields=["name"]),
+            models.Index(fields=["email"]),
+        ]
         # Soft unique constraint - only enforce if email exists
         constraints = [
             models.UniqueConstraint(
@@ -102,6 +106,8 @@ class Lead(models.Model):
         indexes = [
             models.Index(fields=["status", "last_activity_at"]),
             models.Index(fields=["contact", "asset"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["last_activity_at"]),
         ]
         # Prevent duplicate leads for same contact-asset pair
         unique_together = [("contact", "asset")]

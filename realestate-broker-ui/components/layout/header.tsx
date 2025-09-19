@@ -11,7 +11,7 @@ import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users } from "lucide-react"
+import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -110,6 +110,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
               {/* Navigation */}
               <div className="flex-1 overflow-y-auto p-4 mobile-sidebar-nav">
+
                 <nav className="space-y-2">
                   {mobileNavigation.map((item) => {
                     const isActive = pathname === item.href
@@ -169,6 +170,19 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
         </Link>
         <GlobalSearch />
+      </div>
+
+      {/* Center - CTA Button */}
+      <div className="hidden md:flex items-center">
+        <Link href="/assets">
+          <Button 
+            className="bg-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/90 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
+            size="sm"
+          >
+            <Plus className="h-4 w-4 ml-2" />
+            צור ליד חדש
+          </Button>
+        </Link>
       </div>
 
       {/* Right side - Theme toggle and user menu */}

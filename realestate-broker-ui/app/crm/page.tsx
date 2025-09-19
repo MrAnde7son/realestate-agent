@@ -254,8 +254,8 @@ export default function CrmPage() {
 
           <TabsContent value="dashboard" className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
+            <div className="flex flex-col md:flex-row lg:flex-row gap-6 mb-8 rtl:flex-row-reverse">
+        <Card className="flex-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
             <CardTitle className="text-sm font-medium rtl:text-right">סה״כ לידים</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -268,7 +268,7 @@ export default function CrmPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="flex-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
             <CardTitle className="text-sm font-medium rtl:text-right">לידים פעילים</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -281,7 +281,7 @@ export default function CrmPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="flex-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
             <CardTitle className="text-sm font-medium rtl:text-right">נסגרו בהצלחה</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -294,7 +294,7 @@ export default function CrmPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="flex-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
             <CardTitle className="text-sm font-medium rtl:text-right">נסגרו ללא הצלחה</CardTitle>
             <XCircle className="h-4 w-4 text-red-600" />
@@ -310,7 +310,7 @@ export default function CrmPage() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card>
+        <Card className="flex-1">
           <CardHeader className="rtl:text-right">
             <CardTitle>פעולות מהירות</CardTitle>
             <CardDescription>
@@ -341,7 +341,7 @@ export default function CrmPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="flex-1">
           <CardHeader className="rtl:text-right">
             <CardTitle>לידים אחרונים</CardTitle>
             <CardDescription>
@@ -390,7 +390,7 @@ export default function CrmPage() {
 
       {/* Status Distribution */}
       {stats.totalLeads > 0 && (
-        <Card>
+        <Card className="flex-1">
           <CardHeader className="rtl:text-right">
             <CardTitle>התפלגות סטטוסים</CardTitle>
             <CardDescription>

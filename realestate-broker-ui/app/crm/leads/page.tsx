@@ -12,7 +12,7 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/Badge';
-import { Search, ExternalLink } from 'lucide-react';
+import { Search, ExternalLink, Plus } from 'lucide-react';
 import { Lead, CrmApi } from '@/lib/api/crm';
 import { LeadStatusBadge } from '@/components/crm/lead-status-badge';
 import { LeadRowActions } from '@/components/crm/lead-row-actions';
@@ -100,6 +100,10 @@ export default function LeadsPage() {
       <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">לידים</h1>
+        <Button>
+          <Plus className="h-4 w-4 ml-2" />
+          צור ליד חדש
+        </Button>
       </div>
 
       <div className="mb-6">

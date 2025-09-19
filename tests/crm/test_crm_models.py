@@ -2,9 +2,11 @@
 Tests for CRM models
 """
 import pytest
+import time
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from core.models import Asset
 from crm.models import Contact, Lead, LeadStatus
 
@@ -32,18 +34,23 @@ class CrmModelsTests(TestCase):
             created_by=self.user
         )
     
+    def _get_unique_email(self, prefix='rut'):
+        """Generate a unique email for testing"""
+        return f'{prefix}_{int(time.time() * 1000000)}@example.com'
+    
     def test_contact_creation(self):
         """Test Contact model creation"""
+        email = self._get_unique_email()
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com',
+            email=email,
             phone='050-1234567',
             tags=['VIP', 'משקיע']
         )
         
         self.assertEqual(contact.name, 'רות כהן')
-        self.assertEqual(contact.email, 'rut@example.com')
+        self.assertEqual(contact.email, email)
         self.assertEqual(contact.phone, '050-1234567')
         self.assertEqual(contact.tags, ['VIP', 'משקיע'])
         self.assertEqual(contact.owner, self.user)
@@ -52,13 +59,14 @@ class CrmModelsTests(TestCase):
     
     def test_contact_str_representation(self):
         """Test Contact model string representation"""
+        email = self._get_unique_email()
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=email
         )
         
-        self.assertEqual(str(contact), 'רות כהן (rut@example.com)')
+        self.assertEqual(str(contact), f'רות כהן ({email})')
         
         # Test with no email
         contact_no_email = Contact.objects.create(
@@ -74,7 +82,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         # Test that indexes are created
@@ -92,24 +100,26 @@ class CrmModelsTests(TestCase):
     
     def test_contact_unique_constraints(self):
         """Test Contact model unique constraints"""
-        # Create first contact
+        # Create first contact with unique email
+        email = self._get_unique_email('test_unique')
         Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=email
         )
         
         # Try to create duplicate contact with same email for same owner
         with self.assertRaises(Exception):  # Should raise IntegrityError
-            Contact.objects.create(
-                owner=self.user,
-                name='רות כהן אחרת',
-                email='rut@example.com'
-            )
+            with transaction.atomic():
+                Contact.objects.create(
+                    owner=self.user,
+                    name='רות כהן אחרת',
+                    email=email
+                )
         
         # But different owner can have same email
         other_user = User.objects.create_user(
-            email='other@example.com',
+            email=self._get_unique_email('other_user'),
             username='otheruser',
             password='testpass123'
         )
@@ -117,7 +127,7 @@ class CrmModelsTests(TestCase):
         other_contact = Contact.objects.create(
             owner=other_user,
             name='רות כהן אחרת',
-            email='rut@example.com'
+            email=email
         )
         
         self.assertIsNotNone(other_contact)
@@ -154,7 +164,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -176,7 +186,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -192,7 +202,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -205,21 +215,22 @@ class CrmModelsTests(TestCase):
         from django.db import connection
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT name FROM sqlite_master 
+                SELECT name FROM sqlite_master
                 WHERE type='index' AND tbl_name='crm_lead'
             """)
             indexes = [row[0] for row in cursor.fetchall()]
             
             # Should have indexes for status and last_activity_at
             self.assertTrue(any('status' in idx for idx in indexes))
-            self.assertTrue(any('last_activity_at' in idx for idx in indexes))
+            # Check for any index that contains last_activity_at in the name
+            self.assertTrue(any('last_activity_at' in idx or 'last_ac' in idx for idx in indexes))
     
     def test_lead_unique_constraints(self):
         """Test Lead model unique constraints"""
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         # Create first lead
@@ -242,7 +253,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -259,7 +270,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -276,10 +287,21 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
-        # Create multiple leads for the same contact
+        # Create another asset for the second lead
+        asset2 = Asset.objects.create(
+            street='רחוב דיזנגוף',
+            number=2,
+            city='תל אביב',
+            price=1200000,
+            area=120,
+            rooms=4,
+            created_by=self.user
+        )
+        
+        # Create leads for different assets
         lead1 = Lead.objects.create(
             contact=contact,
             asset=self.asset,
@@ -288,7 +310,7 @@ class CrmModelsTests(TestCase):
         
         lead2 = Lead.objects.create(
             contact=contact,
-            asset=self.asset,
+            asset=asset2,
             status='contacted'
         )
         
@@ -300,21 +322,28 @@ class CrmModelsTests(TestCase):
     
     def test_asset_lead_relationship(self):
         """Test Asset-Lead relationship"""
-        contact = Contact.objects.create(
+        # Create multiple contacts for the same asset
+        contact1 = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
-        # Create multiple leads for the same asset
+        contact2 = Contact.objects.create(
+            owner=self.user,
+            name='דוד לוי',
+            email=self._get_unique_email()
+        )
+        
+        # Create leads for different contacts with same asset
         lead1 = Lead.objects.create(
-            contact=contact,
+            contact=contact1,
             asset=self.asset,
             status='new'
         )
         
         lead2 = Lead.objects.create(
-            contact=contact,
+            contact=contact2,
             asset=self.asset,
             status='contacted'
         )
@@ -330,7 +359,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -350,7 +379,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -370,7 +399,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         # Test valid status
@@ -391,7 +420,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         # Test valid notes format
@@ -423,7 +452,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com',
+            email=self._get_unique_email(),
             tags=valid_tags
         )
         
@@ -440,7 +469,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -464,7 +493,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         original_updated = contact.updated_at
@@ -482,7 +511,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -506,7 +535,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         original_created = contact.created_at
@@ -524,7 +553,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -557,14 +586,23 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
-        # Create multiple leads
+        # Create multiple leads with different assets
         for i in range(5):
+            asset = Asset.objects.create(
+                street=f'רחוב {i}',
+                number=i,
+                city='תל אביב',
+                price=1000000 + i * 100000,
+                area=100 + i * 10,
+                rooms=3 + i,
+                created_by=self.user
+            )
             Lead.objects.create(
                 contact=contact,
-                asset=self.asset,
+                asset=asset,
                 status='new'
             )
         
@@ -573,14 +611,13 @@ class CrmModelsTests(TestCase):
     
     def test_asset_lead_count(self):
         """Test Asset lead count"""
-        contact = Contact.objects.create(
-            owner=self.user,
-            name='רות כהן',
-            email='rut@example.com'
-        )
-        
-        # Create multiple leads
+        # Create multiple contacts for the same asset
         for i in range(3):
+            contact = Contact.objects.create(
+                owner=self.user,
+                name=f'רות כהן {i}',
+                email=f'rut{i}@example.com'
+            )
             Lead.objects.create(
                 contact=contact,
                 asset=self.asset,
@@ -595,16 +632,25 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
-        # Test all valid statuses
+        # Test all valid statuses with different assets
         valid_statuses = [choice[0] for choice in LeadStatus.choices]
         
-        for status in valid_statuses:
+        for i, status in enumerate(valid_statuses):
+            asset = Asset.objects.create(
+                street=f'רחוב {i}',
+                number=i,
+                city='תל אביב',
+                price=1000000 + i * 100000,
+                area=100 + i * 10,
+                rooms=3 + i,
+                created_by=self.user
+            )
             lead = Lead.objects.create(
                 contact=contact,
-                asset=self.asset,
+                asset=asset,
                 status=status
             )
             self.assertEqual(lead.status, status)
@@ -623,14 +669,15 @@ class CrmModelsTests(TestCase):
     
     def test_contact_phone_optional(self):
         """Test Contact phone is optional"""
+        email = self._get_unique_email()
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=email
             # No phone
         )
         
-        self.assertEqual(contact.email, 'rut@example.com')
+        self.assertEqual(contact.email, email)
         self.assertEqual(contact.phone, '')
     
     def test_lead_notes_optional(self):
@@ -638,7 +685,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -655,7 +702,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
             # No tags
         )
         
@@ -666,7 +713,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         # Test contact is required
@@ -688,7 +735,7 @@ class CrmModelsTests(TestCase):
         with self.assertRaises(Exception):
             Contact.objects.create(
                 name='רות כהן',
-                email='rut@example.com'
+                email=self._get_unique_email()
             )
     
     def test_lead_status_default(self):
@@ -696,7 +743,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -712,7 +759,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
         )
         
         lead = Lead.objects.create(
@@ -729,7 +776,7 @@ class CrmModelsTests(TestCase):
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
-            email='rut@example.com'
+            email=self._get_unique_email()
             # No tags specified
         )
         

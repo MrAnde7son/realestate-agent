@@ -29,6 +29,7 @@ import { useAuth } from '@/lib/auth-context'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
+import { ListingsPanel } from '@/components/crm/listings-panel'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -1896,6 +1897,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
           <TabsContent value="crm" className="space-y-4">
             <AssetLeadsPanel 
+              assetId={parseInt(id)} 
+              assetAddress={asset.address}
+            />
+          </TabsContent>
+
+          <TabsContent value="listings" className="space-y-4">
+            <ListingsPanel 
               assetId={parseInt(id)} 
               assetAddress={asset.address}
             />

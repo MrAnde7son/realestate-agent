@@ -28,6 +28,7 @@ import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
+import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -760,6 +761,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
             <TabsTrigger value="documents">מסמכים</TabsTrigger>
+            <TabsTrigger value="crm">לקוחות</TabsTrigger>
+            <TabsTrigger value="listings">מודעות</TabsTrigger>
             {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
           </TabsList>
 
@@ -1889,6 +1892,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="crm" className="space-y-4">
+            <AssetLeadsPanel 
+              assetId={parseInt(id)} 
+              assetAddress={asset.address}
+            />
           </TabsContent>
 
           <TabsContent value="contributions" className="space-y-4">

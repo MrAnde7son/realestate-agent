@@ -11,7 +11,7 @@ import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote } from "lucide-react"
+import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -24,6 +24,7 @@ interface HeaderProps {
 const mobileNavigation = [
   { name: "בית", href: "/", icon: Home },
   { name: "נכסים", href: "/assets", icon: Building },
+  { name: "לקוחות", href: "/crm", icon: Users },
   { name: "התראות", href: "/alerts", icon: AlertCircle },
   { name: "מחשבון הוצאות", href: "/deal-expenses", icon: Receipt },
   { name: "מחשבון משכנתא", href: "/mortgage/analyze", icon: Banknote },

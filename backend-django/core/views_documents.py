@@ -19,6 +19,11 @@ from .models import Asset, Document
 from .serializers import DocumentSerializer, DocumentUploadSerializer, DocumentListSerializer
 from .storage import document_storage
 
+try:
+    from utils.tabu_parser import parse_tabu_pdf
+except Exception:  # pragma: no cover - fallback when parser is unavailable
+    parse_tabu_pdf = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,11 +45,20 @@ class DocumentUploadView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
+            # Prepare data for serializer (support legacy field names)
+            data = request.data.copy()
+            uploaded_file = request.FILES.get('file') or data.get('file')
+            if 'document_type' not in data and 'type' in data:
+                data['document_type'] = data['type']
+            if not data.get('title'):
+                inferred_title = getattr(uploaded_file, 'name', None) if uploaded_file else None
+                data['title'] = inferred_title or 'מסמך'
+
             # Validate upload data
-            serializer = DocumentUploadSerializer(data=request.data)
+            serializer = DocumentUploadSerializer(data=data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
+
             file = serializer.validated_data['file']
             
             # Save file
@@ -68,10 +82,41 @@ class DocumentUploadView(APIView):
                 mime_type=file_info['mime_type'],
                 source='user_upload'
             )
-            
-            # Return document data
-            response_serializer = DocumentSerializer(document)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+            # Parse Tabu documents and persist extracted rows
+            if document.document_type == 'tabu' and parse_tabu_pdf:
+                try:
+                    with default_storage.open(file_info['file_path'], 'rb') as stored_file:
+                        rows = parse_tabu_pdf(stored_file) or []
+                    if rows:
+                        document.meta = {**(document.meta or {}), 'tabu_rows': rows}
+                        document.save(update_fields=['meta'])
+                except Exception as parse_error:  # pragma: no cover - defensive logging
+                    logger.error(
+                        "Error parsing tabu document %s: %s", document.id, parse_error
+                    )
+
+            # Return document data in the structure expected by the frontend
+            doc_payload = {
+                'id': document.id,
+                'title': document.title,
+                'description': document.description,
+                'type': document.document_type,
+                'status': document.status,
+                'filename': document.filename,
+                'file_size': document.file_size,
+                'date': document.document_date.isoformat() if document.document_date else None,
+                'url': document.file_url,
+                'source': document.source,
+                'external_id': document.external_id,
+                'external_url': document.external_url,
+                'downloadable': document.is_downloadable,
+                'uploaded_at': document.uploaded_at.isoformat() if document.uploaded_at else None,
+                'uploaded_by': str(document.user) if document.user else None,
+                'meta': document.meta,
+            }
+
+            return Response({'doc': doc_payload}, status=status.HTTP_201_CREATED)
             
         except Exception as e:
             logger.error(f"Error uploading document: {e}")
@@ -107,7 +152,63 @@ class DocumentListView(APIView):
         except Exception as e:
             logger.error(f"Error listing documents: {e}")
             return Response(
-                {'error': 'Failed to list documents'}, 
+                {'error': 'Failed to list documents'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AssetRightsView(APIView):
+    """Return parsed Tabu rows for an asset."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, asset_id):
+        try:
+            asset = get_object_or_404(Asset, id=asset_id)
+
+            if not (asset.created_by == request.user or request.user.is_staff):
+                return Response(
+                    {'error': 'Permission denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            query = (request.query_params.get('q') or '').strip().lower()
+            rows = []
+
+            documents = asset.documents.filter(document_type='tabu').order_by('-uploaded_at')
+            for document in documents:
+                doc_rows = document.meta.get('tabu_rows') if document.meta else []
+                if not isinstance(doc_rows, list):
+                    continue
+
+                for idx, row in enumerate(doc_rows):
+                    field = str(row.get('field', '') or '')
+                    value = str(row.get('value', '') or '')
+                    rows.append(
+                        {
+                            'id': f"{document.id}-{idx}",
+                            'document_id': document.id,
+                            'document_title': document.title,
+                            'document_url': document.file_url,
+                            'uploaded_at': document.uploaded_at.isoformat() if document.uploaded_at else None,
+                            'source': document.source,
+                            'field': field,
+                            'value': value,
+                        }
+                    )
+
+            if query:
+                rows = [
+                    r for r in rows
+                    if query in (r['field'] or '').lower() or query in (r['value'] or '').lower()
+                ]
+
+            return Response({'rows': rows})
+
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error(f"Error fetching rights for asset {asset_id}: {exc}")
+            return Response(
+                {'error': 'Failed to fetch rights data'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

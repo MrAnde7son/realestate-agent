@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import DataBadge from '@/components/DataBadge'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -89,6 +91,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [sectionsModal, setSectionsModal] = useState(false)
   const [sections, setSections] = useState<string[]>(ALL_SECTIONS)
   const [activeTab, setActiveTab] = useState('analysis')
+  const [rightsRows, setRightsRows] = useState<any[]>([])
+  const [rightsLoading, setRightsLoading] = useState(false)
+  const [rightsError, setRightsError] = useState<string | null>(null)
+  const [rightsSearch, setRightsSearch] = useState('')
+  const [rightsDocFilter, setRightsDocFilter] = useState('all')
   const router = useRouter()
   const searchParams = useSearchParams()
   const { id } = params
@@ -126,6 +133,54 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     : null
 
   const permitRadius = asset?._meta?.radius ?? 50
+
+  const loadRightsData = React.useCallback(async () => {
+    if (!id) return
+    setRightsLoading(true)
+    setRightsError(null)
+    try {
+      const response = await fetch(`/api/assets/${id}/rights`)
+      if (!response.ok) {
+        throw new Error('Failed to load rights')
+      }
+      const data = await response.json()
+      setRightsRows(Array.isArray(data.rows) ? data.rows : [])
+    } catch (rightsErr) {
+      console.error('Error loading rights data:', rightsErr)
+      setRightsRows([])
+      setRightsError('שגיאה בטעינת נתוני טאבו')
+    } finally {
+      setRightsLoading(false)
+    }
+  }, [id])
+
+  const rightsDocOptions = React.useMemo(() => {
+    const entries = new Map<string, { title: string; url?: string }>()
+    rightsRows.forEach(row => {
+      const docId = row?.document_id ? String(row.document_id) : null
+      if (!docId) return
+      if (!entries.has(docId)) {
+        entries.set(docId, {
+          title: row.document_title || `מסמך ${docId}`,
+          url: row.document_url
+        })
+      }
+    })
+    return Array.from(entries.entries()).map(([value, info]) => ({ value, ...info }))
+  }, [rightsRows])
+
+  const filteredRights = React.useMemo(() => {
+    const searchTerm = rightsSearch.trim().toLowerCase()
+    return rightsRows.filter(row => {
+      const docId = row?.document_id ? String(row.document_id) : ''
+      const matchesDoc = rightsDocFilter === 'all' || rightsDocFilter === docId
+      if (!matchesDoc) return false
+      if (!searchTerm) return true
+      const field = (row?.field || '').toLowerCase()
+      const value = (row?.value || '').toLowerCase()
+      return field.includes(searchTerm) || value.includes(searchTerm)
+    })
+  }, [rightsRows, rightsDocFilter, rightsSearch])
 
   useEffect(() => {
     setLoading(true)
@@ -179,6 +234,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   }, [id])
 
   useEffect(() => {
+    loadRightsData()
+  }, [loadRightsData])
+
+  useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
     if (stored) {
       try { setSections(JSON.parse(stored)) } catch {}
@@ -193,7 +252,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   // Initialize active tab from URL
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab')
-    if (tabFromUrl && ['analysis', 'permits', 'plans', 'transactions', 'appraisals', 'environment', 'documents', 'contributions'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['analysis', 'permits', 'plans', 'rights', 'transactions', 'appraisals', 'environment', 'documents', 'contributions'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
     }
   }, [searchParams])
@@ -401,6 +460,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     e.preventDefault()
     if (!id) return
     const formData = new FormData(e.currentTarget)
+    const file = formData.get('file') as File | null
+    const providedType = (formData.get('document_type') as string) || (formData.get('type') as string)
+    if (providedType) {
+      formData.set('document_type', providedType)
+    }
+    if (formData.has('type')) {
+      formData.delete('type')
+    }
+    if (!formData.get('title')) {
+      formData.set('title', file?.name || 'מסמך')
+    }
     setUploading(true)
     try {
       const res = await fetch(`/api/assets/${id}/documents`, {
@@ -408,11 +478,22 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         body: formData,
       })
       if (res.ok) {
-        const { doc } = await res.json()
+        const responseData = await res.json()
+        const uploadedDoc = responseData.doc || responseData
+        if (!uploadedDoc) {
+          return
+        }
+        const normalizedDoc = {
+          ...uploadedDoc,
+          type: uploadedDoc.type || uploadedDoc.document_type || uploadedDoc.documentType || providedType || 'other'
+        }
         setAsset((prev: any) => ({
           ...prev,
-          documents: [...(prev.documents || []), doc],
+          documents: [...(prev.documents || []), normalizedDoc],
         }))
+        if (normalizedDoc.type === 'tabu') {
+          await loadRightsData()
+        }
         e.currentTarget.reset()
       }
     } catch (err) {
@@ -756,6 +837,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="permits">היתרים</TabsTrigger>
             <TabsTrigger value="plans">תוכניות</TabsTrigger>
+            <TabsTrigger value="rights">זכויות</TabsTrigger>
             <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
             <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
@@ -1107,9 +1189,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         )}
                         {plan.file_url && (
                           <div className="mt-2">
-                            <a 
-                              href={plan.file_url} 
-                              target="_blank" 
+                            <a
+                              href={plan.file_url}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 text-xs underline"
                             >
@@ -1123,6 +1205,102 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="rights" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>זכויות מהנסח טאבו</CardTitle>
+                <CardDescription>נתונים שהופקו אוטומטית מהמסמכים שהועלו בלשונית המסמכים.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <Input
+                    value={rightsSearch}
+                    onChange={event => setRightsSearch(event.target.value)}
+                    placeholder="חיפוש לפי שדה או ערך"
+                    className="w-full md:max-w-sm"
+                  />
+                  <Select value={rightsDocFilter} onValueChange={setRightsDocFilter}>
+                    <SelectTrigger className="w-full md:w-64">
+                      <SelectValue placeholder="בחר מסמך" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">כל המסמכים</SelectItem>
+                      {rightsDocOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {rightsError && (
+                  <div className="text-sm text-red-500 text-right">{rightsError}</div>
+                )}
+
+                {rightsLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                ) : filteredRights.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="rtl:flex-row-reverse">
+                          <TableHead className="text-right">שדה</TableHead>
+                          <TableHead className="text-right">ערך</TableHead>
+                          <TableHead className="text-right">מסמך</TableHead>
+                          <TableHead className="text-right">תאריך העלאה</TableHead>
+                          <TableHead className="text-right">מקור</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredRights.map((row: any) => (
+                          <TableRow key={row.id} className="rtl:flex-row-reverse">
+                            <TableCell className="text-right font-medium whitespace-nowrap">
+                              {row.field || '—'}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-pre-wrap break-words">
+                              {row.value || '—'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex flex-col gap-1 rtl:items-end">
+                                <span>{row.document_title || `מסמך ${row.document_id}`}</span>
+                                {row.document_url && (
+                                  <a
+                                    href={row.document_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 underline"
+                                  >
+                                    צפה במסמך
+                                  </a>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {row.uploaded_at ? new Date(row.uploaded_at).toLocaleDateString('he-IL') : '—'}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {row.source ? <Badge variant="outline">{row.source}</Badge> : '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="py-6 text-sm text-muted-foreground text-right">
+                    לא נמצאו נתוני טאבו תואמים
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="justify-end text-sm text-muted-foreground">
+                נתוני הטאבו מתעדכנים לאחר העלאת נסח טאבו בלשונית המסמכים.
+              </CardFooter>
+            </Card>
           </TabsContent>
 
           <TabsContent value="environment" className="space-y-4">

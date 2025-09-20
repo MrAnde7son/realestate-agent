@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || 'http://localhost:8000';
+const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || 'http://127.0.0.1:8000';
 
 export async function POST(
   request: NextRequest,

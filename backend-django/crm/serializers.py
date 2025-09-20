@@ -90,18 +90,6 @@ class LeadSerializer(serializers.ModelSerializer):
     )
     asset_id = serializers.IntegerField(write_only=True)
     
-    def validate_asset_id(self, value):
-        """Validate that the asset exists and user has permission."""
-        from core.models import Asset
-        try:
-            asset = Asset.objects.get(id=value)
-            # For now, just check if user created the asset or has access
-            # This can be enhanced based on existing permission system
-            if hasattr(self.context.get('request'), 'user') and asset.created_by_id != self.context['request'].user.id:
-                raise serializers.ValidationError("No permission on this asset")
-        except Asset.DoesNotExist:
-            raise serializers.ValidationError("Asset not found")
-        return value
     asset = serializers.SerializerMethodField(read_only=True)
     asset_address = serializers.CharField(source="asset.address", read_only=True)
     asset_price = serializers.IntegerField(source="asset.price", read_only=True)
@@ -158,13 +146,26 @@ class LeadSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def validate_asset_id(self, value):
+        """Validate that the asset exists and user has permission."""
+        from core.models import Asset
+        try:
+            asset = Asset.objects.get(id=value)
+            # For now, just check if user created the asset or has access
+            # This can be enhanced based on existing permission system
+            if hasattr(self.context.get('request'), 'user') and asset.created_by_id != self.context['request'].user.id:
+                raise serializers.ValidationError("No permission on this asset")
+        except Asset.DoesNotExist:
+            raise serializers.ValidationError("Asset not found")
+        return value
+
     def validate(self, attrs):
         """Validate lead data."""
         user = self.context["request"].user
-        contact = attrs["contact"]
+        contact = attrs.get("contact")
         
-        # Check contact ownership
-        if contact.owner_id != user.id:
+        # Check contact ownership if contact exists
+        if contact and contact.owner_id != user.id:
             raise serializers.ValidationError("No permission on this contact")
         
         return attrs

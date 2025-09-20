@@ -266,7 +266,7 @@ class CrmSerializersTests(TestCase):
         
         serializer = LeadSerializer(data=data, context={'request': request})
         self.assertFalse(serializer.is_valid())
-        self.assertIn('non_field_errors', serializer.errors)
+        self.assertIn('asset_id', serializer.errors)
     
     def test_lead_serializer_empty_notes(self):
         """Test LeadSerializer with empty notes"""

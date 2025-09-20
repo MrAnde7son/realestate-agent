@@ -107,7 +107,7 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
     } finally {
       setLoading(false)
     }
-  }, [assetId, assetAddress])
+  }, [assetId])
 
   useEffect(() => {
     fetchListings()
@@ -318,7 +318,7 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
                         {listing.rooms} חדרים
                       </TableCell>
                       <TableCell className="text-right rtl:text-right">
-                        {listing.size} מ"ר
+                        {listing.size} מ&quot;ר
                       </TableCell>
                       <TableCell className="text-right rtl:text-right">
                         <Badge className={getSourceColor(listing.source)}>

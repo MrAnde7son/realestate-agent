@@ -178,7 +178,7 @@ class DocumentAPITest(APITestCase):
         """Uploading a tabu document stores parsed rows and exposes them via the rights endpoint."""
 
         url = reverse('document_upload', kwargs={'asset_id': self.asset.id})
-        with open('tests/data/tabu_sample.pdf', 'rb') as test_pdf:
+        with open('/Users/imizrahi/Documents/Git/realestate-agent/tests/data/tabu_sample.pdf', 'rb') as test_pdf:
             data = {
                 'file': test_pdf,
                 'title': 'Tabu Document',

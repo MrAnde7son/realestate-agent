@@ -613,5 +613,5 @@ class CrmSerializersTests(TestCase):
         errors = serializer.errors
         self.assertIn('contact_id', errors)
         self.assertIn('status', errors)
-        # Asset validation error is in non_field_errors
-        self.assertIn('non_field_errors', errors)
+        # Asset validation error is in asset_id field
+        self.assertIn('asset_id', errors)

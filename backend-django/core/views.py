@@ -1431,6 +1431,26 @@ def asset_detail(request, asset_id):
         serializer = AssetSerializer(asset)
         asset_data = serializer.data
         
+        # Get CRM data for this asset
+        crm_data = {}
+        try:
+            from crm.models import Lead
+            from crm.serializers import LeadSerializer
+            
+            # Get leads for this asset
+            leads = Lead.objects.filter(asset=asset).select_related('contact').order_by('-last_activity_at')
+            leads_serializer = LeadSerializer(leads, many=True, context={'request': request})
+            crm_data = {
+                "leads": leads_serializer.data,
+                "leads_count": leads.count()
+            }
+        except Exception as e:
+            logger.warning(f"Error fetching CRM data for asset {asset_id}: {e}")
+            crm_data = {
+                "leads": [],
+                "leads_count": 0
+            }
+        
         # Add additional data not in the serializer
         asset_data.update({
             "attribution": attribution_info,
@@ -1438,6 +1458,7 @@ def asset_detail(request, asset_id):
             "records": records_by_source,
             "transactions": transaction_list,
             "snapshot": snapshot_data,
+            "CRM": crm_data,
         })
         
         return JsonResponse(asset_data)

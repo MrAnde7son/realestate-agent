@@ -89,6 +89,20 @@ class LeadSerializer(serializers.ModelSerializer):
         source="contact"
     )
     asset_id = serializers.IntegerField(write_only=True)
+    
+    def validate_asset_id(self, value):
+        """Validate that the asset exists and user has permission."""
+        from core.models import Asset
+        try:
+            asset = Asset.objects.get(id=value)
+            # For now, just check if user created the asset or has access
+            # This can be enhanced based on existing permission system
+            if hasattr(self.context.get('request'), 'user') and asset.created_by_id != self.context['request'].user.id:
+                raise serializers.ValidationError("No permission on this asset")
+        except Asset.DoesNotExist:
+            raise serializers.ValidationError("Asset not found")
+        return value
+    asset = serializers.SerializerMethodField(read_only=True)
     asset_address = serializers.CharField(source="asset.address", read_only=True)
     asset_price = serializers.IntegerField(source="asset.price", read_only=True)
     asset_rooms = serializers.IntegerField(source="asset.rooms", read_only=True)
@@ -97,7 +111,7 @@ class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = [
-            "id", "contact", "contact_id", "asset_id", "asset_address",
+            "id", "contact", "contact_id", "asset", "asset_id", "asset_address",
             "asset_price", "asset_rooms", "asset_area", "status", "notes",
             "last_activity_at", "created_at"
         ]
@@ -129,6 +143,21 @@ class LeadSerializer(serializers.ModelSerializer):
 
         return super().to_internal_value(mutable_data)
 
+    def get_asset(self, obj):
+        """Get asset information for the lead."""
+        if obj.asset:
+            return {
+                'id': obj.asset.id,
+                'address': obj.asset.address,
+                'price': obj.asset.price,
+                'rooms': obj.asset.rooms,
+                'area': obj.asset.area,
+                'city': obj.asset.city,
+                'street': obj.asset.street,
+                'number': obj.asset.number
+            }
+        return None
+
     def validate(self, attrs):
         """Validate lead data."""
         user = self.context["request"].user
@@ -137,17 +166,6 @@ class LeadSerializer(serializers.ModelSerializer):
         # Check contact ownership
         if contact.owner_id != user.id:
             raise serializers.ValidationError("No permission on this contact")
-        
-        # Check asset access (basic check - can be enhanced based on existing ACL)
-        from core.models import Asset
-        try:
-            asset = Asset.objects.get(id=attrs["asset_id"])
-            # For now, just check if user created the asset or has access
-            # This can be enhanced based on existing permission system
-            if asset.created_by_id != user.id:
-                raise serializers.ValidationError("No permission on this asset")
-        except Asset.DoesNotExist:
-            raise serializers.ValidationError("Asset not found")
         
         return attrs
 

@@ -48,7 +48,9 @@ class ContactViewSet(viewsets.ModelViewSet):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        """Return contacts owned by the current user."""
+        """Return contacts owned by the current user, or all contacts for superusers."""
+        if self.request.user.is_superuser:
+            return Contact.objects.all().order_by("-updated_at")
         return Contact.objects.filter(owner=self.request.user).order_by("-updated_at")
 
     def perform_create(self, serializer):
@@ -80,16 +82,18 @@ class ContactViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def search(self, request):
-        """Search contacts by name, email, or phone."""
+        """Search contacts by name, email, phone, or tags."""
         query = request.query_params.get('q', '')
         if not query:
             return Response([])
         
-        contacts = self.get_queryset().filter(
-            Q(name__icontains=query) |
-            Q(email__icontains=query) |
-            Q(phone__icontains=query)
-        )[:10]  # Limit to 10 results
+        # Build search query
+        search_q = Q(name__icontains=query) | Q(email__icontains=query) | Q(phone__icontains=query)
+        
+        # Add tag search - check if any tag contains the query
+        search_q |= Q(tags__icontains=query)
+        
+        contacts = self.get_queryset().filter(search_q)[:10]  # Limit to 10 results
         
         # Track search event
         track_crm_search(request.user.id, 'contacts', query, contacts.count())
@@ -123,6 +127,25 @@ class ContactViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = 'attachment; filename="contacts.csv"'
         return response
 
+    @action(detail=True, methods=['get'])
+    def leads(self, request, pk=None):
+        """Get all leads for a specific contact."""
+        contact = self.get_object()
+        
+        # Get leads for this contact
+        leads = Lead.objects.filter(contact=contact).select_related('asset').order_by('-last_activity_at')
+        
+        # Apply any filters from query parameters
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            leads = leads.filter(status=status_filter)
+        
+        # Serialize the leads
+        from .serializers import LeadSerializer
+        serializer = LeadSerializer(leads, many=True, context={'request': request})
+        
+        return Response(serializer.data)
+
 
 class LeadViewSet(viewsets.ModelViewSet):
     """ViewSet for managing leads."""
@@ -144,10 +167,13 @@ class LeadViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def get_queryset(self):
-        """Return leads for contacts owned by the current user."""
-        queryset = Lead.objects.filter(
-            contact__owner=self.request.user
-        ).select_related("contact", "asset").order_by("-last_activity_at")
+        """Return leads for contacts owned by the current user, or all leads for superusers."""
+        if self.request.user.is_superuser:
+            queryset = Lead.objects.all().select_related("contact", "asset").order_by("-last_activity_at")
+        else:
+            queryset = Lead.objects.filter(
+                contact__owner=self.request.user
+            ).select_related("contact", "asset").order_by("-last_activity_at")
         
         # Filter by status if provided
         status_filter = self.request.query_params.get('status')
@@ -266,17 +292,3 @@ class LeadViewSet(viewsets.ModelViewSet):
         leads = self.get_queryset().filter(asset=asset)
         serializer = self.get_serializer(leads, many=True)
         return Response(serializer.data)
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-
-        if self._should_paginate(request):
-            paginator = self.pagination_class()
-            page = paginator.paginate_queryset(queryset, request, view=self)
-            serializer = self.get_serializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
-    def _should_paginate(self, request):
-        return any(param in request.query_params for param in ("page", "page_size"))

@@ -312,7 +312,7 @@ class CrmIntegrationTests(TestCase):
         self.assertEqual(len(response.data), 3)
         
         # Verify all assets are included
-        asset_ids_in_response = [lead['asset_id'] for lead in response.data]
+        asset_ids_in_response = [lead['asset']['id'] for lead in response.data]
         self.assertEqual(set(asset_ids_in_response), set(asset_ids))
     
     def test_crm_permissions_integration(self):

@@ -6,6 +6,10 @@ class IsOwnerContact(BasePermission):
     
     def has_object_permission(self, request, view, obj):
         """Check if user has permission to access the object."""
+        # Allow superusers to access any object
+        if request.user.is_superuser:
+            return True
+            
         if hasattr(obj, "owner"):
             # Direct contact access
             return obj.owner_id == request.user.id

@@ -559,7 +559,7 @@ class CrmPermissionsTests(TestCase):
         # Create superuser
         superuser = User.objects.create_superuser(
             email='crm_permissions_admin@example.com',
-            username='admin',
+            username='crm_permissions_admin',
             password='testpass123'
         )
         

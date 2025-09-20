@@ -160,14 +160,46 @@ class DocumentAPITest(APITestCase):
         }
         
         response = self.client.post(url, data, format='multipart')
-        
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Document.objects.count(), 1)
-        
+
+        payload = response.json()
+        self.assertIn('doc', payload)
+        self.assertEqual(payload['doc']['title'], 'Test Document')
+        self.assertEqual(payload['doc']['type'], 'permit')
+
         document = Document.objects.first()
         self.assertEqual(document.title, 'Test Document')
         self.assertEqual(document.asset, self.asset)
         self.assertEqual(document.user, self.user)
+
+    def test_upload_tabu_document_populates_meta_and_rights(self):
+        """Uploading a tabu document stores parsed rows and exposes them via the rights endpoint."""
+
+        url = reverse('document_upload', kwargs={'asset_id': self.asset.id})
+        with open('tests/data/tabu_sample.pdf', 'rb') as test_pdf:
+            data = {
+                'file': test_pdf,
+                'title': 'Tabu Document',
+                'description': 'טאבו',
+                'document_type': 'tabu'
+            }
+            response = self.client.post(url, data, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        document = Document.objects.get()
+        self.assertIn('tabu_rows', document.meta)
+        self.assertGreater(len(document.meta['tabu_rows']), 0)
+
+        rights_url = reverse('asset_rights', kwargs={'asset_id': self.asset.id})
+        rights_response = self.client.get(rights_url)
+
+        self.assertEqual(rights_response.status_code, status.HTTP_200_OK)
+        rows = rights_response.json()['rows']
+        self.assertGreater(len(rows), 0)
+        self.assertIn('field', rows[0])
+        self.assertIn('value', rows[0])
     
     def test_list_documents(self):
         """Test listing documents for an asset."""

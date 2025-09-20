@@ -26,7 +26,7 @@ class CrmPermissionsTests(TestCase):
         
         self.other_user = User.objects.create_user(
             email='crm_permissions_other@example.com',
-            username='otheruser',
+            username='crm_permissions_other',
             password='testpass123'
         )
         

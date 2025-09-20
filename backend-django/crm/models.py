@@ -3,7 +3,8 @@ from django.db import models
 from .analytics import (
     track_contact_created, track_contact_updated, track_contact_deleted,
     track_lead_created, track_lead_updated, track_lead_deleted,
-    track_lead_status_changed, track_lead_note_added, track_lead_report_sent
+    track_lead_status_changed, track_lead_note_added, track_lead_report_sent,
+    track_asset_change_notified, track_crm_search, track_crm_export
 )
 
 

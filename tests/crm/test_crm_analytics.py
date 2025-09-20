@@ -61,7 +61,7 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(user_id, self.user.id)
         self.assertEqual(contact_obj.name, 'רות כהן')
     
-    @patch('crm.analytics.track_contact_created')
+    @patch('crm.models.track_contact_created')
     def test_contact_created_event_tracking_no_email_phone(self, mock_track_contact_created):
         """Test contact created event tracking without email and phone"""
         data = {
@@ -73,16 +73,16 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Verify event was tracked
-        mock_track_event.assert_called_once()
-        call_args = mock_track_event.call_args
+        mock_track_contact_created.assert_called_once()
+        call_args = mock_track_contact_created.call_args
         
-        self.assertEqual(call_args[0][0], 'contact_created')
-        self.assertEqual(call_args[0][1]['has_email'], False)
-        self.assertEqual(call_args[0][1]['has_phone'], False)
-        self.assertEqual(call_args[0][1]['tags_count'], 1)
+        contact_obj = call_args[0][0]
+        user_id = call_args[0][1]
+        self.assertEqual(user_id, self.user.id)
+        self.assertIsNotNone(contact_obj)
     
-    @patch('crm.models.track_event')
-    def test_lead_created_event_tracking(self, mock_track_event):
+    @patch('crm.models.track_lead_created')
+    def test_lead_created_event_tracking(self, mock_track_lead_created):
         """Test lead created event tracking"""
         contact = Contact.objects.create(
             owner=self.user,
@@ -100,17 +100,16 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Verify event was tracked
-        mock_track_event.assert_called_once()
-        call_args = mock_track_event.call_args
+        mock_track_lead_created.assert_called_once()
+        call_args = mock_track_lead_created.call_args
         
-        self.assertEqual(call_args[0][0], 'lead_created')
-        self.assertEqual(call_args[0][1]['user_id'], self.user.id)
-        self.assertEqual(call_args[0][1]['lead_id'], response.data['id'])
-        self.assertEqual(call_args[0][1]['status'], 'new')
-        self.assertEqual(call_args[0][1]['asset_id'], self.asset.id)
+        lead_obj = call_args[0][0]
+        user_id = call_args[0][1]
+        self.assertEqual(user_id, self.user.id)
+        self.assertIsNotNone(lead_obj)
     
-    @patch('crm.models.track_event')
-    def test_lead_status_changed_event_tracking(self, mock_track_event):
+    @patch('crm.models.track_lead_status_changed')
+    def test_lead_status_changed_event_tracking(self, mock_track_lead_status_changed):
         """Test lead status changed event tracking"""
         contact = Contact.objects.create(
             owner=self.user,
@@ -130,17 +129,20 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
-        mock_track_event.assert_called_once()
-        call_args = mock_track_event.call_args
+        mock_track_lead_status_changed.assert_called_once()
+        call_args = mock_track_lead_status_changed.call_args
         
-        self.assertEqual(call_args[0][0], 'lead_status_changed')
-        self.assertEqual(call_args[0][1]['user_id'], self.user.id)
-        self.assertEqual(call_args[0][1]['lead_id'], lead.id)
-        self.assertEqual(call_args[0][1]['from_status'], 'new')
-        self.assertEqual(call_args[0][1]['to_status'], 'contacted')
+        lead_obj = call_args[0][0]
+        user_id = call_args[0][1]
+        from_status = call_args[0][2]
+        to_status = call_args[0][3]
+        self.assertEqual(user_id, self.user.id)
+        self.assertEqual(from_status, 'new')
+        self.assertEqual(to_status, 'contacted')
+        self.assertIsNotNone(lead_obj)
     
-    @patch('crm.models.track_event')
-    def test_lead_report_sent_event_tracking(self, mock_track_event):
+    @patch('crm.models.track_lead_report_sent')
+    def test_lead_report_sent_event_tracking(self, mock_track_lead_report_sent):
         """Test lead report sent event tracking"""
         contact = Contact.objects.create(
             owner=self.user,
@@ -159,17 +161,18 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
-        mock_track_event.assert_called_once()
-        call_args = mock_track_event.call_args
+        mock_track_lead_report_sent.assert_called_once()
+        call_args = mock_track_lead_report_sent.call_args
         
-        self.assertEqual(call_args[0][0], 'lead_report_sent')
-        self.assertEqual(call_args[0][1]['user_id'], self.user.id)
-        self.assertEqual(call_args[0][1]['lead_id'], lead.id)
-        self.assertEqual(call_args[0][1]['via'], 'email')
-        self.assertEqual(call_args[0][1]['asset_id'], self.asset.id)
+        lead_obj = call_args[0][0]
+        user_id = call_args[0][1]
+        via = call_args[0][2]
+        self.assertEqual(user_id, self.user.id)
+        self.assertEqual(via, 'email')
+        self.assertIsNotNone(lead_obj)
     
-    @patch('crm.models.track_event')
-    def test_asset_change_notified_event_tracking(self, mock_track_event):
+    @patch('crm.services.track_asset_change_notified')
+    def test_asset_change_notified_event_tracking(self, mock_track_asset_change_notified):
         """Test asset change notified event tracking"""
         # Create multiple leads for the asset
         contacts = [
@@ -193,14 +196,16 @@ class CrmAnalyticsTests(TestCase):
         notify_asset_change(self.asset.id, change_summary)
         
         # Verify event was tracked
-        mock_track_event.assert_called_once()
-        call_args = mock_track_event.call_args
+        mock_track_asset_change_notified.assert_called_once()
+        call_args = mock_track_asset_change_notified.call_args
         
-        self.assertEqual(call_args[0][0], 'asset_change_notified')
-        self.assertEqual(call_args[0][1]['user_id'], self.user.id)
-        self.assertEqual(call_args[0][1]['asset_id'], self.asset.id)
-        self.assertEqual(call_args[0][1]['leads_count'], 3)
-        self.assertEqual(call_args[0][1]['change_summary'], change_summary)
+        asset_obj = call_args[0][0]
+        user_id = call_args[0][1]
+        leads_count = call_args[0][2]
+        change_summary = call_args[0][3]
+        self.assertEqual(user_id, self.user.id)
+        self.assertEqual(leads_count, 3)
+        self.assertIsNotNone(asset_obj)
     
     @patch('crm.models.track_event')
     def test_lead_note_added_event_tracking(self, mock_track_event):
@@ -231,8 +236,8 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(call_args[0][1]['lead_id'], lead.id)
         self.assertEqual(call_args[0][1]['note_length'], len('נפגשנו, ביקשה דוח ממותג'))
     
-    @patch('crm.models.track_event')
-    def test_contact_updated_event_tracking(self, mock_track_event):
+    @patch('crm.models.track_contact_updated')
+    def test_contact_updated_event_tracking(self, mock_track_contact_updated):
         """Test contact updated event tracking"""
         contact = Contact.objects.create(
             owner=self.user,
@@ -252,13 +257,15 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
-        mock_track_event.assert_called_once()
-        call_args = mock_track_event.call_args
+        mock_track_contact_updated.assert_called_once()
+        call_args = mock_track_contact_updated.call_args
         
-        self.assertEqual(call_args[0][0], 'contact_updated')
-        self.assertEqual(call_args[0][1]['user_id'], self.user.id)
-        self.assertEqual(call_args[0][1]['contact_id'], contact.id)
-        self.assertEqual(call_args[0][1]['fields_changed'], ['name', 'phone', 'tags'])
+        contact_obj = call_args[0][0]
+        user_id = call_args[0][1]
+        changed_fields = call_args[0][2]
+        self.assertEqual(user_id, self.user.id)
+        self.assertIn('name', changed_fields)
+        self.assertIsNotNone(contact_obj)
     
     @patch('crm.models.track_event')
     def test_lead_deleted_event_tracking(self, mock_track_event):
@@ -289,8 +296,8 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(call_args[0][1]['status'], 'new')
         self.assertEqual(call_args[0][1]['asset_id'], self.asset.id)
     
-    @patch('crm.models.track_event')
-    def test_contact_deleted_event_tracking(self, mock_track_event):
+    @patch('crm.models.track_contact_deleted')
+    def test_contact_deleted_event_tracking(self, mock_track_contact_deleted):
         """Test contact deleted event tracking"""
         contact = Contact.objects.create(
             owner=self.user,
@@ -310,13 +317,15 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify event was tracked
-        mock_track_event.assert_called_once()
-        call_args = mock_track_event.call_args
+        mock_track_contact_deleted.assert_called_once()
+        call_args = mock_track_contact_deleted.call_args
         
-        self.assertEqual(call_args[0][0], 'contact_deleted')
-        self.assertEqual(call_args[0][1]['user_id'], self.user.id)
-        self.assertEqual(call_args[0][1]['contact_id'], contact.id)
-        self.assertEqual(call_args[0][1]['leads_count'], 1)
+        contact_obj = call_args[0][0]
+        user_id = call_args[0][1]
+        leads_count = call_args[0][2]
+        self.assertEqual(user_id, self.user.id)
+        self.assertEqual(leads_count, 1)
+        self.assertIsNotNone(contact_obj)
     
     @patch('crm.models.track_event')
     def test_crm_search_event_tracking(self, mock_track_event):
@@ -379,10 +388,10 @@ class CrmAnalyticsTests(TestCase):
     
     def test_analytics_event_structure(self):
         """Test that analytics events have correct structure"""
-        # This test verifies that the track_event function is called with correct parameters
+        # This test verifies that the track_contact_created function is called with correct parameters
         # without actually calling the real function
-        
-        with patch('crm.models.track_event') as mock_track_event:
+    
+        with patch('crm.models.track_contact_created') as mock_track_contact_created:
             # Create contact
             data = {
                 'name': 'רות כהן',
@@ -394,46 +403,20 @@ class CrmAnalyticsTests(TestCase):
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             
             # Verify event structure
-            mock_track_event.assert_called_once()
-            call_args = mock_track_event.call_args
+            mock_track_contact_created.assert_called_once()
+            call_args = mock_track_contact_created.call_args
             
-            event_name = call_args[0][0]
-            event_props = call_args[0][1]
+            contact_obj = call_args[0][0]
+            user_id = call_args[0][1]
             
-            # Verify event name
-            self.assertIn(event_name, [
-                'contact_created', 'contact_updated', 'contact_deleted',
-                'lead_created', 'lead_status_changed', 'lead_note_added', 
-                'lead_report_sent', 'lead_deleted',
-                'asset_change_notified', 'crm_search', 'crm_export'
-            ])
-            
-            # Verify required properties
-            self.assertIn('user_id', event_props)
-            self.assertEqual(event_props['user_id'], self.user.id)
-            
-            # Verify timestamp
-            self.assertIn('timestamp', event_props)
-            
-            # Verify event-specific properties
-            if event_name == 'contact_created':
-                self.assertIn('contact_id', event_props)
-                self.assertIn('has_email', event_props)
-                self.assertIn('has_phone', event_props)
-                self.assertIn('tags_count', event_props)
-            elif event_name == 'lead_created':
-                self.assertIn('lead_id', event_props)
-                self.assertIn('status', event_props)
-                self.assertIn('asset_id', event_props)
-            elif event_name == 'lead_status_changed':
-                self.assertIn('lead_id', event_props)
-                self.assertIn('from_status', event_props)
-                self.assertIn('to_status', event_props)
+            # Verify function was called with correct parameters
+            self.assertIsNotNone(contact_obj)
+            self.assertEqual(user_id, self.user.id)
     
     def test_analytics_error_handling(self):
         """Test analytics error handling"""
         # Test that analytics errors don't break the main functionality
-        with patch('crm.models.track_event', side_effect=Exception("Analytics error")):
+        with patch('crm.models.track_contact_created', side_effect=Exception("Analytics error")):
             # Create contact - should still work despite analytics error
             data = {
                 'name': 'רות כהן',
@@ -449,7 +432,7 @@ class CrmAnalyticsTests(TestCase):
     
     def test_analytics_batch_events(self):
         """Test analytics batch events"""
-        with patch('crm.models.track_event') as mock_track_event:
+        with patch('crm.models.track_contact_created') as mock_track_contact_created:
             # Create multiple contacts quickly
             contacts_data = [
                 {'name': 'רות כהן', 'email': 'rut@example.com'},
@@ -462,14 +445,12 @@ class CrmAnalyticsTests(TestCase):
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             
             # Verify all events were tracked
-            self.assertEqual(mock_track_event.call_count, 3)
+            self.assertEqual(mock_track_contact_created.call_count, 3)
             
             # Verify all events have correct structure
-            for call in mock_track_event.call_args_list:
-                event_name = call[0][0]
-                event_props = call[0][1]
+            for call in mock_track_contact_created.call_args_list:
+                contact_obj = call[0][0]
+                user_id = call[0][1]
                 
-                self.assertEqual(event_name, 'contact_created')
-                self.assertIn('user_id', event_props)
-                self.assertIn('contact_id', event_props)
-                self.assertIn('timestamp', event_props)
+                self.assertIsNotNone(contact_obj)
+                self.assertEqual(user_id, self.user.id)

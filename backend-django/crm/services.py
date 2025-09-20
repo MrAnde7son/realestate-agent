@@ -60,7 +60,7 @@ def notify_asset_change(asset_id: int, change_summary: str):
         from core.models import Asset
         try:
             asset = Asset.objects.get(id=asset_id)
-            track_asset_change_notified(asset, asset.created_by_id, leads.count(), change_summary)
+            track_asset_change_notified(asset, asset.created_by.id, leads.count(), change_summary)
         except Asset.DoesNotExist:
             logger.warning(f"Asset {asset_id} not found for analytics tracking")
         

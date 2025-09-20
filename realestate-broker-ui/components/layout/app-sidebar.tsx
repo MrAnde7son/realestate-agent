@@ -18,6 +18,7 @@ import {
   LogOut,
   Receipt,
   Banknote,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,11 @@ const baseNavigation = [
     name: "נכסים",
     href: "/assets",
     icon: Building,
+  },
+  {
+    name: "לקוחות",
+    href: "/crm",
+    icon: Users,
   },
   {
     name: "התראות",

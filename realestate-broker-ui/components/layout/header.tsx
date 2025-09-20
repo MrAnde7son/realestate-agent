@@ -11,7 +11,7 @@ import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote } from "lucide-react"
+import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -24,6 +24,7 @@ interface HeaderProps {
 const mobileNavigation = [
   { name: "בית", href: "/", icon: Home },
   { name: "נכסים", href: "/assets", icon: Building },
+  { name: "לקוחות", href: "/crm", icon: Users },
   { name: "התראות", href: "/alerts", icon: AlertCircle },
   { name: "מחשבון הוצאות", href: "/deal-expenses", icon: Receipt },
   { name: "מחשבון משכנתא", href: "/mortgage/analyze", icon: Banknote },
@@ -109,6 +110,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
               {/* Navigation */}
               <div className="flex-1 overflow-y-auto p-4 mobile-sidebar-nav">
+
                 <nav className="space-y-2">
                   {mobileNavigation.map((item) => {
                     const isActive = pathname === item.href
@@ -169,6 +171,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         </Link>
         <GlobalSearch />
       </div>
+
 
       {/* Right side - Theme toggle and user menu */}
       <div className="flex items-center gap-4">

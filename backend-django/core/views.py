@@ -36,6 +36,8 @@ try:
     from gov.decisive import fetch_decisive_appraisals
     from gov.rami.rami_client import RamiClient
     from gov.nadlan.nadlan_scraper import NadlanDealsScraper
+    from yad2.scrapers.yad2_scraper import Yad2Scraper
+    from yad2.core.parameters import Yad2SearchParameters
     EXTERNAL_MODULES_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"External modules not available: {e}")
@@ -1429,6 +1431,26 @@ def asset_detail(request, asset_id):
         serializer = AssetSerializer(asset)
         asset_data = serializer.data
         
+        # Get CRM data for this asset
+        crm_data = {}
+        try:
+            from crm.models import Lead
+            from crm.serializers import LeadSerializer
+            
+            # Get leads for this asset
+            leads = Lead.objects.filter(asset=asset).select_related('contact').order_by('-last_activity_at')
+            leads_serializer = LeadSerializer(leads, many=True, context={'request': request})
+            crm_data = {
+                "leads": leads_serializer.data,
+                "leads_count": leads.count()
+            }
+        except Exception as e:
+            logger.warning(f"Error fetching CRM data for asset {asset_id}: {e}")
+            crm_data = {
+                "leads": [],
+                "leads_count": 0
+            }
+        
         # Add additional data not in the serializer
         asset_data.update({
             "attribution": attribution_info,
@@ -1436,6 +1458,7 @@ def asset_detail(request, asset_id):
             "records": records_by_source,
             "transactions": transaction_list,
             "snapshot": snapshot_data,
+            "CRM": crm_data,
         })
         
         return JsonResponse(asset_data)
@@ -2350,3 +2373,72 @@ def sync_asset(request, asset_id):
     except Exception as e:
         logger.error("Error starting asset sync for asset %s: %s", asset_id, e)
         return Response({"error": "שגיאה בהתחלת סנכרון הנתונים"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def asset_listings(request, asset_id):
+    """Fetch similar listings for an asset from Yad2 and other sources."""
+    try:
+        # Get the asset
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # For now, return mock data to get the frontend working
+        # TODO: Implement real Yad2 integration
+        listings = [
+            {
+                'id': 'mock_1',
+                'title': 'דירה דומה באזור',
+                'price': asset.price + 100000 if asset.price else 2000000,
+                'address': asset.address or 'כתובת לא זמינה',
+                'rooms': asset.rooms or 3,
+                'size': 80,
+                'property_type': asset.building_type or 'דירה',
+                'source': 'yad2',
+                'url': 'https://www.yad2.co.il',
+                'date_posted': '2024-01-15',
+                'images': [],
+                'description': 'דירה דומה באזור'
+            },
+            {
+                'id': 'mock_2',
+                'title': 'נכס דומה',
+                'price': asset.price - 200000 if asset.price else 1800000,
+                'address': asset.address or 'כתובת לא זמינה',
+                'rooms': (asset.rooms or 3) - 1,
+                'size': 70,
+                'property_type': asset.building_type or 'דירה',
+                'source': 'madlan',
+                'url': 'https://www.madlan.co.il',
+                'date_posted': '2024-01-14',
+                'images': [],
+                'description': 'נכס דומה באזור'
+            },
+            {
+                'id': 'mock_3',
+                'title': 'דירה יוקרתית',
+                'price': asset.price + 500000 if asset.price else 2500000,
+                'address': asset.address or 'כתובת לא זמינה',
+                'rooms': (asset.rooms or 3) + 1,
+                'size': 120,
+                'property_type': asset.building_type or 'דירה',
+                'source': 'yad2',
+                'url': 'https://www.yad2.co.il',
+                'date_posted': '2024-01-13',
+                'images': [],
+                'description': 'דירה יוקרתית עם נוף לים'
+            }
+        ]
+        
+        return Response({
+            'listings': listings,
+            'total': len(listings),
+            'asset_id': asset_id
+        })
+        
+    except Exception as e:
+        logger.error("Error fetching listings for asset %s: %s", asset_id, e, exc_info=True)
+        return Response({"error": f"שגיאה בטעינת המודעות: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

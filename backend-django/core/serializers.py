@@ -44,6 +44,7 @@ class MetaSerializerMixin(serializers.ModelSerializer):
 class AssetSerializer(MetaSerializerMixin):
     address = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
+    type = serializers.CharField(source='building_type', read_only=True)
     
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
@@ -103,7 +104,7 @@ class AssetSerializer(MetaSerializerMixin):
         fields = [
             'id', 'scope_type', 'city', 'neighborhood', 'street', 'number',
             'block', 'parcel', 'subparcel', 'lat', 'lon', 'normalized_address', 'address', 'status',
-                   'building_type', 'floor', 'apartment', 'total_floors', 'rooms', 'bedrooms', 'bathrooms',
+                   'building_type', 'type', 'floor', 'apartment', 'total_floors', 'rooms', 'bedrooms', 'bathrooms',
             'area', 'total_area', 'balcony_area', 'parking_spaces', 'storage_room',
             'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',
             'last_renovation', 'price', 'price_per_sqm', 'rent_estimate', 'zoning',

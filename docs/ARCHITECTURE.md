@@ -53,6 +53,7 @@ graph TB
 - **UI Framework**: Shadcn/ui with Tailwind CSS
 - **Key Features**:
   - Asset management dashboard
+  - CRM system with contact and lead management
   - Real-time alerts configuration
   - Mortgage calculator with Bank of Israel integration
   - Interactive analytics with Recharts
@@ -69,6 +70,8 @@ graph TB
   - Rate-limited asset creation
   - PDF report generation
   - Admin analytics dashboard
+  - CRM system with contact and lead management
+  - Event tracking and analytics
 
 **Celery Task Queue**
 - **Technology**: Celery with Redis broker
@@ -155,6 +158,26 @@ sequenceDiagram
 - Used for comparable analysis
 - Linked to assets for market analysis
 
+### CRM Models
+
+**Contact Model** (`backend-django/crm/models.py`)
+- Client contact information (name, phone, email, tags)
+- Owner-based access control
+- Analytics tracking for contact events
+- Soft unique constraint on email per owner
+
+**Lead Model** (`backend-django/crm/models.py`)
+- Lead tracking with status workflow
+- Links contacts to specific assets
+- Notes system with timestamps
+- Lead status management (New → Contacted → Qualified → Proposal → Negotiation → Closed Won/Lost)
+- Analytics tracking for lead events
+
+**LeadStatus Enum**
+- Standardized lead status workflow
+- Supports lead progression tracking
+- Enables conversion analytics
+
 ### Data Provenance
 
 Each field in the Asset model tracks its source:
@@ -181,6 +204,7 @@ Each field in the Asset model tracks its source:
 - **Cache**: Redis 7
 - **Task Queue**: Celery
 - **Authentication**: JWT + Google OAuth
+- **CRM**: Contact and Lead management with analytics
 
 ### Data Collection
 - **MCP Framework**: FastMCP
@@ -201,6 +225,8 @@ Each field in the Asset model tracks its source:
 - Role-based access control
 - Rate limiting on API endpoints
 - Secure data storage with encryption
+- CRM data isolation per user
+- Contact and lead privacy controls
 
 ### Scraping Ethics
 - Respectful rate limiting

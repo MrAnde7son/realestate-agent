@@ -72,10 +72,15 @@ class ContactViewSet(viewsets.ModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())
 
         if should_paginate(request):
-            paginator = self.pagination_class()
-            page = paginator.paginate_queryset(queryset, request, view=self)
-            serializer = self.get_serializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            try:
+                paginator = self.pagination_class()
+                page = paginator.paginate_queryset(queryset, request, view=self)
+                serializer = self.get_serializer(page, many=True)
+                return paginator.get_paginated_response(serializer.data)
+            except Exception:
+                # If pagination fails, fall back to non-paginated response
+                serializer = self.get_serializer(queryset, many=True)
+                return Response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)

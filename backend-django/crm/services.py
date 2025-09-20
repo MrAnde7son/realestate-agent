@@ -6,6 +6,11 @@ from typing import Optional
 from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
+from io import BytesIO
 
 from .models import Lead
 from .analytics import track_asset_change_notified
@@ -184,3 +189,115 @@ def get_asset_leads_summary(asset_id: int) -> dict:
         })
     
     return summary
+
+
+def send_email(subject: str, message: str, recipient_list: list, from_email: str = None):
+    """
+    Send email using Django's send_mail function.
+    
+    Args:
+        subject: Email subject
+        message: Email message body
+        recipient_list: List of recipient email addresses
+        from_email: Sender email address (defaults to settings.DEFAULT_FROM_EMAIL)
+    """
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=from_email or settings.DEFAULT_FROM_EMAIL,
+            recipient_list=recipient_list,
+            fail_silently=False,
+        )
+        logger.info(f"Email sent to {recipient_list}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        return False
+
+
+def build_branded_pdf(lead: Lead, report_payload: dict) -> BytesIO:
+    """
+    Build a branded PDF report for a lead.
+    
+    Args:
+        lead: The lead object
+        report_payload: Report data to include
+        
+    Returns:
+        BytesIO object containing the PDF
+    """
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    
+    # Header
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(100, height - 100, "דוח נדל״נר - נכס במעקב")
+    
+    # Asset details
+    p.setFont("Helvetica", 12)
+    y_position = height - 150
+    
+    asset = lead.asset
+    contact = lead.contact
+    
+    # Contact info
+    p.drawString(100, y_position, f"לקוח: {contact.name}")
+    y_position -= 20
+    
+    if contact.email:
+        p.drawString(100, y_position, f"אימייל: {contact.email}")
+        y_position -= 20
+    
+    if contact.phone:
+        p.drawString(100, y_position, f"טלפון: {contact.phone}")
+        y_position -= 20
+    
+    y_position -= 20
+    
+    # Asset details
+    p.drawString(100, y_position, "פרטי הנכס:")
+    y_position -= 20
+    
+    if asset.address:
+        p.drawString(120, y_position, f"כתובת: {asset.address}")
+        y_position -= 20
+    
+    if asset.price:
+        p.drawString(120, y_position, f"מחיר: {asset.price:,} ₪")
+        y_position -= 20
+    
+    if asset.rooms:
+        p.drawString(120, y_position, f"חדרים: {asset.rooms}")
+        y_position -= 20
+    
+    if asset.area:
+        p.drawString(120, y_position, f"שטח: {asset.area} מ״ר")
+        y_position -= 20
+    
+    y_position -= 20
+    
+    # Lead status
+    p.drawString(100, y_position, f"סטטוס ליד: {lead.get_status_display()}")
+    y_position -= 30
+    
+    # Notes
+    if lead.notes:
+        p.drawString(100, y_position, "הערות:")
+        y_position -= 20
+        
+        for note in lead.notes[-5:]:  # Show last 5 notes
+            note_text = note.get('text', '')[:100]  # Limit length
+            p.drawString(120, y_position, f"• {note_text}")
+            y_position -= 20
+    
+    # Footer
+    p.setFont("Helvetica", 10)
+    p.drawString(100, 100, f"נוצר ב: {lead.created_at.strftime('%d/%m/%Y %H:%M')}")
+    
+    p.showPage()
+    p.save()
+    
+    buffer.seek(0)
+    return buffer

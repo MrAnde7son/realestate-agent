@@ -250,7 +250,13 @@ class LeadViewSet(viewsets.ModelViewSet):
         from core.models import Asset
 
         try:
-            asset = Asset.objects.get(id=asset_id)
+            asset_id_int = int(asset_id)
+            asset = Asset.objects.get(id=asset_id_int)
+        except (ValueError, TypeError):
+            return Response(
+                {"detail": "Invalid asset_id format"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Asset.DoesNotExist:
             return Response(
                 {"detail": "Asset not found"},

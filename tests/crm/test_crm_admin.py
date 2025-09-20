@@ -19,8 +19,8 @@ class CrmAdminTests(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_superuser(
-            email='admin@example.com',
-            username='admin',
+            email='crm_admin@example.com',
+            username='crm_admin',
             password='testpass123'
         )
         
@@ -474,7 +474,7 @@ class CrmAdminTests(TestCase):
         """Test Contact admin filtering"""
         # Create contacts with different owners
         other_user = User.objects.create_user(
-            email='other@example.com',
+            email='crm_admin_other@example.com',
             username='other',
             password='testpass123'
         )

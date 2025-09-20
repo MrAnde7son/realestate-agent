@@ -25,12 +25,12 @@ class CrmSmokeTests(TestCase):
         User.objects.all().delete()
         
         self.user = User.objects.create_user(
-            email='test@example.com',
+            email='crm_smoke_test@example.com',
             username='testuser',
             password='testpass123'
         )
         self.other_user = User.objects.create_user(
-            email='other@example.com',
+            email='crm_smoke_other@example.com',
             username='otheruser',
             password='testpass123'
         )
@@ -230,12 +230,9 @@ class CrmSmokeTests(TestCase):
         data = {'text': ''}
         response = self.client.post(f'/api/crm/leads/{lead.id}/add_note/', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        # Check for either the custom message or the serializer validation error
+        # Check for the custom message
         response_text = str(response.data)
-        self.assertTrue(
-            'Note text cannot be empty' in response_text or 
-            'This field may not be blank' in response_text
-        )
+        self.assertTrue('Cannot add empty note' in response_text)
     
     def test_lead_by_asset_endpoint(self):
         """Test getting leads by asset"""

@@ -19,13 +19,13 @@ class CrmViewsTests(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            email='test@example.com',
+            email='crm_views_test@example.com',
             username='testuser',
             password='testpass123'
         )
         
         self.other_user = User.objects.create_user(
-            email='other@example.com',
+            email='crm_views_other@example.com',
             username='otheruser',
             password='testpass123'
         )

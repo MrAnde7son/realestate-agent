@@ -19,7 +19,7 @@ class CrmFrontendSmokeTests(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            email='test@example.com',
+            email='crm_frontend_test@example.com',
             username='testuser',
             password='testpass123'
         )
@@ -38,23 +38,23 @@ class CrmFrontendSmokeTests(TestCase):
         self.client.force_authenticate(user=self.user)
     
     def test_crm_contacts_page_accessible(self):
-        """Test that CRM contacts page is accessible"""
-        response = self.client.get('/crm/contacts/')
+        """Test that CRM contacts API is accessible"""
+        response = self.client.get('/api/crm/contacts/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_crm_leads_page_accessible(self):
-        """Test that CRM leads page is accessible"""
-        response = self.client.get('/crm/leads/')
+        """Test that CRM leads API is accessible"""
+        response = self.client.get('/api/crm/leads/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_crm_main_page_accessible(self):
-        """Test that CRM main page is accessible"""
-        response = self.client.get('/crm/')
+        """Test that CRM main API is accessible"""
+        response = self.client.get('/api/crm/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_asset_page_with_crm_tab(self):
-        """Test that asset page includes CRM tab"""
-        response = self.client.get(f'/assets/{self.asset.id}/')
+        """Test that asset API is accessible"""
+        response = self.client.get(f'/api/assets/{self.asset.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Check that CRM tab is present in the response
         self.assertContains(response, 'CRM')
@@ -99,13 +99,13 @@ class CrmFrontendSmokeTests(TestCase):
         # Test different statuses
         statuses = ['new', 'contacted', 'interested', 'negotiating', 'closed-won', 'closed-lost']
         
-        for status in statuses:
-            lead.status = status
+        for status_value in statuses:
+            lead.status = status_value
             lead.save()
             
             response = self.client.get(f'/api/crm/leads/{lead.id}/')
             self.assertEqual(response.status_code, status.HTTP_200_OK)
-            self.assertEqual(response.data['status'], status)
+            self.assertEqual(response.data['status'], status_value)
     
     def test_lead_quick_actions(self):
         """Test lead quick actions functionality"""
@@ -173,6 +173,17 @@ class CrmFrontendSmokeTests(TestCase):
             email='rut@example.com'
         )
         
+        # Create another asset for the second lead
+        asset2 = Asset.objects.create(
+            street='רחוב דיזנגוף',
+            number=2,
+            city='תל אביב',
+            price=1200000,
+            area=120,
+            rooms=4,
+            created_by=self.user
+        )
+        
         # Create leads with different statuses
         Lead.objects.create(
             contact=contact,
@@ -182,7 +193,7 @@ class CrmFrontendSmokeTests(TestCase):
         
         Lead.objects.create(
             contact=contact,
-            asset=self.asset,
+            asset=asset2,
             status='contacted'
         )
         
@@ -342,12 +353,12 @@ class CrmFrontendSmokeTests(TestCase):
         # Test status progression
         statuses = ['new', 'contacted', 'interested', 'negotiating', 'closed-won']
         
-        for status in statuses:
-            response = self.client.post(f'/api/crm/leads/{lead.id}/set_status/', {'status': status})
+        for status_value in statuses:
+            response = self.client.post(f'/api/crm/leads/{lead.id}/set_status/', {'status': status_value})
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             
             lead.refresh_from_db()
-            self.assertEqual(lead.status, status)
+            self.assertEqual(lead.status, status_value)
     
     def test_contact_duplicate_prevention(self):
         """Test contact duplicate prevention"""

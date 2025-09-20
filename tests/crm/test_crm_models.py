@@ -19,7 +19,7 @@ class CrmModelsTests(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            email='test@example.com',
+            email='crm_models_test@example.com',
             username='testuser',
             password='testpass123'
         )

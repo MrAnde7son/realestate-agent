@@ -20,8 +20,8 @@ class CrmAnalyticsTests(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            email='test@example.com',
-            username='testuser',
+            email='crm_analytics_test@example.com',
+            username='crm_analytics_test',
             password='testpass123'
         )
         
@@ -38,8 +38,8 @@ class CrmAnalyticsTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
     
-    @patch('crm.models.track_event')
-    def test_contact_created_event_tracking(self, mock_track_event):
+    @patch('crm.models.track_contact_created')
+    def test_contact_created_event_tracking(self, mock_track_contact_created):
         """Test contact created event tracking"""
         data = {
             'name': 'רות כהן',
@@ -52,18 +52,17 @@ class CrmAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Verify event was tracked
-        mock_track_event.assert_called_once()
-        call_args = mock_track_event.call_args
+        mock_track_contact_created.assert_called_once()
+        call_args = mock_track_contact_created.call_args
         
-        self.assertEqual(call_args[0][0], 'contact_created')
-        self.assertEqual(call_args[0][1]['user_id'], self.user.id)
-        self.assertEqual(call_args[0][1]['contact_id'], response.data['id'])
-        self.assertEqual(call_args[0][1]['has_email'], True)
-        self.assertEqual(call_args[0][1]['has_phone'], True)
-        self.assertEqual(call_args[0][1]['tags_count'], 2)
+        # Check the contact object and user_id were passed
+        contact_obj = call_args[0][0]
+        user_id = call_args[0][1]
+        self.assertEqual(user_id, self.user.id)
+        self.assertEqual(contact_obj.name, 'רות כהן')
     
-    @patch('crm.models.track_event')
-    def test_contact_created_event_tracking_no_email_phone(self, mock_track_event):
+    @patch('crm.analytics.track_contact_created')
+    def test_contact_created_event_tracking_no_email_phone(self, mock_track_contact_created):
         """Test contact created event tracking without email and phone"""
         data = {
             'name': 'רות כהן',

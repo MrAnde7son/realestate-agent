@@ -7,6 +7,15 @@ from .analytics import (
 )
 
 
+def track_event(event_name: str, user_id: int, properties: dict):
+    """
+    Generic event tracking function for CRM events.
+    This is a convenience function that delegates to the analytics module.
+    """
+    from .analytics import analytics
+    analytics.track(event_name, user_id, properties)
+
+
 class Contact(models.Model):
     """Contact model for CRM - represents a client/contact."""
     

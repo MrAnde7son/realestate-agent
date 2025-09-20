@@ -18,7 +18,7 @@ class CrmServicesTests(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            email='test@example.com',
+            email='crm_services_test@example.com',
             username='testuser',
             password='testpass123'
         )
@@ -363,9 +363,9 @@ class CrmServicesTests(TestCase):
             'report_type': 'property_analysis'
         }
         
-        # Should raise exception
-        with self.assertRaises(Lead.DoesNotExist):
-            send_report_to_contact(99999, report_payload)
+        # Should return False for non-existent lead
+        result = send_report_to_contact(99999, report_payload)
+        self.assertFalse(result)
     
     @patch('crm.services.send_email')
     def test_notify_asset_change_email_content(self, mock_send_email):

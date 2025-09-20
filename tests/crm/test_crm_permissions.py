@@ -19,13 +19,13 @@ class CrmPermissionsTests(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            email='test@example.com',
+            email='crm_permissions_test@example.com',
             username='testuser',
             password='testpass123'
         )
         
         self.other_user = User.objects.create_user(
-            email='other@example.com',
+            email='crm_permissions_other@example.com',
             username='otheruser',
             password='testpass123'
         )
@@ -558,7 +558,7 @@ class CrmPermissionsTests(TestCase):
         """Test permissions with superuser"""
         # Create superuser
         superuser = User.objects.create_superuser(
-            email='admin@example.com',
+            email='crm_permissions_admin@example.com',
             username='admin',
             password='testpass123'
         )

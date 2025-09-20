@@ -18,6 +18,37 @@ from .analytics import track_asset_change_notified
 logger = logging.getLogger(__name__)
 
 
+def send_email(to: str, subject: str, body: str, attachments: list = None):
+    """
+    Send an email with optional attachments.
+    
+    Args:
+        to: Recipient email address
+        subject: Email subject
+        body: Email message body
+        attachments: List of (filename, content, mimetype) tuples
+    """
+    from django.core.mail import EmailMessage
+    
+    email = EmailMessage(
+        subject=subject,
+        body=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[to],
+    )
+    
+    if attachments:
+        for attachment in attachments:
+            if len(attachment) == 3:
+                filename, content, mimetype = attachment
+                email.attach(filename, content, mimetype)
+            else:
+                filename, content = attachment
+                email.attach(filename, content, 'application/octet-stream')
+    
+    email.send(fail_silently=False)
+
+
 def notify_asset_change(asset_id: int, change_summary: str):
     """
     Notify all leads associated with an asset about changes.
@@ -33,9 +64,10 @@ def notify_asset_change(asset_id: int, change_summary: str):
             contact = lead.contact
             if contact.email:
                 try:
-                    send_mail(
-                        subject="עדכון בנכס במעקב - נדל״נר",
-                        message=f"""
+                    send_email(
+                        to=contact.email,
+                        subject="עדכון בנכס במעקב",
+                        body=f"""
 היי {contact.name},
 
 {change_summary}
@@ -44,11 +76,8 @@ def notify_asset_change(asset_id: int, change_summary: str):
 {settings.FRONTEND_URL}/assets/{asset_id}
 
 בברכה,
-צוות נדל״נר
-                        """,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[contact.email],
-                        fail_silently=False,
+צוות נדל"נר
+                        """
                     )
                     logger.info(f"Asset change notification sent to {contact.email}")
                 except Exception as e:
@@ -80,31 +109,19 @@ def send_report_to_contact(lead_id: int, report_payload: dict):
         lead = Lead.objects.select_related("contact").get(id=lead_id)
         contact = lead.contact
         
+        # Generate branded PDF report
+        pdf_content = build_branded_pdf(payload=report_payload, owner_id=contact.owner_id)
+        
         if not contact.email:
             logger.warning(f"No email for contact {contact.id}, cannot send report")
             return False
         
-        # Generate report content (this would integrate with existing report service)
-        report_content = generate_report_content(lead, report_payload)
-        
-        send_mail(
-            subject="דוח נדל״נר - נכס במעקב",
-            message=f"""
-היי {contact.name},
-
-מצורף דוח ממותג עבור הנכס במעקב שלך.
-
-{report_content}
-
-תוכל לראות את הפרטים המלאים בקישור הבא:
-{settings.FRONTEND_URL}/assets/{lead.asset_id}
-
-בברכה,
-צוות נדל״נר
-            """,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[contact.email],
-            fail_silently=False,
+        # Send email with PDF attachment
+        send_email(
+            to=contact.email,
+            subject="דוח נדל\"נר",
+            body="מצורף דוח ממותג.",
+            attachments=[('nadlaner-report.pdf', pdf_content.getvalue() if hasattr(pdf_content, 'getvalue') else pdf_content)]
         )
         
         logger.info(f"Report sent to {contact.email} for lead {lead_id}")
@@ -216,13 +233,13 @@ def send_email(subject: str, message: str, recipient_list: list, from_email: str
         return False
 
 
-def build_branded_pdf(lead: Lead, report_payload: dict) -> BytesIO:
+def build_branded_pdf(payload: dict, owner_id: int) -> BytesIO:
     """
     Build a branded PDF report for a lead.
     
     Args:
-        lead: The lead object
-        report_payload: Report data to include
+        payload: Report data to include
+        owner_id: ID of the owner
         
     Returns:
         BytesIO object containing the PDF
@@ -239,20 +256,10 @@ def build_branded_pdf(lead: Lead, report_payload: dict) -> BytesIO:
     p.setFont("Helvetica", 12)
     y_position = height - 150
     
-    asset = lead.asset
-    contact = lead.contact
-    
     # Contact info
-    p.drawString(100, y_position, f"לקוח: {contact.name}")
+    p.drawString(100, y_position, f"לקוח: {payload.get('contact_name', 'Unknown')}")
     y_position -= 20
     
-    if contact.email:
-        p.drawString(100, y_position, f"אימייל: {contact.email}")
-        y_position -= 20
-    
-    if contact.phone:
-        p.drawString(100, y_position, f"טלפון: {contact.phone}")
-        y_position -= 20
     
     y_position -= 20
     
@@ -260,41 +267,19 @@ def build_branded_pdf(lead: Lead, report_payload: dict) -> BytesIO:
     p.drawString(100, y_position, "פרטי הנכס:")
     y_position -= 20
     
-    if asset.address:
-        p.drawString(120, y_position, f"כתובת: {asset.address}")
-        y_position -= 20
-    
-    if asset.price:
-        p.drawString(120, y_position, f"מחיר: {asset.price:,} ₪")
-        y_position -= 20
-    
-    if asset.rooms:
-        p.drawString(120, y_position, f"חדרים: {asset.rooms}")
-        y_position -= 20
-    
-    if asset.area:
-        p.drawString(120, y_position, f"שטח: {asset.area} מ״ר")
+    if payload.get('asset_id'):
+        p.drawString(120, y_position, f"מזהה נכס: {payload['asset_id']}")
         y_position -= 20
     
     y_position -= 20
     
-    # Lead status
-    p.drawString(100, y_position, f"סטטוס ליד: {lead.get_status_display()}")
-    y_position -= 30
-    
-    # Notes
-    if lead.notes:
-        p.drawString(100, y_position, "הערות:")
-        y_position -= 20
-        
-        for note in lead.notes[-5:]:  # Show last 5 notes
-            note_text = note.get('text', '')[:100]  # Limit length
-            p.drawString(120, y_position, f"• {note_text}")
-            y_position -= 20
+    # Report type
+    p.drawString(100, y_position, f"סוג דוח: {payload.get('report_type', 'property_analysis')}")
+    y_position -= 20
     
     # Footer
     p.setFont("Helvetica", 10)
-    p.drawString(100, 100, f"נוצר ב: {lead.created_at.strftime('%d/%m/%Y %H:%M')}")
+    p.drawString(100, 50, "דוח זה נוצר על ידי מערכת נדל״נר")
     
     p.showPage()
     p.save()

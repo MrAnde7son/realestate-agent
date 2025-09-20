@@ -1,3 +1,4 @@
+import logging
 from django.conf import settings
 from django.db import models
 from .analytics import (
@@ -6,6 +7,8 @@ from .analytics import (
     track_lead_status_changed, track_lead_note_added, track_lead_report_sent,
     track_asset_change_notified, track_crm_search, track_crm_export
 )
+
+logger = logging.getLogger(__name__)
 
 
 def track_event(event_name: str, user_id: int, properties: dict):
@@ -62,17 +65,29 @@ class Contact(models.Model):
                     changed_fields.append(field)
             
             if changed_fields:
-                track_contact_updated(self, self.owner_id, changed_fields)
+                try:
+                    track_contact_updated(self, self.owner_id, changed_fields)
+                except Exception as e:
+                    # Log analytics error but don't break the main functionality
+                    logger.warning(f"Analytics error in contact_updated: {e}")
         
         super().save(*args, **kwargs)
         
         if is_new:
-            track_contact_created(self, self.owner_id)
+            try:
+                track_contact_created(self, self.owner_id)
+            except Exception as e:
+                # Log analytics error but don't break the main functionality
+                logger.warning(f"Analytics error in contact_created: {e}")
     
     def delete(self, *args, **kwargs):
         """Override delete to track analytics events."""
         leads_count = self.leads.count()
-        track_contact_deleted(self, self.owner_id, leads_count)
+        try:
+            track_contact_deleted(self, self.owner_id, leads_count)
+        except Exception as e:
+            # Log analytics error but don't break the main functionality
+            logger.warning(f"Analytics error in contact_deleted: {e}")
         super().delete(*args, **kwargs)
 
 

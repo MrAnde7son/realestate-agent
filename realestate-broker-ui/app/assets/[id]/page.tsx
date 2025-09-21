@@ -102,6 +102,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const searchParams = useSearchParams()
   const { id } = params
   const { user, isAuthenticated } = useAuth()
+  const canViewCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user])
   const renderValue = (value: React.ReactNode, key: string) => (
     <span className="flex items-center gap-1">
@@ -258,6 +259,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       setActiveTab(tabFromUrl)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (!canViewCrm && activeTab === 'crm') {
+      setActiveTab('analysis')
+    }
+  }, [canViewCrm, activeTab])
 
   // Update URL when active tab changes
   const handleTabChange = (value: string) => {
@@ -844,7 +851,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
             <TabsTrigger value="documents">מסמכים</TabsTrigger>
-            <TabsTrigger value="crm">לקוחות</TabsTrigger>
+            {canViewCrm && <TabsTrigger value="crm">לקוחות</TabsTrigger>}
             <TabsTrigger value="listings">מודעות</TabsTrigger>
             {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
           </TabsList>
@@ -2073,12 +2080,14 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </Card>
           </TabsContent>
 
-          <TabsContent value="crm" className="space-y-4">
-            <AssetLeadsPanel 
-              assetId={parseInt(id)} 
-              assetAddress={asset.address}
-            />
-          </TabsContent>
+          {canViewCrm && (
+            <TabsContent value="crm" className="space-y-4">
+              <AssetLeadsPanel
+                assetId={parseInt(id)}
+                assetAddress={asset.address}
+              />
+            </TabsContent>
+          )}
 
           <TabsContent value="listings" className="space-y-4">
             <ListingsPanel 

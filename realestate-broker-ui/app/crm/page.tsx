@@ -42,6 +42,7 @@ import {
 import { ContactForm } from '@/components/crm/contact-form';
 import { LeadStatusBadge } from '@/components/crm/lead-status-badge';
 import { LeadRowActions } from '@/components/crm/lead-row-actions';
+import { useAuth } from '@/lib/auth-context';
 
 export default function CrmPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -53,6 +54,8 @@ export default function CrmPage() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
+  const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '');
 
   const loadContacts = useCallback(async () => {
     try {
@@ -108,8 +111,17 @@ export default function CrmPage() {
   }, [loadContacts, loadLeads]);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!canAccessCrm) {
+      setIsLoading(false);
+      return;
+    }
+
     loadAllData();
-  }, [loadAllData]);
+  }, [authLoading, canAccessCrm, loadAllData]);
 
   const getStats = () => {
     const totalLeads = leads.length;
@@ -227,10 +239,32 @@ export default function CrmPage() {
   const stats = getStats();
   const recentLeads = getRecentLeads();
 
-  if (isLoading) {
+  if (authLoading || (isLoading && canAccessCrm)) {
     return (
       <DashboardLayout>
         <PageLoader message="טוען נתוני CRM..." showLogo={false} />
+      </DashboardLayout>
+    );
+  }
+
+  if (!authLoading && !canAccessCrm) {
+    return (
+      <DashboardLayout>
+        <div className="p-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>גישה מוגבלת</CardTitle>
+              <CardDescription>
+                מודול הלקוחות זמין למשתמשים מסוג מתווך או שמאי בלבד.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>
+                אנא עדכן את סוג המשתמש שלך או צור קשר עם התמיכה אם ברצונך לקבל גישה לניהול לקוחות ולידים.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </DashboardLayout>
     );
   }

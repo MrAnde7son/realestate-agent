@@ -36,6 +36,7 @@ import {
 import Logo from "@/components/Logo";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useAuth } from "@/lib/auth-context";
+import { getRoleLabel } from "@/lib/role-constants";
 
 const baseNavigation = [
   {
@@ -92,7 +93,12 @@ export default function AppSidebar({
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  const navigation = [...baseNavigation];
+  const canAccessCrm = ["broker", "appraiser", "admin"].includes(user?.role || "");
+
+  const navigation = baseNavigation
+    .filter((item) => item.href !== "/crm" || canAccessCrm)
+    .map((item) => ({ ...item }));
+
   if (user?.role === "admin") {
     navigation.push({ name: "מעקב", href: "/admin/analytics", icon: LineChart });
   }
@@ -220,9 +226,11 @@ export default function AppSidebar({
                     {user.company}
                   </p>
                 )}
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.role === 'admin' ? 'מנהל מערכת' : 'משתמש רגיל'}
-                </p>
+                {user?.role && (
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {getRoleLabel(user.role)}
+                  </p>
+                )}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

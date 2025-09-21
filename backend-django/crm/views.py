@@ -17,7 +17,7 @@ from .serializers import (
     LeadStatusUpdateSerializer,
     LeadNoteSerializer
 )
-from .permissions import IsOwnerContact
+from .permissions import HasCrmAccess, IsOwnerContact
 from .analytics import (
     track_crm_search, track_crm_export, track_crm_dashboard_view,
     track_crm_contact_lead_association, track_crm_bulk_action,
@@ -44,7 +44,7 @@ class ContactViewSet(viewsets.ModelViewSet):
     """ViewSet for managing contacts."""
 
     serializer_class = ContactSerializer
-    permission_classes = [IsAuthenticated, IsOwnerContact]
+    permission_classes = [IsAuthenticated, HasCrmAccess, IsOwnerContact]
     pagination_class = StandardPagination
 
     def get_queryset(self):
@@ -156,7 +156,7 @@ class LeadViewSet(viewsets.ModelViewSet):
     """ViewSet for managing leads."""
 
     serializer_class = LeadSerializer
-    permission_classes = [IsAuthenticated, IsOwnerContact]
+    permission_classes = [IsAuthenticated, HasCrmAccess, IsOwnerContact]
     pagination_class = StandardPagination
 
     def list(self, request, *args, **kwargs):

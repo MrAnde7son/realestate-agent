@@ -24,6 +24,7 @@ export interface Contact {
   name: string;
   phone: string;
   email: string;
+  equity: number | null;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -61,6 +62,7 @@ export interface CreateContactData {
   name: string;
   phone?: string;
   email?: string;
+  equity?: number | null;
   tags?: string[];
 }
 
@@ -81,8 +83,20 @@ export interface AddLeadNoteData {
 const API_BASE = '/api/crm';
 
 export class CrmApi {
+  private static normalizeContact(contact: any): Contact {
+    const equityValue = contact?.equity;
+    return {
+      ...contact,
+      equity:
+        equityValue === null || equityValue === undefined || equityValue === ''
+          ? null
+          : Number(equityValue),
+      tags: contact?.tags ?? [],
+    } as Contact;
+  }
+
   private static async request<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const token = localStorage.getItem('access_token');
@@ -117,33 +131,36 @@ export class CrmApi {
 
   // Contacts API
   static async getContacts(): Promise<Contact[]> {
-    return this.request<Contact[]>('/contacts/');
+    const contacts = await this.request<any[]>('/contacts/');
+    return contacts.map(this.normalizeContact);
   }
 
   static async getContact(id: number): Promise<Contact> {
-    return this.request<Contact>(`/contacts/${id}/`);
+    const contact = await this.request<any>(`/contacts/${id}/`);
+    return this.normalizeContact(contact);
   }
 
   static async createContact(data: CreateContactData): Promise<Contact> {
-    const contact = await this.request<Contact>('/contacts/', {
+    const contact = await this.request<any>('/contacts/', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    
+
     // Track contact creation
     trackEvent('contact_created', {
       contact_id: contact.id,
       has_email: !!contact.email,
       has_phone: !!contact.phone,
       tags_count: contact.tags.length,
-      contact_name: contact.name
+      contact_name: contact.name,
+      has_equity: contact.equity !== null && contact.equity !== undefined
     });
-    
-    return contact;
+
+    return this.normalizeContact(contact);
   }
 
   static async updateContact(id: number, data: Partial<CreateContactData>): Promise<Contact> {
-    const contact = await this.request<Contact>(`/contacts/${id}/`, {
+    const contact = await this.request<any>(`/contacts/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -152,10 +169,11 @@ export class CrmApi {
     trackEvent('contact_updated', {
       contact_id: contact.id,
       fields_changed: Object.keys(data),
-      contact_name: contact.name
+      contact_name: contact.name,
+      has_equity: contact.equity !== null && contact.equity !== undefined
     });
-    
-    return contact;
+
+    return this.normalizeContact(contact);
   }
 
   static async deleteContact(id: number): Promise<void> {
@@ -165,8 +183,8 @@ export class CrmApi {
   }
 
   static async searchContacts(query: string): Promise<Contact[]> {
-    const contacts = await this.request<Contact[]>(`/contacts/search/?q=${encodeURIComponent(query)}`);
-    
+    const contacts = await this.request<any[]>(`/contacts/search/?q=${encodeURIComponent(query)}`);
+
     // Track search event
     trackEvent('crm_search', {
       search_type: 'contacts',
@@ -174,8 +192,8 @@ export class CrmApi {
       results_count: contacts.length,
       query_length: query.length
     });
-    
-    return contacts;
+
+    return contacts.map(this.normalizeContact);
   }
 
   // Leads API

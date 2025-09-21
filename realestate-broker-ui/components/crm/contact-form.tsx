@@ -27,6 +27,7 @@ export function ContactForm({
     name: initialData?.name || '',
     phone: initialData?.phone || '',
     email: initialData?.email || '',
+    equity: initialData?.equity ?? null,
     tags: initialData?.tags || [],
   });
   const [newTag, setNewTag] = useState('');
@@ -40,6 +41,7 @@ export function ContactForm({
       has_email: !!formData.email,
       has_phone: !!formData.phone,
       tags_count: formData.tags?.length || 0,
+      has_equity: typeof formData.equity === 'number',
       is_edit: !!initialData?.id
     });
     
@@ -103,6 +105,28 @@ export function ContactForm({
           onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
           placeholder="example@email.com"
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
+        <Input
+          id="equity"
+          type="number"
+          min={0}
+          step={1000}
+          value={formData.equity ?? ''}
+          onChange={(e) => {
+            const value = e.target.value;
+            setFormData(prev => ({
+              ...prev,
+              equity: value === '' ? null : Number(value)
+            }));
+          }}
+          placeholder="לדוגמה: 350000"
+        />
+        <p className="text-xs text-muted-foreground">
+          המידע יסייע להפיק דוח משכנתא מותאם אישית
+        </p>
       </div>
 
       <div className="space-y-2">

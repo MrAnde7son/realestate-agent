@@ -35,7 +35,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 try:
     from gov.decisive import fetch_decisive_appraisals
     from gov.rami.rami_client import RamiClient
-    from gov.nadlan.nadlan_scraper import NadlanDealsScraper
+    from gov.nadlan.scraper import NadlanDealsScraper
     from yad2.scrapers.yad2_scraper import Yad2Scraper
     from yad2.core.parameters import Yad2SearchParameters
     EXTERNAL_MODULES_AVAILABLE = True

@@ -158,14 +158,14 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-right">מודעות דומות</CardTitle>
+          <CardTitle className="text-right">מודעות</CardTitle>
           <p className="text-sm text-muted-foreground text-right">
-            מודעות נדלן דומות מהאתרים השונים
+            מודעות נדלן מהאתרים השונים
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Search and Filters */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" dir="rtl">
             <div className="space-y-2">
               <label className="text-sm font-medium text-right block">חיפוש</label>
               <div className="relative">
@@ -204,10 +204,10 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium text-right block">חדרים</label>
               <Select value={roomsFilter} onValueChange={setRoomsFilter}>
-                <SelectTrigger className="text-right">
+                <SelectTrigger className="text-right" dir="rtl">
                   <SelectValue placeholder="כל החדרים" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent dir="rtl">
                   <SelectItem value="all">כל החדרים</SelectItem>
                   <SelectItem value="1">1 חדר</SelectItem>
                   <SelectItem value="2">2 חדרים</SelectItem>
@@ -221,10 +221,10 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium text-right block">סוג נכס</label>
               <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
-                <SelectTrigger className="text-right">
+                <SelectTrigger className="text-right" dir="rtl">
                   <SelectValue placeholder="כל הסוגים" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent dir="rtl">
                   <SelectItem value="all">כל הסוגים</SelectItem>
                   <SelectItem value="דירה">דירה</SelectItem>
                   <SelectItem value="בית פרטי">בית פרטי</SelectItem>
@@ -237,10 +237,10 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium text-right block">מקור</label>
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="text-right">
+                <SelectTrigger className="text-right" dir="rtl">
                   <SelectValue placeholder="כל המקורות" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent dir="rtl">
                   <SelectItem value="all">כל המקורות</SelectItem>
                   <SelectItem value="yad2">יד2</SelectItem>
                   <SelectItem value="madlan">מדלן</SelectItem>
@@ -267,7 +267,7 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
           </div>
 
           {/* Results Summary */}
-          <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <div className="flex justify-between items-center text-sm text-muted-foreground" dir="rtl">
             <span>נמצאו {filteredListings.length} מודעות</span>
             <span>מתוך {listings.length} מודעות</span>
           </div>
@@ -290,50 +290,50 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
             </div>
           ) : (
             <div className="border rounded-lg" dir="rtl">
-              <Table className="rtl:table-auto">
+              <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right rtl:text-right">כותרת</TableHead>
-                    <TableHead className="text-right rtl:text-right">מחיר</TableHead>
-                    <TableHead className="text-right rtl:text-right">חדרים</TableHead>
-                    <TableHead className="text-right rtl:text-right">גודל</TableHead>
-                    <TableHead className="text-right rtl:text-right">מקור</TableHead>
-                    <TableHead className="text-right rtl:text-right">תאריך</TableHead>
-                    <TableHead className="text-right rtl:text-right">פעולות</TableHead>
+                    <TableHead className="text-right">כותרת</TableHead>
+                    <TableHead className="text-right">מחיר</TableHead>
+                    <TableHead className="text-right">חדרים</TableHead>
+                    <TableHead className="text-right">גודל</TableHead>
+                    <TableHead className="text-right">מקור</TableHead>
+                    <TableHead className="text-right">תאריך</TableHead>
+                    <TableHead className="text-right">פעולות</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredListings.map((listing) => (
                     <TableRow key={listing.id}>
-                      <TableCell className="text-right rtl:text-right">
-                        <div className="rtl:text-right">
+                      <TableCell className="text-right">
+                        <div>
                           <p className="font-medium">{listing.title}</p>
                           <p className="text-sm text-muted-foreground">{listing.address}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right rtl:text-right font-medium">
+                      <TableCell className="text-right font-medium">
                         {formatPrice(listing.price)}
                       </TableCell>
-                      <TableCell className="text-right rtl:text-right">
+                      <TableCell className="text-right">
                         {listing.rooms} חדרים
                       </TableCell>
-                      <TableCell className="text-right rtl:text-right">
+                      <TableCell className="text-right">
                         {listing.size} מ&quot;ר
                       </TableCell>
-                      <TableCell className="text-right rtl:text-right">
+                      <TableCell className="text-right">
                         <Badge className={getSourceColor(listing.source)}>
                           {getSourceDisplay(listing.source)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right rtl:text-right">
+                      <TableCell className="text-right">
                         {new Date(listing.date_posted).toLocaleDateString('he-IL')}
                       </TableCell>
-                      <TableCell className="text-right rtl:text-right">
+                      <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => window.open(listing.url, '_blank')}
-                          className="rtl:mr-0 rtl:ml-2"
+                          className="mr-0 ml-2"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>

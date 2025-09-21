@@ -27,22 +27,6 @@ import logging
 
 from openai import OpenAI
 
-# Import external modules for data fetching
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-
-try:
-    from gov.decisive import fetch_decisive_appraisals
-    from gov.rami.rami_client import RamiClient
-    from gov.nadlan.scraper import NadlanDealsScraper
-    from yad2.scrapers.yad2_scraper import Yad2Scraper
-    from yad2.core.parameters import Yad2SearchParameters
-    EXTERNAL_MODULES_AVAILABLE = True
-except ImportError as e:
-    logging.warning(f"External modules not available: {e}")
-    EXTERNAL_MODULES_AVAILABLE = False
-    
 # Import Django models
 from .models import (
     AlertRule,

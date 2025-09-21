@@ -1722,10 +1722,21 @@ def _create_documents_from_rami_plans(asset, plans):
             continue
             
         # Extract plan information
-        plan_number = plan.get('plan_number', plan.get('number', ''))
-        plan_name = plan.get('plan_name', plan.get('name', ''))
+        plan_number = plan.get('planNumber', plan.get('plan_number', plan.get('number', '')))
+        plan_name = plan.get('title', plan.get('plan_name', plan.get('name', '')))
         status = plan.get('status', '')
-        url = plan.get('url', '')
+        
+        # Extract URL from documentsSet structure
+        url = ''
+        documents_set = plan.get('raw', {}).get('documentsSet', {})
+        
+        # Try to get URL from various sources in documentsSet
+        if documents_set.get('map', {}).get('path'):
+            url = documents_set['map']['path']
+        elif documents_set.get('takanon', {}).get('path'):
+            url = documents_set['takanon']['path']
+        elif documents_set.get('mmg', {}).get('path'):
+            url = documents_set['mmg']['path']
         
         # Validate and clean URL
         if url and not url.startswith(('http://', 'https://')):
@@ -1741,7 +1752,7 @@ def _create_documents_from_rami_plans(asset, plans):
             'title': f"תכנית רמ״י - {plan_name}" if plan_name else f"תכנית רמ״י {plan_number}",
             'description': f"תכנית רמ״י {plan_number}",
             'status': status,
-            'date': plan.get('date', ''),
+            'date': plan.get('statusDate', plan.get('date', '')),
             'url': url,
             'source': 'RAMI',
             'plan_number': plan_number,

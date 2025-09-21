@@ -2386,52 +2386,32 @@ def asset_listings(request, asset_id):
         except Asset.DoesNotExist:
             return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # For now, return mock data to get the frontend working
-        # TODO: Implement real Yad2 integration
-        listings = [
-            {
-                'id': 'mock_1',
-                'title': 'דירה דומה באזור',
-                'price': asset.price + 100000 if asset.price else 2000000,
-                'address': asset.address or 'כתובת לא זמינה',
-                'rooms': asset.rooms or 3,
-                'size': 80,
-                'property_type': asset.building_type or 'דירה',
-                'source': 'yad2',
-                'url': 'https://www.yad2.co.il',
-                'date_posted': '2024-01-15',
-                'images': [],
-                'description': 'דירה דומה באזור'
-            },
-            {
-                'id': 'mock_2',
-                'title': 'נכס דומה',
-                'price': asset.price - 200000 if asset.price else 1800000,
-                'address': asset.address or 'כתובת לא זמינה',
-                'rooms': (asset.rooms or 3) - 1,
-                'size': 70,
-                'property_type': asset.building_type or 'דירה',
-                'source': 'madlan',
-                'url': 'https://www.madlan.co.il',
-                'date_posted': '2024-01-14',
-                'images': [],
-                'description': 'נכס דומה באזור'
-            },
-            {
-                'id': 'mock_3',
-                'title': 'דירה יוקרתית',
-                'price': asset.price + 500000 if asset.price else 2500000,
-                'address': asset.address or 'כתובת לא זמינה',
-                'rooms': (asset.rooms or 3) + 1,
-                'size': 120,
-                'property_type': asset.building_type or 'דירה',
-                'source': 'yad2',
-                'url': 'https://www.yad2.co.il',
-                'date_posted': '2024-01-13',
-                'images': [],
-                'description': 'דירה יוקרתית עם נוף לים'
-            }
-        ]
+        # Get real listings from asset metadata
+        listings = []
+        
+        # Get Yad2 listings from asset metadata
+        if asset.meta and asset.meta.get('yad2_listings'):
+            for listing in asset.meta.get('yad2_listings', []):
+                listings.append({
+                    'id': listing.get('listing_id', ''),
+                    'title': listing.get('title', ''),
+                    'price': listing.get('price'),
+                    'address': listing.get('address', ''),
+                    'rooms': listing.get('rooms'),
+                    'size': listing.get('area'),
+                    'property_type': listing.get('property_type', ''),
+                    'source': 'yad2',
+                    'url': listing.get('url', ''),
+                    'date_posted': listing.get('date_posted', ''),
+                    'images': listing.get('images', []),
+                    'description': listing.get('description', ''),
+                    'floor': listing.get('floor'),
+                    'features': listing.get('features', [])
+                })
+        
+        # If no real listings found, return empty array instead of mock data
+        if not listings:
+            listings = []
         
         return Response({
             'listings': listings,
@@ -2440,5 +2420,5 @@ def asset_listings(request, asset_id):
         })
         
     except Exception as e:
-        logger.error("Error fetching listings for asset %s: %s", asset_id, e, exc_info=True)
-        return Response({"error": f"שגיאה בטעינת המודעות: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.error(f"Error fetching listings for asset {asset_id}: {e}")
+        return Response({"error": "Failed to fetch listings"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

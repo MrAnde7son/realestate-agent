@@ -157,7 +157,7 @@ export function LeadRowActions({ lead, onUpdate, onDelete }: LeadRowActionsProps
             <DropdownMenuItem
               key={option.value}
               onClick={() => handleStatusChange(option.value)}
-              className={lead.status === option.value ? 'bg-accent' : ''}
+              className={lead.status === option.value ? 'bg-blue-100 text-blue-900 font-medium' : ''}
             >
               {option.label}
             </DropdownMenuItem>

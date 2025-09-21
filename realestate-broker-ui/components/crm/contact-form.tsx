@@ -9,10 +9,12 @@ import { Badge } from '@/components/ui/Badge';
 import { X, Plus } from 'lucide-react';
 import { Contact, CreateContactData } from '@/lib/api/crm';
 import { ButtonLoader } from '@/components/ui/page-loader';
+import { AssetSelector } from './asset-selector';
+import type { Asset } from '@/lib/normalizers/asset';
 
 interface ContactFormProps {
   initialData?: Partial<Contact>;
-  onSubmit: (data: CreateContactData) => Promise<void>;
+  onSubmit: (data: CreateContactData & { selectedAsset?: Asset | null }) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
 }
@@ -30,6 +32,7 @@ export function ContactForm({
     tags: initialData?.tags || [],
   });
   const [newTag, setNewTag] = useState('');
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,10 +43,11 @@ export function ContactForm({
       has_email: !!formData.email,
       has_phone: !!formData.phone,
       tags_count: formData.tags?.length || 0,
-      is_edit: !!initialData?.id
+      is_edit: !!initialData?.id,
+      has_selected_asset: !!selectedAsset
     });
     
-    await onSubmit(formData);
+    await onSubmit({ ...formData, selectedAsset });
   };
 
   const addTag = () => {
@@ -104,6 +108,12 @@ export function ContactForm({
           placeholder="example@email.com"
         />
       </div>
+
+      <AssetSelector
+        selectedAssetId={selectedAsset?.id}
+        onAssetSelect={setSelectedAsset}
+        placeholder="בחר נכס שהלקוח מתעניין בו"
+      />
 
       <div className="space-y-2">
         <Label>תגיות</Label>

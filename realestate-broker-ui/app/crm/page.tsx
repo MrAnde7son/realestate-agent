@@ -230,7 +230,7 @@ export default function CrmPage() {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <PageLoader message="טוען נתוני CRM..." showLogo={false} />
+        <PageLoader message="טוען נתוני לקוחות..." showLogo={false} />
       </DashboardLayout>
     );
   }

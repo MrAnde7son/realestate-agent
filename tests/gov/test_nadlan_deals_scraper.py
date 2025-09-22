@@ -217,8 +217,10 @@ class TestNadlanDealsScraper:
         with pytest.raises(NadlanAPIError, match="Could not determine neighborhood ID for: רמת החייל"):
             self.scraper.get_deals_by_address("רמת החייל")
     
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._cleanup_driver')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._init_driver')
     @patch('gov.nadlan.scraper.NadlanDealsScraper._get_neighborhood_info_selenium')
-    def test_get_neighborhood_info_success(self, mock_fetch):
+    def test_get_neighborhood_info_success(self, mock_fetch, mock_init, mock_cleanup):
         """Test successful retrieval of neighborhood info."""
         mock_info = {
             "neigh_id": "65210036",
@@ -227,21 +229,29 @@ class TestNadlanDealsScraper:
             "setl_name": "תל אביב-יפו"
         }
         mock_fetch.return_value = mock_info
-        
+
         info = self.scraper.get_neighborhood_info("65210036")
-        
+
         assert info["neigh_id"] == "65210036"
         assert info["neigh_name"] == "רמת החייל"
         assert info["setl_id"] == "5000"
         assert info["setl_name"] == "תל אביב-יפו"
-    
+        mock_init.assert_called_once()
+        mock_fetch.assert_called_once_with("65210036")
+        mock_cleanup.assert_called_once()
+
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._cleanup_driver')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._init_driver')
     @patch('gov.nadlan.scraper.NadlanDealsScraper._get_neighborhood_info_selenium')
-    def test_get_neighborhood_info_failure(self, mock_fetch):
+    def test_get_neighborhood_info_failure(self, mock_fetch, mock_init, mock_cleanup):
         """Test handling of failures in get_neighborhood_info."""
         mock_fetch.side_effect = Exception("Test error")
-        
+
         with pytest.raises(NadlanAPIError, match="Failed to get neighborhood info for 65210036"):
             self.scraper.get_neighborhood_info("65210036")
+        mock_init.assert_called_once()
+        mock_fetch.assert_called_once_with("65210036")
+        mock_cleanup.assert_called_once()
     
     def test_extract_neighborhood_id_from_poi(self):
         """Test extraction of neighborhood ID from POI data."""

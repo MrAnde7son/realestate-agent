@@ -294,7 +294,7 @@ export default function AuthPage() {
                   <Select
                     value={registerForm.watch('role')}
                     onValueChange={(value) =>
-                      registerForm.setValue('role', value, {
+                      registerForm.setValue('role', value as 'broker' | 'appraiser' | 'private', {
                         shouldValidate: true,
                         shouldDirty: true,
                       })

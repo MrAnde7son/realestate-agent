@@ -21,7 +21,8 @@ class CrmFrontendSmokeTests(TestCase):
         self.user = User.objects.create_user(
             email='crm_frontend_test@example.com',
             username='testuser',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.asset = Asset.objects.create(

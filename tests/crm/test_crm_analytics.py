@@ -22,7 +22,8 @@ class CrmAnalyticsTests(TestCase):
         self.user = User.objects.create_user(
             email='crm_analytics_test@example.com',
             username='crm_analytics_test',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.asset = Asset.objects.create(

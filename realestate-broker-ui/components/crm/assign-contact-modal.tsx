@@ -173,6 +173,15 @@ export function AssignContactModal({
                             {contact.phone}
                           </span>
                         )}
+                        {contact.equity !== null && (
+                          <span className="text-sm text-muted-foreground">
+                            הון עצמי: {new Intl.NumberFormat('he-IL', {
+                              style: 'currency',
+                              currency: 'ILS',
+                              maximumFractionDigits: 0
+                            }).format(contact.equity)}
+                          </span>
+                        )}
                       </div>
                     </SelectItem>
                   ))}

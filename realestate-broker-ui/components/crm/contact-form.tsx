@@ -29,6 +29,7 @@ export function ContactForm({
     name: initialData?.name || '',
     phone: initialData?.phone || '',
     email: initialData?.email || '',
+    equity: initialData?.equity ?? null,
     tags: initialData?.tags || [],
   });
   const [newTag, setNewTag] = useState('');
@@ -45,6 +46,7 @@ export function ContactForm({
       tags_count: formData.tags?.length || 0,
       is_edit: !!initialData?.id,
       has_selected_asset: !!selectedAsset
+      has_equity: typeof formData.equity === 'number',
     });
     
     await onSubmit({ ...formData, selectedAsset });
@@ -114,6 +116,28 @@ export function ContactForm({
         onAssetSelect={setSelectedAsset}
         placeholder="בחר נכס שהלקוח מתעניין בו"
       />
+
+      <div className="space-y-2">
+        <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
+        <Input
+          id="equity"
+          type="number"
+          min={0}
+          step={1000}
+          value={formData.equity ?? ''}
+          onChange={(e) => {
+            const value = e.target.value;
+            setFormData(prev => ({
+              ...prev,
+              equity: value === '' ? null : Number(value)
+            }));
+          }}
+          placeholder="לדוגמה: 350000"
+        />
+        <p className="text-xs text-muted-foreground">
+          המידע יסייע להפיק דוח משכנתא מותאם אישית
+        </p>
+      </div>
 
       <div className="space-y-2">
         <Label>תגיות</Label>

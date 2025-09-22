@@ -21,7 +21,8 @@ class CrmModelsTests(TestCase):
         self.user = User.objects.create_user(
             email='crm_models_test@example.com',
             username='testuser',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.asset = Asset.objects.create(
@@ -121,7 +122,8 @@ class CrmModelsTests(TestCase):
         other_user = User.objects.create_user(
             email=self._get_unique_email('other_user'),
             username='otheruser',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         other_contact = Contact.objects.create(

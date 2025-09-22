@@ -39,6 +39,10 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const { user, logout } = useAuth()
+  const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
+  const filteredMobileNavigation = mobileNavigation.filter(
+    (item) => item.href !== '/crm' || canAccessCrm
+  )
 
   // Close mobile sidebar when pathname changes
   React.useEffect(() => {
@@ -112,7 +116,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               <div className="flex-1 overflow-y-auto p-4 mobile-sidebar-nav">
 
                 <nav className="space-y-2">
-                  {mobileNavigation.map((item) => {
+                  {filteredMobileNavigation.map((item) => {
                     const isActive = pathname === item.href
                     const Icon = item.icon
                     

@@ -21,13 +21,15 @@ class CrmViewsTests(TestCase):
         self.user = User.objects.create_user(
             email='crm_views_test@example.com',
             username='testuser',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.other_user = User.objects.create_user(
             email='crm_views_other@example.com',
             username='otheruser',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.asset = Asset.objects.create(

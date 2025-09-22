@@ -491,7 +491,7 @@ paths:
                       id: 1
                       email: user@example.com
                       username: user
-                      role: member
+                      role: broker
           description: ''
         '400':
           content:

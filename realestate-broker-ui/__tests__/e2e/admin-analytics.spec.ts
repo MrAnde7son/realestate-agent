@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("member cannot open admin analytics", async ({ page }) => {
+test("private user cannot open admin analytics", async ({ page }) => {
   try {
     await page.goto("http://localhost:3000/admin/analytics", { timeout: 1000 });
   } catch (e) {

@@ -18,12 +18,14 @@ class User(AbstractUser):
 
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"
-        MEMBER = "member", "Member"
+        BROKER = "broker", "Broker"
+        APPRAISER = "appraiser", "Appraiser"
+        PRIVATE = "private", "Private"
 
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
-        default=Role.MEMBER,
+        default=Role.PRIVATE,
         db_index=True,
     )
     is_verified = models.BooleanField(default=False)

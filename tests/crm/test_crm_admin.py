@@ -446,7 +446,8 @@ class CrmAdminTests(TestCase):
         regular_user = User.objects.create_user(
             email='regular@example.com',
             username='regular',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.client.force_login(regular_user)
@@ -463,7 +464,8 @@ class CrmAdminTests(TestCase):
         regular_user = User.objects.create_user(
             email='regular@example.com',
             username='regular',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.client.force_login(regular_user)
@@ -480,7 +482,8 @@ class CrmAdminTests(TestCase):
         other_user = User.objects.create_user(
             email='crm_admin_other@example.com',
             username='other',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         Contact.objects.create(

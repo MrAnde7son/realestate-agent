@@ -102,7 +102,9 @@ class GovMapCollector(BaseCollector):
             return None
 
     def validate_parameters(self, **kwargs) -> bool:
-        return isinstance(kwargs.get("address"), str)
+        """Validate that an address string is provided."""
+        address = kwargs.get("address")
+        return isinstance(address, str) and bool(address.strip())
 
 
 if __name__ == "__main__":

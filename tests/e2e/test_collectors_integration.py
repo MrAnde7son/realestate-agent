@@ -554,17 +554,13 @@ class TestCollectorsIntegration:
 
         # Test 2: Test autocomplete functionality
         logger.info("Testing autocomplete functionality...")
-        autocomplete_results = {}
-        try:
-            autocomplete_results = client.autocomplete(TEST_ADDRESS)
-            assert isinstance(autocomplete_results, dict)
-            assert "results" in autocomplete_results
-            assert "resultsCount" in autocomplete_results
-            logger.info(
-                f"✓ Autocomplete returned {autocomplete_results.get('resultsCount', 0)} results"
-            )
-        except Exception as e:
-            logger.warning(f"⚠ Autocomplete request failed: {e}")
+        autocomplete_results = client.autocomplete(TEST_ADDRESS)
+        assert isinstance(autocomplete_results, dict)
+        assert "results" in autocomplete_results
+        assert "resultsCount" in autocomplete_results
+        logger.info(
+            f"✓ Autocomplete returned {autocomplete_results.get('resultsCount', 0)} results"
+        )
 
         # Test coordinate extraction from autocomplete
         if autocomplete_results.get("results"):

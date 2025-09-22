@@ -165,16 +165,42 @@ export default function CrmPage() {
   };
 
   // Contact handlers
-  const handleCreateContact = async (data: CreateContactData) => {
+  const handleCreateContact = async (data: CreateContactData & { selectedAsset?: any }) => {
     try {
       setIsSubmitting(true);
-      await CrmApi.createContact(data);
-      toast({
-        title: 'לקוח נוצר',
-        description: 'הלקוח החדש נוצר בהצלחה.',
-      });
+      const contact = await CrmApi.createContact(data);
+      
+      // If an asset was selected, create a lead automatically
+      if (data.selectedAsset) {
+        try {
+          await CrmApi.createLead({
+            contact_id: contact.id,
+            asset_id: data.selectedAsset.id,
+            status: 'new'
+          });
+          
+          toast({
+            title: 'לקוח וליד נוצרו',
+            description: `הלקוח נוצר בהצלחה וליד חדש נוצר עבור הנכס ${data.selectedAsset.address}.`,
+          });
+        } catch (leadError: any) {
+          console.error('Error creating lead:', leadError);
+          toast({
+            title: 'לקוח נוצר, שגיאה בליד',
+            description: 'הלקוח נוצר בהצלחה אך לא ניתן ליצור ליד עבור הנכס שנבחר.',
+            variant: 'destructive',
+          });
+        }
+      } else {
+        toast({
+          title: 'לקוח נוצר',
+          description: 'הלקוח החדש נוצר בהצלחה.',
+        });
+      }
+      
       setIsCreateContactDialogOpen(false);
       loadContacts();
+      loadLeads(); // Reload leads in case a new one was created
     } catch (error: any) {
       toast({
         title: 'שגיאה',
@@ -260,7 +286,7 @@ export default function CrmPage() {
   if (authLoading || (isLoading && canAccessCrm)) {
     return (
       <DashboardLayout>
-        <PageLoader message="טוען נתוני CRM..." showLogo={false} />
+        <PageLoader message="טוען נתוני לקוחות..." showLogo={false} />
       </DashboardLayout>
     );
   }
@@ -512,6 +538,7 @@ export default function CrmPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pr-8 rtl:pl-8 rtl:pr-0"
+                dir="rtl"
               />
             </div>
 
@@ -597,6 +624,7 @@ export default function CrmPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pr-8 rtl:pl-8 rtl:pr-0"
+                dir="rtl"
               />
             </div>
 

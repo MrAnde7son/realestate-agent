@@ -158,7 +158,7 @@ class DocumentListView(APIView):
 
 
 class AssetRightsView(APIView):
-    """Return parsed Tabu rows for an asset."""
+    """Return comprehensive rights data for an asset including Tabu and GIS data."""
 
     permission_classes = [IsAuthenticated]
 
@@ -173,8 +173,17 @@ class AssetRightsView(APIView):
                 )
 
             query = (request.query_params.get('q') or '').strip().lower()
-            rows = []
+            
+            # Initialize response data
+            rights_data = {
+                'tabu_data': [],
+                'gis_rights': [],
+                'building_rights': {},
+                'ownership_summary': {},
+                'total_rows': 0
+            }
 
+            # 1. Get Tabu data from uploaded documents
             documents = asset.documents.filter(document_type='tabu').order_by('-uploaded_at')
             for document in documents:
                 doc_rows = document.meta.get('tabu_rows') if document.meta else []
@@ -184,26 +193,65 @@ class AssetRightsView(APIView):
                 for idx, row in enumerate(doc_rows):
                     field = str(row.get('field', '') or '')
                     value = str(row.get('value', '') or '')
-                    rows.append(
-                        {
-                            'id': f"{document.id}-{idx}",
-                            'document_id': document.id,
-                            'document_title': document.title,
-                            'document_url': document.file_url,
-                            'uploaded_at': document.uploaded_at.isoformat() if document.uploaded_at else None,
-                            'source': document.source,
-                            'field': field,
-                            'value': value,
+                    
+                    row_data = {
+                        'id': f"tabu_{document.id}-{idx}",
+                        'document_id': document.id,
+                        'document_title': document.title,
+                        'document_url': document.file_url,
+                        'uploaded_at': document.uploaded_at.isoformat() if document.uploaded_at else None,
+                        'source': 'tabu_upload',
+                        'field': field,
+                        'value': value,
+                        'type': 'tabu'
+                    }
+                    
+                    # Filter by query if provided
+                    if not query or query in field.lower() or query in value.lower():
+                        rights_data['tabu_data'].append(row_data)
+
+            # 2. Get GIS rights data from asset metadata
+            gis_rights = asset.get_property_value('gis_data.land_use_rights', [])
+            if gis_rights:
+                for idx, right in enumerate(gis_rights):
+                    if isinstance(right, dict):
+                        right_data = {
+                            'id': f"gis_rights_{idx}",
+                            'source': 'gis',
+                            'type': 'land_use',
+                            'land_use': right.get('land_use', ''),
+                            'plan_name': right.get('plan_name', ''),
+                            'plan_number': right.get('plan_number', ''),
+                            'status': right.get('status', ''),
+                            'area': right.get('area', ''),
+                            'description': f"שימוש קרקע: {right.get('land_use', '')}",
+                            'raw_data': right
                         }
-                    )
+                        
+                        # Filter by query if provided
+                        if not query or any(query in str(v).lower() for v in right_data.values() if v):
+                            rights_data['gis_rights'].append(right_data)
 
-            if query:
-                rows = [
-                    r for r in rows
-                    if query in (r['field'] or '').lower() or query in (r['value'] or '').lower()
-                ]
+            # 3. Get building rights information
+            if asset.meta:
+                building_rights = {
+                    'main_rights_sqm': asset.meta.get('mainRightsSqm'),
+                    'service_rights_sqm': asset.meta.get('serviceRightsSqm'),
+                    'remaining_rights_sqm': asset.meta.get('remainingRightsSqm'),
+                    'zoning': asset.meta.get('zoning'),
+                    'program': asset.meta.get('program'),
+                    'rights_usage_pct': asset.meta.get('rightsUsagePct')
+                }
+                rights_data['building_rights'] = building_rights
 
-            return Response({'rows': rows})
+            # 4. Parse ownership information from Tabu data
+            ownership_info = self._parse_ownership_from_tabu(rights_data['tabu_data'])
+            rights_data['ownership_summary'] = ownership_info
+
+            # 5. Calculate total rows
+            rights_data['total_rows'] = len(rights_data['tabu_data']) + len(rights_data['gis_rights'])
+
+            return Response(rights_data)
 
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.error(f"Error fetching rights for asset {asset_id}: {exc}")
@@ -211,6 +259,62 @@ class AssetRightsView(APIView):
                 {'error': 'Failed to fetch rights data'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def _parse_ownership_from_tabu(self, tabu_data):
+        """Parse ownership information from Tabu data."""
+        ownership = {
+            'owners': [],
+            'total_ownership_percentage': 0,
+            'parcel_info': {}
+        }
+        
+        current_owner = None
+        ownership_percentage = 0
+        
+        for row in tabu_data:
+            field = row.get('field', '').lower()
+            value = row.get('value', '')
+            
+            # Look for owner information
+            if 'בעלים' in field or 'owner' in field:
+                if current_owner and ownership_percentage > 0:
+                    ownership['owners'].append({
+                        'name': current_owner,
+                        'percentage': ownership_percentage
+                    })
+                current_owner = value
+                ownership_percentage = 0
+            
+            # Look for ownership percentage
+            elif '%' in value or 'אחוז' in field:
+                try:
+                    # Extract percentage from value
+                    import re
+                    percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
+                    if percentage_match:
+                        ownership_percentage = float(percentage_match.group(1))
+                except (ValueError, AttributeError):
+                    pass
+            
+            # Look for parcel information
+            elif 'גוש' in field:
+                ownership['parcel_info']['block'] = value
+            elif 'חלקה' in field:
+                ownership['parcel_info']['parcel'] = value
+            elif 'תת חלקה' in field:
+                ownership['parcel_info']['subparcel'] = value
+        
+        # Add the last owner if exists
+        if current_owner and ownership_percentage > 0:
+            ownership['owners'].append({
+                'name': current_owner,
+                'percentage': ownership_percentage
+            })
+        
+        # Calculate total ownership percentage
+        ownership['total_ownership_percentage'] = sum(owner['percentage'] for owner in ownership['owners'])
+        
+        return ownership
 
 
 class DocumentDetailView(APIView):
@@ -354,7 +458,8 @@ def create_document_from_meta(request, asset_id):
             return Response({'message': 'No documents in meta field'})
         
         created_documents = []
-        for doc_data in asset.meta['documents']:
+        documents = asset.get_property_value('documents', [])
+        for doc_data in documents:
             # Skip if already exists as Document record
             if Document.objects.filter(
                 asset=asset, 

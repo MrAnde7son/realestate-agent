@@ -4,18 +4,22 @@ GovMap collector that plugs into your existing orchestration layer.
 
 Usage
 -----
-from govmap import GovMapClient
 from orchestration.collectors.govmap_collector import GovMapCollector
 
-collector = GovMapCollector(GovMapClient())
-# Example (re-using TelAvivGS geocoder if available):
-# x,y = TelAvivGS().get_address_coordinates("רוזוב", 14)
-# data = collector.collect(x=x, y=y)
+collector = GovMapCollector()
+result = collector.collect(address="רוזוב 14 תל אביב")
+print("Address:", result["address"])
+if "x" in result and "y" in result:
+    print(f"Coordinates: x={result['x']}, y={result['y']}")
+    print("Parcel data:", result["api_data"].get("parcel", "Not available"))
 """
-from typing import Any, Dict, Optional
+import logging
+from typing import Any, Dict, Optional, Tuple
 
-from .base_collector import BaseCollector
+from orchestration.collectors.base_collector import BaseCollector
 from govmap.api_client import GovMapClient
+
+logger = logging.getLogger(__name__)
 
 
 class GovMapCollector(BaseCollector):
@@ -24,76 +28,91 @@ class GovMapCollector(BaseCollector):
     def __init__(self, client: Optional[GovMapClient] = None) -> None:
         self.client = client or GovMapClient()
 
-    def autocomplete(self, query: str) -> Dict[str, Any]:
-        """Get autocomplete results for an address query.
-        
-        Parameters
-        ----------
-        query : Address query string
-        
-        Returns
-        -------
-        Dict containing autocomplete results
-        """
-        return self.client.autocomplete(query)
+
 
     def collect(
         self,
         *,
-        x: float,
-        y: float,
+        address: str,
     ) -> Dict[str, Any]:
-        """Collect data from GovMap using the new API endpoints.
+        """Collect data from GovMap using address autocomplete and parcel data.
 
         Parameters
         ----------
-        x, y : EPSG:2039 coordinates of the target point.
+        address : Address string to search for (e.g., "רוזוב 14 תל אביב")
         """
         out: Dict[str, Any] = {
-            "x": x,
-            "y": y,
+            "address": address,
             "api_data": {},
         }
 
-        # Collect data from all new API endpoints
         try:
-            # Get parcel data from new API
-            parcel_api_data = self.client.get_parcel_data(x, y)
-            out["api_data"]["parcel"] = parcel_api_data
+            # Get autocomplete results for the address
+            autocomplete_result = self.client.autocomplete(address)
+            out["api_data"]["autocomplete"] = autocomplete_result
+            
+            # Extract coordinates from the first result
+            coords = self._extract_coordinates_from_autocomplete(autocomplete_result)
+            if coords:
+                x, y = coords
+                out["x"] = x
+                out["y"] = y
+                
+                # Get parcel data using the extracted coordinates
+                try:
+                    parcel_data = self.client.get_parcel_data(x, y)
+                    out["api_data"]["parcel"] = parcel_data
+                except Exception as e:
+                    logger.warning(f"Failed to get parcel data: {e}")
+            else:
+                logger.warning("Could not extract coordinates from autocomplete result")
+                
         except Exception as e:
-            # Log but don't fail the entire collection
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Failed to get parcel data from new API: {e}")
-
-        try:
-            # Get layers catalog
-            layers_catalog = self.client.get_layers_catalog()
-            out["api_data"]["layers_catalog"] = layers_catalog
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Failed to get layers catalog: {e}")
-
-        try:
-            # Get search types
-            search_types = self.client.get_search_types()
-            out["api_data"]["search_types"] = search_types
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Failed to get search types: {e}")
-
-        try:
-            # Get base layers
-            base_layers = self.client.get_base_layers()
-            out["api_data"]["base_layers"] = base_layers
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Failed to get base layers: {e}")
+            logger.error(f"Failed to process address '{address}': {e}")
 
         return out
 
+    def _extract_coordinates_from_autocomplete(self, autocomplete_result: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+        """Extract ITM coordinates from autocomplete response."""
+        try:
+            if "results" in autocomplete_result:
+                results = autocomplete_result.get("results", [])
+                if results:
+                    result = results[0]  # Get first result
+                    if "shape" in result and isinstance(result["shape"], str):
+                        shape = result["shape"]
+                        # Shape is a POINT string like "POINT(3877998.167083787 3778264.858683848)"
+                        if shape.startswith("POINT("):
+                            coords_str = shape[6:-1]  # Remove "POINT(" and ")"
+                            parts = coords_str.split()
+                            if len(parts) >= 2:
+                                try:
+                                    x = float(parts[0])
+                                    y = float(parts[1])
+                                    logger.info(f"Extracted coordinates from autocomplete: ({x}, {y})")
+                                    return (x, y)
+                                except (ValueError, TypeError) as e:
+                                    logger.debug(f"Failed to parse coordinates from shape '{shape}': {e}")
+            
+            logger.warning("No coordinates found in autocomplete response")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error extracting coordinates from autocomplete: {e}")
+            return None
+
     def validate_parameters(self, **kwargs) -> bool:
-        return isinstance(kwargs.get("x"), (int, float)) and isinstance(kwargs.get("y"), (int, float))
+        """Validate that an address string is provided."""
+        address = kwargs.get("address")
+        return isinstance(address, str) and bool(address.strip())
+
+
+if __name__ == "__main__":
+    collector = GovMapCollector()
+    result = collector.collect(address="רוזוב 14 תל אביב")
+    print("Address:", result["address"])
+    if "x" in result and "y" in result:
+        print(f"Coordinates: x={result['x']}, y={result['y']}")
+        print("Parcel data:", result["api_data"].get("parcel", "Not available"))
+    else:
+        print("Could not extract coordinates from address")

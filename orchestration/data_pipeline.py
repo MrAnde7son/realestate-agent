@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional, Dict, Tuple
+from typing import Any, Iterable, List, Optional, Dict
 import os
 import time
 import logging
@@ -35,7 +35,7 @@ except Exception:  # pragma: no cover - fallback when Django not configured
         pass
 
 # alert helpers
-from orchestration.alerts import Notifier, create_notifier_for_user
+from orchestration.alerts import Notifier
 
 logger = logging.getLogger(__name__)
 
@@ -87,150 +87,6 @@ def _load_user_notifiers() -> List[Notifier]:
     return notifiers
 
 
-def _extract_coordinates_from_govmap_autocomplete(autocomplete_result: Dict[str, Any]) -> Optional[Tuple[float, float, float, float]]:
-    """Extract ITM coordinates from GovMap autocomplete response.
-    
-    Returns:
-        Tuple of (x_itm, y_itm, lon_wgs84, lat_wgs84) or None if not found
-    """
-    try:
-        # The new API might have a different structure
-        # Check for both old and new response formats
-        
-        # Try new API format first
-        if "results" in autocomplete_result:
-            results = autocomplete_result.get("results", [])
-            for result in results:
-                # Look for coordinates in various possible fields
-                coords = None
-                
-                # Check for shape field with POINT string (new API format)
-                if "shape" in result and isinstance(result["shape"], str):
-                    shape = result["shape"]
-                    if shape.startswith("POINT("):
-                        # Extract coordinates from POINT string like "POINT(3877998.167083787 3778264.858683848)"
-                        coords_str = shape[6:-1]  # Remove "POINT(" and ")"
-                        parts = coords_str.split()
-                        if len(parts) >= 2:
-                            try:
-                                x_raw = float(parts[0])
-                                y_raw = float(parts[1])
-                                
-                                # Check if coordinates are in GovMap format (large numbers)
-                                if abs(x_raw) > 1000000 and abs(y_raw) > 1000000:
-                                    # Convert from GovMap coordinate system to WGS84
-                                    # GovMap uses a simple linear relationship: lon = x * 0.0000089792, lat = y * 0.0000084961
-                                    lon_wgs84 = x_raw * 0.0000089792
-                                    lat_wgs84 = y_raw * 0.0000084961
-                                    
-                                    # Convert WGS84 to ITM for consistency
-                                    from govmap.api_client import wgs84_to_itm
-                                    x_itm, y_itm = wgs84_to_itm(lon_wgs84, lat_wgs84)
-                                    
-                                    logger.info(f"Extracted Web Mercator coordinates from GovMap autocomplete: WebMerc({x_raw}, {y_raw}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f}) -> ITM({x_itm}, {y_itm})")
-                                    return (x_itm, y_itm, lon_wgs84, lat_wgs84)
-                                else:
-                                    # Assume ITM coordinates
-                                    x_itm = x_raw
-                                    y_itm = y_raw
-                                    
-                                    # Convert to WGS84
-                                    lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                                    
-                                    logger.info(f"Extracted ITM coordinates from GovMap autocomplete: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
-                                    return (x_itm, y_itm, lon_wgs84, lat_wgs84)
-                                    
-                            except (ValueError, TypeError) as e:
-                                logger.debug(f"Failed to parse coordinates from shape '{shape}': {e}")
-                                continue
-                
-                # Check for geometry field
-                elif "geometry" in result:
-                    geom = result["geometry"]
-                    if "coordinates" in geom:
-                        coords = geom["coordinates"]
-                    elif "x" in geom and "y" in geom:
-                        coords = [geom["x"], geom["y"]]
-                
-                # Check for direct coordinate fields
-                elif "x" in result and "y" in result:
-                    coords = [result["x"], result["y"]]
-                elif "longitude" in result and "latitude" in result:
-                    # These might be WGS84 coordinates, convert to ITM
-                    try:
-                        from govmap.api_client import wgs84_to_itm
-                        lon_wgs84 = float(result["longitude"])
-                        lat_wgs84 = float(result["latitude"])
-                        x_itm, y_itm = wgs84_to_itm(lon_wgs84, lat_wgs84)
-                        logger.info(f"Extracted WGS84 coordinates from GovMap autocomplete: WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f}) -> ITM({x_itm}, {y_itm})")
-                        return (x_itm, y_itm, lon_wgs84, lat_wgs84)
-                    except (ValueError, TypeError) as e:
-                        logger.debug(f"Failed to convert WGS84 coordinates: {e}")
-                        continue
-                
-                if coords and len(coords) >= 2:
-                    try:
-                        x_itm = float(coords[0])
-                        y_itm = float(coords[1])
-                        
-                        # Convert to WGS84
-                        lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                        
-                        logger.info(f"Extracted coordinates from GovMap autocomplete (new API): ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
-                        return (x_itm, y_itm, lon_wgs84, lat_wgs84)
-                    except (ValueError, TypeError) as e:
-                        logger.debug(f"Failed to parse coordinates from new API: {e}")
-                        continue
-        
-        # Fallback to old API format
-        res = autocomplete_result.get("res", {})
-        
-        # Look for coordinates in different categories, prioritizing BUILDING and STREET
-        for category in ["BUILDING", "STREET", "NEIGHBORHOOD", "POI_MID_POINT", "SETTLEMENT"]:
-            items = res.get(category, [])
-            for item in items:
-                shape = item.get("Shape")
-                if shape:
-                    # Shape might be a POINT string like "POINT(184391.15 668715.93)"
-                    if isinstance(shape, str) and shape.startswith("POINT("):
-                        # Extract coordinates from POINT string
-                        coords_str = shape[6:-1]  # Remove "POINT(" and ")"
-                        parts = coords_str.split()
-                        if len(parts) >= 2:
-                            try:
-                                x_itm = float(parts[0])
-                                y_itm = float(parts[1])
-                                
-                                # Convert to WGS84
-                                lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                                
-                                logger.info(f"Extracted coordinates from GovMap autocomplete (old API): ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
-                                return (x_itm, y_itm, lon_wgs84, lat_wgs84)
-                            except (ValueError, TypeError) as e:
-                                logger.debug(f"Failed to parse coordinates from shape '{shape}': {e}")
-                                continue
-                    elif isinstance(shape, dict):
-                        # Shape might be a dict with x, y coordinates
-                        x_itm = shape.get("x") or shape.get("X")
-                        y_itm = shape.get("y") or shape.get("Y")
-                        if x_itm is not None and y_itm is not None:
-                            try:
-                                x_itm = float(x_itm)
-                                y_itm = float(y_itm)
-                                lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                                
-                                logger.info(f"Extracted coordinates from GovMap autocomplete dict: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
-                                return (x_itm, y_itm, lon_wgs84, lat_wgs84)
-                            except (ValueError, TypeError) as e:
-                                logger.debug(f"Failed to parse coordinates from shape dict: {e}")
-                                continue
-        
-        logger.warning("No coordinates found in GovMap autocomplete response")
-        return None
-        
-    except Exception as e:
-        logger.error(f"Error extracting coordinates from GovMap autocomplete: {e}")
-        return None
 
 
 
@@ -249,7 +105,6 @@ class DataPipeline:
         "gis": float(os.getenv("GIS_TIMEOUT", "30")),
         "gov": float(os.getenv("GOV_TIMEOUT", "60")),
         "govmap": float(os.getenv("GOVMAP_TIMEOUT", "60")),
-        "govmap_autocomplete": float(os.getenv("GOVMAP_AUTOCOMPLETE_TIMEOUT", "30")),
         "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
         "mavat": float(os.getenv("MAVAT_TIMEOUT", "60")),
     }
@@ -258,7 +113,6 @@ class DataPipeline:
         "gis": int(os.getenv("GIS_RETRIES", "0")),
         "gov": int(os.getenv("GOV_RETRIES", "0")),
         "govmap": int(os.getenv("GOVMAP_RETRIES", "0")),
-        "govmap_autocomplete": int(os.getenv("GOVMAP_AUTOCOMPLETE_RETRIES", "0")),
         "gov_rami": int(os.getenv("GOV_RAMI_RETRIES", "0")),
         "mavat": int(os.getenv("MAVAT_RETRIES", "0")),
     }
@@ -312,8 +166,9 @@ class DataPipeline:
             self.db.init_db()
             try:
                 self.db.create_tables()
-            except Exception:
+            except Exception as e:
                 # Tables might already exist – ignore
+                logger.debug(f"Tables might already exist: {e}")
                 pass
 
     def _collect_with_observability(
@@ -342,7 +197,7 @@ class DataPipeline:
                         items_count = self._count_items(result)
                         COLLECTOR_SUCCESS.labels(source=source).inc()
                         return result
-                    except FuturesTimeoutError as e:
+                    except FuturesTimeoutError:
                         last_exc = TimeoutError(
                             f"{source} collector timed out after {timeout}s"
                         )
@@ -474,7 +329,6 @@ class DataPipeline:
             results: List[Any] = []
             
             # Get address coordinates using GovMap autocomplete
-            govmap_autocomplete_data = {}
             x_itm = None
             y_itm = None
             lon_wgs84 = None
@@ -482,62 +336,43 @@ class DataPipeline:
             block = ""
             parcel = ""
             
-            # Use GovMap autocomplete to get coordinates
+            # Use GovMap collector to get coordinates and parcel data
             try:
-                logger.info("🗺️ Getting address coordinates from GovMap autocomplete...")
+                logger.info("🗺️ Getting address coordinates and parcel data from GovMap...")
                 full_address = f"{address} {house_number}" if house_number else address
-                autocomplete_result = self._collect_with_observability(
-                    "govmap_autocomplete",
-                    self.govmap.autocomplete,
-                    query=full_address,
-                    timeout=self.TIMEOUTS.get("govmap_autocomplete"),
-                    retries=self.RETRIES.get("govmap_autocomplete", 0),
+                govmap_data = self._collect_with_observability(
+                    "govmap",
+                    self.govmap.collect,
+                    address=full_address,
+                    timeout=self.TIMEOUTS.get("govmap"),
+                    retries=self.RETRIES.get("govmap", 0),
                     asset_id=asset_id,
                 )
-                track("collector_success", source="govmap_autocomplete")
-                govmap_autocomplete_data = autocomplete_result
+                track("collector_success", source="govmap")
                 
-                # Extract coordinates from autocomplete result
-                coords = _extract_coordinates_from_govmap_autocomplete(autocomplete_result)
-                if coords:
-                    x_itm, y_itm, lon_wgs84, lat_wgs84 = coords
+                # Extract coordinates from GovMap result
+                if "x" in govmap_data and "y" in govmap_data:
+                    x_itm = govmap_data["x"]
+                    y_itm = govmap_data["y"]
+                    # Convert ITM to WGS84
+                    lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
                     logger.info(f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
                 else:
-                    logger.warning("⚠️ No coordinates found in GovMap autocomplete response")
+                    logger.warning("⚠️ No coordinates found in GovMap response")
                     
             except Exception as e:
-                govmap_autocomplete_data = {}
-                track("collector_fail", source="govmap_autocomplete", error_code=str(e))
-                logger.warning(f"⚠️ GovMap autocomplete failed: {e}")
+                govmap_data = {}
+                track("collector_fail", source="govmap", error_code=str(e))
+                logger.warning(f"⚠️ GovMap collection failed: {e}")
                 logger.info("🔄 Falling back to GIS collector for coordinates...")
             
-            # Get GovMap parcel data if we have coordinates
-            govmap_data = {}
-            if x_itm is not None and y_itm is not None:
-                try:
-                    logger.info("🏛️ Collecting GovMap parcel data...")
-                    govmap_data = self._collect_with_observability(
-                        "govmap",
-                        self.govmap.collect,
-                        x=x_itm,
-                        y=y_itm,
-                        timeout=self.TIMEOUTS.get("govmap"),
-                        retries=self.RETRIES.get("govmap", 0),
-                        asset_id=asset_id,
-                    )
-                    track("collector_success", source="govmap")
-                    
-                    # Extract block and parcel from GovMap data
-                    if govmap_data.get("parcel"):
-                        parcel_info = govmap_data.get("parcel", {})
-                        block = parcel_info.get("gush", "")
-                        parcel = parcel_info.get("helka", "")
-                    
-                    logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
-                except Exception as e:
-                    govmap_data = {}
-                    track("collector_fail", source="govmap", error_code=str(e))
-                    logger.warning(f"⚠️ GovMap collection failed: {e}")
+            # Extract block and parcel from GovMap data
+            if govmap_data.get("api_data", {}).get("parcel"):
+                parcel_info = govmap_data.get("api_data", {}).get("parcel", {})
+                block = parcel_info.get("gush", "")
+                parcel = parcel_info.get("helka", "")
+            
+            logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
 
                 # Note: Additional GovMap data (parcel API, layers catalog, search types) 
                 # is now collected by the enhanced GovMap collector above
@@ -594,7 +429,6 @@ class DataPipeline:
                 # Use GIS coordinates as fallback if GovMap autocomplete failed
                 if x_itm is None and y_itm is None and gis_data.get('x') and gis_data.get('y'):
                     try:
-                        from govmap.api_client import itm_to_wgs84
                         x_itm = gis_data.get('x')
                         y_itm = gis_data.get('y')
                         lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
@@ -685,9 +519,10 @@ class DataPipeline:
                     results.append(listing)
 
                     # ---------------- GovMap Autocomplete (already collected above) ----------------
-                    if govmap_autocomplete_data:
-                        self._add_source_record(session, db_listing.id, "govmap_autocomplete", govmap_autocomplete_data)
-                        results.append({"source": "govmap_autocomplete", "data": govmap_autocomplete_data})
+                    if govmap_data.get("api_data", {}).get("autocomplete"):
+                        autocomplete_data = govmap_data["api_data"]["autocomplete"]
+                        self._add_source_record(session, db_listing.id, "govmap_autocomplete", autocomplete_data)
+                        results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
 
                     # ---------------- GovMap Parcel Data (already collected above) ----------------
                     if govmap_data:
@@ -743,8 +578,9 @@ class DataPipeline:
                     logger.info("📊 No Yad2 listings found, but adding collected data to results")
                     
                     # Add GovMap autocomplete data to results
-                    if govmap_autocomplete_data:
-                        results.append({"source": "govmap_autocomplete", "data": govmap_autocomplete_data})
+                    if govmap_data.get("api_data", {}).get("autocomplete"):
+                        autocomplete_data = govmap_data["api_data"]["autocomplete"]
+                        results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
                     
                     # Add GovMap parcel data to results
                     if govmap_data:
@@ -772,7 +608,7 @@ class DataPipeline:
                 
                 # Update Asset model with collected data
                 if asset_id:
-                    _update_asset_with_collected_data(asset_id, block, parcel, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings, x_itm, y_itm, lon_wgs84, lat_wgs84)
+                    _update_asset_with_collected_data(asset_id, block, parcel, govmap_data.get("api_data", {}).get("autocomplete", {}), govmap_data, gis_data, gov_data, plans, mavat_plans, listings, x_itm, y_itm, lon_wgs84, lat_wgs84)
                     
                     # Create snapshot for alert evaluation
                     _create_asset_snapshot(asset_id, results)
@@ -833,7 +669,6 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
         elif gis_data.get('x') and gis_data.get('y'):
             # Fallback to GIS coordinates if GovMap coordinates not available
             try:
-                from govmap.api_client import itm_to_wgs84
                 x_itm_gis = gis_data.get('x')
                 y_itm_gis = gis_data.get('y')
                 lon_wgs84_gis, lat_wgs84_gis = itm_to_wgs84(x_itm_gis, y_itm_gis)
@@ -926,12 +761,13 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
         # Update with GovMap parcel data
         if govmap_data:
             asset.meta['govmap_data'] = {
-                'parcel': govmap_data.get('parcel', {}),
+                'parcel': govmap_data.get('api_data', {}).get('parcel', {}),
                 'nearby_layers': govmap_data.get('nearby', {}),
                 'coordinates': {
                     'x': govmap_data.get('x'),
                     'y': govmap_data.get('y')
-                }
+                },
+                'api_data': govmap_data.get('api_data', {})
             }
             _process_govmap_data(asset, govmap_data)
         
@@ -981,6 +817,16 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
         asset.meta['last_enrichment'] = timezone.now().isoformat()
         
         asset.save()
+        
+        # Create Django model records from collected data
+        _create_django_records_from_collected_data(asset, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings)
+        
+        # Create Document and Plan records
+        _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans)
+        
+        # Calculate market metrics
+        _calculate_market_metrics(asset, listings, gov_data)
+        
         logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
         
     except Exception as e:
@@ -1103,11 +949,12 @@ def _process_gis_data(asset, gis_data):
             source = 'GIS (calculated)'
             
             # Check if we have privilege page data
-            if hasattr(asset, 'meta') and asset.meta.get('privilege_page_data'):
+            privilege_data = asset.get_property_value('privilege_page_data')
+            if privilege_data:
                 try:
                     from gis.rights_calculator import get_remaining_rights_sqm
                     remaining_rights_sqm = get_remaining_rights_sqm(
-                        asset.meta['privilege_page_data'], 
+                        privilege_data, 
                         area_for_calculation
                     )
                     if remaining_rights_sqm:
@@ -1135,7 +982,8 @@ def _process_gis_data(asset, gis_data):
                     from datetime import datetime
                     permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
                     asset.set_property('permitDate', permit_date.date(), source='GIS', url='https://www.govmap.gov.il/')
-                except:
+                except Exception as e:
+                    logger.debug(f"Failed to parse permit date: {e}")
                     pass
             
             # Create documents from permits
@@ -1185,7 +1033,8 @@ def _process_gis_data(asset, gis_data):
                     permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
                     quarter = f"Q{(permit_date.month - 1) // 3 + 1}/{permit_date.year}"
                     asset.set_property('lastPermitQ', quarter, source='GIS', url='https://www.govmap.gov.il/')
-                except:
+                except Exception as e:
+                    logger.debug(f"Failed to parse permit date: {e}")
                     pass
     
     # Risk flags - use get_property_value for unified access
@@ -1274,8 +1123,9 @@ def _process_govmap_autocomplete_data(asset, govmap_autocomplete_data):
 
 def _process_govmap_data(asset, govmap_data):
     """Process GovMap parcel data using unified metadata structure."""
-    if govmap_data.get('parcel'):
-        parcel = govmap_data.get('parcel', {})
+    # Process parcel data from api_data
+    if govmap_data.get('api_data', {}).get('parcel'):
+        parcel = govmap_data.get('api_data', {}).get('parcel', {})
         # Extract parcel information
         if parcel.get('gush'):
             asset.set_property('govmapGush', parcel.get('gush'), source='GovMap', url='https://www.govmap.gov.il/')
@@ -1284,12 +1134,309 @@ def _process_govmap_data(asset, govmap_data):
         if parcel.get('land_use'):
             asset.set_property('govmapLandUse', parcel.get('land_use'), source='GovMap', url='https://www.govmap.gov.il/')
     
-    # Process nearby layers data
+    # Process nearby layers data (if available in the future)
     if govmap_data.get('nearby'):
         nearby = govmap_data.get('nearby', {})
         for layer_name, features in nearby.items():
             if features:
                 asset.set_property(f'govmap_{layer_name}_count', len(features), source='GovMap', url='https://www.govmap.gov.il/')
+
+
+def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings):
+    """Create Django model records (SourceRecord, RealEstateTransaction) from collected data."""
+    try:
+        from core.models import SourceRecord, RealEstateTransaction
+        
+        # Create SourceRecord for Yad2 listings
+        if listings:
+            for listing in listings:
+                if listing.get('listing_id'):
+                    SourceRecord.objects.get_or_create(
+                        asset=asset,
+                        source='yad2',
+                        external_id=str(listing.get('listing_id')),
+                        defaults={
+                            'title': listing.get('title', ''),
+                            'url': listing.get('url', ''),
+                            'raw': listing
+                        }
+                    )
+        
+        # Create SourceRecord for RAMI plans
+        if plans:
+            for plan in plans:
+                plan_number = plan.get('planNumber') or plan.get('plan_number', '')
+                if plan_number:
+                    SourceRecord.objects.get_or_create(
+                        asset=asset,
+                        source='rami_plan',
+                        external_id=str(plan_number),
+                        defaults={
+                            'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                            'url': plan.get('url', ''),
+                            'raw': plan
+                        }
+                    )
+        
+        # Create SourceRecord for Mavat plans
+        if mavat_plans:
+            for plan in mavat_plans:
+                plan_id = plan.get('plan_id') or plan.get('id', '')
+                if plan_id:
+                    SourceRecord.objects.get_or_create(
+                        asset=asset,
+                        source='tabu',  # Using 'tabu' as closest match for Mavat
+                        external_id=str(plan_id),
+                        defaults={
+                            'title': plan.get('title', f'תכנית מבת {plan_id}'),
+                            'url': plan.get('url', ''),
+                            'raw': plan
+                        }
+                    )
+        
+        # Create SourceRecord for GIS data
+        if gis_data:
+            if gis_data.get('permits'):
+                SourceRecord.objects.get_or_create(
+                    asset=asset,
+                    source='gis_permit',
+                    external_id=f"permits_{asset.id}",
+                    defaults={
+                        'title': 'היתרי בנייה',
+                        'raw': gis_data
+                    }
+                )
+            
+            if gis_data.get('rights'):
+                SourceRecord.objects.get_or_create(
+                    asset=asset,
+                    source='gis_rights',
+                    external_id=f"rights_{asset.id}",
+                    defaults={
+                        'title': 'זכויות בנייה',
+                        'raw': gis_data
+                    }
+                )
+        
+        # Create RealEstateTransaction records from government data
+        if gov_data and gov_data.get('transactions'):
+            for transaction in gov_data.get('transactions', []):
+                if transaction.get('deal_id'):
+                    RealEstateTransaction.objects.get_or_create(
+                        asset=asset,
+                        deal_id=str(transaction.get('deal_id')),
+                        defaults={
+                            'date': transaction.get('date'),
+                            'price': transaction.get('price'),
+                            'rooms': transaction.get('rooms'),
+                            'area': transaction.get('area'),
+                            'floor': transaction.get('floor'),
+                            'address': transaction.get('address'),
+                            'raw': transaction
+                        }
+                    )
+        
+        logger.info(f"Created Django records for asset {asset.id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to create Django records for asset {asset.id}: {e}")
+
+
+def _calculate_market_metrics(asset, listings, gov_data):
+    """Calculate market metrics for the asset based on collected data."""
+    try:
+        # Initialize market metrics
+        market_metrics = {}
+        
+        # Calculate price metrics from Yad2 listings
+        if listings:
+            prices = [listing.get('price') for listing in listings if listing.get('price')]
+            areas = [listing.get('area') for listing in listings if listing.get('area')]
+            
+            if prices:
+                avg_price = sum(prices) / len(prices)
+                min_price = min(prices)
+                max_price = max(prices)
+                
+                # Price gap percentage (if asset has a price)
+                if asset.price:
+                    price_gap_pct = ((asset.price - avg_price) / avg_price) * 100
+                    market_metrics['priceGapPct'] = round(price_gap_pct, 2)
+                
+                # Expected price range
+                market_metrics['expectedPriceRange'] = f"{min_price:,} - {max_price:,}"
+                
+                # Model price (average of similar properties)
+                market_metrics['modelPrice'] = int(avg_price)
+                
+                # Confidence percentage (based on number of comparable properties)
+                confidence_pct = min(100, len(prices) * 20)  # 20% per comparable property, max 100%
+                market_metrics['confidencePct'] = confidence_pct
+            
+            if areas:
+                avg_area = sum(areas) / len(areas)
+                if asset.area and avg_area:
+                    # Delta vs area percentage
+                    delta_vs_area_pct = ((asset.area - avg_area) / avg_area) * 100
+                    market_metrics['deltaVsAreaPct'] = round(delta_vs_area_pct, 2)
+        
+        # Calculate cap rate from rent estimate
+        if asset.price and asset.area:
+            # Estimate rent based on area (rough calculation: 50-80 NIS per sqm)
+            estimated_rent = asset.area * 65  # Average of 65 NIS per sqm
+            annual_rent = estimated_rent * 12
+            cap_rate = (annual_rent / asset.price) * 100
+            market_metrics['capRatePct'] = round(cap_rate, 2)
+            market_metrics['rentEstimate'] = int(estimated_rent)
+        
+        # Calculate competition metrics
+        if listings:
+            # Competition within 1km (simplified - based on number of listings)
+            competition_level = "נמוכה"
+            if len(listings) > 10:
+                competition_level = "גבוהה"
+            elif len(listings) > 5:
+                competition_level = "בינונית"
+            market_metrics['competition1km'] = competition_level
+        
+        # Calculate risk flags
+        risk_flags = []
+        
+        # Price risk
+        if market_metrics.get('priceGapPct'):
+            if abs(market_metrics['priceGapPct']) > 20:
+                risk_flags.append("פער מחיר גבוה")
+        
+        # Area risk
+        if market_metrics.get('deltaVsAreaPct'):
+            if abs(market_metrics['deltaVsAreaPct']) > 30:
+                risk_flags.append("פער שטח גבוה")
+        
+        # Low confidence
+        if market_metrics.get('confidencePct', 0) < 40:
+            risk_flags.append("ביטחון נמוך")
+        
+        market_metrics['riskFlags'] = risk_flags
+        
+        # Calculate DOM percentile (simplified)
+        if listings:
+            # Simulate DOM based on number of listings (more listings = higher DOM)
+            dom_percentile = min(90, len(listings) * 10)
+            market_metrics['domPercentile'] = dom_percentile
+        
+        # Store market metrics in asset meta
+        if not asset.meta:
+            asset.meta = {}
+        
+        asset.meta['market_metrics'] = market_metrics
+        
+        # Update asset fields with calculated metrics
+        for key, value in market_metrics.items():
+            if hasattr(asset, key):
+                setattr(asset, key, value)
+        
+        asset.save()
+        
+        logger.info(f"Calculated market metrics for asset {asset.id}: {market_metrics}")
+        
+    except Exception as e:
+        logger.error(f"Failed to calculate market metrics for asset {asset.id}: {e}")
+
+
+def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
+    """Create Document and Plan records from collected data."""
+    try:
+        from core.models import Document, Plan
+        from django.contrib.auth import get_user_model
+        
+        User = get_user_model()
+        
+        # Get or create a system user for automated documents
+        system_user, created = User.objects.get_or_create(
+            email='system@nadlaner.com',
+            defaults={
+                'first_name': 'System',
+                'last_name': 'User',
+                'is_active': False
+            }
+        )
+        
+        # Create Document records from GIS permits
+        if gis_data and gis_data.get('permits'):
+            for permit in gis_data.get('permits', []):
+                if permit.get('permit_number'):
+                    Document.objects.get_or_create(
+                        asset=asset,
+                        external_id=permit.get('permit_number'),
+                        defaults={
+                            'user': system_user,
+                            'title': f"היתר בנייה {permit.get('permit_number')}",
+                            'description': f"היתר בנייה מספר {permit.get('permit_number')}",
+                            'document_type': 'permit',
+                            'status': 'approved',
+                            'external_url': permit.get('url', ''),
+                            'source': 'gis',
+                            'document_date': permit.get('date'),
+                            'meta': permit
+                        }
+                    )
+        
+        # Create Document records from government appraisals
+        if gov_data and gov_data.get('decisive'):
+            for appraisal in gov_data.get('decisive', []):
+                if appraisal.get('id'):
+                    Document.objects.get_or_create(
+                        asset=asset,
+                        external_id=appraisal.get('id'),
+                        defaults={
+                            'user': system_user,
+                            'title': f"שומה החלטית {appraisal.get('id')}",
+                            'description': f"שומה החלטית מספר {appraisal.get('id')}",
+                            'document_type': 'appraisal_decisive',
+                            'status': 'approved',
+                            'external_url': appraisal.get('url', ''),
+                            'source': 'gov',
+                            'document_date': appraisal.get('date'),
+                            'meta': appraisal
+                        }
+                    )
+        
+        # Create Plan records from RAMI plans
+        if plans:
+            for plan in plans:
+                plan_number = plan.get('planNumber') or plan.get('plan_number', '')
+                if plan_number:
+                    Plan.objects.get_or_create(
+                        asset=asset,
+                        plan_number=plan_number,
+                        defaults={
+                            'description': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                            'status': plan.get('status', ''),
+                            'file_url': plan.get('url', ''),
+                            'raw': plan
+                        }
+                    )
+        
+        # Create Plan records from Mavat plans
+        if mavat_plans:
+            for plan in mavat_plans:
+                plan_id = plan.get('plan_id') or plan.get('id', '')
+                if plan_id:
+                    Plan.objects.get_or_create(
+                        asset=asset,
+                        plan_number=f"mavat_{plan_id}",
+                        defaults={
+                            'description': plan.get('title', f'תכנית מבת {plan_id}'),
+                            'status': plan.get('status', ''),
+                            'file_url': plan.get('url', ''),
+                            'raw': plan
+                        }
+                    )
+        
+        logger.info(f"Created documents and plans for asset {asset.id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to create documents and plans for asset {asset.id}: {e}")
 
 
 def _create_documents_from_permits(asset, permits):
@@ -1321,7 +1468,8 @@ def _create_documents_from_permits(asset, permits):
             try:
                 from datetime import datetime
                 permit_date = datetime.fromtimestamp(permit['permission_date'] / 1000).strftime('%Y-%m-%d')
-            except:
+            except Exception as e:
+                logger.debug(f"Failed to parse permit date: {e}")
                 pass
         
         # Create document entry
@@ -1409,10 +1557,21 @@ def _create_documents_from_rami_plans(asset, plans):
             continue
             
         # Extract plan information
-        plan_number = plan.get('plan_number', plan.get('number', ''))
-        plan_name = plan.get('plan_name', plan.get('name', ''))
+        plan_number = plan.get('planNumber', plan.get('plan_number', plan.get('number', '')))
+        plan_name = plan.get('title', plan.get('plan_name', plan.get('name', '')))
         status = plan.get('status', '')
-        url = plan.get('url', '')
+        
+        # Extract URL from documentsSet structure
+        url = ''
+        documents_set = plan.get('raw', {}).get('documentsSet', {})
+        
+        # Try to get URL from various sources in documentsSet
+        if documents_set.get('map', {}).get('path'):
+            url = documents_set['map']['path']
+        elif documents_set.get('takanon', {}).get('path'):
+            url = documents_set['takanon']['path']
+        elif documents_set.get('mmg', {}).get('path'):
+            url = documents_set['mmg']['path']
         
         # Validate and clean URL
         if url and not url.startswith(('http://', 'https://')):
@@ -1428,7 +1587,7 @@ def _create_documents_from_rami_plans(asset, plans):
             'title': f"תכנית רמ״י - {plan_name}" if plan_name else f"תכנית רמ״י {plan_number}",
             'description': f"תכנית רמ״י {plan_number}",
             'status': status,
-            'date': plan.get('date', ''),
+            'date': plan.get('statusDate', plan.get('date', '')),
             'url': url,
             'source': 'RAMI',
             'plan_number': plan_number,

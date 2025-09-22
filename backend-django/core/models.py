@@ -559,8 +559,20 @@ class Asset(models.Model):
             return None
         return self.meta.get(key)
     
-    def get_property_value(self, key):
-        """Get the value of a property (from direct field or meta)."""
+    def get_property_value(self, key, default=None):
+        """
+        Get the value of a property (from direct field or meta).
+        Supports nested access using dot notation.
+        
+        Examples:
+            asset.get_property_value('price')  # Simple field
+            asset.get_property_value('government_data.decisive_appraisals', [])  # Nested
+            asset.get_property_value('gis_data.land_use_rights', [])  # Nested
+        """
+        # Handle nested access with dot notation
+        if '.' in key:
+            return self._get_nested_value(key, default)
+        
         # First try direct field
         if hasattr(self, key):
             value = getattr(self, key)
@@ -574,7 +586,23 @@ class Asset(models.Model):
                 return meta.get("value")
             return meta
         
-        return None
+        return default
+    
+    def _get_nested_value(self, key_path, default=None):
+        """Helper method to get nested values from meta."""
+        if not self.meta:
+            return default
+            
+        keys = key_path.split('.')
+        current = self.meta
+        
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return default
+                
+        return current
 
 
 class SourceRecord(models.Model):

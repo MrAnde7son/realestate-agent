@@ -1577,36 +1577,39 @@ def asset_appraisal(request, asset_id):
         # Get additional data from asset metadata (collected by data pipeline)
         if asset.meta:
             # Get decisive appraisals from government data
-            if asset.meta.get('government_data', {}).get('decisive_appraisals'):
-                for appraisal in asset.meta['government_data']['decisive_appraisals']:
+            decisive_appraisals = asset.get_property_value('government_data.decisive_appraisals', [])
+            if decisive_appraisals:
+                for appraisal in decisive_appraisals:
                     appraisal_data["decisive_appraisals"].append({
                         "id": f"collected_{appraisal.get('id', '')}",
                         "appraiser": appraisal.get('appraiser', 'לא זמין'),
                         "date": appraisal.get('date', ''),
                         "appraisedValue": appraisal.get('value', None),
                         "url": appraisal.get('url', ''),
-                        "fetched_at": asset.meta.get('last_enrichment'),
+                        "fetched_at": asset.get_property_value('last_enrichment'),
                         "source": "collected_government"
                     })
             
             # Get RAMI appraisals from collected data
-            if asset.meta.get('rami_plans'):
-                for plan in asset.meta['rami_plans']:
+            rami_plans = asset.get_property_value('rami_plans', [])
+            if rami_plans:
+                for plan in rami_plans:
                     if plan.get('marketValue') or plan.get('value'):
                         appraisal_data["rami_appraisals"].append({
                             "id": f"collected_rami_{plan.get('planNumber', plan.get('plan_number', ''))}",
                             "date": plan.get('status_date', plan.get('date', '')),
                             "marketValue": plan.get('marketValue', plan.get('value', None)),
                             "url": plan.get('url', ''),
-                            "fetched_at": asset.meta.get('last_enrichment'),
+                            "fetched_at": asset.get_property_value('last_enrichment'),
                             "source": "collected_rami",
                             "plan_number": plan.get('planNumber', plan.get('plan_number', '')),
                             "status": plan.get('status', '')
                         })
             
             # Get comparable transactions from collected data
-            if asset.meta.get('government_data', {}).get('transaction_history'):
-                for transaction in asset.meta['government_data']['transaction_history']:
+            transaction_history = asset.get_property_value('government_data.transaction_history', [])
+            if transaction_history:
+                for transaction in transaction_history:
                     appraisal_data["comparable_transactions"].append({
                         "id": f"collected_gov_{transaction.get('deal_id', '')}",
                         "date": transaction.get('date', ''),
@@ -1620,8 +1623,8 @@ def asset_appraisal(request, asset_id):
                     })
             
             # Get market metrics if available
-            if asset.meta.get('market_metrics'):
-                market_metrics = asset.meta['market_metrics']
+            market_metrics = asset.get_property_value('market_metrics', {})
+            if market_metrics:
                 appraisal_data["market_analysis"].update({
                     "model_price": market_metrics.get('modelPrice'),
                     "price_gap_pct": market_metrics.get('priceGapPct'),
@@ -1683,8 +1686,9 @@ def asset_permits(request, asset_id):
             })
         
         # Also get permits from GIS data in asset meta (fallback)
-        if asset.meta and asset.meta.get('gis_data', {}).get('building_permits'):
-            for permit in asset.meta['gis_data']['building_permits']:
+        building_permits = asset.get_property_value('gis_data.building_permits', [])
+        if building_permits:
+            for permit in building_permits:
                 # Avoid duplicates
                 if not any(p.get('permit_number') == permit.get('permission_num') for p in permits):
                     permits.append({
@@ -1696,7 +1700,7 @@ def asset_permits(request, asset_id):
                         "address": permit.get('addresses', ''),
                         "url": permit.get('url_hadmaya', ''),
                         "date": permit.get('permission_date', ''),
-                        "fetched_at": asset.meta.get('last_enrichment'),
+                        "fetched_at": asset.get_property_value('last_enrichment'),
                         "source": "gis"
                     })
         
@@ -1741,8 +1745,9 @@ def asset_plans(request, asset_id):
         # Get plans from asset metadata (RAMI and Mavat data)
         if asset.meta:
             # RAMI plans
-            if asset.meta.get('rami_plans'):
-                for plan in asset.meta['rami_plans']:
+            rami_plans = asset.get_property_value('rami_plans', [])
+            if rami_plans:
+                for plan in rami_plans:
                     plans.append({
                         "id": f"rami_{plan.get('planNumber', plan.get('plan_number', ''))}",
                         "plan_number": plan.get('planNumber', plan.get('plan_number', '')),
@@ -1755,8 +1760,9 @@ def asset_plans(request, asset_id):
                     })
             
             # Mavat plans
-            if asset.meta.get('mavat_plans'):
-                for plan in asset.meta['mavat_plans']:
+            mavat_plans = asset.get_property_value('mavat_plans', [])
+            if mavat_plans:
+                for plan in mavat_plans:
                     plans.append({
                         "id": f"mavat_{plan.get('plan_id', plan.get('id', ''))}",
                         "plan_number": plan.get('plan_id', plan.get('id', '')),
@@ -2331,8 +2337,9 @@ def asset_listings(request, asset_id):
         listings = []
         
         # Get Yad2 listings from asset metadata
-        if asset.meta and asset.meta.get('yad2_listings'):
-            for listing in asset.meta.get('yad2_listings', []):
+        yad2_listings = asset.get_property_value('yad2_listings', [])
+        if yad2_listings:
+            for listing in yad2_listings:
                 listings.append({
                     'id': listing.get('listing_id', ''),
                     'title': listing.get('title', ''),

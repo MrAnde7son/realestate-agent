@@ -211,8 +211,8 @@ class AssetRightsView(APIView):
                         rights_data['tabu_data'].append(row_data)
 
             # 2. Get GIS rights data from asset metadata
-            if asset.meta and asset.meta.get('gis_data', {}).get('land_use_rights'):
-                gis_rights = asset.meta['gis_data']['land_use_rights']
+            gis_rights = asset.get_property_value('gis_data.land_use_rights', [])
+            if gis_rights:
                 for idx, right in enumerate(gis_rights):
                     if isinstance(right, dict):
                         right_data = {
@@ -458,7 +458,8 @@ def create_document_from_meta(request, asset_id):
             return Response({'message': 'No documents in meta field'})
         
         created_documents = []
-        for doc_data in asset.meta['documents']:
+        documents = asset.get_property_value('documents', [])
+        for doc_data in documents:
             # Skip if already exists as Document record
             if Document.objects.filter(
                 asset=asset, 

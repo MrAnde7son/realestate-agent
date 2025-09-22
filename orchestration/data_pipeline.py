@@ -949,11 +949,12 @@ def _process_gis_data(asset, gis_data):
             source = 'GIS (calculated)'
             
             # Check if we have privilege page data
-            if hasattr(asset, 'meta') and asset.meta.get('privilege_page_data'):
+            privilege_data = asset.get_property_value('privilege_page_data')
+            if privilege_data:
                 try:
                     from gis.rights_calculator import get_remaining_rights_sqm
                     remaining_rights_sqm = get_remaining_rights_sqm(
-                        asset.meta['privilege_page_data'], 
+                        privilege_data, 
                         area_for_calculation
                     )
                     if remaining_rights_sqm:

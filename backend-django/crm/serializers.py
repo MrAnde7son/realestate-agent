@@ -52,10 +52,26 @@ class ContactSerializer(serializers.ModelSerializer):
     tags = serializers.ListField(
         child=serializers.CharField(), required=False, allow_empty=True, default=list
     )
-    
+    equity = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        coerce_to_string=False
+    )
+
     class Meta:
         model = Contact
-        fields = ["id", "name", "phone", "email", "tags", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "name",
+            "phone",
+            "email",
+            "equity",
+            "tags",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def to_internal_value(self, data):

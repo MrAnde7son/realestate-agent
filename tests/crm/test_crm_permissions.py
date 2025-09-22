@@ -21,13 +21,15 @@ class CrmPermissionsTests(TestCase):
         self.user = User.objects.create_user(
             email='crm_permissions_test@example.com',
             username='testuser',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.other_user = User.objects.create_user(
             email='crm_permissions_other@example.com',
             username='crm_permissions_other',
-            password='testpass123'
+            password='testpass123',
+            role='broker'
         )
         
         self.asset = Asset.objects.create(
@@ -504,7 +506,8 @@ class CrmPermissionsTests(TestCase):
             user = User.objects.create_user(
                 email=f'user{i}@example.com',
                 username=f'user{i}',
-                password='testpass123'
+                password='testpass123',
+                role='broker'
             )
             users.append(user)
         

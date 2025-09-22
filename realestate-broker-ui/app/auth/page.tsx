@@ -14,6 +14,7 @@ import Logo from '@/components/Logo'
 import { useAuth } from '@/lib/auth-context'
 import { LoginCredentials, RegisterCredentials } from '@/lib/auth'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const loginSchema = z.object({
   email: z.string().email('דוא״ל לא תקין'),
@@ -28,7 +29,9 @@ const registerSchema = z.object({
   first_name: z.string().min(2, 'שם פרטי חייב להכיל לפחות 2 תווים'),
   last_name: z.string().min(2, 'שם משפחה חייב להכיל לפחות 2 תווים'),
   company: z.string().optional(),
-  role: z.string().optional(),
+  role: z.enum(['broker', 'appraiser', 'private'], {
+    required_error: 'בחר סוג משתמש',
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "סיסמאות אינן תואמות",
   path: ["confirmPassword"],
@@ -63,6 +66,9 @@ export default function AuthPage() {
 
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      role: 'private',
+    },
   })
 
   const onLoginSubmit = async (data: LoginFormData) => {
@@ -279,6 +285,33 @@ export default function AuthPage() {
                   {registerForm.formState.errors.email && (
                     <p className="text-sm text-destructive">
                       {registerForm.formState.errors.email.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role">סוג משתמש</Label>
+                  <Select
+                    value={registerForm.watch('role')}
+                    onValueChange={(value) =>
+                      registerForm.setValue('role', value as 'broker' | 'appraiser' | 'private', {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="role">
+                      <SelectValue placeholder="בחר סוג משתמש" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="broker">מתווך</SelectItem>
+                      <SelectItem value="appraiser">שמאי</SelectItem>
+                      <SelectItem value="private">פרטי</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {registerForm.formState.errors.role && (
+                    <p className="text-sm text-destructive">
+                      {registerForm.formState.errors.role.message}
                     </p>
                   )}
                 </div>

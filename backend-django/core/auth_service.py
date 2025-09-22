@@ -9,6 +9,14 @@ from rest_framework import status
 
 User = get_user_model()
 
+ALLOWED_REGISTRATION_ROLES = {
+    User.Role.BROKER,
+    User.Role.APPRAISER,
+    User.Role.PRIVATE,
+}
+
+DEFAULT_REGISTRATION_ROLE = User.Role.PRIVATE
+
 
 class AuthenticationService:
     """Service class for handling authentication operations."""
@@ -58,8 +66,12 @@ class AuthenticationService:
             first_name = user_data.get('first_name', '')
             last_name = user_data.get('last_name', '')
             company = user_data.get('company', '')
-            # All new users are automatically assigned 'member' role
-            role = 'member'
+            requested_role = user_data.get('role')
+            role = (
+                requested_role
+                if requested_role in ALLOWED_REGISTRATION_ROLES
+                else str(DEFAULT_REGISTRATION_ROLE)
+            )
             
             if not email or not password or not username:
                 return {

@@ -124,7 +124,7 @@ def _update_onboarding(user, step):
                         'id': 1,
                         'email': 'user@example.com',
                         'username': 'user',
-                        'role': 'member'
+                        'role': 'broker'
                     }
                 }
             }
@@ -411,7 +411,7 @@ def me(request):
         {
             "authenticated": True,
             "email": u.email,
-            "role": getattr(u, "role", "member"),
+            "role": getattr(u, "role", "private"),
         }
     )
 
@@ -433,6 +433,7 @@ def demo_start(request):
         password=password,
         first_name="Demo",
         last_name="User",
+        role=User.Role.BROKER,
         is_demo=True,
     )
 

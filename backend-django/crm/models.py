@@ -32,6 +32,13 @@ class Contact(models.Model):
     phone = models.CharField(max_length=30, blank=True, help_text="Phone number")
     email = models.EmailField(blank=True, help_text="Email address")
     tags = models.JSONField(default=list, blank=True, help_text="Tags like ['משקיע', 'VIP']")
+    equity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Optional equity amount to support mortgage insights",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

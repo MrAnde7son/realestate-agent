@@ -19,7 +19,7 @@ import {
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
-import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { Contact, CrmApi, CreateContactData } from '@/lib/api/crm';
 import { ContactForm } from '@/components/crm/contact-form';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +35,18 @@ export default function ContactsPage() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  const formatEquity = (value: number | null) => {
+    if (value === null || Number.isNaN(value)) {
+      return '-';
+    }
+
+    return new Intl.NumberFormat('he-IL', {
+      style: 'currency',
+      currency: 'ILS',
+      maximumFractionDigits: 0
+    }).format(value);
+  };
 
   const loadContacts = useCallback(async () => {
     try {
@@ -121,11 +133,18 @@ export default function ContactsPage() {
     }
   };
 
-  const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phone.includes(searchQuery)
-  );
+  const filteredContacts = contacts.filter(contact => {
+    const normalizedQuery = searchQuery.toLowerCase();
+    const equityQuery = contact.equity !== null ? contact.equity.toString() : '';
+
+    return (
+      contact.name.toLowerCase().includes(normalizedQuery) ||
+      (contact.email || '').toLowerCase().includes(normalizedQuery) ||
+      (contact.phone || '').includes(searchQuery) ||
+      contact.tags.some(tag => tag.toLowerCase().includes(normalizedQuery)) ||
+      equityQuery.includes(searchQuery)
+    );
+  });
 
   if (isLoading) {
     return (
@@ -192,6 +211,7 @@ export default function ContactsPage() {
                 <TableHead>שם</TableHead>
                 <TableHead>אימייל</TableHead>
                 <TableHead>טלפון</TableHead>
+                <TableHead>הון עצמי</TableHead>
                 <TableHead>תגיות</TableHead>
                 <TableHead>נוצר</TableHead>
                 <TableHead className="text-left">פעולות</TableHead>
@@ -203,6 +223,7 @@ export default function ContactsPage() {
                   <TableCell className="font-medium">{contact.name}</TableCell>
                   <TableCell>{contact.email || '-'}</TableCell>
                   <TableCell>{contact.phone || '-'}</TableCell>
+                  <TableCell>{formatEquity(contact.equity)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {contact.tags.map((tag) => (

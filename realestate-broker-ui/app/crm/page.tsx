@@ -152,6 +152,18 @@ export default function CrmPage() {
     return new Date(dateString).toLocaleDateString('he-IL');
   };
 
+  const formatEquity = (value: number | null) => {
+    if (value === null || Number.isNaN(value)) {
+      return '-';
+    }
+
+    return new Intl.NumberFormat('he-IL', {
+      style: 'currency',
+      currency: 'ILS',
+      maximumFractionDigits: 0
+    }).format(value);
+  };
+
   // Contact handlers
   const handleCreateContact = async (data: CreateContactData) => {
     try {
@@ -223,12 +235,18 @@ export default function CrmPage() {
   };
 
   // Filter functions
-  const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phone?.includes(searchQuery) ||
-    contact.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredContacts = contacts.filter(contact => {
+    const normalizedQuery = searchQuery.toLowerCase();
+    const equityQuery = contact.equity !== null ? contact.equity.toString() : '';
+
+    return (
+      contact.name.toLowerCase().includes(normalizedQuery) ||
+      (contact.email || '').toLowerCase().includes(normalizedQuery) ||
+      (contact.phone || '').includes(searchQuery) ||
+      contact.tags.some(tag => tag.toLowerCase().includes(normalizedQuery)) ||
+      equityQuery.includes(searchQuery)
+    );
+  });
 
   const filteredLeads = leads.filter(lead =>
     lead.contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -517,6 +535,7 @@ export default function CrmPage() {
                       <TableHead className="text-right">שם</TableHead>
                       <TableHead className="text-right">אימייל</TableHead>
                       <TableHead className="text-right">טלפון</TableHead>
+                      <TableHead className="text-right">הון עצמי</TableHead>
                       <TableHead className="text-right">תגיות</TableHead>
                       <TableHead className="text-right">נוצר</TableHead>
                       <TableHead className="text-right">פעולות</TableHead>
@@ -528,6 +547,7 @@ export default function CrmPage() {
                         <TableCell className="font-medium text-right">{contact.name}</TableCell>
                         <TableCell className="text-right">{contact.email || '-'}</TableCell>
                         <TableCell className="text-right">{contact.phone || '-'}</TableCell>
+                        <TableCell className="text-right">{formatEquity(contact.equity)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap gap-1 rtl:flex-row-reverse">
                             {contact.tags.map((tag) => (

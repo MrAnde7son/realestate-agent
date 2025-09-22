@@ -113,13 +113,14 @@ class ContactViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         output = StringIO()
         writer = csv.writer(output)
-        writer.writerow(["Name", "Email", "Phone", "Tags", "Created At"])
+        writer.writerow(["Name", "Email", "Phone", "Equity", "Tags", "Created At"])
 
         for contact in queryset:
             writer.writerow([
                 contact.name,
                 contact.email,
                 contact.phone,
+                contact.equity if contact.equity is not None else "",
                 "; ".join(contact.tags or []),
                 contact.created_at.isoformat()
             ])

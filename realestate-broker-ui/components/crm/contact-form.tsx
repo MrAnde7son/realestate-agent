@@ -45,7 +45,7 @@ export function ContactForm({
       has_phone: !!formData.phone,
       tags_count: formData.tags?.length || 0,
       is_edit: !!initialData?.id,
-      has_selected_asset: !!selectedAsset
+      has_selected_asset: !!selectedAsset,
       has_equity: typeof formData.equity === 'number',
     });
     

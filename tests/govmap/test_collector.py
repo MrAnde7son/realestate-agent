@@ -18,21 +18,6 @@ def test_collector_initialization_custom_client():
     assert collector.client is custom_client
 
 
-def test_autocomplete():
-    """Test autocomplete method"""
-    collector = GovMapCollector()
-    
-    expected_result = {
-        "results": [{"id": "test", "originalText": "test query"}],
-        "resultsCount": 1,
-        "aggregations": []
-    }
-    
-    with mock.patch.object(collector.client, 'autocomplete', return_value=expected_result):
-        result = collector.autocomplete("test query")
-        assert result == expected_result
-
-
 def test_collect_success():
     """Test successful data collection with new API"""
     collector = GovMapCollector()

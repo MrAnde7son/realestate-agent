@@ -5,7 +5,7 @@ Yad2 Scraper
 
 Enhanced Yad2 scraper with dynamic parameter support and comprehensive data extraction.
 """
-
+import logging
 import requests
 import json
 import time
@@ -18,6 +18,7 @@ except ImportError:
 
 from ..core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
 
+logger = logging.getLogger(__name__)
 
 class Yad2Scraper:
     """Enhanced Yad2 scraper with dynamic parameter support."""
@@ -54,6 +55,42 @@ class Yad2Scraper:
         
         # Parameter reference for validation
         self.param_reference = Yad2ParameterReference()
+
+    def get_property_types(self):
+        """Get all property type codes with names."""
+        return self.param_reference.get_property_types()
+
+    def get_property_type_by_code(self, code):
+        """Get property type name by code."""
+        if not code:
+            return None
+        return self.get_property_types().get(int(code))
+    
+    def fetch_location_autocomplete(self, search_text: str) -> dict:
+        """Fetch location data from Yad2 address autocomplete API."""
+        try:
+            url = f"{self.api_base_url}/address-autocomplete/realestate/v2"
+            params = {'text': search_text}
+
+            response = self.session.get(url, params=params, timeout=30)
+
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'search_text': search_text,
+                    'hoods': data.get('hoods', []),
+                    'cities': data.get('cities', []),
+                    'areas': data.get('areas', []),
+                    'top_areas': data.get('topAreas', []),
+                    'streets': data.get('streets', [])
+                }
+            else:
+                logger.warning(f"Failed to fetch location data: {response.status_code}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error fetching location data: {e}")
+            return None
     
     def set_search_parameters(self, **kwargs):
         """Set or update search parameters."""
@@ -61,7 +98,7 @@ class Yad2Scraper:
             try:
                 self.search_params.set_parameter(key, value)
             except ValueError as e:
-                print("Warning: {}".format(e))
+                logger.warning("Warning: {}".format(e))
     
     def build_search_url(self, page=1):
         """Build the search URL with current parameters."""
@@ -91,13 +128,13 @@ class Yad2Scraper:
                 if response.status_code == 200:
                     return BeautifulSoup(response.content, 'html.parser')
                 elif response.status_code == 429:  # Rate limited
-                    print("Rate limited, waiting {} seconds...".format(delay * (attempt + 1)))
+                    logger.warning("Rate limited, waiting {} seconds...".format(delay * (attempt + 1)))
                     time.sleep(delay * (attempt + 1))
                 else:
-                    print("Failed to fetch page: {}".format(response.status_code))
+                    logger.warning("Failed to fetch page: {}".format(response.status_code))
                     
             except requests.exceptions.RequestException as e:
-                print("Error fetching page (attempt {}): {}".format(attempt + 1, e))
+                logger.error("Error fetching page (attempt {}): {}".format(attempt + 1, e))
                 if attempt < retries - 1:
                     time.sleep(delay)
         
@@ -148,7 +185,7 @@ class Yad2Scraper:
             return listing
             
         except Exception as e:
-            print("Error extracting listing info: {}".format(e))
+            logger.error("Error extracting listing info: {}".format(e))
             return None
     
     def scrape_page(self, page=1):
@@ -162,20 +199,20 @@ class Yad2Scraper:
             List of RealEstateListing objects
         """
         url = self.build_search_url(page)
-        print("Scraping page {} from: {}".format(page, url))
+        logger.info("Scraping page {} from: {}".format(page, url))
         
         soup = self.fetch_page(url)
         if not soup:
-            print("Failed to fetch page {}".format(page))
+            logger.error("Failed to fetch page {}".format(page))
             return []
         
         # Use the working selector from utils
         items = soup.select("a.item-layout_itemLink__CZZ7w")
         if not items:
-            print("No listings found on page {} - trying fallback extraction".format(page))
+            logger.info("No listings found on page {} - trying fallback extraction".format(page))
             return []
         
-        print("Found {} listings using working selector".format(len(items)))
+        logger.debug("Found {} listings using working selector".format(len(items)))
         
         listings = []
         for item in items:
@@ -206,11 +243,11 @@ class Yad2Scraper:
                 listings = self.scrape_page(page)
                 
                 if not listings:
-                    print("No more listings found on page {}".format(page))
+                    logger.info("No more listings found on page {}".format(page))
                     break
                 
                 all_listings.extend(listings)
-                print("Page {}: Found {} listings (Total: {})".format(
+                logger.info("Page {}: Found {} listings (Total: {})".format(
                     page, len(listings), len(all_listings)))
                 
                 # Add delay between requests to be respectful
@@ -218,10 +255,10 @@ class Yad2Scraper:
                     time.sleep(delay)
                     
             except KeyboardInterrupt:
-                print("Scraping interrupted by user")
+                logger.debug("Scraping interrupted by user")
                 break
             except Exception as e:
-                print("Error scraping page {}: {}".format(page, e))
+                logger.error("Error scraping page {}: {}".format(page, e))
                 continue
         
         self.listings = all_listings
@@ -277,7 +314,7 @@ class Yad2Scraper:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         
-        print("Saved {} listings to {}".format(len(self.listings), filename))
+        logger.info("Saved {} listings to {}".format(len(self.listings), filename))
         return filename
     
     @classmethod

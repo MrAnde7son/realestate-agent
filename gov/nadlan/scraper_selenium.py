@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -67,6 +68,9 @@ class NadlanDealsScraper:
         if self.driver is None:
             service = Service(ChromeDriverManager().install())
             options = webdriver.ChromeOptions()
+            chrome_binary = os.getenv("CHROME_BIN")
+            if chrome_binary:
+                options.binary_location = chrome_binary
             if self.headless:
                 options.add_argument('--headless')
             options.add_argument('--no-sandbox')

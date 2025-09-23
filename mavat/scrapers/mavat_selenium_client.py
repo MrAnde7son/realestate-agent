@@ -10,6 +10,7 @@ Based on the successful approach from: gov/nadlan/scraper_selenium.py
 """
 
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -88,6 +89,9 @@ class MavatSeleniumClient:
         if self.driver is None:
             service = Service(ChromeDriverManager().install())
             options = webdriver.ChromeOptions()
+            chrome_binary = os.getenv("CHROME_BIN")
+            if chrome_binary:
+                options.binary_location = chrome_binary
             if self.headless:
                 options.add_argument('--headless')
             options.add_argument('--no-sandbox')

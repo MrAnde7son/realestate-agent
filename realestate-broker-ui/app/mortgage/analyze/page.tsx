@@ -11,9 +11,12 @@ import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { calculateAllScenarios, calculateLTV, calculateAffordability, type MortgageInput, type MortgageCalculation } from '@/lib/mortgage'
 import { Loader2, Calculator } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { useOptionalAuth } from '@/lib/auth-context'
 
 export default function MortgageAnalyzePage() {
   const { trackCalculatorUsage, trackCalculatorCalculation } = useAnalytics()
+  const auth = useOptionalAuth()
+  const user = auth?.user ?? null
   
   const [input, setInput] = useState<MortgageInput>({
     loanAmount: 2800000,
@@ -30,6 +33,13 @@ export default function MortgageAnalyzePage() {
   const [requiredEquity, setRequiredEquity] = useState<number | null>(null)
   const [isClient, setIsClient] = useState(false)
   const [userEquity, setUserEquity] = useState<number>(0)
+
+  useEffect(() => {
+    if (user?.role === 'private') {
+      const equityValue = typeof user.equity === 'number' ? user.equity : 0
+      setUserEquity(equityValue)
+    }
+  }, [user])
 
   useEffect(() => {
     // Set client-side flag

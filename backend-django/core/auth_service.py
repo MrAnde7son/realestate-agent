@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal, InvalidOperation
 import urllib.parse
 import requests
 from django.contrib.auth import authenticate, get_user_model
@@ -67,11 +68,29 @@ class AuthenticationService:
             last_name = user_data.get('last_name', '')
             company = user_data.get('company', '')
             requested_role = user_data.get('role')
+            raw_equity = user_data.get('equity')
             role = (
                 requested_role
                 if requested_role in ALLOWED_REGISTRATION_ROLES
                 else str(DEFAULT_REGISTRATION_ROLE)
             )
+
+            equity = None
+            if role == str(User.Role.PRIVATE) and raw_equity not in (None, ""):
+                try:
+                    equity = Decimal(str(raw_equity))
+                except (InvalidOperation, TypeError):
+                    return {
+                        'success': False,
+                        'error': 'Equity must be a valid number',
+                        'status': status.HTTP_400_BAD_REQUEST
+                    }
+                if equity < 0:
+                    return {
+                        'success': False,
+                        'error': 'Equity must be a non-negative amount',
+                        'status': status.HTTP_400_BAD_REQUEST
+                    }
             
             if not email or not password or not username:
                 return {
@@ -103,7 +122,8 @@ class AuthenticationService:
                 first_name=first_name,
                 last_name=last_name,
                 company=company,
-                role=role
+                role=role,
+                equity=equity,
             )
             
             # Generate JWT tokens
@@ -185,9 +205,21 @@ class AuthenticationService:
                 user.company = profile_data['company']
             if 'role' in profile_data:
                 user.role = profile_data['role']
-            
+            if 'equity' in profile_data:
+                raw_equity = profile_data['equity']
+                if raw_equity in (None, ""):
+                    user.equity = None
+                else:
+                    try:
+                        equity_value = Decimal(str(raw_equity))
+                    except (InvalidOperation, TypeError):
+                        raise ValueError('Equity must be a valid number')
+                    if equity_value < 0:
+                        raise ValueError('Equity must be a non-negative amount')
+                    user.equity = equity_value
+
             user.save()
-            
+
             return {
                 'success': True,
                 'data': {
@@ -406,6 +438,7 @@ class AuthenticationService:
             'last_name': user.last_name,
             'company': getattr(user, 'company', ''),
             'role': getattr(user, 'role', ''),
+            'equity': float(user.equity) if getattr(user, 'equity', None) is not None else None,
             'is_verified': getattr(user, 'is_verified', False),
             'created_at': user.created_at.isoformat() if hasattr(user, 'created_at') else None,
             'language': getattr(user, 'language', ''),

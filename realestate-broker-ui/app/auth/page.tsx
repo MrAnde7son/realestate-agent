@@ -32,6 +32,13 @@ const registerSchema = z.object({
   role: z.enum(['broker', 'appraiser', 'private'], {
     required_error: 'בחר סוג משתמש',
   }),
+  equity: z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) {
+      return undefined
+    }
+    const numericValue = typeof val === 'number' ? val : parseFloat(val as string)
+    return Number.isNaN(numericValue) ? undefined : numericValue
+  }, z.number().min(0, 'הון עצמי חייב להיות מספר חיובי').optional()),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "סיסמאות אינן תואמות",
   path: ["confirmPassword"],
@@ -68,8 +75,10 @@ export default function AuthPage() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       role: 'private',
+      equity: undefined,
     },
   })
+  const selectedRole = registerForm.watch('role')
 
   const onLoginSubmit = async (data: LoginFormData) => {
     try {
@@ -83,8 +92,12 @@ export default function AuthPage() {
   const onRegisterSubmit = async (data: RegisterFormData) => {
     try {
       setError('')
-      const { confirmPassword, ...registerData } = data
-      await register(registerData, redirectTo)
+      const { confirmPassword, equity, ...registerData } = data
+      const payload: RegisterCredentials = { ...registerData }
+      if (registerData.role === 'private' && typeof equity === 'number' && !Number.isNaN(equity)) {
+        payload.equity = equity
+      }
+      await register(payload, redirectTo)
     } catch (err: any) {
       setError(err.message || 'שגיאה בהרשמה')
     }
@@ -316,7 +329,7 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="company">חברה</Label>
                     <Input
@@ -325,6 +338,28 @@ export default function AuthPage() {
                       {...registerForm.register('company')}
                     />
                   </div>
+
+                  {selectedRole === 'private' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
+                      <Input
+                        id="equity"
+                        type="number"
+                        min="0"
+                        step="1000"
+                        placeholder="לדוגמה: 450000"
+                        {...registerForm.register('equity')}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        נשתמש בהון העצמי שלך כברירת מחדל במחשבון המשכנתא
+                      </p>
+                      {registerForm.formState.errors.equity && (
+                        <p className="text-sm text-destructive">
+                          {registerForm.formState.errors.equity.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

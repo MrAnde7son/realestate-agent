@@ -15,6 +15,13 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     company = models.CharField(max_length=100, blank=True, null=True)
+    equity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Equity amount saved for default mortgage calculations",
+    )
 
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"

@@ -8,6 +8,7 @@ export interface User {
   last_name: string
   company: string
   role: string
+  equity?: number | null
   phone?: string
   notify_email?: boolean
   notify_whatsapp?: boolean
@@ -40,6 +41,7 @@ export interface RegisterCredentials {
   last_name?: string
   company?: string
   role: 'broker' | 'appraiser' | 'private'
+  equity?: number
 }
 
 export interface ProfileUpdateData {
@@ -50,6 +52,7 @@ export interface ProfileUpdateData {
   phone?: string
   notify_email?: boolean
   notify_whatsapp?: boolean
+  equity?: number | null
 }
 
 export interface ChangePasswordData {

@@ -129,7 +129,7 @@ class TestNadlanDealsScraper:
             assert scraper is not None
         # Context manager should work without errors
     
-    @patch('gov.nadlan.scraper.NadlanDealsScraper._fetch_deals_by_neighborhood_id_selenium')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._fetch_deals_by_neighborhood')
     def test_get_deals_by_neighborhood_id_success(self, mock_fetch):
         """Test successful retrieval of deals by neighborhood ID."""
         # Mock the selenium result
@@ -145,7 +145,7 @@ class TestNadlanDealsScraper:
         assert deals[0].deal_amount == 1500000.0
         mock_fetch.assert_called_once_with("12345")
     
-    @patch('gov.nadlan.scraper.NadlanDealsScraper._fetch_deals_by_neighborhood_id_selenium')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper._fetch_deals_by_neighborhood')
     def test_get_deals_by_neighborhood_id_failure(self, mock_fetch):
         """Test handling of failures in get_deals_by_neighborhood_id."""
         mock_fetch.side_effect = Exception("Test error")
@@ -153,7 +153,7 @@ class TestNadlanDealsScraper:
         with pytest.raises(NadlanAPIError, match="Failed to fetch deals for neighborhood 12345"):
             self.scraper.get_deals_by_neighborhood_id("12345")
     
-    @patch('gov.nadlan.scraper.NadlanDealsScraper._search_address_selenium')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper.search_address')
     def test_search_address_success(self, mock_fetch):
         """Test successful address search."""
         mock_results = [
@@ -167,7 +167,7 @@ class TestNadlanDealsScraper:
         assert results[0]["value"] == "רמת החייל"
         assert results[0]["neighborhood_id"] == "65210036"
     
-    @patch('gov.nadlan.scraper.NadlanDealsScraper._search_address_selenium')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper.search_address')
     def test_search_address_failure(self, mock_fetch):
         """Test handling of failures in address search."""
         mock_fetch.side_effect = Exception("Test error")
@@ -217,7 +217,7 @@ class TestNadlanDealsScraper:
         with pytest.raises(NadlanAPIError, match="Could not determine neighborhood ID for: רמת החייל"):
             self.scraper.get_deals_by_address("רמת החייל")
     
-    @patch('gov.nadlan.scraper.NadlanDealsScraper._get_neighborhood_info_selenium')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper.get_neighborhood_info')
     def test_get_neighborhood_info_success(self, mock_fetch):
         """Test successful retrieval of neighborhood info."""
         mock_info = {
@@ -235,7 +235,7 @@ class TestNadlanDealsScraper:
         assert info["setl_id"] == "5000"
         assert info["setl_name"] == "תל אביב-יפו"
     
-    @patch('gov.nadlan.scraper.NadlanDealsScraper._get_neighborhood_info_selenium')
+    @patch('gov.nadlan.scraper.NadlanDealsScraper.get_neighborhood_info')
     def test_get_neighborhood_info_failure(self, mock_fetch):
         """Test handling of failures in get_neighborhood_info."""
         mock_fetch.side_effect = Exception("Test error")

@@ -4,6 +4,7 @@ import statistics
 import re
 import os
 import secrets
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -185,6 +186,7 @@ def auth_login(request):
                 'username': {'type': 'string'},
                 'first_name': {'type': 'string'},
                 'last_name': {'type': 'string'},
+                'equity': {'type': 'number', 'minimum': 0},
             },
             'required': ['email', 'password', 'username']
         }
@@ -258,6 +260,7 @@ def auth_profile(request):
                 "last_name": user.last_name,
                 "company": getattr(user, "company", ""),
                 "role": getattr(user, "role", ""),
+                "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
                 "is_verified": getattr(user, "is_verified", False),
                 "created_at": (
                     user.created_at.isoformat()
@@ -302,6 +305,24 @@ def auth_update_profile(request):
             user.last_name = data["last_name"]
         if "company" in data:
             user.company = data["company"]
+        if "equity" in data:
+            equity_value = data["equity"]
+            if equity_value in (None, ""):
+                user.equity = None
+            else:
+                try:
+                    equity_decimal = Decimal(str(equity_value))
+                except (InvalidOperation, TypeError):
+                    return Response(
+                        {"error": "Equity must be a valid number"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if equity_decimal < 0:
+                    return Response(
+                        {"error": "Equity must be a non-negative amount"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user.equity = equity_decimal
         # Role changes are not allowed for regular users - only admins can change roles
         # if "role" in data:
         #     user.role = data["role"]
@@ -321,6 +342,7 @@ def auth_update_profile(request):
                     "last_name": user.last_name,
                     "company": getattr(user, "company", ""),
                     "role": getattr(user, "role", ""),
+                    "equity": float(user.equity) if getattr(user, "equity", None) is not None else None,
                     "is_verified": getattr(user, "is_verified", False),
                     "onboarding_flags": {
                         "connect_payment": onboarding_progress.connect_payment,

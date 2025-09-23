@@ -179,7 +179,6 @@ class TestCollectorsIntegration:
     @pytest.mark.integration
     @pytest.mark.slow
     @pytest.mark.external_service
-    @pytest.mark.skip(reason="Skipping due to captcha issues - needs manual intervention")
     def test_yad2_scraper(self):
         """Test Yad2 scraper functionality."""
         logger.info("Testing Yad2 Scraper...")

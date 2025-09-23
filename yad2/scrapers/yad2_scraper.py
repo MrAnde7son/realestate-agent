@@ -32,6 +32,7 @@ class Yad2Scraper:
             headers: Custom headers for requests
         """
         self.base_url = "https://www.yad2.co.il"
+        self.api_base_url = "https://www.yad2.co.il/api"
         self.search_endpoint = "/realestate/forsale"
         
         # Default headers to mimic a real browser
@@ -331,3 +332,15 @@ class Yad2Scraper:
         """
         params_dict = URLUtils.extract_url_parameters(url)
         return cls(search_params=params_dict, **kwargs) 
+
+
+if __name__ == "__main__":
+    search_params = {
+            "property": "1",        # Apartment
+            "maxPrice": 5000000,    # 5M NIS
+            "city": "5000",         # Tel Aviv
+            "max_pages": 2
+        }
+    scraper = Yad2Scraper(search_params)
+    scraper.scrape_all_pages(max_pages=10)
+    scraper.save_to_json()

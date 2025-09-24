@@ -409,7 +409,7 @@ export default function TableToolbar({
 
                   {/* Additional filters */}
                   {additionalFilters.map((filter) => (
-                    <div key={filter.key} className="space-y-2">
+                    <div key={filter.key} className="space-y-1">
                       <Label className="text-sm">{filter.label}</Label>
                       <Select
                         value={filter.value}

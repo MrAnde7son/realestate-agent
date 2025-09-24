@@ -36,7 +36,7 @@ import {
   User,
   X
 } from 'lucide-react';
-import { ContactTask, TaskStatus, CrmApi, CreateTaskData } from '@/lib/api/crm';
+import { Lead, ContactTask, TaskStatus, CrmApi, CreateTaskData } from '@/lib/api/crm';
 import { useToast } from '@/hooks/use-toast';
 import { TaskForm } from './task-form';
 import { PageLoader } from '@/components/ui/page-loader';

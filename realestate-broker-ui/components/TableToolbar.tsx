@@ -36,16 +36,22 @@ import {
   List,
   Map,
   X,
-  ChevronDown,
   Plus,
   RefreshCw,
 } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
+interface FilterOptionOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
 interface FilterOption {
   key: string;
   label: string;
   value: string;
+  options?: FilterOptionOption[];
 }
 
 interface TableToolbarProps {
@@ -149,7 +155,6 @@ export default function TableToolbar({
 }: TableToolbarProps) {
   const { trackFeatureUsage } = useAnalytics()
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
   const [isClient, setIsClient] = useState(false);
 
@@ -205,7 +210,11 @@ export default function TableToolbar({
         {/* Filter toggle */}
         <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto justify-center"
+            >
               <Filter className="h-4 w-4 me-2" />
               <span className="hidden sm:inline">סינון</span>
               {hasActiveFilters && (
@@ -215,13 +224,13 @@ export default function TableToolbar({
               )}
             </Button>
           </SheetTrigger>
-            <SheetContent className="w-80" side="right">
+            <SheetContent className="w-full sm:max-w-sm" side="right">
               <SheetHeader>
                 <SheetTitle>סינון נכסים</SheetTitle>
               </SheetHeader>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium">סינון נכסים</h4>
+                  <h4 className="font-medium">אפשרויות סינון</h4>
                   {hasActiveFilters && (
                     <Button
                       variant="ghost"
@@ -235,7 +244,7 @@ export default function TableToolbar({
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {/* City filter */}
                   <div className="space-y-2">
                     <Label htmlFor="city-filter" className="text-sm">עיר</Label>
@@ -312,7 +321,7 @@ export default function TableToolbar({
 
                 {/* Status filters */}
                 {statusFilters && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 border-t pt-3">
                     <Label className="text-sm">סטטוס</Label>
                     <Select value={statusFilters.value} onValueChange={statusFilters.onChange}>
                       <SelectTrigger>
@@ -334,86 +343,81 @@ export default function TableToolbar({
                 )}
 
                 {/* Additional filters */}
-                {(additionalFilters.length > 0 || dateRange) && (
-                  <>
-                    <div className="border-t pt-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                        className="w-full justify-between"
-                      >
-                        <span>סינון מתקדם</span>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
-                      </Button>
+                {additionalFilters.length > 0 && (
+                  <div className="space-y-3 border-t pt-3">
+                    <h5 className="text-sm font-medium text-muted-foreground">פילטרים נוספים</h5>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {additionalFilters.map((filter) => (
+                        <div key={filter.key} className="space-y-2">
+                          <Label className="text-sm">{filter.label}</Label>
+                          <Select
+                            value={filter.value}
+                            onValueChange={(value) => onAdditionalFilterChange?.(filter.key, value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={`בחר ${filter.label.toLowerCase()}`} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">הכל</SelectItem>
+                              {filter.options?.map(option => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  <span className="flex justify-between gap-2">
+                                    <span>{option.label}</span>
+                                    {option.count !== undefined && (
+                                      <span className="text-xs text-muted-foreground">{option.count}</span>
+                                    )}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
                     </div>
+                  </div>
+                )}
 
-                    {showAdvancedFilters && (
-                      <div className="space-y-3">
-                        {/* Date range filter */}
-                        {dateRange && (
-                          <div className="space-y-2">
-                            <Label className="text-sm">טווח תאריכים</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-xs text-muted-foreground">מ-</Label>
-                                <Input
-                                  type="date"
-                                  value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const date = e.target.value ? new Date(e.target.value) : undefined;
-                                    dateRange.onChange(date, dateRange.to);
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-xs text-muted-foreground">עד</Label>
-                                <Input
-                                  type="date"
-                                  value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const date = e.target.value ? new Date(e.target.value) : undefined;
-                                    dateRange.onChange(dateRange.from, date);
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Additional filters */}
-                        {additionalFilters.map((filter) => (
-                          <div key={filter.key} className="space-y-2">
-                            <Label className="text-sm">{filter.label}</Label>
-                            <Select
-                              value={filter.value}
-                              onValueChange={(value) => onAdditionalFilterChange?.(filter.key, value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder={`בחר ${filter.label.toLowerCase()}`} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">הכל</SelectItem>
-                                {/* Add more options based on filter type */}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ))}
+                {/* Date range filter */}
+                {dateRange && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label className="text-sm">טווח תאריכים</Label>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">מ-</Label>
+                        <Input
+                          type="date"
+                          value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            dateRange.onChange(date, dateRange.to);
+                          }}
+                        />
                       </div>
-                    )}
-                  </>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">עד</Label>
+                        <Input
+                          type="date"
+                          value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            dateRange.onChange(dateRange.from, date);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </SheetContent>
           </Sheet>
 
         {/* View mode toggle */}
-        <div className="flex items-center border rounded-md">
+        <div className="flex w-full sm:w-auto items-center border rounded-md overflow-hidden">
           <Button
             variant={viewMode === 'table' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('table')}
-            className="rounded-r-none"
+            className="flex-1 sm:flex-none rounded-r-none"
             title="תצוגת טבלה"
           >
             <List className="h-4 w-4" />
@@ -422,7 +426,7 @@ export default function TableToolbar({
             variant={viewMode === 'cards' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('cards')}
-            className="rounded-none border-x"
+            className="flex-1 sm:flex-none rounded-none border-x"
             title="תצוגת כרטיסים"
           >
             <Grid3X3 className="h-4 w-4" />
@@ -431,7 +435,7 @@ export default function TableToolbar({
             variant={viewMode === 'map' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('map')}
-            className="rounded-l-none"
+            className="flex-1 sm:flex-none rounded-l-none"
             title="תצוגת מפה"
           >
             <Map className="h-4 w-4" />
@@ -441,7 +445,7 @@ export default function TableToolbar({
         {/* Column selection */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center">
               <Settings className="h-4 w-4 me-2" />
               <span className="hidden sm:inline">עמודות</span>
             </Button>
@@ -522,7 +526,7 @@ export default function TableToolbar({
         {bulkActions.length > 0 && selectedCount > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center">
                 <span className="hidden sm:inline">פעולות ({selectedCount})</span>
                 <span className="sm:hidden">({selectedCount})</span>
               </Button>
@@ -548,7 +552,7 @@ export default function TableToolbar({
         {/* Export dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center">
               <Download className="h-4 w-4 me-2" />
               <span className="hidden sm:inline">ייצוא</span>
             </Button>
@@ -578,6 +582,7 @@ export default function TableToolbar({
           size="sm"
           onClick={onRefresh}
           disabled={loading}
+          className="w-full sm:w-auto justify-center"
         >
           <RefreshCw className={`h-4 w-4 me-2 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
@@ -585,7 +590,7 @@ export default function TableToolbar({
 
         {/* Add new */}
         {onAddNew && (
-          <Button onClick={onAddNew} size="sm">
+          <Button onClick={onAddNew} size="sm" className="w-full sm:w-auto justify-center">
             <Plus className="h-4 w-4 me-2" />
             <span className="hidden sm:inline">הוסף חדש</span>
           </Button>

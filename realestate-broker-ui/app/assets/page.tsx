@@ -52,6 +52,16 @@ import { apiClient } from "@/lib/api-client";
 
 const DEFAULT_RADIUS_METERS = 100;
 
+const RISK_FILTER_OPTIONS = [
+  { value: "flagged", label: "עם דגלי סיכון" },
+  { value: "clean", label: "ללא דגלי סיכון" },
+] as const;
+
+const DOCUMENTS_FILTER_OPTIONS = [
+  { value: "with", label: "עם מסמכים" },
+  { value: "without", label: "ללא מסמכים" },
+] as const;
+
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,6 +81,11 @@ export default function AssetsPage() {
     const val = searchParams.get("priceMax");
     return val ? Number(val) : undefined;
   });
+  const [neighborhood, setNeighborhood] = useState<string>(() => searchParams.get("neighborhood") ?? "all");
+  const [zoning, setZoning] = useState<string>(() => searchParams.get("zoning") ?? "all");
+  const [riskFilter, setRiskFilter] = useState<string>(() => searchParams.get("risk") ?? "all");
+  const [documentsFilter, setDocumentsFilter] = useState<string>(() => searchParams.get("documents") ?? "all");
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "all");
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
   const { user, isAuthenticated, refreshUser } = useAuth();
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
@@ -165,6 +180,11 @@ export default function AssetsPage() {
     setPriceMin(min ? Number(min) : undefined);
     const max = searchParams.get("priceMax");
     setPriceMax(max ? Number(max) : undefined);
+    setNeighborhood(searchParams.get("neighborhood") ?? "all");
+    setZoning(searchParams.get("zoning") ?? "all");
+    setRiskFilter(searchParams.get("risk") ?? "all");
+    setDocumentsFilter(searchParams.get("documents") ?? "all");
+    setStatusFilter(searchParams.get("status") ?? "all");
   }, [searchParams]);
 
   useEffect(() => {
@@ -194,6 +214,31 @@ export default function AssetsPage() {
     } else {
       params.delete("priceMax");
     }
+    if (neighborhood && neighborhood !== "all") {
+      params.set("neighborhood", neighborhood);
+    } else {
+      params.delete("neighborhood");
+    }
+    if (zoning && zoning !== "all") {
+      params.set("zoning", zoning);
+    } else {
+      params.delete("zoning");
+    }
+    if (riskFilter && riskFilter !== "all") {
+      params.set("risk", riskFilter);
+    } else {
+      params.delete("risk");
+    }
+    if (documentsFilter && documentsFilter !== "all") {
+      params.set("documents", documentsFilter);
+    } else {
+      params.delete("documents");
+    }
+    if (statusFilter && statusFilter !== "all") {
+      params.set("status", statusFilter);
+    } else {
+      params.delete("status");
+    }
     const query = params.toString();
     const newUrl = query ? `${pathname}?${query}` : pathname;
     const currentQuery = searchParams.toString();
@@ -201,7 +246,21 @@ export default function AssetsPage() {
     if (newUrl !== currentUrl) {
       router.replace(newUrl, { scroll: false });
     }
-  }, [search, city, typeFilter, priceMin, priceMax, router, pathname, searchParams]);
+  }, [
+    search,
+    city,
+    typeFilter,
+    priceMin,
+    priceMax,
+    neighborhood,
+    zoning,
+    riskFilter,
+    documentsFilter,
+    statusFilter,
+    router,
+    pathname,
+    searchParams,
+  ]);
 
   // Function to fetch assets
   const fetchAssets = async () => {
@@ -460,6 +519,76 @@ export default function AssetsPage() {
       ) as string[],
     [assets]
   );
+  const neighborhoodOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(assets.map((l) => l.neighborhood).filter(Boolean))
+      ) as string[],
+    [assets]
+  );
+  const zoningOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(assets.map((l) => l.zoning).filter(Boolean))
+      ) as string[],
+    [assets]
+  );
+
+  const statusOptions = React.useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    const getLabel = (value: string) => {
+      switch (value) {
+        case "done":
+          return "מוכן";
+        case "failed":
+          return "שגיאה";
+        case "enriching":
+          return "מתעשר";
+        case "pending":
+          return "ממתין";
+        case "active":
+          return "פעיל";
+        case "archived":
+          return "בארכיון";
+        case "draft":
+          return "טיוטה";
+        case "processing":
+          return "בעיבוד";
+        case "synced":
+          return "מסונכרן";
+        case "none":
+          return "ללא סטטוס";
+        default:
+          return value;
+      }
+    };
+
+    assets.forEach((asset) => {
+      const statusValue = asset.assetStatus ?? "none";
+      const existing = counts.get(statusValue);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        counts.set(statusValue, { label: getLabel(statusValue), count: 1 });
+      }
+    });
+
+    return Array.from(counts.entries()).map(([value, data]) => ({
+      value,
+      label: data.label,
+      count: data.count,
+    }));
+  }, [assets]);
+
+  const riskFilterOptions = React.useMemo(
+    () => [...RISK_FILTER_OPTIONS],
+    []
+  );
+
+  const documentsFilterOptions = React.useMemo(
+    () => [...DOCUMENTS_FILTER_OPTIONS],
+    []
+  );
 
   const filteredAssets = React.useMemo(
     () =>
@@ -484,7 +613,7 @@ export default function AssetsPage() {
         if (typeFilter && typeFilter !== "all" && l.type !== typeFilter) {
           return false;
         }
-        
+
         // Price filters - exclude items without price when price filters are applied
         if (priceMin != null || priceMax != null) {
           if (l.price == null) {
@@ -497,10 +626,53 @@ export default function AssetsPage() {
             return false;
           }
         }
-        
+
+        if (neighborhood && neighborhood !== "all" && l.neighborhood !== neighborhood) {
+          return false;
+        }
+
+        if (zoning && zoning !== "all" && l.zoning !== zoning) {
+          return false;
+        }
+
+        if (riskFilter === "flagged" && !(l.riskFlags && l.riskFlags.length > 0)) {
+          return false;
+        }
+
+        if (riskFilter === "clean" && l.riskFlags && l.riskFlags.length > 0) {
+          return false;
+        }
+
+        if (documentsFilter === "with" && !(l.documents && l.documents.length > 0)) {
+          return false;
+        }
+
+        if (documentsFilter === "without" && l.documents && l.documents.length > 0) {
+          return false;
+        }
+
+        if (statusFilter && statusFilter !== "all") {
+          const value = l.assetStatus ?? "none";
+          if (value !== statusFilter) {
+            return false;
+          }
+        }
+
         return true;
       }),
-    [assets, search, city, typeFilter, priceMin, priceMax]
+    [
+      assets,
+      search,
+      city,
+      typeFilter,
+      priceMin,
+      priceMax,
+      neighborhood,
+      zoning,
+      riskFilter,
+      documentsFilter,
+      statusFilter,
+    ]
   );
 
   return (
@@ -787,6 +959,31 @@ export default function AssetsPage() {
                   priceMax: {
                     value: priceMax,
                     onChange: setPriceMax
+                  },
+                  neighborhood: {
+                    value: neighborhood,
+                    onChange: setNeighborhood,
+                    options: neighborhoodOptions
+                  },
+                  zoning: {
+                    value: zoning,
+                    onChange: setZoning,
+                    options: zoningOptions
+                  },
+                  risk: {
+                    value: riskFilter,
+                    onChange: setRiskFilter,
+                    options: riskFilterOptions
+                  },
+                  documents: {
+                    value: documentsFilter,
+                    onChange: setDocumentsFilter,
+                    options: documentsFilterOptions
+                  },
+                  status: {
+                    value: statusFilter,
+                    onChange: setStatusFilter,
+                    options: statusOptions
                   }
                 }}
                 onRefresh={fetchAssets}

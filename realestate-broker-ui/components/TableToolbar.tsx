@@ -36,16 +36,22 @@ import {
   List,
   Map,
   X,
-  ChevronDown,
   Plus,
   RefreshCw,
 } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
+interface FilterOptionOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
 interface FilterOption {
   key: string;
   label: string;
   value: string;
+  options?: FilterOptionOption[];
 }
 
 interface TableToolbarProps {
@@ -71,6 +77,22 @@ interface TableToolbarProps {
       onChange: (value: number | undefined) => void;
     };
     priceMax: {
+      value: number | undefined;
+      onChange: (value: number | undefined) => void;
+    };
+    pricePerSqmMin?: {
+      value: number | undefined;
+      onChange: (value: number | undefined) => void;
+    };
+    pricePerSqmMax?: {
+      value: number | undefined;
+      onChange: (value: number | undefined) => void;
+    };
+    remainingRightsMin?: {
+      value: number | undefined;
+      onChange: (value: number | undefined) => void;
+    };
+    remainingRightsMax?: {
       value: number | undefined;
       onChange: (value: number | undefined) => void;
     };
@@ -149,7 +171,6 @@ export default function TableToolbar({
 }: TableToolbarProps) {
   const { trackFeatureUsage } = useAnalytics()
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
   const [isClient, setIsClient] = useState(false);
 
@@ -168,15 +189,24 @@ export default function TableToolbar({
     filters.type.value !== 'all' ||
     filters.priceMin.value !== undefined ||
     filters.priceMax.value !== undefined ||
+    (filters.pricePerSqmMin && filters.pricePerSqmMin.value !== undefined) ||
+    (filters.pricePerSqmMax && filters.pricePerSqmMax.value !== undefined) ||
+    (filters.remainingRightsMin && filters.remainingRightsMin.value !== undefined) ||
+    (filters.remainingRightsMax && filters.remainingRightsMax.value !== undefined) ||
     additionalFilters.some(filter => filter.value !== 'all') ||
     (statusFilters && statusFilters.value !== 'all') ||
-    (dateRange && (dateRange.from || dateRange.to));
+    (dateRange && (dateRange.from || dateRange.to)) ||
+    (additionalFilters.find(f => f.key === 'userAssets')?.value === 'mine');
 
   const clearAllFilters = () => {
     filters.city.onChange('all');
     filters.type.onChange('all');
     filters.priceMin.onChange(undefined);
     filters.priceMax.onChange(undefined);
+    filters.pricePerSqmMin?.onChange(undefined);
+    filters.pricePerSqmMax?.onChange(undefined);
+    filters.remainingRightsMin?.onChange(undefined);
+    filters.remainingRightsMax?.onChange(undefined);
     additionalFilters.forEach(filter => {
       onAdditionalFilterChange?.(filter.key, 'all');
     });
@@ -219,9 +249,8 @@ export default function TableToolbar({
               <SheetHeader>
                 <SheetTitle>סינון נכסים</SheetTitle>
               </SheetHeader>
-              <div className="space-y-4">
+              <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pr-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium">סינון נכסים</h4>
                   {hasActiveFilters && (
                     <Button
                       variant="ghost"
@@ -235,9 +264,29 @@ export default function TableToolbar({
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* My Assets Checkbox - Prominent at top */}
+                {additionalFilters.find(f => f.key === 'userAssets') && (
+                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border">
+                    <input
+                      type="checkbox"
+                      id="my-assets-checkbox"
+                      checked={additionalFilters.find(f => f.key === 'userAssets')?.value === 'mine'}
+                      onChange={(e) => {
+                        const value = e.target.checked ? 'mine' : 'all';
+                        onAdditionalFilterChange?.('userAssets', value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'my_assets', value });
+                      }}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <Label htmlFor="my-assets-checkbox" className="text-sm font-medium cursor-pointer">
+                      נכסים שלי בלבד
+                    </Label>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
                   {/* City filter */}
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="city-filter" className="text-sm">עיר</Label>
                     <Select value={filters.city.value} onValueChange={(value) => {
                       filters.city.onChange(value);
@@ -258,7 +307,7 @@ export default function TableToolbar({
                   </div>
 
                   {/* Type filter */}
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="type-filter" className="text-sm">סוג נכס</Label>
                     <Select value={filters.type.value} onValueChange={(value) => {
                       filters.type.onChange(value);
@@ -279,7 +328,7 @@ export default function TableToolbar({
                   </div>
 
                   {/* Price range */}
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="price-min" className="text-sm">מחיר מינימלי</Label>
                     <Input
                       id="price-min"
@@ -294,7 +343,7 @@ export default function TableToolbar({
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="price-max" className="text-sm">מחיר מקסימלי</Label>
                     <Input
                       id="price-max"
@@ -308,11 +357,109 @@ export default function TableToolbar({
                       }}
                     />
                   </div>
+
+                  {/* Price per sqm range */}
+                  {filters.pricePerSqmMin && (
+                    <div className="space-y-1">
+                      <Label htmlFor="price-per-sqm-min" className="text-sm">מחיר למ&quot;ר מינימלי</Label>
+                      <Input
+                        id="price-per-sqm-min"
+                        type="number"
+                        placeholder="₪/מ²"
+                        value={filters.pricePerSqmMin.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          filters.pricePerSqmMin?.onChange(value);
+                          trackFeatureUsage('filter', undefined, { filter_type: 'price_per_sqm_min', value });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {filters.pricePerSqmMax && (
+                    <div className="space-y-1">
+                      <Label htmlFor="price-per-sqm-max" className="text-sm">מחיר למ&quot;ר מקסימלי</Label>
+                      <Input
+                        id="price-per-sqm-max"
+                        type="number"
+                        placeholder="₪/מ²"
+                        value={filters.pricePerSqmMax.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          filters.pricePerSqmMax?.onChange(value);
+                          trackFeatureUsage('filter', undefined, { filter_type: 'price_per_sqm_max', value });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Remaining rights range */}
+                  {filters.remainingRightsMin && (
+                    <div className="space-y-1">
+                      <Label htmlFor="remaining-rights-min" className="text-sm">יתרת זכויות מינימלית</Label>
+                      <Input
+                        id="remaining-rights-min"
+                        type="number"
+                        placeholder="מ²"
+                        value={filters.remainingRightsMin.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          filters.remainingRightsMin?.onChange(value);
+                          trackFeatureUsage('filter', undefined, { filter_type: 'remaining_rights_min', value });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {filters.remainingRightsMax && (
+                    <div className="space-y-1">
+                      <Label htmlFor="remaining-rights-max" className="text-sm">יתרת זכויות מקסימלית</Label>
+                      <Input
+                        id="remaining-rights-max"
+                        type="number"
+                        placeholder="מ²"
+                        value={filters.remainingRightsMax.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          filters.remainingRightsMax?.onChange(value);
+                          trackFeatureUsage('filter', undefined, { filter_type: 'remaining_rights_max', value });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Additional filters */}
+                  {additionalFilters.filter(filter => filter.key !== 'userAssets').map((filter) => (
+                    <div key={filter.key} className="space-y-1">
+                      <Label className="text-sm">{filter.label}</Label>
+                      <Select
+                        value={filter.value}
+                        onValueChange={(value) => onAdditionalFilterChange?.(filter.key, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={`בחר ${filter.label.toLowerCase()}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">הכל</SelectItem>
+                          {filter.options?.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              <span className="flex justify-between gap-2">
+                                <span>{option.label}</span>
+                                {option.count !== undefined && (
+                                  <span className="text-xs text-muted-foreground">{option.count}</span>
+                                )}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Status filters */}
                 {statusFilters && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label className="text-sm">סטטוס</Label>
                     <Select value={statusFilters.value} onValueChange={statusFilters.onChange}>
                       <SelectTrigger>
@@ -333,75 +480,35 @@ export default function TableToolbar({
                   </div>
                 )}
 
-                {/* Additional filters */}
-                {(additionalFilters.length > 0 || dateRange) && (
-                  <>
-                    <div className="border-t pt-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                        className="w-full justify-between"
-                      >
-                        <span>סינון מתקדם</span>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
-                      </Button>
-                    </div>
-
-                    {showAdvancedFilters && (
-                      <div className="space-y-3">
-                        {/* Date range filter */}
-                        {dateRange && (
-                          <div className="space-y-2">
-                            <Label className="text-sm">טווח תאריכים</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-xs text-muted-foreground">מ-</Label>
-                                <Input
-                                  type="date"
-                                  value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const date = e.target.value ? new Date(e.target.value) : undefined;
-                                    dateRange.onChange(date, dateRange.to);
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-xs text-muted-foreground">עד</Label>
-                                <Input
-                                  type="date"
-                                  value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const date = e.target.value ? new Date(e.target.value) : undefined;
-                                    dateRange.onChange(dateRange.from, date);
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Additional filters */}
-                        {additionalFilters.map((filter) => (
-                          <div key={filter.key} className="space-y-2">
-                            <Label className="text-sm">{filter.label}</Label>
-                            <Select
-                              value={filter.value}
-                              onValueChange={(value) => onAdditionalFilterChange?.(filter.key, value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder={`בחר ${filter.label.toLowerCase()}`} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">הכל</SelectItem>
-                                {/* Add more options based on filter type */}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ))}
+                {/* Date range filter */}
+                {dateRange && (
+                  <div className="space-y-1">
+                    <Label className="text-sm">טווח תאריכים</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">מ-</Label>
+                        <Input
+                          type="date"
+                          value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            dateRange.onChange(date, dateRange.to);
+                          }}
+                        />
                       </div>
-                    )}
-                  </>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">עד</Label>
+                        <Input
+                          type="date"
+                          value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            dateRange.onChange(dateRange.from, date);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </SheetContent>

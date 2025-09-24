@@ -290,6 +290,98 @@ interface AssetsTableProps {
       value: number | undefined
       onChange: (value: number | undefined) => void
     }
+    neighborhood?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    zoning?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    risk?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    documents?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    status?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string; count?: number }>
+    }
+    rentalSale?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    userAssets?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    buildingType?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    floorMin?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    floorMax?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    areaMin?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    areaMax?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    rooms?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    features?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    pricePerSqmMin?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    pricePerSqmMax?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    remainingRightsMin?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    remainingRightsMax?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    block?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    parcel?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
   }
   onRefresh?: () => void
   onAddNew?: () => void
@@ -457,6 +549,168 @@ export default function AssetsTable({
       toggle: (value: boolean) => column.toggleVisibility(value)
     }))
 
+  const additionalFilters = React.useMemo(() => {
+    if (!filters) return []
+    const items: Array<{ key: string; label: string; value: string; options?: Array<{ value: string; label: string; count?: number }> }> = []
+
+    if (filters.neighborhood) {
+      items.push({
+        key: 'neighborhood',
+        label: 'שכונה',
+        value: filters.neighborhood.value,
+        options: filters.neighborhood.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    if (filters.zoning) {
+      items.push({
+        key: 'zoning',
+        label: 'ייעוד',
+        value: filters.zoning.value,
+        options: filters.zoning.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    if (filters.risk) {
+      items.push({
+        key: 'risk',
+        label: 'סיכון',
+        value: filters.risk.value,
+        options: filters.risk.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.documents) {
+      items.push({
+        key: 'documents',
+        label: 'מסמכים',
+        value: filters.documents.value,
+        options: filters.documents.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.rentalSale) {
+      items.push({
+        key: 'rentalSale',
+        label: 'השכרה/מכירה',
+        value: filters.rentalSale.value,
+        options: filters.rentalSale.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.userAssets) {
+      items.push({
+        key: 'userAssets',
+        label: 'נכסים שלי',
+        value: filters.userAssets.value,
+        options: filters.userAssets.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.buildingType) {
+      items.push({
+        key: 'buildingType',
+        label: 'סוג בניין',
+        value: filters.buildingType.value,
+        options: filters.buildingType.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    if (filters.rooms) {
+      items.push({
+        key: 'rooms',
+        label: 'חדרים',
+        value: filters.rooms.value,
+        options: filters.rooms.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.features) {
+      items.push({
+        key: 'features',
+        label: 'תכונות',
+        value: filters.features.value,
+        options: filters.features.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.block) {
+      items.push({
+        key: 'block',
+        label: 'גוש',
+        value: filters.block.value,
+        options: filters.block.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    if (filters.parcel) {
+      items.push({
+        key: 'parcel',
+        label: 'חלקה',
+        value: filters.parcel.value,
+        options: filters.parcel.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    return items
+  }, [filters])
+
+  const handleAdditionalFilterChange = React.useCallback((key: string, value: string) => {
+    if (!filters) return
+    const track = (filterType: string, filterValue: string) => {
+      trackFeatureUsage('filter', undefined, { filter_type: filterType, value: filterValue })
+    }
+
+    switch (key) {
+      case 'neighborhood':
+        filters.neighborhood?.onChange(value)
+        track('neighborhood', value)
+        break
+      case 'zoning':
+        filters.zoning?.onChange(value)
+        track('zoning', value)
+        break
+      case 'risk':
+        filters.risk?.onChange(value)
+        track('risk', value)
+        break
+      case 'documents':
+        filters.documents?.onChange(value)
+        track('documents', value)
+        break
+      case 'rentalSale':
+        filters.rentalSale?.onChange(value)
+        track('rentalSale', value)
+        break
+      case 'userAssets':
+        filters.userAssets?.onChange(value)
+        track('userAssets', value)
+        break
+      case 'buildingType':
+        filters.buildingType?.onChange(value)
+        track('buildingType', value)
+        break
+      case 'rooms':
+        filters.rooms?.onChange(value)
+        track('rooms', value)
+        break
+      case 'features':
+        filters.features?.onChange(value)
+        track('features', value)
+        break
+      case 'block':
+        filters.block?.onChange(value)
+        track('block', value)
+        break
+      case 'parcel':
+        filters.parcel?.onChange(value)
+        track('parcel', value)
+        break
+      default:
+        break
+    }
+  }, [filters, trackFeatureUsage])
+
   // Don't render table until mounted to prevent hydration mismatch
   if (!mounted) {
     return (
@@ -493,6 +747,8 @@ export default function AssetsTable({
               priceMin: { value: undefined, onChange: () => {} },
               priceMax: { value: undefined, onChange: () => {} }
             }}
+            additionalFilters={additionalFilters}
+            onAdditionalFilterChange={handleAdditionalFilterChange}
             columns={toolbarColumns}
             onExportSelected={handleExportSelected}
             onExportAll={() => exportAssetsCsv(data, table.getVisibleLeafColumns(), trackFeatureUsage)}
@@ -503,6 +759,14 @@ export default function AssetsTable({
             onRefresh={onRefresh || (() => {})}
             onAddNew={onAddNew}
             loading={loading}
+            statusFilters={filters?.status ? {
+              value: filters.status.value,
+              onChange: (value: string) => {
+                filters.status?.onChange(value)
+                trackFeatureUsage('filter', undefined, { filter_type: 'status', value })
+              },
+              options: filters.status.options
+            } : undefined}
           />
           {/* Table view - show when viewMode is 'table' */}
           {viewMode === 'table' && (

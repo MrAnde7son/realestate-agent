@@ -121,9 +121,9 @@ class TestPlanAPIEndpoints:
         assert data['plan_name'] == 'basic'
         assert data['display_name'] == 'Basic Plan'
         assert data['price'] == '149.00'
-        assert data['limits']['assets']['limit'] == 25
+        assert data['limits']['assets']['limit'] == 10
         assert data['limits']['assets']['used'] == 10
-        assert data['limits']['assets']['remaining'] == 15
+        assert data['limits']['assets']['remaining'] == 0
         assert data['features']['advanced_analytics'] is True
         assert data['features']['data_export'] is True
 

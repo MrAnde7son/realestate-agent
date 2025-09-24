@@ -275,7 +275,7 @@ class LeadViewSet(viewsets.ModelViewSet):
             "contact_email": lead.contact.email
         })
 
-    @action(detail=False, methods=['get'], url_path="by-asset")
+    @action(detail=False, methods=['get'], url_path="by_asset")
     def by_asset(self, request):
         """Get leads for a specific asset."""
         asset_id = request.query_params.get('asset_id')

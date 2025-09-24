@@ -42,10 +42,17 @@ import {
 } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
+interface FilterOptionOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
 interface FilterOption {
   key: string;
   label: string;
   value: string;
+  options?: FilterOptionOption[];
 }
 
 interface TableToolbarProps {
@@ -394,7 +401,16 @@ export default function TableToolbar({
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="all">הכל</SelectItem>
-                                {/* Add more options based on filter type */}
+                                {filter.options?.map(option => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    <span className="flex justify-between gap-2">
+                                      <span>{option.label}</span>
+                                      {option.count !== undefined && (
+                                        <span className="text-xs text-muted-foreground">{option.count}</span>
+                                      )}
+                                    </span>
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>

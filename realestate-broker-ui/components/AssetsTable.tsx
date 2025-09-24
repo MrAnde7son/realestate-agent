@@ -290,6 +290,31 @@ interface AssetsTableProps {
       value: number | undefined
       onChange: (value: number | undefined) => void
     }
+    neighborhood?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    zoning?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    risk?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    documents?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    status?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string; count?: number }>
+    }
   }
   onRefresh?: () => void
   onAddNew?: () => void
@@ -457,6 +482,77 @@ export default function AssetsTable({
       toggle: (value: boolean) => column.toggleVisibility(value)
     }))
 
+  const additionalFilters = React.useMemo(() => {
+    if (!filters) return []
+    const items: Array<{ key: string; label: string; value: string; options?: Array<{ value: string; label: string; count?: number }> }> = []
+
+    if (filters.neighborhood) {
+      items.push({
+        key: 'neighborhood',
+        label: 'שכונה',
+        value: filters.neighborhood.value,
+        options: filters.neighborhood.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    if (filters.zoning) {
+      items.push({
+        key: 'zoning',
+        label: 'ייעוד',
+        value: filters.zoning.value,
+        options: filters.zoning.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    if (filters.risk) {
+      items.push({
+        key: 'risk',
+        label: 'סיכון',
+        value: filters.risk.value,
+        options: filters.risk.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.documents) {
+      items.push({
+        key: 'documents',
+        label: 'מסמכים',
+        value: filters.documents.value,
+        options: filters.documents.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    return items
+  }, [filters])
+
+  const handleAdditionalFilterChange = React.useCallback((key: string, value: string) => {
+    if (!filters) return
+    const track = (filterType: string, filterValue: string) => {
+      trackFeatureUsage('filter', undefined, { filter_type: filterType, value: filterValue })
+    }
+
+    switch (key) {
+      case 'neighborhood':
+        filters.neighborhood?.onChange(value)
+        track('neighborhood', value)
+        break
+      case 'zoning':
+        filters.zoning?.onChange(value)
+        track('zoning', value)
+        break
+      case 'risk':
+        filters.risk?.onChange(value)
+        track('risk', value)
+        break
+      case 'documents':
+        filters.documents?.onChange(value)
+        track('documents', value)
+        break
+      default:
+        break
+    }
+  }, [filters, trackFeatureUsage])
+
   // Don't render table until mounted to prevent hydration mismatch
   if (!mounted) {
     return (
@@ -493,6 +589,8 @@ export default function AssetsTable({
               priceMin: { value: undefined, onChange: () => {} },
               priceMax: { value: undefined, onChange: () => {} }
             }}
+            additionalFilters={additionalFilters}
+            onAdditionalFilterChange={handleAdditionalFilterChange}
             columns={toolbarColumns}
             onExportSelected={handleExportSelected}
             onExportAll={() => exportAssetsCsv(data, table.getVisibleLeafColumns(), trackFeatureUsage)}
@@ -503,6 +601,14 @@ export default function AssetsTable({
             onRefresh={onRefresh || (() => {})}
             onAddNew={onAddNew}
             loading={loading}
+            statusFilters={filters?.status ? {
+              value: filters.status.value,
+              onChange: (value: string) => {
+                filters.status?.onChange(value)
+                trackFeatureUsage('filter', undefined, { filter_type: 'status', value })
+              },
+              options: filters.status.options
+            } : undefined}
           />
           {/* Table view - show when viewMode is 'table' */}
           {viewMode === 'table' && (

@@ -22,7 +22,8 @@ import {
   MessageSquare, 
   Send, 
   Edit,
-  Trash2
+  Trash2,
+  CheckSquare
 } from 'lucide-react';
 import { Lead, LeadStatus, CrmApi } from '@/lib/api/crm';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +33,7 @@ interface LeadRowActionsProps {
   lead: Lead;
   onUpdate: () => void;
   onDelete: () => void;
+  onShowTasks?: () => void;
 }
 
 const statusOptions: { value: LeadStatus; label: string }[] = [
@@ -43,7 +45,7 @@ const statusOptions: { value: LeadStatus; label: string }[] = [
   { value: 'closed-lost', label: 'נסגר ללא הצלחה' },
 ];
 
-export function LeadRowActions({ lead, onUpdate, onDelete }: LeadRowActionsProps) {
+export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRowActionsProps) {
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -215,6 +217,17 @@ export function LeadRowActions({ lead, onUpdate, onDelete }: LeadRowActionsProps
         title={!lead.contact.email ? 'אין כתובת אימייל' : 'שלח דוח'}
       >
         {isLoading ? <ButtonLoader size="sm" /> : <Send className="h-4 w-4" />}
+      </Button>
+
+      {/* Tasks */}
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={onShowTasks}
+        disabled={isLoading}
+        title="ניהול משימות"
+      >
+        <CheckSquare className="h-4 w-4" />
       </Button>
 
       {/* Delete */}

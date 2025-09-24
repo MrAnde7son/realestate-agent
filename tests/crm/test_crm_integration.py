@@ -55,7 +55,7 @@ class CrmIntegrationTests(TestCase):
         
         # 2. Create lead
         lead_data = {
-            'contact_id': contact_id,
+            'contact_id_write': contact_id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
@@ -252,7 +252,7 @@ class CrmIntegrationTests(TestCase):
             
             # Create lead
             lead_data = {
-                'contact_id': contact_id,
+                'contact_id_write': contact_id,
                 'asset_id': self.asset.id,
                 'status': 'new'
             }
@@ -299,7 +299,7 @@ class CrmIntegrationTests(TestCase):
             
             # Create lead
             lead_data = {
-                'contact_id': contact_id,
+                'contact_id_write': contact_id,
                 'asset_id': asset.id,
                 'status': 'new'
             }
@@ -353,7 +353,7 @@ class CrmIntegrationTests(TestCase):
         
         # Other user should not be able to create lead with contact from first user
         lead_data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }

@@ -3,7 +3,17 @@ import json
 
 from rest_framework import serializers
 
-from .models import Contact, Lead, LeadStatus
+from .models import (
+    Contact,
+    Lead,
+    LeadStatus,
+    ContactTask,
+    ContactTaskStatus,
+    ContactMeeting,
+    ContactMeetingStatus,
+    ContactInteraction,
+    InteractionType,
+)
 
 
 def _extract_list_from_request(serializer, field_name):
@@ -99,7 +109,8 @@ class LeadSerializer(serializers.ModelSerializer):
     """Serializer for Lead model."""
     
     contact = ContactSerializer(read_only=True)
-    contact_id = serializers.PrimaryKeyRelatedField(
+    contact_id = serializers.IntegerField(source="contact.id", read_only=True)
+    contact_id_write = serializers.PrimaryKeyRelatedField(
         write_only=True, 
         queryset=Contact.objects.all(), 
         source="contact"
@@ -115,7 +126,7 @@ class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = [
-            "id", "contact", "contact_id", "asset", "asset_id", "asset_address",
+            "id", "contact", "contact_id", "contact_id_write", "asset", "asset_id", "asset_address",
             "asset_price", "asset_rooms", "asset_area", "status", "notes",
             "last_activity_at", "created_at"
         ]
@@ -162,6 +173,13 @@ class LeadSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def validate_contact_id_write(self, value):
+        """Validate that the contact exists and user has permission."""
+        request = self.context.get("request")
+        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this contact")
+        return value
+
     def validate_asset_id(self, value):
         """Validate that the asset exists and user has permission."""
         from core.models import Asset
@@ -197,3 +215,125 @@ class LeadNoteSerializer(serializers.Serializer):
     """Serializer for adding notes to leads."""
 
     text = serializers.CharField(max_length=1000, allow_blank=True)
+
+
+class ContactTaskSerializer(serializers.ModelSerializer):
+    """Serializer for contact tasks."""
+
+    contact_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Contact.objects.all(),
+        source="contact",
+    )
+    lead_id = serializers.IntegerField(source="lead.id", read_only=True, allow_null=True)
+    lead_id_write = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Lead.objects.all(),
+        source="lead",
+        required=False,
+        allow_null=True,
+    )
+    contact = ContactSerializer(read_only=True)
+    lead = LeadSerializer(read_only=True)
+    status = serializers.ChoiceField(choices=ContactTaskStatus.choices, required=False)
+
+    class Meta:
+        model = ContactTask
+        fields = [
+            "id",
+            "title",
+            "description",
+            "due_at",
+            "status",
+            "completed_at",
+            "created_at",
+            "updated_at",
+            "contact",
+            "contact_id",
+            "lead",
+            "lead_id",
+            "lead_id_write",
+        ]
+        read_only_fields = ["id", "completed_at", "created_at", "updated_at", "contact", "lead"]
+
+    def validate_contact_id(self, value):
+        request = self.context.get("request")
+        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this contact")
+        return value
+
+    def validate_lead_id_write(self, value):
+        request = self.context.get("request")
+        if value and request and not request.user.is_superuser and value.contact.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this lead")
+        return value
+
+
+class ContactMeetingSerializer(serializers.ModelSerializer):
+    """Serializer for contact meetings."""
+
+    contact_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Contact.objects.all(),
+        source="contact",
+    )
+    contact = ContactSerializer(read_only=True)
+    status = serializers.ChoiceField(choices=ContactMeetingStatus.choices, required=False)
+
+    class Meta:
+        model = ContactMeeting
+        fields = [
+            "id",
+            "title",
+            "scheduled_for",
+            "duration_minutes",
+            "location",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+            "contact",
+            "contact_id",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "contact"]
+
+    def validate_contact_id(self, value):
+        request = self.context.get("request")
+        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this contact")
+        return value
+
+
+class ContactInteractionSerializer(serializers.ModelSerializer):
+    """Serializer for contact interactions."""
+
+    contact_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Contact.objects.all(),
+        source="contact",
+    )
+    contact = ContactSerializer(read_only=True)
+    interaction_type = serializers.ChoiceField(choices=InteractionType.choices, required=False)
+
+    class Meta:
+        model = ContactInteraction
+        fields = [
+            "id",
+            "interaction_type",
+            "subject",
+            "notes",
+            "occurred_at",
+            "next_steps",
+            "follow_up_at",
+            "created_at",
+            "updated_at",
+            "contact",
+            "contact_id",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "contact"]
+
+    def validate_contact_id(self, value):
+        request = self.context.get("request")
+        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this contact")
+        return value

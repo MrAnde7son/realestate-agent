@@ -261,7 +261,7 @@ class CrmPermissionsTests(TestCase):
         self.client.force_authenticate(user=self.user)
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
@@ -271,7 +271,7 @@ class CrmPermissionsTests(TestCase):
         
         # Test user cannot create lead with other user's contact
         data = {
-            'contact_id': other_contact.id,
+            'contact_id_write': other_contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
@@ -380,7 +380,7 @@ class CrmPermissionsTests(TestCase):
         self.client.force_authenticate(user=self.user)
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted'
         }
@@ -390,7 +390,7 @@ class CrmPermissionsTests(TestCase):
         
         # Test user cannot update other user's lead
         data = {
-            'contact_id': other_contact.id,
+            'contact_id_write': other_contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted'
         }

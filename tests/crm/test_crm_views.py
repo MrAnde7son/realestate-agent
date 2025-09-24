@@ -2,13 +2,23 @@
 Tests for CRM views
 """
 import pytest
+from datetime import timedelta
+
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework import status
 from core.models import Asset
-from crm.models import Contact, Lead, LeadStatus
+from crm.models import (
+    Contact,
+    Lead,
+    LeadStatus,
+    ContactTask,
+    ContactMeeting,
+    ContactInteraction,
+)
 
 User = get_user_model()
 
@@ -271,7 +281,7 @@ class CrmViewsTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
@@ -318,7 +328,7 @@ class CrmViewsTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted',
             'notes': [{'ts': '2024-01-01T12:00:00Z', 'text': 'Updated note'}]
@@ -748,7 +758,7 @@ class CrmViewsTests(TestCase):
         
         # Try to create duplicate lead
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted'
         }
@@ -765,13 +775,104 @@ class CrmViewsTests(TestCase):
             name='רות כהן',
             email='rut@example.com'
         )
-        
+
         # Try to create duplicate contact
         data = {
             'name': 'רות כהן אחרת',
             'email': 'rut@example.com'  # Same email
         }
-        
+
         response = self.client.post('/api/crm/contacts/', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         # Should fail due to unique constraint
+
+    def test_contact_task_workflow(self):
+        """Brokers can create and complete contact tasks."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Task Contact',
+            email='task@example.com'
+        )
+
+        create_response = self.client.post('/api/crm/tasks/', {
+            'title': 'Schedule property tour',
+            'description': 'Coordinate with the client',
+            'due_at': (timezone.now() + timedelta(days=2)).isoformat(),
+            'contact_id': contact.id
+        }, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        task_id = create_response.data['id']
+        detail_response = self.client.get(f'/api/crm/tasks/{task_id}/')
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['status'], 'pending')
+
+        complete_response = self.client.post(f'/api/crm/tasks/{task_id}/complete/')
+        self.assertEqual(complete_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(complete_response.data['status'], 'completed')
+
+        list_response = self.client.get('/api/crm/tasks/', {'status': 'completed'})
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+
+    def test_contact_meeting_filters(self):
+        """Meetings endpoint should support upcoming filter."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Meeting Contact',
+            email='meeting@example.com'
+        )
+
+        past_meeting = ContactMeeting.objects.create(
+            contact=contact,
+            owner=self.user,
+            title='Past meeting',
+            scheduled_for=timezone.now() - timedelta(days=1),
+        )
+        future_meeting = ContactMeeting.objects.create(
+            contact=contact,
+            owner=self.user,
+            title='Future meeting',
+            scheduled_for=timezone.now() + timedelta(days=1),
+        )
+
+        response = self.client.get('/api/crm/meetings/', {'upcoming': '1'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], future_meeting.id)
+
+        response_all = self.client.get('/api/crm/meetings/', {'contact': contact.id})
+        self.assertEqual(response_all.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response_all.data), 2)
+
+    def test_contact_interaction_filters(self):
+        """Interactions endpoint should filter by contact and type."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Interaction Contact',
+            email='interaction@example.com'
+        )
+
+        ContactInteraction.objects.create(
+            contact=contact,
+            owner=self.user,
+            interaction_type='call',
+            subject='Discovery call',
+            occurred_at=timezone.now() - timedelta(days=2),
+        )
+        latest_email = ContactInteraction.objects.create(
+            contact=contact,
+            owner=self.user,
+            interaction_type='email',
+            subject='Follow up email',
+            occurred_at=timezone.now() - timedelta(hours=1),
+        )
+
+        response = self.client.get('/api/crm/interactions/', {'contact': contact.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['id'], latest_email.id)
+
+        response_filtered = self.client.get('/api/crm/interactions/', {'contact': contact.id, 'type': 'call'})
+        self.assertEqual(response_filtered.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response_filtered.data), 1)

@@ -208,3 +208,159 @@ class Lead(models.Model):
         via = 'email' if self.contact.email else 'link'
         track_lead_report_sent(self, user_id or self.contact.owner_id, via)
         return True
+
+
+class ContactTaskStatus(models.TextChoices):
+    """Status options for contact tasks."""
+
+    PENDING = "pending", "Pending"
+    COMPLETED = "completed", "Completed"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+class ContactTask(models.Model):
+    """Actionable task associated with a CRM contact."""
+
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name="tasks",
+    )
+    lead = models.ForeignKey(
+        "Lead",
+        on_delete=models.CASCADE,
+        related_name="tasks",
+        blank=True,
+        null=True,
+        help_text="Optional lead this task is associated with"
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="crm_tasks",
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    due_at = models.DateTimeField(blank=True, null=True)
+    status = models.CharField(
+        max_length=32,
+        choices=ContactTaskStatus.choices,
+        default=ContactTaskStatus.PENDING,
+    )
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["owner", "status", "due_at"]),
+            models.Index(fields=["contact", "status"]),
+            models.Index(fields=["lead", "status"]),
+        ]
+        ordering = ["due_at", "-created_at"]
+
+    def __str__(self):
+        if self.lead:
+            return f"Task({self.title}) for Lead {self.lead_id}"
+        return f"Task({self.title}) for Contact {self.contact_id}"
+
+    def mark_completed(self):
+        """Mark the task as completed."""
+        from django.utils import timezone
+
+        self.status = ContactTaskStatus.COMPLETED
+        self.completed_at = timezone.now()
+        self.save(update_fields=["status", "completed_at", "updated_at"])
+
+
+class ContactMeetingStatus(models.TextChoices):
+    """Status options for meetings scheduled with a contact."""
+
+    SCHEDULED = "scheduled", "Scheduled"
+    COMPLETED = "completed", "Completed"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+class ContactMeeting(models.Model):
+    """Scheduled meeting for a CRM contact."""
+
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name="meetings",
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="crm_meetings",
+    )
+    title = models.CharField(max_length=255)
+    scheduled_for = models.DateTimeField()
+    duration_minutes = models.PositiveIntegerField(default=30)
+    location = models.CharField(max_length=255, blank=True)
+    status = models.CharField(
+        max_length=32,
+        choices=ContactMeetingStatus.choices,
+        default=ContactMeetingStatus.SCHEDULED,
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["owner", "scheduled_for"]),
+            models.Index(fields=["contact", "scheduled_for"]),
+        ]
+        ordering = ["scheduled_for"]
+
+    def __str__(self):
+        return f"Meeting({self.title}) for {self.contact_id}"
+
+
+class InteractionType(models.TextChoices):
+    """Type of interaction recorded with a contact."""
+
+    CALL = "call", "Call"
+    EMAIL = "email", "Email"
+    MEETING = "meeting", "Meeting"
+    MESSAGE = "message", "Message"
+    NOTE = "note", "Note"
+    OTHER = "other", "Other"
+
+
+class ContactInteraction(models.Model):
+    """Historic record of interactions with a contact."""
+
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name="interactions",
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="crm_interactions",
+    )
+    interaction_type = models.CharField(
+        max_length=32,
+        choices=InteractionType.choices,
+        default=InteractionType.OTHER,
+    )
+    subject = models.CharField(max_length=255, blank=True)
+    notes = models.TextField(blank=True)
+    occurred_at = models.DateTimeField()
+    next_steps = models.TextField(blank=True)
+    follow_up_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["owner", "occurred_at"]),
+            models.Index(fields=["contact", "occurred_at"]),
+        ]
+        ordering = ["-occurred_at"]
+
+    def __str__(self):
+        return f"Interaction({self.interaction_type}) for {self.contact_id}"

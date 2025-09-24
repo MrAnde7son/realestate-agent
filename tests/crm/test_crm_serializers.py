@@ -195,7 +195,7 @@ class CrmSerializersTests(TestCase):
             data={
                 'title': 'Follow up with lead',
                 'description': 'Call the lead about the property',
-                'contact_id_write': contact.id,
+                'contact_id': contact.id,
                 'lead_id_write': lead.id
             },
             context={'request': request}
@@ -237,7 +237,7 @@ class CrmSerializersTests(TestCase):
         serializer = ContactTaskSerializer(
             data={
                 'title': 'Follow up with lead',
-                'contact_id_write': contact.id,
+                'contact_id': contact.id,
                 'lead_id_write': other_lead.id
             },
             context={'request': request}
@@ -393,7 +393,7 @@ class CrmSerializersTests(TestCase):
         )
         
         data = {
-            'contact_id': other_contact.id,
+            'contact_id_write': other_contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
@@ -404,7 +404,7 @@ class CrmSerializersTests(TestCase):
         
         serializer = LeadSerializer(data=data, context={'request': request})
         self.assertFalse(serializer.is_valid())
-        self.assertIn('No permission on this contact', str(serializer.errors))
+        self.assertIn('contact_id_write', str(serializer.errors))
     
     def test_lead_serializer_validation_invalid_status(self):
         """Test LeadSerializer validation for invalid status"""
@@ -782,9 +782,12 @@ class CrmSerializersTests(TestCase):
         data = serializer.data
         
         # These fields should be write-only
-        write_only_fields = ['contact_id', 'asset_id']
+        write_only_fields = ['asset_id']
         for field in write_only_fields:
             self.assertNotIn(field, data)
+        
+        # contact_id should be readable
+        self.assertIn('contact_id', data)
     
     def test_serializer_validation_error_messages(self):
         """Test serializer validation error messages"""
@@ -805,7 +808,7 @@ class CrmSerializersTests(TestCase):
         
         # Test LeadSerializer validation error messages
         data = {
-            'contact_id': 99999,  # Non-existent contact
+            'contact_id_write': 99999,  # Non-existent contact
             'asset_id': 99999,    # Non-existent asset
             'status': 'invalid_status'
         }
@@ -817,7 +820,7 @@ class CrmSerializersTests(TestCase):
         self.assertFalse(serializer.is_valid())
         
         errors = serializer.errors
-        self.assertIn('contact_id', errors)
+        self.assertIn('contact_id_write', errors)
         self.assertIn('status', errors)
         # Asset validation error is in asset_id field
         self.assertIn('asset_id', errors)

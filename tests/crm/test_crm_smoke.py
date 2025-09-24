@@ -108,15 +108,12 @@ class CrmSmokeTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
         
         response = self.client.post('/api/crm/leads/', data)
-        if response.status_code != status.HTTP_201_CREATED:
-            print(f"Response status: {response.status_code}")
-            print(f"Response data: {response.data}")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         lead = Lead.objects.get(contact=contact, asset=self.asset)
@@ -132,13 +129,13 @@ class CrmSmokeTests(TestCase):
         )
         
         data = {
-            'contact_id': other_contact.id,
+            'contact_id_write': other_contact.id,
             'asset_id': self.asset.id
         }
         
         response = self.client.post('/api/crm/leads/', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('No permission on this contact', str(response.data))
+        self.assertIn('contact_id_write', str(response.data))
     
     def test_lead_creation_invalid_asset(self):
         """Test lead creation fails with non-existent asset"""
@@ -149,7 +146,7 @@ class CrmSmokeTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': 99999  # Non-existent asset
         }
         
@@ -354,7 +351,7 @@ class CrmSmokeTests(TestCase):
         
         # Try to create duplicate lead
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted'
         }

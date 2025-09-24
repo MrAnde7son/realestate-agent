@@ -114,6 +114,9 @@ class CrmSmokeTests(TestCase):
         }
         
         response = self.client.post('/api/crm/leads/', data)
+        if response.status_code != status.HTTP_201_CREATED:
+            print(f"Response status: {response.status_code}")
+            print(f"Response data: {response.data}")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         lead = Lead.objects.get(contact=contact, asset=self.asset)

@@ -169,7 +169,7 @@ class CrmUrlsTests(TestCase):
         self.assertEqual(url, '/api/crm/leads/')
 
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
@@ -279,7 +279,7 @@ class CrmUrlsTests(TestCase):
         self.assertEqual(url, f'/api/crm/leads/{lead.id}/')
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted'
         }
@@ -430,7 +430,7 @@ class CrmUrlsTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }

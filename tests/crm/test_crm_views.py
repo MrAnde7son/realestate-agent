@@ -281,7 +281,7 @@ class CrmViewsTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
@@ -328,7 +328,7 @@ class CrmViewsTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted',
             'notes': [{'ts': '2024-01-01T12:00:00Z', 'text': 'Updated note'}]
@@ -758,7 +758,7 @@ class CrmViewsTests(TestCase):
         
         # Try to create duplicate lead
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted'
         }

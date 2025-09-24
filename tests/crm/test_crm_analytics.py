@@ -92,7 +92,7 @@ class CrmAnalyticsTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }

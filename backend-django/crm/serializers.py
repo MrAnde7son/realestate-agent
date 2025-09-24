@@ -225,7 +225,8 @@ class ContactTaskSerializer(serializers.ModelSerializer):
         queryset=Contact.objects.all(),
         source="contact",
     )
-    lead_id = serializers.PrimaryKeyRelatedField(
+    lead_id = serializers.IntegerField(source="lead.id", read_only=True, allow_null=True)
+    lead_id_write = serializers.PrimaryKeyRelatedField(
         write_only=True,
         queryset=Lead.objects.all(),
         source="lead",
@@ -251,6 +252,7 @@ class ContactTaskSerializer(serializers.ModelSerializer):
             "contact_id",
             "lead",
             "lead_id",
+            "lead_id_write",
         ]
         read_only_fields = ["id", "completed_at", "created_at", "updated_at", "contact", "lead"]
 
@@ -260,7 +262,7 @@ class ContactTaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("No permission on this contact")
         return value
 
-    def validate_lead_id(self, value):
+    def validate_lead_id_write(self, value):
         request = self.context.get("request")
         if value and request and not request.user.is_superuser and value.contact.owner_id != request.user.id:
             raise serializers.ValidationError("No permission on this lead")

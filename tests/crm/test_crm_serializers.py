@@ -196,7 +196,7 @@ class CrmSerializersTests(TestCase):
                 'title': 'Follow up with lead',
                 'description': 'Call the lead about the property',
                 'contact_id_write': contact.id,
-                'lead_id': lead.id
+                'lead_id_write': lead.id
             },
             context={'request': request}
         )
@@ -238,12 +238,12 @@ class CrmSerializersTests(TestCase):
             data={
                 'title': 'Follow up with lead',
                 'contact_id_write': contact.id,
-                'lead_id': other_lead.id
+                'lead_id_write': other_lead.id
             },
             context={'request': request}
         )
         self.assertFalse(serializer.is_valid())
-        self.assertIn('lead_id', serializer.errors)
+        self.assertIn('lead_id_write', serializer.errors)
 
     def test_contact_meeting_serializer_validation(self):
         """Meeting serializer should validate scheduling and ownership."""

@@ -86,6 +86,45 @@ export default function AssetsPage() {
   const [riskFilter, setRiskFilter] = useState<string>(() => searchParams.get("risk") ?? "all");
   const [documentsFilter, setDocumentsFilter] = useState<string>(() => searchParams.get("documents") ?? "all");
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "all");
+  const [rentalSaleFilter, setRentalSaleFilter] = useState<string>(() => searchParams.get("rentalSale") ?? "all");
+  const [userAssetsFilter, setUserAssetsFilter] = useState<string>(() => searchParams.get("userAssets") ?? "all");
+  const [buildingTypeFilter, setBuildingTypeFilter] = useState<string>(() => searchParams.get("buildingType") ?? "all");
+  const [floorMin, setFloorMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("floorMin");
+    return val ? Number(val) : undefined;
+  });
+  const [floorMax, setFloorMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("floorMax");
+    return val ? Number(val) : undefined;
+  });
+  const [areaMin, setAreaMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("areaMin");
+    return val ? Number(val) : undefined;
+  });
+  const [areaMax, setAreaMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("areaMax");
+    return val ? Number(val) : undefined;
+  });
+  const [roomsFilter, setRoomsFilter] = useState<string>(() => searchParams.get("rooms") ?? "all");
+  const [featuresFilter, setFeaturesFilter] = useState<string>(() => searchParams.get("features") ?? "all");
+  const [pricePerSqmMin, setPricePerSqmMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("pricePerSqmMin");
+    return val ? Number(val) : undefined;
+  });
+  const [pricePerSqmMax, setPricePerSqmMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("pricePerSqmMax");
+    return val ? Number(val) : undefined;
+  });
+  const [remainingRightsMin, setRemainingRightsMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("remainingRightsMin");
+    return val ? Number(val) : undefined;
+  });
+  const [remainingRightsMax, setRemainingRightsMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("remainingRightsMax");
+    return val ? Number(val) : undefined;
+  });
+  const [blockFilter, setBlockFilter] = useState<string>(() => searchParams.get("block") ?? "all");
+  const [parcelFilter, setParcelFilter] = useState<string>(() => searchParams.get("parcel") ?? "all");
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
   const { user, isAuthenticated, refreshUser } = useAuth();
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
@@ -185,6 +224,29 @@ export default function AssetsPage() {
     setRiskFilter(searchParams.get("risk") ?? "all");
     setDocumentsFilter(searchParams.get("documents") ?? "all");
     setStatusFilter(searchParams.get("status") ?? "all");
+    setRentalSaleFilter(searchParams.get("rentalSale") ?? "all");
+    setUserAssetsFilter(searchParams.get("userAssets") ?? "all");
+    setBuildingTypeFilter(searchParams.get("buildingType") ?? "all");
+    const floorMinVal = searchParams.get("floorMin");
+    setFloorMin(floorMinVal ? Number(floorMinVal) : undefined);
+    const floorMaxVal = searchParams.get("floorMax");
+    setFloorMax(floorMaxVal ? Number(floorMaxVal) : undefined);
+    const areaMinVal = searchParams.get("areaMin");
+    setAreaMin(areaMinVal ? Number(areaMinVal) : undefined);
+    const areaMaxVal = searchParams.get("areaMax");
+    setAreaMax(areaMaxVal ? Number(areaMaxVal) : undefined);
+    setRoomsFilter(searchParams.get("rooms") ?? "all");
+    setFeaturesFilter(searchParams.get("features") ?? "all");
+    const pricePerSqmMinVal = searchParams.get("pricePerSqmMin");
+    setPricePerSqmMin(pricePerSqmMinVal ? Number(pricePerSqmMinVal) : undefined);
+    const pricePerSqmMaxVal = searchParams.get("pricePerSqmMax");
+    setPricePerSqmMax(pricePerSqmMaxVal ? Number(pricePerSqmMaxVal) : undefined);
+    const remainingRightsMinVal = searchParams.get("remainingRightsMin");
+    setRemainingRightsMin(remainingRightsMinVal ? Number(remainingRightsMinVal) : undefined);
+    const remainingRightsMaxVal = searchParams.get("remainingRightsMax");
+    setRemainingRightsMax(remainingRightsMaxVal ? Number(remainingRightsMaxVal) : undefined);
+    setBlockFilter(searchParams.get("block") ?? "all");
+    setParcelFilter(searchParams.get("parcel") ?? "all");
   }, [searchParams]);
 
   useEffect(() => {
@@ -239,6 +301,81 @@ export default function AssetsPage() {
     } else {
       params.delete("status");
     }
+    if (rentalSaleFilter && rentalSaleFilter !== "all") {
+      params.set("rentalSale", rentalSaleFilter);
+    } else {
+      params.delete("rentalSale");
+    }
+    if (userAssetsFilter && userAssetsFilter !== "all") {
+      params.set("userAssets", userAssetsFilter);
+    } else {
+      params.delete("userAssets");
+    }
+    if (buildingTypeFilter && buildingTypeFilter !== "all") {
+      params.set("buildingType", buildingTypeFilter);
+    } else {
+      params.delete("buildingType");
+    }
+    if (floorMin !== undefined) {
+      params.set("floorMin", floorMin.toString());
+    } else {
+      params.delete("floorMin");
+    }
+    if (floorMax !== undefined) {
+      params.set("floorMax", floorMax.toString());
+    } else {
+      params.delete("floorMax");
+    }
+    if (areaMin !== undefined) {
+      params.set("areaMin", areaMin.toString());
+    } else {
+      params.delete("areaMin");
+    }
+    if (areaMax !== undefined) {
+      params.set("areaMax", areaMax.toString());
+    } else {
+      params.delete("areaMax");
+    }
+    if (roomsFilter && roomsFilter !== "all") {
+      params.set("rooms", roomsFilter);
+    } else {
+      params.delete("rooms");
+    }
+    if (featuresFilter && featuresFilter !== "all") {
+      params.set("features", featuresFilter);
+    } else {
+      params.delete("features");
+    }
+    if (pricePerSqmMin !== undefined) {
+      params.set("pricePerSqmMin", pricePerSqmMin.toString());
+    } else {
+      params.delete("pricePerSqmMin");
+    }
+    if (pricePerSqmMax !== undefined) {
+      params.set("pricePerSqmMax", pricePerSqmMax.toString());
+    } else {
+      params.delete("pricePerSqmMax");
+    }
+    if (remainingRightsMin !== undefined) {
+      params.set("remainingRightsMin", remainingRightsMin.toString());
+    } else {
+      params.delete("remainingRightsMin");
+    }
+    if (remainingRightsMax !== undefined) {
+      params.set("remainingRightsMax", remainingRightsMax.toString());
+    } else {
+      params.delete("remainingRightsMax");
+    }
+    if (blockFilter && blockFilter !== "all") {
+      params.set("block", blockFilter);
+    } else {
+      params.delete("block");
+    }
+    if (parcelFilter && parcelFilter !== "all") {
+      params.set("parcel", parcelFilter);
+    } else {
+      params.delete("parcel");
+    }
     const query = params.toString();
     const newUrl = query ? `${pathname}?${query}` : pathname;
     const currentQuery = searchParams.toString();
@@ -257,6 +394,21 @@ export default function AssetsPage() {
     riskFilter,
     documentsFilter,
     statusFilter,
+    rentalSaleFilter,
+    userAssetsFilter,
+    buildingTypeFilter,
+    floorMin,
+    floorMax,
+    areaMin,
+    areaMax,
+    roomsFilter,
+    featuresFilter,
+    pricePerSqmMin,
+    pricePerSqmMax,
+    remainingRightsMin,
+    remainingRightsMax,
+    blockFilter,
+    parcelFilter,
     router,
     pathname,
     searchParams,
@@ -533,6 +685,20 @@ export default function AssetsPage() {
       ) as string[],
     [assets]
   );
+  const blockOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(assets.map((l) => l.block).filter(Boolean))
+      ) as string[],
+    [assets]
+  );
+  const parcelOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(assets.map((l) => l.parcel).filter(Boolean))
+      ) as string[],
+    [assets]
+  );
 
   const statusOptions = React.useMemo(() => {
     const counts = new Map<string, { label: string; count: number }>();
@@ -587,6 +753,53 @@ export default function AssetsPage() {
 
   const documentsFilterOptions = React.useMemo(
     () => [...DOCUMENTS_FILTER_OPTIONS],
+    []
+  );
+
+  const rentalSaleFilterOptions = React.useMemo(
+    () => [
+      { value: "rental", label: "השכרה" },
+      { value: "sale", label: "מכירה" },
+    ],
+    []
+  );
+
+  const userAssetsFilterOptions = React.useMemo(
+    () => [
+      { value: "mine", label: "נכסים שלי" },
+      { value: "others", label: "נכסים של אחרים" },
+    ],
+    []
+  );
+
+  const buildingTypeOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(assets.map((l) => l.buildingType).filter(Boolean))
+      ) as string[],
+    [assets]
+  );
+
+  const roomsFilterOptions = React.useMemo(
+    () => {
+      const rooms = Array.from(
+        new Set(assets.map((l) => l.rooms).filter(Boolean))
+      ).sort((a, b) => (a || 0) - (b || 0));
+      return rooms.map(room => ({
+        value: room?.toString() || "0",
+        label: `${room} חדרים`
+      }));
+    },
+    [assets]
+  );
+
+  const featuresFilterOptions = React.useMemo(
+    () => [
+      { value: "elevator", label: "מעלית" },
+      { value: "parking", label: "חניה" },
+      { value: "balcony", label: "מרפסת" },
+      { value: "storage", label: "מחסן" },
+    ],
     []
   );
 
@@ -658,6 +871,117 @@ export default function AssetsPage() {
           }
         }
 
+        // Rental/Sale filter
+        if (rentalSaleFilter && rentalSaleFilter !== "all") {
+          if (rentalSaleFilter === "rental" && !l.sources?.includes("yad2")) {
+            return false;
+          }
+          if (rentalSaleFilter === "sale" && !l.sources?.includes("yad2")) {
+            return false;
+          }
+        }
+
+        // User assets filter
+        if (userAssetsFilter && userAssetsFilter !== "all") {
+          if (userAssetsFilter === "mine" && l.attribution?.created_by?.id !== user?.id) {
+            return false;
+          }
+          if (userAssetsFilter === "others" && l.attribution?.created_by?.id === user?.id) {
+            return false;
+          }
+        }
+
+        // Building type filter
+        if (buildingTypeFilter && buildingTypeFilter !== "all" && l.buildingType !== buildingTypeFilter) {
+          return false;
+        }
+
+        // Floor range filters
+        if (floorMin != null || floorMax != null) {
+          if (l.floor == null) {
+            return false;
+          }
+          if (floorMin != null && l.floor < floorMin) {
+            return false;
+          }
+          if (floorMax != null && l.floor > floorMax) {
+            return false;
+          }
+        }
+
+        // Area range filters
+        if (areaMin != null || areaMax != null) {
+          if (l.area == null) {
+            return false;
+          }
+          if (areaMin != null && l.area < areaMin) {
+            return false;
+          }
+          if (areaMax != null && l.area > areaMax) {
+            return false;
+          }
+        }
+
+        // Rooms filter
+        if (roomsFilter && roomsFilter !== "all") {
+          const roomsValue = l.rooms?.toString() ?? "0";
+          if (roomsValue !== roomsFilter) {
+            return false;
+          }
+        }
+
+        // Features filter
+        if (featuresFilter && featuresFilter !== "all") {
+          if (featuresFilter === "elevator" && !l.elevator) {
+            return false;
+          }
+          if (featuresFilter === "parking" && !l.parkingSpaces) {
+            return false;
+          }
+          if (featuresFilter === "balcony" && !l.balconyArea) {
+            return false;
+          }
+          if (featuresFilter === "storage" && !l.storageRoom) {
+            return false;
+          }
+        }
+
+        // Price per sqm range filters
+        if (pricePerSqmMin != null || pricePerSqmMax != null) {
+          if (l.pricePerSqm == null) {
+            return false;
+          }
+          if (pricePerSqmMin != null && l.pricePerSqm < pricePerSqmMin) {
+            return false;
+          }
+          if (pricePerSqmMax != null && l.pricePerSqm > pricePerSqmMax) {
+            return false;
+          }
+        }
+
+        // Remaining rights range filters
+        if (remainingRightsMin != null || remainingRightsMax != null) {
+          if (l.remainingRightsSqm == null) {
+            return false;
+          }
+          if (remainingRightsMin != null && l.remainingRightsSqm < remainingRightsMin) {
+            return false;
+          }
+          if (remainingRightsMax != null && l.remainingRightsSqm > remainingRightsMax) {
+            return false;
+          }
+        }
+
+        // Block filter
+        if (blockFilter && blockFilter !== "all" && l.block !== blockFilter) {
+          return false;
+        }
+
+        // Parcel filter
+        if (parcelFilter && parcelFilter !== "all" && l.parcel !== parcelFilter) {
+          return false;
+        }
+
         return true;
       }),
     [
@@ -672,6 +996,22 @@ export default function AssetsPage() {
       riskFilter,
       documentsFilter,
       statusFilter,
+      rentalSaleFilter,
+      userAssetsFilter,
+      buildingTypeFilter,
+      floorMin,
+      floorMax,
+      areaMin,
+      areaMax,
+      roomsFilter,
+      featuresFilter,
+      pricePerSqmMin,
+      pricePerSqmMax,
+      remainingRightsMin,
+      remainingRightsMax,
+      blockFilter,
+      parcelFilter,
+      user,
     ]
   );
 
@@ -984,6 +1324,73 @@ export default function AssetsPage() {
                     value: statusFilter,
                     onChange: setStatusFilter,
                     options: statusOptions
+                  },
+                  pricePerSqmMin: {
+                    value: pricePerSqmMin,
+                    onChange: setPricePerSqmMin
+                  },
+                  pricePerSqmMax: {
+                    value: pricePerSqmMax,
+                    onChange: setPricePerSqmMax
+                  },
+                  remainingRightsMin: {
+                    value: remainingRightsMin,
+                    onChange: setRemainingRightsMin
+                  },
+                  remainingRightsMax: {
+                    value: remainingRightsMax,
+                    onChange: setRemainingRightsMax
+                  },
+                  block: {
+                    value: blockFilter,
+                    onChange: setBlockFilter,
+                    options: blockOptions
+                  },
+                  parcel: {
+                    value: parcelFilter,
+                    onChange: setParcelFilter,
+                    options: parcelOptions
+                  },
+                  rentalSale: {
+                    value: rentalSaleFilter,
+                    onChange: setRentalSaleFilter,
+                    options: rentalSaleFilterOptions
+                  },
+                  userAssets: {
+                    value: userAssetsFilter,
+                    onChange: setUserAssetsFilter,
+                    options: userAssetsFilterOptions
+                  },
+                  buildingType: {
+                    value: buildingTypeFilter,
+                    onChange: setBuildingTypeFilter,
+                    options: buildingTypeOptions
+                  },
+                  floorMin: {
+                    value: floorMin,
+                    onChange: setFloorMin
+                  },
+                  floorMax: {
+                    value: floorMax,
+                    onChange: setFloorMax
+                  },
+                  areaMin: {
+                    value: areaMin,
+                    onChange: setAreaMin
+                  },
+                  areaMax: {
+                    value: areaMax,
+                    onChange: setAreaMax
+                  },
+                  rooms: {
+                    value: roomsFilter,
+                    onChange: setRoomsFilter,
+                    options: roomsFilterOptions
+                  },
+                  features: {
+                    value: featuresFilter,
+                    onChange: setFeaturesFilter,
+                    options: featuresFilterOptions
                   }
                 }}
                 onRefresh={fetchAssets}

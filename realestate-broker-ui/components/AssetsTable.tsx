@@ -315,6 +315,73 @@ interface AssetsTableProps {
       onChange: (value: string) => void
       options: Array<{ value: string; label: string; count?: number }>
     }
+    rentalSale?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    userAssets?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    buildingType?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    floorMin?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    floorMax?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    areaMin?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    areaMax?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    rooms?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    features?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    pricePerSqmMin?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    pricePerSqmMax?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    remainingRightsMin?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    remainingRightsMax?: {
+      value: number | undefined
+      onChange: (value: number | undefined) => void
+    }
+    block?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
+    parcel?: {
+      value: string
+      onChange: (value: string) => void
+      options: string[]
+    }
   }
   onRefresh?: () => void
   onAddNew?: () => void
@@ -522,6 +589,69 @@ export default function AssetsTable({
       })
     }
 
+    if (filters.rentalSale) {
+      items.push({
+        key: 'rentalSale',
+        label: 'השכרה/מכירה',
+        value: filters.rentalSale.value,
+        options: filters.rentalSale.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.userAssets) {
+      items.push({
+        key: 'userAssets',
+        label: 'נכסים שלי',
+        value: filters.userAssets.value,
+        options: filters.userAssets.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.buildingType) {
+      items.push({
+        key: 'buildingType',
+        label: 'סוג בניין',
+        value: filters.buildingType.value,
+        options: filters.buildingType.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    if (filters.rooms) {
+      items.push({
+        key: 'rooms',
+        label: 'חדרים',
+        value: filters.rooms.value,
+        options: filters.rooms.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.features) {
+      items.push({
+        key: 'features',
+        label: 'תכונות',
+        value: filters.features.value,
+        options: filters.features.options.map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
+    if (filters.block) {
+      items.push({
+        key: 'block',
+        label: 'גוש',
+        value: filters.block.value,
+        options: filters.block.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
+    if (filters.parcel) {
+      items.push({
+        key: 'parcel',
+        label: 'חלקה',
+        value: filters.parcel.value,
+        options: filters.parcel.options.map(option => ({ value: option, label: option }))
+      })
+    }
+
     return items
   }, [filters])
 
@@ -547,6 +677,34 @@ export default function AssetsTable({
       case 'documents':
         filters.documents?.onChange(value)
         track('documents', value)
+        break
+      case 'rentalSale':
+        filters.rentalSale?.onChange(value)
+        track('rentalSale', value)
+        break
+      case 'userAssets':
+        filters.userAssets?.onChange(value)
+        track('userAssets', value)
+        break
+      case 'buildingType':
+        filters.buildingType?.onChange(value)
+        track('buildingType', value)
+        break
+      case 'rooms':
+        filters.rooms?.onChange(value)
+        track('rooms', value)
+        break
+      case 'features':
+        filters.features?.onChange(value)
+        track('features', value)
+        break
+      case 'block':
+        filters.block?.onChange(value)
+        track('block', value)
+        break
+      case 'parcel':
+        filters.parcel?.onChange(value)
+        track('parcel', value)
         break
       default:
         break

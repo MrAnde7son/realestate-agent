@@ -80,6 +80,22 @@ interface TableToolbarProps {
       value: number | undefined;
       onChange: (value: number | undefined) => void;
     };
+    pricePerSqmMin?: {
+      value: number | undefined;
+      onChange: (value: number | undefined) => void;
+    };
+    pricePerSqmMax?: {
+      value: number | undefined;
+      onChange: (value: number | undefined) => void;
+    };
+    remainingRightsMin?: {
+      value: number | undefined;
+      onChange: (value: number | undefined) => void;
+    };
+    remainingRightsMax?: {
+      value: number | undefined;
+      onChange: (value: number | undefined) => void;
+    };
   };
   
   // Column visibility
@@ -173,6 +189,10 @@ export default function TableToolbar({
     filters.type.value !== 'all' ||
     filters.priceMin.value !== undefined ||
     filters.priceMax.value !== undefined ||
+    (filters.pricePerSqmMin && filters.pricePerSqmMin.value !== undefined) ||
+    (filters.pricePerSqmMax && filters.pricePerSqmMax.value !== undefined) ||
+    (filters.remainingRightsMin && filters.remainingRightsMin.value !== undefined) ||
+    (filters.remainingRightsMax && filters.remainingRightsMax.value !== undefined) ||
     additionalFilters.some(filter => filter.value !== 'all') ||
     (statusFilters && statusFilters.value !== 'all') ||
     (dateRange && (dateRange.from || dateRange.to));
@@ -182,6 +202,10 @@ export default function TableToolbar({
     filters.type.onChange('all');
     filters.priceMin.onChange(undefined);
     filters.priceMax.onChange(undefined);
+    filters.pricePerSqmMin?.onChange(undefined);
+    filters.pricePerSqmMax?.onChange(undefined);
+    filters.remainingRightsMin?.onChange(undefined);
+    filters.remainingRightsMax?.onChange(undefined);
     additionalFilters.forEach(filter => {
       onAdditionalFilterChange?.(filter.key, 'all');
     });
@@ -224,7 +248,7 @@ export default function TableToolbar({
               <SheetHeader>
                 <SheetTitle>סינון נכסים</SheetTitle>
               </SheetHeader>
-              <div className="space-y-4">
+              <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pr-2">
                 <div className="flex items-center justify-between">
                   {hasActiveFilters && (
                     <Button
@@ -239,9 +263,9 @@ export default function TableToolbar({
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   {/* City filter */}
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="city-filter" className="text-sm">עיר</Label>
                     <Select value={filters.city.value} onValueChange={(value) => {
                       filters.city.onChange(value);
@@ -262,7 +286,7 @@ export default function TableToolbar({
                   </div>
 
                   {/* Type filter */}
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="type-filter" className="text-sm">סוג נכס</Label>
                     <Select value={filters.type.value} onValueChange={(value) => {
                       filters.type.onChange(value);
@@ -283,7 +307,7 @@ export default function TableToolbar({
                   </div>
 
                   {/* Price range */}
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="price-min" className="text-sm">מחיר מינימלי</Label>
                     <Input
                       id="price-min"
@@ -298,7 +322,7 @@ export default function TableToolbar({
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="price-max" className="text-sm">מחיר מקסימלי</Label>
                     <Input
                       id="price-max"
@@ -312,6 +336,76 @@ export default function TableToolbar({
                       }}
                     />
                   </div>
+
+                  {/* Price per sqm range */}
+                  {filters.pricePerSqmMin && (
+                    <div className="space-y-1">
+                      <Label htmlFor="price-per-sqm-min" className="text-sm">מחיר למ&quot;ר מינימלי</Label>
+                      <Input
+                        id="price-per-sqm-min"
+                        type="number"
+                        placeholder="₪/מ²"
+                        value={filters.pricePerSqmMin.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          filters.pricePerSqmMin?.onChange(value);
+                          trackFeatureUsage('filter', undefined, { filter_type: 'price_per_sqm_min', value });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {filters.pricePerSqmMax && (
+                    <div className="space-y-1">
+                      <Label htmlFor="price-per-sqm-max" className="text-sm">מחיר למ&quot;ר מקסימלי</Label>
+                      <Input
+                        id="price-per-sqm-max"
+                        type="number"
+                        placeholder="₪/מ²"
+                        value={filters.pricePerSqmMax.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          filters.pricePerSqmMax?.onChange(value);
+                          trackFeatureUsage('filter', undefined, { filter_type: 'price_per_sqm_max', value });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Remaining rights range */}
+                  {filters.remainingRightsMin && (
+                    <div className="space-y-1">
+                      <Label htmlFor="remaining-rights-min" className="text-sm">יתרת זכויות מינימלית</Label>
+                      <Input
+                        id="remaining-rights-min"
+                        type="number"
+                        placeholder="מ²"
+                        value={filters.remainingRightsMin.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          filters.remainingRightsMin?.onChange(value);
+                          trackFeatureUsage('filter', undefined, { filter_type: 'remaining_rights_min', value });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {filters.remainingRightsMax && (
+                    <div className="space-y-1">
+                      <Label htmlFor="remaining-rights-max" className="text-sm">יתרת זכויות מקסימלית</Label>
+                      <Input
+                        id="remaining-rights-max"
+                        type="number"
+                        placeholder="מ²"
+                        value={filters.remainingRightsMax.value || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          filters.remainingRightsMax?.onChange(value);
+                          trackFeatureUsage('filter', undefined, { filter_type: 'remaining_rights_max', value });
+                        }}
+                      />
+                    </div>
+                  )}
 
                   {/* Additional filters */}
                   {additionalFilters.map((filter) => (
@@ -344,7 +438,7 @@ export default function TableToolbar({
 
                 {/* Status filters */}
                 {statusFilters && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label className="text-sm">סטטוס</Label>
                     <Select value={statusFilters.value} onValueChange={statusFilters.onChange}>
                       <SelectTrigger>
@@ -367,7 +461,7 @@ export default function TableToolbar({
 
                 {/* Date range filter */}
                 {dateRange && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label className="text-sm">טווח תאריכים</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>

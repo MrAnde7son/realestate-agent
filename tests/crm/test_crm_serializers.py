@@ -195,7 +195,7 @@ class CrmSerializersTests(TestCase):
             data={
                 'title': 'Follow up with lead',
                 'description': 'Call the lead about the property',
-                'contact_id': contact.id,
+                'contact_id_write': contact.id,
                 'lead_id': lead.id
             },
             context={'request': request}
@@ -237,7 +237,7 @@ class CrmSerializersTests(TestCase):
         serializer = ContactTaskSerializer(
             data={
                 'title': 'Follow up with lead',
-                'contact_id': contact.id,
+                'contact_id_write': contact.id,
                 'lead_id': other_lead.id
             },
             context={'request': request}
@@ -364,7 +364,7 @@ class CrmSerializersTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new',
             'notes': [{'ts': '2024-01-01T12:00:00Z', 'text': 'Test note'}]
@@ -415,7 +415,7 @@ class CrmSerializersTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'invalid_status'
         }
@@ -436,7 +436,7 @@ class CrmSerializersTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': 99999,  # Non-existent asset
             'status': 'new'
         }
@@ -457,7 +457,7 @@ class CrmSerializersTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new',
             'notes': []
@@ -481,7 +481,7 @@ class CrmSerializersTests(TestCase):
         )
         
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
@@ -505,7 +505,7 @@ class CrmSerializersTests(TestCase):
         
         # Test invalid notes format
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'new',
             'notes': 'invalid_notes_format'
@@ -620,7 +620,7 @@ class CrmSerializersTests(TestCase):
         
         # Test valid status
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted'
         }
@@ -633,7 +633,7 @@ class CrmSerializersTests(TestCase):
         
         # Test invalid status
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'invalid_status'
         }
@@ -684,7 +684,7 @@ class CrmSerializersTests(TestCase):
         
         # Update lead
         data = {
-            'contact_id': contact.id,
+            'contact_id_write': contact.id,
             'asset_id': self.asset.id,
             'status': 'contacted',
             'notes': [{'ts': '2024-01-01T12:00:00Z', 'text': 'Updated note'}]

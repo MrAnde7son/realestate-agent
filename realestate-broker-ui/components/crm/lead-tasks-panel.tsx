@@ -80,13 +80,18 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
     loadTasks();
   }, [loadTasks]);
 
-  const handleCreateTask = async (data: CreateTaskData) => {
+  const handleCreateTask = async (data: CreateTaskData | UpdateTaskData) => {
     try {
-      await CrmApi.createTask({
-        ...data,
-        contact_id: lead.contact_id,
-        lead_id: lead.id,
-      });
+      // Type guard to ensure we have CreateTaskData
+      if ('contact_id' in data) {
+        await CrmApi.createTask({
+          ...data,
+          contact_id: lead.contact_id,
+          lead_id: lead.id,
+        });
+      } else {
+        throw new Error('Invalid data for task creation');
+      }
       await loadTasks();
       setIsCreateModalOpen(false);
       toast({

@@ -227,7 +227,7 @@ def test_individual_collectors_e2e():
         logger.info(f"✅ Gov (Nadlan): {len(gov_results.get('transactions', []))} transactions, {len(gov_results.get('decisive', []))} appraisals")
         
         # Test other collectors (may return empty results)
-        from gov.rami import RamiCollector
+        from orchestration.collectors import RamiCollector
         rami = RamiCollector()
         rami_results = rami.collect(block="", parcel="")
         logger.info(f"✅ RAMI: {len(rami_results)} plans")

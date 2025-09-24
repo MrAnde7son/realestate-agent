@@ -273,14 +273,20 @@ class TestCollectorsIntegration:
 
         # Test 2: Search for address
         logger.info("Testing address search...")
-        search_results = scraper.search_address(TEST_ADDRESS, limit=1)
+        search_query = "רמת החיל"
+        search_results = scraper.search_address(search_query, limit=1)
         assert isinstance(search_results, list) and len(search_results) > 0
         logger.info(f"✓ Found {len(search_results)} address results")
 
         if search_results:
             # Test 3: Get deals by address
             logger.info("Testing deals by address...")
-            deals = scraper.get_deals_by_address(TEST_ADDRESS)
+            address_for_deals = (
+                search_results[0].get("full_address")
+                or search_results[0].get("address")
+                or search_query
+            )
+            deals = scraper.get_deals_by_address(address_for_deals)
             assert isinstance(deals, list) and len(deals) > 0
             logger.info(f"✓ Found {len(deals)} deals for address")
 

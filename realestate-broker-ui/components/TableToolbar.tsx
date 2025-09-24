@@ -195,7 +195,8 @@ export default function TableToolbar({
     (filters.remainingRightsMax && filters.remainingRightsMax.value !== undefined) ||
     additionalFilters.some(filter => filter.value !== 'all') ||
     (statusFilters && statusFilters.value !== 'all') ||
-    (dateRange && (dateRange.from || dateRange.to));
+    (dateRange && (dateRange.from || dateRange.to)) ||
+    (additionalFilters.find(f => f.key === 'userAssets')?.value === 'mine');
 
   const clearAllFilters = () => {
     filters.city.onChange('all');
@@ -262,6 +263,26 @@ export default function TableToolbar({
                     </Button>
                   )}
                 </div>
+
+                {/* My Assets Checkbox - Prominent at top */}
+                {additionalFilters.find(f => f.key === 'userAssets') && (
+                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border">
+                    <input
+                      type="checkbox"
+                      id="my-assets-checkbox"
+                      checked={additionalFilters.find(f => f.key === 'userAssets')?.value === 'mine'}
+                      onChange={(e) => {
+                        const value = e.target.checked ? 'mine' : 'all';
+                        onAdditionalFilterChange?.('userAssets', value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'my_assets', value });
+                      }}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <Label htmlFor="my-assets-checkbox" className="text-sm font-medium cursor-pointer">
+                      נכסים שלי בלבד
+                    </Label>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   {/* City filter */}
@@ -408,7 +429,7 @@ export default function TableToolbar({
                   )}
 
                   {/* Additional filters */}
-                  {additionalFilters.map((filter) => (
+                  {additionalFilters.filter(filter => filter.key !== 'userAssets').map((filter) => (
                     <div key={filter.key} className="space-y-1">
                       <Label className="text-sm">{filter.label}</Label>
                       <Select

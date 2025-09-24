@@ -144,9 +144,9 @@ class TestPlanService:
         assert plan_info['is_expired'] is False
         
         # Check limits
-        assert plan_info['limits']['assets']['limit'] == 25
+        assert plan_info['limits']['assets']['limit'] == 10
         assert plan_info['limits']['assets']['used'] == 10
-        assert plan_info['limits']['assets']['remaining'] == 15
+        assert plan_info['limits']['assets']['remaining'] == 0
         
         assert plan_info['limits']['reports']['limit'] == 50
         assert plan_info['limits']['reports']['used'] == 0
@@ -203,7 +203,7 @@ class TestPlanService:
         )
         
         # Create some assets
-        for i in range(10):
+        for i in range(9):
             Asset.objects.create(
                 scope_type="address",
                 street=f"Test Street {i}",

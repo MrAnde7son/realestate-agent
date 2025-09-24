@@ -4,11 +4,28 @@ Tests for CRM serializers
 import pytest
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APIRequestFactory
 from rest_framework import status
+from datetime import timedelta
+
+from django.utils import timezone
+
 from core.models import Asset
-from crm.models import Contact, Lead, LeadStatus
-from crm.serializers import ContactSerializer, LeadSerializer
+from crm.models import (
+    Contact,
+    Lead,
+    LeadStatus,
+    ContactTask,
+    ContactMeeting,
+    ContactInteraction,
+)
+from crm.serializers import (
+    ContactSerializer,
+    LeadSerializer,
+    ContactTaskSerializer,
+    ContactMeetingSerializer,
+    ContactInteractionSerializer,
+)
 
 User = get_user_model()
 
@@ -44,6 +61,14 @@ class CrmSerializersTests(TestCase):
         
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
+        self.factory = APIRequestFactory()
+
+    def _build_request(self, user):
+        class DummyRequest:
+            def __init__(self, user):
+                self.user = user
+
+        return DummyRequest(user)
     
     def test_contact_serializer_serialization(self):
         """Test ContactSerializer serialization"""
@@ -118,6 +143,88 @@ class CrmSerializersTests(TestCase):
         serializer = ContactSerializer(data=data)
         self.assertFalse(serializer.is_valid())
         self.assertIn('name', serializer.errors)
+
+    def test_contact_task_serializer_enforces_contact_ownership(self):
+        """Task serializer should restrict creation to owned contacts."""
+        owned_contact = Contact.objects.create(
+            owner=self.user,
+            name='Owned Contact',
+            email='owned@example.com'
+        )
+        other_contact = Contact.objects.create(
+            owner=self.other_user,
+            name='Other Contact',
+            email='other@example.com'
+        )
+
+        request = self._build_request(self.user)
+
+        serializer = ContactTaskSerializer(
+            data={'title': 'Call client', 'contact_id': owned_contact.id},
+            context={'request': request}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        task = serializer.save(owner=self.user)
+        self.assertEqual(task.contact, owned_contact)
+
+        invalid_serializer = ContactTaskSerializer(
+            data={'title': 'Follow up', 'contact_id': other_contact.id},
+            context={'request': request}
+        )
+        self.assertFalse(invalid_serializer.is_valid())
+        self.assertIn('contact_id', invalid_serializer.errors)
+
+    def test_contact_meeting_serializer_validation(self):
+        """Meeting serializer should validate scheduling and ownership."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Meeting Contact',
+            email='meeting@example.com'
+        )
+
+        request = self._build_request(self.user)
+
+        scheduled_for = timezone.now() + timedelta(days=7)
+        serializer = ContactMeetingSerializer(
+            data={
+                'title': 'Property tour',
+                'scheduled_for': scheduled_for.isoformat(),
+                'duration_minutes': 45,
+                'location': 'Tel Aviv',
+                'contact_id': contact.id
+            },
+            context={'request': request}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        meeting = serializer.save(owner=self.user)
+        self.assertEqual(meeting.contact, contact)
+        self.assertEqual(meeting.duration_minutes, 45)
+
+    def test_contact_interaction_serializer_validation(self):
+        """Interaction serializer should accept communication logs."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Interaction Contact',
+            email='interaction@example.com'
+        )
+
+        request = self._build_request(self.user)
+
+        occurred_at = timezone.now()
+        serializer = ContactInteractionSerializer(
+            data={
+                'interaction_type': 'email',
+                'subject': 'Summary email',
+                'notes': 'Sent recap of conversation',
+                'occurred_at': occurred_at.isoformat(),
+                'contact_id': contact.id
+            },
+            context={'request': request}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        interaction = serializer.save(owner=self.user)
+        self.assertEqual(interaction.contact, contact)
+        self.assertEqual(interaction.interaction_type, 'email')
     
     def test_contact_serializer_empty_tags(self):
         """Test ContactSerializer with empty tags"""

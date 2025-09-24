@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
+from datetime import datetime
+
 from django.db.models import Q
 from django.utils import timezone
 from django.db import IntegrityError, transaction
@@ -10,12 +12,22 @@ from django.http import HttpResponse
 import csv
 from io import StringIO
 
-from .models import Contact, Lead, LeadStatus
+from .models import (
+    Contact,
+    Lead,
+    LeadStatus,
+    ContactTask,
+    ContactMeeting,
+    ContactInteraction,
+)
 from .serializers import (
-    ContactSerializer, 
-    LeadSerializer, 
+    ContactSerializer,
+    LeadSerializer,
     LeadStatusUpdateSerializer,
-    LeadNoteSerializer
+    LeadNoteSerializer,
+    ContactTaskSerializer,
+    ContactMeetingSerializer,
+    ContactInteractionSerializer,
 )
 from .permissions import HasCrmAccess, IsOwnerContact
 from .analytics import (
@@ -200,32 +212,31 @@ class LeadViewSet(viewsets.ModelViewSet):
                 })
             raise
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="set_status")
     def set_status(self, request, pk=None):
         """Update lead status."""
         lead = self.get_object()
         serializer = LeadStatusUpdateSerializer(data=request.data)
-        
+
         if serializer.is_valid():
             old_status = lead.status
             lead.status = serializer.validated_data['status']
             lead.last_activity_at = timezone.now()
             lead.save(update_fields=["status", "last_activity_at"])
-            
-            # Track status change event
+
             from .analytics import track_lead_status_changed
             track_lead_status_changed(lead, request.user.id, old_status, lead.status)
-            
+
             return Response(LeadSerializer(lead, context={"request": request}).data)
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="add_note")
     def add_note(self, request, pk=None):
         """Add a note to the lead."""
         lead = self.get_object()
         serializer = LeadNoteSerializer(data=request.data)
-        
+
         if serializer.is_valid():
             note_text = serializer.validated_data['text'].strip()
             if not note_text:
@@ -233,8 +244,7 @@ class LeadViewSet(viewsets.ModelViewSet):
                     {"detail": "Cannot add empty note"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Add note to the notes list
+
             notes = lead.notes or []
             notes.append({
                 "ts": timezone.now().isoformat(),
@@ -243,33 +253,29 @@ class LeadViewSet(viewsets.ModelViewSet):
             lead.notes = notes
             lead.last_activity_at = timezone.now()
             lead.save(update_fields=["notes", "last_activity_at"])
-            
-            # Track note addition event
+
             from .analytics import track_lead_note_added
             track_lead_note_added(lead, request.user.id, note_text)
-            
+
             return Response(LeadSerializer(lead, context={"request": request}).data)
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="send_report")
     def send_report(self, request, pk=None):
         """Send a report to the lead's contact."""
         lead = self.get_object()
-        
-        # Track report sending event
+
         from .analytics import track_lead_report_sent
         via = 'email' if lead.contact.email else 'link'
         track_lead_report_sent(lead, request.user.id, via)
-        
-        # This would integrate with the existing report service
-        # For now, just return a success message
+
         return Response({
             "message": "Report sent successfully",
             "contact_email": lead.contact.email
         })
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path="by-asset")
     def by_asset(self, request):
         """Get leads for a specific asset."""
         asset_id = request.query_params.get('asset_id')
@@ -298,3 +304,138 @@ class LeadViewSet(viewsets.ModelViewSet):
         leads = self.get_queryset().filter(asset=asset)
         serializer = self.get_serializer(leads, many=True)
         return Response(serializer.data)
+
+
+class ContactTaskViewSet(viewsets.ModelViewSet):
+    """Manage actionable tasks associated with CRM contacts."""
+
+    serializer_class = ContactTaskSerializer
+    permission_classes = [IsAuthenticated, HasCrmAccess, IsOwnerContact]
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        queryset = ContactTask.objects.select_related("contact")
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(owner=self.request.user)
+
+        contact_id = self.request.query_params.get("contact")
+        if contact_id:
+            queryset = queryset.filter(contact_id=contact_id)
+
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        return queryset.order_by("due_at", "-created_at")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if should_paginate(request):
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(queryset, request, view=self)
+            serializer = self.get_serializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="complete")
+    def complete(self, request, pk=None):
+        task = self.get_object()
+        task.mark_completed()
+        serializer = self.get_serializer(task)
+        return Response(serializer.data)
+
+
+class ContactMeetingViewSet(viewsets.ModelViewSet):
+    """Manage scheduled meetings with CRM contacts."""
+
+    serializer_class = ContactMeetingSerializer
+    permission_classes = [IsAuthenticated, HasCrmAccess, IsOwnerContact]
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        queryset = ContactMeeting.objects.select_related("contact")
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(owner=self.request.user)
+
+        contact_id = self.request.query_params.get("contact")
+        if contact_id:
+            queryset = queryset.filter(contact_id=contact_id)
+
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        upcoming = self.request.query_params.get("upcoming")
+        if upcoming in {"1", "true", "True"}:
+            queryset = queryset.filter(scheduled_for__gte=timezone.now())
+
+        return queryset.order_by("scheduled_for")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if should_paginate(request):
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(queryset, request, view=self)
+            serializer = self.get_serializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+
+class ContactInteractionViewSet(viewsets.ModelViewSet):
+    """Manage recorded interactions with CRM contacts."""
+
+    serializer_class = ContactInteractionSerializer
+    permission_classes = [IsAuthenticated, HasCrmAccess, IsOwnerContact]
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        queryset = ContactInteraction.objects.select_related("contact")
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(owner=self.request.user)
+
+        contact_id = self.request.query_params.get("contact")
+        if contact_id:
+            queryset = queryset.filter(contact_id=contact_id)
+
+        interaction_type = self.request.query_params.get("type")
+        if interaction_type:
+            queryset = queryset.filter(interaction_type=interaction_type)
+
+        since = self.request.query_params.get("since")
+        if since:
+            try:
+                parsed = datetime.fromisoformat(since)
+                if timezone.is_naive(parsed):
+                    parsed = timezone.make_aware(parsed, timezone=timezone.get_current_timezone())
+                queryset = queryset.filter(occurred_at__gte=parsed)
+            except ValueError:
+                pass
+
+        return queryset.order_by("-occurred_at")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if should_paginate(request):
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(queryset, request, view=self)
+            serializer = self.get_serializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)

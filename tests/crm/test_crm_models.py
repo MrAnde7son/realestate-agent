@@ -3,12 +3,25 @@ Tests for CRM models
 """
 import pytest
 import time
+from datetime import timedelta
+
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 from core.models import Asset
-from crm.models import Contact, Lead, LeadStatus
+from crm.models import (
+    Contact,
+    Lead,
+    LeadStatus,
+    ContactTask,
+    ContactTaskStatus,
+    ContactMeeting,
+    ContactMeetingStatus,
+    ContactInteraction,
+    InteractionType,
+)
 
 User = get_user_model()
 
@@ -190,14 +203,82 @@ class CrmModelsTests(TestCase):
             name='רות כהן',
             email=self._get_unique_email()
         )
-        
+
         lead = Lead.objects.create(
             contact=contact,
             asset=self.asset,
             status='new'
         )
-        
+
         self.assertEqual(str(lead), f'Lead({contact.id} -> {self.asset.id})')
+
+    def test_contact_task_creation_and_completion(self):
+        """Tasks should be associated with contact and support completion tracking."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Contact Task',
+            email=self._get_unique_email('task')
+        )
+
+        task = ContactTask.objects.create(
+            contact=contact,
+            owner=self.user,
+            title='Follow up call'
+        )
+
+        self.assertEqual(task.status, ContactTaskStatus.PENDING)
+        self.assertIsNone(task.due_at)
+        self.assertIsNone(task.completed_at)
+
+        task.mark_completed()
+        task.refresh_from_db()
+
+        self.assertEqual(task.status, ContactTaskStatus.COMPLETED)
+        self.assertIsNotNone(task.completed_at)
+
+    def test_contact_meeting_creation(self):
+        """Meetings should store scheduling metadata."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Meeting Contact',
+            email=self._get_unique_email('meeting')
+        )
+
+        scheduled_for = timezone.now() + timedelta(days=30)
+        meeting = ContactMeeting.objects.create(
+            contact=contact,
+            owner=self.user,
+            title='Property tour',
+            scheduled_for=scheduled_for,
+            duration_minutes=45,
+            location='Dizengoff 50'
+        )
+
+        self.assertEqual(meeting.status, ContactMeetingStatus.SCHEDULED)
+        self.assertEqual(meeting.duration_minutes, 45)
+        self.assertEqual(str(meeting), f'Meeting({meeting.title}) for {contact.id}')
+
+    def test_contact_interaction_creation(self):
+        """Interactions should capture communication history."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Interaction Contact',
+            email=self._get_unique_email('interaction')
+        )
+
+        occurred_at = timezone.now() - timedelta(days=1)
+        interaction = ContactInteraction.objects.create(
+            contact=contact,
+            owner=self.user,
+            interaction_type=InteractionType.CALL,
+            subject='Intro call',
+            occurred_at=occurred_at,
+            notes='Discussed financing options'
+        )
+
+        self.assertEqual(interaction.interaction_type, InteractionType.CALL)
+        self.assertEqual(interaction.subject, 'Intro call')
+        self.assertEqual(str(interaction), f'Interaction({InteractionType.CALL}) for {contact.id}')
     
     def test_lead_meta_indexes(self):
         """Test Lead model Meta indexes"""

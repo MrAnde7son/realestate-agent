@@ -3,7 +3,17 @@ import json
 
 from rest_framework import serializers
 
-from .models import Contact, Lead, LeadStatus
+from .models import (
+    Contact,
+    Lead,
+    LeadStatus,
+    ContactTask,
+    ContactTaskStatus,
+    ContactMeeting,
+    ContactMeetingStatus,
+    ContactInteraction,
+    InteractionType,
+)
 
 
 def _extract_list_from_request(serializer, field_name):
@@ -197,3 +207,107 @@ class LeadNoteSerializer(serializers.Serializer):
     """Serializer for adding notes to leads."""
 
     text = serializers.CharField(max_length=1000, allow_blank=True)
+
+
+class ContactTaskSerializer(serializers.ModelSerializer):
+    """Serializer for contact tasks."""
+
+    contact_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Contact.objects.all(),
+        source="contact",
+    )
+    contact = ContactSerializer(read_only=True)
+    status = serializers.ChoiceField(choices=ContactTaskStatus.choices, required=False)
+
+    class Meta:
+        model = ContactTask
+        fields = [
+            "id",
+            "title",
+            "description",
+            "due_at",
+            "status",
+            "completed_at",
+            "created_at",
+            "updated_at",
+            "contact",
+            "contact_id",
+        ]
+        read_only_fields = ["id", "completed_at", "created_at", "updated_at", "contact"]
+
+    def validate_contact_id(self, value):
+        request = self.context.get("request")
+        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this contact")
+        return value
+
+
+class ContactMeetingSerializer(serializers.ModelSerializer):
+    """Serializer for contact meetings."""
+
+    contact_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Contact.objects.all(),
+        source="contact",
+    )
+    contact = ContactSerializer(read_only=True)
+    status = serializers.ChoiceField(choices=ContactMeetingStatus.choices, required=False)
+
+    class Meta:
+        model = ContactMeeting
+        fields = [
+            "id",
+            "title",
+            "scheduled_for",
+            "duration_minutes",
+            "location",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+            "contact",
+            "contact_id",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "contact"]
+
+    def validate_contact_id(self, value):
+        request = self.context.get("request")
+        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this contact")
+        return value
+
+
+class ContactInteractionSerializer(serializers.ModelSerializer):
+    """Serializer for contact interactions."""
+
+    contact_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Contact.objects.all(),
+        source="contact",
+    )
+    contact = ContactSerializer(read_only=True)
+    interaction_type = serializers.ChoiceField(choices=InteractionType.choices, required=False)
+
+    class Meta:
+        model = ContactInteraction
+        fields = [
+            "id",
+            "interaction_type",
+            "subject",
+            "notes",
+            "occurred_at",
+            "next_steps",
+            "follow_up_at",
+            "created_at",
+            "updated_at",
+            "contact",
+            "contact_id",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "contact"]
+
+    def validate_contact_id(self, value):
+        request = self.context.get("request")
+        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this contact")
+        return value

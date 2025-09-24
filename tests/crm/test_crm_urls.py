@@ -8,8 +8,14 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
 from core.models import Asset
-from crm.models import Contact, Lead
-from crm.views import ContactViewSet, LeadViewSet
+from crm.models import Contact, Lead, ContactTask, ContactMeeting, ContactInteraction
+from crm.views import (
+    ContactViewSet,
+    LeadViewSet,
+    ContactTaskViewSet,
+    ContactMeetingViewSet,
+    ContactInteractionViewSet,
+)
 
 User = get_user_model()
 
@@ -158,18 +164,102 @@ class CrmUrlsTests(TestCase):
             name='רות כהן',
             email='rut@example.com'
         )
-        
+
         url = reverse('leads-list')
         self.assertEqual(url, '/api/crm/leads/')
-        
+
         data = {
             'contact_id': contact.id,
             'asset_id': self.asset.id,
             'status': 'new'
         }
-        
+
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_task_endpoints(self):
+        """Verify task list and detail endpoints are registered."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='רות כהן',
+            email='rut@example.com'
+        )
+
+        list_url = reverse('contact-tasks-list')
+        self.assertEqual(list_url, '/api/crm/tasks/')
+        response = self.client.get(list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        create_response = self.client.post(list_url, {
+            'title': 'Follow up call',
+            'description': 'Call the client about new asset',
+            'contact_id': contact.id
+        })
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        task = ContactTask.objects.get(id=create_response.data['id'])
+        detail_url = reverse('contact-tasks-detail', kwargs={'pk': task.id})
+        self.assertEqual(detail_url, f'/api/crm/tasks/{task.id}/')
+        detail_response = self.client.get(detail_url)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+
+    def test_meeting_endpoints(self):
+        """Verify meeting list and detail endpoints are registered."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='דוד לוי',
+            email='david@example.com'
+        )
+
+        list_url = reverse('contact-meetings-list')
+        self.assertEqual(list_url, '/api/crm/meetings/')
+        response = self.client.get(list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        create_payload = {
+            'title': 'On-site visit',
+            'scheduled_for': '2030-01-01T10:00:00Z',
+            'duration_minutes': 60,
+            'location': 'Tel Aviv',
+            'contact_id': contact.id
+        }
+        create_response = self.client.post(list_url, create_payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        meeting = ContactMeeting.objects.get(id=create_response.data['id'])
+        detail_url = reverse('contact-meetings-detail', kwargs={'pk': meeting.id})
+        self.assertEqual(detail_url, f'/api/crm/meetings/{meeting.id}/')
+        detail_response = self.client.get(detail_url)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+
+    def test_interaction_endpoints(self):
+        """Verify interaction list and detail endpoints are registered."""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='שרה כהן',
+            email='sara@example.com'
+        )
+
+        list_url = reverse('contact-interactions-list')
+        self.assertEqual(list_url, '/api/crm/interactions/')
+        response = self.client.get(list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        create_payload = {
+            'interaction_type': 'call',
+            'subject': 'Initial discovery call',
+            'occurred_at': '2029-05-01T09:00:00Z',
+            'notes': 'Client is interested in north Tel Aviv area',
+            'contact_id': contact.id
+        }
+        create_response = self.client.post(list_url, create_payload, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        interaction = ContactInteraction.objects.get(id=create_response.data['id'])
+        detail_url = reverse('contact-interactions-detail', kwargs={'pk': interaction.id})
+        self.assertEqual(detail_url, f'/api/crm/interactions/{interaction.id}/')
+        detail_response = self.client.get(detail_url)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
     
     def test_lead_update_url(self):
         """Test lead update URL"""

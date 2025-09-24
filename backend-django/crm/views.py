@@ -305,6 +305,23 @@ class LeadViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(leads, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'], url_path="tasks")
+    def tasks(self, request, pk=None):
+        """Get tasks for a specific lead."""
+        lead = self.get_object()
+        tasks = ContactTask.objects.filter(lead=lead).select_related("contact", "lead", "lead__asset")
+        
+        # Apply filters
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            tasks = tasks.filter(status=status_filter)
+        
+        tasks = tasks.order_by("due_at", "-created_at")
+        
+        from .serializers import ContactTaskSerializer
+        serializer = ContactTaskSerializer(tasks, many=True, context={'request': request})
+        return Response(serializer.data)
+
 
 class ContactTaskViewSet(viewsets.ModelViewSet):
     """Manage actionable tasks associated with CRM contacts."""
@@ -314,13 +331,17 @@ class ContactTaskViewSet(viewsets.ModelViewSet):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        queryset = ContactTask.objects.select_related("contact")
+        queryset = ContactTask.objects.select_related("contact", "lead", "lead__asset")
         if not self.request.user.is_superuser:
             queryset = queryset.filter(owner=self.request.user)
 
         contact_id = self.request.query_params.get("contact")
         if contact_id:
             queryset = queryset.filter(contact_id=contact_id)
+
+        lead_id = self.request.query_params.get("lead")
+        if lead_id:
+            queryset = queryset.filter(lead_id=lead_id)
 
         status_filter = self.request.query_params.get("status")
         if status_filter:

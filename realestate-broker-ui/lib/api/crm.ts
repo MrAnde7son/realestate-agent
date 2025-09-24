@@ -80,6 +80,39 @@ export interface AddLeadNoteData {
   text: string;
 }
 
+export interface ContactTask {
+  id: number;
+  title: string;
+  description: string;
+  due_at: string | null;
+  status: TaskStatus;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  contact: Contact;
+  contact_id: number;
+  lead: Lead | null;
+  lead_id: number | null;
+}
+
+export type TaskStatus = 'pending' | 'completed' | 'cancelled';
+
+export interface CreateTaskData {
+  title: string;
+  description?: string;
+  due_at?: string;
+  contact_id: number;
+  lead_id?: number | null;
+  status?: TaskStatus;
+}
+
+export interface UpdateTaskData {
+  title?: string;
+  description?: string;
+  due_at?: string;
+  status?: TaskStatus;
+}
+
 const API_BASE = '/api/crm';
 
 export class CrmApi {
@@ -290,5 +323,90 @@ export class CrmApi {
     });
     
     return result;
+  }
+
+  // Tasks API
+  static async getTasks(params?: { contact?: number; lead?: number; status?: TaskStatus }): Promise<ContactTask[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.contact) queryParams.append('contact', params.contact.toString());
+    if (params?.lead) queryParams.append('lead', params.lead.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `/tasks/?${queryString}` : '/tasks/';
+    
+    return this.request<ContactTask[]>(endpoint);
+  }
+
+  static async getTask(id: number): Promise<ContactTask> {
+    return this.request<ContactTask>(`/tasks/${id}/`);
+  }
+
+  static async createTask(data: CreateTaskData): Promise<ContactTask> {
+    const task = await this.request<ContactTask>('/tasks/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    // Track task creation
+    trackEvent('task_created', {
+      task_id: task.id,
+      title: task.title,
+      has_lead: !!task.lead_id,
+      contact_id: task.contact_id,
+      lead_id: task.lead_id,
+      status: task.status
+    });
+
+    return task;
+  }
+
+  static async updateTask(id: number, data: UpdateTaskData): Promise<ContactTask> {
+    const task = await this.request<ContactTask>(`/tasks/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+
+    // Track task update
+    trackEvent('task_updated', {
+      task_id: task.id,
+      fields_changed: Object.keys(data),
+      status: task.status
+    });
+
+    return task;
+  }
+
+  static async deleteTask(id: number): Promise<void> {
+    return this.request<void>(`/tasks/${id}/`, {
+      method: 'DELETE',
+    });
+  }
+
+  static async completeTask(id: number): Promise<ContactTask> {
+    const task = await this.request<ContactTask>(`/tasks/${id}/complete/`, {
+      method: 'POST',
+    });
+
+    // Track task completion
+    trackEvent('task_completed', {
+      task_id: task.id,
+      title: task.title,
+      has_lead: !!task.lead_id,
+      contact_id: task.contact_id,
+      lead_id: task.lead_id
+    });
+
+    return task;
+  }
+
+  static async getLeadTasks(leadId: number, status?: TaskStatus): Promise<ContactTask[]> {
+    const queryParams = new URLSearchParams();
+    if (status) queryParams.append('status', status);
+    
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `/leads/${leadId}/tasks/?${queryString}` : `/leads/${leadId}/tasks/`;
+    
+    return this.request<ContactTask[]>(endpoint);
   }
 }

@@ -19,11 +19,12 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { Users, Plus, ExternalLink, MessageSquare } from 'lucide-react';
+import { Users, Plus, ExternalLink, MessageSquare, CheckSquare } from 'lucide-react';
 import { Lead, CrmApi } from '@/lib/api/crm';
 import { LeadStatusBadge } from './lead-status-badge';
 import { LeadRowActions } from './lead-row-actions';
 import { AssignContactModal } from './assign-contact-modal';
+import { LeadTasksPanel } from './lead-tasks-panel';
 import { useToast } from '@/hooks/use-toast';
 
 interface AssetLeadsPanelProps {
@@ -35,6 +36,7 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedLeadForTasks, setSelectedLeadForTasks] = useState<Lead | null>(null);
   const { toast } = useToast();
 
   const loadLeads = useCallback(async () => {
@@ -224,6 +226,7 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
                           lead={lead}
                           onUpdate={handleLeadUpdate}
                           onDelete={() => handleLeadDelete(lead)}
+                          onShowTasks={() => setSelectedLeadForTasks(lead)}
                         />
                       </TableCell>
                     </TableRow>
@@ -267,6 +270,16 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
           </div>
         )}
       </CardContent>
+
+      {/* Tasks Panel for Selected Lead */}
+      {selectedLeadForTasks && (
+        <div className="mt-4">
+          <LeadTasksPanel
+            lead={selectedLeadForTasks}
+            onClose={() => setSelectedLeadForTasks(null)}
+          />
+        </div>
+      )}
     </Card>
   );
 }

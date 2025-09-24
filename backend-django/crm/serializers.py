@@ -109,7 +109,8 @@ class LeadSerializer(serializers.ModelSerializer):
     """Serializer for Lead model."""
     
     contact = ContactSerializer(read_only=True)
-    contact_id = serializers.PrimaryKeyRelatedField(
+    contact_id = serializers.IntegerField(source="contact.id", read_only=True)
+    contact_id_write = serializers.PrimaryKeyRelatedField(
         write_only=True, 
         queryset=Contact.objects.all(), 
         source="contact"
@@ -125,7 +126,7 @@ class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = [
-            "id", "contact", "contact_id", "asset", "asset_id", "asset_address",
+            "id", "contact", "contact_id", "contact_id_write", "asset", "asset_id", "asset_address",
             "asset_price", "asset_rooms", "asset_area", "status", "notes",
             "last_activity_at", "created_at"
         ]
@@ -217,7 +218,15 @@ class ContactTaskSerializer(serializers.ModelSerializer):
         queryset=Contact.objects.all(),
         source="contact",
     )
+    lead_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=Lead.objects.all(),
+        source="lead",
+        required=False,
+        allow_null=True,
+    )
     contact = ContactSerializer(read_only=True)
+    lead = LeadSerializer(read_only=True)
     status = serializers.ChoiceField(choices=ContactTaskStatus.choices, required=False)
 
     class Meta:
@@ -233,13 +242,21 @@ class ContactTaskSerializer(serializers.ModelSerializer):
             "updated_at",
             "contact",
             "contact_id",
+            "lead",
+            "lead_id",
         ]
-        read_only_fields = ["id", "completed_at", "created_at", "updated_at", "contact"]
+        read_only_fields = ["id", "completed_at", "created_at", "updated_at", "contact", "lead"]
 
     def validate_contact_id(self, value):
         request = self.context.get("request")
         if request and not request.user.is_superuser and value.owner_id != request.user.id:
             raise serializers.ValidationError("No permission on this contact")
+        return value
+
+    def validate_lead_id(self, value):
+        request = self.context.get("request")
+        if value and request and not request.user.is_superuser and value.contact.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this lead")
         return value
 
 

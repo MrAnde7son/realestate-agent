@@ -42,6 +42,7 @@ import {
 import { ContactForm } from '@/components/crm/contact-form';
 import { LeadStatusBadge } from '@/components/crm/lead-status-badge';
 import { LeadRowActions } from '@/components/crm/lead-row-actions';
+import { LeadTasksPanel } from '@/components/crm/lead-tasks-panel';
 import { useAuth } from '@/lib/auth-context';
 
 export default function CrmPage() {
@@ -53,6 +54,7 @@ export default function CrmPage() {
   const [isCreateContactDialogOpen, setIsCreateContactDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedLeadForTasks, setSelectedLeadForTasks] = useState<Lead | null>(null);
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '');
@@ -680,7 +682,8 @@ export default function CrmPage() {
                           <LeadRowActions 
                             lead={lead} 
                             onUpdate={handleLeadUpdate} 
-                            onDelete={handleLeadDelete} 
+                            onDelete={handleLeadDelete}
+                            onShowTasks={() => setSelectedLeadForTasks(lead)}
                           />
                         </TableCell>
                       </TableRow>
@@ -707,6 +710,16 @@ export default function CrmPage() {
               />
             </DialogContent>
           </Dialog>
+        )}
+
+        {/* Tasks Panel for Selected Lead */}
+        {selectedLeadForTasks && (
+          <div className="mt-6">
+            <LeadTasksPanel
+              lead={selectedLeadForTasks}
+              onClose={() => setSelectedLeadForTasks(null)}
+            />
+          </div>
         )}
       </div>
     </DashboardLayout>

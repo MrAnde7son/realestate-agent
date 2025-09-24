@@ -226,6 +226,14 @@ class ContactTask(models.Model):
         on_delete=models.CASCADE,
         related_name="tasks",
     )
+    lead = models.ForeignKey(
+        "Lead",
+        on_delete=models.CASCADE,
+        related_name="tasks",
+        blank=True,
+        null=True,
+        help_text="Optional lead this task is associated with"
+    )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -247,11 +255,14 @@ class ContactTask(models.Model):
         indexes = [
             models.Index(fields=["owner", "status", "due_at"]),
             models.Index(fields=["contact", "status"]),
+            models.Index(fields=["lead", "status"]),
         ]
         ordering = ["due_at", "-created_at"]
 
     def __str__(self):
-        return f"Task({self.title}) for {self.contact_id}"
+        if self.lead:
+            return f"Task({self.title}) for Lead {self.lead_id}"
+        return f"Task({self.title}) for Contact {self.contact_id}"
 
     def mark_completed(self):
         """Mark the task as completed."""

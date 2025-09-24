@@ -59,7 +59,7 @@ class TestPlanService:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -103,7 +103,7 @@ class TestPlanService:
                 'price': Decimal('149.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
-                'asset_limit': 25,
+                'asset_limit': 10,
                 'report_limit': 50,
                 'alert_limit': 25,
                 'advanced_analytics': True,
@@ -144,9 +144,9 @@ class TestPlanService:
         assert plan_info['is_expired'] is False
         
         # Check limits
-        assert plan_info['limits']['assets']['limit'] == 25
+        assert plan_info['limits']['assets']['limit'] == 10
         assert plan_info['limits']['assets']['used'] == 10
-        assert plan_info['limits']['assets']['remaining'] == 15
+        assert plan_info['limits']['assets']['remaining'] == 0
         
         assert plan_info['limits']['reports']['limit'] == 50
         assert plan_info['limits']['reports']['used'] == 0
@@ -192,7 +192,7 @@ class TestPlanService:
             name='test_basic_25',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -203,7 +203,7 @@ class TestPlanService:
         )
         
         # Create some assets
-        for i in range(10):
+        for i in range(9):
             Asset.objects.create(
                 scope_type="address",
                 street=f"Test Street {i}",
@@ -339,7 +339,7 @@ class TestPlanService:
             name='test_basic_25',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -405,7 +405,7 @@ class TestPlanService:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -442,7 +442,7 @@ class TestPlanService:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -502,7 +502,7 @@ class TestPlanService:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -529,7 +529,7 @@ class TestPlanService:
             name='test_basic_25',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         

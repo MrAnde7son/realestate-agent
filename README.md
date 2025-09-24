@@ -742,7 +742,7 @@ Example output:
     "parameter_descriptions": {"...": {"value": "...", "description": "..."}}
   },
   "scrape_time": "2024-01-15T10:30:00",
-  "total_assets": 25,
+  "total_assets": 10,
   "assets": [
     {"title": "...", "price": 1234567, "address": "..."}
   ]

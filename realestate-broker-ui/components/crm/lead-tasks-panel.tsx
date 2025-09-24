@@ -359,7 +359,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
               initialData={{
                 title: selectedTask.title,
                 description: selectedTask.description,
-                due_at: selectedTask.due_at,
+                due_at: selectedTask.due_at || undefined,
                 status: selectedTask.status,
               }}
               onSubmit={handleUpdateTask}

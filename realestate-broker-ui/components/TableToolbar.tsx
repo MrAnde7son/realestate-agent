@@ -36,7 +36,6 @@ import {
   List,
   Map,
   X,
-  ChevronDown,
   Plus,
   RefreshCw,
 } from "lucide-react";
@@ -156,7 +155,6 @@ export default function TableToolbar({
 }: TableToolbarProps) {
   const { trackFeatureUsage } = useAnalytics()
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
   const [isClient, setIsClient] = useState(false);
 
@@ -228,7 +226,6 @@ export default function TableToolbar({
               </SheetHeader>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium">סינון נכסים</h4>
                   {hasActiveFilters && (
                     <Button
                       variant="ghost"
@@ -315,6 +312,34 @@ export default function TableToolbar({
                       }}
                     />
                   </div>
+
+                  {/* Additional filters */}
+                  {additionalFilters.map((filter) => (
+                    <div key={filter.key} className="space-y-2">
+                      <Label className="text-sm">{filter.label}</Label>
+                      <Select
+                        value={filter.value}
+                        onValueChange={(value) => onAdditionalFilterChange?.(filter.key, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={`בחר ${filter.label.toLowerCase()}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">הכל</SelectItem>
+                          {filter.options?.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              <span className="flex justify-between gap-2">
+                                <span>{option.label}</span>
+                                {option.count !== undefined && (
+                                  <span className="text-xs text-muted-foreground">{option.count}</span>
+                                )}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Status filters */}
@@ -340,84 +365,35 @@ export default function TableToolbar({
                   </div>
                 )}
 
-                {/* Additional filters */}
-                {(additionalFilters.length > 0 || dateRange) && (
-                  <>
-                    <div className="border-t pt-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                        className="w-full justify-between"
-                      >
-                        <span>סינון מתקדם</span>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
-                      </Button>
-                    </div>
-
-                    {showAdvancedFilters && (
-                      <div className="space-y-3">
-                        {/* Date range filter */}
-                        {dateRange && (
-                          <div className="space-y-2">
-                            <Label className="text-sm">טווח תאריכים</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-xs text-muted-foreground">מ-</Label>
-                                <Input
-                                  type="date"
-                                  value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const date = e.target.value ? new Date(e.target.value) : undefined;
-                                    dateRange.onChange(date, dateRange.to);
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-xs text-muted-foreground">עד</Label>
-                                <Input
-                                  type="date"
-                                  value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const date = e.target.value ? new Date(e.target.value) : undefined;
-                                    dateRange.onChange(dateRange.from, date);
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Additional filters */}
-                        {additionalFilters.map((filter) => (
-                          <div key={filter.key} className="space-y-2">
-                            <Label className="text-sm">{filter.label}</Label>
-                            <Select
-                              value={filter.value}
-                              onValueChange={(value) => onAdditionalFilterChange?.(filter.key, value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder={`בחר ${filter.label.toLowerCase()}`} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">הכל</SelectItem>
-                                {filter.options?.map(option => (
-                                  <SelectItem key={option.value} value={option.value}>
-                                    <span className="flex justify-between gap-2">
-                                      <span>{option.label}</span>
-                                      {option.count !== undefined && (
-                                        <span className="text-xs text-muted-foreground">{option.count}</span>
-                                      )}
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ))}
+                {/* Date range filter */}
+                {dateRange && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">טווח תאריכים</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">מ-</Label>
+                        <Input
+                          type="date"
+                          value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            dateRange.onChange(date, dateRange.to);
+                          }}
+                        />
                       </div>
-                    )}
-                  </>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">עד</Label>
+                        <Input
+                          type="date"
+                          value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            dateRange.onChange(dateRange.from, date);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </SheetContent>

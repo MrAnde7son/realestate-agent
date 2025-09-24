@@ -115,7 +115,7 @@ class TestUserPlanModel:
             name='test_basic',
             defaults={
                 'display_name': 'Test Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -207,7 +207,7 @@ class TestUserPlanModel:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25,
+                'asset_limit': 10,
                 'advanced_analytics': True,
                 'data_export': True
             }
@@ -239,7 +239,7 @@ class TestUserPlanModel:
             name='test_basic',
             defaults={
                 'display_name': 'Test Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -322,7 +322,7 @@ class TestUserPlanMethods:
             name='test_basic',
             defaults={
                 'display_name': 'Test Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -332,7 +332,7 @@ class TestUserPlanMethods:
             is_active=True
         )
         
-        assert user.get_asset_limit() == 25
+        assert user.get_asset_limit() == 10
 
     def test_user_can_create_asset(self):
         """Test user can_create_asset method"""
@@ -364,7 +364,7 @@ class TestUserPlanMethods:
             name='test_basic',
             defaults={
                 'display_name': 'Test Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -479,7 +479,7 @@ class TestUserPlanMethods:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -490,5 +490,5 @@ class TestUserPlanMethods:
         )
         
         # Should use active plan limits
-        assert user.get_asset_limit() == 25
+        assert user.get_asset_limit() == 10
         assert user.current_plan.plan_type == plan_type_active

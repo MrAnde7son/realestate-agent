@@ -59,7 +59,7 @@ class TestPlanService:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -103,7 +103,7 @@ class TestPlanService:
                 'price': Decimal('149.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
-                'asset_limit': 25,
+                'asset_limit': 10,
                 'report_limit': 50,
                 'alert_limit': 25,
                 'advanced_analytics': True,
@@ -192,7 +192,7 @@ class TestPlanService:
             name='test_basic_25',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -339,7 +339,7 @@ class TestPlanService:
             name='test_basic_25',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -405,7 +405,7 @@ class TestPlanService:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -442,7 +442,7 @@ class TestPlanService:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -502,7 +502,7 @@ class TestPlanService:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -529,7 +529,7 @@ class TestPlanService:
             name='test_basic_25',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         

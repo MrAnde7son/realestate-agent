@@ -59,7 +59,7 @@ class TestPlanAPIEndpoints:
                 'price': Decimal('149.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
-                'asset_limit': 25,
+                'asset_limit': 10,
                 'report_limit': 50,
                 'alert_limit': 25,
                 'advanced_analytics': True,
@@ -163,7 +163,7 @@ class TestPlanAPIEndpoints:
         basic_plan_data = next(plan for plan in data['plans'] if plan['name'] == 'basic')
         assert basic_plan_data['display_name'] == 'Basic Plan'
         assert basic_plan_data['price'] == '149.00'
-        assert basic_plan_data['asset_limit'] == 25
+        assert basic_plan_data['asset_limit'] == 10
         assert basic_plan_data['advanced_analytics'] is True
 
     def test_upgrade_plan_success(self):

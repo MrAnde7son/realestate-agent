@@ -174,6 +174,77 @@ class CrmSerializersTests(TestCase):
         self.assertFalse(invalid_serializer.is_valid())
         self.assertIn('contact_id', invalid_serializer.errors)
 
+    def test_contact_task_serializer_with_lead(self):
+        """Test ContactTaskSerializer with lead_id field"""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Test Contact',
+            email='test@example.com'
+        )
+        
+        lead = Lead.objects.create(
+            contact=contact,
+            asset=self.asset,
+            status='new'
+        )
+
+        request = self._build_request(self.user)
+
+        # Test creating task with lead
+        serializer = ContactTaskSerializer(
+            data={
+                'title': 'Follow up with lead',
+                'description': 'Call the lead about the property',
+                'contact_id': contact.id,
+                'lead_id': lead.id
+            },
+            context={'request': request}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        task = serializer.save(owner=self.user)
+        self.assertEqual(task.contact, contact)
+        self.assertEqual(task.lead, lead)
+        
+        # Test serialization includes lead data
+        serialized_data = ContactTaskSerializer(task, context={'request': request}).data
+        self.assertIn('lead', serialized_data)
+        self.assertIn('lead_id', serialized_data)
+        self.assertEqual(serialized_data['lead_id'], lead.id)
+
+    def test_contact_task_serializer_lead_permission_validation(self):
+        """Test ContactTaskSerializer validates lead ownership"""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='Test Contact',
+            email='test@example.com'
+        )
+        
+        other_contact = Contact.objects.create(
+            owner=self.other_user,
+            name='Other Contact',
+            email='other@example.com'
+        )
+        
+        other_lead = Lead.objects.create(
+            contact=other_contact,
+            asset=self.asset,
+            status='new'
+        )
+
+        request = self._build_request(self.user)
+
+        # Should fail because lead belongs to other user's contact
+        serializer = ContactTaskSerializer(
+            data={
+                'title': 'Follow up with lead',
+                'contact_id': contact.id,
+                'lead_id': other_lead.id
+            },
+            context={'request': request}
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('lead_id', serializer.errors)
+
     def test_contact_meeting_serializer_validation(self):
         """Meeting serializer should validate scheduling and ownership."""
         contact = Contact.objects.create(
@@ -447,8 +518,8 @@ class CrmSerializersTests(TestCase):
         # The serializer converts invalid notes format to a list, so it should be valid
         self.assertTrue(serializer.is_valid())
     
-    def test_lead_serializer_contact_id_write_only(self):
-        """Test LeadSerializer contact_id is write-only"""
+    def test_lead_serializer_contact_id_readable(self):
+        """Test LeadSerializer contact_id is readable"""
         contact = Contact.objects.create(
             owner=self.user,
             name='רות כהן',
@@ -464,11 +535,37 @@ class CrmSerializersTests(TestCase):
         serializer = LeadSerializer(lead)
         data = serializer.data
         
-        # contact_id should not be in serialized data
-        self.assertNotIn('contact_id', data)
+        # contact_id should be in serialized data
+        self.assertIn('contact_id', data)
+        self.assertEqual(data['contact_id'], contact.id)
         
         # contact should be in serialized data
         self.assertIn('contact', data)
+    
+    def test_lead_serializer_contact_id_write_field(self):
+        """Test LeadSerializer contact_id_write field for creating leads"""
+        contact = Contact.objects.create(
+            owner=self.user,
+            name='רות כהן',
+            email='rut@example.com'
+        )
+        
+        data = {
+            'contact_id_write': contact.id,
+            'asset_id': self.asset.id,
+            'status': 'new'
+        }
+        
+        request = self.client.request()
+        request.user = self.user
+        
+        serializer = LeadSerializer(data=data, context={'request': request})
+        self.assertTrue(serializer.is_valid())
+        
+        lead = serializer.save()
+        self.assertEqual(lead.contact, contact)
+        self.assertEqual(lead.asset, self.asset)
+        self.assertEqual(lead.status, 'new')
     
     def test_lead_serializer_asset_id_write_only(self):
         """Test LeadSerializer asset_id is write-only"""

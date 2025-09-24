@@ -173,6 +173,13 @@ class LeadSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def validate_contact_id_write(self, value):
+        """Validate that the contact exists and user has permission."""
+        request = self.context.get("request")
+        if request and not request.user.is_superuser and value.owner_id != request.user.id:
+            raise serializers.ValidationError("No permission on this contact")
+        return value
+
     def validate_asset_id(self, value):
         """Validate that the asset exists and user has permission."""
         from core.models import Asset

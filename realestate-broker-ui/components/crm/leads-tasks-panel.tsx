@@ -39,7 +39,7 @@ import {
   Calendar,
   User
 } from 'lucide-react';
-import { Lead, ContactTask, TaskStatus, CrmApi, CreateTaskData } from '@/lib/api/crm';
+import { Lead, ContactTask, TaskStatus, CrmApi, CreateTaskData, UpdateTaskData } from '@/lib/api/crm';
 import { LeadStatusBadge } from './lead-status-badge';
 import { LeadRowActions } from './lead-row-actions';
 import { AssignContactModal } from './assign-contact-modal';
@@ -143,9 +143,14 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
     setIsAssignModalOpen(false);
   };
 
-  const handleCreateTask = async (data: CreateTaskData) => {
+  const handleCreateTask = async (data: CreateTaskData | UpdateTaskData) => {
     try {
-      await CrmApi.createTask(data);
+      // Type guard to ensure we have CreateTaskData
+      if ('contact_id' in data) {
+        await CrmApi.createTask(data);
+      } else {
+        throw new Error('Invalid data for task creation');
+      }
       await loadTasks();
       setIsCreateTaskModalOpen(false);
       setSelectedLeadForTask(null);
@@ -205,7 +210,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
     setIsEditTaskModalOpen(true);
   };
 
-  const handleUpdateTask = async (data: any) => {
+  const handleUpdateTask = async (data: CreateTaskData | UpdateTaskData) => {
     if (!selectedTask) return;
 
     try {
@@ -555,7 +560,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
               initialData={{
                 title: selectedTask.title,
                 description: selectedTask.description,
-                due_at: selectedTask.due_at,
+                due_at: selectedTask.due_at || undefined,
                 status: selectedTask.status,
               }}
               onSubmit={handleUpdateTask}

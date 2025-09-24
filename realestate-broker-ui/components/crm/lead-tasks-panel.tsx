@@ -150,7 +150,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
     setIsEditModalOpen(true);
   };
 
-  const handleUpdateTask = async (data: any) => {
+  const handleUpdateTask = async (data: CreateTaskData | UpdateTaskData) => {
     if (!selectedTask) return;
 
     try {

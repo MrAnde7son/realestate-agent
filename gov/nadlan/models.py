@@ -17,10 +17,127 @@ class Deal:
     address: Optional[str] = None
     deal_amount: Optional[float] = None
     deal_date: Optional[str] = None
-    rooms: Optional[int] = None
-    floor: Optional[int] = None
+    rooms: Optional[str] = None
+    floor: Optional[str] = None
     area: Optional[float] = None
     price_per_sqm: Optional[float] = None
+    asset_type: Optional[str] = None
+    year_built: Optional[str] = None
+    raw: Optional[Dict[str, Any]] = None
+    parcel_block: Optional[str] = None
+    parcel_parcel: Optional[str] = None
+    parcel_sub_parcel: Optional[str] = None
+    
+    @classmethod
+    def from_item(cls, data: Dict[str, Any]) -> 'Deal':
+        """Create a Deal from a dictionary item."""
+        # Parse deal amount
+        deal_amount = cls._parse_price(data.get('dealAmount'))
+        
+        # Parse area
+        area = cls._parse_area(data.get('area'))
+        
+        # Parse parcel number
+        parcel_block, parcel_parcel, parcel_sub_parcel = cls._parse_parcel_num(data.get('parcelNum'))
+        
+        return cls(
+            deal_id=data.get('dealId'),
+            address=data.get('address'),
+            deal_amount=deal_amount,
+            deal_date=data.get('dealDate'),
+            rooms=data.get('rooms'),
+            floor=data.get('floor'),
+            area=area,
+            price_per_sqm=data.get('pricePerSqm'),
+            asset_type=data.get('assetType'),
+            year_built=data.get('yearBuilt'),
+            raw=data,
+            parcel_block=parcel_block,
+            parcel_parcel=parcel_parcel,
+            parcel_sub_parcel=parcel_sub_parcel
+        )
+    
+    @staticmethod
+    def _parse_price(price_str: Any) -> Optional[float]:
+        """Parse price from various string formats."""
+        if price_str is None:
+            return None
+        
+        if isinstance(price_str, (int, float)):
+            return float(price_str)
+        
+        if not isinstance(price_str, str):
+            return None
+        
+        # Remove common currency symbols and formatting
+        price_str = str(price_str).strip()
+        price_str = price_str.replace('₪', '').replace(',', '').replace(' ', '')
+        
+        try:
+            return float(price_str)
+        except (ValueError, TypeError):
+            return None
+    
+    @staticmethod
+    def _parse_area(area_str: Any) -> Optional[float]:
+        """Parse area from various string formats."""
+        if area_str is None:
+            return None
+        
+        if isinstance(area_str, (int, float)):
+            return float(area_str)
+        
+        if not isinstance(area_str, str):
+            return None
+        
+        # Remove Hebrew square meter symbol and other formatting
+        area_str = str(area_str).strip()
+        area_str = area_str.replace('מ²', '').replace('מ\'', '').replace(',', '.')
+        
+        try:
+            return float(area_str)
+        except (ValueError, TypeError):
+            return None
+    
+    @staticmethod
+    def _parse_parcel_num(parcel_num: Any) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Parse parcel number into block, parcel, and sub-parcel."""
+        if not parcel_num:
+            return None, None, None
+        
+        parcel_str = str(parcel_num).strip()
+        if not parcel_str:
+            return None, None, None
+        
+        parts = parcel_str.split('-')
+        
+        if len(parts) >= 3:
+            return parts[0], parts[1], parts[2]
+        elif len(parts) == 2:
+            return parts[0], parts[1], None
+        elif len(parts) == 1:
+            return parts[0], None, None
+        else:
+            return None, None, None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert Deal back to dictionary."""
+        return {
+            'deal_id': self.deal_id,
+            'address': self.address,
+            'deal_amount': self.deal_amount,
+            'deal_date': self.deal_date,
+            'rooms': self.rooms,
+            'floor': self.floor,
+            'area': self.area,
+            'price_per_sqm': self.price_per_sqm,
+            'asset_type': self.asset_type,
+            'year_built': self.year_built,
+            'raw': self.raw,
+            'parcel_block': self.parcel_block,
+            'parcel_parcel': self.parcel_parcel,
+            'parcel_sub_parcel': self.parcel_sub_parcel
+        }
 
 
 @dataclass

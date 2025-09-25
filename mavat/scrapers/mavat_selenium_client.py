@@ -567,6 +567,23 @@ class MavatSeleniumClient:
         except:
             return False
 
+if __name__ == "__main__":
+    with MavatSeleniumClient(headless=False) as client:
+        if client.is_accessible():
+            print("Mavat is accessible")
+            hits = client.search_plans(query="תל אביב", limit=5)
+            for hit in hits:
+                print(hit)
+                try:
+                    plan = client.get_plan_details(hit.plan_id)
+                    print(plan)
+                except Exception as e:
+                    print(f"Error fetching plan details: {e}")
 
-# Backward compatibility
-MavatScraper = MavatSeleniumClient
+                try:
+                    pdf_content = client.fetch_pdf(hit.plan_id)
+                    print(f"Fetched PDF content of size: {len(pdf_content)} bytes")
+                except Exception as e:
+                    print(f"Error fetching PDF: {e}")
+        else:
+            print("Mavat is not accessible")

@@ -134,10 +134,10 @@ export function LeadTaskSummary({ lead, onShowTasks, compact = true }: LeadTaskS
           variant="outline"
           size="sm"
           onClick={onShowTasks}
-          className="text-xs h-7 px-2"
+          className="h-7 w-7 p-0"
+          title="ניהול משימות"
         >
-          <span className="hidden sm:inline">ניהול משימות</span>
-          <span className="sm:hidden">משימות</span>
+          <CheckSquare className="h-3 w-3" />
         </Button>
       )}
     </div>

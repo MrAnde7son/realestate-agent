@@ -68,7 +68,7 @@ export function AssignContactModal({
     try {
       setIsLoading(true);
       await CrmApi.createLead({
-        contact_id: parseInt(selectedContactId),
+        contact_id_write: parseInt(selectedContactId),
         asset_id: assetId,
         status: 'new'
       });
@@ -101,7 +101,7 @@ export function AssignContactModal({
       
       // Create lead
       await CrmApi.createLead({
-        contact_id: newContact.id,
+        contact_id_write: newContact.id,
         asset_id: assetId,
         status: 'new'
       });

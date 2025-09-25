@@ -116,6 +116,7 @@ class LeadSerializer(serializers.ModelSerializer):
         source="contact"
     )
     asset_id = serializers.IntegerField(write_only=True)
+    asset_id_read = serializers.IntegerField(source="asset.id", read_only=True)
     
     asset = serializers.SerializerMethodField(read_only=True)
     asset_address = serializers.CharField(source="asset.address", read_only=True)
@@ -126,7 +127,7 @@ class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = [
-            "id", "contact", "contact_id", "contact_id_write", "asset", "asset_id", "asset_address",
+            "id", "contact", "contact_id", "contact_id_write", "asset", "asset_id", "asset_id_read", "asset_address",
             "asset_price", "asset_rooms", "asset_area", "status", "notes",
             "last_activity_at", "created_at"
         ]

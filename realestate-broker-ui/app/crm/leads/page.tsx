@@ -16,15 +16,20 @@ import { Search, ExternalLink, Plus } from 'lucide-react';
 import { Lead, CrmApi } from '@/lib/api/crm';
 import { LeadStatusBadge } from '@/components/crm/lead-status-badge';
 import { LeadRowActions } from '@/components/crm/lead-row-actions';
+import { LeadTasksPanel } from '@/components/crm/lead-tasks-panel';
+import { LeadTaskSummary } from '@/components/crm/lead-task-summary';
 import { useToast } from '@/hooks/use-toast';
 import DashboardLayout from '@/components/layout/dashboard-layout';
 import { PageLoader } from '@/components/ui/page-loader';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import Link from 'next/link';
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLeadForTasks, setSelectedLeadForTasks] = useState<Lead | null>(null);
   const { toast } = useToast();
 
   const loadLeads = useCallback(async () => {
@@ -72,6 +77,10 @@ export default function LeadsPage() {
     }
   };
 
+  const handleShowTasks = (lead: Lead) => {
+    setSelectedLeadForTasks(lead);
+  };
+
   const filteredLeads = leads.filter(lead =>
     lead.contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     lead.contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -98,13 +107,27 @@ export default function LeadsPage() {
   return (
     <DashboardLayout>
       <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">לידים</h1>
-        <Button>
-          <Plus className="h-4 w-4 ml-2" />
-          צור ליד חדש
-        </Button>
-      </div>
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/crm">לקוחות ולידים</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>לידים</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">לידים</h1>
+          <Link href="/assets">
+            <Button>
+              <Plus className="h-4 w-4 ml-2" />
+              צור ליד חדש
+            </Button>
+          </Link>
+        </div>
 
       <div className="mb-6">
         <div className="relative">
@@ -123,9 +146,17 @@ export default function LeadsPage() {
           <div className="text-lg text-muted-foreground mb-4">
             {searchQuery ? 'לא נמצאו לידים התואמים לחיפוש' : 'אין עדיין לידים'}
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground mb-4">
             כדי ליצור ליד, עבור לעמוד נכס ולחץ על &quot;שייך לקוח&quot;
           </div>
+          {!searchQuery && (
+            <Link href="/assets">
+              <Button>
+                <Plus className="h-4 w-4 ml-2" />
+                עבור לנכסים ליצירת ליד
+              </Button>
+            </Link>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-lg border">
@@ -134,9 +165,7 @@ export default function LeadsPage() {
               <TableRow>
                 <TableHead>לקוח</TableHead>
                 <TableHead>נכס</TableHead>
-                <TableHead>מחיר</TableHead>
-                <TableHead>חדרים</TableHead>
-                <TableHead>שטח</TableHead>
+                <TableHead>משימות</TableHead>
                 <TableHead>סטטוס</TableHead>
                 <TableHead>פעילות אחרונה</TableHead>
                 <TableHead className="text-left">פעולות</TableHead>
@@ -168,7 +197,7 @@ export default function LeadsPage() {
                           variant="link"
                           size="sm"
                           className="p-0 h-auto"
-                          onClick={() => window.open(`/assets/${lead.asset_id}`, '_blank')}
+                          onClick={() => window.open(`/assets/${lead.asset_id_read}`, '_blank')}
                         >
                           <ExternalLink className="h-3 w-3 mr-1" />
                           צפה בנכס
@@ -176,10 +205,12 @@ export default function LeadsPage() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>{formatPrice(lead.asset_price)}</TableCell>
-                  <TableCell>{lead.asset_rooms || '-'}</TableCell>
                   <TableCell>
-                    {lead.asset_area ? `${lead.asset_area} מ״ר` : '-'}
+                    <LeadTaskSummary 
+                      lead={lead} 
+                      onShowTasks={() => handleShowTasks(lead)}
+                      compact={false}
+                    />
                   </TableCell>
                   <TableCell>
                     <LeadStatusBadge status={lead.status} />
@@ -194,6 +225,7 @@ export default function LeadsPage() {
                       lead={lead}
                       onUpdate={handleLeadUpdate}
                       onDelete={() => handleLeadDelete(lead)}
+                      onShowTasks={() => handleShowTasks(lead)}
                     />
                   </TableCell>
                 </TableRow>
@@ -203,37 +235,13 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* Lead Notes Display */}
-      {leads.some(lead => lead.notes.length > 0) && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">הערות אחרונות</h2>
-          <div className="space-y-4">
-            {leads
-              .filter(lead => lead.notes.length > 0)
-              .slice(0, 5)
-              .map((lead) => (
-                <div key={lead.id} className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="font-medium">{lead.contact.name}</div>
-                    <LeadStatusBadge status={lead.status} />
-                  </div>
-                  <div className="text-sm text-muted-foreground mb-2">
-                    {lead.asset_address}
-                  </div>
-                  <div className="space-y-2">
-                    {lead.notes.slice(-2).map((note, index) => (
-                      <div key={index} className="text-sm bg-white p-2 rounded border-r-4 border-blue-200">
-                        <div className="text-xs text-muted-foreground mb-1">
-                          {formatDate(note.ts)}
-                        </div>
-                        <div>{note.text}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
+
+      {/* Tasks Panel */}
+      {selectedLeadForTasks && (
+        <LeadTasksPanel
+          lead={selectedLeadForTasks}
+          onClose={() => setSelectedLeadForTasks(null)}
+        />
       )}
       </div>
     </DashboardLayout>

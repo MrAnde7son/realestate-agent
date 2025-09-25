@@ -35,6 +35,7 @@ export interface Lead {
   contact: Contact;
   contact_id: number;
   asset_id: number;
+  asset_id_read: number;
   asset_address: string;
   asset_price: number;
   asset_rooms: number;
@@ -67,7 +68,7 @@ export interface CreateContactData {
 }
 
 export interface CreateLeadData {
-  contact_id: number;
+  contact_id_write: number;
   asset_id: number;
   status?: LeadStatus;
 }
@@ -102,7 +103,7 @@ export interface CreateTaskData {
   description?: string;
   due_at?: string;
   contact_id: number;
-  lead_id?: number | null;
+  lead_id_write?: number | null;
   status?: TaskStatus;
 }
 
@@ -164,17 +165,17 @@ export class CrmApi {
 
   // Contacts API
   static async getContacts(): Promise<Contact[]> {
-    const contacts = await this.request<any[]>('/contacts/');
+    const contacts = await this.request<any[]>('/contacts');
     return contacts.map(this.normalizeContact);
   }
 
   static async getContact(id: number): Promise<Contact> {
-    const contact = await this.request<any>(`/contacts/${id}/`);
+    const contact = await this.request<any>(`/contacts/${id}`);
     return this.normalizeContact(contact);
   }
 
   static async createContact(data: CreateContactData): Promise<Contact> {
-    const contact = await this.request<any>('/contacts/', {
+    const contact = await this.request<any>('/contacts', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -193,7 +194,7 @@ export class CrmApi {
   }
 
   static async updateContact(id: number, data: Partial<CreateContactData>): Promise<Contact> {
-    const contact = await this.request<any>(`/contacts/${id}/`, {
+    const contact = await this.request<any>(`/contacts/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -210,13 +211,13 @@ export class CrmApi {
   }
 
   static async deleteContact(id: number): Promise<void> {
-    return this.request<void>(`/contacts/${id}/`, {
+    return this.request<void>(`/contacts/${id}`, {
       method: 'DELETE',
     });
   }
 
   static async searchContacts(query: string): Promise<Contact[]> {
-    const contacts = await this.request<any[]>(`/contacts/search/?q=${encodeURIComponent(query)}`);
+    const contacts = await this.request<any[]>(`/contacts/search?q=${encodeURIComponent(query)}`);
 
     // Track search event
     trackEvent('crm_search', {
@@ -231,15 +232,15 @@ export class CrmApi {
 
   // Leads API
   static async getLeads(): Promise<Lead[]> {
-    return this.request<Lead[]>('/leads/');
+    return this.request<Lead[]>('/leads');
   }
 
   static async getLead(id: number): Promise<Lead> {
-    return this.request<Lead>(`/leads/${id}/`);
+    return this.request<Lead>(`/leads/${id}`);
   }
 
   static async createLead(data: CreateLeadData): Promise<Lead> {
-    const lead = await this.request<Lead>('/leads/', {
+    const lead = await this.request<Lead>('/leads', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -257,24 +258,24 @@ export class CrmApi {
   }
 
   static async updateLead(id: number, data: Partial<CreateLeadData>): Promise<Lead> {
-    return this.request<Lead>(`/leads/${id}/`, {
+    return this.request<Lead>(`/leads/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   static async deleteLead(id: number): Promise<void> {
-    return this.request<void>(`/leads/${id}/`, {
+    return this.request<void>(`/leads/${id}`, {
       method: 'DELETE',
     });
   }
 
   static async getLeadsByAsset(assetId: number): Promise<Lead[]> {
-    return this.request<Lead[]>(`/leads/by_asset/?asset_id=${assetId}`);
+    return this.request<Lead[]>(`/leads/by_asset?asset_id=${assetId}`);
   }
 
   static async updateLeadStatus(id: number, data: UpdateLeadStatusData): Promise<Lead> {
-    const lead = await this.request<Lead>(`/leads/${id}/set_status/`, {
+    const lead = await this.request<Lead>(`/leads/${id}/set_status`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -292,7 +293,7 @@ export class CrmApi {
   }
 
   static async addLeadNote(id: number, data: AddLeadNoteData): Promise<Lead> {
-    const lead = await this.request<Lead>(`/leads/${id}/add_note/`, {
+    const lead = await this.request<Lead>(`/leads/${id}/add_note`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -311,7 +312,7 @@ export class CrmApi {
   }
 
   static async sendLeadReport(id: number): Promise<{ message: string; contact_email: string }> {
-    const result = await this.request<{ message: string; contact_email: string }>(`/leads/${id}/send_report/`, {
+    const result = await this.request<{ message: string; contact_email: string }>(`/leads/${id}/send_report`, {
       method: 'POST',
     });
     
@@ -333,17 +334,17 @@ export class CrmApi {
     if (params?.status) queryParams.append('status', params.status);
     
     const queryString = queryParams.toString();
-    const endpoint = queryString ? `/tasks/?${queryString}` : '/tasks/';
+    const endpoint = queryString ? `/tasks?${queryString}` : '/tasks';
     
     return this.request<ContactTask[]>(endpoint);
   }
 
   static async getTask(id: number): Promise<ContactTask> {
-    return this.request<ContactTask>(`/tasks/${id}/`);
+    return this.request<ContactTask>(`/tasks/${id}`);
   }
 
   static async createTask(data: CreateTaskData): Promise<ContactTask> {
-    const task = await this.request<ContactTask>('/tasks/', {
+    const task = await this.request<ContactTask>('/tasks', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -362,7 +363,7 @@ export class CrmApi {
   }
 
   static async updateTask(id: number, data: UpdateTaskData): Promise<ContactTask> {
-    const task = await this.request<ContactTask>(`/tasks/${id}/`, {
+    const task = await this.request<ContactTask>(`/tasks/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -378,13 +379,13 @@ export class CrmApi {
   }
 
   static async deleteTask(id: number): Promise<void> {
-    return this.request<void>(`/tasks/${id}/`, {
+    return this.request<void>(`/tasks/${id}`, {
       method: 'DELETE',
     });
   }
 
   static async completeTask(id: number): Promise<ContactTask> {
-    const task = await this.request<ContactTask>(`/tasks/${id}/complete/`, {
+    const task = await this.request<ContactTask>(`/tasks/${id}/complete`, {
       method: 'POST',
     });
 
@@ -405,7 +406,7 @@ export class CrmApi {
     if (status) queryParams.append('status', status);
     
     const queryString = queryParams.toString();
-    const endpoint = queryString ? `/leads/${leadId}/tasks/?${queryString}` : `/leads/${leadId}/tasks/`;
+    const endpoint = queryString ? `/leads/${leadId}/tasks?${queryString}` : `/leads/${leadId}/tasks`;
     
     return this.request<ContactTask[]>(endpoint);
   }

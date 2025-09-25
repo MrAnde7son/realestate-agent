@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { GlobalSearch } from '@/components/layout/global-search'
 import { useAuth } from '@/lib/auth-context'
 import { CrmApi } from '@/lib/api/crm'
+import { RegisterCredentials, ProfileUpdateData } from '@/lib/auth'
 
 // Mock dependencies
 vi.mock('next/navigation', () => ({
@@ -31,28 +32,28 @@ vi.mock('@/hooks/useAnalytics', () => ({
 
 // Mock the CommandDialog component to avoid complex rendering issues
 vi.mock('@/components/ui/command', () => ({
-  CommandDialog: ({ children, open, onOpenChange }: any) => 
-    open ? <div data-testid="command-dialog">{children}</div> : null,
-  CommandInput: ({ onValueChange, value, placeholder }: any) => (
-    <input
-      data-testid="command-input"
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onValueChange(e.target.value)}
-    />
+  CommandDialog: ({children, open, onOpenChange}: any) =>
+      open ? <div data-testid="command-dialog">{children}</div> : null,
+  CommandInput: ({onValueChange, value, placeholder}: any) => (
+      <input
+          data-testid="command-input"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onValueChange(e.target.value)}
+      />
   ),
-  CommandList: ({ children }: any) => <div data-testid="command-list">{children}</div>,
-  CommandGroup: ({ children, heading }: any) => (
-    <div data-testid="command-group" data-heading={heading}>
-      {children}
-    </div>
+  CommandList: ({children}: any) => <div data-testid="command-list">{children}</div>,
+  CommandGroup: ({children, heading}: any) => (
+      <div data-testid="command-group" data-heading={heading}>
+        {children}
+      </div>
   ),
-  CommandItem: ({ children, onSelect, className }: any) => (
-    <div data-testid="command-item" onClick={onSelect} className={className}>
-      {children}
-    </div>
+  CommandItem: ({children, onSelect, className}: any) => (
+      <div data-testid="command-item" onClick={onSelect} className={className}>
+        {children}
+      </div>
   ),
-  CommandEmpty: ({ children }: any) => <div data-testid="command-empty">{children}</div>,
+  CommandEmpty: ({children}: any) => <div data-testid="command-empty">{children}</div>,
 }))
 
 describe('GlobalSearch', () => {
@@ -62,13 +63,27 @@ describe('GlobalSearch', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Mock useAuth to return a broker user (has CRM access)
     vi.mocked(useAuth).mockReturnValue({
-      user: { role: 'broker' },
+      user: {
+        role: 'broker',
+        id: 0,
+        email: '',
+        username: '',
+        first_name: '',
+        last_name: '',
+        company: '',
+        is_verified: false
+      },
       isLoading: false,
       login: vi.fn(),
       logout: vi.fn(),
+      isAuthenticated: false,
+      register: vi.fn(),
+      updateProfile: vi.fn(),
+      refreshUser: vi.fn(),
+      googleLogin:  vi.fn(),
     })
 
     // Mock CRM API responses
@@ -138,10 +153,24 @@ describe('GlobalSearch', () => {
 
   it('does not show CRM navigation item for users without CRM access', () => {
     vi.mocked(useAuth).mockReturnValue({
-      user: { role: 'viewer' },
+      user: {
+        role: 'viewer',
+        id: 0,
+        email: '',
+        username: '',
+        first_name: '',
+        last_name: '',
+        company: '',
+        is_verified: false
+      },
       isLoading: false,
       login: vi.fn(),
       logout: vi.fn(),
+      isAuthenticated: false,
+      register: vi.fn(),
+      updateProfile: vi.fn(),
+      refreshUser: vi.fn(),
+      googleLogin: vi.fn(),
     })
 
     render(<GlobalSearch />)

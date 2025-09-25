@@ -132,40 +132,6 @@ class TestMavatCollectorErrorHandling:
         except Exception as e:
             pytest.fail(f"Collect method error handling test failed: {e}")
 
-    def test_search_by_location_error_handling(self):
-        """Test that search_by_location handles errors gracefully."""
-        try:
-            from orchestration.collectors.mavat_collector import MavatCollector
-            
-            with patch('orchestration.collectors.mavat_collector.MavatSeleniumClient') as mock_client_class:
-                mock_client = Mock()
-                mock_client.search_by_location.side_effect = Exception("Test error")
-                mock_client_class.return_value = mock_client
-                
-                collector = MavatCollector(client=mock_client)
-                
-                result = collector.search_by_location("תל אביב")
-                assert result == []
-        except Exception as e:
-            pytest.fail(f"Search by location error handling test failed: {e}")
-
-    def test_search_plans_error_handling(self):
-        """Test that search_plans handles errors gracefully."""
-        try:
-            from orchestration.collectors.mavat_collector import MavatCollector
-            
-            with patch('orchestration.collectors.mavat_collector.MavatSeleniumClient') as mock_client_class:
-                mock_client = Mock()
-                mock_client.search_plans.side_effect = Exception("Test error")
-                mock_client_class.return_value = mock_client
-                
-                collector = MavatCollector(client=mock_client)
-                
-                result = collector.search_plans("test")
-                assert result == []
-        except Exception as e:
-            pytest.fail(f"Search plans error handling test failed: {e}")
-
     def test_get_lookup_data_error_handling(self):
         """Test that get_lookup_data handles errors gracefully."""
         try:

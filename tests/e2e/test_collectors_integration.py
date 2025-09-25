@@ -85,7 +85,7 @@ class TestCollectorsIntegration:
         
         # Test 2: Search functionality
         logger.info("Testing collector search functionality (query)...")
-        query_results = collector.search_plans(query=TEST_CITY, limit=5)
+        query_results = collector.client.search_plans(query=TEST_CITY, limit=5)
         assert isinstance(query_results, list), "Query results should be a list"
         if len(query_results) == 0:
             logger.warning("⚠ No query results found - this might indicate rate limiting or network issues in CI")
@@ -98,7 +98,7 @@ class TestCollectorsIntegration:
         
         # Test 3: Search functionality - street search with retry logic
         logger.info("Testing collector search functionality (street)...")
-        street_results = collector.search_plans(query=TEST_STREET, limit=3)
+        street_results = collector.client.search_plans(query=TEST_STREET, limit=3)
         assert isinstance(street_results, list), "Street results should be a list"
         if len(street_results) == 0:
             logger.warning("⚠ No street results found - this might indicate rate limiting or network issues in CI")
@@ -110,7 +110,7 @@ class TestCollectorsIntegration:
         
         # Test 4: Search functionality - specific plan search with retry logic
         logger.info("Testing collector search functionality (specific plan)...")
-        plan_results = collector.search_plans(query="ג/ 5000", limit=3)
+        plan_results = collector.client.search_plans(query="ג/ 5000", limit=3)
         
         assert isinstance(plan_results, list), "Plan results should be a list"
         if len(plan_results) == 0:

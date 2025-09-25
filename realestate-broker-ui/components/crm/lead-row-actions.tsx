@@ -33,6 +33,7 @@ interface LeadRowActionsProps {
   lead: Lead;
   onUpdate: () => void;
   onDelete: (leadId: number) => void;
+  onShowTasks: () => void;
 }
 
 const statusOptions: { value: LeadStatus; label: string }[] = [
@@ -44,7 +45,7 @@ const statusOptions: { value: LeadStatus; label: string }[] = [
   { value: 'closed-lost', label: 'נסגר ללא הצלחה' },
 ];
 
-export function LeadRowActions({ lead, onUpdate, onDelete }: LeadRowActionsProps) {
+export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRowActionsProps) {
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -206,6 +207,18 @@ export function LeadRowActions({ lead, onUpdate, onDelete }: LeadRowActionsProps
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Show Tasks */}
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={onShowTasks}
+        disabled={isLoading}
+        className="h-8 w-8 p-0"
+        title="הצג משימות"
+      >
+        <CheckSquare className="h-3 w-3" />
+      </Button>
 
       {/* Send Report */}
       <Button 

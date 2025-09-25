@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Clock, AlertCircle } from 'lucide-react';
@@ -26,7 +26,7 @@ export function LeadTaskSummary({ lead, onShowTasks, compact = true }: LeadTaskS
   const [isLoading, setIsLoading] = useState(false);
   const hasLoadedRef = useRef(false);
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     // Check cache first
     const cached = taskCache.get(lead.id);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -46,14 +46,14 @@ export function LeadTaskSummary({ lead, onShowTasks, compact = true }: LeadTaskS
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [lead.id]);
 
   useEffect(() => {
     if (!hasLoadedRef.current) {
       hasLoadedRef.current = true;
       loadTasks();
     }
-  }, [lead.id]);
+  }, [lead.id, loadTasks]);
 
   const pendingTasks = tasks.filter(task => task.status === 'pending');
   const overdueTasks = pendingTasks.filter(task => {

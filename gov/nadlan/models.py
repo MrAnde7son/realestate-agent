@@ -71,7 +71,7 @@ class Deal:
         
         # Remove common currency symbols and formatting
         value_str = str(value).strip()
-        value_str = value_str.replace('₪', '').replace(',', '').replace(' ', '')
+        value_str = value_str.replace('₪', '').replace(',', '.').replace(' ', '')
         value_str = value_str.replace('מ²', '').replace('מ\'', '')
         
         try:

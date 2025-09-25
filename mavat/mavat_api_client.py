@@ -20,7 +20,7 @@ import requests
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '', '..'))
 from utils.retry import request_with_retry
 
 
@@ -122,7 +122,7 @@ class MavatAPIClient:
             
         # Use the working token from the fetch request
         # This token appears to be valid and bypasses captcha validation
-        self._token = "0cAFcWeA4HhiMmfoLKQ0ZGv9rhz-kUMuwvNFJziyo5EK9bhvTJt--rF91uekrO2fUFlocXnPdvGNeS6RpePLHrrOXsPAs442p5GMLY2CRS9sIdnaqLiI9Wm9rLcMpPgeRZsZdFCiZpqh9rgIDk7NMBl3YMT-ZOMJ82CQ14IuyZoqe006dtPW7c8Iu3iZksZe7W_nH2ATTuHn8GfJoCaFmoTqOHB4t-tc7fKuUJjVR17Llng9M90-ZJ0j7O1keAIp7zjqoe0nLsKzJcWtz-6_ilpnLIUDbq7CcNj90gfJ_V5fi6qWg92A7bjAzcekErJxquTPMi1SjIvob4paSvmAo_p-JIefkz1MLBcp9czmJZTM7pN-Ezj9_9E1v1DNvflGDSBj5jEf_-xmhYYTRxC_Dmg82yDKjZVmW3IPedw-eJ6RdXFt1mufFAoKK0KskqhlroQ7j0UFFlMbH6CjTi49wrvOfHqSsvb5j3-6FbwmEKiDxCUT5TvYR8sCTCxXfzB8jJbglJiu2eAmyRsIitwhXKTXwYhcfcqxqwKxXFXqDK4oeOjrEcn467qfj4EJC4OI4ZKkA9ritmOzpSefbSWItPYwykP_GQAfBa9AqkgmVgTgIgVnEOFUQ4TuKoqZkwCiKwq0mT1pynkOkgz04LKaW_5stWkc2gNYrpc0L-zoj-UdEY0SWWy3xvlcynKnzJ-wAxS8R564nVLKv2yAbLGjfvOJWF8n28GJS-imQoDDaYvV5ihO0kzswrJRt1cLNW8Fxts5kDgF14jQGuk7b515UdpIM8GPO1yOQfGFRnMKpSX8OVnQGx_nQ95bizX_l5o3idyxoDz27BQ6zSd0gLnmDR0qojOp4gfxT1HAst-Ko__syZG96hvvDTA2P9YhXNcA7Dg7ZLmcRuMwMFmrzp3OZqhp6bmBmdbwbZJnSxni7gJww_gnr85vEMVzZLoCDIalFVIBPFC-l9EeEgO9rL5dJ4qsqEPmwSGVnBn6HdOWCOozROJRIdxW3dc8fllIBVSvx5IW_mYvC5oeB6V4v13yS6Qh0F5pQRr3aTMAaeiEtg-YH5FVgBjR_mKKNtz9Rp8OgthZlH1deF4xUhTX71uJ0weXXSFk62TIxGl47A9TAvlK6LQkIggvi84uMXddeuXAojZCCK25K955O96rnPB-fYsWYKhJuQt2vB6GES7IpKd3lCCPXf2Uj3oH9Joll2zIHXA9MuWVB8GaHlqpwf23JmUSAmAtcrKp7MJbK-GlOAcsb0EBgL2DcR4b4p6L0hMrDW_32PD39eLhh9EPc2gcUmI_W-tKkDeXec5Ryagjq2osypOFX04Y-OlYCDLuL-QEq8R25SK0DGLLXNlUGnTWTTNDgElVDgcFxP7eDDa0yUvCJou2aDsc94gB9pa1lqLTfD1s_n97574_RHGMf6XUe885UaAZsArS2e98SK98lXjjHcpga8D0qOXp9FNVlRZuLxuRjbk6hf-YmVeflNKAYtk4H0Tp4UDeRITH4WJVpSzx-33zOt3GZF6CnVHS_1qUErv0dILMI_HvH8w3zVv72Vl2e3V4DksbZT2Khp87mq_W8MCGXNFLxzja4ktdi1fuPx38Z7fr_GwQjCA7XL0v1OxuhFhy8JTwr7Ni0qfuAomZW0MbH-xIQtIPNZjYO653I1vOdIUnqpId88"
+        self._token = "0cAFcWeA7rehOGZs4f7Iw9khePhBKaMhZ_jL-OO4Yj-EDkwzhVffhcrz5rO4G7sH6EUHKObCB_SBGJrHM9k04x5OIEIXZfTo0p0-f81UT-mdBwbvd3DUNrl9I-vRNA3Z2oGF6qzGqnO6iOmM97HaF_yQH7G9uwJ9ZXyNMYpFhmE7_vAJZatOvDEszNw_n-dbnmGKR5255vrOO-TaTe71VbNcgjx-b5XU8o144A-3pbni4slOB2ezfEvXm05frbc57uVNv0H260LQdHR3Ei9QRqUutApPjIg7_3rRb7NDgPLaBkKAZsCXyQFPlv7vDbSZI9VBlgiFezy0V6XuOOidt8KATEau4tajQM-OX371JxebyE-OdGybkNJdY7fUG-UXY1TWXm5-YbKz1MARtrnq0L-GDWiZPEVp0pMVf425ElsKia7JW0fi-wUI7J7_1hpV-Ak7KtA2l_VtOIKZfwKOg3Zbk8wnadruEqiiO5iMXiatLgY3kd54QRx13pR6iAfKl-W4RnCVckKd5YlyK9uq8byF9UWZuwK9h82E2cCRgNPjfftckrH1IvyhNrSEtId1mh0tIc7jWBAiDNg1Q4xur3GJdYvScy-4CqNMsB6O_327Il8EROfh0fo8JOMLhmoIZSEWYaZFAnhK5MaXw57tznAPhCks6vaN38f1rYNacEoGRvbMoozAs0mzqkMzdEkmMHApF7BvhtnRAMwuawndQL702WfVUB2O7wPSitLEiUCJZ-vjg49yCZaXKf8SbqIN1NMZW7gcnEOLA4pI62FfCOHYpt8NhhKITd52NQzlBU4yaZ1HZepw2yUxo5Vr1XGGyIFLtFiqHn-GcqhcSmeEIG_7JXi3lNjfAXqzIURpi7eDAi-TwyPgyrAkqRdE6wqDjGGhAZbjwPl0VDAjxOE8hTBW6JTcmU6PzoaZCMsa84fGjIwDPUw506chIVMcgTiBJxK3jXKOZdMlxv-9faMSea6eaP2ki8dnds7OifjL7dPM_3JxRFuvgtRsmHBxG-Xs3OTGbOBEjG9ttKitp7VgalW9bQ4wzNcJrjZUcTOacgg8pBOdSpifAe8qhW-js3z6OtbO7N0UNffXUJJZF2JJfskIkSMWEN0gz4zxIK9BnFP_bpDdmMAa1dBbHVoowYohV1QPy9myQuHav7ap-ondbDka7cw06eR-zdTrNuCDVnLO_nVyCDjEPEUvp1g3-QZVm3Nxa7mQJVvmxDytNL7GG_AyrN4o9usEozx-LBmijp-x-x7h_SIfbzV6phHJSvI-dJv8kluRjJCIALWYGhHhM87H1R5-vRUqQcpi9BQkEFDBZzVeDjiNqBptm2KGehkJ1K7B1UhTx5ETry5jGLro6IKZrRMquVOnkZt88vtmVtwkJQ83c4joXXz5_dY9HuC30O155J7DPlG7pKAvIEuMSGSVegGkXtGX33pyNIztycXjYT4Y7RpbigcQKFZU3etEHd9IIbTUc4y255Kjp_CheuI_k6kgW2JxTMoLaL7EODYqqW-m1Lp8qgJymCCDDkctfD-qxmFMBBetecJbJ9Miqq-c-A5d4Rp48DyW_s2etxIkglx_LPf-PhnowOj2JeCzu5gcakkgsDKFynEzrmhFG6GdzRFsXiNDuw7Koj9Le3sj1wiGm44SlryDVCoU18DfiI-9Qm32Ll3yrh81TKHUSA_uZ-1LFVeISlwZqvORrMRRE-iSTVW36K4kVoIlr4RDPUfzJoQrtWMbijZYKesf2eCM9vcQAicbu6u4cgk-9rOQN08ynQtyFVQ9DXXAHFme3ANPYhtqCAlRLul5piCKbEhSIh0ruv4m51LsCzEpxM7M9nxDim2YZ03UeFZnZK1PKbodz2UYkPyoVhUEsmViQQhPRZHkLXcRI1im-fx8fYwloWL6U70sFQOtKStEK6LhUcAD_OUWTo6c7Ax7yWKY69Rfj7msiNtnnYSd_vA2RFjA4B6j3_DoNxVUJMy7CXAspYyMkFPX3WcEYI"
         return self._token
     
     def is_api_accessible(self) -> bool:
@@ -327,14 +327,12 @@ class MavatAPIClient:
         Returns:
             List of MavatSearchHit objects
         """
-        # Build search parameters - prioritize block/parcel over city names
-        # Use proper city codes if available, otherwise use -1
         city_code = -1
         district_code = -1
         plan_area_code = -1
         jurst_area_code = -1
         city_description = city or ""
-        
+
         # Try to get proper codes from lookup tables if city is provided
         if city:
             try:
@@ -350,45 +348,36 @@ class MavatAPIClient:
                         jurst_area_code = int(float(raw_data.get('JURST_AREA_CODE', -1)))
                         break
             except Exception:
-                pass  # Fall back to -1 if lookup fails
-        
-        # Convert block and parcel numbers to integers if they exist
-        block_num = None
-        parcel_num = None
-        if block or block_number:
-            try:
-                block_num = int(block or block_number)
-            except (ValueError, TypeError):
                 pass
-        if parcel or parcel_number:
-            try:
-                parcel_num = int(parcel or parcel_number)
-            except (ValueError, TypeError):
-                pass
-        
+
         search_params = {
-            "searchEntity": 1,  # 1 = Plans
+            "searchEntity": 1,
             "plNumber": "",
             "plName": query or "",
-            "blockNumber": block_num if block_num is not None else "",
-            "toBlockNumber": "",
-            "parcelNumber": "",
-            "toParcelNumber": "",
+            "blockNumber": block or block_number or "",
+            "toBlockNumber": block or block_number or "",
+            "parcelNumber": parcel or parcel_number or "",
+            "toParcelNumber": parcel or parcel_number or "",
             "modelCity": {
-                "DESCRIPTION": "",
-                "CODE": -1
+                "DISTRICT_CODE": district_code,
+                "PLAN_AREA_CODE": plan_area_code,
+                "JURST_AREA_CODE": jurst_area_code,
+                "CODE": city_code,
+                "DESCRIPTION": city_description
             },
             "intStreetCode": {
-                "DESCRIPTION": "",
+                "DESCRIPTION": street or "",
                 "CODE": -1
             },
             "intPlanArea": {
-                "DESCRIPTION": "",
-                "CODE": -1
+                "DISTRICT_CODE": district_code,
+                "CODE": plan_area_code,
+                "DESCRIPTION": city_description
             },
             "intDistrict": {
-                "DESCRIPTION": "",
-                "CODE": -1
+                "CODE": district_code,
+                "DESCRIPTION": city_description,
+                "DISTRICT_LOCAL": 1
             },
             "intLevelOfAuthority": {
                 "ENTITY_TYPE_CODE": 1,
@@ -403,7 +392,7 @@ class MavatAPIClient:
                 "IS_MAVAT": 0
             },
             "internetStatus": {
-                "DESCRIPTION": "",
+                "DESCRIPTION": status or "",
                 "CODE": "-1"
             },
             "area": "",
@@ -432,15 +421,7 @@ class MavatAPIClient:
                 try:
                     error_data = response.json()
                     if "CaptchaNotValid" in str(error_data):
-                        raise RuntimeError(
-                            f"Mavat API requires captcha validation. The API is protected by anti-bot measures that prevent automated access. "
-                            f"Error: {error_data}\n\n"
-                            f"SOLUTIONS:\n"
-                            f"1. Use MavatHybridClient with browser automation: from mavat.scrapers.mavat_hybrid_client import MavatHybridClient\n"
-                            f"2. Get a fresh token by manually visiting https://mavat.iplan.gov.il and solving the captcha\n"
-                            f"3. Use alternative data sources like RAMI API or other planning databases\n"
-                            f"4. Implement manual token refresh workflow"
-                        )
+                        raise RuntimeError(error_data)
                     else:
                         raise RuntimeError(f"Authentication failed (401): {error_data}")
                 except json.JSONDecodeError:
@@ -546,65 +527,12 @@ class MavatAPIClient:
             
         except Exception as e:
             raise RuntimeError(f"Failed to get plan attachments: {e}")
-    
-    def search_by_location(
-        self,
-        city: str,
-        district: Optional[str] = None,
-        plan_area: Optional[str] = None,
-        street: Optional[str] = None,
-        limit: int = 20
-    ) -> List[MavatSearchHit]:
-        """Search for plans by location.
-        
-        Args:
-            city: City name
-            district: District name
-            plan_area: Plan area name
-            street: Street name
-            limit: Maximum results
-            
-        Returns:
-            List of MavatSearchHit objects
-        """
-        return self.search_plans(
-            city=city,
-            district=district,
-            plan_area=plan_area,
-            street=street,
-            limit=limit
-        )
-    
-    def search_by_block_parcel(
-        self,
-        block_number: str,
-        parcel_number: str,
-        limit: int = 20
-    ) -> List[MavatSearchHit]:
-        """Search for plans by block and parcel numbers.
-        
-        Args:
-            block_number: Block number
-            parcel_number: Parcel number
-            limit: Maximum results
-            
-        Returns:
-            List of MavatSearchHit objects
-        """
-        return self.search_plans(
-            block_number=block_number,
-            parcel_number=parcel_number,
-            limit=limit
-        )
-    
+
     def close(self):
         """Close the session."""
         if self.session:
             self.session.close()
 
-
-# Backward compatibility - keep the old class names
-MavatScraper = MavatAPIClient
 
 if __name__ == "__main__":
     client = MavatAPIClient()

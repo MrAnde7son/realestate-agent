@@ -26,7 +26,7 @@ sys.path.insert(0, str(project_root))
 
 # Import all collectors
 from gis.gis_client import TelAvivGS
-from gov.decisive import fetch_decisive_appraisals
+from gov.decisive import DecisiveAppraisalClient
 from gov.nadlan.scraper import NadlanDealsScraper
 from mavat.scrapers.mavat_selenium_client import MavatSeleniumClient
 from gov.rami.rami_client import RamiClient
@@ -318,7 +318,7 @@ class TestCollectorsIntegration:
         appraisals = []
         for attempt in range(3):  # Retry up to 3 times
             try:
-                appraisals = fetch_decisive_appraisals(max_pages=1)
+                appraisals = DecisiveAppraisalClient().fetch_appraisals(max_pages=1)
                 if appraisals:
                     break
                 logger.warning(f"Attempt {attempt + 1}: No appraisals found")

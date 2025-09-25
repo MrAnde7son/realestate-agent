@@ -31,8 +31,8 @@ class Deal:
     @classmethod
     def from_item(cls, data: Dict[str, Any]) -> 'Deal':
         """Create a Deal from a dictionary item."""
-        # Parse deal amount
-        deal_amount = cls._parse_price(data.get('dealAmount'))
+        # Parse deal amount - handle both 'dealAmount' and 'deal_amount' keys
+        deal_amount = cls._parse_price(data.get('dealAmount') or data.get('deal_amount'))
         
         # Parse area
         area = cls._parse_area(data.get('area'))
@@ -41,16 +41,16 @@ class Deal:
         parcel_block, parcel_parcel, parcel_sub_parcel = cls._parse_parcel_num(data.get('parcelNum'))
         
         return cls(
-            deal_id=data.get('dealId'),
+            deal_id=data.get('dealId') or data.get('deal_id'),
             address=data.get('address'),
             deal_amount=deal_amount,
-            deal_date=data.get('dealDate'),
+            deal_date=data.get('dealDate') or data.get('deal_date'),
             rooms=data.get('rooms'),
             floor=data.get('floor'),
             area=area,
-            price_per_sqm=data.get('pricePerSqm'),
-            asset_type=data.get('assetType'),
-            year_built=data.get('yearBuilt'),
+            price_per_sqm=data.get('pricePerSqm') or data.get('price_per_sqm'),
+            asset_type=data.get('assetType') or data.get('asset_type'),
+            year_built=data.get('yearBuilt') or data.get('year_built'),
             raw=data,
             parcel_block=parcel_block,
             parcel_parcel=parcel_parcel,
@@ -58,46 +58,36 @@ class Deal:
         )
     
     @staticmethod
-    def _parse_price(price_str: Any) -> Optional[float]:
-        """Parse price from various string formats."""
-        if price_str is None:
+    def _num(value: Any) -> Optional[float]:
+        """Parse numeric value from various string formats."""
+        if value is None:
             return None
         
-        if isinstance(price_str, (int, float)):
-            return float(price_str)
+        if isinstance(value, (int, float)):
+            return float(value)
         
-        if not isinstance(price_str, str):
+        if not isinstance(value, str):
             return None
         
         # Remove common currency symbols and formatting
-        price_str = str(price_str).strip()
-        price_str = price_str.replace('₪', '').replace(',', '').replace(' ', '')
+        value_str = str(value).strip()
+        value_str = value_str.replace('₪', '').replace(',', '').replace(' ', '')
+        value_str = value_str.replace('מ²', '').replace('מ\'', '')
         
         try:
-            return float(price_str)
+            return float(value_str)
         except (ValueError, TypeError):
             return None
     
     @staticmethod
+    def _parse_price(price_str: Any) -> Optional[float]:
+        """Parse price from various string formats."""
+        return Deal._num(price_str)
+    
+    @staticmethod
     def _parse_area(area_str: Any) -> Optional[float]:
         """Parse area from various string formats."""
-        if area_str is None:
-            return None
-        
-        if isinstance(area_str, (int, float)):
-            return float(area_str)
-        
-        if not isinstance(area_str, str):
-            return None
-        
-        # Remove Hebrew square meter symbol and other formatting
-        area_str = str(area_str).strip()
-        area_str = area_str.replace('מ²', '').replace('מ\'', '').replace(',', '.')
-        
-        try:
-            return float(area_str)
-        except (ValueError, TypeError):
-            return None
+        return Deal._num(area_str)
     
     @staticmethod
     def _parse_parcel_num(parcel_num: Any) -> Tuple[Optional[str], Optional[str], Optional[str]]:

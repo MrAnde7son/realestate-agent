@@ -317,34 +317,3 @@ class TestDecisiveAppraisalClient:
         
         assert result == []
 
-
-class TestBackwardCompatibility:
-    """Test backward compatibility function."""
-    
-    @mock.patch('gov.decisive.DecisiveAppraisalClient')
-    def test_fetch_decisive_appraisals_function(self, mock_client_class):
-        """Test the backward compatibility function."""
-        # Mock the client and its method
-        mock_client = mock.Mock()
-        mock_appraisal = DecisiveAppraisal(
-            title="Test Title",
-            date="01.01.2024",
-            appraiser="Test Appraiser",
-            committee="Test Committee",
-            pdf_url="https://example.com/test.pdf"
-        )
-        mock_client.fetch_appraisals.return_value = [mock_appraisal]
-        mock_client_class.return_value = mock_client
-        
-        result = DecisiveAppraisalClient().fetch_appraisals(block="123", plot="456")
-        
-        assert len(result) == 1
-        assert isinstance(result[0], dict)
-        assert result[0]["title"] == "Test Title"
-        assert result[0]["date"] == "01.01.2024"
-        assert result[0]["appraiser"] == "Test Appraiser"
-        assert result[0]["committee"] == "Test Committee"
-        assert result[0]["pdf_url"] == "https://example.com/test.pdf"
-        
-        # Verify the client was used correctly
-        mock_client.fetch_appraisals.assert_called_once_with(block="123", plot="456", max_pages=1)

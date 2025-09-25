@@ -382,6 +382,7 @@ export default function LeadsPage() {
                       lead={lead}
                       onUpdate={handleLeadUpdate}
                       onDelete={() => handleLeadDelete(lead)}
+                      onShowTasks={() => handleShowTasks(lead)}
                     />
                   </TableCell>
                 </TableRow>

@@ -57,6 +57,50 @@ class TestDecisiveAppraisal:
         assert result["appraisal_type"] == "היטל השבחה"
         assert result["block"] == "123"
         assert result["plot"] == "456"
+    
+    def test_get_pdf_urls_single(self):
+        """Test get_pdf_urls with single URL."""
+        appraisal = DecisiveAppraisal(
+            title="Test Title",
+            date="01.01.2024",
+            appraiser="Test Appraiser",
+            committee="Test Committee",
+            pdf_url="https://example.com/test.pdf"
+        )
+        
+        urls = appraisal.get_pdf_urls()
+        assert urls == ["https://example.com/test.pdf"]
+    
+    def test_get_pdf_urls_multiple(self):
+        """Test get_pdf_urls with multiple URLs."""
+        appraisal = DecisiveAppraisal(
+            title="Test Title",
+            date="01.01.2024",
+            appraiser="Test Appraiser",
+            committee="Test Committee",
+            pdf_url="https://example.com/doc1.pdf; https://example.com/doc2.pdf; https://example.com/doc3.pdf"
+        )
+        
+        urls = appraisal.get_pdf_urls()
+        expected = [
+            "https://example.com/doc1.pdf",
+            "https://example.com/doc2.pdf", 
+            "https://example.com/doc3.pdf"
+        ]
+        assert urls == expected
+    
+    def test_get_pdf_urls_empty(self):
+        """Test get_pdf_urls with empty URL."""
+        appraisal = DecisiveAppraisal(
+            title="Test Title",
+            date="01.01.2024",
+            appraiser="Test Appraiser",
+            committee="Test Committee",
+            pdf_url=""
+        )
+        
+        urls = appraisal.get_pdf_urls()
+        assert urls == []
 
 
 class TestAPIDecisiveAppraisalParser:
@@ -114,6 +158,62 @@ class TestAPIDecisiveAppraisalParser:
         assert appraisal.appraisal_type == "היטל השבחה"
         assert appraisal.block == "123"
         assert appraisal.plot == "456"
+    
+    def test_parse_multiple_documents(self):
+        """Test parsing result with multiple documents."""
+        parser = APIDecisiveAppraisalParser()
+        response_data = {
+            "Results": [
+                {
+                    "Data": {
+                        "AppraisalHeader": "Test Appraisal Multiple Docs",
+                        "DecisiveAppraiser": "Test Appraiser",
+                        "Committee": "Test Committee",
+                        "DecisionDate": "2024-01-01T00:00:00+03:00",
+                        "Document": [
+                            {
+                                "FileName": "https://example.com/doc1.pdf",
+                                "DisplayName": "Document 1",
+                                "Extension": "pdf"
+                            },
+                            {
+                                "FileName": "https://example.com/doc2.pdf",
+                                "DisplayName": "Document 2",
+                                "Extension": "pdf"
+                            },
+                            {
+                                "FileName": "https://example.com/doc3.pdf",
+                                "DisplayName": "Document 3",
+                                "Extension": "pdf"
+                            }
+                        ],
+                        "AppraisalType": "היטל השבחה",
+                        "Block": "123",
+                        "Plot": "456"
+                    }
+                }
+            ]
+        }
+        
+        result = parser.parse(response_data)
+        
+        assert len(result) == 1
+        appraisal = result[0]
+        assert isinstance(appraisal, DecisiveAppraisal)
+        assert appraisal.title == "Test Appraisal Multiple Docs"
+        
+        # Test combined URL
+        expected_combined = "https://example.com/doc1.pdf; https://example.com/doc2.pdf; https://example.com/doc3.pdf"
+        assert appraisal.pdf_url == expected_combined
+        
+        # Test individual URLs
+        individual_urls = appraisal.get_pdf_urls()
+        expected_urls = [
+            "https://example.com/doc1.pdf",
+            "https://example.com/doc2.pdf",
+            "https://example.com/doc3.pdf"
+        ]
+        assert individual_urls == expected_urls
     
     def test_format_date(self):
         """Test date formatting."""

@@ -9,7 +9,8 @@ const protectedRoutes = [
   '/reports',
   '/profile',
   '/settings',
-  '/admin'
+  '/admin',
+  '/crm'
 ]
 
 export async function middleware(request: NextRequest) {

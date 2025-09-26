@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from fastmcp import Context, FastMCP
 
-from ..decisive import fetch_decisive_appraisals
+from ..decisive import DecisiveAppraisalClient
 from ..nadlan import NadlanDealsScraper
 from ..rami.rami_client import RamiClient
 
@@ -28,7 +28,7 @@ async def decisive_appraisal(ctx: Context, block: str = "", plot: str = "", max_
         await ctx.info("Fetching decisive appraisal decisions...")
     except Exception:
         pass
-    return fetch_decisive_appraisals(block, plot, max_pages=max_pages)
+    return DecisiveAppraisalClient().fetch_appraisals(block, plot, max_pages=max_pages)
 
 
 @mcp.tool()

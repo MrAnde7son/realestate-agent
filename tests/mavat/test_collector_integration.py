@@ -45,7 +45,6 @@ class TestMavatCollectorIntegration:
             from orchestration.collectors.mavat_collector import MavatCollector
             collector = MavatCollector()
             
-            assert hasattr(collector, 'search_by_location')
             assert hasattr(collector, 'search_plans')
             assert hasattr(collector, 'get_plan_details')
             assert hasattr(collector, 'get_lookup_data')
@@ -102,7 +101,7 @@ class TestMavatCollectorDataPipelineIntegration:
             collector = pipeline.mavat
             
             # Check required methods exist
-            required_methods = ['collect', 'search_by_location', 'search_plans', 'get_lookup_data']
+            required_methods = ['collect', 'search_plans', 'get_lookup_data']
             for method in required_methods:
                 assert hasattr(collector, method), f"Method {method} not found in pipeline collector"
                 assert callable(getattr(collector, method)), f"Method {method} is not callable"

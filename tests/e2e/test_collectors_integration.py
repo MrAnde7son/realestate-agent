@@ -28,11 +28,9 @@ sys.path.insert(0, str(project_root))
 from gis.gis_client import TelAvivGS
 from gov.decisive import DecisiveAppraisalClient
 from gov.nadlan.scraper import NadlanDealsScraper
-from mavat.scrapers.mavat_selenium_client import MavatSeleniumClient
 from gov.rami.rami_client import RamiClient
 from yad2.scrapers.yad2_scraper import Yad2Scraper
 from yad2.search_helper import Yad2SearchHelper
-from govmap import GovMapClient
 from orchestration.collectors.govmap_collector import GovMapCollector
 
 # Test address
@@ -83,49 +81,48 @@ class TestCollectorsIntegration:
             assert is_accessible, "Mavat system should be accessible"
             logger.info("✓ Mavat system is accessible")
         
-        # Test 2: Search functionality
-        logger.info("Testing collector search functionality (query)...")
-        query_results = collector.client.search_plans(query=TEST_CITY, limit=5)
-        assert isinstance(query_results, list), "Query results should be a list"
-        if len(query_results) == 0:
-            logger.warning("⚠ No query results found - this might indicate rate limiting or network issues in CI")
-            # In CI, we'll be more lenient and just check that we got a list
-            pytest.skip("No query results found - likely due to CI environment constraints")
-        logger.info(f"✓ Collector found {len(query_results)} plans for query {TEST_CITY}")
+            # Test 2: Search functionality
+            logger.info("Testing collector search functionality (query)...")
+            query_results = client.search_plans(query=TEST_CITY, limit=5)
+            assert isinstance(query_results, list), "Query results should be a list"
+            if len(query_results) == 0:
+                logger.warning("⚠ No query results found - this might indicate rate limiting or network issues in CI")
+                # In CI, we'll be more lenient and just check that we got a list
+                pytest.skip("No query results found - likely due to CI environment constraints")
+            logger.info(f"✓ Collector found {len(query_results)} plans for query {TEST_CITY}")
 
-        # Add delay between searches to avoid rate limiting
-        time.sleep(3)
-        
-        # Test 3: Search functionality - street search with retry logic
-        logger.info("Testing collector search functionality (street)...")
-        street_results = collector.client.search_plans(query=TEST_STREET, limit=3)
-        assert isinstance(street_results, list), "Street results should be a list"
-        if len(street_results) == 0:
-            logger.warning("⚠ No street results found - this might indicate rate limiting or network issues in CI")
-            pytest.skip("No street results found - likely due to CI environment constraints")
-        logger.info(f"✓ Collector found {len(street_results)} plans for street {TEST_STREET}")
+            # Add delay between searches to avoid rate limiting
+            time.sleep(3)
 
-        # Add delay between searches to avoid rate limiting
-        time.sleep(3)
-        
-        # Test 4: Search functionality - specific plan search with retry logic
-        logger.info("Testing collector search functionality (specific plan)...")
-        plan_results = collector.client.search_plans(query="ג/ 5000", limit=3)
-        
-        assert isinstance(plan_results, list), "Plan results should be a list"
-        if len(plan_results) == 0:
-            logger.warning("⚠ No plan results found - this might indicate rate limiting or network issues in CI")
-            pytest.skip("No plan results found - likely due to CI environment constraints")
-        logger.info(f"✓ Collector found {len(plan_results)} plans for specific plan ג/ 5000")
-        
-        # Test 5: PDF download functionality for plan ג/ 5000 (known to have PDF)
-        logger.info("Testing PDF download functionality for plan ג/ 5000...")
-        with collector.client as client:
+            # Test 3: Search functionality - street search with retry logic
+            logger.info("Testing collector search functionality (street)...")
+            street_results = client.search_plans(query=TEST_STREET, limit=3)
+            assert isinstance(street_results, list), "Street results should be a list"
+            if len(street_results) == 0:
+                logger.warning("⚠ No street results found - this might indicate rate limiting or network issues in CI")
+                pytest.skip("No street results found - likely due to CI environment constraints")
+            logger.info(f"✓ Collector found {len(street_results)} plans for street {TEST_STREET}")
+
+            # Add delay between searches to avoid rate limiting
+            time.sleep(3)
+
+            # Test 4: Search functionality - specific plan search with retry logic
+            logger.info("Testing collector search functionality (specific plan)...")
+            plan_results = client.search_plans(query="ג/ 5000", limit=3)
+
+            assert isinstance(plan_results, list), "Plan results should be a list"
+            if len(plan_results) == 0:
+                logger.warning("⚠ No plan results found - this might indicate rate limiting or network issues in CI")
+                pytest.skip("No plan results found - likely due to CI environment constraints")
+            logger.info(f"✓ Collector found {len(plan_results)} plans for specific plan ג/ 5000")
+
+            # Test 5: PDF download functionality for plan ג/ 5000 (known to have PDF)
+            logger.info("Testing PDF download functionality for plan ג/ 5000...")
             pdf_data = client.fetch_pdf("ג/ 5000")
             assert isinstance(pdf_data, bytes), "PDF data should be bytes"
             assert len(pdf_data) > 0, "PDF should not be empty"
             logger.info(f"✓ Successfully downloaded PDF for plan ג/ 5000 ({len(pdf_data)} bytes)")
-        logger.info("✓ MavatCollector integration tests passed")
+            logger.info("✓ MavatCollector integration tests passed")
 
     @pytest.mark.yad2
     @pytest.mark.integration

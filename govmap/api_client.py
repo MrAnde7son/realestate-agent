@@ -173,6 +173,24 @@ class GovMapClient:
             logger.error(f"GovMap autocomplete failed: {e}")
             raise GovMapError(f"Autocomplete failed: {e}")
 
+    @staticmethod
+    def extract_coordinates_from_shapes(result: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+        """Extract ITM coordinates from autocomplete response."""
+        if "shape" in result and isinstance(result["shape"], str):
+            shape = result["shape"]
+            # Shape is a POINT string like "POINT(3877998.167083787 3778264.858683848)"
+            if shape.startswith("POINT("):
+                coords_str = shape[6:-1]  # Remove "POINT(" and ")"
+                parts = coords_str.split()
+                if len(parts) >= 2:
+                    try:
+                        x = float(parts[0])
+                        y = float(parts[1])
+                        return x, y
+                    except (ValueError, TypeError) as e:
+                        logger.debug(f"Failed to parse coordinates from shape '{shape}': {e}")
+        return None
+
     def get_layers_catalog(self, language: str = "he") -> Dict[str, Any]:
         """Get the layers catalog from GovMap.
         
@@ -294,3 +312,14 @@ class GovMapClient:
         except Exception as e:
             logger.error(f"GovMap base layers failed: {e}")
             raise GovMapError(f"Base layers failed: {e}")
+
+if __name__ == "__main__":
+    api_client = GovMapClient()
+    result = api_client.autocomplete("רוזוב 14 תל אביב")
+    print(result)
+    if result.get("results"):
+        first = result["results"][0]
+        x,y = api_client.extract_coordinates_from_shapes(first)
+        print(f"Coordinates: {x}, {y}")
+        parcel = api_client.get_parcel_data(x, y)
+        print("Parcel data:", parcel)

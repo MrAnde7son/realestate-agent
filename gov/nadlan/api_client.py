@@ -109,102 +109,90 @@ class NadlanAPIClient:
         except Exception as e:
             raise NadlanDecodeError(f"Failed to decode base64-gzipped data: {e}")
 
-    def _decrypt_response(self, encrypted_data: str) -> Dict[str, Any]:
-        """
-        Decrypt the encrypted response from the Nadlan API using pako-style decompression.
-        
-        Since the website uses pako (JavaScript zlib), we need to handle the same
-        compression format that pako produces.
-        
-        Args:
-            encrypted_data: The encrypted response string
-            
-        Returns:
-            Decrypted JSON data as dictionary
-        """
+    @staticmethod
+    def _b64_any(data: str) -> bytes:
+        """Decode regular or URL-safe base64 strings with automatic padding."""
         import base64
-        import zlib
+
+        normalized = data.strip().replace('-', '+').replace('_', '/')
+        normalized += "=" * (-len(normalized) % 4)
+        return base64.b64decode(normalized)
+
+    @staticmethod
+    def _inflate_candidates(data: bytes) -> Optional[Union[Dict[str, Any], List[Any]]]:
+        """Try multiple compression formats that the Nadlan API may use."""
+        import gzip
         import json
-        
+        import zlib
+
         try:
-            # First try to parse as JSON directly
+            import brotli
+        except Exception:  # pragma: no cover - optional dependency
+            brotli = None
+
+        # 1) raw DEFLATE (pako.inflateRaw)
+        try:
+            return json.loads(zlib.decompress(data, wbits=-15).decode("utf-8"))
+        except Exception:
+            pass
+
+        # 2) zlib wrapper (pako.inflate)
+        try:
+            return json.loads(zlib.decompress(data).decode("utf-8"))
+        except Exception:
+            pass
+
+        # 3) gzip wrapper
+        try:
+            return json.loads(gzip.decompress(data).decode("utf-8"))
+        except Exception:
+            pass
+
+        # 4) brotli compression
+        if brotli is not None:
             try:
-                return json.loads(encrypted_data)
-            except json.JSONDecodeError:
+                return json.loads(brotli.decompress(data).decode("utf-8"))
+            except Exception:
                 pass
-            
-            # Try base64 decoding first
-            try:
-                # Add padding if needed
-                if len(encrypted_data) % 4 != 0:
-                    encrypted_data += "=" * (4 - len(encrypted_data) % 4)
-                
-                decoded = base64.b64decode(encrypted_data)
-                
-                # Try zlib decompression (pako uses zlib)
+
+        # 5) assume plain UTF-8 JSON
+        try:
+            return json.loads(data.decode("utf-8"))
+        except Exception:
+            return None
+
+    def _decrypt_response(self, blob: str) -> Union[Dict[str, Any], List[Any]]:
+        """Attempt to deserialize obfuscated payloads returned by the Nadlan API."""
+        import json
+
+        # 0) Plain JSON?
+        try:
+            return json.loads(blob)
+        except Exception:
+            pass
+
+        # 1) Try whole blob as base64 -> inflate variants
+        try:
+            decoded = self._b64_any(blob)
+            inflated = self._inflate_candidates(decoded)
+            if inflated is not None:
+                return inflated
+        except Exception:
+            pass
+
+        # 2) JWT/JWE-like dot-separated pieces: try each segment
+        if "." in blob:
+            for part in blob.split('.'):
                 try:
-                    decompressed = zlib.decompress(decoded)
-                    return json.loads(decompressed.decode('utf-8'))
-                except zlib.error:
-                    # Try gzip decompression as fallback
-                    try:
-                        import gzip
-                        decompressed = gzip.decompress(decoded)
-                        return json.loads(decompressed.decode('utf-8'))
-                    except gzip.BadGzipFile:
-                        # Try as plain text
-                        try:
-                            return json.loads(decoded.decode('utf-8'))
-                        except:
-                            pass
-            except Exception:
-                pass
-            
-            # Try splitting by dots (common encrypted format)
-            try:
-                parts = encrypted_data.split('.')
-                if len(parts) >= 2:
-                    # Try to decode each part
-                    for part in parts:
-                        try:
-                            # Add padding if needed
-                            if len(part) % 4 != 0:
-                                part += "=" * (4 - len(part) % 4)
-                            
-                            decoded = base64.b64decode(part)
-                            
-                            # Try zlib decompression (pako style)
-                            try:
-                                decompressed = zlib.decompress(decoded)
-                                data = json.loads(decompressed.decode('utf-8'))
-                                if isinstance(data, dict) and ('items' in data or 'data' in data):
-                                    return data
-                            except zlib.error:
-                                # Try gzip as fallback
-                                try:
-                                    import gzip
-                                    decompressed = gzip.decompress(decoded)
-                                    data = json.loads(decompressed.decode('utf-8'))
-                                    if isinstance(data, dict) and ('items' in data or 'data' in data):
-                                        return data
-                                except:
-                                    # Try as plain text
-                                    try:
-                                        data = json.loads(decoded.decode('utf-8'))
-                                        if isinstance(data, dict) and ('items' in data or 'data' in data):
-                                            return data
-                                    except:
-                                        continue
-                        except:
-                            continue
-            except Exception:
-                pass
-            
-            # If all else fails, return the raw data for debugging
-            return {"error": "Could not decrypt response", "raw_data": encrypted_data[:200]}
-            
-        except Exception as e:
-            return {"error": f"Decryption failed: {e}", "raw_data": encrypted_data[:200]}
+                    decoded = self._b64_any(part)
+                except Exception:
+                    continue
+                inflated = self._inflate_candidates(decoded)
+                if inflated is not None and isinstance(inflated, (dict, list)):
+                    return inflated
+
+        # 3) Give up but keep a hint for debugging
+        return {"error": "Could not decrypt response", "raw_prefix": blob[:200]}
 
     def _get_headers(self) -> Dict[str, str]:
         """Get standard headers for API requests."""
@@ -381,7 +369,7 @@ class NadlanAPIClient:
 
     def get_deals_by_neighborhood_id(
         self, neighborhood_id: str, limit: int = 20
-    ) -> Dict[str, Any]:
+    ) -> Union[Dict[str, Any], List[Any]]:
         """
         Get real estate deals for a neighborhood using the correct API endpoint.
 
@@ -415,8 +403,8 @@ class NadlanAPIClient:
                 api_base = api_base[:-4]
             api_url = f"{api_base}/api/deal"
 
-            # Use empty token since the API seems to work without authentication
-            auth_token = ""
+            # strongly recommended: acquire a real short-lived sk value
+            auth_token = self.get_fresh_token() or ""
 
             # Determine the appropriate base_name based on the ID type
             # Settlement IDs are typically 4 digits (1000-9999)
@@ -442,26 +430,32 @@ class NadlanAPIClient:
             # Make the POST request with the correct format
             response = self.session.post(
                 api_url,
-                data=json.dumps(payload),
+                json=payload,
                 headers={
-                    "content-type": "text/plain",
-                    "authority": "x4006fhmy5.execute-api.il-central-1.amazonaws.com",
+                    **self._get_headers(),
                     "origin": "https://www.nadlan.gov.il",
                     "referer": "https://www.nadlan.gov.il/",
-                    "sec-fetch-dest": "empty",
-                    "sec-fetch-mode": "cors",
-                    "sec-fetch-site": "cross-site",
-                    **self._get_headers()
                 },
+                timeout=30,
             )
             response.raise_for_status()
-            
+
             # Try to parse the response
             try:
                 return response.json()
-            except json.JSONDecodeError:
-                # If not JSON, it might be encrypted/compressed data
-                return self._decrypt_response(response.text)
+            except ValueError:
+                pass
+
+            # If not JSON, attempt manual decryption using the raw body
+            blob = response.content.decode("utf-8", errors="replace")
+            data = self._decrypt_response(blob)
+
+            if isinstance(data, dict) and isinstance(data.get("body"), str):
+                inner = self._decrypt_response(data["body"])
+                if isinstance(inner, (dict, list)):
+                    return inner
+
+            return data
 
         except Exception as e:
             raise NadlanAPIError(

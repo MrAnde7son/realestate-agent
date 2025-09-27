@@ -5,7 +5,15 @@ from unittest import mock
 
 import requests
 
-from govmap.api_client import GovMapClient, GovMapError, itm_to_wgs84, wgs84_to_itm
+import pytest
+
+from govmap.api_client import (
+    GovMapAuthError,
+    GovMapClient,
+    GovMapError,
+    itm_to_wgs84,
+    wgs84_to_itm,
+)
 
 
 def _make_response(status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None):
@@ -119,6 +127,19 @@ def test_search_and_locate_success():
     with mock.patch.object(client.http, "post", side_effect=fake_post):
         result = client.search_and_locate_address("Example")
         assert result == payload
+
+
+def test_search_and_locate_unauthorized():
+    """SearchAndLocate should raise a dedicated error when authentication fails."""
+
+    client = GovMapClient()
+
+    def fake_post(url, json=None, headers=None, timeout=30, verify=False):
+        return _make_response(status=401, text="Unauthorized")
+
+    with mock.patch.object(client.http, "post", side_effect=fake_post):
+        with pytest.raises(GovMapAuthError):
+            client.search_and_locate_address("Example")
 
 
 def test_extract_block_parcel():

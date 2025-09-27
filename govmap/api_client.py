@@ -59,6 +59,12 @@ class GovMapError(RuntimeError):
     pass
 
 
+class GovMapAuthError(GovMapError):
+    """Raised when GovMap endpoints require authenticated access."""
+
+    pass
+
+
 class GovMapClient:
     """Thin client for GovMap OpenData and public endpoints."""
 
@@ -332,9 +338,16 @@ class GovMapClient:
                 timeout=self.timeout,
                 verify=False,
             )
+            if response.status_code == 401:
+                raise GovMapAuthError(
+                    "SearchAndLocate HTTP 401 (unauthorized). "
+                    "Provide a valid GovMap session cookie or disable the SearchAndLocate integration."
+                )
             if response.status_code != 200:
                 raise GovMapError(f"SearchAndLocate HTTP {response.status_code}")
             return response.json()
+        except GovMapAuthError:
+            raise
         except Exception as e:
             logger.error(f"GovMap SearchAndLocate failed: {e}")
             raise GovMapError(f"SearchAndLocate failed: {e}")

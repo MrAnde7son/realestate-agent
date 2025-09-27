@@ -119,6 +119,58 @@ def _build_listing_snapshot(raw_listing: Any, db_listing: Listing) -> SimpleName
     return SimpleNamespace(**payload)
 
 
+def _listing_to_dict(listing: Any) -> Dict[str, Any]:
+    """Convert Yad2 listings into plain dictionaries for downstream processing."""
+
+    if isinstance(listing, dict):
+        data = dict(listing)
+    elif hasattr(listing, "to_dict"):
+        data = listing.to_dict()
+    else:
+        keys = (
+            "title",
+            "price",
+            "address",
+            "rooms",
+            "floor",
+            "size",
+            "property_type",
+            "description",
+            "images",
+            "documents",
+            "contact_info",
+            "features",
+            "url",
+            "listing_id",
+            "date_posted",
+            "coordinates",
+            "scraped_at",
+            "meta",
+        )
+        data = {key: getattr(listing, key, None) for key in keys}
+
+    if "area" not in data or data.get("area") in (None, ""):
+        size_value = data.get("size")
+        if size_value in (None, "") and hasattr(listing, "size"):
+            size_value = getattr(listing, "size")
+        if size_value not in (None, ""):
+            data["area"] = size_value
+
+    return data
+
+
+def _normalize_listings(listings: Iterable[Any]) -> List[Dict[str, Any]]:
+    """Return a list of dictionaries regardless of the original listing type."""
+
+    normalized: List[Dict[str, Any]] = []
+    if not listings:
+        return normalized
+
+    for listing in listings:
+        normalized.append(_listing_to_dict(listing))
+    return normalized
+
+
 def _dispatch_notifications(pending: List[Tuple[Notifier, Any]]) -> None:
     """Send notifications outside of the main persistence loop."""
 
@@ -667,14 +719,31 @@ class DataPipeline:
                 session.commit()
 
                 _dispatch_notifications(pending_notifications)
-                
+
+                listing_payloads = _normalize_listings(listings)
+
                 # Update Asset model with collected data
                 if asset_id:
-                    _update_asset_with_collected_data(asset_id, block, parcel, govmap_data.get("api_data", {}).get("autocomplete", {}), govmap_data, gis_data, gov_data, plans, mavat_plans, listings, x_itm, y_itm, lon_wgs84, lat_wgs84)
-                    
+                    _update_asset_with_collected_data(
+                        asset_id,
+                        block,
+                        parcel,
+                        govmap_data.get("api_data", {}).get("autocomplete", {}),
+                        govmap_data,
+                        gis_data,
+                        gov_data,
+                        plans,
+                        mavat_plans,
+                        listing_payloads,
+                        x_itm,
+                        y_itm,
+                        lon_wgs84,
+                        lat_wgs84,
+                    )
+
                     # Create snapshot for alert evaluation
                     _create_asset_snapshot(asset_id, results)
-                    
+
                     # Trigger alert evaluation
                     try:
                         from core.tasks import evaluate_alerts_for_asset
@@ -854,38 +923,56 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
         # Update with Yad2 listings
         if listings:
             asset.meta['yad2_listings'] = listings
-            
-            # Extract key market data for quick access
-            if listings:
-                prices = [listing.get('price') for listing in listings if listing.get('price')]
-                areas = [listing.get('area') for listing in listings if listing.get('area')]
-                
-                if prices:
-                    asset.meta['market_data'] = {
+
+            prices = [listing.get('price') for listing in listings if listing.get('price')]
+            areas = [listing.get('area') for listing in listings if listing.get('area')]
+
+            market_data = asset.meta.setdefault('market_data', {})
+
+            if prices:
+                market_data.update(
+                    {
                         'min_price': min(prices),
                         'max_price': max(prices),
                         'avg_price': sum(prices) / len(prices),
-                        'price_count': len(prices)
+                        'price_count': len(prices),
                     }
-                
-                if areas:
-                    asset.meta['market_data']['min_area'] = min(areas)
-                    asset.meta['market_data']['max_area'] = max(areas)
-                    asset.meta['market_data']['avg_area'] = sum(areas) / len(areas)
-                    asset.meta['market_data']['area_count'] = len(areas)
-        
+                )
+
+            if areas:
+                market_data.update(
+                    {
+                        'min_area': min(areas),
+                        'max_area': max(areas),
+                        'avg_area': sum(areas) / len(areas),
+                        'area_count': len(areas),
+                    }
+                )
+
+            if not market_data:
+                asset.meta.pop('market_data', None)
+
         # Update last enrichment timestamp
         from django.utils import timezone
         asset.meta['last_enrichment'] = timezone.now().isoformat()
-        
+
         asset.save()
-        
+
         # Create Django model records from collected data
-        _create_django_records_from_collected_data(asset, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings)
-        
+        _create_django_records_from_collected_data(
+            asset,
+            govmap_autocomplete_data,
+            govmap_data,
+            gis_data,
+            gov_data,
+            plans,
+            mavat_plans,
+            listings,
+        )
+
         # Create Document and Plan records
         _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans)
-        
+
         # Calculate market metrics
         _calculate_market_metrics(asset, listings, gov_data)
         

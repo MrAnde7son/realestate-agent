@@ -17,7 +17,7 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 
 from orchestration.collectors.base_collector import BaseCollector
-from govmap.api_client import GovMapClient
+from govmap.api_client import GovMapClient, GovMapAuthError
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,11 @@ class GovMapCollector(BaseCollector):
                 out["parcel"] = parcel
             else:
                 logger.warning("SearchAndLocate response missing block/parcel values")
+        except GovMapAuthError as locate_error:
+            logger.warning(
+                "SearchAndLocate enrichment skipped due to authentication error: %s",
+                locate_error,
+            )
         except Exception as locate_error:
             logger.warning(f"SearchAndLocate enrichment failed: {locate_error}")
 

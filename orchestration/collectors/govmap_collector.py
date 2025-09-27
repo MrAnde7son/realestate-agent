@@ -50,25 +50,46 @@ class GovMapCollector(BaseCollector):
             # Get autocomplete results for the address
             autocomplete_result = self.client.autocomplete(address)
             out["api_data"]["autocomplete"] = autocomplete_result
-            
+
             # Extract coordinates from the first result
-            coords = self.client.extract_coordinates_from_shapes(autocomplete_result['results'][0])
-            if coords:
-                x, y = coords
-                out["x"] = x
-                out["y"] = y
-                
-                # Get parcel data using the extracted coordinates
-                try:
-                    parcel_data = self.client.get_parcel_data(x, y)
-                    out["api_data"]["parcel"] = parcel_data
-                except Exception as e:
-                    logger.warning(f"Failed to get parcel data: {e}")
+            results = autocomplete_result.get("results") if isinstance(autocomplete_result, dict) else None
+            if results:
+                coords = self.client.extract_coordinates_from_shapes(results[0])
+                if coords:
+                    x, y = coords
+                    out["x"] = x
+                    out["y"] = y
+
+                    # Get parcel data using the extracted coordinates
+                    try:
+                        parcel_data = self.client.get_parcel_data(x, y)
+                        out["api_data"]["parcel"] = parcel_data
+                    except Exception as e:
+                        logger.warning(f"Failed to get parcel data: {e}")
+                else:
+                    logger.warning("Could not extract coordinates from autocomplete result")
             else:
-                logger.warning("Could not extract coordinates from autocomplete result")
-                
+                logger.warning("Autocomplete response did not contain results")
+
         except Exception as e:
             logger.error(f"Failed to process address '{address}': {e}")
+
+        # Use SearchAndLocate to enrich the address with block/parcel identifiers.
+        # Planning data retrieval lives in the dedicated RAMI collector, so we stop
+        # here to avoid duplicating that integration in multiple collectors.
+        try:
+            locate_result = self.client.search_and_locate_address(address)
+            out["api_data"]["search_and_locate"] = locate_result
+
+            block_parcel = self.client.extract_block_parcel(locate_result)
+            if block_parcel:
+                block, parcel = block_parcel
+                out["block"] = block
+                out["parcel"] = parcel
+            else:
+                logger.warning("SearchAndLocate response missing block/parcel values")
+        except Exception as locate_error:
+            logger.warning(f"SearchAndLocate enrichment failed: {locate_error}")
 
         return out
 

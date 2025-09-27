@@ -17,7 +17,7 @@ Notes
 import os
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 from pyproj import Transformer
@@ -77,6 +77,7 @@ class GovMapClient:
         self.search_types_url = "https://www.govmap.gov.il/api/search-service/getTypes"
         self.parcel_search_url = "https://www.govmap.gov.il/api/layers-catalog/apps/parcel-search/address"
         self.base_layers_url = "https://www.govmap.gov.il/api/layers-catalog/baseLayers?language=he"
+        self.search_and_locate_url = "https://ags.govmap.gov.il/Api/Controllers/GovmapApi/SearchAndLocate"
         self.http = session or requests.Session()
         self.timeout = timeout
         self.http.headers.update({
@@ -312,6 +313,52 @@ class GovMapClient:
         except Exception as e:
             logger.error(f"GovMap base layers failed: {e}")
             raise GovMapError(f"Base layers failed: {e}")
+
+    # ----------------------------- Address insights -----------------------------
+    def search_and_locate_address(self, address: str, search_type: int = 0) -> Dict[str, Any]:
+        """Use the GovMap SearchAndLocate API to resolve an address."""
+
+        payload = {"type": search_type, "address": address}
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            response = self.http.post(
+                self.search_and_locate_url,
+                json=payload,
+                headers=headers,
+                timeout=self.timeout,
+                verify=False,
+            )
+            if response.status_code != 200:
+                raise GovMapError(f"SearchAndLocate HTTP {response.status_code}")
+            return response.json()
+        except Exception as e:
+            logger.error(f"GovMap SearchAndLocate failed: {e}")
+            raise GovMapError(f"SearchAndLocate failed: {e}")
+
+    @staticmethod
+    def extract_block_parcel(search_response: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+        """Extract block/parcel identifiers from a SearchAndLocate response."""
+
+        data = search_response.get("data") if isinstance(search_response, dict) else None
+        if not data:
+            return None
+
+        first_entry = data[0]
+        values = first_entry.get("Values") if isinstance(first_entry, dict) else None
+        if not values or len(values) < 2:
+            return None
+
+        try:
+            block = int(values[0])
+            parcel = int(values[1])
+            return block, parcel
+        except (TypeError, ValueError):
+            logger.debug("Failed to parse block/parcel from SearchAndLocate values: %s", values)
+            return None
 
 if __name__ == "__main__":
     api_client = GovMapClient()

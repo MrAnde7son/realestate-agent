@@ -90,7 +90,8 @@ class GovMapCollector(BaseCollector):
                 logger.warning("SearchAndLocate response missing block/parcel values")
         except GovMapAuthError as locate_error:
             logger.warning(
-                "SearchAndLocate enrichment skipped due to authentication error: %s",
+                "SearchAndLocate enrichment skipped due to authentication error: %s. "
+                "Set GOVMAP_API_TOKEN, GOVMAP_USER_TOKEN, GOVMAP_DOMAIN, and GOVMAP_SESSION_TOKEN to enable this enrichment.",
                 locate_error,
             )
         except Exception as locate_error:

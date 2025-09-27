@@ -767,7 +767,7 @@ class DataPipeline:
             return results
 
 
-def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: List[Dict[str, Any]], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
+def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
     """Update the Asset model with all collected data from GIS, Gov, Mavat, and Yad2."""
     try:
         import os
@@ -926,7 +926,7 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             _process_mavat_plans(asset, mavat_plans)
         
         # Update with Yad2 listings
-        normalized_listings = [listing for listing in listings if isinstance(listing, dict)] if listings else []
+        normalized_listings = _normalize_listings(listings or [])
         if listings and not normalized_listings:
             logger.debug("All listings dropped while normalizing Yad2 data for asset %s", asset_id)
 
@@ -1304,10 +1304,15 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
     """Create Django model records (SourceRecord, RealEstateTransaction) from collected data."""
     try:
         from core.models import SourceRecord, RealEstateTransaction
-        
+
+        normalized_listings = _normalize_listings(listings or [])
+
         # Create SourceRecord for Yad2 listings
-        if listings:
-            for listing in listings:
+        if listings and not normalized_listings:
+            logger.debug("All listings dropped while normalizing listings for Django source records on asset %s", asset.id)
+
+        if normalized_listings:
+            for listing in normalized_listings:
                 if listing.get('listing_id'):
                     SourceRecord.objects.get_or_create(
                         asset=asset,
@@ -1393,9 +1398,9 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                             'raw': transaction
                         }
                     )
-        
+
         logger.info(f"Created Django records for asset {asset.id}")
-        
+
     except Exception as e:
         logger.error(f"Failed to create Django records for asset {asset.id}: {e}")
 
@@ -1405,9 +1410,9 @@ def _calculate_market_metrics(asset, listings, gov_data):
     try:
         # Initialize market metrics
         market_metrics = {}
-        
+
         # Calculate price metrics from Yad2 listings
-        listing_dicts = [listing for listing in listings if isinstance(listing, dict)] if listings else []
+        listing_dicts = _normalize_listings(listings or []) if listings else []
 
         if listing_dicts:
             prices = [listing.get('price') for listing in listing_dicts if listing.get('price')]

@@ -14,8 +14,9 @@ Notes
   We allow providing candidate names to try.
 * Keep layers configurable via env or function args (don't hardcode).
 """
-import os
+import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
@@ -75,6 +76,11 @@ class GovMapClient:
         autocomplete_url: str = DEFAULT_AUTOCOMPLETE,
         session: Optional[requests.Session] = None,
         timeout: int = 30,
+        *,
+        api_token: Optional[str] = None,
+        user_token: Optional[str] = None,
+        domain: Optional[str] = None,
+        auth_token: Optional[str] = None,
     ) -> None:
         self.wms_url = wms_url.rstrip("?")
         self.wfs_url = wfs_url.rstrip("?")
@@ -98,6 +104,14 @@ class GovMapClient:
         # Configure the session with SSL settings
         self.http.mount('https://', requests.adapters.HTTPAdapter())
         self.http.verify = False
+
+        # Authentication configuration for private GovMap endpoints
+        self.auth_data: Dict[str, str] = {
+            "api_token": (api_token if api_token is not None else os.getenv("GOVMAP_API_TOKEN", "")) or "",
+            "user_token": (user_token if user_token is not None else os.getenv("GOVMAP_USER_TOKEN", "")) or "",
+            "domain": (domain if domain is not None else os.getenv("GOVMAP_DOMAIN", "")) or "",
+            "token": (auth_token if auth_token is not None else os.getenv("GOVMAP_SESSION_TOKEN", "")) or "",
+        }
 
     # ----------------------------- Search -----------------------------
     def autocomplete(self, query: str, language: str = "he", max_results: int = 10) -> Dict[str, Any]:
@@ -330,6 +344,22 @@ class GovMapClient:
             "Content-Type": "application/json",
         }
 
+        def _auth_headers() -> Dict[str, str]:
+            if not self.auth_data.get("api_token") or not self.auth_data.get("user_token"):
+                raise GovMapAuthError(
+                    "GovMap SearchAndLocate requires GOVMAP_API_TOKEN and GOVMAP_USER_TOKEN environment variables."
+                )
+            if not self.auth_data.get("token"):
+                self._refresh_auth_token()
+            return {"auth_data": json.dumps(self.auth_data)}
+
+        try:
+            headers.update(_auth_headers())
+        except GovMapAuthError:
+            raise
+        except GovMapError:
+            raise
+
         try:
             response = self.http.post(
                 self.search_and_locate_url,
@@ -339,9 +369,21 @@ class GovMapClient:
                 verify=False,
             )
             if response.status_code == 401:
+                # Attempt to refresh auth token once before failing
+                self._refresh_auth_token()
+                headers.update({"auth_data": json.dumps(self.auth_data)})
+                response = self.http.post(
+                    self.search_and_locate_url,
+                    json=payload,
+                    headers=headers,
+                    timeout=self.timeout,
+                    verify=False,
+                )
+
+            if response.status_code == 401:
                 raise GovMapAuthError(
                     "SearchAndLocate HTTP 401 (unauthorized). "
-                    "Provide a valid GovMap session cookie or disable the SearchAndLocate integration."
+                    "Verify GOVMAP_API_TOKEN, GOVMAP_USER_TOKEN, GOVMAP_DOMAIN and GOVMAP_SESSION_TOKEN."
                 )
             if response.status_code != 200:
                 raise GovMapError(f"SearchAndLocate HTTP {response.status_code}")
@@ -351,6 +393,51 @@ class GovMapClient:
         except Exception as e:
             logger.error(f"GovMap SearchAndLocate failed: {e}")
             raise GovMapError(f"SearchAndLocate failed: {e}")
+
+    def _refresh_auth_token(self) -> None:
+        """Refresh GovMap authentication token using configured credentials."""
+
+        if not self.auth_data.get("api_token") or not self.auth_data.get("user_token"):
+            raise GovMapAuthError(
+                "GovMap authentication requires GOVMAP_API_TOKEN and GOVMAP_USER_TOKEN environment variables."
+            )
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "auth_data": json.dumps(self.auth_data),
+        }
+
+        try:
+            response = self.http.post(
+                "https://ags.govmap.gov.il/Api/Controllers/GovmapApi/Auth",
+                json={},
+                headers=headers,
+                timeout=self.timeout,
+                verify=False,
+            )
+        except Exception as exc:  # pragma: no cover - network failure logging
+            raise GovMapError(f"GovMap auth failed: {exc}")
+
+        if response.status_code == 401:
+            raise GovMapAuthError("GovMap authentication rejected the provided credentials (HTTP 401).")
+
+        if response.status_code != 200:
+            raise GovMapError(f"GovMap auth HTTP {response.status_code}")
+
+        try:
+            data = response.json()
+        except Exception as exc:  # pragma: no cover - unexpected payloads
+            raise GovMapError(f"Failed to decode GovMap auth response: {exc}")
+
+        if isinstance(data, dict):
+            for key in ("api_token", "user_token", "domain", "token"):
+                value = data.get(key)
+                if value:
+                    self.auth_data[key] = value
+        else:
+            raise GovMapError("GovMap auth response missing credentials data")
+
 
     @staticmethod
     def extract_block_parcel(search_response: Dict[str, Any]) -> Optional[Tuple[int, int]]:

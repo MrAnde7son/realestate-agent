@@ -16,6 +16,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from asgiref.sync import async_to_sync
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -25,8 +26,6 @@ from drf_spectacular.utils import extend_schema, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 
 import logging
-
-from openai import OpenAI
 
 # Import Django models
 from .models import (
@@ -45,7 +44,17 @@ from .models import (
 )
 
 from .listing_builder import build_listing
-from .serializers import AlertRuleSerializer, AlertEventSerializer, AssetContributionSerializer, UserProfileSerializer, PlanTypeSerializer, UserPlanSerializer, UserPlanInfoSerializer
+from .serializers import (
+    AlertRuleSerializer,
+    AlertEventSerializer,
+    AssetContributionSerializer,
+    UserProfileSerializer,
+    PlanTypeSerializer,
+    UserPlanSerializer,
+    UserPlanInfoSerializer,
+)
+from .llm.select import get_llm
+from .llm.types import BaseGenOptions, ChatMessage
 
 # Import utility functions
 try:
@@ -1847,23 +1856,24 @@ def asset_share_message(request, asset_id):
     )
 
     message = None
-    if os.environ.get("OPENAI_API_KEY"):
-        try:
-            client = OpenAI()
-            completion = client.chat.completions.create(
-                model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You write short real estate marketing messages in {}.".format(language),
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-            )
-            message = completion.choices[0].message.content.strip()
-        except Exception as e:
-            logger.exception("Error generating marketing message for asset %s: %s", asset_id, e)
-            message = None
+    try:
+        llm = get_llm(request)
+        options = BaseGenOptions(temperature=0.2)
+        system_prompt = (
+            "You write short real estate marketing messages in {}.".format(language)
+        )
+        payload = [
+            ChatMessage(role="system", content=system_prompt),
+            ChatMessage(role="user", content=prompt),
+        ]
+        result = async_to_sync(llm.chat)(payload, options)
+        if isinstance(result, str):
+            message = result.strip() or None
+    except Exception as e:
+        logger.exception(
+            "Error generating marketing message for asset %s: %s", asset_id, e
+        )
+        message = None
 
     if not message:
         addr = listing.get("address") or ""

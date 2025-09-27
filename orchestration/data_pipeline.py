@@ -520,52 +520,10 @@ class DataPipeline:
                     parcel = gis_data.get('parcel', '')
                     logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
             except Exception as e:
-                # If GIS geocoding failed but we have coordinates from GovMap, try using those
-                if x_itm is not None and y_itm is not None:
-                    logger.info(f"🔄 GIS geocoding failed, trying with GovMap coordinates: ITM({x_itm}, {y_itm})")
-                    try:
-                        # Use GovMap coordinates directly for GIS data collection
-                        gis_data = {
-                            "blocks": self.gis.client.get_blocks(x_itm, y_itm),
-                            "parcels": self.gis.client.get_parcels(x_itm, y_itm),
-                            "permits": self.gis.client.get_building_permits(x_itm, y_itm),
-                            "rights": self.gis.client.get_land_use_main(x_itm, y_itm),
-                            "shelters": self.gis.client.get_shelters(x_itm, y_itm),
-                            "green": self.gis.client.get_green_areas(x_itm, y_itm),
-                            "noise": self.gis.client.get_noise_levels(x_itm, y_itm),
-                            "antennas": self.gis.client.get_cell_antennas(x_itm, y_itm),
-                        }
-                        block_gis, parcel_gis = self.gis._extract_block_parcel(gis_data)
-                        gis_data.update({"block": block_gis, "parcel": parcel_gis, "x": x_itm, "y": y_itm})
-                        track("collector_success", source="gis")
-                        logger.info(f"✅ GIS data collected using GovMap coordinates: block={block_gis}, parcel={parcel_gis}")
-                    except Exception as coord_e:
-                        logger.warning(f"⚠️ Failed to collect GIS data with GovMap coordinates: {coord_e}")
-                        gis_data = {}
-                        track("collector_fail", source="gis", error_code=str(coord_e))
-                else:
-                    gis_data = {}
-                    track("collector_fail", source="gis", error_code=str(e))
-                    logger.warning(f"⚠️ GIS collection failed: {e}")
-                
-                # Use GIS coordinates as fallback if GovMap autocomplete failed
-                if x_itm is None and y_itm is None and gis_data.get('x') and gis_data.get('y'):
-                    try:
-                        x_itm = gis_data.get('x')
-                        y_itm = gis_data.get('y')
-                        lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                        logger.info(f"📍 Using GIS coordinates as fallback: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
-                    except Exception as coord_e:
-                        logger.warning(f"⚠️ Failed to convert GIS coordinates: {coord_e}")
-                
-                # Use GIS block/parcel as fallback if GovMap failed
-                if not block and gis_data.get('block'):
-                    block = gis_data.get('block', '')
-                if not parcel and gis_data.get('parcel'):
-                    parcel = gis_data.get('parcel', '')
-                
-                logger.info(f"📍 GIS data collected: block={gis_data.get('block', 'N/A')}, parcel={gis_data.get('parcel', 'N/A')}")
-            
+                gis_data = {}
+                track("collector_fail", source="gis", error_code=str(e))
+                logger.warning(f"⚠️ GIS collection failed: {e}")
+
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}
             if block and parcel:
@@ -770,6 +728,15 @@ class DataPipeline:
 def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
     """Update the Asset model with all collected data from GIS, Gov, Mavat, and Yad2."""
     try:
+        # Defensive: ensure all dicts/lists are not None
+        govmap_autocomplete_data = govmap_autocomplete_data or {}
+        govmap_data = govmap_data or {}
+        gis_data = gis_data or {}
+        gov_data = gov_data or {}
+        plans = plans or []
+        mavat_plans = mavat_plans or []
+        listings = listings or []
+
         import os
         import sys
         
@@ -1763,7 +1730,6 @@ def _create_documents_from_rami_plans(asset, plans):
         asset.meta['documents'].append(document)
     
     logger.info(f"Created {len(plans)} RAMI plan documents for asset {asset.id}")
-
 
 
 

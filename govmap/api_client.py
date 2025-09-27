@@ -294,18 +294,40 @@ class GovMapClient:
                 verify=False,
             )
 
+        def _parse_json(resp: requests.Response) -> Any:
+            try:
+                return resp.json()
+            except Exception:
+                snippet = (resp.text or "")[:300].replace("\n", " ")
+                raise GovMapError(f"SearchAndLocate returned non-JSON. Payload snippet: {snippet}")
+
+        def _is_auth_failure(response: requests.Response) -> bool:
+            return response.status_code in {401, 403}
+
         # Try header-auth. If bootstrap needed, _build_auth_headers() will call _refresh_auth_token().
         try:
             resp = _attempt_header_auth()
+        except GovMapAuthError:
+            raise
         except Exception as e:
-            raise GovMapError(f"SearchAndLocate failed (unauth attempt): {e}")
+            raise GovMapError(f"SearchAndLocate failed (auth attempt): {e}")
 
-        try:
-            data = resp.json()
-        except Exception:
-            # Non-JSON is possible on some errors. Expose snippet for debugging.
-            snippet = (resp.text or "")[:300].replace("\n", " ")
-            raise GovMapError(f"SearchAndLocate returned non-JSON. Payload snippet: {snippet}")
+        if _is_auth_failure(resp):
+            try:
+                self._refresh_auth_token()
+            except GovMapAuthError:
+                raise
+            except Exception as e:
+                raise GovMapError(f"SearchAndLocate auth refresh failed: {e}")
+
+            resp = _attempt_header_auth()
+            if _is_auth_failure(resp):
+                raise GovMapAuthError("SearchAndLocate authentication rejected credentials (HTTP 401).")
+
+        if resp.status_code != 200:
+            raise GovMapError(f"SearchAndLocate HTTP {resp.status_code}")
+
+        data = _parse_json(resp)
 
         # Handle tokenExpired in JSON payloads (rare when we got 200)
         if isinstance(data, dict) and data.get("tokenExpired") is True:
@@ -315,7 +337,7 @@ class GovMapClient:
                 resp = _attempt_body_auth()
             if resp.status_code != 200:
                 raise GovMapError(f"SearchAndLocate after token refresh failed: HTTP {resp.status_code}")
-            data = resp.json()
+            data = _parse_json(resp)
 
         return data
     # ----------------------------- Auth helpers -----------------------------
@@ -336,7 +358,12 @@ class GovMapClient:
             clean = {"token": clean["token"]}
         else:
             # Bootstrap token
-            self._refresh_auth_token()
+            try:
+                self._refresh_auth_token()
+            except GovMapAuthError:
+                raise
+            except Exception as e:
+                raise GovMapAuthError(f"GovMap auth bootstrap failed: {e}")
             clean = {k: v for k, v in self.auth_data.items() if v}
             if clean.get("api_token") and clean.get("user_token"):
                 pass
@@ -442,8 +469,10 @@ class GovMapClient:
             last_error = e
 
         if last_error:
+            if isinstance(last_error, GovMapAuthError):
+                raise last_error
             raise GovMapError(f"GovMap auth did not return a session token. Last error: {last_error}")
-        raise GovMapError("GovMap auth did not return a session token.")
+        raise GovMapAuthError("GovMap auth did not return a session token.")
     # ----------------------------- Utils -----------------------------
     @staticmethod
     def extract_block_parcel(search_response: Dict[str, Any]) -> Optional[Tuple[int, int]]:

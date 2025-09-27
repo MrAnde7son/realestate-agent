@@ -1,13 +1,33 @@
 import logging
+from datetime import timedelta
+from typing import Any, Dict, Optional
 
 from celery import shared_task
-from datetime import timedelta
-from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from .analytics import track
+from .email import send_email
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def send_notification_email(
+    self,
+    subject: str,
+    to: list[str],
+    text: str = "",
+    html: Optional[str] = None,
+    extra: Optional[Dict[str, Any]] = None,
+):
+    """Send an email asynchronously with retry support."""
+
+    try:
+        return send_email(subject, to, text=text, html=html, **(extra or {}))
+    except Exception as exc:
+        logger.exception("Resend delivery failed, retrying: %s", exc)
+        raise self.retry(exc=exc)
 
 
 @shared_task

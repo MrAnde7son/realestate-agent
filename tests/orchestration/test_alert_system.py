@@ -1,12 +1,11 @@
-"""
-Test suite for the alert system.
-Tests both email and WhatsApp alert functionality.
-"""
+"""Tests for the orchestration alert utilities."""
 
 import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from orchestration.alerts import EmailAlert, WhatsAppAlert, create_notifier_for_user, create_notifier_for_alert_rule
+
+from orchestration.alerts import EmailAlert, WhatsAppAlert, create_notifier_for_alert_rule, create_notifier_for_user
 
 
 class TestEmailAlert:
@@ -14,59 +13,46 @@ class TestEmailAlert:
     
     def test_email_alert_initialization(self):
         """Test EmailAlert initialization."""
-        alert = EmailAlert("test@example.com")
+        with patch.dict(os.environ, {"RESEND_FROM": "alerts@example.com"}):
+            alert = EmailAlert("test@example.com")
         assert alert.to_email == "test@example.com"
-        assert alert.host == os.getenv("SMTP_HOST")
-        assert alert.user == os.getenv("SMTP_USER")
-        assert alert.password == os.getenv("SMTP_PASSWORD")
-        assert alert.from_email == os.getenv("EMAIL_FROM", os.getenv("SMTP_USER"))
-    
-    def test_email_alert_sendgrid_success(self):
-        """Test email alert with SendGrid."""
-        with patch.dict(os.environ, {"SENDGRID_API_KEY": "test_key", "EMAIL_FROM": "test@example.com"}):
-            with patch('orchestration.alerts.sendgrid') as mock_sendgrid:
-                with patch('orchestration.alerts.Mail') as mock_mail:
-                    mock_client = MagicMock()
-                    mock_sendgrid.SendGridAPIClient.return_value = mock_client
-                    mock_mail.return_value = MagicMock()
-                    
-                    alert = EmailAlert("test@example.com")
-                    alert.send("Test message")
-                    
-                    mock_client.send.assert_called_once()
-    
-    def test_email_alert_smtp_fallback(self):
-        """Test email alert with SMTP fallback."""
-        with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "",
-            "SMTP_HOST": "smtp.gmail.com",
-            "SMTP_USER": "test@gmail.com",
-            "SMTP_PASSWORD": "test_password",
-            "EMAIL_FROM": "test@gmail.com"
-        }):
-            with patch('smtplib.SMTP') as mock_smtp:
-                mock_server = MagicMock()
-                mock_smtp.return_value.__enter__.return_value = mock_server
-                
+        assert alert.from_email == "alerts@example.com"
+
+    def test_email_alert_resend_sdk_success(self):
+        """The alert sends mail via the Resend SDK when available."""
+
+        with patch.dict(os.environ, {"RESEND_API_KEY": "test_key", "RESEND_FROM": "alerts@example.com"}):
+            with patch("orchestration.alerts.resend") as mock_resend:
+                mock_resend.Emails.send.return_value = {"id": "email_123"}
                 alert = EmailAlert("test@example.com")
                 alert.send("Test message")
-                
-                mock_server.starttls.assert_called_once()
-                mock_server.login.assert_called_once()
-                mock_server.sendmail.assert_called_once()
-    
-    def test_email_alert_no_config(self):
-        """Test email alert with no configuration."""
-        with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "",
-            "SMTP_HOST": "",
-            "SMTP_USER": "",
-            "SMTP_PASSWORD": "",
-            "EMAIL_FROM": ""
-        }):
+                mock_resend.Emails.send.assert_called_once()
+
+    def test_email_alert_resend_rest_fallback(self):
+        """When the SDK is not available the REST client is used."""
+
+        with patch.dict(os.environ, {"RESEND_API_KEY": "test_key", "RESEND_FROM": "alerts@example.com"}):
+            with patch("orchestration.alerts.resend", None):
+                with patch("orchestration.alerts.requests.post") as mock_post:
+                    mock_response = MagicMock()
+                    mock_response.ok = True
+                    mock_response.json.return_value = {"id": "email_456"}
+                    mock_post.return_value = mock_response
+
+                    alert = EmailAlert("test@example.com")
+                    alert.send("Test message")
+
+                    mock_post.assert_called_once()
+
+    def test_email_alert_console_fallback(self, capsys):
+        """Console fallback is used when the API key is missing."""
+
+        with patch.dict(os.environ, {"EMAIL_FALLBACK_TO_CONSOLE": "true", "RESEND_API_KEY": "", "RESEND_FROM": "alerts@example.com"}):
             alert = EmailAlert("test@example.com")
-            # Should not raise an exception, just skip sending
             alert.send("Test message")
+
+        captured = capsys.readouterr()
+        assert "[EMAIL:CONSOLE]" in captured.out
 
 
 class TestWhatsAppAlert:
@@ -123,14 +109,14 @@ class TestNotifier:
         criteria = {"city": "5000", "rooms": "4"}
         
         with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "test_key",
-            "EMAIL_FROM": "test@example.com",
+            "RESEND_API_KEY": "test_key",
+            "RESEND_FROM": "test@example.com",
             "TWILIO_ACCOUNT_SID": "test_sid",
             "TWILIO_AUTH_TOKEN": "test_token",
             "TWILIO_WHATSAPP_FROM": "whatsapp:+14155238886"
         }):
             notifier = create_notifier_for_user(user, criteria)
-            
+
             assert notifier is not None
             assert notifier.criteria == criteria
             assert len(notifier.alerts) == 2  # Email + WhatsApp
@@ -146,8 +132,8 @@ class TestNotifier:
         criteria = {"city": "5000", "rooms": "4"}
         
         with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "test_key",
-            "EMAIL_FROM": "test@example.com"
+            "RESEND_API_KEY": "test_key",
+            "RESEND_FROM": "test@example.com"
         }):
             notifier = create_notifier_for_user(user, criteria)
             
@@ -181,8 +167,8 @@ class TestNotifier:
         alert_rule.user = user
         
         with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "test_key",
-            "EMAIL_FROM": "test@example.com",
+            "RESEND_API_KEY": "test_key",
+            "RESEND_FROM": "test@example.com",
             "TWILIO_ACCOUNT_SID": "test_sid",
             "TWILIO_AUTH_TOKEN": "test_token",
             "TWILIO_WHATSAPP_FROM": "whatsapp:+14155238886"
@@ -254,17 +240,17 @@ class TestAlertIntegration:
 def test_environment_configuration():
     """Test environment configuration validation."""
     required_vars = [
-        "EMAIL_FROM",
-        "SENDGRID_API_KEY",
-        "TWILIO_ACCOUNT_SID", 
+        "RESEND_FROM",
+        "RESEND_API_KEY",
+        "TWILIO_ACCOUNT_SID",
         "TWILIO_AUTH_TOKEN",
         "TWILIO_WHATSAPP_FROM"
     ]
-    
+
     optional_vars = [
-        "SMTP_HOST",
-        "SMTP_USER", 
-        "SMTP_PASSWORD",
+        "RESEND_REPLY_TO",
+        "RESEND_SANDBOX",
+        "EMAIL_FALLBACK_TO_CONSOLE",
         "ALERT_DEFAULT_EMAIL",
         "ALERT_DEFAULT_WHATSAPP_TO"
     ]

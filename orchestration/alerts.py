@@ -2,23 +2,25 @@
 
 from __future__ import annotations
 
+import json
 import os
-import smtplib
 from abc import ABC, abstractmethod
-from email.mime.text import MIMEText
 from typing import Any, Dict, List, Optional
 
 try:  # optional dependency for WhatsApp via Twilio
     from twilio.rest import Client  # type: ignore
-except ImportError:  
+except ImportError:
     Client = None  # type: ignore
 
-try:  # optional dependency for email via SendGrid
-    import sendgrid  # type: ignore
-    from sendgrid.helpers.mail import Mail  # type: ignore
-except ImportError: 
-    sendgrid = None  # type: ignore
-    Mail = None  # type: ignore
+try:  # optional dependency for email via Resend SDK
+    import resend  # type: ignore
+except Exception:  # pragma: no cover - SDK may be unavailable
+    resend = None  # type: ignore
+
+import requests
+
+RESEND_ENDPOINT = "https://api.resend.com/emails"
+SANDBOX_ALLOWED = ("@example.", "@test.", "@localhost", "@local", "@nadlaner.local")
 
 class Alert(ABC):
     """Abstract alert channel."""
@@ -29,7 +31,7 @@ class Alert(ABC):
 
 
 class EmailAlert(Alert):
-    """Email alert implementation with configurable SMTP settings."""
+    """Email alert implementation that delivers messages through Resend."""
 
     def __init__(
         self,
@@ -40,53 +42,57 @@ class EmailAlert(Alert):
         from_email: Optional[str] = None,
     ) -> None:
         self.to_email = to_email
-        self.host = host or os.getenv("SMTP_HOST")
-        self.user = user or os.getenv("SMTP_USER")
-        self.password = password or os.getenv("SMTP_PASSWORD")
-        self.from_email = from_email or os.getenv("EMAIL_FROM", self.user)
+        self.host = host  # legacy support
+        self.user = user
+        self.password = password
+        self.from_email = from_email or os.getenv("RESEND_FROM") or os.getenv("EMAIL_FROM", self.user)
 
     def send(self, message: str) -> None:
         if not self.to_email:
             return
 
-        # Try SendGrid first if available
-        sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
-        if sendgrid_api_key and sendgrid and Mail:
-            try:
-                sg = sendgrid.SendGridAPIClient(api_key=sendgrid_api_key)
-                mail = Mail(
-                    from_email=os.getenv("EMAIL_FROM", "no-reply@nadlaner.com"),
-                    to_emails=self.to_email,
-                    subject="נדלנר: התראה חדשה",
-                    html_content=f"<p>{message}</p>"
-                )
-                sg.send(mail)
-                return
-            except Exception as e:
-                print(f"SendGrid failed, falling back to SMTP: {e}")
+        api_key = os.getenv("RESEND_API_KEY")
+        sandbox_enabled = os.getenv("RESEND_SANDBOX", "false").lower() == "true"
+        fallback_to_console = os.getenv("EMAIL_FALLBACK_TO_CONSOLE", "false").lower() == "true"
 
-        # Fallback to SMTP
-        if not (
-            self.host
-            and self.user
-            and self.password
-            and self.from_email
-        ):
-            print("Email configuration incomplete, skipping email alert")
+        if sandbox_enabled and not any(fragment in self.to_email for fragment in SANDBOX_ALLOWED):
+            print(f"RESEND_SANDBOX active - skipping email to {self.to_email}")
             return
 
-        try:
-            msg = MIMEText(message, 'html', 'utf-8')
-            msg["Subject"] = "נדלנר: התראה חדשה"
-            msg["From"] = self.from_email
-            msg["To"] = self.to_email
+        if not api_key:
+            if fallback_to_console:
+                print(
+                    "[EMAIL:CONSOLE]\nSubject: נדלנר: התראה חדשה\nTo: {0}\nBody: {1}".format(
+                        self.to_email, message
+                    )
+                )
+            else:
+                print("RESEND_API_KEY missing; email alert not sent")
+            return
 
-            with smtplib.SMTP(self.host, 587) as server:
-                server.starttls()
-                server.login(self.user, self.password)
-                server.sendmail(self.from_email, [self.to_email], msg.as_string())
-        except Exception as e:
-            print(f"Failed to send email alert: {e}")
+        payload = {
+            "from": self.from_email or os.getenv("RESEND_FROM", "no-reply@nadlaner.com"),
+            "to": [self.to_email],
+            "subject": "נדלנר: התראה חדשה",
+            "html": f"<p>{message}</p>",
+            "text": message,
+        }
+
+        try:
+            if resend is not None:
+                resend.api_key = api_key
+                result = resend.Emails.send(payload)  # type: ignore[attr-defined]
+                if isinstance(result, dict) and result.get("id"):
+                    return
+                print(f"Resend SDK error: {result}")
+
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            response = requests.post(RESEND_ENDPOINT, headers=headers, data=json.dumps(payload), timeout=20)
+            if response.ok and response.json().get("id"):
+                return
+            print(f"Resend REST error: {response.status_code} {response.text}")
+        except Exception as exc:  # pragma: no cover - network errors
+            print(f"Failed to send email alert: {exc}")
 
 
 class WhatsAppAlert(Alert):

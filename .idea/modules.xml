@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../projects/.idea/yad2.iml" filepath="$PROJECT_DIR$/../projects/.idea/yad2.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/realestate-agent.iml" filepath="$PROJECT_DIR$/.idea/realestate-agent.iml" />
     </modules>
   </component>
 </project>

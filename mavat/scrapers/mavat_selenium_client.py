@@ -18,6 +18,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
@@ -82,7 +83,22 @@ class MavatSeleniumClient:
         self.headless = headless
         self.driver = None
         self.wait = None
-    
+
+    def _wait_for_spinner(self, timeout: float = 15.0) -> None:
+        """Wait for the loading spinner overlay to disappear."""
+        if not self.driver:
+            return
+
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                EC.invisibility_of_element_located(
+                    (By.CSS_SELECTOR, ".ngx-spinner-overlay")
+                )
+            )
+        except TimeoutException:
+            # Spinner might remain due to animation glitches; continue anyway
+            pass
+
     def _init_driver(self):
         """Initialize the Selenium WebDriver."""
         if self.driver is None:
@@ -165,9 +181,10 @@ class MavatSeleniumClient:
             # Navigate to the search page
             print(f"Navigating to: {self.SEARCH_URL}")
             self.driver.get(self.SEARCH_URL)
-            
+
             # Wait for page to load
             time.sleep(3)
+            self._wait_for_spinner()
             
             # Look for search form elements
             print("Looking for search form...")
@@ -207,7 +224,9 @@ class MavatSeleniumClient:
                     # Scroll to element and click
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", plans_button)
                     time.sleep(1)
+                    self._wait_for_spinner()
                     plans_button.click()
+                    self._wait_for_spinner()
                     time.sleep(3)  # Wait for content to load
                 else:
                     print("Could not find plans button, continuing with search...")
@@ -280,16 +299,21 @@ class MavatSeleniumClient:
                 
                 if search_button:
                     print("Found search button, clicking it...")
+                    self._wait_for_spinner()
                     search_button.click()
+                    self._wait_for_spinner()
                     time.sleep(3)
                 else:
                     print("No search button found, trying Enter key...")
+                    self._wait_for_spinner()
                     search_input.send_keys(Keys.RETURN)
+                    self._wait_for_spinner()
                     time.sleep(3)
-            
+
             # Wait for results to load
             print("Waiting for search results...")
             time.sleep(3)
+            self._wait_for_spinner()
             
             # Extract search results
             hits = []
@@ -567,6 +591,23 @@ class MavatSeleniumClient:
         except:
             return False
 
+if __name__ == "__main__":
+    with MavatSeleniumClient(headless=False) as client:
+        if client.is_accessible():
+            print("Mavat is accessible")
+            hits = client.search_plans(query="תל אביב", limit=5)
+            for hit in hits:
+                print(hit)
+                try:
+                    plan = client.get_plan_details(hit.plan_id)
+                    print(plan)
+                except Exception as e:
+                    print(f"Error fetching plan details: {e}")
 
-# Backward compatibility
-MavatScraper = MavatSeleniumClient
+                try:
+                    pdf_content = client.fetch_pdf(hit.plan_id)
+                    print(f"Fetched PDF content of size: {len(pdf_content)} bytes")
+                except Exception as e:
+                    print(f"Error fetching PDF: {e}")
+        else:
+            print("Mavat is not accessible")

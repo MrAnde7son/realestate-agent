@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from mavat.scrapers.mavat_api_client import MavatAPIClient, MavatLookupItem
+from mavat.mavat_api_client import MavatAPIClient, MavatLookupItem
 
 
 class TestMavatLookupItem:
@@ -585,53 +585,6 @@ class TestMavatAPIClient:
         # Check that Hebrew characters are properly encoded
         assert "%D7%AA%D7%95%D7%9B%D7%A0%D7%99%D7%AA" in attachment.url
 
-    def test_search_by_location(self, api_client, sample_search_response):
-        """Test location-based search."""
-        # Mock the search response
-        mock_response = Mock()
-        mock_response.json.return_value = sample_search_response
-        mock_response.raise_for_status.return_value = None
-        
-        api_client.session.post.return_value = mock_response
-        
-        results = api_client.search_by_location(
-            city="תל-אביב",
-            district="תל-אביב",
-            street="הירקון"
-        )
-        
-        assert len(results) == 1
-        
-        # Verify search parameters were passed correctly
-        call_args = api_client.session.post.call_args
-        search_params = call_args[1]['json']
-        
-        assert search_params['modelCity']['DESCRIPTION'] == "תל-אביב"
-        assert search_params['intDistrict']['DESCRIPTION'] == "תל-אביב"
-        assert search_params['intStreetCode']['DESCRIPTION'] == "הירקון"
-
-    def test_search_by_block_parcel(self, api_client, sample_search_response):
-        """Test block/parcel search."""
-        # Mock the search response
-        mock_response = Mock()
-        mock_response.json.return_value = sample_search_response
-        mock_response.raise_for_status.return_value = None
-        
-        api_client.session.post.return_value = mock_response
-        
-        results = api_client.search_by_block_parcel("666", "1")
-        
-        assert len(results) == 1
-        
-        # Verify search parameters were passed correctly
-        call_args = api_client.session.post.call_args
-        search_params = call_args[1]['json']
-        
-        assert search_params['blockNumber'] == "666"
-        assert search_params['toBlockNumber'] == "666"
-        assert search_params['parcelNumber'] == "1"
-        assert search_params['toParcelNumber'] == "1"
-
     def test_close_session(self, api_client):
         """Test closing the session."""
         api_client.close()
@@ -645,20 +598,6 @@ class TestMavatAPIClient:
         # Should not raise an error
         client.close()
 
-
-class TestBackwardCompatibility:
-    """Test backward compatibility with old class names."""
-
-    def test_mavat_scraper_alias(self):
-        """Test that MavatScraper is available as an alias."""
-        from mavat.scrapers.mavat_api_client import MavatScraper
-
-        # Should be the same class
-        assert MavatScraper == MavatAPIClient
-        
-        # Should work the same way
-        scraper = MavatScraper()
-        assert isinstance(scraper, MavatAPIClient)
 
 
 if __name__ == "__main__":

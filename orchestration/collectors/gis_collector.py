@@ -57,16 +57,10 @@ class GISCollector(BaseCollector):
 
     def _extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
         """Extract block and parcel numbers from GIS data."""
-
-        blocks = data.get("blocks") or []
-        parcels = data.get("parcels") or []
-
-        block_entry = blocks[0] if blocks else {}
-        parcel_entry = parcels[0] if parcels else {}
-
-        block = block_entry.get("ms_gush", "") if isinstance(block_entry, dict) else ""
-        parcel = parcel_entry.get("ms_chelka", "") if isinstance(parcel_entry, dict) else ""
+        block = data.get("blocks", [{}])[0].get("ms_gush", "")
+        parcel = data.get("parcels", [{}])[0].get("ms_chelka", "")
         return block, parcel
+
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for GIS collection."""

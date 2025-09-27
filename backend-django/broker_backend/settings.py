@@ -21,6 +21,18 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver').split(',')
 
+# LLM configuration
+LLM_DEFAULT_PROVIDER = os.getenv("LLM_DEFAULT_PROVIDER", "gemini")
+LLM_ALLOW_OVERRIDE = os.getenv("LLM_ALLOW_OVERRIDE", "true").lower() == "true"
+
+# Gemini
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+
+# OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
 # Custom user model
 AUTH_USER_MODEL = 'core.User'
 

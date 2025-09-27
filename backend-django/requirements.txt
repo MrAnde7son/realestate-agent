@@ -20,7 +20,10 @@ beautifulsoup4>=4.9.0
 lxml>=4.6.0
 
 # LLM Integration
-openai>=1.0.0
+google-generativeai>=0.7.2
+openai>=1.43.0
+pydantic>=2.7.0
+tenacity>=8.4.1
 
 # Database
 # PostgreSQL (optional - only needed when USE_POSTGRES=true)

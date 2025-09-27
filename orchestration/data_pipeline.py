@@ -238,6 +238,52 @@ class DataPipeline:
             return 0
 
     # ------------------------------------------------------------------
+    def _serialize_listing(self, listing: Any) -> Dict[str, Any]:
+        """Convert listing objects into plain dictionaries for storage."""
+
+        if isinstance(listing, dict):
+            data = dict(listing)
+        elif hasattr(listing, "to_dict"):
+            data = listing.to_dict()
+        else:  # Fallback for unexpected listing objects
+            data = {
+                "title": getattr(listing, "title", None),
+                "price": getattr(listing, "price", None),
+                "address": getattr(listing, "address", None),
+                "rooms": getattr(listing, "rooms", None),
+                "floor": getattr(listing, "floor", None),
+                "size": getattr(listing, "size", None),
+                "property_type": getattr(listing, "property_type", None),
+                "description": getattr(listing, "description", None),
+                "images": getattr(listing, "images", []) or [],
+                "documents": getattr(listing, "documents", []) or [],
+                "contact_info": getattr(listing, "contact_info", None),
+                "features": getattr(listing, "features", {}),
+                "url": getattr(listing, "url", None),
+                "listing_id": getattr(listing, "listing_id", None),
+                "date_posted": getattr(listing, "date_posted", None),
+                "coordinates": getattr(listing, "coordinates", None),
+                "scraped_at": getattr(listing, "scraped_at", None),
+                "meta": getattr(listing, "meta", {}),
+            }
+
+        # Normalise numeric area field for downstream consumers
+        if "area" not in data and data.get("size") is not None:
+            data["area"] = data.get("size")
+
+        # Ensure list types for complex fields expected by the UI
+        features = data.get("features", [])
+        if isinstance(features, dict):
+            data["features"] = [name for name, enabled in features.items() if enabled]
+        elif features is None:
+            data["features"] = []
+
+        images = data.get("images")
+        if images is None:
+            data["images"] = []
+
+        return data
+
     def _store_listing(self, session, listing: RealEstateListing) -> Listing:
         obj = Listing(
             title=listing.title,
@@ -327,6 +373,7 @@ class DataPipeline:
                 raise RuntimeError("No database session available")
 
             results: List[Any] = []
+            listings_payload: List[Dict[str, Any]] = []
             
             # Get address coordinates using GovMap autocomplete
             x_itm = None
@@ -516,7 +563,9 @@ class DataPipeline:
                     logger.info(f"🏠 Processing listing {i}/{len(listings)}: {listing.title}")
                     # Store listing in DB and add to return list
                     db_listing = self._store_listing(session, listing)
-                    results.append(listing)
+                    listing_dict = self._serialize_listing(listing)
+                    listings_payload.append(listing_dict)
+                    results.append({"source": "yad2", "data": listing_dict})
 
                     # ---------------- GovMap Autocomplete (already collected above) ----------------
                     if govmap_data.get("api_data", {}).get("autocomplete"):
@@ -576,7 +625,8 @@ class DataPipeline:
                 # If no listings, still add collected data to results
                 if not listings:
                     logger.info("📊 No Yad2 listings found, but adding collected data to results")
-                    
+                    listings_payload = []
+
                     # Add GovMap autocomplete data to results
                     if govmap_data.get("api_data", {}).get("autocomplete"):
                         autocomplete_data = govmap_data["api_data"]["autocomplete"]
@@ -608,8 +658,23 @@ class DataPipeline:
                 
                 # Update Asset model with collected data
                 if asset_id:
-                    _update_asset_with_collected_data(asset_id, block, parcel, govmap_data.get("api_data", {}).get("autocomplete", {}), govmap_data, gis_data, gov_data, plans, mavat_plans, listings, x_itm, y_itm, lon_wgs84, lat_wgs84)
-                    
+                    _update_asset_with_collected_data(
+                        asset_id,
+                        block,
+                        parcel,
+                        govmap_data.get("api_data", {}).get("autocomplete", {}),
+                        govmap_data,
+                        gis_data,
+                        gov_data,
+                        plans,
+                        mavat_plans,
+                        listings_payload,
+                        x_itm,
+                        y_itm,
+                        lon_wgs84,
+                        lat_wgs84,
+                    )
+
                     # Create snapshot for alert evaluation
                     _create_asset_snapshot(asset_id, results)
                     
@@ -792,26 +857,29 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
         # Update with Yad2 listings
         if listings:
             asset.meta['yad2_listings'] = listings
-            
+
             # Extract key market data for quick access
-            if listings:
-                prices = [listing.get('price') for listing in listings if listing.get('price')]
-                areas = [listing.get('area') for listing in listings if listing.get('area')]
-                
-                if prices:
-                    asset.meta['market_data'] = {
-                        'min_price': min(prices),
-                        'max_price': max(prices),
-                        'avg_price': sum(prices) / len(prices),
-                        'price_count': len(prices)
-                    }
-                
-                if areas:
-                    asset.meta['market_data']['min_area'] = min(areas)
-                    asset.meta['market_data']['max_area'] = max(areas)
-                    asset.meta['market_data']['avg_area'] = sum(areas) / len(areas)
-                    asset.meta['market_data']['area_count'] = len(areas)
-        
+            prices = [listing.get('price') for listing in listings if listing.get('price')]
+            areas = [listing.get('area') for listing in listings if listing.get('area')]
+
+            market_data = asset.meta.setdefault('market_data', {})
+
+            if prices:
+                market_data.update({
+                    'min_price': min(prices),
+                    'max_price': max(prices),
+                    'avg_price': sum(prices) / len(prices),
+                    'price_count': len(prices)
+                })
+
+            if areas:
+                market_data.update({
+                    'min_area': min(areas),
+                    'max_area': max(areas),
+                    'avg_area': sum(areas) / len(areas),
+                    'area_count': len(areas)
+                })
+
         # Update last enrichment timestamp
         from django.utils import timezone
         asset.meta['last_enrichment'] = timezone.now().isoformat()
@@ -872,7 +940,15 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
                 if result.get('source') == 'yad2':
                     # Extract Yad2 data
                     yad2_data = result.get('data', {})
-                    if hasattr(yad2_data, 'listing_id'):
+                    if isinstance(yad2_data, dict):
+                        payload['listing_id'] = payload.get('listing_id') or yad2_data.get('listing_id')
+                        if yad2_data.get('price') is not None:
+                            payload['price'] = yad2_data.get('price')
+                        if yad2_data.get('rooms') is not None:
+                            payload['rooms'] = yad2_data.get('rooms')
+                        if yad2_data.get('area') is not None:
+                            payload['area'] = yad2_data.get('area')
+                    elif hasattr(yad2_data, 'listing_id'):
                         payload['listing_id'] = yad2_data.listing_id
                 elif result.get('source') == 'transactions':
                     # Extract transaction data

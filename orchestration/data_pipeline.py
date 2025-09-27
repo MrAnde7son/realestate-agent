@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional, Dict
+from typing import Any, Iterable, List, Optional, Dict, Tuple
 import os
 import time
 import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from types import SimpleNamespace
 
 from sqlalchemy.orm import Session
 
@@ -85,6 +86,69 @@ def _load_user_notifiers() -> List[Notifier]:
     except Exception as e:  # pragma: no cover - best effort
         print(f"Failed to create user notifiers: {e}")
     return notifiers
+
+
+def _object_to_payload(obj: Any) -> Dict[str, Any]:
+    """Convert arbitrary objects into plain dictionaries for serialization."""
+
+    if obj is None:
+        return {}
+
+    if isinstance(obj, dict):
+        return {k: v for k, v in obj.items() if not k.startswith("_")}
+
+    data: Dict[str, Any] = {}
+    try:
+        for key, value in vars(obj).items():
+            if key.startswith("_"):
+                continue
+            data[key] = value
+    except TypeError:
+        # ``vars`` might fail for certain built-in types – fall back to repr
+        pass
+    return data
+
+
+def _build_listing_snapshot(raw_listing: Any, db_listing: Listing) -> SimpleNamespace:
+    """Create an immutable snapshot of the listing for async notifications."""
+
+    payload: Dict[str, Any] = {}
+    payload.update(_object_to_payload(raw_listing))
+    payload.update(_object_to_payload(db_listing))
+    payload.setdefault("id", getattr(db_listing, "id", None))
+    return SimpleNamespace(**payload)
+
+
+def _dispatch_notifications(pending: List[Tuple[Notifier, Any]]) -> None:
+    """Send notifications outside of the main persistence loop."""
+
+    if not pending:
+        return
+
+    logger.info("📣 Dispatching %d queued notifications", len(pending))
+
+    def _execute(notifier: Notifier, listing: Any) -> None:
+        try:
+            notifier.notify(listing)
+            track("alert_send", source=notifier.__class__.__name__)
+        except Exception as exc:  # pragma: no cover - best effort logging
+            track(
+                "alert_fail",
+                source=notifier.__class__.__name__,
+                error_code=str(exc),
+            )
+            logger.warning("⚠️ Notification failed: %s", exc)
+
+    if len(pending) == 1:
+        notifier, listing = pending[0]
+        _execute(notifier, listing)
+        return
+
+    max_workers = min(4, len(pending))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_execute, notifier, listing) for notifier, listing in pending]
+        for future in futures:
+            future.result()
 
 
 
@@ -327,6 +391,7 @@ class DataPipeline:
                 raise RuntimeError("No database session available")
 
             results: List[Any] = []
+            pending_notifications: List[Tuple[Notifier, Any]] = []
             
             # Get address coordinates using GovMap autocomplete
             x_itm = None
@@ -518,6 +583,8 @@ class DataPipeline:
                     db_listing = self._store_listing(session, listing)
                     results.append(listing)
 
+                    listing_snapshot = _build_listing_snapshot(listing, db_listing)
+
                     # ---------------- GovMap Autocomplete (already collected above) ----------------
                     if govmap_data.get("api_data", {}).get("autocomplete"):
                         autocomplete_data = govmap_data["api_data"]["autocomplete"]
@@ -563,15 +630,8 @@ class DataPipeline:
 
                     # ---------------- Alerts ----------------
                     for notifier in notifiers:
-                        try:
-                            notifier.notify(db_listing)
-                            track("alert_send", source=notifier.__class__.__name__)
-                        except Exception as e:
-                            track(
-                                "alert_fail",
-                                source=notifier.__class__.__name__,
-                                error_code=str(e),
-                            )
+                        if notifier.matches(listing_snapshot):
+                            pending_notifications.append((notifier, listing_snapshot))
                 
                 # If no listings, still add collected data to results
                 if not listings:
@@ -605,6 +665,8 @@ class DataPipeline:
                         results.append({"source": "mavat", "data": mavat_plans})
 
                 session.commit()
+
+                _dispatch_notifications(pending_notifications)
                 
                 # Update Asset model with collected data
                 if asset_id:

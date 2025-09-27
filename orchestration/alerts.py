@@ -133,11 +133,18 @@ class Notifier:
         self.criteria = criteria
         self.alerts = alerts
 
-    def notify(self, listing: Any) -> None:
-        """Send notifications if the listing matches all criteria."""
+    def matches(self, listing: Any) -> bool:
+        """Return ``True`` when the listing satisfies all criteria."""
+
         for key, value in self.criteria.items():
             if getattr(listing, key, None) != value:
-                return
+                return False
+        return True
+
+    def notify(self, listing: Any) -> None:
+        """Send notifications if the listing matches all criteria."""
+        if not self.matches(listing):
+            return
 
         # Create a more detailed message
         title = getattr(listing, 'title', 'Unknown Property')

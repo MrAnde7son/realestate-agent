@@ -61,6 +61,7 @@ class GISCollector(BaseCollector):
         parcel = data.get("parcels", [{}])[0].get("ms_chelka", "")
         return block, parcel
 
+
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for GIS collection."""
         return isinstance(kwargs.get('address'), str) and isinstance(kwargs.get('house_number'), int)

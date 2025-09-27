@@ -12,9 +12,9 @@ Notes
   to convert to/from WGS84.
 * WFS querying uses CQL filters. Geometry field names vary by layer ("the_geom", "geom").
   We allow providing candidate names to try.
-* Keep layers configurable via env or function args (don't hardcode).
+* Keep layers configurable via constructor args (no environment variables).
 """
-import os
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
@@ -27,12 +27,10 @@ from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_WMS = os.getenv("GOVMAP_WMS_URL", "https://open.govmap.gov.il/geoserver/opendata/wms")
-DEFAULT_WFS = os.getenv("GOVMAP_WFS_URL", "https://open.govmap.gov.il/geoserver/opendata/ows")
-DEFAULT_AUTOCOMPLETE = os.getenv(
-    "GOVMAP_AUTOCOMPLETE_URL",
-    "https://www.govmap.gov.il/api/search-service/autocomplete",
-)
+# Default endpoints (no env usage)
+DEFAULT_WMS = "https://open.govmap.gov.il/geoserver/opendata/wms"
+DEFAULT_WFS = "https://open.govmap.gov.il/geoserver/opendata/ows"
+DEFAULT_AUTOCOMPLETE = "https://www.govmap.gov.il/api/search-service/autocomplete"
 
 # Reusable transformers
 _TO_WGS84 = Transformer.from_crs(2039, 4326, always_xy=True)
@@ -59,6 +57,12 @@ class GovMapError(RuntimeError):
     pass
 
 
+class GovMapAuthError(GovMapError):
+    """Raised when GovMap endpoints require authenticated access."""
+
+    pass
+
+
 class GovMapClient:
     """Thin client for GovMap OpenData and public endpoints."""
 
@@ -69,6 +73,11 @@ class GovMapClient:
         autocomplete_url: str = DEFAULT_AUTOCOMPLETE,
         session: Optional[requests.Session] = None,
         timeout: int = 30,
+        *,
+        api_token: Optional[str] = None,
+        user_token: Optional[str] = None,
+        domain: Optional[str] = None,
+        auth_token: Optional[str] = None,  # pre-existing session token if you have it
     ) -> None:
         self.wms_url = wms_url.rstrip("?")
         self.wfs_url = wfs_url.rstrip("?")
@@ -78,35 +87,40 @@ class GovMapClient:
         self.parcel_search_url = "https://www.govmap.gov.il/api/layers-catalog/apps/parcel-search/address"
         self.base_layers_url = "https://www.govmap.gov.il/api/layers-catalog/baseLayers?language=he"
         self.search_and_locate_url = "https://ags.govmap.gov.il/Api/Controllers/GovmapApi/SearchAndLocate"
+        self.auth_url = "https://ags.govmap.gov.il/Api/Controllers/GovmapApi/Auth"
+
         self.http = session or requests.Session()
         self.timeout = timeout
         self.http.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
         })
-        
-        
-        # Disable SSL warnings
+
+        # Disable SSL warnings (you can set self.http.verify=True if you want strict TLS)
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        
-        # Configure the session with SSL settings
         self.http.mount('https://', requests.adapters.HTTPAdapter())
         self.http.verify = False
+
+        # Auth state (no env usage)
+        self.auth_data: Dict[str, str] = {}
+        if api_token:
+            self.auth_data["api_token"] = api_token
+        if user_token:
+            self.auth_data["user_token"] = user_token
+        if domain:
+            self.auth_data["domain"] = domain
+        if auth_token:
+            self.auth_data["token"] = auth_token
 
     # ----------------------------- Search -----------------------------
     def autocomplete(self, query: str, language: str = "he", max_results: int = 10) -> Dict[str, Any]:
         """Call the public autocomplete endpoint (no token required).
         Returns the raw JSON response from the new GovMap API.
         """
-       
-        # Disable SSL warnings
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        
-        # Create a new session with SSL configuration for this request
+        # Create an isolated session for this request (keeps retries independent)
         session = requests.Session()
         session.verify = False
-        
-        # Configure retry strategy
+
         retry_strategy = Retry(
             total=3,
             backoff_factor=1,
@@ -115,8 +129,7 @@ class GovMapClient:
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
-        
-        # Set headers for the new API
+
         session.headers.update({
             "Accept": "application/json",
             "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
@@ -126,50 +139,19 @@ class GovMapClient:
             "Sec-Fetch-Site": "same-origin",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
         })
-        
-        # Prepare JSON body for the new API
+
         payload = {
             "searchText": query,
             "language": language,
             "isAccurate": False,
             "maxResults": max_results
         }
-        
+
         try:
             r = session.post(self.autocomplete_url, json=payload, timeout=self.timeout, verify=False)
             if r.status_code != 200:
                 raise GovMapError(f"Autocomplete HTTP {r.status_code}")
             return r.json()
-        except Exception as ssl_e:
-            if "SSL" in str(ssl_e) or "ssl" in str(ssl_e).lower():
-                logger.warning(f"SSL error with GovMap autocomplete, trying with different SSL settings: {ssl_e}")
-                # Try with even more permissive SSL settings
-                import ssl
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
-                ssl_context.set_ciphers('DEFAULT@SECLEVEL=0')
-                
-                # Create a new session with the custom SSL context
-                session = requests.Session()
-                session.verify = False
-                session.headers.update({
-                    "Accept": "application/json",
-                    "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
-                    "Content-Type": "application/json",
-                    "Sec-Fetch-Dest": "empty",
-                    "Sec-Fetch-Mode": "cors",
-                    "Sec-Fetch-Site": "same-origin",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-                })
-                
-                r = session.post(self.autocomplete_url, json=payload, timeout=self.timeout, verify=False)
-                if r.status_code != 200:
-                    raise GovMapError(f"Autocomplete HTTP {r.status_code}")
-                return r.json()
-            else:
-                # Re-raise if it's not an SSL error
-                raise
         except Exception as e:
             logger.error(f"GovMap autocomplete failed: {e}")
             raise GovMapError(f"Autocomplete failed: {e}")
@@ -179,28 +161,20 @@ class GovMapClient:
         """Extract ITM coordinates from autocomplete response."""
         if "shape" in result and isinstance(result["shape"], str):
             shape = result["shape"]
-            # Shape is a POINT string like "POINT(3877998.167083787 3778264.858683848)"
+            # "POINT(3877998.167083787 3778264.858683848)"
             if shape.startswith("POINT("):
                 coords_str = shape[6:-1]  # Remove "POINT(" and ")"
                 parts = coords_str.split()
                 if len(parts) >= 2:
                     try:
-                        x = float(parts[0])
-                        y = float(parts[1])
+                        x = float(parts[0]); y = float(parts[1])
                         return x, y
                     except (ValueError, TypeError) as e:
                         logger.debug(f"Failed to parse coordinates from shape '{shape}': {e}")
         return None
 
     def get_layers_catalog(self, language: str = "he") -> Dict[str, Any]:
-        """Get the layers catalog from GovMap.
-        
-        Args:
-            language: Language code (default: "he")
-            
-        Returns:
-            Dictionary containing the layers catalog data
-        """
+        """Get the layers catalog from GovMap."""
         try:
             headers = {
                 "Accept": "application/json, text/plain, */*",
@@ -209,7 +183,6 @@ class GovMapClient:
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "same-origin",
             }
-            
             params = {"lang": language}
             r = self.http.get(self.layers_catalog_url, params=params, headers=headers, timeout=self.timeout, verify=False)
             if r.status_code != 200:
@@ -220,14 +193,7 @@ class GovMapClient:
             raise GovMapError(f"Layers catalog failed: {e}")
 
     def get_search_types(self, language: str = "he") -> Dict[str, Any]:
-        """Get search types from GovMap.
-        
-        Args:
-            language: Language code (default: "he")
-            
-        Returns:
-            Dictionary containing the search types data
-        """
+        """Get search types from GovMap."""
         try:
             headers = {
                 "Accept": "application/json",
@@ -237,7 +203,6 @@ class GovMapClient:
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "same-origin",
             }
-            
             payload = {"language": language}
             r = self.http.post(self.search_types_url, json=payload, headers=headers, timeout=self.timeout, verify=False)
             if r.status_code != 200:
@@ -248,15 +213,7 @@ class GovMapClient:
             raise GovMapError(f"Search types failed: {e}")
 
     def get_parcel_data(self, x: float, y: float) -> Dict[str, Any]:
-        """Get parcel data for specific coordinates.
-        
-        Args:
-            x: X coordinate (ITM)
-            y: Y coordinate (ITM)
-            
-        Returns:
-            Dictionary containing parcel data
-        """
+        """Get parcel data for specific coordinates."""
         headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
@@ -264,44 +221,32 @@ class GovMapClient:
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
         }
-        
-        # Format coordinates as in the URL pattern
         coord_string = f"({x}%20{y})"
         url = f"{self.parcel_search_url}/{coord_string}"
-        
-        # Try up to 3 times with exponential backoff
+
         for attempt in range(3):
             try:
                 r = self.http.get(url, headers=headers, timeout=self.timeout, verify=False)
                 if r.status_code == 200:
                     return r.json()
                 elif r.status_code == 500:
-                    # Server error - retry with backoff
-                    if attempt < 2:  # Don't retry on last attempt
-                        import time
-                        time.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s
-                        logger.warning(f"GovMap parcel search HTTP 500, retrying attempt {attempt + 2}/3 for coordinates ({x}, {y})")
+                    if attempt < 2:
+                        import time; time.sleep(2 ** attempt)
+                        logger.warning(f"GovMap parcel search HTTP 500, retrying attempt {attempt + 2}/3 for ({x}, {y})")
                         continue
-                    else:
-                        logger.warning(f"GovMap parcel search failed after 3 attempts with HTTP 500 for coordinates ({x}, {y})")
-                        raise GovMapError(f"Parcel search HTTP {r.status_code}")
+                    raise GovMapError(f"Parcel search HTTP {r.status_code}")
                 else:
-                    # Other HTTP errors - don't retry
-                    logger.warning(f"GovMap parcel search returned HTTP {r.status_code} for coordinates ({x}, {y})")
+                    logger.warning(f"GovMap parcel search returned HTTP {r.status_code} for ({x}, {y})")
                     raise GovMapError(f"Parcel search HTTP {r.status_code}")
             except Exception as e:
-                if attempt < 2:  # Don't retry on last attempt
-                    import time
-                    time.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s
-                    logger.warning(f"GovMap parcel search failed, retrying attempt {attempt + 2}/3 for coordinates ({x}, {y}): {e}")
+                if attempt < 2:
+                    import time; time.sleep(2 ** attempt)
+                    logger.warning(f"GovMap parcel search failed, retrying attempt {attempt + 2}/3 for ({x}, {y}): {e}")
                     continue
-                else:
-                    logger.warning(f"GovMap parcel search failed after 3 attempts for coordinates ({x}, {y}): {e}")
-                    raise GovMapError(f"Parcel search failed: {e}")
-        
-        # This should never be reached, but just in case
-        raise GovMapError("Parcel search failed after all retry attempts")
+                logger.warning(f"GovMap parcel search failed after 3 attempts for ({x}, {y}): {e}")
+                raise GovMapError(f"Parcel search failed: {e}")
 
+        raise GovMapError("Parcel search failed after all retry attempts")
 
     def get_base_layers(self) -> Dict[str, Any]:
         """Get base layers from GovMap API."""
@@ -316,33 +261,222 @@ class GovMapClient:
 
     # ----------------------------- Address insights -----------------------------
     def search_and_locate_address(self, address: str, search_type: int = 0) -> Dict[str, Any]:
-        """Use the GovMap SearchAndLocate API to resolve an address."""
-
+        """
+        Resolve an address via GovMap SearchAndLocate with robust auth handling.
+        Adds a last-chance unauthenticated attempt (some edges accept it).
+        """
         payload = {"type": search_type, "address": address}
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
 
-        try:
-            response = self.http.post(
+        def _attempt_header_auth() -> requests.Response:
+            headers = self._build_auth_headers()
+            return self.http.post(
                 self.search_and_locate_url,
                 json=payload,
                 headers=headers,
                 timeout=self.timeout,
                 verify=False,
             )
-            if response.status_code != 200:
-                raise GovMapError(f"SearchAndLocate HTTP {response.status_code}")
-            return response.json()
-        except Exception as e:
-            logger.error(f"GovMap SearchAndLocate failed: {e}")
-            raise GovMapError(f"SearchAndLocate failed: {e}")
 
+        def _attempt_body_auth() -> requests.Response:
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Origin": "https://www.govmap.gov.il",
+                "Referer": "https://www.govmap.gov.il/",
+                "User-Agent": self.http.headers.get("User-Agent", "Mozilla/5.0"),
+            }
+            body = {**payload, "auth_data": {k: v for k, v in self.auth_data.items() if v}}
+            return self.http.post(
+                self.search_and_locate_url,
+                json=body,
+                headers=headers,
+                timeout=self.timeout,
+                verify=False,
+            )
+
+        def _parse_json(resp: requests.Response) -> Any:
+            try:
+                return resp.json()
+            except Exception:
+                snippet = (resp.text or "")[:300].replace("\n", " ")
+                raise GovMapError(f"SearchAndLocate returned non-JSON. Payload snippet: {snippet}")
+
+        def _is_auth_failure(response: requests.Response) -> bool:
+            return response.status_code in {401, 403}
+
+        # Try header-auth. If bootstrap needed, _build_auth_headers() will call _refresh_auth_token().
+        try:
+            resp = _attempt_header_auth()
+        except GovMapAuthError:
+            raise
+        except Exception as e:
+            raise GovMapError(f"SearchAndLocate failed (auth attempt): {e}")
+
+        if _is_auth_failure(resp):
+            try:
+                self._refresh_auth_token()
+            except GovMapAuthError:
+                raise
+            except Exception as e:
+                raise GovMapError(f"SearchAndLocate auth refresh failed: {e}")
+
+            resp = _attempt_header_auth()
+            if _is_auth_failure(resp):
+                raise GovMapAuthError("SearchAndLocate authentication rejected credentials (HTTP 401).")
+
+        if resp.status_code != 200:
+            raise GovMapError(f"SearchAndLocate HTTP {resp.status_code}")
+
+        data = _parse_json(resp)
+
+        # Handle tokenExpired in JSON payloads (rare when we got 200)
+        if isinstance(data, dict) and data.get("tokenExpired") is True:
+            self._refresh_auth_token()
+            resp = _attempt_header_auth()
+            if resp.status_code != 200:
+                resp = _attempt_body_auth()
+            if resp.status_code != 200:
+                raise GovMapError(f"SearchAndLocate after token refresh failed: HTTP {resp.status_code}")
+            data = _parse_json(resp)
+
+        return data
+    # ----------------------------- Auth helpers -----------------------------
+    def _build_auth_headers(self) -> Dict[str, str]:
+        """
+        Return sanitized auth headers for GovMap private controllers.
+
+        Behavior:
+        - If api_token+user_token exist, send them (plus domain/token if present).
+        - Else if session token exists, send token only.
+        - Else bootstrap by calling _refresh_auth_token() to mint a token, then send token.
+        """
+        clean = {k: v for k, v in self.auth_data.items() if v}
+
+        if clean.get("api_token") and clean.get("user_token"):
+            pass
+        elif clean.get("token"):
+            clean = {"token": clean["token"]}
+        else:
+            # Bootstrap token
+            try:
+                self._refresh_auth_token()
+            except GovMapAuthError:
+                raise
+            except Exception as e:
+                raise GovMapAuthError(f"GovMap auth bootstrap failed: {e}")
+            clean = {k: v for k, v in self.auth_data.items() if v}
+            if clean.get("api_token") and clean.get("user_token"):
+                pass
+            elif clean.get("token"):
+                clean = {"token": clean["token"]}
+            else:
+                raise GovMapAuthError("GovMap auth bootstrap failed: no token was obtained.")
+
+        return {
+            "auth_data": json.dumps(clean, ensure_ascii=False),
+            "Origin": "https://www.govmap.gov.il",
+            "Referer": "https://www.govmap.gov.il/",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": self.http.headers.get("User-Agent", "Mozilla/5.0"),
+        }
+
+    def _refresh_auth_token(self) -> None:
+        """
+        Refresh GovMap session token without env vars.
+
+        Steps:
+        1) Warm up cookies by GET https://www.govmap.gov.il/
+        2) POST to several Auth endpoints with header-auth (auth_data header)
+        3) Fallback: POST with body-auth
+        4) Fallback: GET (some legacy edges)
+        Tolerates non-JSON responses and logs a short snippet for debugging.
+        """
+        def _extract_token(obj: Any) -> Optional[str]:
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    if isinstance(k, str) and k.lower() == "token" and isinstance(v, str) and v.strip():
+                        return v.strip()
+                for v in obj.values():
+                    t = _extract_token(v)
+                    if t:
+                        return t
+            elif isinstance(obj, list):
+                for v in obj:
+                    t = _extract_token(v)
+                    if t:
+                        return t
+            return None
+
+        # 0) Warm up cookies (important for some edges)
+        try:
+            self.http.get(
+                "https://www.govmap.gov.il/",
+                headers={
+                    "User-Agent": self.http.headers.get("User-Agent", "Mozilla/5.0"),
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Referer": "https://www.govmap.gov.il/",
+                },
+                timeout=self.timeout,
+                verify=False,
+            )
+        except Exception as _:
+            # not fatal; continue
+            pass
+
+        # Ensure we always send a domain (anonymous bootstrap often requires domain)
+        domain = (self.auth_data.get("domain") or "www.govmap.gov.il").strip()
+        self.auth_data["domain"] = domain
+
+        url = "https://ags.govmap.gov.il/Api/Controllers/GovmapApi/Auth"
+
+        base_headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Origin": "https://www.govmap.gov.il",
+            "Referer": "https://www.govmap.gov.il/",
+            "User-Agent": self.http.headers.get("User-Agent", "Mozilla/5.0"),
+        }
+        clean = {k: v for k, v in self.auth_data.items() if v}
+        last_error = None
+
+        try:
+            headers1 = {**base_headers, "auth_data": json.dumps(clean or {"domain": domain}, ensure_ascii=False)}
+            r = self.http.post(url, json={}, headers=headers1, timeout=self.timeout, verify=False)
+            if r.status_code == 200:
+                try:
+                    data = r.json()
+                except Exception:
+                    data = None
+                if isinstance(data, (dict, list)):
+                    token = _extract_token(data)
+                    if token:
+                        self.auth_data["token"] = token
+                        # Persist any returned fields
+                        if isinstance(data, dict):
+                            for k in ("api_token", "user_token", "domain"):
+                                if data.get(k):
+                                    self.auth_data[k] = data[k]
+                        return
+                # Log short snippet for diagnostics
+                snippet = (r.text or "")[:300].replace("\n", " ")
+                logger.warning(f"GovMap auth (header) returned 200 but no token. Payload snippet: {snippet}")
+            elif r.status_code == 401:
+                last_error = GovMapAuthError("GovMap authentication rejected credentials (HTTP 401).")
+            else:
+                last_error = GovMapError(f"GovMap auth HTTP {r.status_code} at {url}")
+        except Exception as e:
+            last_error = e
+
+        if last_error:
+            if isinstance(last_error, GovMapAuthError):
+                raise last_error
+            raise GovMapError(f"GovMap auth did not return a session token. Last error: {last_error}")
+        raise GovMapAuthError("GovMap auth did not return a session token.")
+    # ----------------------------- Utils -----------------------------
     @staticmethod
     def extract_block_parcel(search_response: Dict[str, Any]) -> Optional[Tuple[int, int]]:
         """Extract block/parcel identifiers from a SearchAndLocate response."""
-
         data = search_response.get("data") if isinstance(search_response, dict) else None
         if not data:
             return None
@@ -353,12 +487,12 @@ class GovMapClient:
             return None
 
         try:
-            block = int(values[0])
-            parcel = int(values[1])
+            block = int(values[0]); parcel = int(values[1])
             return block, parcel
         except (TypeError, ValueError):
             logger.debug("Failed to parse block/parcel from SearchAndLocate values: %s", values)
             return None
+
 
 if __name__ == "__main__":
     api_client = GovMapClient()
@@ -366,7 +500,11 @@ if __name__ == "__main__":
     print(result)
     if result.get("results"):
         first = result["results"][0]
-        x,y = api_client.extract_coordinates_from_shapes(first)
-        print(f"Coordinates: {x}, {y}")
-        parcel = api_client.get_parcel_data(x, y)
-        print("Parcel data:", parcel)
+        coords = api_client.extract_coordinates_from_shapes(first)
+        if coords:
+            x, y = coords
+            print(f"Coordinates: {x}, {y}")
+            parcel = api_client.get_parcel_data(x, y)
+            print("Parcel data:", parcel)
+        else:
+            print("No coordinates found in autocomplete result.")

@@ -5,7 +5,15 @@ from unittest import mock
 
 import requests
 
-from govmap.api_client import GovMapClient, GovMapError, itm_to_wgs84, wgs84_to_itm
+import pytest
+
+from govmap.api_client import (
+    GovMapAuthError,
+    GovMapClient,
+    GovMapError,
+    itm_to_wgs84,
+    wgs84_to_itm,
+)
 
 
 def _make_response(status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None):
@@ -108,17 +116,64 @@ def test_client_headers():
 
 def test_search_and_locate_success():
     """Test the SearchAndLocate endpoint wrapper"""
-    client = GovMapClient()
+    client = GovMapClient(api_token="api", user_token="user", domain="domain", auth_token="session")
     payload = {"data": [{"Values": [123, 456]}]}
 
     def fake_post(url, json=None, headers=None, timeout=30, verify=False):
         assert client.search_and_locate_url in url
         assert json == {"type": 0, "address": "Example"}
+        assert headers.get("auth_data") is not None
         return _make_response(json_payload=payload)
 
     with mock.patch.object(client.http, "post", side_effect=fake_post):
         result = client.search_and_locate_address("Example")
         assert result == payload
+
+
+def test_search_and_locate_unauthorized():
+    """SearchAndLocate should raise a dedicated error when authentication fails."""
+
+    client = GovMapClient(api_token="api", user_token="user", domain="domain", auth_token="session")
+
+    responses = [
+        _make_response(status=401, text="Unauthorized"),
+        _make_response(status=401, text="Unauthorized"),
+    ]
+
+    with mock.patch.object(client, "_refresh_auth_token", autospec=True) as refresh_mock:
+        refresh_mock.side_effect = lambda *args, **kwargs: None
+        with mock.patch.object(client.http, "post", side_effect=responses):
+            with pytest.raises(GovMapAuthError):
+                client.search_and_locate_address("Example")
+        assert refresh_mock.called
+
+
+def test_search_and_locate_missing_tokens():
+    """Calling SearchAndLocate without credentials raises GovMapAuthError."""
+
+    client = GovMapClient(api_token="", user_token="")
+    with pytest.raises(GovMapAuthError):
+        client.search_and_locate_address("Example")
+
+
+def test_refresh_auth_token_updates_credentials():
+    """The auth refresh endpoint should update stored credentials."""
+
+    client = GovMapClient(api_token="api", user_token="user", domain="domain")
+    payload = {
+        "api_token": "api_new",
+        "user_token": "user_new",
+        "domain": "domain_new",
+        "token": "session_new",
+    }
+
+    with mock.patch.object(client.http, "post", return_value=_make_response(json_payload=payload)):
+        client._refresh_auth_token()
+
+    assert client.auth_data["api_token"] == "api_new"
+    assert client.auth_data["user_token"] == "user_new"
+    assert client.auth_data["domain"] == "domain_new"
+    assert client.auth_data["token"] == "session_new"
 
 
 def test_extract_block_parcel():

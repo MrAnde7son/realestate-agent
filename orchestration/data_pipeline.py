@@ -167,7 +167,12 @@ def _normalize_listings(listings: Iterable[Any]) -> List[Dict[str, Any]]:
         return normalized
 
     for listing in listings:
-        normalized.append(_listing_to_dict(listing))
+        if listing is None:
+            continue
+        try:
+            normalized.append(_listing_to_dict(listing))
+        except Exception as exc:  # pragma: no cover - extremely defensive
+            logger.debug("Skipping listing that cannot be normalized: %s", exc)
     return normalized
 
 
@@ -921,11 +926,15 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             _process_mavat_plans(asset, mavat_plans)
         
         # Update with Yad2 listings
-        if listings:
-            asset.meta['yad2_listings'] = listings
+        normalized_listings = [listing for listing in listings if isinstance(listing, dict)] if listings else []
+        if listings and not normalized_listings:
+            logger.debug("All listings dropped while normalizing Yad2 data for asset %s", asset_id)
 
-            prices = [listing.get('price') for listing in listings if listing.get('price')]
-            areas = [listing.get('area') for listing in listings if listing.get('area')]
+        if normalized_listings:
+            asset.meta['yad2_listings'] = normalized_listings
+
+            prices = [listing.get('price') for listing in normalized_listings if listing.get('price')]
+            areas = [listing.get('area') for listing in normalized_listings if listing.get('area')]
 
             market_data = asset.meta.setdefault('market_data', {})
 
@@ -967,14 +976,14 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             gov_data,
             plans,
             mavat_plans,
-            listings,
+            normalized_listings,
         )
 
         # Create Document and Plan records
         _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans)
 
         # Calculate market metrics
-        _calculate_market_metrics(asset, listings, gov_data)
+        _calculate_market_metrics(asset, normalized_listings, gov_data)
         
         logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
         
@@ -1398,9 +1407,11 @@ def _calculate_market_metrics(asset, listings, gov_data):
         market_metrics = {}
         
         # Calculate price metrics from Yad2 listings
-        if listings:
-            prices = [listing.get('price') for listing in listings if listing.get('price')]
-            areas = [listing.get('area') for listing in listings if listing.get('area')]
+        listing_dicts = [listing for listing in listings if isinstance(listing, dict)] if listings else []
+
+        if listing_dicts:
+            prices = [listing.get('price') for listing in listing_dicts if listing.get('price')]
+            areas = [listing.get('area') for listing in listing_dicts if listing.get('area')]
             
             if prices:
                 avg_price = sum(prices) / len(prices)
@@ -1439,12 +1450,12 @@ def _calculate_market_metrics(asset, listings, gov_data):
             market_metrics['rentEstimate'] = int(estimated_rent)
         
         # Calculate competition metrics
-        if listings:
+        if listing_dicts:
             # Competition within 1km (simplified - based on number of listings)
             competition_level = "נמוכה"
-            if len(listings) > 10:
+            if len(listing_dicts) > 10:
                 competition_level = "גבוהה"
-            elif len(listings) > 5:
+            elif len(listing_dicts) > 5:
                 competition_level = "בינונית"
             market_metrics['competition1km'] = competition_level
         
@@ -1468,9 +1479,9 @@ def _calculate_market_metrics(asset, listings, gov_data):
         market_metrics['riskFlags'] = risk_flags
         
         # Calculate DOM percentile (simplified)
-        if listings:
+        if listing_dicts:
             # Simulate DOM based on number of listings (more listings = higher DOM)
-            dom_percentile = min(90, len(listings) * 10)
+            dom_percentile = min(90, len(listing_dicts) * 10)
             market_metrics['domPercentile'] = dom_percentile
         
         # Store market metrics in asset meta

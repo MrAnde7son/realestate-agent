@@ -10,28 +10,22 @@ The real estate agent includes a comprehensive alert system that can send notifi
 - **Flexible criteria**: Users can set complex search criteria for alerts
 - **Multiple trigger types**: Price drops, new listings, market trends, etc.
 - **Immediate and digest modes**: Get alerts instantly or in daily summaries
-- **Fallback support**: Automatic fallback from SendGrid to SMTP
+- **Fallback support**: Sandbox mode and console fallback for development
 - **Error handling**: Graceful error handling with logging
 
 ## Configuration
 
 ### Environment Variables
 
-#### Email Configuration
+#### Email Configuration (Resend)
 
-**Primary (SendGrid - Recommended):**
 ```env
-SENDGRID_API_KEY=your_sendgrid_api_key
-EMAIL_FROM=alerts@yourcompany.com
-```
-
-**Fallback (SMTP):**
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-SMTP_FROM=your_email@gmail.com
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM="RealEstate Agent <no-reply@yourcompany.com>"
+RESEND_REPLY_TO=support@yourcompany.com
+RESEND_SANDBOX=true
+EMAIL_FALLBACK_TO_CONSOLE=true
+RESEND_WEBHOOK_SECRET=your_resend_webhook_secret
 ```
 
 #### WhatsApp Configuration
@@ -51,10 +45,12 @@ ALERT_DEFAULT_WHATSAPP_TO=+972501234567
 
 ### Service Setup
 
-#### SendGrid Setup
-1. Create a free account at [SendGrid](https://sendgrid.com)
-2. Generate an API key
-3. Set `SENDGRID_API_KEY` in your environment
+#### Resend Setup
+1. Create an account at [Resend](https://resend.com)
+2. Verify your sending domain and from address
+3. Generate an API key and set `RESEND_API_KEY`
+4. Configure the webhook endpoint to `https://your-domain/webhooks/resend`
+5. (Optional) Enable sandbox mode in development with `RESEND_SANDBOX=true`
 
 #### Twilio Setup (WhatsApp)
 1. Create a free account at [Twilio](https://twilio.com)
@@ -62,10 +58,9 @@ ALERT_DEFAULT_WHATSAPP_TO=+972501234567
 3. Set up WhatsApp sandbox or production number
 4. Set the environment variables
 
-#### Gmail SMTP (Alternative)
-1. Enable 2-factor authentication on your Gmail account
-2. Generate an app-specific password
-3. Set the SMTP environment variables
+SMTP configuration is no longer required. When `EMAIL_FALLBACK_TO_CONSOLE` is
+set to `true` and no API key is configured, outbound messages are printed to
+the console for safe local testing.
 
 ## Usage
 
@@ -198,9 +193,9 @@ GET /api/alerts/
    - Check logs for error messages
 
 2. **Email not working**
-   - Verify SendGrid API key or SMTP credentials
+   - Verify Resend API key and webhook secret
    - Check email address format
-   - Ensure sender email is verified (SendGrid)
+   - Ensure sender email is verified in Resend
 
 3. **WhatsApp not working**
    - Verify Twilio credentials

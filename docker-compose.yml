@@ -52,7 +52,12 @@ services:
       - FRONTEND_URL=http://localhost:3000
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM=${RESEND_FROM:-"RealEstate Agent <no-reply@nadlaner.com>"}
+      - RESEND_REPLY_TO=${RESEND_REPLY_TO:-support@nadlaner.com}
+      - RESEND_SANDBOX=${RESEND_SANDBOX:-false}
+      - EMAIL_FALLBACK_TO_CONSOLE=${EMAIL_FALLBACK_TO_CONSOLE:-false}
+      - RESEND_WEBHOOK_SECRET=${RESEND_WEBHOOK_SECRET:-}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
     ports:
@@ -90,7 +95,12 @@ services:
       - USE_CELERY=true
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM=${RESEND_FROM:-"RealEstate Agent <no-reply@nadlaner.com>"}
+      - RESEND_REPLY_TO=${RESEND_REPLY_TO:-support@nadlaner.com}
+      - RESEND_SANDBOX=${RESEND_SANDBOX:-false}
+      - EMAIL_FALLBACK_TO_CONSOLE=${EMAIL_FALLBACK_TO_CONSOLE:-false}
+      - RESEND_WEBHOOK_SECRET=${RESEND_WEBHOOK_SECRET:-}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
     depends_on:
@@ -122,7 +132,12 @@ services:
       - USE_CELERY=true
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM=${RESEND_FROM:-"RealEstate Agent <no-reply@nadlaner.com>"}
+      - RESEND_REPLY_TO=${RESEND_REPLY_TO:-support@nadlaner.com}
+      - RESEND_SANDBOX=${RESEND_SANDBOX:-false}
+      - EMAIL_FALLBACK_TO_CONSOLE=${EMAIL_FALLBACK_TO_CONSOLE:-false}
+      - RESEND_WEBHOOK_SECRET=${RESEND_WEBHOOK_SECRET:-}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
     depends_on:

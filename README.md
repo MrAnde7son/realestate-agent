@@ -194,10 +194,14 @@ CELERY_BROKER_URL=redis://localhost:6379/0 celery -A broker_backend beat -l info
 
 Add environment variables to `backend-django/.env`:
 ```env
-SENDGRID_API_KEY=your_sendgrid_key
-EMAIL_FROM=alerts@yourcompany.com
+RESEND_API_KEY=your_resend_key
+RESEND_FROM="RealEstate Agent <no-reply@yourcompany.com>"
+RESEND_REPLY_TO=support@yourcompany.com
+RESEND_SANDBOX=true
+EMAIL_FALLBACK_TO_CONSOLE=true
 TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
+RESEND_WEBHOOK_SECRET=your_resend_webhook_secret
 ```
 
 **Frontend Environment Variables:**

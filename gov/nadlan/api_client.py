@@ -9,12 +9,14 @@ for browser automation tools like Playwright or Selenium.
 import json
 import base64
 import gzip
+import uuid
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any, Union
 import requests
 
-from .models import Deal, NeighborhoodInfo
-from .exceptions import NadlanAPIError, NadlanConfigError, NadlanDecodeError
+from gov.nadlan.helpers import make_sk, sign_outer, unwrap_any
+from gov.nadlan.models import Deal, NeighborhoodInfo
+from gov.nadlan.exceptions import NadlanAPIError, NadlanConfigError, NadlanDecodeError
 
 
 @dataclass
@@ -280,13 +282,12 @@ class NadlanAPIClient:
                             return token_data['token']
                 except Exception as e:
                     print(f"Failed to get token from reCAPTCHA endpoint: {e}")
-            
             print("No fresh token found, using hardcoded token")
-            return "eyJhbGciOiJIUzI1NiJ9.eyJkb21haW4iOiJkZXYubmFkbGFuLmdvdi5pbCIsImV4cCI6MTcyOTQxOTY3NH0.nwjNBPOn2xKgtoREu2McVZjPRevomyAedyUrHav2wV4"
-            
         except Exception as e:
             print(f"Error getting fresh token: {e}")
-            return "eyJhbGciOiJIUzI1NiJ9.eyJkb21haW4iOiJkZXYubmFkbGFuLmdvdi5pbCIsImV4cCI6MTcyOTQxOTY3NH0.nwjNBPOn2xKgtoREu2McVZjPRevomyAedyUrHav2wV4"
+        
+        return "c6Hc3DbK-oQjY2bUua0B0brvxEEphNB1PVaBeNDqk1n.0nIslmL292Zu4WYsRWYu5yd3dnI6IibpFWbvRmIsMTN1YTO5gTN3EjOiAHelJCLiYGOkFTMmBzN5cjMx0CO2QWOtIzYzQTL5MWZ50SN4EWYyQWYiJiOi4WZr9GdiwiI4gFTUdzRUN1TqpmY3cVYYZENwoUeJlES1IzdRdDe5JXN2M2c3JULOh1Vk5CMz0UMVpmT1sGRPFzYU1kNJN0Y0YVbJNXSDJGc1kGZ2RWbMVnRHJ2aG1mY1N2MkNjSp9Ua0cVYoFjMitmS5VmL5oUaOFTS6VVSKl2TpN2RihmS5VmI6IyazJCLi42dvR2XlRXYExWYlRmI6IiclRmcv9VZwlHdiwSM6IiclJWb152XoNGdlZmIsICZJR2bvhmcvJGanlWZuJiOiUWbh52XlNXYiJCLiYzMwATMyUjNiojIkl2XlNXYiJye.9JiN1IzUIJiOicGbhJye"
+
 
     def load_config(self) -> Dict[str, Any]:
         """
@@ -367,97 +368,63 @@ class NadlanAPIClient:
                     f"Response is not valid JSON: {response.text[:200]}"
                 )
 
-    def get_deals_by_neighborhood_id(
-        self, neighborhood_id: str, limit: int = 20
-    ) -> Union[Dict[str, Any], List[Any]]:
+    def get_deals_by_neighborhood_id(self, base_id: str, limit: int = 20) -> Dict[str, Any]:
         """
-        Get real estate deals for a neighborhood using the correct API endpoint.
-
-        Based on the discovered working implementation, this method uses:
-        POST https://x4006fhmy5.execute-api.il-central-1.amazonaws.com/api/deal
-
-        Args:
-            neighborhood_id: The neighborhood ID
-            limit: Maximum number of deals to return
-
-        Returns:
-            Raw deals data from API
-
-        Raises:
-            NadlanAPIError: If request fails
+        Posts a reversed HS256-signed JWT envelope as text/plain, exactly like the site.
         """
-        # Use the correct API endpoint and payload structure
+        # 1) Resolve base_name by ID shape
+        base_name = "settlmentID" if (base_id.isdigit() and len(base_id) == 4) else "neighborhoodId"
+
+        # 2) Build the *clear* payload (what their _buildRequestData produces)
+        clear = {
+            "base_id": base_id,
+            "base_name": base_name,
+            "fetch_number": 1,
+            "type_order": "dealDate_down",
+            "type_order": "dealDate_down",
+            "sk": make_sk(),
+            "token": str(uuid.uuid4()),        }
+
+        # 3) API base from config.json, and derive domain like the browser does
+        cfg = self.load_config()
+        api_base = cfg.get("api_base", "https://x4006fhmy5.execute-api.il-central-1.amazonaws.com")
+        if api_base.endswith("/api"):
+            api_base = api_base[:-4]
+        url = f"{api_base}/api/deal"
+
+        # Domain is window.location.hostname; use the real page host
+        domain = "www.nadlan.gov.il"
+
+        env = sign_outer(clear)
+
+        # 5) POST exactly like the site: content-type text/plain, body is JSON string
+        resp = self.session.post(
+            url,
+            headers={
+                "accept": "*/*",
+                "content-type": "text/plain",
+                "origin": "https://www.nadlan.gov.il",
+                "referer": "https://www.nadlan.gov.il/",
+                **self._get_headers(),
+            },
+            data=json.dumps(env),
+            timeout=30,
+        )
+        resp.raise_for_status()
+
+        # 6) The response is usually a JSON with "__" which is the same reversed-JWS pattern
         try:
-            # First establish a session to get proper authentication
-            self.establish_session()
-
-            # Get configuration to use proper URLs
-            config_data = self.load_config()
-
-            # Use the correct API endpoint from config
-            api_base = config_data.get(
-                "api_base", "https://x4006fhmy5.execute-api.il-central-1.amazonaws.com"
-            )
-            # Remove trailing /api if present to avoid double /api/api/
-            if api_base.endswith("/api"):
-                api_base = api_base[:-4]
-            api_url = f"{api_base}/api/deal"
-
-            # strongly recommended: acquire a real short-lived sk value
-            auth_token = self.get_fresh_token() or ""
-
-            # Determine the appropriate base_name based on the ID type
-            # Settlement IDs are typically 4 digits (1000-9999)
-            # Neighborhood IDs are typically 8 digits (65210036, etc.)
-            if len(neighborhood_id) == 4 and neighborhood_id.isdigit():
-                base_name = "settlmentID"
-                id_type = "settlement"
-            else:
-                base_name = "neigh_id"
-                id_type = "neighborhood"
-            
-            print(f"Using {id_type} ID {neighborhood_id} with base_name '{base_name}'")
-            
-            # Prepare the payload based on the working implementation
-            payload = {
-                "base_id": neighborhood_id,
-                "base_name": base_name,
-                "fetch_number": "1",
-                "type_order": "dealDate_down",
-                "sk": auth_token
-            }
-
-            # Make the POST request with the correct format
-            response = self.session.post(
-                api_url,
-                json=payload,
-                headers={
-                    **self._get_headers(),
-                    "origin": "https://www.nadlan.gov.il",
-                    "referer": "https://www.nadlan.gov.il/",
-                },
-                timeout=30,
-            )
-            response.raise_for_status()
-
-            # Try to parse the response
-            try:
-                return response.json()
-            except ValueError:
-                pass
-
-            # If not JSON, attempt manual decryption using the raw body
-            blob = response.content.decode("utf-8", errors="replace")
-            data = self._decrypt_response(blob)
-
-            if isinstance(data, dict) and isinstance(data.get("body"), str):
-                inner = self._decrypt_response(data["body"])
-                if isinstance(inner, (dict, list)):
-                    return inner
-
-            return data
-
+            j = resp.json()
         except Exception as e:
-            raise NadlanAPIError(
-                f"Could not fetch deals for neighborhood {neighborhood_id}: {e}"
-            )
+            raise NadlanAPIError(f"Non-JSON response from deal API: {e}; body prefix: {resp.text[:200]}")
+
+        parsed = unwrap_any(j)
+        if parsed is not None:
+            return parsed
+        return j
+
+
+if __name__ == "__main__":
+    client = NadlanAPIClient()
+    deals = client.get_deals_by_neighborhood_id("65210036")
+    print(deals)

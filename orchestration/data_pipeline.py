@@ -20,6 +20,7 @@ from orchestration.collectors.gov_collector import GovCollector
 from orchestration.collectors.govmap_collector import GovMapCollector
 from orchestration.collectors.rami_collector import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
+from orchestration.location import LocationQuery
 from govmap.api_client import itm_to_wgs84
 from orchestration.observability import (
     COLLECTOR_FAILURE,
@@ -404,28 +405,56 @@ class DataPipeline:
 
     # ------------------------------------------------------------------
     def run(
-        self, address: str, house_number: int, max_pages: int = 1, asset_id: Optional[int] = None
+        self,
+        city: str,
+        street: str,
+        house_number: int,
+        max_pages: int = 1,
+        asset_id: Optional[int] = None,
     ) -> List[Any]:
-        """Run the pipeline for a given address.
+        """Run the pipeline for a given location.
+
+        Parameters
+        ----------
+        city: str
+            City name associated with the asset.
+        street: str
+            Street name associated with the asset.
+        house_number: int
+            Street number for the asset. ``0`` or ``None`` is treated as missing.
 
         The function still persists results to the database but also returns a
         list of raw objects/dictionaries representing the collected data.  This
         makes the pipeline easier to test in isolation.
         """
-        
-        logger.info(f"🚀 Starting data pipeline for {address} {house_number} (max_pages={max_pages})")
+
+        location = LocationQuery(city=city, street=street, house_number=house_number)
+        street_with_number = location.street_with_number
+        full_address = location.formatted
+
+        logger.info(
+            "🚀 Starting data pipeline for %s (max_pages=%s)",
+            full_address or street_with_number or location.city,
+            max_pages,
+        )
         start_time = time.perf_counter()
 
         with tracer.start_as_current_span(
             "data_pipeline.run",
-            attributes={"address": address, "house_number": house_number, "max_pages": max_pages},
+            attributes={
+                "city": location.city,
+                "street": location.street,
+                "house_number": location.house_number,
+                "full_address": full_address,
+                "max_pages": max_pages,
+            },
         ):
             # Search Yad2 for listings
             try:
                 listings = self._collect_with_observability(
                     "yad2",
                     self.yad2.collect,
-                    address=address,
+                    location,
                     max_pages=max_pages,
                     timeout=self.TIMEOUTS.get("yad2"),
                     retries=self.RETRIES.get("yad2", 0),
@@ -461,11 +490,10 @@ class DataPipeline:
             # Use GovMap collector to get coordinates and parcel data
             try:
                 logger.info("🗺️ Getting address coordinates and parcel data from GovMap...")
-                full_address = f"{address} {house_number}" if house_number else address
                 govmap_data = self._collect_with_observability(
                     "govmap",
                     self.govmap.collect,
-                    address=full_address,
+                    location,
                     timeout=self.TIMEOUTS.get("govmap"),
                     retries=self.RETRIES.get("govmap", 0),
                     asset_id=asset_id,
@@ -506,8 +534,7 @@ class DataPipeline:
                 gis_data = self._collect_with_observability(
                     "gis",
                     self.gis.collect,
-                    address=address,
-                    house_number=house_number,
+                    location,
                     timeout=self.TIMEOUTS.get("gis"),
                     retries=self.RETRIES.get("gis", 0),
                     asset_id=asset_id,
@@ -529,14 +556,12 @@ class DataPipeline:
             if block and parcel:
                 try:
                     logger.info("🏛️ Collecting government data...")
-                    # Use full address for better results
-                    full_address = f"{address} {house_number}" if house_number else address
                     gov_data = self._collect_with_observability(
                         "gov",
                         self.gov.collect,
-                        block=block,
-                        parcel=parcel,
-                        address=full_address,
+                        block,
+                        parcel,
+                        location,
                         timeout=self.TIMEOUTS.get("gov"),
                         retries=self.RETRIES.get("gov", 0),
                         asset_id=asset_id,
@@ -579,6 +604,7 @@ class DataPipeline:
                         self.mavat.collect,
                         block=block,
                         parcel=parcel,
+                        city=location.city,
                         timeout=self.TIMEOUTS.get("mavat"),
                         retries=self.RETRIES.get("mavat", 0),
                         asset_id=asset_id,

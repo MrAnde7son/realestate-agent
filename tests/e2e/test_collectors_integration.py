@@ -32,12 +32,14 @@ from gov.rami.rami_client import RamiClient
 from yad2.scrapers.yad2_scraper import Yad2Scraper
 from yad2.search_helper import Yad2SearchHelper
 from orchestration.collectors.govmap_collector import GovMapCollector
+from orchestration.location import LocationQuery
 
 # Test address
 TEST_ADDRESS = "רוזוב 14 תל אביב"
 TEST_STREET = "רוזוב"
 TEST_HOUSE_NUMBER = 14
 TEST_CITY = "תל אביב"
+TEST_LOCATION = LocationQuery(street=TEST_STREET, house_number=TEST_HOUSE_NUMBER, city=TEST_CITY)
 
 # Configure logging
 logging.basicConfig(
@@ -478,8 +480,8 @@ class TestCollectorsIntegration:
 
         # Test 2: Test parameter validation
         logger.info("Testing parameter validation...")
-        assert collector.validate_parameters(address="Test Address") is True
-        assert collector.validate_parameters(address="") is False
+        assert collector.validate_parameters(location=LocationQuery(street="Test Address")) is True
+        assert collector.validate_parameters(location=LocationQuery()) is False
         logger.info("✓ Parameter validation working correctly")
 
         # Test 3: Test autocomplete functionality
@@ -495,7 +497,7 @@ class TestCollectorsIntegration:
         # Test 4: Test data collection with address
         logger.info("Testing data collection with address...")
         try:
-            data = collector.collect(address=TEST_ADDRESS)
+            data = collector.collect(TEST_LOCATION)
             
             assert isinstance(data, dict)
             assert "address" in data

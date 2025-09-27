@@ -31,6 +31,7 @@ def test_pipeline_e2e_optimized():
         logger.info("✅ Pipeline created successfully")
         
         # Test with a well-known Tel Aviv address
+        city = "תל אביב"
         address = "רוטשילד"
         house_number = 1
         
@@ -38,7 +39,7 @@ def test_pipeline_e2e_optimized():
         
         # Run the pipeline with max_pages=1 to limit data
         start_time = time.time()
-        results = pipeline.run(address, house_number, max_pages=1)
+        results = pipeline.run(city, address, house_number, max_pages=1)
         execution_time = time.time() - start_time
         
         # Basic assertions with more reasonable timeout
@@ -104,6 +105,7 @@ def test_pipeline_error_handling():
         pipeline = DataPipeline()
         
         # Test with an address that should fail gracefully
+        city = ""
         address = "nonexistent_street_12345"
         house_number = 999
         
@@ -111,7 +113,7 @@ def test_pipeline_error_handling():
         
         # Run the pipeline - should not crash
         start_time = time.time()
-        results = pipeline.run(address, house_number, max_pages=1)
+        results = pipeline.run(city, address, house_number, max_pages=1)
         execution_time = time.time() - start_time
         
         # Should still return results (even if empty)
@@ -143,18 +145,18 @@ def test_pipeline_performance_benchmark():
         
         # Test addresses with different complexity
         test_cases = [
-            ("רוטשילד", 1, "Well-known Tel Aviv street"),
-            ("דיזנגוף", 50, "Another major Tel Aviv street"),
+            ("תל אביב", "רוטשילד", 1, "Well-known Tel Aviv street"),
+            ("תל אביב", "דיזנגוף", 50, "Another major Tel Aviv street"),
         ]
         
         results = {}
         
-        for address, house_number, description in test_cases:
+        for city, address, house_number, description in test_cases:
             logger.info(f"🚀 Testing: {address} {house_number} ({description})")
             
             start_time = time.time()
             try:
-                pipeline_results = pipeline.run(address, house_number, max_pages=1)
+                pipeline_results = pipeline.run(city, address, house_number, max_pages=1)
                 execution_time = time.time() - start_time
                 
                 sources = analyze_results_by_source(pipeline_results)
@@ -205,22 +207,23 @@ def test_individual_collectors_e2e():
         
         # Test Yad2 collector
         from orchestration.collectors.yad2_collector import Yad2Collector
+        from orchestration.location import LocationQuery
         yad2 = Yad2Collector()
-        yad2_results = yad2.collect(address="רוטשילד", max_pages=1)
+        yad2_results = yad2.collect(LocationQuery(street="רוטשילד"), max_pages=1)
         assert len(yad2_results) > 0, "Yad2 should return listings"
         logger.info(f"✅ Yad2: {len(yad2_results)} listings")
         
         # Test GIS collector
         from orchestration.collectors.gis_collector import GISCollector
         gis = GISCollector()
-        gis_results = gis.collect(address="רוטשילד", house_number=1)
+        gis_results = gis.collect(LocationQuery(street="רוטשילד", house_number=1))
         assert isinstance(gis_results, dict), "GIS should return dictionary"
         logger.info(f"✅ GIS: {len(gis_results)} data items")
         
         # Test Gov collector with Nadlan integration
         from orchestration.collectors.gov_collector import GovCollector
         gov = GovCollector()
-        gov_results = gov.collect(address="רוטשילד", block="", parcel="")
+        gov_results = gov.collect(block="", parcel="", location=LocationQuery(street="רוטשילד"))
         assert isinstance(gov_results, dict), "Gov should return dictionary"
         assert "transactions" in gov_results, "Should have transactions from Nadlan"
         assert "decisive" in gov_results, "Should have decisive appraisals"
@@ -261,7 +264,7 @@ def test_pipeline_data_quality():
         
         logger.info("🔍 Testing pipeline data quality")
         
-        results = pipeline.run(address, house_number, max_pages=1)
+        results = pipeline.run(city, address, house_number, max_pages=1)
         sources = analyze_results_by_source(results)
         
         # Validate Yad2 data quality
@@ -359,7 +362,7 @@ def test_nadlan_transaction_comparison():
         # Test 4: Test with pipeline integration
         logger.info("Testing pipeline integration...")
         pipeline = DataPipeline()
-        results = pipeline.run("רוטשילד", 1, max_pages=1)
+        results = pipeline.run("תל אביב", "רוטשילד", 1, max_pages=1)
         
         # Check if pipeline includes transaction data
         sources = analyze_results_by_source(results)

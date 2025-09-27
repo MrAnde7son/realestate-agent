@@ -263,11 +263,12 @@ class TestTransactionComparison:
             parts = address.split()
             street = parts[0]
             house_number = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+            city = " ".join(parts[2:]) if len(parts) > 2 else ""
             
             results = []
             for attempt in range(3):
                 try:
-                    results = pipeline.run(street, house_number, max_pages=1)
+                    results = pipeline.run(city, street, house_number, max_pages=1)
                     if results:
                         break
                     logger.warning(f"Attempt {attempt + 1}: No results from pipeline for {address}")

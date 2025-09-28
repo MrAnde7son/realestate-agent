@@ -149,7 +149,7 @@ class Yad2Collector(BaseCollector):
         """
 
         query = ensure_location_query(location)
-        address = query.formatted or query.street or query.city
+        address = f"{query.street} {query.city.replace('-', ' ')}"
         if not address:
             return []
 

@@ -16,9 +16,9 @@ class Deal:
     year_built: Optional[str] = None
     area: Optional[float] = None
     # Parcel information
-    parcel_block: Optional[str] = None      # גוש
-    parcel_parcel: Optional[str] = None     # חלקה
-    parcel_sub_parcel: Optional[str] = None # תת-חלקה
+    parcel_block: Optional[str] = None  # גוש
+    parcel_parcel: Optional[str] = None  # חלקה
+    parcel_sub_parcel: Optional[str] = None  # תת-חלקה
     raw: Optional[Dict[str, Any]] = None
 
     @staticmethod
@@ -51,7 +51,7 @@ class Deal:
             s = s.replace("₪", "")
             # Handle Hebrew square meter symbol
             s = s.replace("מ²", "").replace("מ'", "")
-            
+
             # Handle European decimal notation (comma as decimal separator)
             if "," in s and "." in s:
                 # If both comma and dot exist, comma is likely thousands separator
@@ -59,10 +59,10 @@ class Deal:
             elif "," in s and s.count(",") == 1:
                 # Single comma, likely decimal separator
                 s = s.replace(",", ".")
-            
+
             # Remove spaces
             s = s.replace(" ", "")
-            
+
             # Try to convert to float
             if s:
                 return float(s)
@@ -73,16 +73,16 @@ class Deal:
     @staticmethod
     def _parse_parcel_num(parcel_num: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
         """Parse parcel number into block, parcel, and sub-parcel.
-        
+
         Args:
             parcel_num: Parcel number in format "block-parcel-sub_parcel" (e.g., "6638-68-5")
-            
+
         Returns:
             Tuple of (block, parcel, sub_parcel)
         """
         if not parcel_num:
             return None, None, None
-        
+
         try:
             parts = str(parcel_num).split('-')
             if len(parts) >= 3:
@@ -101,7 +101,7 @@ class Deal:
         # Parse parcel number
         parcel_num = d.get("parcelNum") or d.get("ParcelNum")
         block, parcel, sub_parcel = cls._parse_parcel_num(parcel_num)
-        
+
         return cls(
             address=d.get("address") or d.get("AssetAddress"),
             deal_date=d.get("deal_date") or d.get("dealDate") or d.get("DealDate"),
@@ -121,12 +121,13 @@ class Deal:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
+
 @dataclass
 class NeighborhoodInfo:
     neigh_id: str
     neigh_name: str
     setl_id: str
     setl_name: str
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

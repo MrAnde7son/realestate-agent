@@ -8,8 +8,6 @@ from django.contrib.auth import get_user_model
 from orchestration.alerts import EmailAlert, WhatsAppAlert, create_notifier_for_user
 import os
 
-User = get_user_model()
-
 
 class Command(BaseCommand):
     help = 'Test alert system functionality'
@@ -137,7 +135,7 @@ class Command(BaseCommand):
     def test_user_notifier(self, user_id=None):
         """Test creating a notifier for a user."""
         self.stdout.write('👤 Testing User Notifier...')
-        
+        User = get_user_model()
         try:
             if user_id:
                 user = User.objects.get(id=user_id)

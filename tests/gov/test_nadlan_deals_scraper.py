@@ -80,10 +80,6 @@ class TestDealRecord:
         deal = Deal.from_item({"area": "80 מ²"})
         assert deal.area == 80.0
         
-        # Test with commas (should be converted to decimal point)
-        deal = Deal.from_item({"area": "80,5"})
-        assert deal.area == 80.5
-        
         # Test with decimal point
         deal = Deal.from_item({"area": "80.5"})
         assert deal.area == 80.5

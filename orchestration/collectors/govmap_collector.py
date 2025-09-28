@@ -77,9 +77,10 @@ class GovMapCollector(BaseCollector):
                     logger.warning("Could not extract coordinates from autocomplete result")
             else:
                 logger.warning("Autocomplete response did not contain results")
-
         except Exception as e:
             logger.error(f"Failed to process address '{address}': {e}")
+
+        return out
 
 
     def validate_parameters(self, **kwargs) -> bool:

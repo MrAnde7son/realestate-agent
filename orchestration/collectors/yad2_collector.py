@@ -4,6 +4,8 @@ from typing import Dict, List, Optional
 
 from yad2.scrapers.yad2_scraper import RealEstateListing, Yad2Scraper
 
+from orchestration.location import LocationQuery, ensure_location_query
+
 from .base_collector import BaseCollector
 
 
@@ -130,13 +132,27 @@ class Yad2Collector(BaseCollector):
 
         return params
 
-    def collect(self, address: str, max_pages: int = 1) -> List[RealEstateListing]:
-        """Collect Yad2 listings for a given address.
+    def collect(
+        self,
+        location: Optional[LocationQuery] = None,
+        max_pages: int = 1,
+    ) -> List[RealEstateListing]:
+        """Collect Yad2 listings for a given location.
 
-        This method implements the base collect interface and provides
-        backward compatibility with the existing ``fetch_listings`` helper
-        which is now considered internal.
+        Parameters
+        ----------
+        location: Optional[LocationQuery]
+            Structured location information. When ``None`` an empty query is
+            assumed.
+        max_pages: int
+            Number of result pages to scrape from Yad2.
         """
+
+        query = ensure_location_query(location)
+        address = f"{query.street} {query.city.replace('-', ' ')}"
+        if not address:
+            return []
+
         return self._fetch_listings(address, max_pages)
 
     def _fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
@@ -156,5 +172,5 @@ class Yad2Collector(BaseCollector):
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for Yad2 collection."""
-        required_params = ['address']
-        return all(param in kwargs for param in required_params)
+        location = kwargs.get("location")
+        return isinstance(location, LocationQuery) and not location.is_empty()

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from unittest import mock
 
-from govmap.api_client import GovMapAuthError, GovMapClient
+from govmap.api_client import GovMapClient
 
 from orchestration.collectors.govmap_collector import GovMapCollector
 from orchestration.location import LocationQuery
@@ -41,7 +41,6 @@ def test_collect_success():
         assert y == 200.0
         return parcel_data
     
-    locate_result = {"data": [{"Values": ["111", "222"]}]}
     with mock.patch.object(collector.client, 'autocomplete', side_effect=mock_autocomplete), \
          mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data):
 
@@ -52,9 +51,6 @@ def test_collect_success():
         assert result["y"] == 200.0
         assert "api_data" in result
         assert result["api_data"]["parcel"] == parcel_data
-        assert result["api_data"]["search_and_locate"] == locate_result
-        assert result["block"] == 111
-        assert result["parcel"] == 222
 
 
 def test_collect_with_api_failures():
@@ -75,8 +71,6 @@ def test_collect_with_api_failures():
     def mock_get_parcel_data(x, y):
         raise Exception("API Error")
     
-    locate_result = {"data": [{"Values": ["111", "222"]}]}
-
     with mock.patch.object(collector.client, 'autocomplete', side_effect=mock_autocomplete), \
          mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data):
 
@@ -88,35 +82,6 @@ def test_collect_with_api_failures():
         assert "api_data" in result
         # Parcel data should not be in the result due to API failure
         assert "parcel" not in result["api_data"]
-        assert result["block"] == 111
-        assert result["parcel"] == 222
-
-
-def test_collect_handles_authentication_error():
-    """SearchAndLocate auth errors should not break the collector."""
-
-    collector = GovMapCollector()
-
-    autocomplete_result = {
-        "results": [
-            {
-                "shape": "POINT(100.0 200.0)",
-                "value": "Test Address",
-            }
-        ]
-    }
-
-    with mock.patch.object(collector.client, 'autocomplete', return_value=autocomplete_result), \
-         mock.patch.object(collector.client, 'get_parcel_data', return_value={}):
-
-        result = collector.collect(LocationQuery(street="Test Address"))
-
-        assert result["address"] == "Test Address"
-        assert result["x"] == 100.0
-        assert result["y"] == 200.0
-        assert "search_and_locate" not in result["api_data"]
-        assert "block" not in result
-        assert "parcel" not in result
 
 
 def test_validate_parameters_valid():

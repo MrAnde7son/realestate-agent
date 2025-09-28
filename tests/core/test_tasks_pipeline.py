@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Optional
 from unittest.mock import patch
 
 from core import tasks
@@ -10,20 +11,38 @@ class DummyPipeline:
     def __init__(self):
         self.calls = []
 
-    def run(self, address, number, max_pages=1, asset_id=None):
-        self.calls.append((address, number, max_pages, asset_id))
+    def run(
+        self,
+        city: str,
+        street: str,
+        house_number: int,
+        max_pages: int = 1,
+        asset_id: Optional[int] = None,
+    ):
+        # Record a single tuple of the call arguments
+        self.calls.append((city, street, house_number, max_pages, asset_id))
         return [42]
 
 
 def test_run_data_pipeline_task(monkeypatch):
-    asset = Asset(id=1, scope_type='address', city='City', street='Main', number=5)
-    monkeypatch.setattr(Asset.objects, 'get', lambda id: asset)
-    monkeypatch.setattr(asset, 'save', lambda *args, **kwargs: None)
+    asset = Asset(
+        id=1,
+        scope_type="address",
+        city="City",
+        street="Main",
+        number=5,
+    )
+    # Mock ORM get & save so we don't hit DB
+    monkeypatch.setattr(Asset.objects, "get", lambda id: asset)
+    monkeypatch.setattr(asset, "save", lambda *args, **kwargs: None)
+
     dummy = DummyPipeline()
-    
-    # Mock the orchestration import at the module level where it's imported from
-    with patch('orchestration.data_pipeline.DataPipeline', return_value=dummy):
-        result = tasks.run_data_pipeline.run(1)
+
+    # Patch the DataPipeline class used inside the task implementation
+    with patch("orchestration.data_pipeline.DataPipeline", return_value=dummy):
+        # Call the underlying function via .run (Celery Task wraps it)
+        result = tasks.run_data_pipeline.run(1, max_pages=1)
 
     assert result == [42]
-    assert dummy.calls == [('Main', 5, 1, 1)]
+    # Expect the pipeline to be invoked with asset's address fields
+    assert dummy.calls == [("City", "Main", 5, 1, 1)]

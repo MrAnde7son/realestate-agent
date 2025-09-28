@@ -1113,11 +1113,6 @@ def _process_gis_data(asset, gis_data):
                 except Exception as e:
                     logger.warning(f"Failed to calculate rights from privilege page: {e}")
             
-            # Fallback to estimated calculation if no real data
-            if remaining_rights_sqm is None:
-                remaining_rights_sqm = int(area_for_calculation * 0.2)  # 20% additional rights
-                source = 'GIS (estimated)'
-            
             asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
             asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
             asset.set_property('serviceRightsSqm', int(remaining_rights_sqm * 0.1), source='GIS (calculated)', url='https://www.govmap.gov.il/')

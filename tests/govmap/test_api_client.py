@@ -8,7 +8,6 @@ import requests
 import pytest
 
 from govmap.api_client import (
-    GovMapAuthError,
     GovMapClient,
     GovMapError,
     itm_to_wgs84,

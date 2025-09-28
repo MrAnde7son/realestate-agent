@@ -18,7 +18,7 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 
 from orchestration.collectors.base_collector import BaseCollector
-from govmap.api_client import GovMapClient, GovMapAuthError
+from govmap.api_client import GovMapClient
 from orchestration.location import LocationQuery, ensure_location_query
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,7 @@ class GovMapCollector(BaseCollector):
                         out["api_data"]["parcel"] = parcel_data
                     except Exception as e:
                         logger.warning(f"Failed to get parcel data: {e}")
+
                 else:
                     logger.warning("Could not extract coordinates from autocomplete result")
             else:

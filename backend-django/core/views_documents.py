@@ -1,19 +1,14 @@
-import os
 import logging
-from django.http import HttpResponse, Http404, JsonResponse
+from django.http import HttpResponse, Http404
 from django.shortcuts import get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.views import View
 from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
-from django.conf import settings
 
 from .models import Asset, Document
 from .serializers import DocumentSerializer, DocumentUploadSerializer, DocumentListSerializer
@@ -160,17 +155,12 @@ class DocumentListView(APIView):
 class AssetRightsView(APIView):
     """Return comprehensive rights data for an asset including Tabu and GIS data."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]  # Changed from [IsAuthenticated] to allow public access
 
     def get(self, request, asset_id):
         try:
             asset = get_object_or_404(Asset, id=asset_id)
 
-            if not (asset.created_by == request.user or request.user.is_staff):
-                return Response(
-                    {'error': 'Permission denied'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
 
             query = (request.query_params.get('q') or '').strip().lower()
             

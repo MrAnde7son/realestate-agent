@@ -30,6 +30,9 @@ from orchestration.observability import (
     tracer,
 )
 
+from django.contrib.auth import get_user_model
+from datetime import datetime
+
 try:  # pragma: no cover - best effort import
     from core.analytics import track  # type: ignore
 except Exception:  # pragma: no cover - fallback when Django not configured
@@ -64,7 +67,7 @@ try:  # pragma: no cover - best effort import
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
         django.setup()
 
-    from core.models import AlertRule  # type: ignore
+    from core.models import AlertRule, Document, Plan  # type: ignore
 except ImportError as e:  # pragma: no cover - best effort
     print(f"Failed to import Django models: {e}")
 
@@ -521,7 +524,7 @@ class DataPipeline:
                 parcel_info = govmap_data.get("api_data", {}).get("parcel", {})
                 block = parcel_info.get("gush", "")
                 parcel = parcel_info.get("helka", "")
-            
+
             logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
 
                 # Note: Additional GovMap data (parcel API, layers catalog, search types) 
@@ -682,7 +685,7 @@ class DataPipeline:
                     if govmap_data.get("api_data", {}).get("autocomplete"):
                         autocomplete_data = govmap_data["api_data"]["autocomplete"]
                         results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
-                    
+
                     # Add GovMap parcel data to results
                     if govmap_data:
                         results.append({"source": "govmap", "data": govmap_data})
@@ -856,15 +859,17 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                     logger.info(f"Attempting to download building privilege page for coordinates ({x}, {y})")
                     privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
                     
-                    if privilege_data and privilege_data.get('content_type') == 'pdf':
+                    if privilege_data and isinstance(privilege_data, dict) and privilege_data.get('content_type') == 'pdf':
                         # Parse the privilege page
                         from gis.parse_zchuyot import parse_zchuyot
-                        pdf_path = privilege_data['file_path']
-                        parsed_privilege_data = parse_zchuyot(pdf_path)
-                        asset.meta['privilege_page_data'] = parsed_privilege_data
-                        logger.info(f"Successfully parsed privilege page: {pdf_path}")
-                    elif privilege_data:
-                        logger.info(f"Downloaded privilege page but content type is {privilege_data.get('content_type')}, not PDF")
+                        pdf_path = privilege_data.get('file_path')
+                        if pdf_path:
+                            parsed_privilege_data = parse_zchuyot(pdf_path)
+                            asset.meta['privilege_page_data'] = parsed_privilege_data
+                            logger.info(f"Successfully parsed privilege page: {pdf_path}")
+                    elif privilege_data and isinstance(privilege_data, dict):
+                        content_type = privilege_data.get('content_type', 'unknown')
+                        logger.info(f"Downloaded privilege page but content type is {content_type}, not PDF")
                     else:
                         logger.info("No privilege page data available")
                         
@@ -1115,8 +1120,10 @@ def _process_gis_data(asset, gis_data):
             
             asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
             asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
-            asset.set_property('serviceRightsSqm', int(remaining_rights_sqm * 0.1), source='GIS (calculated)', url='https://www.govmap.gov.il/')
-    
+            # Only calculate service rights if remaining_rights_sqm is not None
+            service_rights_sqm = int(remaining_rights_sqm * 0.1) if remaining_rights_sqm is not None else None
+            asset.set_property('serviceRightsSqm', service_rights_sqm, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+
     # Building permits
     if gis_data.get('permits'):
         permits = gis_data.get('permits', [])
@@ -1499,9 +1506,6 @@ def _calculate_market_metrics(asset, listings, gov_data):
 def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
     """Create Document and Plan records from collected data."""
     try:
-        from core.models import Document, Plan
-        from django.contrib.auth import get_user_model
-        
         User = get_user_model()
         
         # Get or create a system user for automated documents
@@ -1596,12 +1600,19 @@ def _create_documents_from_permits(asset, permits):
     """Create documents from GIS permits data."""
     if not permits:
         return
-    
-    # Initialize documents array if it doesn't exist
-    if 'documents' not in asset.meta:
-        asset.meta['documents'] = []
-    
+    # Get a system user or create one for automated processes
+    User = get_user_model()
+    system_user, _ = User.objects.get_or_create(
+        username='system',
+        defaults={
+            'email': 'system@realestate.com',
+            'first_name': 'System',
+            'last_name': 'Pipeline'
+        }
+    )
+
     # Create documents for each permit
+    created_count = 0
     for permit in permits:
         if not permit:
             continue
@@ -1619,33 +1630,70 @@ def _create_documents_from_permits(asset, permits):
         permit_date = None
         if permit.get('permission_date'):
             try:
-                from datetime import datetime
-                permit_date = datetime.fromtimestamp(permit['permission_date'] / 1000).strftime('%Y-%m-%d')
+                permit_date = datetime.fromtimestamp(permit['permission_date'] / 1000).date()
             except Exception as e:
                 logger.debug(f"Failed to parse permit date: {e}")
                 pass
         
-        # Create document entry
-        document = {
-            'id': f"permit_{permit_id}" if permit_id else f"permit_{len(asset.meta['documents']) + 1}",
-            'type': 'permit',
-            'title': f"היתר בניה - {description}" if description else "היתר בניה",
-            'description': description,
-            'status': status,
-            'date': permit_date,
-            'url': url,
-            'source': 'GIS',
-            'permit_number': permit_number,
-            'request_number': request_number,
-            'address': address,
-            'downloadable': bool(url),
-            'external_url': url, 
-            'name': description
-        }
-        
-        asset.meta['documents'].append(document)
-    
-    logger.info(f"Created {len(permits)} permit documents for asset {asset.id}")
+        # Check if document already exists to avoid duplicates
+        existing_doc = Document.objects.filter(
+            asset=asset,
+            document_type='permit',
+            external_id=permit_id
+        ).first()
+
+        if existing_doc:
+            # Update existing document
+            existing_doc.title = f"היתר בניה - {description}" if description else "היתר בניה"
+            existing_doc.description = description
+            existing_doc.status = status
+            existing_doc.document_date = permit_date
+            existing_doc.external_url = url
+            existing_doc.source = 'GIS'
+            existing_doc.meta = {
+                'permit_number': permit_number,
+                'request_number': request_number,
+                'address': address,
+                'building_stage': description,
+                'url_hadmaya': url,
+                'permission_date': permit.get('permission_date'),
+                'issued_date': permit.get('issued_date'),
+                'addresses': address
+            }
+            existing_doc.save()
+            logger.debug(f"Updated existing permit document {existing_doc.id} for asset {asset.id}")
+        else:
+            # Create new document
+            document = Document.objects.create(
+                asset=asset,
+                user=system_user,
+                title=f"היתר בניה - {description}" if description else "היתר בניה",
+                description=description,
+                document_type='permit',
+                status='approved' if status else 'pending',
+                filename=f"permit_{permit_id}.pdf" if permit_id else f"permit_{created_count + 1}.pdf",
+                file_path='',  # No physical file for GIS permits
+                file_size=0,
+                mime_type='application/pdf',
+                external_id=permit_id,
+                external_url=url,
+                source='GIS',
+                document_date=permit_date,
+                meta={
+                    'permit_number': permit_number,
+                    'request_number': request_number,
+                    'address': address,
+                    'building_stage': description,
+                    'url_hadmaya': url,
+                    'permission_date': permit.get('permission_date'),
+                    'issued_date': permit.get('issued_date'),
+                    'addresses': address
+                }
+            )
+            created_count += 1
+            logger.debug(f"Created permit document {document.id} for asset {asset.id}")
+
+    logger.info(f"Processed {len(permits)} permits for asset {asset.id} ({created_count} new, {len(permits) - created_count} updated)")
 
 
 def _create_documents_from_appraisals(asset, appraisals):
@@ -1752,14 +1800,3 @@ def _create_documents_from_rami_plans(asset, plans):
     
     logger.info(f"Created {len(plans)} RAMI plan documents for asset {asset.id}")
 
-
-
-__all__ = [
-    "DataPipeline",
-    "Yad2Collector",
-    "GISCollector",
-    "GovCollector",
-    "GovMapCollector",
-    "RamiCollector",
-    "MavatCollector",
-]

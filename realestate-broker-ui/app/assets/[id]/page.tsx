@@ -1507,13 +1507,136 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div className="text-muted-foreground">בקשות היתר פעילות</div>
                   </div>
                   {permits.length > 0 && (
-                    <div className="grid gap-2 md:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2">
                       {permits.map((p: any) => (
-                        <div key={p.id || p.permit_number} className="p-3 border rounded rtl:text-right">
-                          <div className="font-medium">{p.description || p.permit_number || '—'}</div>
-                          <div className="text-sm text-muted-foreground">{p.status || p.issued_date || ''}</div>
+                        <div key={p.id || p.permit_number || p.request_num} className="p-4 border rounded-lg rtl:text-right space-y-3">
+                          {/* Header with permit type/description */}
+                          <div className="flex justify-between items-start rtl:flex-row-reverse">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm">
+                                {p.building_stage || p.description || p.permit_number || 'היתר בנייה'}
+                              </h4>
+                              {p.addresses && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {p.addresses}
+                                </p>
+                              )}
+                            </div>
+                            {p.building_stage && (
+                              <Badge variant={
+                                p.building_stage.includes('בניה') ? 'success' :
+                                p.building_stage.includes('הריסה') ? 'warning' :
+                                'neutral'
+                              }>
+                                {p.building_stage}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Permit details grid */}
+                          <div className="grid gap-2 text-xs">
+                            {p.permit_number && p.permit_number !== p.request_num && (
+                              <div className="flex justify-between rtl:flex-row-reverse">
+                                <span className="text-muted-foreground">מספר היתר:</span>
+                                <span className="font-medium">{p.permit_number}</span>
+                              </div>
+                            )}
+                            {p.request_num && (
+                              <div className="flex justify-between rtl:flex-row-reverse">
+                                <span className="text-muted-foreground">מספר בקשה:</span>
+                                <span className="font-medium">{p.request_num}</span>
+                              </div>
+                            )}
+                            {p.permission_date && (
+                              <div className="flex justify-between rtl:flex-row-reverse">
+                                <span className="text-muted-foreground">תאריך אישור:</span>
+                                <span>
+                                  {new Date(
+                                    typeof p.permission_date === 'number'
+                                      ? p.permission_date
+                                      : p.permission_date
+                                  ).toLocaleDateString('he-IL')}
+                                </span>
+                              </div>
+                            )}
+                            {p.issued_date && p.issued_date !== p.permission_date && (
+                              <div className="flex justify-between rtl:flex-row-reverse">
+                                <span className="text-muted-foreground">תאריך הנפקה:</span>
+                                <span>
+                                  {new Date(p.issued_date).toLocaleDateString('he-IL')}
+                                </span>
+                              </div>
+                            )}
+                            {p.status && p.status !== p.building_stage && (
+                              <div className="flex justify-between rtl:flex-row-reverse">
+                                <span className="text-muted-foreground">סטטוס:</span>
+                                <span>{p.status}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions/Links */}
+                          <div className="pt-2 border-t">
+                            <div className="flex gap-2 justify-end">
+                              {p.url_hadmaya && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                  className="text-xs"
+                                >
+                                  <a
+                                    href={p.url_hadmaya}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    צפה בהדמיה
+                                  </a>
+                                </Button>
+                              )}
+                              {p.file_url && p.file_url !== p.url_hadmaya && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                  className="text-xs"
+                                >
+                                  <a
+                                    href={p.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    מסמך
+                                  </a>
+                                </Button>
+                              )}
+                              {(p.permit_number || p.request_num) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => {
+                                    const searchTerm = p.permit_number || p.request_num;
+                                    window.open(`https://www.tel-aviv.gov.il/Residents/BuildingAndDevelopment/Pages/default.aspx?search=${searchTerm}`, '_blank');
+                                  }}
+                                >
+                                  חפש באתר העירייה
+                                </Button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* No permits state */}
+                  {permits.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <div className="text-sm">לא נמצאו היתרים פעילים ברדיוס {permitRadius} מטר</div>
+                      <div className="text-xs mt-1">
+                        ייתכן שיש היתרים ברדיוס רחב יותר או שהמידע טרם עודכן
+                      </div>
                     </div>
                   )}
                 </div>

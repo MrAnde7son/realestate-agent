@@ -844,15 +844,15 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList className="flex flex-wrap md:flex-nowrap">
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
+            <TabsTrigger value="listings">מודעות</TabsTrigger>
+            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
             <TabsTrigger value="permits">היתרים</TabsTrigger>
             <TabsTrigger value="plans">תוכניות</TabsTrigger>
             <TabsTrigger value="rights">זכויות</TabsTrigger>
-            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
-            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
-            <TabsTrigger value="documents">מסמכים</TabsTrigger>
             {canViewCrm && <TabsTrigger value="crm">לקוחות</TabsTrigger>}
-            <TabsTrigger value="listings">מודעות</TabsTrigger>
+            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
+            <TabsTrigger value="documents">מסמכים</TabsTrigger>
             {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
           </TabsList>
 

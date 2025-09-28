@@ -6,6 +6,7 @@ import time
 import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from types import SimpleNamespace
+from contextlib import contextmanager  # added import
 
 from sqlalchemy.orm import Session
 
@@ -390,18 +391,29 @@ class DataPipeline:
         session.add(SourceRecord(listing_id=listing_id, source=source, data=data))
 
     def _add_transactions(self, session, listing_id: int, deals: Iterable[Any]) -> None:
+        def _to_number(v):
+            if v is None:
+                return None
+            if isinstance(v, (int, float)):
+                return v
+            try:
+                # Remove thousands separators / currency symbols
+                cleaned = str(v).replace(',', '').replace('₪', '').strip()
+                return float(cleaned) if cleaned else None
+            except Exception:
+                return None
         for d in deals:
             raw = d.to_dict() if hasattr(d, "to_dict") else dict(d)
             session.add(
                 Transaction(
                     listing_id=listing_id,
                     deal_date=raw.get("deal_date"),
-                    deal_amount=raw.get("deal_amount"),
+                    deal_amount=_to_number(raw.get("deal_amount")),
                     rooms=raw.get("rooms"),
                     floor=raw.get("floor"),
                     asset_type=raw.get("asset_type"),
                     year_built=raw.get("year_built"),
-                    area=raw.get("area"),
+                    area=_to_number(raw.get("area")),
                     raw=raw,
                 )
             )
@@ -755,84 +767,72 @@ class DataPipeline:
 
 
 def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
-    """Update the Asset model with all collected data from GIS, Gov, Mavat, and Yad2."""
-    try:
-        # Defensive: ensure all dicts/lists are not None
-        govmap_autocomplete_data = govmap_autocomplete_data or {}
-        govmap_data = govmap_data or {}
-        gis_data = gis_data or {}
-        gov_data = gov_data or {}
-        plans = plans or []
-        mavat_plans = mavat_plans or []
-        listings = listings or []
+    """Update the Asset with collected enrichment data.
 
-        import os
-        import sys
-        
-        # Add Django backend to path
-        backend_path = os.path.join(os.path.dirname(__file__), "..", "backend-django")
-        if backend_path not in sys.path:
-            sys.path.insert(0, backend_path)
-        
-        import django
-        if not django.conf.settings.configured:
-            os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
+    Improvements:
+    - Granular phase logging (use env ASSET_UPDATE_DEBUG=1 to raise on first failure)
+    - Smaller try blocks: a failure in one enrichment source no longer hides stack traces
+    - Structured debug logs with timing per phase
+    """
+    # Defensive: ensure all dicts/lists are not None
+    govmap_autocomplete_data = govmap_autocomplete_data or {}
+    govmap_data = govmap_data or {}
+    gis_data = gis_data or {}
+    gov_data = gov_data or {}
+    plans = plans or []
+    mavat_plans = mavat_plans or []
+    listings = listings or []
+
+    # Lazy Django setup (kept inside function so unit tests without Django still work)
+    with asset_update_phase("django_setup", asset_id):
+        import os as _os
+        import sys as _sys
+        backend_path = _os.path.join(_os.path.dirname(__file__), "..", "backend-django")
+        if backend_path not in _sys.path:
+            _sys.path.insert(0, backend_path)
+        import django  # type: ignore
+        from django.conf import settings as _settings  # type: ignore
+        if not _settings.configured:
+            _os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
             django.setup()
-        
-        from core.models import Asset
-        
+        from core.models import Asset  # type: ignore
+
+    # Load asset
+    try:
         asset = Asset.objects.get(id=asset_id)
-        
-        # Update basic asset information
+    except Exception as e:  # noqa: BLE001
+        logger.exception("[ASSET_UPDATE] Failed to load Asset id=%s: %s", asset_id, e)
+        return
+
+    # Basic identifiers & coordinates -------------------------------------------------
+    with asset_update_phase("basic_fields", asset_id):
         if block:
             asset.block = block
         if parcel:
             asset.parcel = parcel
-            
-        # Update coordinates if available (prioritize GovMap coordinates)
+        # Prefer GovMap coordinates
         if lon_wgs84 is not None and lat_wgs84 is not None:
-            # Use coordinates from GovMap autocomplete (already converted to WGS84)
             asset.lat = lat_wgs84
             asset.lon = lon_wgs84
-            logger.info("Updated asset coordinates from GovMap autocomplete", extra={
-                "wgs84_lat": lat_wgs84, "wgs84_lon": lon_wgs84,
-                "itm_x": x_itm, "itm_y": y_itm
-            })
+            logger.debug("Asset %s coordinates set from GovMap WGS84 (lat=%s lon=%s)", asset_id, lat_wgs84, lon_wgs84)
         elif gis_data.get('x') and gis_data.get('y'):
-            # Fallback to GIS coordinates if GovMap coordinates not available
             try:
-                x_itm_gis = gis_data.get('x')
-                y_itm_gis = gis_data.get('y')
-                lon_wgs84_gis, lat_wgs84_gis = itm_to_wgs84(x_itm_gis, y_itm_gis)
+                lon_wgs84_gis, lat_wgs84_gis = itm_to_wgs84(gis_data.get('x'), gis_data.get('y'))
                 asset.lat = lat_wgs84_gis
                 asset.lon = lon_wgs84_gis
-                logger.info("Updated asset coordinates from GIS (fallback)", extra={
-                    "itm_x": x_itm_gis, "itm_y": y_itm_gis, 
-                    "wgs84_lat": lat_wgs84_gis, "wgs84_lon": lon_wgs84_gis
-                })
-            except Exception as e:
-                logger.warning("Failed to convert GIS ITM coordinates to WGS84", extra={
-                    "error": str(e), "x": gis_data.get('x'), "y": gis_data.get('y')
-                })
-                # Fallback: store as-is (will be handled by frontend conversion)
+                logger.debug("Asset %s coordinates converted from GIS ITM -> WGS84", asset_id)
+            except Exception:
+                logger.exception("Failed to convert GIS coordinates for asset %s; storing raw ITM", asset_id)
                 asset.lat = gis_data.get('x')
                 asset.lon = gis_data.get('y')
-            
-        # Update normalized address
-        if asset.street and asset.number:
-            asset.normalized_address = f"{asset.street} {asset.number}"
-            if asset.apartment:
-                asset.normalized_address += f" דירה {asset.apartment}"
-            if asset.city:
-                asset.normalized_address += f" {asset.city}"
-        
-        # Initialize meta field if it doesn't exist
+        if getattr(asset, 'street', None) and getattr(asset, 'number', None):
+            asset.normalized_address = f"{asset.street} {asset.number}" + (f" דירה {asset.apartment}" if getattr(asset, 'apartment', None) else '') + (f" {asset.city}" if getattr(asset, 'city', None) else '')
         if not asset.meta:
             asset.meta = {}
-        
-        # Update with GIS data
+
+    # GIS processing ------------------------------------------------------------------
+    with asset_update_phase("process_gis", asset_id):
         if gis_data:
-            # Store raw GIS data in meta
             asset.meta['gis_data'] = {
                 'building_permits': gis_data.get('permits', []),
                 'land_use_rights': gis_data.get('rights', []),
@@ -842,44 +842,26 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 'cell_antennas': gis_data.get('antennas', []),
                 'blocks': gis_data.get('blocks', []),
                 'parcels': gis_data.get('parcels', []),
-                'coordinates': {
-                    'x': gis_data.get('x'),
-                    'y': gis_data.get('y')
-                }
+                'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
             }
-            
-            # Try to get building privilege page data for real rights calculation
+            # Privilege page attempt + parse
             try:
-                from gis.gis_client import TelAvivGS
-                gis_client = TelAvivGS()
-                x = gis_data.get('x')
-                y = gis_data.get('y')
-                
+                from gis.gis_client import TelAvivGS  # type: ignore
+                from gis.parse_zchuyot import parse_zchuyot  # type: ignore
+                x = gis_data.get('x'); y = gis_data.get('y')
                 if x and y:
-                    logger.info(f"Attempting to download building privilege page for coordinates ({x}, {y})")
+                    gis_client = TelAvivGS()
                     privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
-                    
                     if privilege_data and isinstance(privilege_data, dict) and privilege_data.get('content_type') == 'pdf':
-                        # Parse the privilege page
-                        from gis.parse_zchuyot import parse_zchuyot
                         pdf_path = privilege_data.get('file_path')
                         if pdf_path:
-                            parsed_privilege_data = parse_zchuyot(pdf_path)
-                            asset.meta['privilege_page_data'] = parsed_privilege_data
-                            logger.info(f"Successfully parsed privilege page: {pdf_path}")
-                    elif privilege_data and isinstance(privilege_data, dict):
-                        content_type = privilege_data.get('content_type', 'unknown')
-                        logger.info(f"Downloaded privilege page but content type is {content_type}, not PDF")
-                    else:
-                        logger.info("No privilege page data available")
-                        
-            except Exception as e:
-                logger.warning(f"Failed to download/parse building privilege page: {e}")
-            
-            # Process and store GIS data in both meta and direct fields
+                            asset.meta['privilege_page_data'] = parse_zchuyot(pdf_path)
+            except Exception:
+                logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
             _process_gis_data(asset, gis_data)
-        
-        # Update with GovMap autocomplete data
+
+    # GovMap autocomplete --------------------------------------------------------------
+    with asset_update_phase("process_govmap_autocomplete", asset_id):
         if govmap_autocomplete_data:
             asset.meta['govmap_autocomplete_data'] = {
                 'autocomplete_result': govmap_autocomplete_data,
@@ -887,85 +869,79 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                     'x_itm': x_itm,
                     'y_itm': y_itm,
                     'lon_wgs84': lon_wgs84,
-                    'lat_wgs84': lat_wgs84
-                }
+                    'lat_wgs84': lat_wgs84,
+                },
             }
             _process_govmap_autocomplete_data(asset, govmap_autocomplete_data)
-        
-        # Update with GovMap parcel data
+
+    # GovMap parcel -------------------------------------------------------------------
+    with asset_update_phase("process_govmap_parcel", asset_id):
         if govmap_data:
             asset.meta['govmap_data'] = {
                 'parcel': govmap_data.get('api_data', {}).get('parcel', {}),
                 'nearby_layers': govmap_data.get('nearby', {}),
-                'coordinates': {
-                    'x': govmap_data.get('x'),
-                    'y': govmap_data.get('y')
-                },
-                'api_data': govmap_data.get('api_data', {})
+                'coordinates': {'x': govmap_data.get('x'), 'y': govmap_data.get('y')},
+                'api_data': govmap_data.get('api_data', {}),
             }
             _process_govmap_data(asset, govmap_data)
-        
-        # Update with government data
+
+    # Government data -----------------------------------------------------------------
+    with asset_update_phase("process_government", asset_id):
         if gov_data:
             asset.meta['government_data'] = {
                 'decisive_appraisals': gov_data.get('decisive', []),
-                'transaction_history': gov_data.get('transactions', [])
+                'transaction_history': gov_data.get('transactions', []),
             }
             _process_government_data(asset, gov_data)
-        
-        # Update with RAMI plans
+
+    # RAMI plans ----------------------------------------------------------------------
+    with asset_update_phase("process_rami", asset_id):
         if plans:
             asset.meta['rami_plans'] = plans
             _process_rami_plans(asset, plans)
-        
-        # Update with Mavat plans
+
+    # Mavat plans ---------------------------------------------------------------------
+    with asset_update_phase("process_mavat", asset_id):
         if mavat_plans:
             asset.meta['mavat_plans'] = mavat_plans
             _process_mavat_plans(asset, mavat_plans)
-        
-        # Update with Yad2 listings
+
+    # Yad2 listings -------------------------------------------------------------------
+    normalized_listings = []
+    with asset_update_phase("normalize_listings", asset_id):
         normalized_listings = _normalize_listings(listings or [])
         if listings and not normalized_listings:
             logger.debug("All listings dropped while normalizing Yad2 data for asset %s", asset_id)
-
         if normalized_listings:
             asset.meta['yad2_listings'] = normalized_listings
-
-            prices = [listing.get('price') for listing in normalized_listings if listing.get('price')]
-            areas = [listing.get('area') for listing in normalized_listings if listing.get('area')]
-
+            prices = [l.get('price') for l in normalized_listings if l.get('price')]
+            areas = [l.get('area') for l in normalized_listings if l.get('area')]
             market_data = asset.meta.setdefault('market_data', {})
-
             if prices:
-                market_data.update(
-                    {
-                        'min_price': min(prices),
-                        'max_price': max(prices),
-                        'avg_price': sum(prices) / len(prices),
-                        'price_count': len(prices),
-                    }
-                )
-
+                market_data.update({
+                    'min_price': min(prices),
+                    'max_price': max(prices),
+                    'avg_price': sum(prices) / len(prices),
+                    'price_count': len(prices),
+                })
             if areas:
-                market_data.update(
-                    {
-                        'min_area': min(areas),
-                        'max_area': max(areas),
-                        'avg_area': sum(areas) / len(areas),
-                        'area_count': len(areas),
-                    }
-                )
-
+                market_data.update({
+                    'min_area': min(areas),
+                    'max_area': max(areas),
+                    'avg_area': sum(areas) / len(areas),
+                    'area_count': len(areas),
+                })
             if not market_data:
                 asset.meta.pop('market_data', None)
 
-        # Update last enrichment timestamp
-        from django.utils import timezone
+    # Timestamp -----------------------------------------------------------------------
+    with asset_update_phase("timestamp_and_save", asset_id):
+        from django.utils import timezone  # type: ignore
         asset.meta['last_enrichment'] = timezone.now().isoformat()
-
         asset.save()
 
-        # Create Django model records from collected data
+    # Django records ------------------------------------------------------------------
+    with asset_update_phase("create_django_records", asset_id):
         _create_django_records_from_collected_data(
             asset,
             govmap_autocomplete_data,
@@ -977,16 +953,15 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             normalized_listings,
         )
 
-        # Create Document and Plan records
+    # Documents & plans ---------------------------------------------------------------
+    with asset_update_phase("create_documents_and_plans", asset_id):
         _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans)
 
-        # Calculate market metrics
+    # Market metrics ------------------------------------------------------------------
+    with asset_update_phase("calculate_market_metrics", asset_id):
         _calculate_market_metrics(asset, normalized_listings, gov_data)
-        
-        logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
-        
-    except Exception as e:
-        logger.error("Failed to update asset %s with collected data: %s", asset_id, e)
+
+    logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
 
 
 def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
@@ -1236,7 +1211,7 @@ def _process_rami_plans(asset, plans):
             asset.set_property('planActive', True, source='RAMI', url='https://rami.gov.il/')
         else:
             asset.set_property('planActive', False, source='RAMI', url='https://rami.gov.il/')
-        
+
         # Create documents from RAMI plans
         _create_documents_from_rami_plans(asset, plans)
 
@@ -1394,7 +1369,6 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                         }
                     )
 
-        logger.info(f"Created Django records for asset {asset.id}")
 
     except Exception as e:
         logger.error(f"Failed to create Django records for asset {asset.id}: {e}")
@@ -1747,40 +1721,41 @@ def _create_documents_from_rami_plans(asset, plans):
     """Create documents from RAMI plans data."""
     if not plans:
         return
-    
+
     # Initialize documents array if it doesn't exist
     if 'documents' not in asset.meta:
         asset.meta['documents'] = []
-    
+
     # Create documents for each plan
     for plan in plans:
         if not plan:
             continue
-            
+
         # Extract plan information
         plan_number = plan.get('planNumber', plan.get('plan_number', plan.get('number', '')))
         plan_name = plan.get('title', plan.get('plan_name', plan.get('name', '')))
         status = plan.get('status', '')
-        
+
         # Extract URL from documentsSet structure
         url = ''
         documents_set = plan.get('raw', {}).get('documentsSet', {})
-        
+
         # Try to get URL from various sources in documentsSet
-        if documents_set.get('map', {}).get('path'):
-            url = documents_set['map']['path']
-        elif documents_set.get('takanon', {}).get('path'):
-            url = documents_set['takanon']['path']
-        elif documents_set.get('mmg', {}).get('path'):
-            url = documents_set['mmg']['path']
-        
+        if documents_set:
+            if documents_set.get('map', {}).get('path'):
+                url = documents_set['map']['path']
+            elif documents_set.get('takanon', {}).get('path'):
+                url = documents_set['takanon']['path']
+            elif documents_set.get('mmg', {}).get('path'):
+                url = documents_set['mmg']['path']
+
         # Validate and clean URL
         if url and not url.startswith(('http://', 'https://')):
             if url.startswith('/'):
                 url = f"https://rami.gov.il{url}"
             else:
                 url = f"https://rami.gov.il/{url}"
-        
+
         # Create document entry
         document = {
             'id': f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{len(asset.meta['documents']) + 1}",
@@ -1795,8 +1770,34 @@ def _create_documents_from_rami_plans(asset, plans):
             'plan_name': plan_name,
             'downloadable': bool(url and url.startswith(('http://', 'https://')))
         }
-        
+
         asset.meta['documents'].append(document)
-    
+
     logger.info(f"Created {len(plans)} RAMI plan documents for asset {asset.id}")
 
+# ---------------------------------------------------------------------------
+# Improved debugging helpers
+# ---------------------------------------------------------------------------
+
+@contextmanager
+def asset_update_phase(phase: str, asset_id: int | None = None):
+    """Context manager to add granular logging & exception tracing to asset update.
+
+    Each logical phase in ``_update_asset_with_collected_data`` is wrapped in this
+    context so that if one phase fails we still continue (best‑effort enrichment)
+    while having a clear stack trace & phase name in the logs.
+    """
+    t0 = time.perf_counter()
+    logger.debug("[ASSET_UPDATE] ▶ phase=%s asset_id=%s", phase, asset_id)
+    try:
+        yield
+        dt = (time.perf_counter() - t0) * 1000
+        logger.debug("[ASSET_UPDATE] ✔ phase=%s asset_id=%s duration_ms=%d", phase, asset_id, dt)
+    except Exception as exc:  # noqa: BLE001 - we purposefully capture & log all
+        dt = (time.perf_counter() - t0) * 1000
+        logger.exception(
+            "[ASSET_UPDATE] ✖ phase=%s asset_id=%s duration_ms=%d error=%s", phase, asset_id, dt, exc
+        )
+        debug = os.getenv("ASSET_UPDATE_DEBUG", "0").lower() in {"1", "true", "yes"}
+        if debug:
+            raise

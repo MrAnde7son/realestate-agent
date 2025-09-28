@@ -931,7 +931,7 @@ class Document(models.Model):
         ("condo_plan", "Condominium Plan"),
         ("permit", "Building Permit"),
         ("appraisal", "Appraisal"),
-        ("appraisal_decisive", "דוח הערכה מכריע"),
+        ("appraisal_decisive", "Decisive Appraisal"),
         ("appraisal_rmi", "RAMI Appraisal"),
         ("rights", "Rights Document"),
         ("plan", "Planning Document"),

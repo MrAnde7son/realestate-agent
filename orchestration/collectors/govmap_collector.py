@@ -5,9 +5,10 @@ GovMap collector that plugs into your existing orchestration layer.
 Usage
 -----
 from orchestration.collectors.govmap_collector import GovMapCollector
+from orchestration.location import LocationQuery
 
 collector = GovMapCollector()
-result = collector.collect(address="רוזוב 14 תל אביב")
+result = collector.collect(LocationQuery(street="רוזוב", house_number=14, city="תל אביב"))
 print("Address:", result["address"])
 if "x" in result and "y" in result:
     print(f"Coordinates: x={result['x']}, y={result['y']}")
@@ -18,6 +19,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from orchestration.collectors.base_collector import BaseCollector
 from govmap.api_client import GovMapClient, GovMapAuthError
+from orchestration.location import LocationQuery, ensure_location_query
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +34,20 @@ class GovMapCollector(BaseCollector):
 
     def collect(
         self,
-        *,
-        address: str,
+        location: Optional[LocationQuery] = None,
     ) -> Dict[str, Any]:
         """Collect data from GovMap using address autocomplete and parcel data.
 
         Parameters
         ----------
-        address : Address string to search for (e.g., "רוזוב 14 תל אביב")
+        location : Optional[LocationQuery]
+            Structured address information. When ``None`` an empty query is
+            assumed.
         """
+
+        query = ensure_location_query(location)
+        address = query.formatted or query.street or query.city
+
         out: Dict[str, Any] = {
             "address": address,
             "api_data": {},
@@ -101,14 +108,17 @@ class GovMapCollector(BaseCollector):
 
 
     def validate_parameters(self, **kwargs) -> bool:
-        """Validate that an address string is provided."""
-        address = kwargs.get("address")
-        return isinstance(address, str) and bool(address.strip())
+        """Validate that a non-empty location is provided."""
+
+        location = kwargs.get("location")
+        return isinstance(location, LocationQuery) and not location.is_empty()
 
 
 if __name__ == "__main__":
+    from orchestration.location import LocationQuery
+
     collector = GovMapCollector()
-    result = collector.collect(address="רוזוב 14 תל אביב")
+    result = collector.collect(LocationQuery(street="רוזוב", house_number=14, city="תל אביב"))
     print("Address:", result["address"])
     if "x" in result and "y" in result:
         print(f"Coordinates: x={result['x']}, y={result['y']}")

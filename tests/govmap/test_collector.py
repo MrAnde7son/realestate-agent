@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 from unittest import mock
 
-from orchestration.collectors.govmap_collector import GovMapCollector
 from govmap.api_client import GovMapAuthError, GovMapClient
+
+from orchestration.collectors.govmap_collector import GovMapCollector
+from orchestration.location import LocationQuery
 
 
 def test_collector_initialization():
@@ -44,7 +46,7 @@ def test_collect_success():
          mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data), \
          mock.patch.object(collector.client, 'search_and_locate_address', return_value=locate_result):
 
-        result = collector.collect(address="Test Address")
+        result = collector.collect(LocationQuery(street="Test Address"))
 
         assert result["address"] == "Test Address"
         assert result["x"] == 100.0
@@ -80,7 +82,7 @@ def test_collect_with_api_failures():
          mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data), \
          mock.patch.object(collector.client, 'search_and_locate_address', return_value=locate_result):
 
-        result = collector.collect(address="Test Address")
+        result = collector.collect(LocationQuery(street="Test Address"))
 
         assert result["address"] == "Test Address"
         assert result["x"] == 100.0
@@ -110,7 +112,7 @@ def test_collect_handles_authentication_error():
          mock.patch.object(collector.client, 'get_parcel_data', return_value={}), \
          mock.patch.object(collector.client, 'search_and_locate_address', side_effect=GovMapAuthError("unauthorized")):
 
-        result = collector.collect(address="Test Address")
+        result = collector.collect(LocationQuery(street="Test Address"))
 
         assert result["address"] == "Test Address"
         assert result["x"] == 100.0
@@ -123,12 +125,12 @@ def test_collect_handles_authentication_error():
 def test_validate_parameters_valid():
     """Test parameter validation with valid parameters"""
     collector = GovMapCollector()
-    assert collector.validate_parameters(address="Test Address") is True
+    assert collector.validate_parameters(location=LocationQuery(street="Test Address")) is True
 
 
 def test_validate_parameters_invalid():
     """Test parameter validation with invalid parameters"""
     collector = GovMapCollector()
-    assert collector.validate_parameters(address="") is False
-    assert collector.validate_parameters(address=None) is False
-    assert collector.validate_parameters() is False  # Missing address
+    assert collector.validate_parameters(location=LocationQuery()) is False
+    assert collector.validate_parameters(location=None) is False
+    assert collector.validate_parameters() is False  # Missing location

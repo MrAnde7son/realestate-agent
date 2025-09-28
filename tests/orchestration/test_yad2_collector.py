@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import Mock
 
 from orchestration.collectors.yad2_collector import Yad2Collector
+from orchestration.location import LocationQuery
 
 
 @pytest.fixture
@@ -50,7 +51,8 @@ def test_collect_applies_location_parameters(location_payload):
     mock_client.scrape_all_pages.return_value = ["listing"]
 
     collector = Yad2Collector(client=mock_client)
-    result = collector.collect(address="הברזל 32 תל אביב", max_pages=2)
+    location = LocationQuery(street="הברזל", house_number=32, city="תל אביב")
+    result = collector.collect(location, max_pages=2)
 
     assert result == ["listing"]
     mock_client.set_search_parameters.assert_called_once_with(

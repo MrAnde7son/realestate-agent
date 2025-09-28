@@ -43,8 +43,7 @@ def test_collect_success():
     
     locate_result = {"data": [{"Values": ["111", "222"]}]}
     with mock.patch.object(collector.client, 'autocomplete', side_effect=mock_autocomplete), \
-         mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data), \
-         mock.patch.object(collector.client, 'search_and_locate_address', return_value=locate_result):
+         mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data):
 
         result = collector.collect(LocationQuery(street="Test Address"))
 
@@ -79,8 +78,7 @@ def test_collect_with_api_failures():
     locate_result = {"data": [{"Values": ["111", "222"]}]}
 
     with mock.patch.object(collector.client, 'autocomplete', side_effect=mock_autocomplete), \
-         mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data), \
-         mock.patch.object(collector.client, 'search_and_locate_address', return_value=locate_result):
+         mock.patch.object(collector.client, 'get_parcel_data', side_effect=mock_get_parcel_data):
 
         result = collector.collect(LocationQuery(street="Test Address"))
 
@@ -109,8 +107,7 @@ def test_collect_handles_authentication_error():
     }
 
     with mock.patch.object(collector.client, 'autocomplete', return_value=autocomplete_result), \
-         mock.patch.object(collector.client, 'get_parcel_data', return_value={}), \
-         mock.patch.object(collector.client, 'search_and_locate_address', side_effect=GovMapAuthError("unauthorized")):
+         mock.patch.object(collector.client, 'get_parcel_data', return_value={}):
 
         result = collector.collect(LocationQuery(street="Test Address"))
 

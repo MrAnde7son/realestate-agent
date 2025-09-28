@@ -81,31 +81,6 @@ class GovMapCollector(BaseCollector):
         except Exception as e:
             logger.error(f"Failed to process address '{address}': {e}")
 
-        # Use SearchAndLocate to enrich the address with block/parcel identifiers.
-        # Planning data retrieval lives in the dedicated RAMI collector, so we stop
-        # here to avoid duplicating that integration in multiple collectors.
-        try:
-            locate_result = self.client.search_and_locate_address(address)
-            out["api_data"]["search_and_locate"] = locate_result
-
-            block_parcel = self.client.extract_block_parcel(locate_result)
-            if block_parcel:
-                block, parcel = block_parcel
-                out["block"] = block
-                out["parcel"] = parcel
-            else:
-                logger.warning("SearchAndLocate response missing block/parcel values")
-        except GovMapAuthError as locate_error:
-            logger.warning(
-                "SearchAndLocate enrichment skipped due to authentication error: %s. "
-                "Set GOVMAP_API_TOKEN, GOVMAP_USER_TOKEN, GOVMAP_DOMAIN, and GOVMAP_SESSION_TOKEN to enable this enrichment.",
-                locate_error,
-            )
-        except Exception as locate_error:
-            logger.warning(f"SearchAndLocate enrichment failed: {locate_error}")
-
-        return out
-
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate that a non-empty location is provided."""

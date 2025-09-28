@@ -32,8 +32,8 @@ import { ButtonLoader } from '@/components/ui/page-loader';
 interface LeadRowActionsProps {
   lead: Lead;
   onUpdate: () => void;
-  onDelete: () => void;
-  onShowTasks?: () => void;
+  onDelete: (leadId: number) => void;
+  onShowTasks: () => void;
 }
 
 const statusOptions: { value: LeadStatus; label: string }[] = [
@@ -146,15 +146,15 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 sm:gap-2">
       {/* Status Change Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" disabled={isLoading}>
-            <Edit className="h-4 w-4" />
+          <Button variant="outline" size="sm" disabled={isLoading} className="h-8 w-8 p-0">
+            <Edit className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-48">
           {statusOptions.map((option) => (
             <DropdownMenuItem
               key={option.value}
@@ -170,11 +170,11 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
       {/* Add Note Dialog */}
       <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" disabled={isLoading}>
-            <MessageSquare className="h-4 w-4" />
+          <Button variant="outline" size="sm" disabled={isLoading} className="h-8 w-8 p-0">
+            <MessageSquare className="h-3 w-3" />
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="mx-4 sm:mx-0">
           <DialogHeader>
             <DialogTitle>הוסף הערה</DialogTitle>
           </DialogHeader>
@@ -189,8 +189,8 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
                 rows={3}
               />
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleAddNote} disabled={!noteText.trim() || isLoading}>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={handleAddNote} disabled={!noteText.trim() || isLoading} className="w-full sm:w-auto">
                 {isLoading ? (
                   <>
                     <ButtonLoader size="sm" />
@@ -200,13 +200,25 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
                   'הוסף'
                 )}
               </Button>
-              <Button variant="outline" onClick={() => setIsNoteDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsNoteDialogOpen(false)} className="w-full sm:w-auto">
                 ביטול
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Show Tasks */}
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={onShowTasks}
+        disabled={isLoading}
+        className="h-8 w-8 p-0"
+        title="הצג משימות"
+      >
+        <CheckSquare className="h-3 w-3" />
+      </Button>
 
       {/* Send Report */}
       <Button 
@@ -215,30 +227,21 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
         onClick={handleSendReport}
         disabled={isLoading || !lead.contact.email}
         title={!lead.contact.email ? 'אין כתובת אימייל' : 'שלח דוח'}
+        className="h-8 w-8 p-0"
       >
-        {isLoading ? <ButtonLoader size="sm" /> : <Send className="h-4 w-4" />}
-      </Button>
-
-      {/* Tasks */}
-      <Button 
-        variant="outline" 
-        size="sm" 
-        onClick={onShowTasks}
-        disabled={isLoading}
-        title="ניהול משימות"
-      >
-        <CheckSquare className="h-4 w-4" />
+        {isLoading ? <ButtonLoader size="sm" /> : <Send className="h-3 w-3" />}
       </Button>
 
       {/* Delete */}
       <Button 
         variant="outline" 
         size="sm" 
-        onClick={onDelete}
+        onClick={() => onDelete(lead.id)}
         disabled={isLoading}
-        className="text-destructive hover:text-destructive"
+        className="text-destructive hover:text-destructive h-8 w-8 p-0"
+        title="מחק"
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="h-3 w-3" />
       </Button>
     </div>
   );

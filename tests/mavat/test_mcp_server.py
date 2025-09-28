@@ -54,7 +54,7 @@ def mock_mavat_api_client():
 @pytest.fixture
 def sample_search_hit():
     """Create a sample MavatSearchHit."""
-    from mavat.scrapers.mavat_api_client import MavatSearchHit
+    from mavat.mavat_api_client import MavatSearchHit
     return MavatSearchHit(
         plan_id="12345",
         title="Sample Plan",
@@ -72,7 +72,7 @@ def sample_search_hit():
 @pytest.fixture
 def sample_plan():
     """Create a sample MavatPlan."""
-    from mavat.scrapers.mavat_api_client import MavatPlan
+    from mavat.mavat_api_client import MavatPlan
     return MavatPlan(
         plan_id="12345",
         plan_name="Sample Plan",
@@ -90,7 +90,7 @@ def sample_plan():
 @pytest.fixture
 def sample_attachment():
     """Create a sample MavatAttachment."""
-    from mavat.scrapers.mavat_api_client import MavatAttachment
+    from mavat.mavat_api_client import MavatAttachment
     return MavatAttachment(
         filename="Sample Document.pdf",
         file_type="pdf",

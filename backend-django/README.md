@@ -7,7 +7,7 @@ Professional backend service for the Real Estate Broker platform, providing aler
 
 ### 🚨 Alert System
 - **Real-time Monitoring**: Automated property monitoring with Celery background tasks
-- **Multi-channel Notifications**: Email (SendGrid) and WhatsApp (Twilio) alerts
+- **Multi-channel Notifications**: Email (Resend) and WhatsApp (Twilio) alerts
 - **Flexible Criteria**: Custom alert rules with complex filtering
 - **Scheduled Processing**: Every 5-minute evaluation cycle
 
@@ -83,9 +83,13 @@ DATABASE_URL=postgresql://user:password@localhost:5432/realestate_db
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/0
 
-# Email Notifications (SendGrid)
-SENDGRID_API_KEY=your_sendgrid_api_key
-EMAIL_FROM=alerts@yourcompany.com
+# Email Notifications (Resend)
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM="RealEstate Agent <no-reply@yourcompany.com>"
+RESEND_REPLY_TO=support@yourcompany.com
+RESEND_SANDBOX=true
+EMAIL_FALLBACK_TO_CONSOLE=true
+RESEND_WEBHOOK_SECRET=your_resend_webhook_secret
 ALERT_DEFAULT_EMAIL=broker@yourcompany.com
 
 # WhatsApp Notifications (Twilio)
@@ -303,10 +307,10 @@ The alert evaluation task (`core.tasks.evaluate_alerts`) runs every **5 minutes*
 
 ### Notification Channels
 
-#### Email (SendGrid)
-- Template-based HTML emails
-- Unsubscribe link management
-- Delivery tracking and bounce handling
+#### Email (Resend)
+- HTML + plain-text delivery via Resend API
+- Metadata and tagging support for campaigns
+- Bounce/complaint webhooks to disable failing addresses
 
 #### WhatsApp (Twilio)
 - Rich media support (property images)

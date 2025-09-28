@@ -30,8 +30,8 @@ class TestAlertManagementCommand(TestCase):
         out = StringIO()
         
         with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "test_key",
-            "EMAIL_FROM": "test@example.com",
+            "RESEND_API_KEY": "test_key",
+            "RESEND_FROM": "test@example.com",
             "TWILIO_ACCOUNT_SID": "test_sid",
             "TWILIO_AUTH_TOKEN": "test_token",
             "TWILIO_WHATSAPP_FROM": "whatsapp:+14155238886"
@@ -49,8 +49,8 @@ class TestAlertManagementCommand(TestCase):
         out = StringIO()
         
         with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "test_key",
-            "EMAIL_FROM": "test@example.com"
+            "RESEND_API_KEY": "test_key",
+            "RESEND_FROM": "test@example.com"
         }):
             with patch('orchestration.alerts.EmailAlert.send') as mock_email:
                 call_command('test_alerts', '--email', 'custom@example.com', stdout=out)
@@ -76,8 +76,8 @@ class TestAlertManagementCommand(TestCase):
         out = StringIO()
         
         with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "test_key",
-            "EMAIL_FROM": "test@example.com",
+            "RESEND_API_KEY": "test_key",
+            "RESEND_FROM": "test@example.com",
             "TWILIO_ACCOUNT_SID": "test_sid",
             "TWILIO_AUTH_TOKEN": "test_token",
             "TWILIO_WHATSAPP_FROM": "whatsapp:+14155238886"
@@ -96,8 +96,8 @@ class TestAlertManagementCommand(TestCase):
         out = StringIO()
         
         with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "test_key_12345",
-            "EMAIL_FROM": "test@example.com",
+            "RESEND_API_KEY": "test_key_12345",
+            "RESEND_FROM": "test@example.com",
             "TWILIO_ACCOUNT_SID": "test_sid_67890",
             "TWILIO_AUTH_TOKEN": "test_token_abcdef",
             "TWILIO_WHATSAPP_FROM": "whatsapp:+14155238886"
@@ -107,7 +107,7 @@ class TestAlertManagementCommand(TestCase):
             output = out.getvalue()
             
             # Check that environment variables are displayed
-            assert "SENDGRID_API_KEY" in output
+            assert "RESEND_API_KEY" in output
             assert "TWILIO_ACCOUNT_SID" in output
             assert "TWILIO_AUTH_TOKEN" in output
             assert "TWILIO_WHATSAPP_FROM" in output
@@ -132,8 +132,8 @@ class TestAlertManagementCommand(TestCase):
         User.objects.filter(email="test@example.com").delete()
         
         with patch.dict(os.environ, {
-            "SENDGRID_API_KEY": "test_key",
-            "EMAIL_FROM": "test@example.com",
+            "RESEND_API_KEY": "test_key",
+            "RESEND_FROM": "test@example.com",
             "TWILIO_ACCOUNT_SID": "test_sid",
             "TWILIO_AUTH_TOKEN": "test_token",
             "TWILIO_WHATSAPP_FROM": "whatsapp:+14155238886"

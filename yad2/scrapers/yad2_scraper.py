@@ -32,7 +32,7 @@ class Yad2Scraper:
             headers: Custom headers for requests
         """
         self.base_url = "https://www.yad2.co.il"
-        self.api_base_url = "https://www.yad2.co.il/api"
+        self.api_base_url = "https://gw.yad2.co.il"
         self.search_endpoint = "/realestate/forsale"
         
         # Default headers to mimic a real browser
@@ -77,13 +77,36 @@ class Yad2Scraper:
 
             if response.status_code == 200:
                 data = response.json()
+                hoods = data.get("hoods", [])
+                cities = data.get("cities", [])
+                areas = data.get("areas", [])
+                top_areas = data.get("topAreas", [])
+                streets = data.get("streets", [])
+
+                # Backfill missing lists from streets
+                if streets:
+                    # Cities
+                    if not cities:
+                        city_ids = {s.get("cityId") for s in streets if s.get("cityId")}
+                        cities = [{"cityId": cid} for cid in city_ids]
+
+                    # Areas
+                    if not areas:
+                        area_ids = {s.get("areaId") for s in streets if s.get("areaId")}
+                        areas = [{"areaId": aid} for aid in area_ids]
+
+                    # Top areas
+                    if not top_areas:
+                        top_area_ids = {s.get("topAreaId") for s in streets if s.get("topAreaId")}
+                        top_areas = [{"topAreaId": tid} for tid in top_area_ids]
+
                 return {
-                    'search_text': search_text,
-                    'hoods': data.get('hoods', []),
-                    'cities': data.get('cities', []),
-                    'areas': data.get('areas', []),
-                    'top_areas': data.get('topAreas', []),
-                    'streets': data.get('streets', [])
+                    "search_text": search_text,
+                    "hoods": hoods,
+                    "cities": cities,
+                    "areas": areas,
+                    "top_areas": top_areas,
+                    "streets": streets,
                 }
             else:
                 logger.warning(f"Failed to fetch location data: {response.status_code}")

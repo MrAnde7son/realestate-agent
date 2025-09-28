@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional, Dict
+from typing import Any, Iterable, List, Optional, Dict, Tuple
 import os
 import time
 import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from types import SimpleNamespace
 
 from sqlalchemy.orm import Session
 
@@ -85,6 +86,126 @@ def _load_user_notifiers() -> List[Notifier]:
     except Exception as e:  # pragma: no cover - best effort
         print(f"Failed to create user notifiers: {e}")
     return notifiers
+
+
+def _object_to_payload(obj: Any) -> Dict[str, Any]:
+    """Convert arbitrary objects into plain dictionaries for serialization."""
+
+    if obj is None:
+        return {}
+
+    if isinstance(obj, dict):
+        return {k: v for k, v in obj.items() if not k.startswith("_")}
+
+    data: Dict[str, Any] = {}
+    try:
+        for key, value in vars(obj).items():
+            if key.startswith("_"):
+                continue
+            data[key] = value
+    except TypeError:
+        # ``vars`` might fail for certain built-in types – fall back to repr
+        pass
+    return data
+
+
+def _build_listing_snapshot(raw_listing: Any, db_listing: Listing) -> SimpleNamespace:
+    """Create an immutable snapshot of the listing for async notifications."""
+
+    payload: Dict[str, Any] = {}
+    payload.update(_object_to_payload(raw_listing))
+    payload.update(_object_to_payload(db_listing))
+    payload.setdefault("id", getattr(db_listing, "id", None))
+    return SimpleNamespace(**payload)
+
+
+def _listing_to_dict(listing: Any) -> Dict[str, Any]:
+    """Convert Yad2 listings into plain dictionaries for downstream processing."""
+
+    if isinstance(listing, dict):
+        data = dict(listing)
+    elif hasattr(listing, "to_dict"):
+        data = listing.to_dict()
+    else:
+        keys = (
+            "title",
+            "price",
+            "address",
+            "rooms",
+            "floor",
+            "size",
+            "property_type",
+            "description",
+            "images",
+            "documents",
+            "contact_info",
+            "features",
+            "url",
+            "listing_id",
+            "date_posted",
+            "coordinates",
+            "scraped_at",
+            "meta",
+        )
+        data = {key: getattr(listing, key, None) for key in keys}
+
+    if "area" not in data or data.get("area") in (None, ""):
+        size_value = data.get("size")
+        if size_value in (None, "") and hasattr(listing, "size"):
+            size_value = getattr(listing, "size")
+        if size_value not in (None, ""):
+            data["area"] = size_value
+
+    return data
+
+
+def _normalize_listings(listings: Iterable[Any]) -> List[Dict[str, Any]]:
+    """Return a list of dictionaries regardless of the original listing type."""
+
+    normalized: List[Dict[str, Any]] = []
+    if not listings:
+        return normalized
+
+    for listing in listings:
+        if listing is None:
+            continue
+        try:
+            normalized.append(_listing_to_dict(listing))
+        except Exception as exc:  # pragma: no cover - extremely defensive
+            logger.debug("Skipping listing that cannot be normalized: %s", exc)
+    return normalized
+
+
+def _dispatch_notifications(pending: List[Tuple[Notifier, Any]]) -> None:
+    """Send notifications outside of the main persistence loop."""
+
+    if not pending:
+        return
+
+    logger.info("📣 Dispatching %d queued notifications", len(pending))
+
+    def _execute(notifier: Notifier, listing: Any) -> None:
+        try:
+            notifier.notify(listing)
+            track("alert_send", source=notifier.__class__.__name__)
+        except Exception as exc:  # pragma: no cover - best effort logging
+            track(
+                "alert_fail",
+                source=notifier.__class__.__name__,
+                error_code=str(exc),
+            )
+            logger.warning("⚠️ Notification failed: %s", exc)
+
+    if len(pending) == 1:
+        notifier, listing = pending[0]
+        _execute(notifier, listing)
+        return
+
+    max_workers = min(4, len(pending))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_execute, notifier, listing) for notifier, listing in pending]
+        for future in futures:
+            future.result()
 
 
 
@@ -327,6 +448,7 @@ class DataPipeline:
                 raise RuntimeError("No database session available")
 
             results: List[Any] = []
+            pending_notifications: List[Tuple[Notifier, Any]] = []
             
             # Get address coordinates using GovMap autocomplete
             x_itm = None
@@ -398,52 +520,10 @@ class DataPipeline:
                     parcel = gis_data.get('parcel', '')
                     logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
             except Exception as e:
-                # If GIS geocoding failed but we have coordinates from GovMap, try using those
-                if x_itm is not None and y_itm is not None:
-                    logger.info(f"🔄 GIS geocoding failed, trying with GovMap coordinates: ITM({x_itm}, {y_itm})")
-                    try:
-                        # Use GovMap coordinates directly for GIS data collection
-                        gis_data = {
-                            "blocks": self.gis.client.get_blocks(x_itm, y_itm),
-                            "parcels": self.gis.client.get_parcels(x_itm, y_itm),
-                            "permits": self.gis.client.get_building_permits(x_itm, y_itm),
-                            "rights": self.gis.client.get_land_use_main(x_itm, y_itm),
-                            "shelters": self.gis.client.get_shelters(x_itm, y_itm),
-                            "green": self.gis.client.get_green_areas(x_itm, y_itm),
-                            "noise": self.gis.client.get_noise_levels(x_itm, y_itm),
-                            "antennas": self.gis.client.get_cell_antennas(x_itm, y_itm),
-                        }
-                        block_gis, parcel_gis = self.gis._extract_block_parcel(gis_data)
-                        gis_data.update({"block": block_gis, "parcel": parcel_gis, "x": x_itm, "y": y_itm})
-                        track("collector_success", source="gis")
-                        logger.info(f"✅ GIS data collected using GovMap coordinates: block={block_gis}, parcel={parcel_gis}")
-                    except Exception as coord_e:
-                        logger.warning(f"⚠️ Failed to collect GIS data with GovMap coordinates: {coord_e}")
-                        gis_data = {}
-                        track("collector_fail", source="gis", error_code=str(coord_e))
-                else:
-                    gis_data = {}
-                    track("collector_fail", source="gis", error_code=str(e))
-                    logger.warning(f"⚠️ GIS collection failed: {e}")
-                
-                # Use GIS coordinates as fallback if GovMap autocomplete failed
-                if x_itm is None and y_itm is None and gis_data.get('x') and gis_data.get('y'):
-                    try:
-                        x_itm = gis_data.get('x')
-                        y_itm = gis_data.get('y')
-                        lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                        logger.info(f"📍 Using GIS coordinates as fallback: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
-                    except Exception as coord_e:
-                        logger.warning(f"⚠️ Failed to convert GIS coordinates: {coord_e}")
-                
-                # Use GIS block/parcel as fallback if GovMap failed
-                if not block and gis_data.get('block'):
-                    block = gis_data.get('block', '')
-                if not parcel and gis_data.get('parcel'):
-                    parcel = gis_data.get('parcel', '')
-                
-                logger.info(f"📍 GIS data collected: block={gis_data.get('block', 'N/A')}, parcel={gis_data.get('parcel', 'N/A')}")
-            
+                gis_data = {}
+                track("collector_fail", source="gis", error_code=str(e))
+                logger.warning(f"⚠️ GIS collection failed: {e}")
+
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}
             if block and parcel:
@@ -518,6 +598,8 @@ class DataPipeline:
                     db_listing = self._store_listing(session, listing)
                     results.append(listing)
 
+                    listing_snapshot = _build_listing_snapshot(listing, db_listing)
+
                     # ---------------- GovMap Autocomplete (already collected above) ----------------
                     if govmap_data.get("api_data", {}).get("autocomplete"):
                         autocomplete_data = govmap_data["api_data"]["autocomplete"]
@@ -563,15 +645,8 @@ class DataPipeline:
 
                     # ---------------- Alerts ----------------
                     for notifier in notifiers:
-                        try:
-                            notifier.notify(db_listing)
-                            track("alert_send", source=notifier.__class__.__name__)
-                        except Exception as e:
-                            track(
-                                "alert_fail",
-                                source=notifier.__class__.__name__,
-                                error_code=str(e),
-                            )
+                        if notifier.matches(listing_snapshot):
+                            pending_notifications.append((notifier, listing_snapshot))
                 
                 # If no listings, still add collected data to results
                 if not listings:
@@ -605,14 +680,33 @@ class DataPipeline:
                         results.append({"source": "mavat", "data": mavat_plans})
 
                 session.commit()
-                
+
+                _dispatch_notifications(pending_notifications)
+
+                listing_payloads = _normalize_listings(listings)
+
                 # Update Asset model with collected data
                 if asset_id:
-                    _update_asset_with_collected_data(asset_id, block, parcel, govmap_data.get("api_data", {}).get("autocomplete", {}), govmap_data, gis_data, gov_data, plans, mavat_plans, listings, x_itm, y_itm, lon_wgs84, lat_wgs84)
-                    
+                    _update_asset_with_collected_data(
+                        asset_id,
+                        block,
+                        parcel,
+                        govmap_data.get("api_data", {}).get("autocomplete", {}),
+                        govmap_data,
+                        gis_data,
+                        gov_data,
+                        plans,
+                        mavat_plans,
+                        listing_payloads,
+                        x_itm,
+                        y_itm,
+                        lon_wgs84,
+                        lat_wgs84,
+                    )
+
                     # Create snapshot for alert evaluation
                     _create_asset_snapshot(asset_id, results)
-                    
+
                     # Trigger alert evaluation
                     try:
                         from core.tasks import evaluate_alerts_for_asset
@@ -631,9 +725,18 @@ class DataPipeline:
             return results
 
 
-def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: List[Dict[str, Any]], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
+def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
     """Update the Asset model with all collected data from GIS, Gov, Mavat, and Yad2."""
     try:
+        # Defensive: ensure all dicts/lists are not None
+        govmap_autocomplete_data = govmap_autocomplete_data or {}
+        govmap_data = govmap_data or {}
+        gis_data = gis_data or {}
+        gov_data = gov_data or {}
+        plans = plans or []
+        mavat_plans = mavat_plans or []
+        listings = listings or []
+
         import os
         import sys
         
@@ -790,42 +893,64 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             _process_mavat_plans(asset, mavat_plans)
         
         # Update with Yad2 listings
-        if listings:
-            asset.meta['yad2_listings'] = listings
-            
-            # Extract key market data for quick access
-            if listings:
-                prices = [listing.get('price') for listing in listings if listing.get('price')]
-                areas = [listing.get('area') for listing in listings if listing.get('area')]
-                
-                if prices:
-                    asset.meta['market_data'] = {
+        normalized_listings = _normalize_listings(listings or [])
+        if listings and not normalized_listings:
+            logger.debug("All listings dropped while normalizing Yad2 data for asset %s", asset_id)
+
+        if normalized_listings:
+            asset.meta['yad2_listings'] = normalized_listings
+
+            prices = [listing.get('price') for listing in normalized_listings if listing.get('price')]
+            areas = [listing.get('area') for listing in normalized_listings if listing.get('area')]
+
+            market_data = asset.meta.setdefault('market_data', {})
+
+            if prices:
+                market_data.update(
+                    {
                         'min_price': min(prices),
                         'max_price': max(prices),
                         'avg_price': sum(prices) / len(prices),
-                        'price_count': len(prices)
+                        'price_count': len(prices),
                     }
-                
-                if areas:
-                    asset.meta['market_data']['min_area'] = min(areas)
-                    asset.meta['market_data']['max_area'] = max(areas)
-                    asset.meta['market_data']['avg_area'] = sum(areas) / len(areas)
-                    asset.meta['market_data']['area_count'] = len(areas)
-        
+                )
+
+            if areas:
+                market_data.update(
+                    {
+                        'min_area': min(areas),
+                        'max_area': max(areas),
+                        'avg_area': sum(areas) / len(areas),
+                        'area_count': len(areas),
+                    }
+                )
+
+            if not market_data:
+                asset.meta.pop('market_data', None)
+
         # Update last enrichment timestamp
         from django.utils import timezone
         asset.meta['last_enrichment'] = timezone.now().isoformat()
-        
+
         asset.save()
-        
+
         # Create Django model records from collected data
-        _create_django_records_from_collected_data(asset, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings)
-        
+        _create_django_records_from_collected_data(
+            asset,
+            govmap_autocomplete_data,
+            govmap_data,
+            gis_data,
+            gov_data,
+            plans,
+            mavat_plans,
+            normalized_listings,
+        )
+
         # Create Document and Plan records
         _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans)
-        
+
         # Calculate market metrics
-        _calculate_market_metrics(asset, listings, gov_data)
+        _calculate_market_metrics(asset, normalized_listings, gov_data)
         
         logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
         
@@ -1146,10 +1271,15 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
     """Create Django model records (SourceRecord, RealEstateTransaction) from collected data."""
     try:
         from core.models import SourceRecord, RealEstateTransaction
-        
+
+        normalized_listings = _normalize_listings(listings or [])
+
         # Create SourceRecord for Yad2 listings
-        if listings:
-            for listing in listings:
+        if listings and not normalized_listings:
+            logger.debug("All listings dropped while normalizing listings for Django source records on asset %s", asset.id)
+
+        if normalized_listings:
+            for listing in normalized_listings:
                 if listing.get('listing_id'):
                     SourceRecord.objects.get_or_create(
                         asset=asset,
@@ -1235,9 +1365,9 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                             'raw': transaction
                         }
                     )
-        
+
         logger.info(f"Created Django records for asset {asset.id}")
-        
+
     except Exception as e:
         logger.error(f"Failed to create Django records for asset {asset.id}: {e}")
 
@@ -1247,11 +1377,13 @@ def _calculate_market_metrics(asset, listings, gov_data):
     try:
         # Initialize market metrics
         market_metrics = {}
-        
+
         # Calculate price metrics from Yad2 listings
-        if listings:
-            prices = [listing.get('price') for listing in listings if listing.get('price')]
-            areas = [listing.get('area') for listing in listings if listing.get('area')]
+        listing_dicts = _normalize_listings(listings or []) if listings else []
+
+        if listing_dicts:
+            prices = [listing.get('price') for listing in listing_dicts if listing.get('price')]
+            areas = [listing.get('area') for listing in listing_dicts if listing.get('area')]
             
             if prices:
                 avg_price = sum(prices) / len(prices)
@@ -1290,12 +1422,12 @@ def _calculate_market_metrics(asset, listings, gov_data):
             market_metrics['rentEstimate'] = int(estimated_rent)
         
         # Calculate competition metrics
-        if listings:
+        if listing_dicts:
             # Competition within 1km (simplified - based on number of listings)
             competition_level = "נמוכה"
-            if len(listings) > 10:
+            if len(listing_dicts) > 10:
                 competition_level = "גבוהה"
-            elif len(listings) > 5:
+            elif len(listing_dicts) > 5:
                 competition_level = "בינונית"
             market_metrics['competition1km'] = competition_level
         
@@ -1319,9 +1451,9 @@ def _calculate_market_metrics(asset, listings, gov_data):
         market_metrics['riskFlags'] = risk_flags
         
         # Calculate DOM percentile (simplified)
-        if listings:
+        if listing_dicts:
             # Simulate DOM based on number of listings (more listings = higher DOM)
-            dom_percentile = min(90, len(listings) * 10)
+            dom_percentile = min(90, len(listing_dicts) * 10)
             market_metrics['domPercentile'] = dom_percentile
         
         # Store market metrics in asset meta
@@ -1598,7 +1730,6 @@ def _create_documents_from_rami_plans(asset, plans):
         asset.meta['documents'].append(document)
     
     logger.info(f"Created {len(plans)} RAMI plan documents for asset {asset.id}")
-
 
 
 

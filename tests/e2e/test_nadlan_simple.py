@@ -130,7 +130,7 @@ class TestNadlanSimple:
         collector = GovCollector()
         assert collector is not None, "Should create GovCollector instance"
         assert collector.deals_client is not None, "Should have deals client"
-        assert collector.decisive_func is not None, "Should have decisive function"
+        assert collector.decisive_client is not None, "Should have decisive client"
         
         # Test 2: Parameter validation
         assert collector.validate_parameters(block="1234", parcel="56", address=TEST_ADDRESS) is True, "Should validate correct parameters"

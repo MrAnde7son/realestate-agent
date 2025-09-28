@@ -21,6 +21,18 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver').split(',')
 
+# LLM configuration
+LLM_DEFAULT_PROVIDER = os.getenv("LLM_DEFAULT_PROVIDER", "gemini")
+LLM_ALLOW_OVERRIDE = os.getenv("LLM_ALLOW_OVERRIDE", "true").lower() == "true"
+
+# Gemini
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+
+# OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
 # Custom user model
 AUTH_USER_MODEL = 'core.User'
 
@@ -243,21 +255,12 @@ APPEND_SLASH = True
 USE_X_FORWARDED_HOST = True
 
 # Email Configuration
-DEFAULT_FROM_EMAIL = config('EMAIL_FROM', default='no-reply@nadlaner.com')
-
-# SendGrid Configuration
-SENDGRID_API_KEY = config('SENDGRID_API_KEY', default='')
-if SENDGRID_API_KEY:
-    EMAIL_BACKEND = 'sendgrid.backends.mail.SendgridBackend'
-    SENDGRID_API_KEY = SENDGRID_API_KEY
-else:
-    # Fallback to SMTP
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = config('SMTP_HOST', default='smtp.gmail.com')
-    EMAIL_PORT = config('SMTP_PORT', default=587, cast=int)
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = config('SMTP_USER', default='')
-    EMAIL_HOST_PASSWORD = config('SMTP_PASSWORD', default='')
+EMAIL_BACKEND = 'core.email_backends.resend_backend.ResendEmailBackend'
+DEFAULT_FROM_EMAIL = config('RESEND_FROM', default='no-reply@nadlaner.com')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+RESEND_API_KEY = config('RESEND_API_KEY', default='')
+RESEND_SANDBOX = config('RESEND_SANDBOX', default=False, cast=bool)
+EMAIL_FALLBACK_TO_CONSOLE = config('EMAIL_FALLBACK_TO_CONSOLE', default=False, cast=bool)
 
 # WhatsApp Configuration (Twilio)
 TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')

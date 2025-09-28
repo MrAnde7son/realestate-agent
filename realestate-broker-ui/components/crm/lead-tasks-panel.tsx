@@ -40,6 +40,7 @@ import { Lead, ContactTask, TaskStatus, CrmApi, CreateTaskData, UpdateTaskData }
 import { useToast } from '@/hooks/use-toast';
 import { TaskForm } from './task-form';
 import { PageLoader } from '@/components/ui/page-loader';
+import { clearTaskCache } from './lead-task-summary';
 
 interface LeadTasksPanelProps {
   lead: Lead;
@@ -82,17 +83,19 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
 
   const handleCreateTask = async (data: CreateTaskData | UpdateTaskData) => {
     try {
-      // Type guard to ensure we have CreateTaskData
-      if ('contact_id' in data) {
-        await CrmApi.createTask({
-          ...data,
-          contact_id: lead.contact_id,
-          lead_id: lead.id,
-        });
-      } else {
-        throw new Error('Invalid data for task creation');
-      }
+      // Ensure we have the required fields for task creation
+      const createData: CreateTaskData = {
+        title: data.title || '',
+        description: data.description,
+        due_at: data.due_at,
+        contact_id: lead.contact_id,
+        lead_id_write: lead.id,
+        status: data.status || 'pending',
+      };
+      
+      await CrmApi.createTask(createData);
       await loadTasks();
+      clearTaskCache(lead.id); // Clear cache to update summary
       setIsCreateModalOpen(false);
       toast({
         title: 'משימה נוצרה',
@@ -111,6 +114,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
     try {
       await CrmApi.completeTask(task.id);
       await loadTasks();
+      clearTaskCache(lead.id); // Clear cache to update summary
       toast({
         title: 'משימה הושלמה',
         description: 'המשימה סומנה כהושלמה',
@@ -132,6 +136,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
     try {
       await CrmApi.deleteTask(task.id);
       await loadTasks();
+      clearTaskCache(lead.id); // Clear cache to update summary
       toast({
         title: 'משימה נמחקה',
         description: 'המשימה נמחקה בהצלחה',
@@ -156,6 +161,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
     try {
       await CrmApi.updateTask(selectedTask.id, data);
       await loadTasks();
+      clearTaskCache(lead.id); // Clear cache to update summary
       setIsEditModalOpen(false);
       setSelectedTask(null);
       toast({
@@ -215,25 +221,26 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <CheckSquare className="h-5 w-5" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5" />
               משימות לליד
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm break-words">
               משימות עבור {lead.contact.name} - {lead.asset_address}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" className="flex-1 sm:flex-none">
                   <Plus className="h-4 w-4 mr-2" />
-                  משימה חדשה
+                  <span className="hidden sm:inline">משימה חדשה</span>
+                  <span className="sm:hidden">חדשה</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="mx-4 sm:mx-0">
                 <DialogHeader>
                   <DialogTitle>יצירת משימה חדשה</DialogTitle>
                 </DialogHeader>
@@ -245,8 +252,9 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
               </DialogContent>
             </Dialog>
             {onClose && (
-              <Button size="sm" variant="outline" onClick={onClose}>
+              <Button size="sm" variant="outline" onClick={onClose} className="h-9 w-9 p-0 sm:h-9 sm:w-auto sm:px-3">
                 <X className="h-4 w-4" />
+                <span className="hidden sm:inline mr-2">סגור</span>
               </Button>
             )}
           </div>
@@ -255,7 +263,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
         {/* Status Summary */}
         <div className="flex gap-2 flex-wrap">
           {statusOptions.map(({ value, label, color }) => (
-            <Badge key={value} className={color}>
+            <Badge key={value} className={`${color} text-xs`}>
               {label}: {statusCounts[value]}
             </Badge>
           ))}
@@ -264,93 +272,100 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
 
       <CardContent>
         {tasks.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>אין משימות עבור ליד זה</p>
-            <p className="text-sm">צור משימה חדשה כדי להתחיל</p>
+          <div className="text-center py-6 sm:py-8 text-muted-foreground">
+            <CheckSquare className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm sm:text-base">אין משימות עבור ליד זה</p>
+            <p className="text-xs sm:text-sm">צור משימה חדשה כדי להתחיל</p>
           </div>
         ) : (
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">כותרת</TableHead>
-                  <TableHead className="text-right">תיאור</TableHead>
-                  <TableHead className="text-right">תאריך יעד</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                  <TableHead className="text-right">נוצר</TableHead>
-                  <TableHead className="text-right">פעולות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.map((task) => {
-                  const statusInfo = getStatusInfo(task.status);
-                  return (
-                    <TableRow key={task.id}>
-                      <TableCell className="text-right">
-                        <div className="font-medium">{task.title}</div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="text-sm text-muted-foreground max-w-xs truncate">
-                          {task.description || 'ללא תיאור'}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center gap-1 text-sm">
-                          <Calendar className="h-4 w-4" />
-                          {formatDate(task.due_at)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge className={statusInfo.color}>
-                          {statusInfo.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="text-sm text-muted-foreground">
-                          {formatDate(task.created_at)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {task.status === 'pending' && (
-                              <DropdownMenuItem onClick={() => handleCompleteTask(task)}>
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                סמן כהושלם
+          <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right min-w-[150px]">כותרת</TableHead>
+                    <TableHead className="text-right min-w-[120px] hidden sm:table-cell">תיאור</TableHead>
+                    <TableHead className="text-right min-w-[100px] hidden md:table-cell">תאריך יעד</TableHead>
+                    <TableHead className="text-right min-w-[100px] hidden sm:table-cell">סטטוס</TableHead>
+                    <TableHead className="text-right min-w-[100px] hidden lg:table-cell">נוצר</TableHead>
+                    <TableHead className="text-right min-w-[80px]">פעולות</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tasks.map((task) => {
+                    const statusInfo = getStatusInfo(task.status);
+                    return (
+                      <TableRow key={task.id}>
+                        <TableCell className="text-right">
+                          <div className="font-medium text-sm sm:text-base">{task.title}</div>
+                          <div className="text-xs text-muted-foreground sm:hidden">
+                            <Badge className={`${statusInfo.color} text-xs`}>
+                              {statusInfo.label}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right hidden sm:table-cell">
+                          <div className="text-xs sm:text-sm text-muted-foreground max-w-xs truncate">
+                            {task.description || 'ללא תיאור'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right hidden md:table-cell">
+                          <div className="flex items-center gap-1 text-xs sm:text-sm">
+                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                            {formatDate(task.due_at)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right hidden sm:table-cell">
+                          <Badge className={`${statusInfo.color} text-xs`}>
+                            {statusInfo.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right hidden lg:table-cell">
+                          <div className="text-xs sm:text-sm text-muted-foreground">
+                            {formatDate(task.created_at)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              {task.status === 'pending' && (
+                                <DropdownMenuItem onClick={() => handleCompleteTask(task)}>
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  סמן כהושלם
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleEditTask(task)}>
+                                <Clock className="h-4 w-4 mr-2" />
+                                ערוך
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => handleEditTask(task)}>
-                              <Clock className="h-4 w-4 mr-2" />
-                              ערוך
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteTask(task)}
-                              className="text-red-600"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              מחק
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteTask(task)}
+                                className="text-red-600"
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                מחק
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </CardContent>
 
       {/* Edit Task Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent>
+        <DialogContent className="mx-4 sm:mx-0">
           <DialogHeader>
             <DialogTitle>עריכת משימה</DialogTitle>
           </DialogHeader>

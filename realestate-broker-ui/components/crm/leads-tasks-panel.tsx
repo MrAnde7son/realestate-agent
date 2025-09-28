@@ -432,6 +432,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
                               lead={lead}
                               onUpdate={handleLeadUpdate}
                               onDelete={() => handleLeadDelete(lead)}
+                              onShowTasks={() => {}} // No-op since this panel already shows tasks
                             />
                           </TableCell>
                         </TableRow>

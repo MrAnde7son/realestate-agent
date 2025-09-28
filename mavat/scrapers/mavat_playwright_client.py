@@ -350,7 +350,3 @@ class MavatPlaywrightClient:
             return True
         except:
             return False
-
-
-# Backward compatibility
-MavatScraper = MavatPlaywrightClient

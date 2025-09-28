@@ -80,14 +80,28 @@ def test_pipeline_sends_alerts(monkeypatch):
 
     class DummyNotifier:
         def __init__(self):
-            self.calls = []
+            self.matches_calls = []
+
+        def matches(self, listing):
+            self.matches_calls.append(listing.title)
+            return True
 
         def notify(self, listing):
-            self.calls.append(listing.title)
+            raise AssertionError("notify should be called via dispatcher")
+
+    dispatched = []
+
+    def fake_dispatch(jobs):
+        dispatched.extend(jobs)
 
     notifier = DummyNotifier()
     monkeypatch.setattr(data_pipeline, "_load_user_notifiers", lambda: [notifier])
+    monkeypatch.setattr(data_pipeline, "_dispatch_notifications", fake_dispatch)
 
     pipeline.run("Fake", 1, asset_id=123)
 
-    assert notifier.calls == ["t"]
+    assert notifier.matches_calls == ["t"]
+    assert len(dispatched) == 1
+    queued_notifier, listing_snapshot = dispatched[0]
+    assert queued_notifier is notifier
+    assert listing_snapshot.title == "t"

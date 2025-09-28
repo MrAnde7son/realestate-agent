@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import DashboardLayout from '@/components/layout/dashboard-layout';
 import { PageLoader } from '@/components/ui/page-loader';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -68,20 +69,45 @@ export default function ContactsPage() {
     loadContacts();
   }, [loadContacts]);
 
-  const handleCreateContact = async (data: CreateContactData) => {
+  const handleCreateContact = async (data: CreateContactData & { selectedAsset?: any }) => {
     try {
       setIsSubmitting(true);
-      await CrmApi.createContact(data);
-      await loadContacts();
+      const contact = await CrmApi.createContact(data);
+      
+      // If an asset was selected, create a lead automatically
+      if (data.selectedAsset) {
+        try {
+          await CrmApi.createLead({
+            contact_id_write: contact.id,
+            asset_id: data.selectedAsset.id,
+            status: 'new'
+          });
+          
+          toast({
+            title: 'לקוח וליד נוצרו',
+            description: `הלקוח נוצר בהצלחה וליד חדש נוצר עבור הנכס ${data.selectedAsset.address}.`,
+          });
+        } catch (leadError: any) {
+          console.error('Error creating lead:', leadError);
+          toast({
+            title: 'לקוח נוצר, שגיאה בליד',
+            description: 'הלקוח נוצר בהצלחה אך לא ניתן ליצור ליד עבור הנכס שנבחר.',
+            variant: 'destructive',
+          });
+        }
+      } else {
+        toast({
+          title: 'לקוח נוצר',
+          description: 'הלקוח החדש נוצר בהצלחה.',
+        });
+      }
+      
       setIsCreateDialogOpen(false);
-      toast({
-        title: 'לקוח נוצר',
-        description: 'הלקוח נוצר בהצלחה',
-      });
-    } catch (error) {
+      loadContacts();
+    } catch (error: any) {
       toast({
         title: 'שגיאה',
-        description: 'לא ניתן ליצור את הלקוח',
+        description: error.message || 'לא ניתן ליצור לקוח חדש.',
         variant: 'destructive',
       });
     } finally {
@@ -89,22 +115,47 @@ export default function ContactsPage() {
     }
   };
 
-  const handleUpdateContact = async (data: CreateContactData) => {
+  const handleUpdateContact = async (data: CreateContactData & { selectedAsset?: any }) => {
     if (!editingContact) return;
 
     try {
       setIsSubmitting(true);
       await CrmApi.updateContact(editingContact.id, data);
-      await loadContacts();
+      
+      // If an asset was selected, create a lead automatically
+      if (data.selectedAsset) {
+        try {
+          await CrmApi.createLead({
+            contact_id_write: editingContact.id,
+            asset_id: data.selectedAsset.id,
+            status: 'new'
+          });
+          
+          toast({
+            title: 'לקוח עודכן וליד נוצר',
+            description: `הלקוח עודכן בהצלחה וליד חדש נוצר עבור הנכס ${data.selectedAsset.address}.`,
+          });
+        } catch (leadError: any) {
+          console.error('Error creating lead:', leadError);
+          toast({
+            title: 'לקוח עודכן, שגיאה בליד',
+            description: 'הלקוח עודכן בהצלחה אך לא ניתן ליצור ליד עבור הנכס שנבחר.',
+            variant: 'destructive',
+          });
+        }
+      } else {
+        toast({
+          title: 'לקוח עודכן',
+          description: 'הלקוח עודכן בהצלחה',
+        });
+      }
+      
       setEditingContact(null);
-      toast({
-        title: 'לקוח עודכן',
-        description: 'הלקוח עודכן בהצלחה',
-      });
-    } catch (error) {
+      loadContacts();
+    } catch (error: any) {
       toast({
         title: 'שגיאה',
-        description: 'לא ניתן לעדכן את הלקוח',
+        description: error.message || 'לא ניתן לעדכן את הלקוח',
         variant: 'destructive',
       });
     } finally {
@@ -157,8 +208,20 @@ export default function ContactsPage() {
   return (
     <DashboardLayout>
       <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">לקוחות</h1>
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/crm">לקוחות ולידים</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>לקוחות</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">לקוחות</h1>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>

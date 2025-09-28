@@ -116,6 +116,18 @@ class FakeMavatCollector(MavatCollector):
         return [{"plan_id": "333", "title": "Test Mavat Plan", "status": "approved"}]
 
 
+class DummyAsset:
+    def __init__(self):
+        self.meta = {}
+        self.price = 1_000_000
+        self.area = 80
+        self.id = 1
+        self.saved = False
+
+    def save(self):
+        self.saved = True
+
+
 def test_data_pipeline_integration():
     db = SQLAlchemyDatabase("sqlite:///:memory:")
     db.init_db()  # Initialize the database engine first
@@ -156,3 +168,18 @@ def test_data_pipeline_integration():
     # Verify Mavat data is included
     mavat_found = any('mavat' in str(result) for result in results)
     assert mavat_found, "Mavat data should be included in results"
+
+
+def test_calculate_market_metrics_skips_invalid_listings():
+    from orchestration.data_pipeline import _calculate_market_metrics
+
+    asset = DummyAsset()
+
+    listings = [None, {"price": 900_000, "area": 75}, "not-a-dict"]
+
+    _calculate_market_metrics(asset, listings, gov_data={})
+
+    assert asset.saved is True
+    metrics = asset.meta.get('market_metrics', {})
+    assert metrics.get('modelPrice') == 900_000
+    assert metrics.get('confidencePct') == 20

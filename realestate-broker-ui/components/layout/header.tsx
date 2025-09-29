@@ -86,8 +86,8 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 flex h-16 items-center justify-between border-b bg-background px-6">
-      {/* Left side - Menu button and search */}
-      <div className="flex items-center gap-4">
+      {/* Right side - Menu button, logo and company name (RTL layout) */}
+      <div className="flex items-center gap-3 md:gap-4">
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
           <SheetTrigger asChild>
             <Button
@@ -170,15 +170,21 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           </SheetContent>
         </Sheet>
 
-        <Link href="/" aria-label="עמוד הבית">
+        <Link
+          href="/"
+          aria-label="עמוד הבית"
+          className="flex items-center gap-2"
+        >
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
+          <span className="text-base font-semibold text-foreground whitespace-nowrap sm:text-lg">
+            נדל״נר
+          </span>
         </Link>
-        <GlobalSearch />
       </div>
 
-
-      {/* Right side - Theme toggle and user menu */}
-      <div className="flex items-center gap-4">
+      {/* Left side - Global search and theme toggle (enforced LTR for alignment) */}
+      <div className="flex items-center gap-3 md:gap-4" dir="ltr">
+        <GlobalSearch />
         <ThemeToggle />
       </div>
     </header>

@@ -445,6 +445,17 @@ class Asset(models.Model):
     price_per_sqm = models.IntegerField(blank=True, null=True)
     rent_estimate = models.IntegerField(blank=True, null=True)
 
+    # Computed market metrics (populated by enrichment pipeline)
+    price_gap_pct = models.FloatField(blank=True, null=True)
+    expected_price_range = models.CharField(max_length=100, blank=True, null=True)
+    model_price = models.IntegerField(blank=True, null=True)
+    confidence_pct = models.FloatField(blank=True, null=True)
+    delta_vs_area_pct = models.FloatField(blank=True, null=True)
+    cap_rate_pct = models.FloatField(blank=True, null=True)
+    competition_1km = models.CharField(max_length=20, blank=True, null=True)
+    risk_flags = models.JSONField(blank=True, null=True, default=list)
+    dom_percentile = models.IntegerField(blank=True, null=True)
+
     # Legal/Planning fields
     zoning = models.CharField(max_length=100, blank=True, null=True)
     building_rights = models.CharField(max_length=200, blank=True, null=True)

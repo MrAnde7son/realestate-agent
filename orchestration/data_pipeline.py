@@ -534,9 +534,9 @@ class DataPipeline:
             
             # Extract block and parcel from GovMap data
             if govmap_data.get("api_data", {}).get("parcel"):
-                parcel_info = govmap_data.get("api_data", {}).get("parcel", {})
-                block = parcel_info.get("gush", "")
-                parcel = parcel_info.get("helka", "")
+                parcel_props = govmap_data.get("api_data", {}).get("parcel", {}).get('properties', {})
+                block = parcel_props.get("gushnumber", "")
+                parcel = parcel_props.get("parcelnumber", "")
 
             logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
 
@@ -1262,7 +1262,7 @@ def _process_govmap_data(asset, govmap_data):
             asset.set_property('govmapHelka', parcel.get('helka'), source='GovMap', url='https://www.govmap.gov.il/')
         if parcel.get('land_use'):
             asset.set_property('govmapLandUse', parcel.get('land_use'), source='GovMap', url='https://www.govmap.gov.il/')
-    
+
     # Process nearby layers data (if available in the future)
     if govmap_data.get('nearby'):
         nearby = govmap_data.get('nearby', {})
@@ -1411,106 +1411,100 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                     pass
 
 def _calculate_market_metrics(asset, listings, gov_data):
-    """Calculate market metrics for the asset based on collected data."""
+    """Calculate and persist market metrics.
+
+    - Computes metrics from Yad2 listings (prices, areas)
+    - Derives confidence, competition, rent estimate, cap rate, DOM percentile
+    - Generates risk flags heuristically
+    - Stores camelCase metrics in asset.meta['market_metrics'] for backward compatibility
+    - Maps a subset to snake_case Asset fields
+    """
     try:
-        # Initialize market metrics
-        market_metrics = {}
-
-        # Calculate price metrics from Yad2 listings
         listing_dicts = _normalize_listings(listings or []) if listings else []
+        metrics: Dict[str, Any] = {}
 
+        # --- Price / Area derived metrics ---
         if listing_dicts:
-            prices = [listing.get('price') for listing in listing_dicts if listing.get('price')]
-            areas = [listing.get('area') for listing in listing_dicts if listing.get('area')]
-            
+            prices = [l.get('price') for l in listing_dicts if l.get('price')]
+            areas = [l.get('area') for l in listing_dicts if l.get('area')]
+
             if prices:
                 avg_price = sum(prices) / len(prices)
-                min_price = min(prices)
-                max_price = max(prices)
-                
-                # Price gap percentage (if asset has a price)
-                if asset.price:
-                    price_gap_pct = ((asset.price - avg_price) / avg_price) * 100
-                    market_metrics['priceGapPct'] = round(price_gap_pct, 2)
-                
-                # Expected price range
-                market_metrics['expectedPriceRange'] = f"{min_price:,} - {max_price:,}"
-                
-                # Model price (average of similar properties)
-                market_metrics['modelPrice'] = int(avg_price)
-                
-                # Confidence percentage (based on number of comparable properties)
-                confidence_pct = min(100, len(prices) * 20)  # 20% per comparable property, max 100%
-                market_metrics['confidencePct'] = confidence_pct
-            
-            if areas:
+                metrics['modelPrice'] = int(avg_price)
+                metrics['expectedPriceRange'] = f"{min(prices):,} - {max(prices):,}"
+                if asset.price and avg_price > 0:
+                    metrics['priceGapPct'] = round(((asset.price - avg_price) / avg_price) * 100, 2)
+                # Confidence: 20% per comp up to 100
+                metrics['confidencePct'] = min(100, len(prices) * 20)
+            else:
+                metrics['confidencePct'] = 0
+
+            if areas and asset.area:
                 avg_area = sum(areas) / len(areas)
-                if asset.area and avg_area:
-                    # Delta vs area percentage
-                    delta_vs_area_pct = ((asset.area - avg_area) / avg_area) * 100
-                    market_metrics['deltaVsAreaPct'] = round(delta_vs_area_pct, 2)
-        
-        # Calculate cap rate from rent estimate
-        if asset.price and asset.area:
-            # Estimate rent based on area (rough calculation: 50-80 NIS per sqm)
-            estimated_rent = asset.area * 65  # Average of 65 NIS per sqm
-            annual_rent = estimated_rent * 12
-            cap_rate = (annual_rent / asset.price) * 100
-            market_metrics['capRatePct'] = round(cap_rate, 2)
-            market_metrics['rentEstimate'] = int(estimated_rent)
-        
-        # Calculate competition metrics
-        if listing_dicts:
-            # Competition within 1km (simplified - based on number of listings)
-            competition_level = "נמוכה"
-            if len(listing_dicts) > 10:
-                competition_level = "גבוהה"
-            elif len(listing_dicts) > 5:
-                competition_level = "בינונית"
-            market_metrics['competition1km'] = competition_level
-        
-        # Calculate risk flags
+                if avg_area > 0:
+                    metrics['deltaVsAreaPct'] = round(((asset.area - avg_area) / avg_area) * 100, 2)
+
+            # Competition heuristic based on number of listings
+            n = len(listing_dicts)
+            if n > 10:
+                metrics['competition1km'] = 'גבוהה'
+            elif n > 5:
+                metrics['competition1km'] = 'בינונית'
+            else:
+                metrics['competition1km'] = 'נמוכה'
+
+            # DOM percentile heuristic (coarse)
+            metrics['domPercentile'] = min(90, n * 10)
+        else:
+            # No comps -> low confidence baseline
+            metrics['confidencePct'] = 0
+
+        # --- Rent & Cap Rate ---
+        if asset.area and asset.price:  # need both for cap rate
+            rent_estimate = asset.area * 65  # simple heuristic (NIS / sqm)
+            metrics['rentEstimate'] = int(rent_estimate)
+            annual_rent = rent_estimate * 12
+            if asset.price > 0:
+                metrics['capRatePct'] = round((annual_rent / asset.price) * 100, 2)
+
+        # --- Risk Flags ---
         risk_flags = []
-        
-        # Price risk
-        if market_metrics.get('priceGapPct'):
-            if abs(market_metrics['priceGapPct']) > 20:
-                risk_flags.append("פער מחיר גבוה")
-        
-        # Area risk
-        if market_metrics.get('deltaVsAreaPct'):
-            if abs(market_metrics['deltaVsAreaPct']) > 30:
-                risk_flags.append("פער שטח גבוה")
-        
-        # Low confidence
-        if market_metrics.get('confidencePct', 0) < 40:
-            risk_flags.append("ביטחון נמוך")
-        
-        market_metrics['riskFlags'] = risk_flags
-        
-        # Calculate DOM percentile (simplified)
-        if listing_dicts:
-            # Simulate DOM based on number of listings (more listings = higher DOM)
-            dom_percentile = min(90, len(listing_dicts) * 10)
-            market_metrics['domPercentile'] = dom_percentile
-        
-        # Store market metrics in asset meta
+        if abs(metrics.get('priceGapPct', 0)) > 20:
+            risk_flags.append('פער מחיר גבוה')
+        if abs(metrics.get('deltaVsAreaPct', 0)) > 30:
+            risk_flags.append('פער שטח גבוה')
+        if metrics.get('confidencePct', 0) < 40:
+            risk_flags.append('ביטחון נמוך')
+        metrics['riskFlags'] = risk_flags
+
+        # --- Persist to meta (camelCase retained) ---
         if not asset.meta:
             asset.meta = {}
-        
-        asset.meta['market_metrics'] = market_metrics
-        
-        # Update asset fields with calculated metrics
-        for key, value in market_metrics.items():
-            if hasattr(asset, key):
-                setattr(asset, key, value)
-        
-        asset.save()
-        
-        logger.info(f"Calculated market metrics for asset {asset.id}: {market_metrics}")
-        
-    except Exception as e:
-        logger.error(f"Failed to calculate market metrics for asset {asset.id}: {e}")
+        asset.meta['market_metrics'] = metrics
+
+        # --- Map camelCase to snake_case model fields ---
+        field_map = {
+            'priceGapPct': 'price_gap_pct',
+            'expectedPriceRange': 'expected_price_range',
+            'modelPrice': 'model_price',
+            'confidencePct': 'confidence_pct',
+            'deltaVsAreaPct': 'delta_vs_area_pct',
+            'capRatePct': 'cap_rate_pct',
+            'competition1km': 'competition_1km',
+            'riskFlags': 'risk_flags',
+            'domPercentile': 'dom_percentile',
+            'rentEstimate': 'rent_estimate',
+        }
+        update_fields = {'meta'}
+        for camel, snake in field_map.items():
+            if camel in metrics and hasattr(asset, snake):
+                setattr(asset, snake, metrics[camel])
+                update_fields.add(snake)
+
+        asset.save(update_fields=list(update_fields))
+        logger.debug('[MARKET_METRICS] asset=%s metrics=%s', asset.id, metrics)
+    except Exception as e:  # pragma: no cover - defensive
+        logger.error('Failed to calculate market metrics for asset %s: %s', getattr(asset, 'id', '?'), e)
 
 
 def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
@@ -1608,6 +1602,7 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
 
 def _create_documents_from_permits(asset, permits):
     """Create documents from GIS permits data."""
+    print("Permits:" + str(permits))
     if not permits:
         return
     # Get a system user or create one for automated processes

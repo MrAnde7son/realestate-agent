@@ -25,7 +25,10 @@ class GeminiAdapter(LLMClient):
         )
 
     def _get_model(
-        self, json_mode: bool, schema: Optional[Dict[str, Any]] | None = None
+        self,
+        json_mode: bool,
+        schema: Optional[Dict[str, Any]] | None = None,
+        system_instruction: Optional[str] | None = None,
     ):
         generation_config: Dict[str, Any] | None = None
         if json_mode:
@@ -34,8 +37,37 @@ class GeminiAdapter(LLMClient):
                 "response_schema": schema or None,
             }
         return genai.GenerativeModel(
-            model_name=self.model_name, generation_config=generation_config
+            model_name=self.model_name,
+            generation_config=generation_config,
+            system_instruction=system_instruction,
         )
+
+    @staticmethod
+    def _prepare_chat_messages(
+        messages: List[ChatMessage],
+    ) -> tuple[Optional[str], List[Dict[str, Any]], Dict[str, Any]]:
+        if not messages:
+            raise ValueError("No chat messages provided")
+
+        system_parts: List[str] = []
+        normalized: List[Dict[str, Any]] = []
+
+        for message in messages:
+            if message.role == "system":
+                system_parts.append(message.content)
+                continue
+
+            role = "user" if message.role == "user" else "model"
+            normalized.append({"role": role, "parts": [message.content]})
+
+        if not normalized:
+            raise ValueError("At least one user or assistant message is required")
+
+        system_instruction = "\n\n".join(system_parts) if system_parts else None
+        history = normalized[:-1]
+        last_message = normalized[-1]
+
+        return system_instruction, history, last_message
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5))
     async def generate_text(
@@ -62,12 +94,13 @@ class GeminiAdapter(LLMClient):
         self, messages: List[ChatMessage], options: Optional[BaseGenOptions] = None
     ) -> str:
         opts = options or BaseGenOptions()
-        model = self._get_model(bool(opts.json), opts.response_schema)
-        history = [
-            {"role": message.role, "parts": [message.content]}
-            for message in messages[:-1]
-        ]
+        system_instruction, history, last_message = self._prepare_chat_messages(messages)
+        if last_message["role"] != "user":
+            raise ValueError("The last chat message must have role 'user'")
+
+        model = self._get_model(
+            bool(opts.json), opts.response_schema, system_instruction
+        )
         session = model.start_chat(history=history)
-        last = messages[-1]
-        response = await session.send_message_async(last.content)
+        response = await session.send_message_async(last_message["parts"][0])
         return response.text

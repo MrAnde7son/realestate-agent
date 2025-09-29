@@ -14,10 +14,15 @@ class GeminiAdapter(LLMClient):
     provider = "gemini"
 
     def __init__(self) -> None:
-        if not settings.GEMINI_API_KEY:
+        api_key = settings.GEMINI_API_KEY or getattr(settings, "GOOGLE_API_KEY", None)
+        if not api_key:
             raise ValueError("GEMINI_API_KEY is not configured")
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model_name = settings.GEMINI_MODEL
+        genai.configure(api_key=api_key)
+        self.model_name = (
+            settings.GEMINI_MODEL
+            or getattr(settings, "GOOGLE_MODEL", None)
+            or "gemini-2.5-pro"
+        )
 
     def _get_model(
         self, json_mode: bool, schema: Optional[Dict[str, Any]] | None = None

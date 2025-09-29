@@ -177,7 +177,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         >
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
           <span className="text-base font-semibold text-foreground whitespace-nowrap sm:text-lg">
-            נדל"נר
+            נדל״נר
           </span>
         </Link>
       </div>

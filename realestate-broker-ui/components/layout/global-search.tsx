@@ -194,15 +194,15 @@ export function GlobalSearch() {
   return (
     <>
       <Button
-        variant="outline"
-        className="relative h-9 w-9 p-0 xl:h-10 xl:w-60 xl:justify-start xl:px-3 xl:py-2 hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        variant="ghost"
+        size="sm"
+        className="relative h-9 w-9 rounded-full p-0 hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={() => setOpen(true)}
+        aria-label="פתח חיפוש גלובלי"
+        title="חיפוש גלובלי (⌘K)"
       >
-        <Search className="h-4 w-4 xl:ml-2" />
-        <span className="hidden xl:inline-flex">חפש בכל האתר...</span>
-        <kbd className="pointer-events-none absolute right-1.5 top-2 hidden h-6 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 xl:flex">
-          <span className="text-xs">⌘</span>K
-        </kbd>
+        <Search className="h-4 w-4" aria-hidden="true" />
+        <span className="sr-only">חפש בכל האתר</span>
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <DialogTitle className="sr-only">חיפוש גלובלי</DialogTitle>

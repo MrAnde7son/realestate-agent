@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from db.database import SQLAlchemyDatabase
 from db.models import Listing, SourceRecord, Transaction
+from utils.helpers import _first_nonempty, _safe_get
 from yad2.scrapers.yad2_scraper import RealEstateListing
 
 # collector imports
@@ -1718,7 +1719,7 @@ def _create_documents_from_appraisals(asset, appraisals):
 
 
 def _create_documents_from_rami_plans(asset, plans):
-    """Create documents from RAMI plans data."""
+    """Create documents from RAMI plans data (robust to missing/None sub-keys)."""
     if not plans:
         return
 
@@ -1726,42 +1727,51 @@ def _create_documents_from_rami_plans(asset, plans):
     if 'documents' not in asset.meta:
         asset.meta['documents'] = []
 
-    # Create documents for each plan
-    for plan in plans:
-        if not plan:
+    created = 0
+    for plan in plans or []:
+        if not isinstance(plan, dict):
             continue
 
-        # Extract plan information
-        plan_number = plan.get('planNumber', plan.get('plan_number', plan.get('number', '')))
-        plan_name = plan.get('title', plan.get('plan_name', plan.get('name', '')))
+        plan_number = _first_nonempty(
+            plan.get('planNumber'),
+            plan.get('plan_number'),
+            plan.get('number'),
+        )
+        plan_name = _first_nonempty(
+            plan.get('title'),
+            plan.get('plan_name'),
+            plan.get('name'),
+        )
         status = plan.get('status', '')
 
-        # Extract URL from documentsSet structure
-        url = ''
-        documents_set = plan.get('raw', {}).get('documentsSet', {})
+        # documentsSet can be {}, None, or missing entirely — handle all
+        raw = plan.get('raw') or {}
+        documents_set = raw.get('documentsSet') or {}
 
-        # Try to get URL from various sources in documentsSet
-        if documents_set:
-            if documents_set.get('map', {}).get('path'):
-                url = documents_set['map']['path']
-            elif documents_set.get('takanon', {}).get('path'):
-                url = documents_set['takanon']['path']
-            elif documents_set.get('mmg', {}).get('path'):
-                url = documents_set['mmg']['path']
+        # child entries can be dicts or None — guard each before reading 'path'
+        map_entry     = _safe_get(documents_set, 'map')
+        takanon_entry = _safe_get(documents_set, 'takanon')
+        mmg_entry     = _safe_get(documents_set, 'mmg')
 
-        # Validate and clean URL
+        url = _first_nonempty(
+            _safe_get(map_entry, 'path'),
+            _safe_get(takanon_entry, 'path'),
+            _safe_get(mmg_entry, 'path'),
+            plan.get('url'),  # last resort if provided on the plan itself
+        ) or ''
+
+        # Normalize RAMI relative URLs
         if url and not url.startswith(('http://', 'https://')):
             if url.startswith('/'):
                 url = f"https://rami.gov.il{url}"
             else:
                 url = f"https://rami.gov.il/{url}"
 
-        # Create document entry
         document = {
             'id': f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{len(asset.meta['documents']) + 1}",
             'type': 'plan',
-            'title': f"תכנית רמ״י - {plan_name}" if plan_name else f"תכנית רמ״י {plan_number}",
-            'description': f"תכנית רמ״י {plan_number}",
+            'title': f"תכנית רמ״י - {plan_name}" if plan_name else (f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י"),
+            'description': f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י",
             'status': status,
             'date': plan.get('statusDate', plan.get('date', '')),
             'url': url,
@@ -1772,8 +1782,9 @@ def _create_documents_from_rami_plans(asset, plans):
         }
 
         asset.meta['documents'].append(document)
+        created += 1
 
-    logger.info(f"Created {len(plans)} RAMI plan documents for asset {asset.id}")
+    logger.info("Created %d RAMI plan documents for asset %s", created, asset.id)
 
 # ---------------------------------------------------------------------------
 # Improved debugging helpers

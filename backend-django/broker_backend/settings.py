@@ -25,9 +25,11 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver'
 LLM_DEFAULT_PROVIDER = os.getenv("LLM_DEFAULT_PROVIDER", "gemini")
 LLM_ALLOW_OVERRIDE = os.getenv("LLM_ALLOW_OVERRIDE", "true").lower() == "true"
 
-# Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+# Gemini / Google AI Studio
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_MODEL = os.getenv("GOOGLE_MODEL")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or GOOGLE_API_KEY
+GEMINI_MODEL = os.getenv("GEMINI_MODEL") or GOOGLE_MODEL or "gemini-2.5-pro"
 
 # OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -87,8 +89,15 @@ WSGI_APPLICATION = 'broker_backend.wsgi.application'
 # Use DATABASE_URL from environment (Render) or fallback to SQLite for development
 if os.getenv('DATABASE_URL'):
     # Parse DATABASE_URL for production (Render)
+    parsed_db = dj_database_url.parse(os.getenv('DATABASE_URL'))
+    # If it's an SQLite URL with a relative path, anchor it to BASE_DIR to avoid accidentally
+    # creating/using a different db.sqlite3 in the project root (which caused missing tables)
+    if parsed_db.get('ENGINE', '').endswith('sqlite3'):
+        name = parsed_db.get('NAME')
+        if name and not os.path.isabs(name):
+            parsed_db['NAME'] = str(BASE_DIR / name)
     DATABASES = {
-        'default': dj_database_url.parse(os.getenv('DATABASE_URL'))
+        'default': parsed_db
     }
 elif os.getenv('USE_POSTGRES', 'false').lower() == 'true':
     # Fallback to individual PostgreSQL environment variables

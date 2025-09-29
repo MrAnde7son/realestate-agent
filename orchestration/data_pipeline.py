@@ -1272,108 +1272,143 @@ def _process_govmap_data(asset, govmap_data):
 
 
 def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings):
-    """Create Django model records (SourceRecord, RealEstateTransaction) from collected data."""
-    try:
-        from core.models import SourceRecord, RealEstateTransaction
+    """Create Django model records (SourceRecord, RealEstateTransaction) from collected data.
 
-        normalized_listings = _normalize_listings(listings or [])
+    Handles potential IntegrityError when UNIQUE(source, external_id) already exists for another asset by
+    safely retrieving the existing record and skipping creation instead of failing the whole enrichment.
+    """
+    from core.models import SourceRecord, RealEstateTransaction
+    from django.db import IntegrityError
 
-        # Create SourceRecord for Yad2 listings
-        if listings and not normalized_listings:
-            logger.debug("All listings dropped while normalizing listings for Django source records on asset %s", asset.id)
+    def _safe_source_record_create(source: str, external_id: str, defaults: dict):
+        """Create a SourceRecord guarding against UNIQUE(source, external_id) conflicts.
 
-        if normalized_listings:
-            for listing in normalized_listings:
-                if listing.get('listing_id'):
-                    SourceRecord.objects.get_or_create(
-                        asset=asset,
-                        source='yad2',
-                        external_id=str(listing.get('listing_id')),
-                        defaults={
-                            'title': listing.get('title', ''),
-                            'url': listing.get('url', ''),
-                            'raw': listing
-                        }
-                    )
-        
-        # Create SourceRecord for RAMI plans
-        if plans:
-            for plan in plans:
-                plan_number = plan.get('planNumber') or plan.get('plan_number', '')
-                if plan_number:
-                    SourceRecord.objects.get_or_create(
-                        asset=asset,
-                        source='rami_plan',
-                        external_id=str(plan_number),
-                        defaults={
-                            'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
-                            'url': plan.get('url', ''),
-                            'raw': plan
-                        }
-                    )
-        
-        # Create SourceRecord for Mavat plans
-        if mavat_plans:
-            for plan in mavat_plans:
-                plan_id = plan.get('plan_id') or plan.get('id', '')
-                if plan_id:
-                    SourceRecord.objects.get_or_create(
-                        asset=asset,
-                        source='tabu',  # Using 'tabu' as closest match for Mavat
-                        external_id=str(plan_id),
-                        defaults={
-                            'title': plan.get('title', f'תכנית מבת {plan_id}'),
-                            'url': plan.get('url', ''),
-                            'raw': plan
-                        }
-                    )
-        
-        # Create SourceRecord for GIS data
-        if gis_data:
-            if gis_data.get('permits'):
-                SourceRecord.objects.get_or_create(
-                    asset=asset,
-                    source='gis_permit',
-                    external_id=f"permits_{asset.id}",
-                    defaults={
-                        'title': 'היתרי בנייה',
-                        'raw': gis_data
-                    }
+        If a record with the same (source, external_id) exists for another asset, we log and skip.
+        """
+        if not external_id:
+            return None
+        try:
+            obj, created = SourceRecord.objects.get_or_create(
+                source=source,  # use only the unique fields in the lookup
+                external_id=str(external_id),
+                defaults={**defaults, 'asset': asset},
+            )
+            # If the record exists but belongs to a different asset, do not reassociate (one-to-one style ownership)
+            if not created and obj.asset_id != asset.id:
+                logger.debug(
+                    "SourceRecord (%s,%s) already linked to asset %s; skipping for asset %s",
+                    source, external_id, obj.asset_id, asset.id,
                 )
-            
-            if gis_data.get('rights'):
-                SourceRecord.objects.get_or_create(
-                    asset=asset,
-                    source='gis_rights',
-                    external_id=f"rights_{asset.id}",
+            return obj
+        except IntegrityError:
+            # Rare race condition: object created concurrently after the initial existence check
+            existing = SourceRecord.objects.filter(source=source, external_id=str(external_id)).first()
+            if existing:
+                if existing.asset_id != asset.id:
+                    logger.debug(
+                        "(race) SourceRecord (%s,%s) already linked to asset %s; skipping for asset %s",
+                        source, external_id, existing.asset_id, asset.id,
+                    )
+                return existing
+            logger.warning(
+                "IntegrityError creating SourceRecord (%s,%s) for asset %s; record not created",
+                source, external_id, asset.id,
+            )
+            return None
+
+    normalized_listings = _normalize_listings(listings or [])
+
+    # Create SourceRecord for Yad2 listings
+    if listings and not normalized_listings:
+        logger.debug("All listings dropped while normalizing listings for Django source records on asset %s", asset.id)
+
+    if normalized_listings:
+        for listing in normalized_listings:
+            if listing.get('listing_id'):
+                _safe_source_record_create(
+                    source='yad2',
+                    external_id=str(listing.get('listing_id')),
                     defaults={
-                        'title': 'זכויות בנייה',
-                        'raw': gis_data
-                    }
+                        'title': listing.get('title', ''),
+                        'url': listing.get('url', ''),
+                        'raw': listing,
+                    },
                 )
-        
-        # Create RealEstateTransaction records from government data
-        if gov_data and gov_data.get('transactions'):
-            for transaction in gov_data.get('transactions', []):
-                if transaction.get('deal_id'):
+
+    # Create SourceRecord for RAMI plans
+    if plans:
+        for plan in plans:
+            plan_number = plan.get('planNumber') or plan.get('plan_number', '')
+            if plan_number:
+                _safe_source_record_create(
+                    source='rami_plan',
+                    external_id=str(plan_number),
+                    defaults={
+                        'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                        'url': plan.get('url', ''),
+                        'raw': plan,
+                    },
+                )
+
+    # Create SourceRecord for Mavat plans
+    if mavat_plans:
+        for plan in mavat_plans:
+            plan_id = plan.get('plan_id') or plan.get('id', '')
+            if plan_id:
+                _safe_source_record_create(
+                    source='tabu',  # Using 'tabu' as closest match for Mavat
+                    external_id=str(plan_id),
+                    defaults={
+                        'title': plan.get('title', f'תכנית מבת {plan_id}'),
+                        'url': plan.get('url', ''),
+                        'raw': plan,
+                    },
+                )
+
+    # Create SourceRecord for GIS data
+    if gis_data:
+        if gis_data.get('permits'):
+            _safe_source_record_create(
+                source='gis_permit',
+                external_id=f"permits_{asset.id}",  # keep asset-specific external id
+                defaults={
+                    'title': 'היתרי בנייה',
+                    'raw': gis_data,
+                },
+            )
+
+        if gis_data.get('rights'):
+            _safe_source_record_create(
+                source='gis_rights',
+                external_id=f"rights_{asset.id}",
+                defaults={
+                    'title': 'זכויות בנייה',
+                    'raw': gis_data,
+                },
+            )
+
+    # Create RealEstateTransaction records from government data
+    if gov_data and gov_data.get('transactions'):
+        for transaction in gov_data.get('transactions', []):
+            if transaction.get('deal_id'):
+                # deal_id expected unique globally; safe to lookup by it only
+                try:
                     RealEstateTransaction.objects.get_or_create(
-                        asset=asset,
                         deal_id=str(transaction.get('deal_id')),
                         defaults={
+                            'asset': asset,
                             'date': transaction.get('date'),
                             'price': transaction.get('price'),
                             'rooms': transaction.get('rooms'),
                             'area': transaction.get('area'),
                             'floor': transaction.get('floor'),
                             'address': transaction.get('address'),
-                            'raw': transaction
-                        }
+                            'raw': transaction,
+                        },
                     )
-
-
-    except Exception as e:
-        logger.error(f"Failed to create Django records for asset {asset.id}: {e}")
-
+                except IntegrityError:
+                    # If exists, we do not re-link to a different asset
+                    pass
 
 def _calculate_market_metrics(asset, listings, gov_data):
     """Calculate market metrics for the asset based on collected data."""

@@ -147,9 +147,7 @@ class TelAvivGS:
     def get_building_permits(self, x: float, y: float, radius: int = 50,
                              fields: Optional[Iterable[str]] = None,
                              download_pdfs: bool = False,
-                             save_dir: Optional[str] = "permits",
-                             normalize_dates: bool = True,
-                             dates_iso: bool = True) -> List[Dict[str, Any]]:
+                             save_dir: Optional[str] = "permits") -> List[Dict[str, Any]]:
         """Spatial search around point (x,y) EPSG:2039. Returns attributes only.
         Args:
             x,y: coordinates (EPSG:2039)
@@ -157,8 +155,6 @@ class TelAvivGS:
             fields: iterable of field names (defaults to ALL_PERMIT_FIELDS)
             download_pdfs: also download linked permit PDFs
             save_dir: destination directory for PDFs
-            normalize_dates: add parsed *_dt keys for known date fields
-            dates_iso: if True store ISO UTC strings else datetime objects
         """
         if fields is None:
             fields = ALL_PERMIT_FIELDS

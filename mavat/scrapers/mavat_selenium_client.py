@@ -272,7 +272,7 @@ class MavatSeleniumClient:
                     time.sleep(3)
             else:
                 # Fill search input
-                search_text = query or city or "תל אביב"
+                search_text = query or city
                 print(f"Filling search input with: {search_text}")
                 search_input.clear()
                 search_input.send_keys(search_text)

@@ -37,7 +37,7 @@ class GISCollector(BaseCollector):
         data = {
             "blocks": self.client.get_blocks(x, y),
             "parcels": self.client.get_parcels(x, y),
-            "permits": self.client.get_building_permits(x, y),
+            "permits": self.client.get_building_permits(x, y, download_pdfs=True),
             "rights": self.client.get_land_use_main(x, y),
             "shelters": self.client.get_shelters(x, y),
             "green": self.client.get_green_areas(x, y),

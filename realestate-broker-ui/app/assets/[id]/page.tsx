@@ -175,7 +175,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         ...doc,
         type: translateDocumentType(doc.type || doc.document_type),
         source: translateSource('user_upload'),
-        category: 'מסמכים ידניים'
+        category: 'מסמכים שהועלו ידנית'
       })))
     } else {
       console.log('❌ No asset.documents found')
@@ -232,7 +232,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         type: translateDocumentType('appraisal_decisive'),
         url: appraisal.url,
         source: translateSource('Gov'),
-        category: 'שומות החלטיות',
+        category: 'שומות מכריעות',
         date: appraisal.date,
         external_id: appraisal.id
       })))
@@ -656,7 +656,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         if (normalizedDoc.type === 'tabu') {
           await loadRightsData()
         }
-        e.currentTarget.reset()
+        // Safe form reset - check if form element still exists
+        if (e.currentTarget) {
+          e.currentTarget.reset()
+        }
       }
     } catch (err) {
       console.error('Upload failed:', err)

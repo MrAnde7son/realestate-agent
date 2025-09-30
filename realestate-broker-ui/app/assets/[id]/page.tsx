@@ -159,9 +159,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       const translations: Record<string, string> = {
         'user_upload': 'העלאה ידנית',
         'GIS': 'מערכת מידע גיאוגרפית',
+        'gis_permit': 'מערכת מידע גיאוגרפית',
+        'gis_rights': 'מערכת מידע גיאוגרפית',
         'RAMI': 'רמ״י',
+        'rami_plan': 'רמ״י',
         'Mavat': 'מבת',
-        'Gov': 'ממשלתי'
+        'Gov': 'ממשלתי',
+        'tabu': 'טאבו',
+        'tabu_upload': 'טאבו',
+        'meta_migration': 'העברה מנתונים קיימים',
+        'yad2': 'יד2',
+        'nadlan': 'נדלן',
+        'pipeline': 'צינור נתונים',
+        'external': 'מקור חיצוני'
       }
       return translations[source] || source
     }
@@ -174,7 +184,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       allDocs.push(...asset.documents.map((doc: any) => ({
         ...doc,
         type: translateDocumentType(doc.type || doc.document_type),
-        source: translateSource('user_upload'),
+        source: translateSource(doc.source || 'user_upload'),
         category: 'מסמכים שהועלו ידנית'
       })))
     } else {
@@ -281,7 +291,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         throw new Error('Failed to load rights')
       }
       const data = await response.json()
-      setRightsRows(Array.isArray(data.rows) ? data.rows : [])
+      // Combine tabu_data and gis_rights into a single array for display
+      const allRightsRows = [
+        ...(data.tabu_data || []),
+        ...(data.gis_rights || [])
+      ]
+      setRightsRows(allRightsRows)
     } catch (rightsErr) {
       console.error('Error loading rights data:', rightsErr)
       setRightsRows([])
@@ -1495,6 +1510,90 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 נתוני הטאבו מתעדכנים לאחר העלאת נסח טאבו בלשונית המסמכים.
               </CardFooter>
             </Card>
+
+            {/* Ownership Summary */}
+            {rightsRows.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>סיכום בעלויות</CardTitle>
+                  <CardDescription>מידע על בעלי הנכס שהופק מהנסח טאבו</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Parcel Information */}
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="text-center">
+                        <div className="text-sm text-muted-foreground">גוש</div>
+                        <div className="text-lg font-semibold">
+                          {rightsRows.find(row => row.field?.includes('גוש'))?.value || '—'}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm text-muted-foreground">חלקה</div>
+                        <div className="text-lg font-semibold">
+                          {rightsRows.find(row => row.field?.includes('חלקה'))?.value || '—'}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm text-muted-foreground">תת חלקה</div>
+                        <div className="text-lg font-semibold">
+                          {rightsRows.find(row => row.field?.includes('תת חלקה'))?.value || '—'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Owners Table */}
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="rtl:flex-row-reverse">
+                            <TableHead className="text-right">בעלים</TableHead>
+                            <TableHead className="text-right">אחוז בעלות</TableHead>
+                            <TableHead className="text-right">מספר זיהוי</TableHead>
+                            <TableHead className="text-right">תאריך רכישה</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rightsRows
+                            .filter(row => row.field?.includes('בעלים') || row.field?.includes('owner'))
+                            .map((row, index) => {
+                              const ownerName = row.value
+                              const ownershipRow = rightsRows.find(r => 
+                                r.field?.includes('החלק') || r.field?.includes('percentage') || 
+                                (r.field?.includes('בעלים') && r.value === ownerName)
+                              )
+                              const idRow = rightsRows.find(r => 
+                                r.field?.includes('זיהוי') || r.field?.includes('ת.ז') || 
+                                (r.field?.includes('בעלים') && r.value === ownerName)
+                              )
+                              const dateRow = rightsRows.find(r => 
+                                r.field?.includes('תאריך') || r.field?.includes('date')
+                              )
+                              
+                              return (
+                                <TableRow key={index} className="rtl:flex-row-reverse">
+                                  <TableCell className="text-right font-medium">
+                                    {ownerName || '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {ownershipRow?.value || '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {idRow?.value || '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {dateRow?.value || '—'}
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="environment" className="space-y-4">

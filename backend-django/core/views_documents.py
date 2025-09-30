@@ -275,15 +275,23 @@ class AssetRightsView(APIView):
                 current_owner = value
                 ownership_percentage = 0
             
-            # Look for ownership percentage
-            elif '%' in value or 'אחוז' in field:
+            # Look for ownership percentage - handle fractions like "1/2"
+            elif '%' in value or 'אחוז' in field or '/' in value:
                 try:
-                    # Extract percentage from value
                     import re
-                    percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
-                    if percentage_match:
-                        ownership_percentage = float(percentage_match.group(1))
-                except (ValueError, AttributeError):
+                    # Handle fractions like "1/2" = 50%
+                    if '/' in value:
+                        fraction_match = re.search(r'(\d+)/(\d+)', value)
+                        if fraction_match:
+                            numerator = float(fraction_match.group(1))
+                            denominator = float(fraction_match.group(2))
+                            ownership_percentage = (numerator / denominator) * 100
+                    else:
+                        # Handle regular percentages
+                        percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
+                        if percentage_match:
+                            ownership_percentage = float(percentage_match.group(1))
+                except (ValueError, AttributeError, ZeroDivisionError):
                     pass
             
             # Look for parcel information

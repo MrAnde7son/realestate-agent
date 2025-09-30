@@ -22,8 +22,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiExample
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 
 import logging
 
@@ -56,7 +55,6 @@ from .serializers import (
 from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
 
-# Import utility functions
 try:
     from utils.tabu_parser import parse_tabu_pdf, search_rows
 except ImportError:

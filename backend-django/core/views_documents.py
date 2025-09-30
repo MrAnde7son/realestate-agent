@@ -391,8 +391,9 @@ class DocumentDetailView(APIView):
             )
 
 
-class DocumentDownloadView(View):
+class DocumentDownloadView(APIView):
     """Handle document downloads."""
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, asset_id, document_id):
         """Download a document file."""
@@ -401,31 +402,45 @@ class DocumentDownloadView(View):
             document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
             
             # Check permissions
-            if not request.user.is_authenticated:
-                return HttpResponse('Authentication required', status=401)
-            
             if not (document.asset.created_by == request.user or request.user.is_staff):
-                return HttpResponse('Permission denied', status=403)
+                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
             
             # Check if file exists
-            if not document.is_downloadable:
-                raise Http404("File not found")
+            logger.info(f"Document {document_id} file_path: {document.file_path}")
+            logger.info(f"Document {document_id} is_downloadable: {document.is_downloadable}")
+            logger.info(f"Document {document_id} default_storage.exists: {default_storage.exists(document.file_path)}")
             
-            # Get file content
+            if not document.is_downloadable:
+                return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Stream file content through API
+            from django.http import StreamingHttpResponse
+            from django.core.files.storage import default_storage
+            
             try:
-                with default_storage.open(document.file_path, 'rb') as file:
-                    response = HttpResponse(file.read(), content_type=document.mime_type)
-                    response['Content-Disposition'] = f'attachment; filename="{document.filename}"'
-                    return response
+                
+                def file_generator():
+                    with default_storage.open(document.file_path, 'rb') as file:
+                        while True:
+                            chunk = file.read(8192)  # 8KB chunks
+                            if not chunk:
+                                break
+                            yield chunk
+                
+                response = StreamingHttpResponse(
+                    file_generator(),
+                    content_type=document.mime_type
+                )
+                response['Content-Disposition'] = f'attachment; filename="{document.filename}"'
+                response['Content-Length'] = document.file_size
+                return response
             except Exception as e:
                 logger.error(f"Error reading file {document.file_path}: {e}")
-                raise Http404("File not found")
+                return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
                 
-        except Http404:
-            raise
         except Exception as e:
             logger.error(f"Error downloading document: {e}")
-            return HttpResponse('Download failed', status=500)
+            return Response({'error': 'Download failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])

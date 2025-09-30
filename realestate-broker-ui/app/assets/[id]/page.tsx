@@ -135,6 +135,126 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     }
   }
 
+  // Combine all document sources into a unified list
+  const getAllDocuments = () => {
+    const allDocs: any[] = []
+    
+    // Helper function to translate document types to Hebrew
+    const translateDocumentType = (type: string) => {
+      const translations: Record<string, string> = {
+        'tabu': 'נסח טאבו',
+        'condo_plan': 'תשריט בית משותף',
+        'appraisal_decisive': 'שומה החלטית',
+        'appraisal_rmi': 'שומת רמ״י',
+        'permit': 'היתר בנייה',
+        'rights': 'זכויות',
+        'plan': 'תכנית',
+        'other': 'אחר'
+      }
+      return translations[type] || type
+    }
+    
+    // Helper function to translate sources to Hebrew
+    const translateSource = (source: string) => {
+      const translations: Record<string, string> = {
+        'user_upload': 'העלאה ידנית',
+        'GIS': 'מערכת מידע גיאוגרפית',
+        'RAMI': 'רמ״י',
+        'Mavat': 'מבת',
+        'Gov': 'ממשלתי'
+      }
+      return translations[source] || source
+    }
+    
+    // 1. User-uploaded documents from asset.documents
+    console.log('🔍 getAllDocuments - asset:', asset)
+    console.log('🔍 getAllDocuments - asset.documents:', asset?.documents)
+    if (asset?.documents) {
+      console.log('📄 Processing', asset.documents.length, 'user-uploaded documents')
+      allDocs.push(...asset.documents.map((doc: any) => ({
+        ...doc,
+        type: translateDocumentType(doc.type || doc.document_type),
+        source: translateSource('user_upload'),
+        category: 'מסמכים ידניים'
+      })))
+    } else {
+      console.log('❌ No asset.documents found')
+    }
+    
+    // 2. Permits from GIS
+    if (permits && permits.length > 0) {
+      allDocs.push(...permits.map((permit: any) => ({
+        id: `permit_${permit.permission_num}`,
+        title: permit.koteret || `היתר בנייה ${permit.permission_num}`,
+        type: translateDocumentType('permit'),
+        url: permit.url_hadmaya,
+        source: translateSource('GIS'),
+        category: 'היתרי בנייה',
+        date: permit.permission_date,
+        description: permit.sug_bakasha,
+        external_id: permit.permission_num
+      })))
+    }
+    
+    // 3. Plans from RAMI
+    if (plans.local && plans.local.length > 0) {
+      allDocs.push(...plans.local.map((plan: any) => ({
+        id: `rami_${plan.planNumber}`,
+        title: plan.title || `תכנית רמ״י ${plan.planNumber}`,
+        type: translateDocumentType('plan'),
+        url: plan.url,
+        source: translateSource('RAMI'),
+        category: 'תכניות רמ״י',
+        status: plan.status,
+        external_id: plan.planNumber
+      })))
+    }
+    
+    // 4. Plans from Mavat
+    if (plans.mavat && plans.mavat.length > 0) {
+      allDocs.push(...plans.mavat.map((plan: any) => ({
+        id: `mavat_${plan.plan_id}`,
+        title: plan.title || `תכנית מבת ${plan.plan_id}`,
+        type: translateDocumentType('plan'),
+        url: plan.url,
+        source: translateSource('Mavat'),
+        category: 'תכניות מנהל התיכנון',
+        status: plan.status,
+        external_id: plan.plan_id
+      })))
+    }
+    
+    // 5. Decisive appraisals
+    if (decisiveAppraisals && decisiveAppraisals.length > 0) {
+      allDocs.push(...decisiveAppraisals.map((appraisal: any) => ({
+        id: `decisive_${appraisal.id}`,
+        title: `שומה החלטית ${appraisal.id}`,
+        type: translateDocumentType('appraisal_decisive'),
+        url: appraisal.url,
+        source: translateSource('Gov'),
+        category: 'שומות החלטיות',
+        date: appraisal.date,
+        external_id: appraisal.id
+      })))
+    }
+    
+    // 6. RAMI appraisals
+    if (ramiAppraisals && ramiAppraisals.length > 0) {
+      allDocs.push(...ramiAppraisals.map((appraisal: any) => ({
+        id: `rami_appraisal_${appraisal.id}`,
+        title: `שומת רמ״י ${appraisal.id}`,
+        type: translateDocumentType('appraisal_rmi'),
+        url: appraisal.url,
+        source: translateSource('RAMI'),
+        category: 'שומות רמ״י',
+        date: appraisal.date,
+        external_id: appraisal.id
+      })))
+    }
+    
+    return allDocs
+  }
+
   const formatPercent = (value?: number, digits = 0) =>
     value !== undefined && value !== null
       ? `${value.toFixed(digits)}%`
@@ -206,7 +326,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         if (!res.ok) throw new Error('Failed to load asset')
         return res.json()
       })
-      .then(data => setAsset(data.asset || data))
+      .then(data => {
+        const assetData = data.asset || data
+        console.log('🔍 Asset data received:', assetData)
+        console.log('📄 Documents in asset:', assetData.documents)
+        console.log('📄 Documents count:', assetData.documents?.length || 0)
+        setAsset(assetData)
+      })
       .catch(err => {
         console.error('Error loading asset:', err)
         setError('שגיאה בטעינת הנכס')
@@ -2031,16 +2157,36 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </Button>
                 </form>
 
-                <div>
-                  <h3 className="font-medium mb-2">מסמכים ידניים</h3>
-                  {manualDocs.length ? (
+                {/* Unified documents view grouped by category */}
+                {(() => {
+                  const allDocs = getAllDocuments()
+                  const docsByCategory = allDocs.reduce((acc: any, doc: any) => {
+                    const category = doc.category || 'אחר'
+                    if (!acc[category]) {
+                      acc[category] = []
+                    }
+                    acc[category].push(doc)
+                    return acc
+                  }, {})
+
+                  return Object.entries(docsByCategory).map(([category, docs]: [string, any]) => (
+                    <div key={category}>
+                      <h3 className="font-medium mb-2">{category}</h3>
+                      {docs.length > 0 ? (
                         <div className="space-y-2">
-                          {manualDocs.map((doc: any, idx: number) => (
+                          {docs.map((doc: any, idx: number) => (
                             <div
-                              key={idx}
+                              key={`${category}_${idx}`}
                               className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                             >
-                              <span>{doc.name || doc.title}</span>
+                              <div className="flex flex-col rtl:items-end">
+                                <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
+                                <div className="flex gap-2 text-xs text-muted-foreground">
+                                  {doc.type && <span>סוג: {doc.type}</span>}
+                                  {doc.source && <span>מקור: {doc.source}</span>}
+                                  {doc.date && <span>תאריך: {new Date(doc.date).toLocaleDateString('he-IL')}</span>}
+                                </div>
+                              </div>
                               <Button variant="outline" size="sm" asChild>
                                 <a 
                                   href={doc.url} 
@@ -2054,199 +2200,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                             </div>
                           ))}
                         </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      לא הועלו מסמכים
+                      ) : (
+                        <div className="text-sm text-muted-foreground">אין מסמכים בקטגוריה זו</div>
+                      )}
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">היתרים</h3>
-                  {permitDocs.length ? (
-                    <div className="space-y-2">
-                      {permitDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name || doc.title}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                if (!doc.url || !doc.url.startsWith('http')) {
-                                  e.preventDefault()
-                                  alert('קישור לא זמין')
-                                }
-                              }}
-                            >
-                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">אין היתרים</div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">תוכניות</h3>
-                  {rightsDocs.length ? (
-                    <div className="space-y-2">
-                      {rightsDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name || doc.title}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                if (!doc.url || !doc.url.startsWith('http')) {
-                                  e.preventDefault()
-                                  alert('קישור לא זמין')
-                                }
-                              }}
-                            >
-                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">אין זכויות</div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">שומות מכריעות</h3>
-                  {decisiveDocs.length ? (
-                    <div className="space-y-2">
-                      {decisiveDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name || doc.title}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                if (!doc.url || !doc.url.startsWith('http')) {
-                                  e.preventDefault()
-                                  alert('קישור לא זמין')
-                                }
-                              }}
-                            >
-                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">אין שומות</div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">שומות רמ״י</h3>
-                  {rmiDocs.length ? (
-                    <div className="space-y-2">
-                      {rmiDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name || doc.title}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                if (!doc.url || !doc.url.startsWith('http')) {
-                                  e.preventDefault()
-                                  alert('קישור לא זמין')
-                                }
-                              }}
-                            >
-                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">אין שומות</div>
-                  )}
-                </div>
-
-                {/* Fallback section for uncategorized documents */}
-                {(() => {
-                  const categorizedTypes = ['tabu', 'condo_plan', 'contract', 'deed', 'other', 'permit', 'rights', 'plan', 'appraisal_decisive', 'appraisal_rmi', 'appraisal']
-                  const uncategorizedDocs = asset?.documents?.filter((d: any) => !categorizedTypes.includes(d.type)) ?? []
-                  
-                  if (uncategorizedDocs.length > 0) {
-                    return (
-                      <div>
-                        <h3 className="font-medium mb-2">מסמכים נוספים</h3>
-                        <div className="space-y-2">
-                          {uncategorizedDocs.map((doc: any, idx: number) => (
-                            <div
-                              key={idx}
-                              className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                            >
-                              <div className="flex flex-col rtl:items-end">
-                                <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
-                                {doc.type && (
-                                  <span className="text-xs text-muted-foreground">סוג: {doc.type}</span>
-                                )}
-                              </div>
-                              <Button variant="outline" size="sm" asChild>
-                                <a 
-                                  href={doc.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => {
-                                    if (!doc.url) {
-                                      e.preventDefault()
-                                      alert('קישור לא זמין')
-                                    } else if (!doc.url.startsWith('http')) {
-                                      // For relative URLs, construct the full URL
-                                      e.preventDefault()
-                                      const fullUrl = doc.url.startsWith('/') 
-                                        ? `${window.location.origin}${doc.url}`
-                                        : `${window.location.origin}/${doc.url}`
-                                      window.open(fullUrl, '_blank')
-                                    }
-                                  }}
-                                >
-                                  {doc.url ? 'פתח' : 'לא זמין'}
-                                </a>
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  }
-                  return null
+                  ))
                 })()}
 
+
+
+
+
                 <div className="pt-4 text-center text-sm text-muted-foreground">
-                  סה״כ {asset.documents?.length ?? 0} מסמכים זמינים
+                  סה״כ {getAllDocuments().length} מסמכים זמינים
                 </div>
               </CardContent>
             </Card>

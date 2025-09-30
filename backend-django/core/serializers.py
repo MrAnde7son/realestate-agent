@@ -15,6 +15,7 @@ class MetaSerializerMixin(serializers.ModelSerializer):
             if isinstance(value, dict) and "value" in value:
                 # This is a unified metadata entry
                 actual_value = value.get("value")
+                # Only override model field if metadata value is not None
                 if actual_value is not None:
                     data[key] = actual_value
                 
@@ -32,7 +33,9 @@ class MetaSerializerMixin(serializers.ModelSerializer):
                         field_meta[key]["url"] = url
             elif not isinstance(value, dict):
                 # This is a simple value (backward compatibility)
-                data[key] = value
+                # Only override model field if metadata value is not None
+                if value is not None:
+                    data[key] = value
         
         # Add _meta section if we have attribution data
         if field_meta:

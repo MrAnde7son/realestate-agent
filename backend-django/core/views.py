@@ -1338,9 +1338,9 @@ def asset_detail(request, asset_id):
         return JsonResponse({"error": "GET method required"}, status=405)
 
     try:
-        # Get asset using Django ORM with attribution data
+        # Get asset using Django ORM with attribution data and documents
         try:
-            asset = Asset.objects.select_related('created_by', 'last_updated_by').get(id=asset_id)
+            asset = Asset.objects.select_related('created_by', 'last_updated_by').prefetch_related('documents').get(id=asset_id)
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
@@ -1445,6 +1445,10 @@ def asset_detail(request, asset_id):
         from .serializers import AssetSerializer
         serializer = AssetSerializer(asset)
         asset_data = serializer.data
+        
+        # Debug: Log documents count
+        logger.info(f"Asset {asset_id} has {asset.documents.count()} documents")
+        logger.info(f"Asset {asset_id} documents in serializer: {len(asset_data.get('documents', []))}")
         
         # Get CRM data for this asset
         crm_data = {}

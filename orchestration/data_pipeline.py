@@ -534,9 +534,9 @@ class DataPipeline:
             
             # Extract block and parcel from GovMap data
             if govmap_data.get("api_data", {}).get("parcel"):
-                parcel_info = govmap_data.get("api_data", {}).get("parcel", {})
-                block = parcel_info.get("gush", "")
-                parcel = parcel_info.get("helka", "")
+                parcel_props = govmap_data.get("api_data", {}).get("parcel", {}).get('properties', {})
+                block = parcel_props.get("gushnumber", "")
+                parcel = parcel_props.get("parcelnumber", "")
 
             logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
 
@@ -1102,14 +1102,14 @@ def _process_gis_data(asset, gis_data):
 
     # Building permits
     if gis_data.get('permits'):
+        print("GIS Permits:", gis_data.get('permits'))
         permits = gis_data.get('permits', [])
         if permits:
             recent_permit = permits[0] if permits else {}
             asset.set_property('permitStatus', recent_permit.get('building_stage', ''), source='GIS', url='https://www.govmap.gov.il/')
             if recent_permit.get('permission_date'):
                 try:
-                    from datetime import datetime
-                    permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
+                    permit_date = datetime.fromtimestamp(recent_permit['permission_date'] or 0 / 1000)
                     asset.set_property('permitDate', permit_date.date(), source='GIS', url='https://www.govmap.gov.il/')
                 except Exception as e:
                     logger.debug(f"Failed to parse permit date: {e}")
@@ -1158,7 +1158,6 @@ def _process_gis_data(asset, gis_data):
             recent_permit = permits[0] if permits else {}
             if recent_permit.get('permission_date'):
                 try:
-                    from datetime import datetime
                     permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
                     quarter = f"Q{(permit_date.month - 1) // 3 + 1}/{permit_date.year}"
                     asset.set_property('lastPermitQ', quarter, source='GIS', url='https://www.govmap.gov.il/')
@@ -1262,7 +1261,7 @@ def _process_govmap_data(asset, govmap_data):
             asset.set_property('govmapHelka', parcel.get('helka'), source='GovMap', url='https://www.govmap.gov.il/')
         if parcel.get('land_use'):
             asset.set_property('govmapLandUse', parcel.get('land_use'), source='GovMap', url='https://www.govmap.gov.il/')
-    
+
     # Process nearby layers data (if available in the future)
     if govmap_data.get('nearby'):
         nearby = govmap_data.get('nearby', {})
@@ -1272,210 +1271,239 @@ def _process_govmap_data(asset, govmap_data):
 
 
 def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, govmap_data, gis_data, gov_data, plans, mavat_plans, listings):
-    """Create Django model records (SourceRecord, RealEstateTransaction) from collected data."""
-    try:
-        from core.models import SourceRecord, RealEstateTransaction
+    """Create Django model records (SourceRecord, RealEstateTransaction) from collected data.
 
-        normalized_listings = _normalize_listings(listings or [])
+    Handles potential IntegrityError when UNIQUE(source, external_id) already exists for another asset by
+    safely retrieving the existing record and skipping creation instead of failing the whole enrichment.
+    """
+    from core.models import SourceRecord, RealEstateTransaction
+    from django.db import IntegrityError
 
-        # Create SourceRecord for Yad2 listings
-        if listings and not normalized_listings:
-            logger.debug("All listings dropped while normalizing listings for Django source records on asset %s", asset.id)
+    def _safe_source_record_create(source: str, external_id: str, defaults: dict):
+        """Create a SourceRecord guarding against UNIQUE(source, external_id) conflicts.
 
-        if normalized_listings:
-            for listing in normalized_listings:
-                if listing.get('listing_id'):
-                    SourceRecord.objects.get_or_create(
-                        asset=asset,
-                        source='yad2',
-                        external_id=str(listing.get('listing_id')),
-                        defaults={
-                            'title': listing.get('title', ''),
-                            'url': listing.get('url', ''),
-                            'raw': listing
-                        }
-                    )
-        
-        # Create SourceRecord for RAMI plans
-        if plans:
-            for plan in plans:
-                plan_number = plan.get('planNumber') or plan.get('plan_number', '')
-                if plan_number:
-                    SourceRecord.objects.get_or_create(
-                        asset=asset,
-                        source='rami_plan',
-                        external_id=str(plan_number),
-                        defaults={
-                            'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
-                            'url': plan.get('url', ''),
-                            'raw': plan
-                        }
-                    )
-        
-        # Create SourceRecord for Mavat plans
-        if mavat_plans:
-            for plan in mavat_plans:
-                plan_id = plan.get('plan_id') or plan.get('id', '')
-                if plan_id:
-                    SourceRecord.objects.get_or_create(
-                        asset=asset,
-                        source='tabu',  # Using 'tabu' as closest match for Mavat
-                        external_id=str(plan_id),
-                        defaults={
-                            'title': plan.get('title', f'תכנית מבת {plan_id}'),
-                            'url': plan.get('url', ''),
-                            'raw': plan
-                        }
-                    )
-        
-        # Create SourceRecord for GIS data
-        if gis_data:
-            if gis_data.get('permits'):
-                SourceRecord.objects.get_or_create(
-                    asset=asset,
-                    source='gis_permit',
-                    external_id=f"permits_{asset.id}",
-                    defaults={
-                        'title': 'היתרי בנייה',
-                        'raw': gis_data
-                    }
+        If a record with the same (source, external_id) exists for another asset, we log and skip.
+        """
+        if not external_id:
+            return None
+        try:
+            obj, created = SourceRecord.objects.get_or_create(
+                source=source,  # use only the unique fields in the lookup
+                external_id=str(external_id),
+                defaults={**defaults, 'asset': asset},
+            )
+            # If the record exists but belongs to a different asset, do not reassociate (one-to-one style ownership)
+            if not created and obj.asset_id != asset.id:
+                logger.debug(
+                    "SourceRecord (%s,%s) already linked to asset %s; skipping for asset %s",
+                    source, external_id, obj.asset_id, asset.id,
                 )
-            
-            if gis_data.get('rights'):
-                SourceRecord.objects.get_or_create(
-                    asset=asset,
-                    source='gis_rights',
-                    external_id=f"rights_{asset.id}",
+            return obj
+        except IntegrityError:
+            # Rare race condition: object created concurrently after the initial existence check
+            existing = SourceRecord.objects.filter(source=source, external_id=str(external_id)).first()
+            if existing:
+                if existing.asset_id != asset.id:
+                    logger.debug(
+                        "(race) SourceRecord (%s,%s) already linked to asset %s; skipping for asset %s",
+                        source, external_id, existing.asset_id, asset.id,
+                    )
+                return existing
+            logger.warning(
+                "IntegrityError creating SourceRecord (%s,%s) for asset %s; record not created",
+                source, external_id, asset.id,
+            )
+            return None
+
+    normalized_listings = _normalize_listings(listings or [])
+
+    # Create SourceRecord for Yad2 listings
+    if listings and not normalized_listings:
+        logger.debug("All listings dropped while normalizing listings for Django source records on asset %s", asset.id)
+
+    if normalized_listings:
+        for listing in normalized_listings:
+            if listing.get('listing_id'):
+                _safe_source_record_create(
+                    source='yad2',
+                    external_id=str(listing.get('listing_id')),
                     defaults={
-                        'title': 'זכויות בנייה',
-                        'raw': gis_data
-                    }
+                        'title': listing.get('title', ''),
+                        'url': listing.get('url', ''),
+                        'raw': listing,
+                    },
                 )
-        
-        # Create RealEstateTransaction records from government data
-        if gov_data and gov_data.get('transactions'):
-            for transaction in gov_data.get('transactions', []):
-                if transaction.get('deal_id'):
+
+    # Create SourceRecord for RAMI plans
+    if plans:
+        for plan in plans:
+            plan_number = plan.get('planNumber') or plan.get('plan_number', '')
+            if plan_number:
+                _safe_source_record_create(
+                    source='rami_plan',
+                    external_id=str(plan_number),
+                    defaults={
+                        'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                        'url': plan.get('url', ''),
+                        'raw': plan,
+                    },
+                )
+
+    # Create SourceRecord for Mavat plans
+    if mavat_plans:
+        for plan in mavat_plans:
+            plan_id = plan.get('plan_id') or plan.get('id', '')
+            if plan_id:
+                _safe_source_record_create(
+                    source='tabu',  # Using 'tabu' as closest match for Mavat
+                    external_id=str(plan_id),
+                    defaults={
+                        'title': plan.get('title', f'תכנית מבת {plan_id}'),
+                        'url': plan.get('url', ''),
+                        'raw': plan,
+                    },
+                )
+
+    # Create SourceRecord for GIS data
+    if gis_data:
+        if gis_data.get('permits'):
+            _safe_source_record_create(
+                source='gis_permit',
+                external_id=f"permits_{asset.id}",  # keep asset-specific external id
+                defaults={
+                    'title': 'היתרי בנייה',
+                    'raw': gis_data,
+                },
+            )
+
+        if gis_data.get('rights'):
+            _safe_source_record_create(
+                source='gis_rights',
+                external_id=f"rights_{asset.id}",
+                defaults={
+                    'title': 'זכויות בנייה',
+                    'raw': gis_data,
+                },
+            )
+
+    # Create RealEstateTransaction records from government data
+    if gov_data and gov_data.get('transactions'):
+        for transaction in gov_data.get('transactions', []):
+            if transaction.get('deal_id'):
+                # deal_id expected unique globally; safe to lookup by it only
+                try:
                     RealEstateTransaction.objects.get_or_create(
-                        asset=asset,
                         deal_id=str(transaction.get('deal_id')),
                         defaults={
+                            'asset': asset,
                             'date': transaction.get('date'),
                             'price': transaction.get('price'),
                             'rooms': transaction.get('rooms'),
                             'area': transaction.get('area'),
                             'floor': transaction.get('floor'),
                             'address': transaction.get('address'),
-                            'raw': transaction
-                        }
+                            'raw': transaction,
+                        },
                     )
-
-
-    except Exception as e:
-        logger.error(f"Failed to create Django records for asset {asset.id}: {e}")
-
+                except IntegrityError:
+                    # If exists, we do not re-link to a different asset
+                    pass
 
 def _calculate_market_metrics(asset, listings, gov_data):
-    """Calculate market metrics for the asset based on collected data."""
+    """Calculate and persist market metrics.
+
+    - Computes metrics from Yad2 listings (prices, areas)
+    - Derives confidence, competition, rent estimate, cap rate, DOM percentile
+    - Generates risk flags heuristically
+    - Stores camelCase metrics in asset.meta['market_metrics'] for backward compatibility
+    - Maps a subset to snake_case Asset fields
+    """
     try:
-        # Initialize market metrics
-        market_metrics = {}
-
-        # Calculate price metrics from Yad2 listings
         listing_dicts = _normalize_listings(listings or []) if listings else []
+        metrics: Dict[str, Any] = {}
 
+        # --- Price / Area derived metrics ---
         if listing_dicts:
-            prices = [listing.get('price') for listing in listing_dicts if listing.get('price')]
-            areas = [listing.get('area') for listing in listing_dicts if listing.get('area')]
-            
+            prices = [l.get('price') for l in listing_dicts if l.get('price')]
+            areas = [l.get('area') for l in listing_dicts if l.get('area')]
+
             if prices:
                 avg_price = sum(prices) / len(prices)
-                min_price = min(prices)
-                max_price = max(prices)
-                
-                # Price gap percentage (if asset has a price)
-                if asset.price:
-                    price_gap_pct = ((asset.price - avg_price) / avg_price) * 100
-                    market_metrics['priceGapPct'] = round(price_gap_pct, 2)
-                
-                # Expected price range
-                market_metrics['expectedPriceRange'] = f"{min_price:,} - {max_price:,}"
-                
-                # Model price (average of similar properties)
-                market_metrics['modelPrice'] = int(avg_price)
-                
-                # Confidence percentage (based on number of comparable properties)
-                confidence_pct = min(100, len(prices) * 20)  # 20% per comparable property, max 100%
-                market_metrics['confidencePct'] = confidence_pct
-            
-            if areas:
+                metrics['modelPrice'] = int(avg_price)
+                metrics['expectedPriceRange'] = f"{min(prices):,} - {max(prices):,}"
+                if asset.price and avg_price > 0:
+                    metrics['priceGapPct'] = round(((asset.price - avg_price) / avg_price) * 100, 2)
+                # Confidence: 20% per comp up to 100
+                metrics['confidencePct'] = min(100, len(prices) * 20)
+            else:
+                metrics['confidencePct'] = 0
+
+            if areas and asset.area:
                 avg_area = sum(areas) / len(areas)
-                if asset.area and avg_area:
-                    # Delta vs area percentage
-                    delta_vs_area_pct = ((asset.area - avg_area) / avg_area) * 100
-                    market_metrics['deltaVsAreaPct'] = round(delta_vs_area_pct, 2)
-        
-        # Calculate cap rate from rent estimate
-        if asset.price and asset.area:
-            # Estimate rent based on area (rough calculation: 50-80 NIS per sqm)
-            estimated_rent = asset.area * 65  # Average of 65 NIS per sqm
-            annual_rent = estimated_rent * 12
-            cap_rate = (annual_rent / asset.price) * 100
-            market_metrics['capRatePct'] = round(cap_rate, 2)
-            market_metrics['rentEstimate'] = int(estimated_rent)
-        
-        # Calculate competition metrics
-        if listing_dicts:
-            # Competition within 1km (simplified - based on number of listings)
-            competition_level = "נמוכה"
-            if len(listing_dicts) > 10:
-                competition_level = "גבוהה"
-            elif len(listing_dicts) > 5:
-                competition_level = "בינונית"
-            market_metrics['competition1km'] = competition_level
-        
-        # Calculate risk flags
+                if avg_area > 0:
+                    metrics['deltaVsAreaPct'] = round(((asset.area - avg_area) / avg_area) * 100, 2)
+
+            # Competition heuristic based on number of listings
+            n = len(listing_dicts)
+            if n > 10:
+                metrics['competition1km'] = 'גבוהה'
+            elif n > 5:
+                metrics['competition1km'] = 'בינונית'
+            else:
+                metrics['competition1km'] = 'נמוכה'
+
+            # DOM percentile heuristic (coarse)
+            metrics['domPercentile'] = min(90, n * 10)
+        else:
+            # No comps -> low confidence baseline
+            metrics['confidencePct'] = 0
+
+        # --- Rent & Cap Rate ---
+        if asset.area and asset.price:  # need both for cap rate
+            rent_estimate = asset.area * 65  # simple heuristic (NIS / sqm)
+            metrics['rentEstimate'] = int(rent_estimate)
+            annual_rent = rent_estimate * 12
+            if asset.price > 0:
+                metrics['capRatePct'] = round((annual_rent / asset.price) * 100, 2)
+
+        # --- Risk Flags ---
         risk_flags = []
-        
-        # Price risk
-        if market_metrics.get('priceGapPct'):
-            if abs(market_metrics['priceGapPct']) > 20:
-                risk_flags.append("פער מחיר גבוה")
-        
-        # Area risk
-        if market_metrics.get('deltaVsAreaPct'):
-            if abs(market_metrics['deltaVsAreaPct']) > 30:
-                risk_flags.append("פער שטח גבוה")
-        
-        # Low confidence
-        if market_metrics.get('confidencePct', 0) < 40:
-            risk_flags.append("ביטחון נמוך")
-        
-        market_metrics['riskFlags'] = risk_flags
-        
-        # Calculate DOM percentile (simplified)
-        if listing_dicts:
-            # Simulate DOM based on number of listings (more listings = higher DOM)
-            dom_percentile = min(90, len(listing_dicts) * 10)
-            market_metrics['domPercentile'] = dom_percentile
-        
-        # Store market metrics in asset meta
+        if abs(metrics.get('priceGapPct', 0)) > 20:
+            risk_flags.append('פער מחיר גבוה')
+        if abs(metrics.get('deltaVsAreaPct', 0)) > 30:
+            risk_flags.append('פער שטח גבוה')
+        if metrics.get('confidencePct', 0) < 40:
+            risk_flags.append('ביטחון נמוך')
+        metrics['riskFlags'] = risk_flags
+
+        # --- Persist to meta (camelCase retained) ---
         if not asset.meta:
             asset.meta = {}
-        
-        asset.meta['market_metrics'] = market_metrics
-        
-        # Update asset fields with calculated metrics
-        for key, value in market_metrics.items():
-            if hasattr(asset, key):
-                setattr(asset, key, value)
-        
-        asset.save()
-        
-        logger.info(f"Calculated market metrics for asset {asset.id}: {market_metrics}")
-        
-    except Exception as e:
-        logger.error(f"Failed to calculate market metrics for asset {asset.id}: {e}")
+        asset.meta['market_metrics'] = metrics
+
+        # --- Map camelCase to snake_case model fields ---
+        field_map = {
+            'priceGapPct': 'price_gap_pct',
+            'expectedPriceRange': 'expected_price_range',
+            'modelPrice': 'model_price',
+            'confidencePct': 'confidence_pct',
+            'deltaVsAreaPct': 'delta_vs_area_pct',
+            'capRatePct': 'cap_rate_pct',
+            'competition1km': 'competition_1km',
+            'riskFlags': 'risk_flags',
+            'domPercentile': 'dom_percentile',
+            'rentEstimate': 'rent_estimate',
+        }
+        update_fields = {'meta'}
+        for camel, snake in field_map.items():
+            if camel in metrics and hasattr(asset, snake):
+                setattr(asset, snake, metrics[camel])
+                update_fields.add(snake)
+
+        asset.save(update_fields=list(update_fields))
+        logger.debug('[MARKET_METRICS] asset=%s metrics=%s', asset.id, metrics)
+    except Exception as e:  # pragma: no cover - defensive
+        logger.error('Failed to calculate market metrics for asset %s: %s', getattr(asset, 'id', '?'), e)
 
 
 def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
@@ -1592,78 +1620,51 @@ def _create_documents_from_permits(asset, permits):
         if not permit:
             continue
             
-        # Extract permit information
-        permit_id = permit.get('request_num', permit.get('permission_num', ''))
-        permit_number = permit.get('permission_num', '')
-        request_number = permit.get('request_num', '')
-        description = permit.get('building_stage', '')
-        status = permit.get('building_stage', '')
-        address = permit.get('addresses', '')
-        url = permit.get('url_hadmaya', '')
-        
-        # Convert timestamp to date
-        permit_date = None
-        if permit.get('permission_date'):
-            try:
-                permit_date = datetime.fromtimestamp(permit['permission_date'] / 1000).date()
-            except Exception as e:
-                logger.debug(f"Failed to parse permit date: {e}")
-                pass
-        
+        # Extract permit information with comprehensive field mapping
         # Check if document already exists to avoid duplicates
         existing_doc = Document.objects.filter(
             asset=asset,
             document_type='permit',
-            external_id=permit_id
+            external_id=permit.get('permission_num')
         ).first()
 
         if existing_doc:
-            # Update existing document
-            existing_doc.title = f"היתר בניה - {description}" if description else "היתר בניה"
-            existing_doc.description = description
-            existing_doc.status = status
-            existing_doc.document_date = permit_date
-            existing_doc.external_url = url
+            # Update existing document with all permit fields
+            existing_doc.asset = asset
+            existing_doc.user = system_user
+            existing_doc.title = permit.get('koteret', '')
+            existing_doc.description = permit.get('sug_bakasha', '')
+            existing_doc.document_type = 'permit'
+            existing_doc.status = permit.get('building_stage', '')
+            existing_doc.filename = f"{permit.get('permission_num')}.pdf"
+            existing_doc.file_path = './permits/'
+            existing_doc.file_size = 0
+            existing_doc.mime_type = 'application/pdf'
+            existing_doc.external_id = permit.get('permission_num')
+            existing_doc.external_url = permit.get('url_hadmaya', '')
             existing_doc.source = 'GIS'
-            existing_doc.meta = {
-                'permit_number': permit_number,
-                'request_number': request_number,
-                'address': address,
-                'building_stage': description,
-                'url_hadmaya': url,
-                'permission_date': permit.get('permission_date'),
-                'issued_date': permit.get('issued_date'),
-                'addresses': address
-            }
+            existing_doc.document_date = permit.get('permission_date')
+            existing_doc.meta = permit
             existing_doc.save()
             logger.debug(f"Updated existing permit document {existing_doc.id} for asset {asset.id}")
         else:
-            # Create new document
+            # Create new document with all permit fields
             document = Document.objects.create(
                 asset=asset,
                 user=system_user,
-                title=f"היתר בניה - {description}" if description else "היתר בניה",
-                description=description,
+                title=permit.get('koteret', ''),
+                description=permit.get('sug_bakasha', ''),
                 document_type='permit',
-                status='approved' if status else 'pending',
-                filename=f"permit_{permit_id}.pdf" if permit_id else f"permit_{created_count + 1}.pdf",
-                file_path='',  # No physical file for GIS permits
+                status=permit.get('building_stage', ''),
+                filename=f"{permit.get('permission_num')}.pdf",
+                file_path='./permits/',
                 file_size=0,
                 mime_type='application/pdf',
-                external_id=permit_id,
-                external_url=url,
+                external_id=permit.get('permission_num'),
+                external_url=permit.get('url_hadmaya', ''),
                 source='GIS',
-                document_date=permit_date,
-                meta={
-                    'permit_number': permit_number,
-                    'request_number': request_number,
-                    'address': address,
-                    'building_stage': description,
-                    'url_hadmaya': url,
-                    'permission_date': permit.get('permission_date'),
-                    'issued_date': permit.get('issued_date'),
-                    'addresses': address
-                }
+                document_date=permit.get('permission_date'),
+                meta=permit
             )
             created_count += 1
             logger.debug(f"Created permit document {document.id} for asset {asset.id}")

@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { rightsByAsset } from '@/lib/data'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const { id } = params
+  const numericId = Number(id)
 
   try {
-    // Try to fetch from backend first
-    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${id}/rights/`)
-    
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
+    console.log(`Fetching rights from: ${backendUrl}/api/assets/${numericId}/rights/`)
+    const backendResponse = await fetch(`${backendUrl}/api/assets/${numericId}/rights/`)
+    console.log(`Rights backend status: ${backendResponse.status}`)
     if (backendResponse.ok) {
       const data = await backendResponse.json()
       return NextResponse.json(data)
+    } else {
+      console.warn(`Backend rights fetch failed: ${backendResponse.status} ${backendResponse.statusText}`)
     }
   } catch (error) {
     console.error('Error fetching rights from backend:', error)
   }
 
-  // Fallback to mock data
-  return NextResponse.json(rightsByAsset(Number(id)))
+  // No fallback: return empty object
+  return NextResponse.json({})
 }

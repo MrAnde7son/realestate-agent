@@ -1,43 +1,84 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Mavat Selenium Client
+"""
+Mavat Selenium Client (stable rewrite)
 
-This module provides a Selenium-based client for the Mavat system, following the same
-successful pattern used in the Nadlan scraper. Selenium often handles complex JavaScript
-interactions better than Playwright for government websites.
+This module implements a Selenium-based client for interacting with the
+Mavat SV3 planning information system.  It provides two search modes:
 
-Based on the successful approach from: gov/nadlan/scraper_selenium.py
+* Basic search – a free‑text search that accepts plan numbers, names,
+  or municipal descriptors.  It populates the single text box on the
+  SV3 landing page and clicks the search button.
+
+* Advanced search – a structured search that accepts cadastral
+  parameters such as block (גוש) and parcel (חלקה), along with
+  optional status and city filters.  It opens the "חיפוש מתקדם" panel,
+  fills out the relevant fields, and submits the form.
+
+The client supports context manager usage to ensure the Selenium
+WebDriver is started and cleaned up appropriately.  Parsing of
+results is best‑effort: it examines tables on the results page and
+extracts common columns such as plan ID, title, status, authority,
+and location.  Callers can override or extend this logic as needed.
+
+Example
+-------
+
+```
+from mavat_selenium_client import MavatSeleniumClient
+
+with MavatSeleniumClient(headless=True) as client:
+    # Free‑text search
+    hits = client.search_plans(query="תל אביב", limit=10)
+    for hit in hits:
+        print(hit.plan_id, hit.title)
+
+    # Cadastral search
+    hits = client.search_plans(block="6638", parcel="1", city="תל אביב")
+    for hit in hits:
+        print(hit.plan_id, hit.title)
+
+    # Fetch plan details
+    if hits:
+        details = client.get_plan_details(hits[0].plan_id)
+        print(details)
+```
+
 """
 
-import json
+from __future__ import annotations
+
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException,
+    StaleElementReferenceException,
+    WebDriverException,
+)
 from webdriver_manager.chrome import ChromeDriverManager
-from bs4 import BeautifulSoup
 
 
 @dataclass
 class MavatSearchHit:
-    """Represents a single search hit returned by Mavat."""
+    """Represents a single search result returned by Mavat."""
     plan_id: str
     title: Optional[str] = None
     status: Optional[str] = None
     authority: Optional[str] = None
     jurisdiction: Optional[str] = None
     entity_number: Optional[str] = None
-    entity_name: Optional[str] = None
     approval_date: Optional[str] = None
     status_date: Optional[str] = None
+    url: Optional[str] = None
     raw: Optional[Dict[str, Any]] = None
 
 
@@ -53,6 +94,7 @@ class MavatPlan:
     entity_number: Optional[str] = None
     approval_date: Optional[str] = None
     status_date: Optional[str] = None
+    url: Optional[str] = None
     raw: Optional[Dict[str, Any]] = None
 
 
@@ -67,81 +109,156 @@ class MavatAttachment:
 
 
 class MavatSeleniumClient:
-    """Selenium-based client for the Mavat system."""
-    
+    """Selenium‑based client for the Mavat SV3 planning information system."""
+
     BASE_URL = "https://mavat.iplan.gov.il"
     SEARCH_URL = f"{BASE_URL}/SV3"
-    
-    def __init__(self, timeout: float = 30.0, headless: bool = True):
-        """Initialize the Selenium client.
-        
-        Args:
-            timeout: Request timeout in seconds
-            headless: Whether to run browser in headless mode
+
+    def __init__(self, timeout: float = 30.0, headless: bool = True) -> None:
+        """Initialise the Mavat client.
+
+        Parameters
+        ----------
+        timeout: float, optional
+            How long to wait for page loads and element searches.
+        headless: bool, optional
+            Whether to run Chrome in headless mode.  The default is True.
         """
         self.timeout = timeout
         self.headless = headless
-        self.driver = None
-        self.wait = None
+        self.driver: Optional[webdriver.Chrome] = None
+        self.wait: Optional[WebDriverWait] = None
 
-    def _wait_for_spinner(self, timeout: float = 15.0) -> None:
-        """Wait for the loading spinner overlay to disappear."""
-        if not self.driver:
+    # ------------------------------------------------------------------
+    # WebDriver lifecycle
+    # ------------------------------------------------------------------
+    def _init_driver(self) -> None:
+        if self.driver is not None:
             return
+        service = Service(ChromeDriverManager().install())
+        options = webdriver.ChromeOptions()
+        if self.headless:
+            # Use the new headless mode introduced in newer Chromes.  It
+            # better handles popups and downloads than the legacy flag.
+            options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1366,900")
+        options.add_argument("--lang=he-IL")
+        # Present ourselves as a normal Chrome on Windows
+        options.add_argument(
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/124.0.0.0 Safari/537.36'
+        )
+        # Hide webdriver flag from JavaScript checks
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option('excludeSwitches', ['enable-automation'])
+        options.add_experimental_option('useAutomationExtension', False)
 
-        try:
-            WebDriverWait(self.driver, timeout).until(
-                EC.invisibility_of_element_located(
-                    (By.CSS_SELECTOR, ".ngx-spinner-overlay")
-                )
-            )
-        except TimeoutException:
-            # Spinner might remain due to animation glitches; continue anyway
-            pass
+        self.driver = webdriver.Chrome(service=service, options=options)
+        self.driver.set_page_load_timeout(self.timeout)
+        self.wait = WebDriverWait(self.driver, self.timeout)
+        # Remove navigator.webdriver property to avoid detection
+        self.driver.execute_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        )
 
-    def _init_driver(self):
-        """Initialize the Selenium WebDriver."""
-        if self.driver is None:
-            service = Service(ChromeDriverManager().install())
-            options = webdriver.ChromeOptions()
-            if self.headless:
-                options.add_argument('--headless')
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--window-size=1280,720')
-            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36')
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option('useAutomationExtension', False)
-            
-            self.driver = webdriver.Chrome(service=service, options=options)
-            self.driver.set_page_load_timeout(self.timeout)
-            self.wait = WebDriverWait(self.driver, self.timeout)
-            
-            # Execute script to remove webdriver property
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    
-    def _cleanup_driver(self):
-        """Clean up the Selenium WebDriver."""
+    def _cleanup_driver(self) -> None:
         if self.driver:
             try:
                 self.driver.quit()
-            except:
+            except Exception:
                 pass
             finally:
                 self.driver = None
                 self.wait = None
-    
-    def __enter__(self):
-        """Context manager entry."""
+
+    def __enter__(self) -> 'MavatSeleniumClient':
         self._init_driver()
         return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self._cleanup_driver()
-    
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def _wait_for_spinner(self, timeout: Optional[float] = None) -> None:
+        """Wait until the global spinner overlay disappears.
+
+        Some pages in Mavat display a full‑screen spinner while loading
+        results.  This method waits up to ``timeout`` seconds (or the
+        client's configured timeout) for the spinner to become invisible.
+        If the spinner remains, the method returns without raising.
+        """
+        if not self.driver:
+            return
+        max_time = timeout or self.timeout
+        try:
+            WebDriverWait(self.driver, max_time).until(
+                EC.invisibility_of_element_located((By.CSS_SELECTOR, ".ngx-spinner-overlay"))
+            )
+        except TimeoutException:
+            # Spinner can stick; continue anyway
+            pass
+
+    def _safe_click(self, element: Optional[webdriver.remote.webelement.WebElement]) -> None:
+        """Click an element if it exists and is interactable.
+
+        If ``element`` is None or the click fails, the exception is
+        suppressed.  This helper prevents accidents where None is
+        accidentally clicked.
+        """
+        if not element:
+            return
+        try:
+            self.wait.until(EC.element_to_be_clickable(element))
+            element.click()
+        except Exception:
+            try:
+                # fallback to JavaScript click
+                self.driver.execute_script("arguments[0].click();", element)
+            except Exception:
+                pass
+
+    def _scroll_into_view(self, element: Optional[webdriver.remote.webelement.WebElement]) -> None:
+        """Scroll the page so that ``element`` is visible in the viewport."""
+        if not element:
+            return
+        try:
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});", element
+            )
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Accessibility
+    # ------------------------------------------------------------------
+    def is_accessible(self) -> bool:
+        """Return True if the Mavat system loads successfully.
+
+        This method performs a simple GET of ``BASE_URL`` and checks for
+        expected words in the page title.  If the page fails to load or
+        the title does not contain "mavat" or "מידע", the method
+        returns False.
+        """
+        try:
+            if not self.driver:
+                self._init_driver()
+            self.driver.get(self.BASE_URL)
+            # Wait a short time to allow the page title to stabilise
+            time.sleep(1.5)
+            title = (self.driver.title or "").lower()
+            return ("mavat" in title) or ("מידע" in title) or ("תכנון" in title)
+        except Exception:
+            return False
+
+    # ------------------------------------------------------------------
+    # Search functions
+    # ------------------------------------------------------------------
     def search_plans(
         self,
         query: Optional[str] = None,
@@ -154,25 +271,45 @@ class MavatSeleniumClient:
         block_number: Optional[str] = None,
         parcel_number: Optional[str] = None,
         status: Optional[str] = None,
-        limit: int = 20
+        limit: int = 20,
     ) -> List[MavatSearchHit]:
-        """Search for plans using Selenium automation.
-        
-        Args:
-            query: Free text search query
-            city: City name
-            district: District name
-            plan_area: Plan area name
-            street: Street name
-            block: block (block) number
-            parcel: parcel (parcel) number
-            block_number: Block number
-            parcel_number: Parcel number
-            status: Plan status filter
-            limit: Maximum results
-            
-        Returns:
-            List of MavatSearchHit objects
+        """Search for plans using the Mavat web interface.
+
+        This convenience method chooses between basic and advanced
+        searches based on the provided arguments.  If ``query`` or
+        ``city`` is supplied, a basic free‑text search is performed.
+        Otherwise, a cadastral search is attempted using the block and
+        parcel numbers (gush/chelka).  Unrecognised or unsupported
+        parameters are ignored.
+
+        Parameters
+        ----------
+        query: str, optional
+            Free‑text search term (plan number, name, authority, etc.).
+        city: str, optional
+            City name for free‑text search; if provided it is used as
+            the search term when ``query`` is not supplied.
+        block: str, optional
+            Alias for ``block_number`` for backward compatibility.
+        parcel: str, optional
+            Alias for ``parcel_number``.
+        block_number: str, optional
+            Cadastral block (גוש) number for advanced search.
+        parcel_number: str, optional
+            Cadastral parcel (חלקה) number for advanced search.
+        status: str, optional
+            Human‑readable status label (e.g. "מופקדת"), used as a
+            filter in advanced search.  If supplied it is used to
+            click the corresponding checkbox in the search panel.
+        limit: int, optional
+            Maximum number of search results to return.
+
+        Returns
+        -------
+        List[MavatSearchHit]
+            A list of search hits.  Each hit contains common fields
+            extracted from the results table.  Unparsed fields are
+            stored in the ``raw`` attribute.
         """
         if not self.driver:
             raise RuntimeError("Driver not initialized. Use context manager or call _init_driver() first.")
@@ -238,370 +375,327 @@ class MavatSeleniumClient:
             
             for selector in input_selectors:
                 try:
-                    search_input = self.wait.until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
-                    )
-                    print(f"Found search input with selector: {selector}")
-                    break
-                except:
+                    cb_label = self.driver.find_element(By.XPATH, f"//label[contains(normalize-space(.), '{label}')]")
+                    self._scroll_into_view(cb_label)
+                    self._safe_click(cb_label)
+                except NoSuchElementException:
                     continue
-            
-            if not search_input:
-                print("No search input found, trying direct URL approach...")
-                # Try direct URL with query parameters
-                search_params = []
-                if query:
-                    search_params.append(f"text={query}")
-                if city:
-                    search_params.append(f"city={city}")
-                if block:
-                    search_params.append(f"block={block}")
-                if parcel:
-                    search_params.append(f"parcel={parcel}")
-                
-                if search_params:
-                    url = f"{self.SEARCH_URL}?{'&'.join(search_params)}"
-                    print(f"Trying direct URL: {url}")
-                    self.driver.get(url)
-                    time.sleep(3)
-            else:
-                # Fill search input
-                search_text = query or city
-                print(f"Filling search input with: {search_text}")
-                search_input.clear()
-                search_input.send_keys(search_text)
-                
-                # Look for search button
-                search_button = None
-                button_selectors = [
-                    "button:contains('חיפוש')",
-                    "input[value*='חיפוש']",
-                    "button[type='submit']",
-                    "//button[contains(text(), 'חיפוש')]"
-                ]
-                
-                for selector in button_selectors:
-                    try:
-                        if selector.startswith("//"):
-                            search_button = self.driver.find_element(By.XPATH, selector)
-                        else:
-                            search_button = self.driver.find_element(By.CSS_SELECTOR, selector)
-                        if search_button and search_button.is_displayed():
-                            break
-                    except:
-                        continue
-                
-                if search_button:
-                    print("Found search button, clicking it...")
-                    self._wait_for_spinner()
-                    search_button.click()
-                    self._wait_for_spinner()
-                    time.sleep(3)
-                else:
-                    print("No search button found, trying Enter key...")
-                    self._wait_for_spinner()
-                    search_input.send_keys(Keys.RETURN)
-                    self._wait_for_spinner()
-                    time.sleep(3)
 
-            # Wait for results to load
-            print("Waiting for search results...")
-            time.sleep(3)
-            self._wait_for_spinner()
-            
-            # Extract search results
-            hits = []
-            
-            # Look for tables with actual data (not empty rows)
-            tables = self.driver.find_elements(By.CSS_SELECTOR, "table")
-            print(f"Found {len(tables)} tables on page")
-            
-            for table_idx, table in enumerate(tables):
+        # Locate and click the search button within the advanced panel.  We look
+        # for a button with text "חיפוש" that appears after the form.
+        search_btn = None
+        try:
+            search_btn = self.driver.find_element(By.XPATH, "//button[contains(normalize-space(.), 'חיפוש')]")
+        except NoSuchElementException:
+            pass
+        # As a fallback, click the main submit button used by basic search
+        if not search_btn:
+            try:
+                search_btn = self.driver.find_element(By.CSS_SELECTOR, ".sv3-search__submit button")
+            except NoSuchElementException:
+                pass
+        self._safe_click(search_btn)
+        # Wait for results
+        self._wait_for_spinner()
+        time.sleep(1.0)
+        return self._parse_results(limit=limit)
+
+    # ------------------------------------------------------------------
+    # Result parsing
+    # ------------------------------------------------------------------
+    def _parse_results(self, limit: int = 20) -> List[MavatSearchHit]:
+        """Parse search results from the results page.
+
+        The Mavat results page generally renders one or more tables.  This
+        method iterates through those tables and extracts text from each
+        row.  It attempts to map columns to attributes using simple
+        heuristics: the first non‑empty cell becomes the title, the
+        second becomes the authority, the third becomes the location,
+        and the fourth becomes the status.  Additional information is
+        stored in the ``raw`` dict.
+        """
+        hits: List[MavatSearchHit] = []
+        if not self.driver:
+            return hits
+
+        # Some result pages use tables; others use cards.  Try tables first.
+        tables = self.driver.find_elements(By.CSS_SELECTOR, "table")
+        for table_idx, table in enumerate(tables):
+            try:
                 rows = table.find_elements(By.CSS_SELECTOR, "tr")
-                print(f"Table {table_idx}: {len(rows)} rows")
-                
-                if len(rows) > 1:  # More than just header
-                    # Check if this table has meaningful data
-                    first_data_row = None
-                    for row in rows[1:]:  # Skip header
-                        cells = row.find_elements(By.CSS_SELECTOR, "td, th")
-                        cell_texts = [cell.text.strip() for cell in cells]
-                        if any(cell_texts):  # Has non-empty content
-                            first_data_row = cell_texts
-                            break
-                    
-                    if first_data_row:
-                        print(f"Table {table_idx} has data: {first_data_row}")
-                        
-                        # Extract data from all rows
-                        for row_idx, row in enumerate(rows[1:limit+1]):  # Skip header, limit results
-                            try:
-                                cells = row.find_elements(By.CSS_SELECTOR, "td, th")
-                                cell_texts = [cell.text.strip() for cell in cells]
-                                
-                                if not any(cell_texts):  # Skip empty rows
-                                    continue
-                                
-                                # Determine plan ID (usually first cell with meaningful content)
-                                plan_id = None
-                                for cell_text in cell_texts:
-                                    if cell_text and (cell_text.isdigit() or len(cell_text) > 3):
-                                        plan_id = cell_text
-                                        break
-                                
-                                if not plan_id:
-                                    plan_id = f"plan_{table_idx}_{row_idx}"
-                                
-                                # Use the first non-empty cell as title
-                                title = next((text for text in cell_texts if text), None)
-                                
-                                # Try to identify additional fields based on table structure
-                                authority = None
-                                jurisdiction = None
-                                status = None
-                                
-                                if len(cell_texts) >= 3:
-                                    # Common pattern: ID, Title, Authority, Location, Status
-                                    if len(cell_texts) >= 4:
-                                        authority = cell_texts[2] if len(cell_texts) > 2 else None
-                                    if len(cell_texts) >= 5:
-                                        jurisdiction = cell_texts[3] if len(cell_texts) > 3 else None
-                                    if len(cell_texts) >= 6:
-                                        status = cell_texts[4] if len(cell_texts) > 4 else None
-                                
-                                hit = MavatSearchHit(
-                                    plan_id=plan_id,
-                                    title=title,
-                                    authority=authority,
-                                    jurisdiction=jurisdiction,
-                                    status=status,
-                                    raw={
-                                        "table_index": table_idx,
-                                        "row_index": row_idx,
-                                        "cell_texts": cell_texts,
-                                        "element_html": row.get_attribute("outerHTML")[:500]
-                                    }
-                                )
-                                hits.append(hit)
-                                
-                            except Exception as e:
-                                print(f"Error extracting data from row {row_idx}: {e}")
-                                continue
-                        
-                        if hits:
-                            break  # Found results in this table
-            
-            print(f"Extracted {len(hits)} search results")
-            return hits[:limit]
-            
-        except Exception as e:
-            raise RuntimeError(f"Search failed: {e}")
-    
-    def fetch_pdf(self, plan_number: str) -> bytes:
-        """Fetch PDF for a specific plan number.
-        
-        Args:
-            plan_number: The plan number to fetch PDF for
-            
-        Returns:
-            PDF content as bytes
-        """
-        if not self.driver:
-            raise RuntimeError("Driver not initialized. Use context manager or call _init_driver() first.")
-        
-        try:
-            # Navigate to plan page
-            plan_url = f"{self.SEARCH_URL}?text={plan_number}"
-            print(f"Navigating to plan page: {plan_url}")
-            self.driver.get(plan_url)
-            time.sleep(3)
-            
-            # First, try to click on the plans tab to ensure we're looking at plans, not meetings
+            except StaleElementReferenceException:
+                continue
+            if len(rows) <= 1:
+                continue  # skip if only header or empty
+
+            headers: List[str] = []
             try:
-                plans_tab = self.driver.find_element(By.XPATH, "//button[contains(text(), 'תכניות') or @aria-label='תכניות']")
-                if plans_tab and plans_tab.is_displayed():
-                    print("Clicking plans tab to ensure we're viewing plans...")
-                    plans_tab.click()
-                    time.sleep(2)
-            except:
-                print("Could not find plans tab, continuing...")
-            
-            # Look for PDF button/link with more comprehensive selectors
-            pdf_button = None
-            pdf_selectors = [
-                "img[title='הצג PDF']",  # Most common - img elements with PDF title
-                "button[title='הצג PDF']",
-                "button[title*='PDF']",
-                "button:contains('PDF')",
-                "button:contains('הצג')",
-                "a[href*='pdf']",
-                "a[href*='PDF']",
-                "//img[@title='הצג PDF']",  # XPath for img elements
-                "//button[contains(text(), 'PDF')]",
-                "//button[contains(text(), 'הצג')]",
-                "//a[contains(text(), 'PDF')]",
-                "//button[contains(@title, 'PDF')]",
-                "//a[contains(@href, 'pdf')]",
-                "//a[contains(@href, 'PDF')]"
-            ]
-            
-            print("Looking for PDF button...")
-            for selector in pdf_selectors:
+                headers = [h.text.strip() for h in rows[0].find_elements(By.CSS_SELECTOR, "th, td")]
+            except StaleElementReferenceException:
+                pass
+            for row_idx, row in enumerate(rows[1:], start=1):
                 try:
-                    if selector.startswith("//"):
-                        elements = self.driver.find_elements(By.XPATH, selector)
-                    else:
-                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    
-                    for element in elements:
-                        if element.is_displayed() and element.is_enabled():
-                            pdf_button = element
-                            print(f"Found PDF button with selector: {selector} - Text: '{element.text}'")
-                            break
-                    
-                    if pdf_button:
-                        break
-                except Exception as e:
+                    cells = row.find_elements(By.CSS_SELECTOR, "td, th")
+                except StaleElementReferenceException:
                     continue
-            
-            if not pdf_button:
-                # Try to find any clickable element that might lead to PDF
-                print("No specific PDF button found, looking for any PDF-related elements...")
-                clickable_elements = self.driver.find_elements(By.CSS_SELECTOR, "a, button, img")
-                for element in clickable_elements:
-                    if element.is_displayed() and element.is_enabled():
-                        text = element.text.lower()
-                        title = element.get_attribute('title') or ''
-                        if any(keyword in text for keyword in ['pdf', 'הצג', 'download', 'הורד']) or \
-                           any(keyword in title.lower() for keyword in ['pdf', 'הצג', 'download', 'הורד']):
-                            pdf_button = element
-                            print(f"Found potential PDF element: '{element.text}' (title: '{title}')")
-                            break
-            
-            if pdf_button:
-                print(f"Clicking PDF button: '{pdf_button.text}'")
+                cell_texts = [c.text.strip() for c in cells]
+                if not any(cell_texts):
+                    continue
+                # Determine plan ID and title
+                plan_id: Optional[str] = None
+                title: Optional[str] = None
+                for val in cell_texts:
+                    if val and not title:
+                        title = val
+                    if val and (val.isdigit() or len(val) > 3):
+                        # use first significant token as plan id candidate
+                        plan_id = val
+                        break
+                if not plan_id:
+                    plan_id = f"row_{table_idx}_{row_idx}"
+                # Map other columns based on position or header keywords
+                authority: Optional[str] = None
+                jurisdiction: Optional[str] = None
+                status: Optional[str] = None
+                if len(cell_texts) >= 3:
+                    # Common pattern: [ID, Title, Authority, Location, Status]
+                    if len(cell_texts) > 2:
+                        authority = cell_texts[2]
+                    if len(cell_texts) > 3:
+                        jurisdiction = cell_texts[3]
+                    if len(cell_texts) > 4:
+                        status = cell_texts[4]
+                # See if there is a clickable link in the row (plan URL)
+                link_href: Optional[str] = None
                 try:
-                    # Scroll to element and click
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", pdf_button)
-                    time.sleep(1)
-                    pdf_button.click()
-                    time.sleep(5)  # Wait longer for PDF to load
-                    
-                    # Check if a new tab/window opened
-                    if len(self.driver.window_handles) > 1:
-                        print("New tab opened, switching to it...")
-                        self.driver.switch_to.window(self.driver.window_handles[-1])
-                        time.sleep(2)
-                    
-                    # Get the current URL to see if it's a PDF
-                    current_url = self.driver.current_url
-                    print(f"Current URL after click: {current_url}")
-                    
-                    if current_url.endswith('.pdf') or 'pdf' in current_url.lower():
-                        # Download the PDF content
-                        pdf_content = self.driver.page_source.encode('utf-8')
-                        print(f"PDF content size: {len(pdf_content)} bytes")
-                        return pdf_content
-                    else:
-                        # Look for PDF content in the page
-                        page_source = self.driver.page_source
-                        if 'PDF' in page_source or 'application/pdf' in page_source:
-                            return page_source.encode('utf-8')
-                        else:
-                            # Check if we can find any PDF links in the page
-                            pdf_links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='pdf'], a[href*='PDF']")
-                            if pdf_links:
-                                print(f"Found {len(pdf_links)} PDF links, trying first one...")
-                                pdf_links[0].click()
-                                time.sleep(3)
-                                return self.driver.page_source.encode('utf-8')
-                            else:
-                                raise RuntimeError("PDF not found after clicking button")
-                except Exception as e:
-                    raise RuntimeError(f"Error clicking PDF button: {e}")
-            else:
-                raise RuntimeError("No PDF button found")
-                
-        except Exception as e:
-            raise RuntimeError(f"Failed to fetch PDF: {e}")
-    
+                    link = row.find_element(By.CSS_SELECTOR, "a")
+                    link_href = link.get_attribute("href")
+                except NoSuchElementException:
+                    pass
+                hits.append(
+                    MavatSearchHit(
+                        plan_id=plan_id,
+                        title=title,
+                        authority=authority,
+                        jurisdiction=jurisdiction,
+                        status=status,
+                        url=link_href,
+                        raw={
+                            "headers": headers,
+                            "cells": cell_texts,
+                            "table_index": table_idx,
+                            "row_index": row_idx,
+                        },
+                    )
+                )
+                if len(hits) >= limit:
+                    return hits
+
+        # If no tables found, try card‐style results
+        if not hits:
+            cards = self.driver.find_elements(By.CSS_SELECTOR, "div.uk-card")
+            for idx, card in enumerate(cards):
+                text = card.text.strip()
+                if not text:
+                    continue
+                lines = text.splitlines()
+                plan_id = lines[0] if lines else f"card_{idx}"
+                title = lines[1] if len(lines) > 1 else plan_id
+                link_href: Optional[str] = None
+                try:
+                    link = card.find_element(By.CSS_SELECTOR, "a")
+                    link_href = link.get_attribute("href")
+                except NoSuchElementException:
+                    pass
+                hits.append(
+                    MavatSearchHit(
+                        plan_id=plan_id,
+                        title=title,
+                        url=link_href,
+                        raw={"card_text": text},
+                    )
+                )
+                if len(hits) >= limit:
+                    break
+        return hits
+
+    # ------------------------------------------------------------------
+    # Plan details and PDF
+    # ------------------------------------------------------------------
     def get_plan_details(self, plan_id: str) -> MavatPlan:
-        """Get detailed information for a specific plan.
-        
-        Args:
-            plan_id: The unique identifier of the plan
-            
-        Returns:
-            MavatPlan object with plan details
+        """Retrieve basic details for a specific plan.
+
+        The method navigates to the plan by performing a basic search
+        using the ``plan_id`` as the query, then selecting the first
+        result and scraping the title from the details page.  The
+        returned ``MavatPlan`` includes only a few fields; callers can
+        access the entire raw HTML via the ``raw`` attribute if
+        necessary.  If no results are found, a ``RuntimeError`` is
+        raised.
         """
         if not self.driver:
-            raise RuntimeError("Driver not initialized. Use context manager or call _init_driver() first.")
-        
-        try:
-            # Navigate to plan details page
-            plan_url = f"{self.SEARCH_URL}?text={plan_id}"
-            print(f"Navigating to plan details: {plan_url}")
-            self.driver.get(plan_url)
-            time.sleep(3)
-            
-            # Extract plan details from the page
-            title_element = None
-            title_selectors = ["h1", ".plan-title", ".entity-name", "title"]
-            
-            for selector in title_selectors:
-                try:
-                    title_element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    if title_element and title_element.text.strip():
-                        break
-                except:
-                    continue
-            
-            plan_name = title_element.text.strip() if title_element else None
-            
-            return MavatPlan(
-                plan_id=plan_id,
-                plan_name=plan_name,
-                raw={"page_url": plan_url}
+            raise RuntimeError(
+                "Driver not initialized. Use context manager or call __enter__() first."
             )
-            
-        except Exception as e:
-            raise RuntimeError(f"Failed to get plan details: {e}")
-    
-    def is_accessible(self) -> bool:
-        """Check if the Mavat system is accessible.
-        
-        Returns:
-            True if accessible, False otherwise
-        """
-        if not self.driver:
-            try:
-                self._init_driver()
-            except:
-                return False
-        
+        # Search for the plan id
+        hits = self._search_basic(plan_id, limit=1)
+        if not hits:
+            raise RuntimeError(f"No results found for plan identifier: {plan_id}")
+        first = hits[0]
+        # Navigate to the plan details page
+        if first.url:
+            self.driver.get(first.url)
+        else:
+            # Fallback: click the first result row
+            self._open_first_result()
+        self._wait_for_spinner()
+        time.sleep(0.8)
+        # Extract the plan name from typical locations
+        plan_name: Optional[str] = None
         try:
-            self.driver.get(self.BASE_URL)
-            return "mavat" in self.driver.title.lower() or "תכנון" in self.driver.title
-        except:
-            return False
+            candidates = self.driver.find_elements(By.XPATH, "//h1 | //h2 | //div[contains(@class,'title')] | //div[contains(@class,'plan-title')]")
+            for c in candidates:
+                txt = c.text.strip()
+                if txt:
+                    plan_name = txt
+                    break
+        except Exception:
+            pass
+        return MavatPlan(
+            plan_id=plan_id,
+            plan_name=plan_name,
+            url=self.driver.current_url,
+            raw={"url": self.driver.current_url},
+        )
+
+    def _open_first_result(self) -> None:
+        """Click the first result row on the results page.
+
+        This helper is used when we do not have a direct link to a plan
+        details page.  It attempts to click the first row in the first
+        table or, if no tables exist, the first card.  Exceptions are
+        ignored.
+        """
+        try:
+            tables = self.driver.find_elements(By.CSS_SELECTOR, "table")
+            for table in tables:
+                rows = table.find_elements(By.CSS_SELECTOR, "tr")
+                if len(rows) > 1:
+                    first_row = rows[1]
+                    try:
+                        link = first_row.find_element(By.CSS_SELECTOR, "a")
+                        self._scroll_into_view(link)
+                        self._safe_click(link)
+                    except NoSuchElementException:
+                        self._scroll_into_view(first_row)
+                        self._safe_click(first_row)
+                    self._wait_for_spinner()
+                    time.sleep(0.5)
+                    return
+        except Exception:
+            pass
+        # fallback to cards
+        try:
+            cards = self.driver.find_elements(By.CSS_SELECTOR, "div.uk-card")
+            if cards:
+                card = cards[0]
+                self._scroll_into_view(card)
+                self._safe_click(card)
+                self._wait_for_spinner()
+                time.sleep(0.5)
+        except Exception:
+            pass
+
+    def fetch_pdf(self, plan_identifier: str) -> Optional[bytes]:
+        """Attempt to download a PDF document for the given plan.
+
+        The PDF download mechanism on Mavat is inconsistent.  This
+        method performs best‑effort discovery of PDF buttons or links on
+        the plan details page.  If a direct PDF URL is found, it is
+        fetched using an in‑page `fetch` and returned as bytes.  If
+        nothing is found, the method returns None.
+        """
+        # Navigate to the plan details page first
+        details = self.get_plan_details(plan_identifier)
+        if not self.driver:
+            return None
+        # Look for links or buttons that mention PDF
+        selectors = [
+            "//img[@title='הצג PDF']/parent::*",
+            "//button[contains(@title, 'PDF') or contains(normalize-space(.), 'PDF') or contains(normalize-space(.), 'הצג PDF')]",
+            "//a[contains(@href,'.pdf') or contains(normalize-space(.), 'PDF')]",
+        ]
+        pdf_el: Optional[Any] = None
+        for sel in selectors:
+            try:
+                elems = self.driver.find_elements(By.XPATH, sel)
+                for el in elems:
+                    if el.is_displayed():
+                        pdf_el = el
+                        break
+                if pdf_el:
+                    break
+            except Exception:
+                continue
+        if not pdf_el:
+            return None
+        # If the element is a link with a PDF href, attempt direct fetch
+        href = pdf_el.get_attribute("href") if pdf_el else None
+        if href and href.lower().endswith(".pdf"):
+            try:
+                # Use fetch from page context to bypass cross‑origin restrictions
+                script = (
+                    "const url = arguments[0];"
+                    "return fetch(url, {credentials:'include'})"
+                    ".then(r => r.arrayBuffer())"
+                    ".then(buf => btoa(String.fromCharCode(...new Uint8Array(buf))));"
+                )
+                b64 = self.driver.execute_script(script, href)
+                if b64:
+                    import base64
+                    return base64.b64decode(b64)
+            except Exception:
+                pass
+        # Otherwise click the button/link to trigger a new tab or download
+        self._safe_click(pdf_el)
+        time.sleep(1.0)
+        # If a new tab opened, switch to it
+        try:
+            handles = self.driver.window_handles
+            if len(handles) > 1:
+                self.driver.switch_to.window(handles[-1])
+                time.sleep(0.5)
+            # If URL ends with .pdf, fetch content via page context
+            current_url = self.driver.current_url
+            if current_url.lower().endswith('.pdf'):
+                script = (
+                    "return fetch(window.location.href, {credentials:'include'})"
+                    ".then(r => r.arrayBuffer())"
+                    ".then(buf => btoa(String.fromCharCode(...new Uint8Array(buf))));"
+                )
+                b64 = self.driver.execute_script(script)
+                if b64:
+                    import base64
+                    return base64.b64decode(b64)
+        except Exception:
+            pass
+        return None
+
 
 if __name__ == "__main__":
+    # Small demonstration when run directly
     with MavatSeleniumClient(headless=False) as client:
-        if client.is_accessible():
-            print("Mavat is accessible")
-            hits = client.search_plans(query="תל אביב", limit=5)
-            for hit in hits:
-                print(hit)
-                try:
-                    plan = client.get_plan_details(hit.plan_id)
-                    print(plan)
-                except Exception as e:
-                    print(f"Error fetching plan details: {e}")
-
-                try:
-                    pdf_content = client.fetch_pdf(hit.plan_id)
-                    print(f"Fetched PDF content of size: {len(pdf_content)} bytes")
-                except Exception as e:
-                    print(f"Error fetching PDF: {e}")
+        if not client.is_accessible():
+            print("Mavat is not accessible. Check your network or try again later.")
         else:
-            print("Mavat is not accessible")
+            print("Mavat system is reachable. Performing a demo search...")
+            try:
+                results = client.search_plans(query="תל אביב", limit=5)
+                for hit in results:
+                    print(f"{hit.plan_id} | {hit.title} | {hit.status}")
+                if results:
+                    print("\nFetching first plan details...")
+                    plan = client.get_plan_details(results[0].plan_id)
+                    print(plan)
+            except Exception as e:
+                print(f"Error during demo: {e}")

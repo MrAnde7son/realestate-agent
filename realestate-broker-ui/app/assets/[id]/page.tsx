@@ -126,12 +126,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       ? `${value.toFixed(digits)}%`
       : null
 
-  const avgCompPricePerSqm = comparables.length
+  const avgCompPricePerSqm = comparableTransactions.length
     ? Math.round(
-        comparables.reduce(
-          (sum, c) => sum + (c.pricePerSqm || 0),
+        comparableTransactions.reduce(
+          (sum, c) => sum + (c.price_per_sqm || 0),
           0
-        ) / comparables.length
+        ) / comparableTransactions.length
       )
     : null
 
@@ -232,7 +232,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         if (!res.ok) throw new Error('Failed to load plans')
         return res.json()
       })
-      .then(data => setPlans(data.plans || {local: [], mavat: []}))
+      .then(data => {
+        // Organize plans by source
+        const organizedPlans: {local: any[], mavat: any[]} = {local: [], mavat: []}
+        if (data.plans && Array.isArray(data.plans)) {
+          data.plans.forEach((plan: any) => {
+            if (plan.source === 'mavat') {
+              organizedPlans.mavat.push(plan)
+            } else if (plan.source === 'collected_data' || plan.source === 'rami') {
+              organizedPlans.local.push(plan)
+            }
+          })
+        }
+        setPlans(organizedPlans)
+      })
       .catch(err => console.error('Error loading plans:', err))
   }, [id])
 
@@ -1107,10 +1120,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </Card>
 
             {/* Mavat Plans */}
-            {plans.mavat && plans.mavat.length > 0 && (
+            {plans.mavat && plans.mavat.length > 0 ? (
               <Card>
                 <CardHeader>
-                  <CardTitle>תוכניות מ-mavat</CardTitle>
+                  <CardTitle>תוכניות ממינהל התכנון</CardTitle>
                   <p className="text-sm text-muted-foreground">
                     תוכניות תכנון רלוונטיות מהמערכת הממשלתית
                   </p>
@@ -1121,38 +1134,46 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       <div key={idx} className="p-3 border rounded-lg">
                         <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
                           <div className="flex-1">
-                            <h4 className="font-medium text-sm">{plan.title}</h4>
+                            <h4 className="font-medium text-sm">{plan.description || plan.raw?.title || `תכנית מבת ${plan.plan_number}`}</h4>
                             <p className="text-xs text-muted-foreground">
-                              תוכנית מס׳ {plan.plan_id}
+                              תוכנית מס׳ {plan.plan_number}
                             </p>
                           </div>
                           <Badge variant={plan.status === 'מאושר' ? 'success' : 'neutral'}>
-                            {plan.status}
+                            {plan.status || 'לא ידוע'}
                           </Badge>
                         </div>
                         <div className="grid gap-2 text-xs text-muted-foreground">
-                          {plan.authority && (
+                          {plan.raw?.authority && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span>רשות:</span>
-                              <span>{plan.authority}</span>
+                              <span>{plan.raw.authority}</span>
                             </div>
                           )}
-                          {plan.jurisdiction && (
+                          {plan.raw?.jurisdiction && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span>תחום שיפוט:</span>
-                              <span>{plan.jurisdiction}</span>
+                              <span>{plan.raw.jurisdiction}</span>
                             </div>
                           )}
-                          {plan.approval_date && (
+                          {plan.raw?.approval_date && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span>תאריך אישור:</span>
-                              <span>{new Date(plan.approval_date).toLocaleDateString('he-IL')}</span>
+                              <span>{new Date(plan.raw.approval_date).toLocaleDateString('he-IL')}</span>
                             </div>
                           )}
-                          {plan.status_date && (
+                          {plan.raw?.status_date && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span>תאריך סטטוס:</span>
-                              <span>{new Date(plan.status_date).toLocaleDateString('he-IL')}</span>
+                              <span>{new Date(plan.raw.status_date).toLocaleDateString('he-IL')}</span>
+                            </div>
+                          )}
+                          {plan.file_url && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span>קובץ:</span>
+                              <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                צפה בקובץ
+                              </a>
                             </div>
                           )}
                         </div>
@@ -1162,6 +1183,25 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="pt-2 border-t mt-4">
                     <div className="text-sm text-muted-foreground text-center">
                       מקור: מערכת mavat - מידע תכנוני ממשלתי
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                <CardTitle>תוכניות ממינהל התכנון</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    תוכניות תכנון רלוונטיות מהמערכת הממשלתית
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <div className="text-muted-foreground mb-2">
+                      לא נמצאו תוכניות ממינהל התיכנון עבור נכס זה
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      ייתכן שהנכס לא נמצא במערכת mavat או שטרם נאסף מידע תכנוני
                     </div>
                   </div>
                 </CardContent>
@@ -1666,29 +1706,43 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="grid gap-3">
-                    {comparables.map((comp: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse"
-                      >
-                        <div>
-                          <div className="font-medium">{comp.address}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {!!comp.area ? `${comp.area} מ״ר` : ''}
-                            {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
-                            {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
+                  {comparableTransactions.length > 0 ? (
+                    <div className="grid gap-3">
+                      {comparableTransactions.map((comp: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse"
+                        >
+                          <div>
+                            <div className="font-medium">{comp.address}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {!!comp.area ? `${comp.area} מ״ר` : ''}
+                              {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
+                              {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
+                            </div>
+                            {comp.source && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                מקור: {comp.source === 'collected_government' ? 'נדלן' : 'מאגר פנימי'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold">{formatCurrency(comp.price)}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {formatCurrency(comp.price_per_sqm)}/מ״ר
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-bold">{formatCurrency(comp.price)}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatCurrency(comp.pricePerSqm)}/מ״ר
-                          </div>
-                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <div className="text-lg font-medium mb-2">לא נמצאו עסקאות השוואה</div>
+                      <div className="text-sm">
+                        נסה לסנכרן נתונים כדי לקבל עסקאות עדכניות מהאזור
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                   <div className="pt-2 border-t text-center">
                     <div className="text-sm text-muted-foreground">
                       מקור: נתוני עסקאות ממשרד השיכון ומ-data.gov.il

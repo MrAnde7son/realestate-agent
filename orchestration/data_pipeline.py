@@ -1102,14 +1102,14 @@ def _process_gis_data(asset, gis_data):
 
     # Building permits
     if gis_data.get('permits'):
+        print("GIS Permits:", gis_data.get('permits'))
         permits = gis_data.get('permits', [])
         if permits:
             recent_permit = permits[0] if permits else {}
             asset.set_property('permitStatus', recent_permit.get('building_stage', ''), source='GIS', url='https://www.govmap.gov.il/')
             if recent_permit.get('permission_date'):
                 try:
-                    from datetime import datetime
-                    permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
+                    permit_date = datetime.fromtimestamp(recent_permit['permission_date'] or 0 / 1000)
                     asset.set_property('permitDate', permit_date.date(), source='GIS', url='https://www.govmap.gov.il/')
                 except Exception as e:
                     logger.debug(f"Failed to parse permit date: {e}")
@@ -1158,7 +1158,6 @@ def _process_gis_data(asset, gis_data):
             recent_permit = permits[0] if permits else {}
             if recent_permit.get('permission_date'):
                 try:
-                    from datetime import datetime
                     permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
                     quarter = f"Q{(permit_date.month - 1) // 3 + 1}/{permit_date.year}"
                     asset.set_property('lastPermitQ', quarter, source='GIS', url='https://www.govmap.gov.il/')
@@ -1602,7 +1601,6 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
 
 def _create_documents_from_permits(asset, permits):
     """Create documents from GIS permits data."""
-    print("Permits:" + str(permits))
     if not permits:
         return
     # Get a system user or create one for automated processes
@@ -1622,78 +1620,51 @@ def _create_documents_from_permits(asset, permits):
         if not permit:
             continue
             
-        # Extract permit information
-        permit_id = permit.get('request_num', permit.get('permission_num', ''))
-        permit_number = permit.get('permission_num', '')
-        request_number = permit.get('request_num', '')
-        description = permit.get('building_stage', '')
-        status = permit.get('building_stage', '')
-        address = permit.get('addresses', '')
-        url = permit.get('url_hadmaya', '')
-        
-        # Convert timestamp to date
-        permit_date = None
-        if permit.get('permission_date'):
-            try:
-                permit_date = datetime.fromtimestamp(permit['permission_date'] / 1000).date()
-            except Exception as e:
-                logger.debug(f"Failed to parse permit date: {e}")
-                pass
-        
+        # Extract permit information with comprehensive field mapping
         # Check if document already exists to avoid duplicates
         existing_doc = Document.objects.filter(
             asset=asset,
             document_type='permit',
-            external_id=permit_id
+            external_id=permit.get('permission_num')
         ).first()
 
         if existing_doc:
-            # Update existing document
-            existing_doc.title = f"היתר בניה - {description}" if description else "היתר בניה"
-            existing_doc.description = description
-            existing_doc.status = status
-            existing_doc.document_date = permit_date
-            existing_doc.external_url = url
+            # Update existing document with all permit fields
+            existing_doc.asset = asset
+            existing_doc.user = system_user
+            existing_doc.title = permit.get('koteret', '')
+            existing_doc.description = permit.get('sug_bakasha', '')
+            existing_doc.document_type = 'permit'
+            existing_doc.status = permit.get('building_stage', '')
+            existing_doc.filename = f"{permit.get('permission_num')}.pdf"
+            existing_doc.file_path = './permits/'
+            existing_doc.file_size = 0
+            existing_doc.mime_type = 'application/pdf'
+            existing_doc.external_id = permit.get('permission_num')
+            existing_doc.external_url = permit.get('url_hadmaya', '')
             existing_doc.source = 'GIS'
-            existing_doc.meta = {
-                'permit_number': permit_number,
-                'request_number': request_number,
-                'address': address,
-                'building_stage': description,
-                'url_hadmaya': url,
-                'permission_date': permit.get('permission_date'),
-                'issued_date': permit.get('issued_date'),
-                'addresses': address
-            }
+            existing_doc.document_date = permit.get('permission_date')
+            existing_doc.meta = permit
             existing_doc.save()
             logger.debug(f"Updated existing permit document {existing_doc.id} for asset {asset.id}")
         else:
-            # Create new document
+            # Create new document with all permit fields
             document = Document.objects.create(
                 asset=asset,
                 user=system_user,
-                title=f"היתר בניה - {description}" if description else "היתר בניה",
-                description=description,
+                title=permit.get('koteret', ''),
+                description=permit.get('sug_bakasha', ''),
                 document_type='permit',
-                status='approved' if status else 'pending',
-                filename=f"permit_{permit_id}.pdf" if permit_id else f"permit_{created_count + 1}.pdf",
-                file_path='',  # No physical file for GIS permits
+                status=permit.get('building_stage', ''),
+                filename=f"{permit.get('permission_num')}.pdf",
+                file_path='./permits/',
                 file_size=0,
                 mime_type='application/pdf',
-                external_id=permit_id,
-                external_url=url,
+                external_id=permit.get('permission_num'),
+                external_url=permit.get('url_hadmaya', ''),
                 source='GIS',
-                document_date=permit_date,
-                meta={
-                    'permit_number': permit_number,
-                    'request_number': request_number,
-                    'address': address,
-                    'building_stage': description,
-                    'url_hadmaya': url,
-                    'permission_date': permit.get('permission_date'),
-                    'issued_date': permit.get('issued_date'),
-                    'addresses': address
-                }
+                document_date=permit.get('permission_date'),
+                meta=permit
             )
             created_count += 1
             logger.debug(f"Created permit document {document.id} for asset {asset.id}")

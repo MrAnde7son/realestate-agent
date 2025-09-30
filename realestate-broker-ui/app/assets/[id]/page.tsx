@@ -1406,32 +1406,32 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader>פרטי היתר</CardHeader>
-                <CardBody className="space-y-2">
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                <CardBody className="space-y-2" dir="rtl">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">תאריך היתר:</span>
                     {renderValue(asset.permitDate, 'permitDate')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">סטטוס:</span>
                     {renderValue(asset.permitStatus, 'permitStatus')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">פירוט:</span>
                     {renderValue(asset.permitDetails, 'permitDetails')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">שטח עיקרי:</span>
                     {renderValue(asset.permitMainArea ? `${asset.permitMainArea} מ״ר` : '—', 'permitMainArea')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">שטחי שירות:</span>
                     {renderValue(asset.permitServiceArea ? `${asset.permitServiceArea} מ״ר` : '—', 'permitServiceArea')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">מבקש:</span>
                     {renderValue(asset.permitApplicant, 'permitApplicant')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">מסמך:</span>
                     {renderValue(
                       asset.permitDocUrl ? (
@@ -1449,9 +1449,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardHeader>
                   <CardTitle>היתרי בנייה באזור</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4" dir="rtl">
                   <div className="space-y-2">
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
                       {renderValue(
                         <Badge variant={asset.lastPermitQ ? 'success' : 'neutral'}>
@@ -1460,13 +1460,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         'lastPermitQ'
                       )}
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">פעילות בנייה באזור:</span>
                       <span>{asset.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t">
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground text-right">
                       נתונים מעודכנים ממערכת היתרי הבנייה של עיריית תל אביב
                     </div>
                   </div>
@@ -1477,17 +1477,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardHeader>
                   <CardTitle>סטטוס היתרים</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4" dir="rtl">
                   <div className="space-y-2">
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">היתר בתוקף:</span>
                       {renderValue(<Badge variant="success">כן</Badge>, 'permitValid')}
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">סוג היתר:</span>
                       {renderValue('מגורים', 'permitType')}
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">אישורי חיבור:</span>
                       {renderValue(<Badge variant="success">מאושר</Badge>, 'utilityApprovals')}
                     </div>
@@ -1498,148 +1498,119 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
             <Card>
               <CardHeader>
-                <CardTitle>היתרים פעילים ברדיוס {permitRadius} מטר</CardTitle>
+                <CardTitle className="text-right"> היתרים פעילים ברדיוס {permitRadius} מטר </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="text-center py-4 rtl:text-right">
-                    <div className="text-2xl font-bold">{permits.length}</div>
-                    <div className="text-muted-foreground">בקשות היתר פעילות</div>
-                  </div>
-                  {permits.length > 0 && (
-                    <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2">
-                      {permits.map((p: any) => (
-                        <div key={p.id || p.permit_number || p.request_num} className="p-4 border rounded-lg rtl:text-right space-y-3">
-                          {/* Header with permit type/description */}
-                          <div className="flex justify-between items-start rtl:flex-row-reverse">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm">
-                                {p.building_stage || p.description || p.permit_number || 'היתר בנייה'}
-                              </h4>
-                              {p.addresses && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {p.addresses}
-                                </p>
-                              )}
-                            </div>
-                            {p.building_stage && (
-                              <Badge variant={
-                                p.building_stage.includes('בניה') ? 'success' :
-                                p.building_stage.includes('הריסה') ? 'warning' :
-                                'neutral'
-                              }>
-                                {p.building_stage}
-                              </Badge>
+              <CardContent className="space-y-3 text-right" dir="rtl">
+                <div className="text-center py-4">
+                  <div className="text-2xl font-bold">{permits.length}</div>
+                  <div className="text-muted-foreground">בקשות היתר פעילות</div>
+                </div>
+                {permits.length > 0 && (
+                  <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2 text-right">
+                    {permits.map((p: any) => (
+                      <div key={p.external_id || p.meta.request_num} className="p-4 border rounded-lg text-right space-y-3">
+                        {/* Header with permit type/description */}
+                        <div className="flex justify-between items-start rtl:flex-row-reverse">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-sm">
+                              {p.title || 'היתר בנייה'}
+                            </h4>
+                            {p.meta.addresses && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {p.meta.addresses}
+                              </p>
                             )}
                           </div>
+                          {p.status && (
+                            <Badge variant={
+                              p.status.includes('בניה') ? 'success' :
+                              p.status.includes('הריסה') ? 'warning' :
+                              'neutral'
+                            }>
+                              {p.status}
+                            </Badge>
+                          )}
+                        </div>
 
-                          {/* Permit details grid */}
-                          <div className="grid gap-2 text-xs">
-                            {p.permit_number && p.permit_number !== p.request_num && (
-                              <div className="flex justify-between rtl:flex-row-reverse">
-                                <span className="text-muted-foreground">מספר היתר:</span>
-                                <span className="font-medium">{p.permit_number}</span>
-                              </div>
-                            )}
-                            {p.request_num && (
-                              <div className="flex justify-between rtl:flex-row-reverse">
-                                <span className="text-muted-foreground">מספר בקשה:</span>
-                                <span className="font-medium">{p.request_num}</span>
-                              </div>
-                            )}
-                            {p.permission_date && (
-                              <div className="flex justify-between rtl:flex-row-reverse">
-                                <span className="text-muted-foreground">תאריך אישור:</span>
-                                <span>
-                                  {new Date(
-                                    typeof p.permission_date === 'number'
-                                      ? p.permission_date
-                                      : p.permission_date
-                                  ).toLocaleDateString('he-IL')}
-                                </span>
-                              </div>
-                            )}
-                            {p.issued_date && p.issued_date !== p.permission_date && (
-                              <div className="flex justify-between rtl:flex-row-reverse">
-                                <span className="text-muted-foreground">תאריך הנפקה:</span>
-                                <span>
-                                  {new Date(p.issued_date).toLocaleDateString('he-IL')}
-                                </span>
-                              </div>
-                            )}
-                            {p.status && p.status !== p.building_stage && (
-                              <div className="flex justify-between rtl:flex-row-reverse">
-                                <span className="text-muted-foreground">סטטוס:</span>
-                                <span>{p.status}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Actions/Links */}
-                          <div className="pt-2 border-t">
-                            <div className="flex gap-2 justify-end">
-                              {p.url_hadmaya && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  asChild
-                                  className="text-xs"
-                                >
-                                  <a
-                                    href={p.url_hadmaya}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    צפה בהדמיה
-                                  </a>
-                                </Button>
-                              )}
-                              {p.file_url && p.file_url !== p.url_hadmaya && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  asChild
-                                  className="text-xs"
-                                >
-                                  <a
-                                    href={p.file_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    מסמך
-                                  </a>
-                                </Button>
-                              )}
-                              {(p.permit_number || p.request_num) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-xs"
-                                  onClick={() => {
-                                    const searchTerm = p.permit_number || p.request_num;
-                                    window.open(`https://www.tel-aviv.gov.il/Residents/BuildingAndDevelopment/Pages/default.aspx?search=${searchTerm}`, '_blank');
-                                  }}
-                                >
-                                  חפש באתר העירייה
-                                </Button>
-                              )}
+                        {/* Permit details grid */}
+                        <div className="grid gap-2 text-xs">
+                          {p.meta.permit_number && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">מספר היתר:</span>
+                              <span className="font-medium">{p.meta.permit_number}</span>
                             </div>
+                          )}
+                          {p.meta.tochen_bakasha && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">תיאור:</span>
+                              <span className="font-medium">{p.meta.tochen_bakasha}</span>
+                            </div>
+                          )}
+                          {p.meta.request_num && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">מספר בקשה:</span>
+                              <span className="font-medium">{p.meta.request_num}</span>
+                            </div>
+                          )}
+                          {p.meta.permission_date && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">תאריך אישור:</span>
+                              <span>
+                                {new Date(p.meta.permission_date).toLocaleDateString('he-IL')}
+                              </span>
+                            </div>
+                          )}
+                          {p.meta.open_request && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">תאריך הנפקה:</span>
+                              <span>
+                                {new Date(p.meta.open_request).toLocaleDateString('he-IL')}
+                              </span>
+                            </div>
+                          )}
+                          {p.meta.building_stage && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">סטטוס:</span>
+                              <span>{p.meta.building_stage}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions/Links */}
+                        <div className="pt-2 border-t">
+                          <div className="flex gap-2 justify-end">
+                            {p.meta.url_hadmaya && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="text-xs"
+                              >
+                                <a
+                                  href={p.meta.url_hadmaya}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                חפש באתר העירייה
+                                </a>
+                              </Button>
+                            )}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* No permits state */}
-                  {permits.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <div className="text-sm">לא נמצאו היתרים פעילים ברדיוס {permitRadius} מטר</div>
-                      <div className="text-xs mt-1">
-                        ייתכן שיש היתרים ברדיוס רחב יותר או שהמידע טרם עודכן
                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* No permits state */}
+                {permits.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <div className="text-sm">לא נמצאו היתרים פעילים ברדיוס {permitRadius} מטר</div>
+                    <div className="text-xs mt-1">
+                      ייתכן שיש היתרים ברדיוס רחב יותר או שהמידע טרם עודכן
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

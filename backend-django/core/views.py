@@ -50,7 +50,7 @@ from .serializers import (
     UserProfileSerializer,
     PlanTypeSerializer,
     UserPlanSerializer,
-    UserPlanInfoSerializer,
+    UserPlanInfoSerializer, DocumentSerializer,
 )
 from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
@@ -1681,7 +1681,7 @@ def asset_appraisal(request, asset_id):
 
 @csrf_exempt
 def asset_permits(request, asset_id):
-    """Get building permits for an asset from collected data."""
+    """Get building permits for an asset from Document model."""
     if request.method != "GET":
         return JsonResponse({"error": "GET method required"}, status=405)
 
@@ -1693,47 +1693,19 @@ def asset_permits(request, asset_id):
             return JsonResponse({"error": "Asset not found"}, status=404)
 
         permits = []
-        
-        # Get permits from Document model (created by data pipeline)
+        seen_keys = set()
+
+        # Get permits from Document model (single source of truth)
         permit_documents = Document.objects.filter(
             asset_id=asset_id,
             document_type='permit'
-        )
-        
+        ).order_by('-document_date', '-uploaded_at')
+
         for doc in permit_documents:
-            permits.append({
-                "id": doc.external_id or str(doc.id),
-                "permit_number": doc.external_id or '',
-                "request_number": doc.meta.get('request_number', ''),
-                "description": doc.title,
-                "status": doc.status,
-                "address": asset.address or '',
-                "url": doc.external_url or '',
-                "date": doc.document_date.isoformat() if doc.document_date else None,
-                "fetched_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
-                "source": doc.source
-            })
-        
-        # Also get permits from GIS data in asset meta (fallback)
-        building_permits = asset.get_property_value('gis_data.building_permits', [])
-        if building_permits:
-            for permit in building_permits:
-                # Avoid duplicates
-                if not any(p.get('permit_number') == permit.get('permission_num') for p in permits):
-                    permits.append({
-                        "id": permit.get('request_num', permit.get('permission_num', '')),
-                        "permit_number": permit.get('permission_num', ''),
-                        "request_number": permit.get('request_num', ''),
-                        "description": permit.get('building_stage', ''),
-                        "status": permit.get('building_stage', ''),
-                        "address": permit.get('addresses', ''),
-                        "url": permit.get('url_hadmaya', ''),
-                        "date": permit.get('permission_date', ''),
-                        "fetched_at": asset.get_property_value('last_enrichment'),
-                        "source": "gis"
-                    })
-        
-        return JsonResponse({"permits": permits})
+            serializer = DocumentSerializer(doc)
+            permits.append(serializer.data)
+
+        return JsonResponse({"permits": permits, "count": len(permits)})
 
     except Exception as e:
         logger.error("Error retrieving permits for asset %s: %s", asset_id, e)

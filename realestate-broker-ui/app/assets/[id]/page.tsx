@@ -1560,6 +1560,14 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                               </span>
                             </div>
                           )}
+                          {p.meta.expiry_date && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">תוקף:</span>
+                              <span>
+                                {new Date(p.meta.expiry_date).toLocaleDateString('he-IL')}
+                              </span>
+                            </div>
+                          )}
                           {p.meta.open_request && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span className="text-muted-foreground">תאריך הנפקה:</span>

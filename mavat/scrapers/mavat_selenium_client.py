@@ -183,7 +183,6 @@ class MavatSeleniumClient:
             self.driver.get(self.SEARCH_URL)
 
             # Wait for page to load
-            time.sleep(3)
             self._wait_for_spinner()
             
             # Look for search form elements
@@ -191,9 +190,6 @@ class MavatSeleniumClient:
             
             # Try to find and click on the "תכניות" (Plans) button first
             try:
-                # Wait for any loading spinners to disappear first
-                time.sleep(2)
-                
                 # Try multiple selectors for the plans button
                 plans_button = None
                 button_selectors = [
@@ -223,11 +219,9 @@ class MavatSeleniumClient:
                     print("Found plans button, clicking it...")
                     # Scroll to element and click
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", plans_button)
-                    time.sleep(1)
                     self._wait_for_spinner()
                     plans_button.click()
                     self._wait_for_spinner()
-                    time.sleep(3)  # Wait for content to load
                 else:
                     print("Could not find plans button, continuing with search...")
             except Exception as e:

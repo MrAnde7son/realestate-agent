@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from gov.rami.rami_client import RamiClient
 
-from .base_collector import BaseCollector
+from orchestration.collectors.base_collector import BaseCollector
 
 
 class RamiCollector(BaseCollector):

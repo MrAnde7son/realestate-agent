@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { User, Mail, Phone, MapPin, Building, Shield, Key, Star, Save, Edit, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { getRoleDescription, getRoleLabel } from '@/lib/role-constants'
 import { ProfileUpdateData, ChangePasswordData } from '@/lib/auth'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
@@ -56,6 +57,8 @@ export default function ProfilePage() {
     new: false,
     confirm: false
   })
+  const roleLabel = user?.role ? getRoleLabel(user.role) : 'פרטי'
+  const roleDescription = user?.role ? getRoleDescription(user.role) : 'גישה לפונקציות בסיסיות למשתמשים פרטיים'
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -321,12 +324,12 @@ export default function ProfilePage() {
                       <div className="flex items-center space-x-2 rtl:space-x-reverse">
                         <Input
                           id="role"
-                          value={user?.role === 'admin' ? 'מנהל מערכת' : 'משתמש רגיל'}
+                          value={roleLabel}
                           disabled={true}
                           className="bg-muted"
                         />
                         <div className="text-sm text-muted-foreground">
-                          {user?.role === 'admin' ? 'גישה מלאה לכל הפונקציות' : 'גישה לפונקציות בסיסיות'}
+                          {roleDescription}
                         </div>
                       </div>
                     </div>

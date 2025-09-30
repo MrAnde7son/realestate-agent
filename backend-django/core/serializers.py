@@ -44,7 +44,18 @@ class MetaSerializerMixin(serializers.ModelSerializer):
 class AssetSerializer(MetaSerializerMixin):
     address = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
-    
+    type = serializers.CharField(source='building_type', read_only=True)
+    # Expose market metric fields (snake_case) directly
+    price_gap_pct = serializers.FloatField(read_only=True)
+    expected_price_range = serializers.CharField(read_only=True)
+    model_price = serializers.IntegerField(read_only=True)
+    confidence_pct = serializers.FloatField(read_only=True)
+    delta_vs_area_pct = serializers.FloatField(read_only=True)
+    cap_rate_pct = serializers.FloatField(read_only=True)
+    competition_1km = serializers.CharField(read_only=True)
+    risk_flags = serializers.JSONField(read_only=True)
+    dom_percentile = serializers.IntegerField(read_only=True)
+
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
         if obj.normalized_address:
@@ -103,21 +114,47 @@ class AssetSerializer(MetaSerializerMixin):
         fields = [
             'id', 'scope_type', 'city', 'neighborhood', 'street', 'number',
             'block', 'parcel', 'subparcel', 'lat', 'lon', 'normalized_address', 'address', 'status',
-                   'building_type', 'floor', 'apartment', 'total_floors', 'rooms', 'bedrooms', 'bathrooms',
+            'building_type', 'type', 'floor', 'apartment', 'total_floors', 'rooms', 'bedrooms', 'bathrooms',
             'area', 'total_area', 'balcony_area', 'parking_spaces', 'storage_room',
             'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',
-            'last_renovation', 'price', 'price_per_sqm', 'rent_estimate', 'zoning',
-            'building_rights', 'permit_status', 'permit_date', 'is_demo',
+            'last_renovation', 'price', 'price_per_sqm', 'rent_estimate',
+            'price_gap_pct','expected_price_range','model_price','confidence_pct','delta_vs_area_pct','cap_rate_pct','competition_1km','risk_flags','dom_percentile',
+            'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'last_enriched_at', 'created_at', 'meta', 'documents'
         ]
 
 
 class PermitSerializer(MetaSerializerMixin):
+    is_tama_38 = serializers.ReadOnlyField()
+    has_construction_allowances = serializers.ReadOnlyField()
+    display_title = serializers.ReadOnlyField()
+
     class Meta:
         model = Permit
         fields = [
-            'id', 'asset', 'permit_number', 'description', 'status',
-            'issued_date', 'expiry_date', 'file_url'
+            'id', 'asset', 'permit_number', 'request_num', 'description', 'status',
+            # Dates
+            'issued_date', 'permission_date', 'expiry_date', 'tr_hathalat_bniya', 'date_import',
+            # GIS details
+            'oid_permit', 'open_request', 'building_num', 'yechidot_diyur',
+            # TAMA 38
+            'sw_tama_38', 'sw_tama_38_chadash', 'sw_tama_38_tosefet', 'is_tama_38',
+            # Request and permit types
+            'sug_bakasha', 'tochen_bakasha', 'request_stage', 'building_stage', 'maslul_rishuy',
+            # Status and progress
+            'finished', 'occupation', 'progress', 'protected',
+            # Additional details
+            'koteret', 'ms_klali', 'heara_teudat_gmar', 'k_sivug_makor', 'sivug_makor',
+            'ms_tik_binyan', 'addresses',
+            # Construction allowances
+            'hakala_tosefet_achuz_shetach', 'hakala_yd_hagdala_achuz', 'hakala_yd_mevukash',
+            'hakala_yd_mutar', 'hakala_melel', 'hakala_nimuk', 'has_construction_allowances',
+            # File handling
+            'tik_tipul_1', 'tik_tipul_2', 'tik_tipul_3', 'tik_tipul_4', 'tik_tipul_5',
+            # Files and documents
+            'file_url', 'url_hadmaya',
+            # Metadata
+            'source', 'raw', 'display_title', 'created_at', 'updated_at'
         ]
 
 

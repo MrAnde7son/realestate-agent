@@ -33,7 +33,7 @@ PLAN_LIMITS = {
         'custom_reports': False,
     },
     'basic': {
-        'asset_limit': 25,
+        'asset_limit': 10,
         'report_limit': 50,
         'alert_limit': 25,
         'advanced_analytics': True,

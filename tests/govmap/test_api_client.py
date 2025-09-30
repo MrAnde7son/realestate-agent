@@ -5,7 +5,14 @@ from unittest import mock
 
 import requests
 
-from govmap.api_client import GovMapClient, GovMapError, itm_to_wgs84, wgs84_to_itm
+import pytest
+
+from govmap.api_client import (
+    GovMapClient,
+    GovMapError,
+    itm_to_wgs84,
+    wgs84_to_itm,
+)
 
 
 def _make_response(status: int = 200, json_payload: Dict = None, text: str = "", headers: Dict = None):
@@ -104,3 +111,17 @@ def test_client_headers():
     client = GovMapClient()
     assert "Accept" in client.http.headers
     assert "User-Agent" in client.http.headers
+
+
+def test_extract_block_parcel():
+    """Ensure block/parcel extraction works"""
+    response = {"data": [{"Values": ["100", "200", "ignored"]}]}
+    assert GovMapClient.extract_block_parcel(response) == (100, 200)
+
+
+def test_extract_block_parcel_invalid():
+    """Gracefully handle malformed responses"""
+    assert GovMapClient.extract_block_parcel({}) is None
+    assert GovMapClient.extract_block_parcel({"data": []}) is None
+    assert GovMapClient.extract_block_parcel({"data": [{"Values": ["abc"]}]}) is None
+

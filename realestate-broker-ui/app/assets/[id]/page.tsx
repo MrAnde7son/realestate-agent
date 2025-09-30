@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import DataBadge from '@/components/DataBadge'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -28,6 +30,8 @@ import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
+import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
+import { ListingsPanel } from '@/components/crm/listings-panel'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -89,10 +93,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [sectionsModal, setSectionsModal] = useState(false)
   const [sections, setSections] = useState<string[]>(ALL_SECTIONS)
   const [activeTab, setActiveTab] = useState('analysis')
+  const [rightsRows, setRightsRows] = useState<any[]>([])
+  const [rightsLoading, setRightsLoading] = useState(false)
+  const [rightsError, setRightsError] = useState<string | null>(null)
+  const [rightsSearch, setRightsSearch] = useState('')
+  const [rightsDocFilter, setRightsDocFilter] = useState('all')
   const router = useRouter()
   const searchParams = useSearchParams()
   const { id } = params
   const { user, isAuthenticated } = useAuth()
+  const canViewCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user])
   const renderValue = (value: React.ReactNode, key: string) => (
     <span className="flex items-center gap-1">
@@ -126,6 +136,54 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     : null
 
   const permitRadius = asset?._meta?.radius ?? 50
+
+  const loadRightsData = React.useCallback(async () => {
+    if (!id) return
+    setRightsLoading(true)
+    setRightsError(null)
+    try {
+      const response = await fetch(`/api/assets/${id}/rights`)
+      if (!response.ok) {
+        throw new Error('Failed to load rights')
+      }
+      const data = await response.json()
+      setRightsRows(Array.isArray(data.rows) ? data.rows : [])
+    } catch (rightsErr) {
+      console.error('Error loading rights data:', rightsErr)
+      setRightsRows([])
+      setRightsError('שגיאה בטעינת נתוני טאבו')
+    } finally {
+      setRightsLoading(false)
+    }
+  }, [id])
+
+  const rightsDocOptions = React.useMemo(() => {
+    const entries = new Map<string, { title: string; url?: string }>()
+    rightsRows.forEach(row => {
+      const docId = row?.document_id ? String(row.document_id) : null
+      if (!docId) return
+      if (!entries.has(docId)) {
+        entries.set(docId, {
+          title: row.document_title || `מסמך ${docId}`,
+          url: row.document_url
+        })
+      }
+    })
+    return Array.from(entries.entries()).map(([value, info]) => ({ value, ...info }))
+  }, [rightsRows])
+
+  const filteredRights = React.useMemo(() => {
+    const searchTerm = rightsSearch.trim().toLowerCase()
+    return rightsRows.filter(row => {
+      const docId = row?.document_id ? String(row.document_id) : ''
+      const matchesDoc = rightsDocFilter === 'all' || rightsDocFilter === docId
+      if (!matchesDoc) return false
+      if (!searchTerm) return true
+      const field = (row?.field || '').toLowerCase()
+      const value = (row?.value || '').toLowerCase()
+      return field.includes(searchTerm) || value.includes(searchTerm)
+    })
+  }, [rightsRows, rightsDocFilter, rightsSearch])
 
   useEffect(() => {
     setLoading(true)
@@ -179,6 +237,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   }, [id])
 
   useEffect(() => {
+    loadRightsData()
+  }, [loadRightsData])
+
+  useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
     if (stored) {
       try { setSections(JSON.parse(stored)) } catch {}
@@ -193,10 +255,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   // Initialize active tab from URL
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab')
-    if (tabFromUrl && ['analysis', 'permits', 'plans', 'transactions', 'appraisals', 'environment', 'documents', 'contributions'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['analysis', 'permits', 'plans', 'rights', 'transactions', 'appraisals', 'environment', 'documents', 'contributions'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (!canViewCrm && activeTab === 'crm') {
+      setActiveTab('analysis')
+    }
+  }, [canViewCrm, activeTab])
 
   // Update URL when active tab changes
   const handleTabChange = (value: string) => {
@@ -401,6 +469,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     e.preventDefault()
     if (!id) return
     const formData = new FormData(e.currentTarget)
+    const file = formData.get('file') as File | null
+    const providedType = (formData.get('document_type') as string) || (formData.get('type') as string)
+    if (providedType) {
+      formData.set('document_type', providedType)
+    }
+    if (formData.has('type')) {
+      formData.delete('type')
+    }
+    if (!formData.get('title')) {
+      formData.set('title', file?.name || 'מסמך')
+    }
     setUploading(true)
     try {
       const res = await fetch(`/api/assets/${id}/documents`, {
@@ -408,11 +487,22 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         body: formData,
       })
       if (res.ok) {
-        const { doc } = await res.json()
+        const responseData = await res.json()
+        const uploadedDoc = responseData.doc || responseData
+        if (!uploadedDoc) {
+          return
+        }
+        const normalizedDoc = {
+          ...uploadedDoc,
+          type: uploadedDoc.type || uploadedDoc.document_type || uploadedDoc.documentType || providedType || 'other'
+        }
         setAsset((prev: any) => ({
           ...prev,
-          documents: [...(prev.documents || []), doc],
+          documents: [...(prev.documents || []), normalizedDoc],
         }))
+        if (normalizedDoc.type === 'tabu') {
+          await loadRightsData()
+        }
         e.currentTarget.reset()
       }
     } catch (err) {
@@ -754,11 +844,14 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList className="flex flex-wrap md:flex-nowrap">
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
+            <TabsTrigger value="listings">מודעות</TabsTrigger>
+            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
             <TabsTrigger value="permits">היתרים</TabsTrigger>
             <TabsTrigger value="plans">תוכניות</TabsTrigger>
-            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
-            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
+            <TabsTrigger value="rights">זכויות</TabsTrigger>
             <TabsTrigger value="environment">סביבה</TabsTrigger>
+            {canViewCrm && <TabsTrigger value="crm">לקוחות</TabsTrigger>}
+            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
             <TabsTrigger value="documents">מסמכים</TabsTrigger>
             {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
           </TabsList>
@@ -1107,9 +1200,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         )}
                         {plan.file_url && (
                           <div className="mt-2">
-                            <a 
-                              href={plan.file_url} 
-                              target="_blank" 
+                            <a
+                              href={plan.file_url}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 text-xs underline"
                             >
@@ -1123,6 +1216,102 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="rights" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>זכויות מהנסח טאבו</CardTitle>
+                <CardDescription>נתונים שהופקו אוטומטית מהמסמכים שהועלו בלשונית המסמכים.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <Input
+                    value={rightsSearch}
+                    onChange={event => setRightsSearch(event.target.value)}
+                    placeholder="חיפוש לפי שדה או ערך"
+                    className="w-full md:max-w-sm"
+                  />
+                  <Select value={rightsDocFilter} onValueChange={setRightsDocFilter}>
+                    <SelectTrigger className="w-full md:w-64">
+                      <SelectValue placeholder="בחר מסמך" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">כל המסמכים</SelectItem>
+                      {rightsDocOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {rightsError && (
+                  <div className="text-sm text-red-500 text-right">{rightsError}</div>
+                )}
+
+                {rightsLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                ) : filteredRights.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="rtl:flex-row-reverse">
+                          <TableHead className="text-right">שדה</TableHead>
+                          <TableHead className="text-right">ערך</TableHead>
+                          <TableHead className="text-right">מסמך</TableHead>
+                          <TableHead className="text-right">תאריך העלאה</TableHead>
+                          <TableHead className="text-right">מקור</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredRights.map((row: any) => (
+                          <TableRow key={row.id} className="rtl:flex-row-reverse">
+                            <TableCell className="text-right font-medium whitespace-nowrap">
+                              {row.field || '—'}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-pre-wrap break-words">
+                              {row.value || '—'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex flex-col gap-1 rtl:items-end">
+                                <span>{row.document_title || `מסמך ${row.document_id}`}</span>
+                                {row.document_url && (
+                                  <a
+                                    href={row.document_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 underline"
+                                  >
+                                    צפה במסמך
+                                  </a>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {row.uploaded_at ? new Date(row.uploaded_at).toLocaleDateString('he-IL') : '—'}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {row.source ? <Badge variant="outline">{row.source}</Badge> : '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="py-6 text-sm text-muted-foreground text-right">
+                    לא נמצאו נתוני טאבו תואמים
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="justify-end text-sm text-muted-foreground">
+                נתוני הטאבו מתעדכנים לאחר העלאת נסח טאבו בלשונית המסמכים.
+              </CardFooter>
+            </Card>
           </TabsContent>
 
           <TabsContent value="environment" className="space-y-4">
@@ -1217,32 +1406,32 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader>פרטי היתר</CardHeader>
-                <CardBody className="space-y-2">
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                <CardBody className="space-y-2" dir="rtl">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">תאריך היתר:</span>
                     {renderValue(asset.permitDate, 'permitDate')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">סטטוס:</span>
                     {renderValue(asset.permitStatus, 'permitStatus')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">פירוט:</span>
                     {renderValue(asset.permitDetails, 'permitDetails')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">שטח עיקרי:</span>
                     {renderValue(asset.permitMainArea ? `${asset.permitMainArea} מ״ר` : '—', 'permitMainArea')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">שטחי שירות:</span>
                     {renderValue(asset.permitServiceArea ? `${asset.permitServiceArea} מ״ר` : '—', 'permitServiceArea')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">מבקש:</span>
                     {renderValue(asset.permitApplicant, 'permitApplicant')}
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between text-right">
                     <span className="text-muted-foreground">מסמך:</span>
                     {renderValue(
                       asset.permitDocUrl ? (
@@ -1260,9 +1449,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardHeader>
                   <CardTitle>היתרי בנייה באזור</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4" dir="rtl">
                   <div className="space-y-2">
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
                       {renderValue(
                         <Badge variant={asset.lastPermitQ ? 'success' : 'neutral'}>
@@ -1271,13 +1460,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         'lastPermitQ'
                       )}
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">פעילות בנייה באזור:</span>
                       <span>{asset.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t">
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground text-right">
                       נתונים מעודכנים ממערכת היתרי הבנייה של עיריית תל אביב
                     </div>
                   </div>
@@ -1288,17 +1477,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <CardHeader>
                   <CardTitle>סטטוס היתרים</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4" dir="rtl">
                   <div className="space-y-2">
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">היתר בתוקף:</span>
                       {renderValue(<Badge variant="success">כן</Badge>, 'permitValid')}
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">סוג היתר:</span>
                       {renderValue('מגורים', 'permitType')}
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between text-right">
                       <span className="text-muted-foreground">אישורי חיבור:</span>
                       {renderValue(<Badge variant="success">מאושר</Badge>, 'utilityApprovals')}
                     </div>
@@ -1309,25 +1498,127 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
             <Card>
               <CardHeader>
-                <CardTitle>היתרים פעילים ברדיוס {permitRadius} מטר</CardTitle>
+                <CardTitle className="text-right"> היתרים פעילים ברדיוס {permitRadius} מטר </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="text-center py-4 rtl:text-right">
-                    <div className="text-2xl font-bold">{permits.length}</div>
-                    <div className="text-muted-foreground">בקשות היתר פעילות</div>
-                  </div>
-                  {permits.length > 0 && (
-                    <div className="grid gap-2 md:grid-cols-2">
-                      {permits.map((p: any) => (
-                        <div key={p.id || p.permit_number} className="p-3 border rounded rtl:text-right">
-                          <div className="font-medium">{p.description || p.permit_number || '—'}</div>
-                          <div className="text-sm text-muted-foreground">{p.status || p.issued_date || ''}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              <CardContent className="space-y-3 text-right" dir="rtl">
+                <div className="text-center py-4">
+                  <div className="text-2xl font-bold">{permits.length}</div>
+                  <div className="text-muted-foreground">בקשות היתר פעילות</div>
                 </div>
+                {permits.length > 0 && (
+                  <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2 text-right">
+                    {permits.map((p: any) => (
+                      <div key={p.external_id || p.meta.request_num} className="p-4 border rounded-lg text-right space-y-3">
+                        {/* Header with permit type/description */}
+                        <div className="flex justify-between items-start rtl:flex-row-reverse">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-sm">
+                              {p.title || 'היתר בנייה'}
+                            </h4>
+                            {p.meta.addresses && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {p.meta.addresses}
+                              </p>
+                            )}
+                          </div>
+                          {p.status && (
+                            <Badge variant={
+                              p.status.includes('בניה') ? 'success' :
+                              p.status.includes('הריסה') ? 'warning' :
+                              'neutral'
+                            }>
+                              {p.status}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Permit details grid */}
+                        <div className="grid gap-2 text-xs">
+                          {p.meta.permit_number && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">מספר היתר:</span>
+                              <span className="font-medium">{p.meta.permit_number}</span>
+                            </div>
+                          )}
+                          {p.meta.tochen_bakasha && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">תיאור:</span>
+                              <span className="font-medium">{p.meta.tochen_bakasha}</span>
+                            </div>
+                          )}
+                          {p.meta.request_num && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">מספר בקשה:</span>
+                              <span className="font-medium">{p.meta.request_num}</span>
+                            </div>
+                          )}
+                          {p.meta.permission_date && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">תאריך אישור:</span>
+                              <span>
+                                {new Date(p.meta.permission_date).toLocaleDateString('he-IL')}
+                              </span>
+                            </div>
+                          )}
+                          {p.meta.expiry_date && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">תוקף:</span>
+                              <span>
+                                {new Date(p.meta.expiry_date).toLocaleDateString('he-IL')}
+                              </span>
+                            </div>
+                          )}
+                          {p.meta.open_request && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">תאריך הנפקה:</span>
+                              <span>
+                                {new Date(p.meta.open_request).toLocaleDateString('he-IL')}
+                              </span>
+                            </div>
+                          )}
+                          {p.meta.building_stage && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span className="text-muted-foreground">סטטוס:</span>
+                              <span>{p.meta.building_stage}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions/Links */}
+                        <div className="pt-2 border-t">
+                          <div className="flex gap-2 justify-end">
+                            {p.meta.url_hadmaya && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="text-xs"
+                              >
+                                <a
+                                  href={p.meta.url_hadmaya}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                חפש באתר העירייה
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* No permits state */}
+                {permits.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <div className="text-sm">לא נמצאו היתרים פעילים ברדיוס {permitRadius} מטר</div>
+                    <div className="text-xs mt-1">
+                      ייתכן שיש היתרים ברדיוס רחב יותר או שהמידע טרם עודכן
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1889,6 +2180,22 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {canViewCrm && (
+            <TabsContent value="crm" className="space-y-4">
+              <AssetLeadsPanel
+                assetId={parseInt(id)}
+                assetAddress={asset.address}
+              />
+            </TabsContent>
+          )}
+
+          <TabsContent value="listings" className="space-y-4">
+            <ListingsPanel 
+              assetId={parseInt(id)} 
+              assetAddress={asset.address}
+            />
           </TabsContent>
 
           <TabsContent value="contributions" className="space-y-4">

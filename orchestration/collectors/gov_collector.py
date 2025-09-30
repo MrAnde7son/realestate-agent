@@ -3,10 +3,11 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from gov.decisive import fetch_decisive_appraisals
+from gov.decisive import DecisiveAppraisalClient, DecisiveAppraisal
 from gov.nadlan.scraper import NadlanDealsScraper
 
 from .base_collector import BaseCollector
+from orchestration.location import LocationQuery, ensure_location_query
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +18,23 @@ class GovCollector(BaseCollector):
     def __init__(
         self,
         deals_client: Optional[NadlanDealsScraper] = None,
-        decisive_func=fetch_decisive_appraisals,
+        decisive_client: Optional[DecisiveAppraisalClient] = None,
     ) -> None:
         # Use longer timeout for more reliable results
         self.deals_client = deals_client or NadlanDealsScraper(timeout=120.0)
-        self.decisive_func = decisive_func
+        self.decisive_client = decisive_client or DecisiveAppraisalClient(timeout=120.0)
 
-    def collect(self, block: str, parcel: str, address: str) -> Dict[str, Any]:
-        """Collect government data for a given block/parcel and address."""
+    def collect(
+        self,
+        block: str,
+        parcel: str,
+        location: Optional[LocationQuery] = None,
+    ) -> Dict[str, Any]:
+        """Collect government data for a given block/parcel and location."""
+
+        query = ensure_location_query(location)
+        address = query.formatted or query.street or query.city
+
         return {
             "decisive": self._collect_decisive(block, parcel),
             "transactions": self._collect_transactions(address),
@@ -33,8 +43,10 @@ class GovCollector(BaseCollector):
     def _collect_decisive(self, block: str, parcel: str) -> List[Dict[str, Any]]:
         """Collect decisive appraisals for a given block/parcel."""
         try:
-            return self.decisive_func(block=block, plot=parcel)
-        except Exception:
+            appraisals = self.decisive_client.fetch_appraisals(block=block, plot=parcel)
+            return [appraisal.to_dict() for appraisal in appraisals]
+        except Exception as e:
+            logger.error(f"Error collecting decisive appraisals: {e}")
             return []
 
     def _collect_transactions(self, address: str) -> List[Dict[str, Any]]:
@@ -51,5 +63,11 @@ class GovCollector(BaseCollector):
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for government data collection."""
-        required_params = ['block', 'parcel', 'address']
-        return all(param in kwargs for param in required_params)
+
+        location = kwargs.get("location")
+        return (
+            bool(kwargs.get('block'))
+            and bool(kwargs.get('parcel'))
+            and isinstance(location, LocationQuery)
+            and not location.is_empty()
+        )

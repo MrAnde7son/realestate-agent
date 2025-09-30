@@ -1,13 +1,33 @@
 import logging
+from datetime import timedelta
+from typing import Any, Dict, Optional
 
 from celery import shared_task
-from datetime import timedelta
-from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from .analytics import track
+from .email import send_email
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def send_notification_email(
+    self,
+    subject: str,
+    to: list[str],
+    text: str = "",
+    html: Optional[str] = None,
+    extra: Optional[Dict[str, Any]] = None,
+):
+    """Send an email asynchronously with retry support."""
+
+    try:
+        return send_email(subject, to, text=text, html=html, **(extra or {}))
+    except Exception as exc:
+        logger.exception("Resend delivery failed, retrying: %s", exc)
+        raise self.retry(exc=exc)
 
 
 @shared_task
@@ -41,11 +61,12 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     asset.save(update_fields=["status", "last_enrich_error"])
 
     pipeline = DataPipeline()
-    address = asset.street or asset.city or ""
+    street = asset.street or ""
+    city = asset.city or ""
     house_number = asset.number or 0
     logger.info("Starting data pipeline for asset %s", asset_id)
     try:
-        result = pipeline.run(address, house_number, max_pages=max_pages, asset_id=asset_id)
+        result = pipeline.run(city, street, house_number, max_pages=max_pages, asset_id=asset_id)
         track('asset_sync', asset_id=asset_id)
         asset.status = "done"
         asset.last_enriched_at = timezone.now()

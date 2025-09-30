@@ -15,15 +15,24 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     company = models.CharField(max_length=100, blank=True, null=True)
+    equity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Equity amount saved for default mortgage calculations",
+    )
 
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"
-        MEMBER = "member", "Member"
+        BROKER = "broker", "Broker"
+        APPRAISER = "appraiser", "Appraiser"
+        PRIVATE = "private", "Private"
 
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
-        default=Role.MEMBER,
+        default=Role.PRIVATE,
         db_index=True,
     )
     is_verified = models.BooleanField(default=False)
@@ -436,6 +445,17 @@ class Asset(models.Model):
     price_per_sqm = models.IntegerField(blank=True, null=True)
     rent_estimate = models.IntegerField(blank=True, null=True)
 
+    # Computed market metrics (populated by enrichment pipeline)
+    price_gap_pct = models.FloatField(blank=True, null=True)
+    expected_price_range = models.CharField(max_length=100, blank=True, null=True)
+    model_price = models.IntegerField(blank=True, null=True)
+    confidence_pct = models.FloatField(blank=True, null=True)
+    delta_vs_area_pct = models.FloatField(blank=True, null=True)
+    cap_rate_pct = models.FloatField(blank=True, null=True)
+    competition_1km = models.CharField(max_length=20, blank=True, null=True)
+    risk_flags = models.JSONField(blank=True, null=True, default=list)
+    dom_percentile = models.IntegerField(blank=True, null=True)
+
     # Legal/Planning fields
     zoning = models.CharField(max_length=100, blank=True, null=True)
     building_rights = models.CharField(max_length=200, blank=True, null=True)
@@ -557,8 +577,20 @@ class Asset(models.Model):
             return None
         return self.meta.get(key)
     
-    def get_property_value(self, key):
-        """Get the value of a property (from direct field or meta)."""
+    def get_property_value(self, key, default=None):
+        """
+        Get the value of a property (from direct field or meta).
+        Supports nested access using dot notation.
+        
+        Examples:
+            asset.get_property_value('price')  # Simple field
+            asset.get_property_value('government_data.decisive_appraisals', [])  # Nested
+            asset.get_property_value('gis_data.land_use_rights', [])  # Nested
+        """
+        # Handle nested access with dot notation
+        if '.' in key:
+            return self._get_nested_value(key, default)
+        
         # First try direct field
         if hasattr(self, key):
             value = getattr(self, key)
@@ -572,7 +604,23 @@ class Asset(models.Model):
                 return meta.get("value")
             return meta
         
-        return None
+        return default
+    
+    def _get_nested_value(self, key_path, default=None):
+        """Helper method to get nested values from meta."""
+        if not self.meta:
+            return default
+            
+        keys = key_path.split('.')
+        current = self.meta
+        
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return default
+                
+        return current
 
 
 class SourceRecord(models.Model):
@@ -890,8 +938,13 @@ class Document(models.Model):
     """Document model for storing file metadata and managing document uploads."""
     
     DOCUMENT_TYPE_CHOICES = [
+        ("tabu", "Tabu"),
+        ("condo_plan", "Condominium Plan"),
         ("permit", "Building Permit"),
         ("appraisal", "Appraisal"),
+        ("appraisal_decisive", "Decisive Appraisal"),
+        ("appraisal_rmi", "RAMI Appraisal"),
+        ("rights", "Rights Document"),
         ("plan", "Planning Document"),
         ("contract", "Contract"),
         ("deed", "Deed"),
@@ -1100,6 +1153,49 @@ class AnalyticsEvent(models.Model):
         related_name="analytics_events",
     )
     asset_id = models.IntegerField(null=True, blank=True)
+    class Meta:
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["permit_number"]),
+            models.Index(fields=["request_num"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["building_stage"]),
+            models.Index(fields=["sug_bakasha"]),  # Request type
+            models.Index(fields=["sw_tama_38"]),  # TAMA 38
+            models.Index(fields=["finished"]),
+            models.Index(fields=["issued_date"]),
+            models.Index(fields=["expiry_date"]),
+            models.Index(fields=["source"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Permit({self.permit_number or self.request_num}, {self.status})"
+
+    @property
+    def is_tama_38(self):
+        """Check if this is a TAMA 38 related permit."""
+        return any([self.sw_tama_38, self.sw_tama_38_chadash, self.sw_tama_38_tosefet])
+
+    @property
+    def has_construction_allowances(self):
+        """Check if this permit has construction allowances."""
+        return any([
+            self.hakala_tosefet_achuz_shetach,
+            self.hakala_yd_hagdala_achuz,
+            self.hakala_yd_mevukash,
+            self.hakala_yd_mutar
+        ])
+
+    @property
+    def display_title(self):
+        """Get a display-friendly title for the permit."""
+        if self.koteret:
+            return self.koteret
+        if self.sug_bakasha:
+            return self.sug_bakasha
+        return f"היתר {self.permit_number or self.request_num or 'לא ידוע'}"
+
     source = models.CharField(max_length=100, null=True, blank=True)
     error_code = models.CharField(max_length=100, null=True, blank=True)
     meta = models.JSONField(default=dict, blank=True)
@@ -1115,7 +1211,7 @@ class AnalyticsEvent(models.Model):
 
 class UserSession(models.Model):
     """Track user sessions for engagement analytics."""
-    
+
     session_id = models.CharField(max_length=100, unique=True)
     user = models.ForeignKey(
         get_user_model(),
@@ -1132,7 +1228,7 @@ class UserSession(models.Model):
     duration = models.FloatField(default=0.0)  # in seconds
     page_view_count = models.IntegerField(default=0)
     is_bounce = models.BooleanField(default=False)
-    
+
     class Meta:
         indexes = [
             models.Index(fields=["session_id"]),
@@ -1143,7 +1239,7 @@ class UserSession(models.Model):
 
 class PageView(models.Model):
     """Track individual page views for detailed analytics."""
-    
+
     session = models.ForeignKey(
         UserSession,
         on_delete=models.CASCADE,
@@ -1162,7 +1258,7 @@ class PageView(models.Model):
     duration = models.FloatField(default=0.0)  # time spent on page in seconds
     load_time = models.FloatField(default=0.0)  # page load time in seconds
     meta = models.JSONField(default=dict, blank=True)
-    
+
     class Meta:
         indexes = [
             models.Index(fields=["session"]),
@@ -1174,26 +1270,26 @@ class PageView(models.Model):
 
 class PlanningMetrics(models.Model):
     """Planning metrics for assets including coverage, setbacks, and height analysis."""
-    
+
     asset = models.OneToOneField('Asset', on_delete=models.CASCADE, related_name='planning_metrics')
-    
+
     # Area calculations
     parcel_area_m2 = models.FloatField(null=True, blank=True, help_text="Total parcel area in square meters")
     footprint_area_m2 = models.FloatField(null=True, blank=True, help_text="Building footprint area in square meters")
     coverage_pct = models.FloatField(null=True, blank=True, help_text="Coverage percentage (footprint/parcel)")
-    
+
     # Planning envelope and violations
     allowed_envelope_polygon = models.JSONField(null=True, blank=True, help_text="GeoJSON polygon of allowed building envelope")
     setback_violations = models.JSONField(default=list, help_text="List of setback violations with details")
-    
+
     # Height analysis
     height_current = models.JSONField(default=dict, help_text="Current building height data")
     height_allowed = models.JSONField(default=dict, help_text="Allowed building height data")
     height_delta = models.JSONField(default=dict, help_text="Height difference calculations")
-    
+
     # Calculation metadata
     calc_confidence = models.CharField(
-        max_length=20, 
+        max_length=20,
         default="LOW",
         choices=[
             ("LOW", "Low confidence"),
@@ -1203,7 +1299,7 @@ class PlanningMetrics(models.Model):
         help_text="Confidence level of calculations"
     )
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         verbose_name = "Planning Metrics"
         verbose_name_plural = "Planning Metrics"
@@ -1212,7 +1308,7 @@ class PlanningMetrics(models.Model):
             models.Index(fields=["calc_confidence"]),
             models.Index(fields=["updated_at"]),
         ]
-    
+
     def __str__(self):
         return f"Planning Metrics for {self.asset}"
 
@@ -1221,32 +1317,32 @@ class AnalyticsDaily(models.Model):
     """Daily rollups for analytics events."""
 
     date = models.DateField(unique=True)
-    
+
     # Core metrics
     users = models.IntegerField(default=0)
     assets = models.IntegerField(default=0)
     reports = models.IntegerField(default=0)
     alerts = models.IntegerField(default=0)
     errors = models.IntegerField(default=0)
-    
+
     # User engagement metrics
     page_views = models.IntegerField(default=0)
     unique_visitors = models.IntegerField(default=0)
     session_duration_avg = models.FloatField(default=0.0)  # in seconds
     bounce_rate = models.FloatField(default=0.0)  # percentage
-    
+
     # Feature usage metrics
     marketing_messages_created = models.IntegerField(default=0)
     searches_performed = models.IntegerField(default=0)
     filters_applied = models.IntegerField(default=0)
     exports_downloaded = models.IntegerField(default=0)
-    
+
     # Conversion metrics
     signup_conversions = models.IntegerField(default=0)
     asset_creation_conversions = models.IntegerField(default=0)
     report_generation_conversions = models.IntegerField(default=0)
     alert_setup_conversions = models.IntegerField(default=0)
-    
+
     # Performance metrics
     avg_page_load_time = models.FloatField(default=0.0)  # in seconds
     api_response_time_avg = models.FloatField(default=0.0)  # in seconds

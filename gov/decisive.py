@@ -1,153 +1,221 @@
 from __future__ import annotations
 
-import re
-from typing import Dict, List
-from urllib.parse import urljoin
+import json
+from abc import ABC, abstractmethod
+from typing import Dict, List, Optional
+from dataclasses import dataclass
 
 import requests
-from bs4 import BeautifulSoup
 
-from .constants import DEFAULT_TIMEOUT, USER_AGENT
-
-BASE_URL = "https://www.gov.il"
-DECISIVE_ENDPOINT = (
-    f"{BASE_URL}/he/departments/dynamiccollectors/decisive_appraisal_decisions"
-)
-HEADERS = {"User-Agent": USER_AGENT}
+from .constants import DEFAULT_TIMEOUT
 
 
-def _extract_field(text: str, label: str) -> str:
-    """Extract a field value following a label in a block of text."""
-    # Match patterns like "label: value" or "label - value" with optional spaces.
-    # Accept both the regular hyphen and the en dash (–) to support variations
-    # that appear in different data sources.
-    # Also support "מיום" pattern which is followed by just a space
-    if label == "מיום":
-        # Special pattern for "מיום" - can be followed by space only  
-        pattern = rf"{re.escape(label)}\s+(\d{{2}}\.\d{{2}}\.\d{{2,4}}|\d{{2}}/\d{{2}}/\d{{2,4}})"
-    else:
-        pattern = rf"{re.escape(label)}\s*[:\-–]\s*([^|,]*)"
+@dataclass
+class DecisiveAppraisal:
+    """Data class representing a decisive appraisal decision."""
     
-    match = re.search(pattern, text)
-    if not match:
-        return ""
-
-    value = match.group(1).strip()
-
-    # Trim at common separators if they appear inside the value
-    for sep in [" - ", " | ", ", ", " – "]:
-        if sep in value:
-            value = value.split(sep)[0].strip()
-    return value
-
-
-def _parse_items(html: str) -> List[Dict]:
-    """Parse decisive appraisal items from HTML, supporting both old and new website structures."""
-    soup = BeautifulSoup(html, "lxml")
-    items = []
+    title: str
+    date: str
+    appraiser: str
+    committee: str
+    pdf_url: str
+    appraisal_type: str = ""
+    appraisal_version: str = ""
+    appraiser_type: str = ""
+    block: str = ""
+    plot: str = ""
+    publicity_date: str = ""
     
-    # Try the old structure first (.collector-result-item)
-    old_cards = soup.select(".collector-result-item")
-    if old_cards:
-        for card in old_cards:
-            link_tag = card.find("a", href=True)
-            
-            # Extract title with proper separators
-            if link_tag:
-                title = link_tag.get_text(strip=True)
-            else:
-                # If no link, manually construct title with separators
-                spans = card.find_all("span")
-                title_parts = []
-                for span in spans:
-                    title_parts.append(span.get_text(strip=True))
-                title = " | ".join(title_parts)
-            
-            pdf_url = urljoin(BASE_URL, link_tag["href"]) if link_tag else ""
-            
-            # Extract text with proper separators
-            if link_tag:
-                # If there's a link, use the existing approach
-                text = card.get_text(" | ", strip=True)
-            else:
-                # If no link, manually construct text with separators
-                spans = card.find_all("span")
-                text_parts = []
-                for span in spans:
-                    text_parts.append(span.get_text(strip=True))
-                text = " | ".join(text_parts)
-            
-            date = _extract_field(text, "תאריך")
-            appraiser = _extract_field(text, "שמאי")
-            committee = _extract_field(text, "ועדה")
-            items.append(
-                {
-                    "title": title,
-                    "date": date,
-                    "appraiser": appraiser,
-                    "committee": committee,
-                    "pdf_url": pdf_url,
-                }
-            )
+    def get_pdf_urls(self) -> List[str]:
+        """Get list of individual PDF URLs."""
+        if not self.pdf_url:
+            return []
+        return [url.strip() for url in self.pdf_url.split(";") if url.strip()]
     
-    # If no results with old structure, try the new structure (ol.search_results li)
-    if not items:
-        new_cards = soup.select("ol.search_results li")
-        for li in new_cards:
-            # Extract title from h5 > a
-            h5 = li.find("h5")
-            if not h5:
+    def to_dict(self) -> Dict[str, str]:
+        """Convert the appraisal to a dictionary."""
+        return {
+            "title": self.title,
+            "date": self.date,
+            "appraiser": self.appraiser,
+            "committee": self.committee,
+            "pdf_url": self.pdf_url,
+            "appraisal_type": self.appraisal_type,
+            "appraisal_version": self.appraisal_version,
+            "appraiser_type": self.appraiser_type,
+            "block": self.block,
+            "plot": self.plot,
+            "publicity_date": self.publicity_date,
+        }
+
+
+class DecisiveAppraisalParser(ABC):
+    """Abstract base class for parsing decisive appraisal data."""
+    
+    @abstractmethod
+    def parse(self, data: Dict) -> List[DecisiveAppraisal]:
+        """Parse raw data into DecisiveAppraisal objects."""
+        pass
+
+
+class APIDecisiveAppraisalParser(DecisiveAppraisalParser):
+    """Parser for API response data."""
+    
+    def parse(self, response_data: Dict) -> List[DecisiveAppraisal]:
+        """Parse API response data into DecisiveAppraisal objects."""
+        appraisals = []
+        
+        if "Results" not in response_data:
+            return appraisals
+        
+        for result in response_data["Results"]:
+            if "Data" not in result:
                 continue
                 
-            link_tag = h5.find("a", href=True)
-            if not link_tag:
-                continue
-                
-            title = link_tag.get_text(strip=True)
-            relative_href = link_tag.get("href", "")
-            
-            # Build full URL
-            pdf_url = urljoin(BASE_URL, relative_href) if relative_href else ""
-            
-            # Extract details from p.body
-            body_p = li.find("p", class_="body")
-            details_text = body_p.get_text(" | ", strip=True) if body_p else ""
-            
-            # Extract specific fields using the existing _extract_field function
-            # Extract date from title - look for "מיום" pattern
-            date = _extract_field(title, "מיום")  # "from date" - extract from title
-            if not date:
-                # Fallback: try to extract date pattern directly from title
-                import re
-                date_match = re.search(r"\d{2}\.\d{2}\.\d{2,4}", title)
-                if date_match:
-                    date = date_match.group(0)
-            appraiser = _extract_field(details_text, "שמאי")
-            committee = _extract_field(details_text, "ועדה")
-            
-            items.append({
-                "title": title,
-                "date": date,
-                "appraiser": appraiser,
-                "committee": committee,
-                "pdf_url": pdf_url,
-            })
+            data = result["Data"]
+            appraisal = self._create_appraisal_from_data(data)
+            appraisals.append(appraisal)
+        
+        return appraisals
     
-    return items
-
-
-def fetch_decisive_appraisals(block: str = "", plot: str = "", max_pages: int = 1) -> List[Dict]:
-    """Fetch decisive appraisal decisions from gov.il dynamic collector."""
-    params = {"Block": block, "Plot": plot, "skip": 0}
-    all_items: List[Dict] = []
-    for page in range(max_pages):
-        resp = requests.get(
-            DECISIVE_ENDPOINT, params=params, headers=HEADERS, timeout=DEFAULT_TIMEOUT
+    def _create_appraisal_from_data(self, data: Dict) -> DecisiveAppraisal:
+        """Create a DecisiveAppraisal object from API data."""
+        # Extract all document URLs
+        pdf_urls = []
+        if "Document" in data and data["Document"]:
+            for document in data["Document"]:
+                url = document.get("FileName", "")
+                if url:
+                    pdf_urls.append(url)
+        
+        # Join all URLs with semicolon separator for backward compatibility
+        pdf_url = "; ".join(pdf_urls)
+        
+        # Format the date from ISO format to DD.MM.YYYY
+        decision_date = self._format_date(data.get("DecisionDate", ""))
+        
+        return DecisiveAppraisal(
+            title=data.get("AppraisalHeader", ""),
+            date=decision_date,
+            appraiser=data.get("DecisiveAppraiser", ""),
+            committee=data.get("Committee", ""),
+            pdf_url=pdf_url,
+            appraisal_type=data.get("AppraisalType", ""),
+            appraisal_version=data.get("AppraisalVersion", ""),
+            appraiser_type=data.get("AppraiserType", ""),
+            block=data.get("Block", ""),
+            plot=data.get("Plot", ""),
+            publicity_date=data.get("PublicityDate", ""),
         )
-        resp.raise_for_status()
-        items = _parse_items(resp.text)
-        if not items:
-            break
-        all_items.extend(items)
-        params["skip"] += 10
-    return all_items
+    
+    def _format_date(self, iso_date: str) -> str:
+        """Format ISO date to DD.MM.YYYY format."""
+        if not iso_date:
+            return ""
+        
+        try:
+            # Parse ISO date format: "2025-09-01T00:00:00+03:00"
+            date_part = iso_date.split("T")[0]  # "2025-09-01"
+            year, month, day = date_part.split("-")
+            return f"{day}.{month}.{year}"
+        except (ValueError, IndexError):
+            return ""
+
+
+class DecisiveAppraisalClient:
+    """Client for fetching decisive appraisal decisions from gov.il API."""
+    
+    def __init__(
+        self, 
+        parser: Optional[DecisiveAppraisalParser] = None,
+        timeout: float = DEFAULT_TIMEOUT
+    ):
+        self.api_endpoint = (
+            "https://pub-justice.openapi.gov.il/pub/moj/portal/rest/searchpredefinedapi/v1/"
+            "SearchPredefinedApi/DecisiveAppraiser/SearchDecisions"
+        )
+        self.headers = {
+            "accept": "application/json, text/plain, */*",
+            "accept-language": "en-US,en;q=0.9,he-IL;q=0.8,he;q=0.7",
+            "content-type": "application/json;charset=UTF-8",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-client-id": "149a5bad-edde-49a6-9fb9-188bd17d4788"
+        }
+        self.parser = parser or APIDecisiveAppraisalParser()
+        self.timeout = timeout
+    
+    def fetch_appraisals(
+        self, 
+        block: str = "", 
+        plot: str = "", 
+        max_pages: int = 1
+    ) -> List[DecisiveAppraisal]:
+        """
+        Fetch decisive appraisal decisions from the gov.il API.
+        
+        Args:
+            block: Block number to search for
+            plot: Plot number to search for  
+            max_pages: Maximum number of pages to fetch (each page has 10 results)
+            
+        Returns:
+            List of DecisiveAppraisal objects
+        """
+        all_appraisals: List[DecisiveAppraisal] = []
+        
+        for page in range(max_pages):
+            # Calculate skip value (10 results per page)
+            skip = page * 10
+            
+            # Prepare request body
+            request_body = {
+                "skip": skip,
+                "Block": block,
+                "Plot": plot
+            }
+            
+            try:
+                # Make API request
+                response = requests.post(
+                    self.api_endpoint,
+                    headers=self.headers,
+                    json=request_body,
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
+                
+                # Parse response
+                response_data = response.json()
+                appraisals = self.parser.parse(response_data)
+                
+                # If no appraisals returned, break the loop
+                if not appraisals:
+                    break
+                    
+                all_appraisals.extend(appraisals)
+                
+                # Check if we've reached the total results
+                total_results = response_data.get("TotalResults", 0)
+                if len(all_appraisals) >= total_results:
+                    break
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching decisive appraisals: {e}")
+                break
+            except json.JSONDecodeError as e:
+                print(f"Error parsing API response: {e}")
+                break
+        
+        return all_appraisals
+
+
+
+
+
+
+
+if __name__ == "__main__":
+    results = DecisiveAppraisalClient().fetch_appraisals(block="8733",plot="15", max_pages=1)
+    print(results)

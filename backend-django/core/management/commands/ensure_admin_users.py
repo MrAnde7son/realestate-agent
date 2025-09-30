@@ -75,11 +75,11 @@ class Command(BaseCommand):
                     'first_name': 'משתמש',
                     'last_name': 'דמו',
                     'company': 'נדל״ן דמו בע״מ',
-                    'role': 'member',
+                    'role': User.Role.BROKER,
                     'is_active': True
                 }
             )
-            
+
             if created:
                 demo_user.set_password('demo123')
                 demo_user.save()
@@ -89,6 +89,8 @@ class Command(BaseCommand):
             else:
                 # Update existing user to ensure it's active
                 demo_user.is_active = True
+                if demo_user.role == 'member':
+                    demo_user.role = User.Role.BROKER
                 demo_user.save()
                 self.stdout.write(f'✓ Demo user updated: {demo_user.email}')
             

@@ -47,7 +47,12 @@ def test_load_user_notifiers_initializes_for_each_active_alert(monkeypatch):
 
 def test_pipeline_sends_alerts(monkeypatch):
     class DummyYad2:
-        def collect(self, address, max_pages):
+        def collect(
+            self,
+            location,
+            *,
+            max_pages=1,
+        ):
             return [types.SimpleNamespace(
                 title="t", price=1, address="Fake 1", rooms=1,
                 floor=1, size=10, property_type="apt", description="",
@@ -55,7 +60,10 @@ def test_pipeline_sends_alerts(monkeypatch):
             )]
 
     class DummyGIS:
-        def collect(self, address, house_number):
+        def collect(
+            self,
+            location,
+        ):
             return {
                 "blocks": [{"ms_gush": "1"}],
                 "parcels": [{"ms_chelka": "2"}],
@@ -64,7 +72,7 @@ def test_pipeline_sends_alerts(monkeypatch):
             }
 
     class DummyGov:
-        def collect(self, block, parcel, address):
+        def collect(self, block, parcel, location, **kwargs):
             return {"decisive": [], "transactions": []}
 
     class DummyRami:
@@ -80,14 +88,28 @@ def test_pipeline_sends_alerts(monkeypatch):
 
     class DummyNotifier:
         def __init__(self):
-            self.calls = []
+            self.matches_calls = []
+
+        def matches(self, listing):
+            self.matches_calls.append(listing.title)
+            return True
 
         def notify(self, listing):
-            self.calls.append(listing.title)
+            raise AssertionError("notify should be called via dispatcher")
+
+    dispatched = []
+
+    def fake_dispatch(jobs):
+        dispatched.extend(jobs)
 
     notifier = DummyNotifier()
     monkeypatch.setattr(data_pipeline, "_load_user_notifiers", lambda: [notifier])
+    monkeypatch.setattr(data_pipeline, "_dispatch_notifications", fake_dispatch)
 
-    pipeline.run("Fake", 1, asset_id=123)
+    pipeline.run("", "Fake", 1, asset_id=123)
 
-    assert notifier.calls == ["t"]
+    assert notifier.matches_calls == ["t"]
+    assert len(dispatched) == 1
+    queued_notifier, listing_snapshot = dispatched[0]
+    assert queued_notifier is notifier
+    assert listing_snapshot.title == "t"

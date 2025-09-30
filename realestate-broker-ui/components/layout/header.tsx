@@ -11,7 +11,7 @@ import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote } from "lucide-react"
+import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -24,6 +24,7 @@ interface HeaderProps {
 const mobileNavigation = [
   { name: "בית", href: "/", icon: Home },
   { name: "נכסים", href: "/assets", icon: Building },
+  { name: "לקוחות", href: "/crm", icon: Users },
   { name: "התראות", href: "/alerts", icon: AlertCircle },
   { name: "מחשבון הוצאות", href: "/deal-expenses", icon: Receipt },
   { name: "מחשבון משכנתא", href: "/mortgage/analyze", icon: Banknote },
@@ -38,6 +39,10 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
   const { user, logout } = useAuth()
+  const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
+  const filteredMobileNavigation = mobileNavigation.filter(
+    (item) => item.href !== '/crm' || canAccessCrm
+  )
 
   // Close mobile sidebar when pathname changes
   React.useEffect(() => {
@@ -81,8 +86,8 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 flex h-16 items-center justify-between border-b bg-background px-6">
-      {/* Left side - Menu button and search */}
-      <div className="flex items-center gap-4">
+      {/* Right side - Menu button, logo and company name (RTL layout) */}
+      <div className="flex items-center gap-3 md:gap-4">
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
           <SheetTrigger asChild>
             <Button
@@ -109,8 +114,9 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
               {/* Navigation */}
               <div className="flex-1 overflow-y-auto p-4 mobile-sidebar-nav">
+
                 <nav className="space-y-2">
-                  {mobileNavigation.map((item) => {
+                  {filteredMobileNavigation.map((item) => {
                     const isActive = pathname === item.href
                     const Icon = item.icon
                     
@@ -164,14 +170,21 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           </SheetContent>
         </Sheet>
 
-        <Link href="/" aria-label="עמוד הבית">
+        <Link
+          href="/"
+          aria-label="עמוד הבית"
+          className="flex items-center gap-2"
+        >
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
+          <span className="text-base font-semibold text-foreground whitespace-nowrap sm:text-lg">
+            נדל״נר
+          </span>
         </Link>
-        <GlobalSearch />
       </div>
 
-      {/* Right side - Theme toggle and user menu */}
-      <div className="flex items-center gap-4">
+      {/* Left side - Global search and theme toggle (enforced LTR for alignment) */}
+      <div className="flex items-center gap-3 md:gap-4" dir="ltr">
+        <GlobalSearch />
         <ThemeToggle />
       </div>
     </header>

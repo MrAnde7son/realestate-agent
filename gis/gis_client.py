@@ -13,7 +13,7 @@ Usage (example):
 """
 
 from __future__ import annotations
-
+import requests
 import argparse
 import json
 import logging
@@ -22,7 +22,6 @@ import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
-import requests
 
 from utils.retry import request_with_retry
 from bs4 import BeautifulSoup
@@ -33,6 +32,18 @@ from .parse_zchuyot import parse_html_privilege_page, parse_zchuyot
 
 class ArcGISError(RuntimeError):
     pass
+
+ALL_PERMIT_FIELDS = [
+    "oid_permit","request_num","permission_date","permission_num","expiry_date","open_request",
+    "building_num","yechidot_diyur","sw_tama_38","sw_tama_38_chadash","sw_tama_38_tosefet",
+    "sug_bakasha","tochen_bakasha","finished","occupation","tr_hathalat_bniya","protected",
+    "building_stage","koteret","progress","maslul_rishuy","url_hadmaya","ms_klali",
+    "heara_teudat_gmar","k_sivug_makor","sivug_makor","request_stage","ms_tik_binyan",
+    "addresses","hakala_tosefet_achuz_shetach","hakala_yd_hagdala_achuz","hakala_yd_mevukash",
+    "hakala_yd_mutar","hakala_melel","hakala_nimuk","tik_tipul_1","tik_tipul_2","tik_tipul_3",
+    "tik_tipul_4","tik_tipul_5","date_import"
+]
+
 
 class TelAvivGS:
     BASE = "https://gisn.tel-aviv.gov.il/arcgis/rest/services"
@@ -133,15 +144,21 @@ class TelAvivGS:
         self._logger.info("Geocoded address -> coords", extra={"x": x, "y": y})
         return x, y
 
-    def get_building_permits(self, x: float, y: float, radius: int = 30,
+    def get_building_permits(self, x: float, y: float, radius: int = 50,
                              fields: Optional[Iterable[str]] = None,
                              download_pdfs: bool = False,
                              save_dir: Optional[str] = "permits") -> List[Dict[str, Any]]:
-        """
-        Spatial search around point (x,y) EPSG:2039. Returns attributes only.
+        """Spatial search around point (x,y) EPSG:2039. Returns attributes only.
+        Args:
+            x,y: coordinates (EPSG:2039)
+            radius: buffer distance (meters)
+            fields: iterable of field names (defaults to ALL_PERMIT_FIELDS)
+            download_pdfs: also download linked permit PDFs
+            save_dir: destination directory for PDFs
         """
         if fields is None:
-            fields = ["request_num", "permission_num", "building_stage", "url_hadmaya", "addresses", "permission_date"]
+            fields = ALL_PERMIT_FIELDS
+
         self._logger.info("Querying permits around point", extra={"x": x, "y": y, "radius_m": radius})
         params = {
             "f": "pjson",
@@ -449,8 +466,8 @@ if __name__ == "__main__":
     print("permits:", len(permits))
     if permits:
         p0 = permits[0]
-        print({k: p0.get(k) for k in ("permission_num","building_stage","addresses","url_hadmaya")})
-    
+        print({k: p0.get(k) for k in ("permission_num","building_stage","addresses","url_hadmaya","permission_date_dt")})
+
     # Download building privilege page
     privilege_path = gs.get_building_privilege_page(x, y)
     if privilege_path:

@@ -23,6 +23,7 @@ sys.path.insert(0, str(project_root))
 from gov.nadlan.scraper import NadlanDealsScraper
 from gov.nadlan.models import Deal
 from orchestration.collectors.gov_collector import GovCollector
+from orchestration.location import LocationQuery
 from orchestration.data_pipeline import DataPipeline
 
 # Test address
@@ -136,8 +137,16 @@ class TestNadlanIntegration:
 
         # Test 2: Test parameter validation
         logger.info("Testing parameter validation...")
-        assert collector.validate_parameters(block="1234", parcel="56", address=TEST_ADDRESS) is True
-        assert collector.validate_parameters(block="1234", parcel="56") is False  # Missing address
+        assert collector.validate_parameters(
+            block="1234",
+            parcel="56",
+            location=LocationQuery(
+                street=TEST_STREET,
+                house_number=TEST_HOUSE_NUMBER,
+                city=TEST_CITY,
+            ),
+        ) is True
+        assert collector.validate_parameters(block="1234", parcel="56") is False  # Missing location
         logger.info("✓ Parameter validation working correctly")
 
         # Test 3: Test transaction collection
@@ -171,7 +180,15 @@ class TestNadlanIntegration:
         # Test 5: Test full collection
         logger.info("Testing full collection...")
         try:
-            full_data = collector.collect(block="1234", parcel="56", address=TEST_ADDRESS)
+            full_data = collector.collect(
+                block="1234",
+                parcel="56",
+                location=LocationQuery(
+                    street=TEST_STREET,
+                    house_number=TEST_HOUSE_NUMBER,
+                    city=TEST_CITY,
+                ),
+            )
             assert isinstance(full_data, dict), "Full data should be a dictionary"
             assert "decisive" in full_data, "Should have decisive data"
             assert "transactions" in full_data, "Should have transactions data"
@@ -200,7 +217,7 @@ class TestNadlanIntegration:
         results = []
         for attempt in range(3):
             try:
-                results = pipeline.run(TEST_STREET, TEST_HOUSE_NUMBER, max_pages=1)
+                results = pipeline.run(TEST_CITY, TEST_STREET, TEST_HOUSE_NUMBER, max_pages=1)
                 if results:
                     break
                 logger.warning(f"Attempt {attempt + 1}: No results from pipeline")

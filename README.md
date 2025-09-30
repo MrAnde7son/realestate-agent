@@ -16,6 +16,7 @@ Nadlaner™ is a trademark of MrAnde7son.
 
 ### 🖥️ Professional Broker Dashboard
 - **📋 Asset Management**: Modern Next.js interface for property portfolio management
+- **👥 CRM System**: Complete client and lead management with contact tracking, lead status management, and automated analytics
 - **🚨 Real-time Alerts**: Email and WhatsApp notifications with Celery task scheduling
 - **💰 Mortgage Calculator**: Advanced affordability analysis and Bank of Israel rate integration
 - **📊 Visual Analytics**: Interactive charts and market insights with Recharts
@@ -74,16 +75,20 @@ realestate-agent/
 │   ├── realestate-broker-ui/      # Next.js 15 Professional Dashboard
 │   │   ├── app/                   # App Router (Next.js 15)
 │   │   │   ├── assets/          # Property assets management
+│   │   │   ├── crm/              # CRM system (contacts & leads)
 │   │   │   ├── alerts/            # Alert configuration
 │   │   │   ├── mortgage/          # Mortgage calculator & analysis
 │   │   │   └── api/               # API routes
 │   │   ├── components/            # Reusable UI components
 │   │   │   ├── layout/            # Layout components (sidebar, header)
 │   │   │   ├── ui/                # Shadcn/ui components
+│   │   │   ├── crm/               # CRM-specific components
 │   │   │   ├── AssetsTable.tsx   # Advanced assets table
 │   │   │   └── Map.tsx            # Mapbox GL map integration
 │   │   ├── lib/                   # Utilities & configuration
 │   │   │   ├── data.ts            # Data interfaces & types
+│   │   │   ├── api/               # API client modules
+│   │   │   │   └── crm.ts         # CRM API client
 │   │   │   ├── mortgage.ts        # Mortgage calculation logic
 │   │   │   └── config.ts          # App configuration
 │   │   └── types/                 # TypeScript definitions
@@ -92,11 +97,17 @@ realestate-agent/
 │       │   ├── settings.py        # Django settings with Celery
 │       │   ├── celery.py          # Celery configuration
 │       │   └── urls.py            # URL routing
-│       └── core/                  # Core Django app
-│           ├── models.py          # Database models
-│           ├── views.py           # API views
-│           ├── tasks.py           # Celery tasks for alerts
-│           └── urls.py            # API endpoints
+│       ├── core/                  # Core Django app
+│       │   ├── models.py          # Database models
+│       │   ├── views.py           # API views
+│       │   ├── tasks.py           # Celery tasks for alerts
+│       │   └── urls.py            # API endpoints
+│       └── crm/                   # CRM Django app
+│           ├── models.py          # Contact & Lead models
+│           ├── views.py           # CRM API views
+│           ├── serializers.py     # CRM data serializers
+│           ├── analytics.py       # Event tracking & analytics
+│           └── permissions.py     # CRM access control
 ├── 🧪 TESTING & UTILITIES
 │   ├── tests/                     # Comprehensive test suite
 │   │   ├── yad2/                  # Real estate scraping tests
@@ -183,10 +194,14 @@ CELERY_BROKER_URL=redis://localhost:6379/0 celery -A broker_backend beat -l info
 
 Add environment variables to `backend-django/.env`:
 ```env
-SENDGRID_API_KEY=your_sendgrid_key
-EMAIL_FROM=alerts@yourcompany.com
+RESEND_API_KEY=your_resend_key
+RESEND_FROM="RealEstate Agent <no-reply@yourcompany.com>"
+RESEND_REPLY_TO=support@yourcompany.com
+RESEND_SANDBOX=true
+EMAIL_FALLBACK_TO_CONSOLE=true
 TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
+RESEND_WEBHOOK_SECRET=your_resend_webhook_secret
 ```
 
 **Frontend Environment Variables:**
@@ -200,7 +215,38 @@ NEXT_PUBLIC_MCP_GOV_URL=http://localhost:8004
 NEXT_PUBLIC_MCP_MAVAT_URL=http://localhost:8005
 ```
 
-### 3️⃣ MCP Servers for LLM Integration
+### 2️⃣ CRM System Features
+
+The platform includes a comprehensive CRM system for managing clients and leads:
+
+#### Contact Management
+- **Client Database**: Store contact information, phone numbers, emails, and tags
+- **Contact Search**: Advanced search and filtering capabilities
+- **Contact Analytics**: Track contact creation, updates, and interactions
+- **Bulk Operations**: Import/export contacts, bulk updates
+
+#### Lead Management
+- **Lead Tracking**: Track leads from initial contact to closing
+- **Status Management**: Lead status workflow (New → Contacted → Qualified → Proposal → Negotiation → Closed Won/Lost)
+- **Lead Notes**: Add timestamped notes and activity tracking
+- **Asset Association**: Link leads to specific properties
+- **Lead Analytics**: Conversion tracking and performance metrics
+
+#### CRM Dashboard
+- **Overview Statistics**: Total contacts, active leads, conversion rates
+- **Recent Activity**: Latest contacts and lead updates
+- **Performance Metrics**: Lead conversion analysis and trends
+- **Quick Actions**: Fast access to common CRM operations
+
+#### CRM API Endpoints
+- `GET /api/crm/contacts/` - List contacts with pagination and search
+- `POST /api/crm/contacts/` - Create new contact
+- `GET /api/crm/leads/` - List leads with filtering
+- `POST /api/crm/leads/` - Create new lead
+- `PATCH /api/crm/leads/{id}/status/` - Update lead status
+- `POST /api/crm/leads/{id}/notes/` - Add lead note
+
+### 4️⃣ MCP Servers for LLM Integration
 
 Set up Claude Desktop or other LLM tools to use natural language queries:
 
@@ -232,7 +278,7 @@ python -m gov.mcp.server       # Government data (port 8003)
 python -m mavat.mcp.server     # National planning portal (port 8004)
 ```
 
-### 4️⃣ Quick Examples
+### 5️⃣ Quick Examples
 
 #### 🔍 Search Real Estate (CLI)
 ```bash
@@ -272,7 +318,7 @@ scraper.save_to_json("tel_aviv_search.json")
 print(f"Found {len(assets)} assets")
 ```
 
-### 5️⃣ Testing
+### 6️⃣ Testing
 
 ```bash
 # Run all tests
@@ -283,6 +329,8 @@ python -m yad2.tests.test_core
 python tests/gov/test_rami_client.py
 python tests/gis/test_gis_client.py
 python tests/gov/test_decisive_appraisal.py
+python tests/crm/test_crm_models.py
+python tests/crm/test_crm_views.py
 ```
 
 #### RAMI (Planning Documents) Usage
@@ -698,7 +746,7 @@ Example output:
     "parameter_descriptions": {"...": {"value": "...", "description": "..."}}
   },
   "scrape_time": "2024-01-15T10:30:00",
-  "total_assets": 25,
+  "total_assets": 10,
   "assets": [
     {"title": "...", "price": 1234567, "address": "..."}
   ]

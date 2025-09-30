@@ -17,12 +17,12 @@ def test_admin_can_access_analytics(django_user_model):
 
 
 @pytest.mark.django_db
-def test_member_cannot_access_analytics(django_user_model):
+def test_private_cannot_access_analytics(django_user_model):
     user = django_user_model.objects.create_user(
         username="mem",
         email="mem@example.com",
         password="pw",
-        role="member",
+        role="private",
     )
     client = APIClient()
     client.force_authenticate(user)

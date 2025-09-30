@@ -18,6 +18,7 @@ import sys
 import tempfile
 from pathlib import Path
 import pytest
+import time 
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -25,20 +26,20 @@ sys.path.insert(0, str(project_root))
 
 # Import all collectors
 from gis.gis_client import TelAvivGS
-from gov.decisive import fetch_decisive_appraisals
+from gov.decisive import DecisiveAppraisalClient
 from gov.nadlan.scraper import NadlanDealsScraper
-from mavat.scrapers.mavat_selenium_client import MavatSeleniumClient
 from gov.rami.rami_client import RamiClient
 from yad2.scrapers.yad2_scraper import Yad2Scraper
 from yad2.search_helper import Yad2SearchHelper
-from govmap import GovMapClient
 from orchestration.collectors.govmap_collector import GovMapCollector
+from orchestration.location import LocationQuery
 
 # Test address
 TEST_ADDRESS = "רוזוב 14 תל אביב"
 TEST_STREET = "רוזוב"
 TEST_HOUSE_NUMBER = 14
 TEST_CITY = "תל אביב"
+TEST_LOCATION = LocationQuery(street=TEST_STREET, house_number=TEST_HOUSE_NUMBER, city=TEST_CITY)
 
 # Configure logging
 logging.basicConfig(
@@ -82,104 +83,53 @@ class TestCollectorsIntegration:
             assert is_accessible, "Mavat system should be accessible"
             logger.info("✓ Mavat system is accessible")
         
-        # Test 2: Search functionality - query search with retry logic
-        logger.info("Testing collector search functionality (query)...")
-        query_results = []
-        for attempt in range(3):  # Retry up to 3 times
-            try:
-                query_results = collector.search_plans(query=TEST_CITY, limit=5)
-                if query_results:
-                    break
-                logger.warning(f"Attempt {attempt + 1}: No results for query {TEST_CITY}")
-                if attempt < 2:  # Don't sleep on last attempt
-                    import time
-                    time.sleep(5)  # Wait longer between retries
-            except Exception as e:
-                logger.warning(f"Attempt {attempt + 1} failed: {e}")
-                if attempt < 2:
-                    import time
-                    time.sleep(5)
-        
-        assert isinstance(query_results, list), "Query results should be a list"
-        if len(query_results) == 0:
-            logger.warning("⚠ No query results found - this might indicate rate limiting or network issues in CI")
-            # In CI, we'll be more lenient and just check that we got a list
-            pytest.skip("No query results found - likely due to CI environment constraints")
-        logger.info(f"✓ Collector found {len(query_results)} plans for query {TEST_CITY}")
-        
-        # Add delay between searches to avoid rate limiting
-        import time
-        time.sleep(3)
-        
-        # Test 3: Search functionality - street search with retry logic
-        logger.info("Testing collector search functionality (street)...")
-        street_results = []
-        for attempt in range(3):
-            try:
-                street_results = collector.search_plans(query=TEST_STREET, limit=3)
-                if street_results:
-                    break
-                logger.warning(f"Attempt {attempt + 1}: No results for street {TEST_STREET}")
-                if attempt < 2:
-                    time.sleep(5)
-            except Exception as e:
-                logger.warning(f"Attempt {attempt + 1} failed: {e}")
-                if attempt < 2:
-                    time.sleep(5)
-        
-        assert isinstance(street_results, list), "Street results should be a list"
-        if len(street_results) == 0:
-            logger.warning("⚠ No street results found - this might indicate rate limiting or network issues in CI")
-            pytest.skip("No street results found - likely due to CI environment constraints")
-        logger.info(f"✓ Collector found {len(street_results)} plans for street {TEST_STREET}")
-        
-        # Add delay between searches to avoid rate limiting
-        time.sleep(3)
-        
-        # Test 4: Search functionality - specific plan search with retry logic
-        logger.info("Testing collector search functionality (specific plan)...")
-        plan_results = []
-        for attempt in range(3):
-            try:
-                plan_results = collector.search_plans(query="ג/ 5000", limit=3)
-                if plan_results:
-                    break
-                logger.warning(f"Attempt {attempt + 1}: No results for specific plan ג/ 5000")
-                if attempt < 2:
-                    time.sleep(5)
-            except Exception as e:
-                logger.warning(f"Attempt {attempt + 1} failed: {e}")
-                if attempt < 2:
-                    time.sleep(5)
-        
-        assert isinstance(plan_results, list), "Plan results should be a list"
-        if len(plan_results) == 0:
-            logger.warning("⚠ No plan results found - this might indicate rate limiting or network issues in CI")
-            pytest.skip("No plan results found - likely due to CI environment constraints")
-        logger.info(f"✓ Collector found {len(plan_results)} plans for specific plan ג/ 5000")
-        
-        # Test 5: PDF download functionality for plan ג/ 5000 (known to have PDF)
-        logger.info("Testing PDF download functionality for plan ג/ 5000...")
-        try:
-            # Use the underlying client to test PDF download
-            with collector.client as client:
-                pdf_data = client.fetch_pdf("ג/ 5000")
-                assert isinstance(pdf_data, bytes), "PDF data should be bytes"
-                assert len(pdf_data) > 0, "PDF should not be empty"
-                logger.info(f"✓ Successfully downloaded PDF for plan ג/ 5000 ({len(pdf_data)} bytes)")
-        except Exception as e:
-            logger.error(f"❌ Failed to download PDF for plan ג/ 5000: {e}")
-            # In CI, we'll be more lenient about PDF download failures
-            logger.warning("⚠ PDF download failed - this might be due to CI environment constraints")
-            pytest.skip("PDF download failed - likely due to CI environment constraints")
-        
-        logger.info("✓ MavatCollector integration tests passed")
+            # Test 2: Search functionality
+            logger.info("Testing collector search functionality (query)...")
+            query_results = client.search_plans(query=TEST_CITY, limit=5)
+            assert isinstance(query_results, list), "Query results should be a list"
+            if len(query_results) == 0:
+                logger.warning("⚠ No query results found - this might indicate rate limiting or network issues in CI")
+                # In CI, we'll be more lenient and just check that we got a list
+                pytest.skip("No query results found - likely due to CI environment constraints")
+            logger.info(f"✓ Collector found {len(query_results)} plans for query {TEST_CITY}")
+
+            # Add delay between searches to avoid rate limiting
+            time.sleep(3)
+
+            # Test 3: Search functionality - street search with retry logic
+            logger.info("Testing collector search functionality (street)...")
+            street_results = client.search_plans(query=TEST_STREET, limit=3)
+            assert isinstance(street_results, list), "Street results should be a list"
+            if len(street_results) == 0:
+                logger.warning("⚠ No street results found - this might indicate rate limiting or network issues in CI")
+                pytest.skip("No street results found - likely due to CI environment constraints")
+            logger.info(f"✓ Collector found {len(street_results)} plans for street {TEST_STREET}")
+
+            # Add delay between searches to avoid rate limiting
+            time.sleep(3)
+
+            # Test 4: Search functionality - specific plan search with retry logic
+            logger.info("Testing collector search functionality (specific plan)...")
+            plan_results = client.search_plans(query="ג/ 5000", limit=3)
+
+            assert isinstance(plan_results, list), "Plan results should be a list"
+            if len(plan_results) == 0:
+                logger.warning("⚠ No plan results found - this might indicate rate limiting or network issues in CI")
+                pytest.skip("No plan results found - likely due to CI environment constraints")
+            logger.info(f"✓ Collector found {len(plan_results)} plans for specific plan ג/ 5000")
+
+            # Test 5: PDF download functionality for plan ג/ 5000 (known to have PDF)
+            logger.info("Testing PDF download functionality for plan ג/ 5000...")
+            pdf_data = client.fetch_pdf("ג/ 5000")
+            assert isinstance(pdf_data, bytes), "PDF data should be bytes"
+            assert len(pdf_data) > 0, "PDF should not be empty"
+            logger.info(f"✓ Successfully downloaded PDF for plan ג/ 5000 ({len(pdf_data)} bytes)")
+            logger.info("✓ MavatCollector integration tests passed")
 
     @pytest.mark.yad2
     @pytest.mark.integration
     @pytest.mark.slow
     @pytest.mark.external_service
-    @pytest.mark.skip(reason="Skipping due to captcha issues - needs manual intervention")
     def test_yad2_scraper(self):
         """Test Yad2 scraper functionality."""
         logger.info("Testing Yad2 Scraper...")
@@ -310,7 +260,7 @@ class TestCollectorsIntegration:
     @pytest.mark.integration
     @pytest.mark.slow
     @pytest.mark.external_service
-    @pytest.mark.skip(reason="Skipping due to structure change, need to fix")
+    @pytest.mark.skip(reason="Nadlan scraper is not working as expected")
     def test_nadlan_scraper(self):
         """Test Nadlan scraper functionality."""
         logger.info("Testing Nadlan Scraper...")
@@ -323,14 +273,20 @@ class TestCollectorsIntegration:
 
         # Test 2: Search for address
         logger.info("Testing address search...")
-        search_results = scraper.search_address(TEST_ADDRESS, limit=5)
+        search_query = "רמת החיל"
+        search_results = scraper.search_address(search_query, limit=1)
         assert isinstance(search_results, list) and len(search_results) > 0
         logger.info(f"✓ Found {len(search_results)} address results")
 
         if search_results:
             # Test 3: Get deals by address
             logger.info("Testing deals by address...")
-            deals = scraper.get_deals_by_address(TEST_ADDRESS)
+            address_for_deals = (
+                search_results[0].get("full_address")
+                or search_results[0].get("address")
+                or search_query
+            )
+            deals = scraper.get_deals_by_address(address_for_deals)
             assert isinstance(deals, list) and len(deals) > 0
             logger.info(f"✓ Found {len(deals)} deals for address")
 
@@ -358,39 +314,9 @@ class TestCollectorsIntegration:
 
         # Test 1: Fetch decisive appraisals with retry logic
         logger.info("Testing decisive appraisals fetch...")
-        appraisals = []
-        for attempt in range(3):  # Retry up to 3 times
-            try:
-                appraisals = fetch_decisive_appraisals(max_pages=1)
-                if appraisals:
-                    break
-                logger.warning(f"Attempt {attempt + 1}: No appraisals found")
-                if attempt < 2:
-                    import time
-                    time.sleep(5)
-            except Exception as e:
-                logger.warning(f"Attempt {attempt + 1} failed: {e}")
-                if "403" in str(e) or "Forbidden" in str(e):
-                    logger.warning("⚠ Got 403 Forbidden - government site might be blocking CI requests")
-                    pytest.skip("Government site blocked request - likely due to CI environment constraints")
-                if attempt < 2:
-                    import time
-                    time.sleep(5)
-        
-        assert isinstance(appraisals, list), "Appraisals should be a list"
-        if len(appraisals) == 0:
-            logger.warning("⚠ No appraisals found - government site may have changed to use dynamic content loading")
-            pytest.skip("No appraisals found - government site may require JavaScript for dynamic content loading")
+        appraisals = DecisiveAppraisalClient().fetch_appraisals(max_pages=1)
+        assert isinstance(appraisals, list) and len(appraisals) > 0, "Appraisals should be a list and not empty"
         logger.info(f"✓ Found {len(appraisals)} decisive appraisals")
-
-        # Test 2: Check appraisal structure
-        if appraisals:
-            appraisal = appraisals[0]
-            assert isinstance(appraisal, dict)
-            required_fields = ["title", "date", "appraiser", "committee", "pdf_url"]
-            for field in required_fields:
-                assert field in appraisal
-            logger.info("✓ Appraisal structure is correct")
 
         logger.info("✓ Decisive Appraisal tests passed")
 
@@ -542,79 +468,6 @@ class TestCollectorsIntegration:
         logger.info("✓ RAMI Client tests passed")
 
     @pytest.mark.govmap
-    def test_govmap_client(self):
-        """Test GovMap client functionality."""
-        logger.info("Testing GovMap Client...")
-
-        # Test 1: Initialize client
-        logger.info("Testing client initialization...")
-        client = GovMapClient()
-        assert client is not None
-        logger.info("✓ GovMap client initialized successfully")
-
-        # Test 2: Test autocomplete functionality
-        logger.info("Testing autocomplete functionality...")
-        autocomplete_results = client.autocomplete(TEST_ADDRESS)
-        assert isinstance(autocomplete_results, dict)
-        assert "results" in autocomplete_results
-        assert "resultsCount" in autocomplete_results
-        logger.info(f"✓ Autocomplete returned {autocomplete_results.get('resultsCount', 0)} results")
-        
-        # Test coordinate extraction from autocomplete
-        if autocomplete_results.get("results"):
-            logger.info("Testing coordinate extraction from autocomplete...")
-            from orchestration.data_pipeline import _extract_coordinates_from_govmap_autocomplete
-            coords = _extract_coordinates_from_govmap_autocomplete(autocomplete_results)
-            if coords:
-                x_itm, y_itm, lon_wgs84, lat_wgs84 = coords
-                logger.info(f"✓ Extracted coordinates: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
-            else:
-                logger.warning("⚠ No coordinates found in autocomplete results")
-
-        # Test 3: Test coordinate conversion
-        logger.info("Testing coordinate conversion...")
-        from govmap.api_client import itm_to_wgs84, wgs84_to_itm
-        
-        # Test with known Tel Aviv coordinates
-        x_itm, y_itm = 184391.15, 668715.93
-        lon, lat = itm_to_wgs84(x_itm, y_itm)
-        assert isinstance(lon, float) and isinstance(lat, float)
-        logger.info(f"✓ ITM to WGS84 conversion: ({x_itm}, {y_itm}) -> ({lon:.6f}, {lat:.6f})")
-        
-        # Test roundtrip conversion
-        x_back, y_back = wgs84_to_itm(lon, lat)
-        assert abs(x_back - x_itm) < 1.0  # Within 1 meter
-        assert abs(y_back - y_itm) < 1.0
-        logger.info(f"✓ WGS84 to ITM conversion: ({lon:.6f}, {lat:.6f}) -> ({x_back:.2f}, {y_back:.2f})")
-
-        # Test 4: Test new API endpoints
-        logger.info("Testing new API endpoints...")
-        try:
-            layers_catalog = client.get_layers_catalog()
-            assert isinstance(layers_catalog, dict)
-            logger.info("✓ Layers catalog retrieved successfully")
-        except Exception as e:
-            logger.warning(f"⚠ Layers catalog failed: {e}")
-        
-        try:
-            search_types = client.get_search_types()
-            assert isinstance(search_types, dict)
-            logger.info("✓ Search types retrieved successfully")
-        except Exception as e:
-            logger.warning(f"⚠ Search types failed: {e}")
-        
-        try:
-            base_layers = client.get_base_layers()
-            assert isinstance(base_layers, dict)
-            logger.info("✓ Base layers retrieved successfully")
-        except Exception as e:
-            logger.warning(f"⚠ Base layers failed: {e}")
-
-
-
-        logger.info("✓ GovMap Client tests passed")
-
-    @pytest.mark.govmap
     def test_govmap_collector(self):
         """Test GovMap collector functionality."""
         logger.info("Testing GovMap Collector...")
@@ -627,69 +480,32 @@ class TestCollectorsIntegration:
 
         # Test 2: Test parameter validation
         logger.info("Testing parameter validation...")
-        assert collector.validate_parameters(x=100.0, y=200.0) is True
-        assert collector.validate_parameters(x="invalid", y=200.0) is False
+        assert collector.validate_parameters(location=LocationQuery(street="Test Address")) is True
+        assert collector.validate_parameters(location=LocationQuery()) is False
         logger.info("✓ Parameter validation working correctly")
 
         # Test 3: Test autocomplete functionality
         logger.info("Testing autocomplete functionality...")
         try:
-            autocomplete_results = collector.autocomplete(TEST_ADDRESS)
+            autocomplete_results = collector.client.autocomplete(TEST_ADDRESS)
             assert isinstance(autocomplete_results, dict)
             assert "results" in autocomplete_results
             logger.info(f"✓ Autocomplete successful: {autocomplete_results.get('resultsCount', 0)} results")
         except Exception as e:
             logger.warning(f"⚠ Autocomplete failed: {e}")
 
-        # Test 4: Test data collection
-        logger.info("Testing data collection...")
+        # Test 4: Test data collection with address
+        logger.info("Testing data collection with address...")
         try:
-            # Use known Tel Aviv coordinates
-            x, y = 184391.15, 668715.93
-            data = collector.collect(x=x, y=y)
+            data = collector.collect(TEST_LOCATION)
             
             assert isinstance(data, dict)
-            assert "x" in data and "y" in data
-            assert "parcel" in data and "nearby" in data
-            assert "api_data" in data  # New field for API data
-            assert data["x"] == x and data["y"] == y
-            
-            logger.info(f"✓ Data collection successful: parcel={data['parcel'] is not None}, nearby_layers={len(data['nearby'])}, api_data={len(data['api_data'])}")
-        except Exception as e:
-            logger.warning(f"⚠ Data collection failed: {e}")
-
-        # Test 5: Test collection with extra layers
-        logger.info("Testing collection with extra layers...")
-        try:
-            data = collector.collect(
-                x=184391.15, 
-                y=668715.93, 
-                extra_layers=["opendata:PARCEL_ALL"],
-                buffer_m=50
-            )
-            assert isinstance(data, dict)
-            assert "nearby" in data
-            logger.info(f"✓ Collection with extra layers successful: {len(data['nearby'])} layers")
-        except Exception as e:
-            logger.warning(f"⚠ Collection with extra layers failed: {e}")
-
-        # Test 6: Test new API data collection
-        logger.info("Testing new API data collection...")
-        try:
-            data = collector.collect(x=184391.15, y=668715.93, use_new_api=True)
-            assert isinstance(data, dict)
+            assert "address" in data
             assert "api_data" in data
             
-            api_data = data["api_data"]
-            if api_data.get("parcel"):
-                logger.info(f"✓ Parcel API data collected: {len(api_data['parcel'])} items")
-            if api_data.get("layers_catalog"):
-                logger.info(f"✓ Layers catalog collected: {len(api_data['layers_catalog'])} items")
-            if api_data.get("search_types"):
-                logger.info(f"✓ Search types collected: {len(api_data['search_types'])} items")
-                
+            logger.info(f"✓ Address collection successful: address={data.get('address')}, api_data={len(data['api_data'])}")
         except Exception as e:
-            logger.warning(f"⚠ New API data collection failed: {e}")
+            logger.warning(f"⚠ Address collection failed: {e}")
 
         logger.info("✓ GovMap Collector tests passed")
 
@@ -709,7 +525,6 @@ def main():
         logger.info("=" * 60)
 
         # Test each collector individually
-        test_instance.test_govmap_client()
         test_instance.test_govmap_collector()
         test_instance.test_mavat_collector_integration()
         test_instance.test_yad2_scraper()

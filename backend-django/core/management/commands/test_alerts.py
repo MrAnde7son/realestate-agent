@@ -8,8 +8,6 @@ from django.contrib.auth import get_user_model
 from orchestration.alerts import EmailAlert, WhatsAppAlert, create_notifier_for_user
 import os
 
-User = get_user_model()
-
 
 class Command(BaseCommand):
     help = 'Test alert system functionality'
@@ -65,8 +63,12 @@ class Command(BaseCommand):
         self.stdout.write('📋 Environment Configuration:')
         
         config_vars = {
-            'EMAIL_FROM': os.getenv('EMAIL_FROM'),
-            'SENDGRID_API_KEY': os.getenv('SENDGRID_API_KEY'),
+            'RESEND_FROM': os.getenv('RESEND_FROM'),
+            'RESEND_API_KEY': os.getenv('RESEND_API_KEY'),
+            'RESEND_REPLY_TO': os.getenv('RESEND_REPLY_TO'),
+            'RESEND_SANDBOX': os.getenv('RESEND_SANDBOX'),
+            'EMAIL_FALLBACK_TO_CONSOLE': os.getenv('EMAIL_FALLBACK_TO_CONSOLE'),
+            'RESEND_WEBHOOK_SECRET': os.getenv('RESEND_WEBHOOK_SECRET'),
             'TWILIO_ACCOUNT_SID': os.getenv('TWILIO_ACCOUNT_SID'),
             'TWILIO_AUTH_TOKEN': os.getenv('TWILIO_AUTH_TOKEN'),
             'TWILIO_WHATSAPP_FROM': os.getenv('TWILIO_WHATSAPP_FROM'),
@@ -133,7 +135,7 @@ class Command(BaseCommand):
     def test_user_notifier(self, user_id=None):
         """Test creating a notifier for a user."""
         self.stdout.write('👤 Testing User Notifier...')
-        
+        User = get_user_model()
         try:
             if user_id:
                 user = User.objects.get(id=user_id)

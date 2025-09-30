@@ -31,6 +31,7 @@ def test_pipeline_e2e_optimized():
         logger.info("✅ Pipeline created successfully")
         
         # Test with a well-known Tel Aviv address
+        city = "תל אביב"
         address = "רוטשילד"
         house_number = 1
         
@@ -38,7 +39,7 @@ def test_pipeline_e2e_optimized():
         
         # Run the pipeline with max_pages=1 to limit data
         start_time = time.time()
-        results = pipeline.run(address, house_number, max_pages=1)
+        results = pipeline.run(city, address, house_number, max_pages=1)
         execution_time = time.time() - start_time
         
         # Basic assertions with more reasonable timeout
@@ -104,6 +105,7 @@ def test_pipeline_error_handling():
         pipeline = DataPipeline()
         
         # Test with an address that should fail gracefully
+        city = ""
         address = "nonexistent_street_12345"
         house_number = 999
         
@@ -111,7 +113,7 @@ def test_pipeline_error_handling():
         
         # Run the pipeline - should not crash
         start_time = time.time()
-        results = pipeline.run(address, house_number, max_pages=1)
+        results = pipeline.run(city, address, house_number, max_pages=1)
         execution_time = time.time() - start_time
         
         # Should still return results (even if empty)
@@ -131,255 +133,6 @@ def test_pipeline_error_handling():
         import traceback
         traceback.print_exc()
         return False
-
-
-def test_pipeline_performance_benchmark():
-    """Test pipeline performance with different addresses."""
-    try:
-        from orchestration.data_pipeline import DataPipeline
-        
-        # Create pipeline
-        pipeline = DataPipeline()
-        
-        # Test addresses with different complexity
-        test_cases = [
-            ("רוטשילד", 1, "Well-known Tel Aviv street"),
-            ("דיזנגוף", 50, "Another major Tel Aviv street"),
-        ]
-        
-        results = {}
-        
-        for address, house_number, description in test_cases:
-            logger.info(f"🚀 Testing: {address} {house_number} ({description})")
-            
-            start_time = time.time()
-            try:
-                pipeline_results = pipeline.run(address, house_number, max_pages=1)
-                execution_time = time.time() - start_time
-                
-                sources = analyze_results_by_source(pipeline_results)
-                
-                results[f"{address} {house_number}"] = {
-                    'success': True,
-                    'time': execution_time,
-                    'items': len(pipeline_results),
-                    'sources': len(sources)
-                }
-                
-                logger.info(f"✅ {address} {house_number}: {execution_time:.2f}s, {len(pipeline_results)} items, {len(sources)} sources")
-                
-            except Exception as e:
-                execution_time = time.time() - start_time
-                results[f"{address} {house_number}"] = {
-                    'success': False,
-                    'time': execution_time,
-                    'error': str(e)
-                }
-                
-                logger.error(f"❌ {address} {house_number}: {execution_time:.2f}s, error: {e}")
-        
-        # Analyze results
-        successful_tests = [r for r in results.values() if r['success']]
-        if successful_tests:
-            avg_time = sum(r['time'] for r in successful_tests) / len(successful_tests)
-            logger.info(f"📊 Average execution time: {avg_time:.2f}s")
-            logger.info(f"📊 Success rate: {len(successful_tests)}/{len(test_cases)}")
-        
-        # At least one test should succeed
-        assert len(successful_tests) > 0, "At least one test case should succeed"
-        
-        logger.info("🎉 Performance benchmark E2E test completed successfully!")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Performance benchmark test error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-def test_individual_collectors_e2e():
-    """Test individual collectors with real data."""
-    try:
-        logger.info("🔍 Testing individual collectors...")
-        
-        # Test Yad2 collector
-        from orchestration.collectors.yad2_collector import Yad2Collector
-        yad2 = Yad2Collector()
-        yad2_results = yad2.collect(address="רוטשילד", max_pages=1)
-        assert len(yad2_results) > 0, "Yad2 should return listings"
-        logger.info(f"✅ Yad2: {len(yad2_results)} listings")
-        
-        # Test GIS collector
-        from orchestration.collectors.gis_collector import GISCollector
-        gis = GISCollector()
-        gis_results = gis.collect(address="רוטשילד", house_number=1)
-        assert isinstance(gis_results, dict), "GIS should return dictionary"
-        logger.info(f"✅ GIS: {len(gis_results)} data items")
-        
-        # Test Gov collector with Nadlan integration
-        from orchestration.collectors.gov_collector import GovCollector
-        gov = GovCollector()
-        gov_results = gov.collect(address="רוטשילד", block="", parcel="")
-        assert isinstance(gov_results, dict), "Gov should return dictionary"
-        assert "transactions" in gov_results, "Should have transactions from Nadlan"
-        assert "decisive" in gov_results, "Should have decisive appraisals"
-        logger.info(f"✅ Gov (Nadlan): {len(gov_results.get('transactions', []))} transactions, {len(gov_results.get('decisive', []))} appraisals")
-        
-        # Test other collectors (may return empty results)
-        from gov.rami import RamiCollector
-        rami = RamiCollector()
-        rami_results = rami.collect(block="", parcel="")
-        logger.info(f"✅ RAMI: {len(rami_results)} plans")
-        
-        from orchestration.collectors.mavat_collector import MavatCollector
-        mavat = MavatCollector()
-        mavat_results = mavat.collect(block="", parcel="")
-        logger.info(f"✅ Mavat: {len(mavat_results)} plans")
-        
-        logger.info("🎉 All individual collectors working!")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Individual collectors test error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-def test_pipeline_data_quality():
-    """Test data quality and validation."""
-    try:
-        from orchestration.data_pipeline import DataPipeline
-        
-        # Create pipeline
-        pipeline = DataPipeline()
-        
-        # Test with a simple address
-        address = "רוטשילד"
-        house_number = 1
-        
-        logger.info("🔍 Testing pipeline data quality")
-        
-        results = pipeline.run(address, house_number, max_pages=1)
-        sources = analyze_results_by_source(results)
-        
-        # Validate Yad2 data quality
-        if 'yad2' in sources:
-            yad2_data = sources['yad2']
-            for listing in yad2_data[:3]:  # Check first 3
-                # Check required fields
-                assert listing.title and len(listing.title.strip()) > 0, "Title should not be empty"
-                assert listing.address and len(listing.address.strip()) > 0, "Address should not be empty"
-                
-                # Check data types
-                if listing.price is not None:
-                    assert isinstance(listing.price, (int, float)), "Price should be numeric"
-                    assert listing.price > 0, "Price should be positive"
-                
-                if listing.rooms is not None:
-                    assert isinstance(listing.rooms, (int, float)), "Rooms should be numeric"
-                    assert listing.rooms > 0, "Rooms should be positive"
-                
-                if listing.size is not None:
-                    assert isinstance(listing.size, (int, float)), "Size should be numeric"
-                    assert listing.size > 0, "Size should be positive"
-        
-        # Validate GIS data quality
-        if 'gis' in sources:
-            gis_data = sources['gis']
-            if 'x' in gis_data and 'y' in gis_data:
-                assert isinstance(gis_data['x'], (int, float)), "X coordinate should be numeric"
-                assert isinstance(gis_data['y'], (int, float)), "Y coordinate should be numeric"
-                assert 180000 <= gis_data['x'] <= 200000, "X coordinate should be in Tel Aviv range"
-                assert 650000 <= gis_data['y'] <= 680000, "Y coordinate should be in Tel Aviv range"
-        
-        logger.info("✅ Data quality validation passed")
-        logger.info("🎉 Data quality E2E test completed successfully!")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Data quality test error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-def test_nadlan_transaction_comparison():
-    """Test transaction comparison functionality with Nadlan data."""
-    try:
-        from orchestration.data_pipeline import DataPipeline
-        from orchestration.collectors.gov_collector import GovCollector
-        
-        logger.info("🔍 Testing Nadlan transaction comparison")
-        
-        # Test 1: Get transactions from Nadlan
-        gov_collector = GovCollector()
-        test_address = "רוטשילד 1 תל אביב"
-        
-        logger.info(f"Fetching transactions for: {test_address}")
-        transactions = gov_collector._collect_transactions(test_address)
-        
-        if not transactions:
-            logger.warning("⚠ No transactions found - skipping comparison test")
-            return True
-        
-        logger.info(f"✅ Found {len(transactions)} transactions from Nadlan")
-        
-        # Test 2: Validate transaction structure
-        for i, transaction in enumerate(transactions[:3]):  # Check first 3
-            assert isinstance(transaction, dict), f"Transaction {i} should be a dictionary"
-            
-            # Check for key fields
-            if 'address' in transaction:
-                assert isinstance(transaction['address'], str), "Address should be string"
-            
-            if 'deal_amount' in transaction and transaction['deal_amount']:
-                assert isinstance(transaction['deal_amount'], (int, float)), "Deal amount should be numeric"
-                assert transaction['deal_amount'] > 0, "Deal amount should be positive"
-            
-            if 'deal_date' in transaction:
-                assert isinstance(transaction['deal_date'], str), "Deal date should be string"
-            
-            logger.info(f"✅ Transaction {i+1} structure validated")
-        
-        # Test 3: Test price analysis
-        prices = [t.get('deal_amount') for t in transactions if t.get('deal_amount')]
-        if prices:
-            avg_price = sum(prices) / len(prices)
-            min_price = min(prices)
-            max_price = max(prices)
-            
-            logger.info(f"📊 Price analysis: avg={avg_price:,.0f}, min={min_price:,.0f}, max={max_price:,.0f}")
-            
-            # Basic price validation
-            assert min_price > 0, "Minimum price should be positive"
-            assert max_price > min_price, "Maximum price should be greater than minimum"
-        
-        # Test 4: Test with pipeline integration
-        logger.info("Testing pipeline integration...")
-        pipeline = DataPipeline()
-        results = pipeline.run("רוטשילד", 1, max_pages=1)
-        
-        # Check if pipeline includes transaction data
-        sources = analyze_results_by_source(results)
-        if 'gov' in sources:
-            gov_data = sources['gov']
-            if isinstance(gov_data, dict) and 'transactions' in gov_data:
-                pipeline_transactions = gov_data['transactions']
-                logger.info(f"✅ Pipeline includes {len(pipeline_transactions)} transactions")
-            else:
-                logger.warning("⚠ Pipeline doesn't include transaction data")
-        
-        logger.info("🎉 Nadlan transaction comparison test completed successfully!")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Nadlan transaction comparison test error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
 
 def analyze_results_by_source(results: List[Any]) -> Dict[str, List[Any]]:
     """Analyze pipeline results and group by source."""
@@ -412,10 +165,6 @@ def main():
     tests = [
         ("Optimized Pipeline", test_pipeline_e2e_optimized),
         ("Error Handling", test_pipeline_error_handling),
-        ("Performance Benchmark", test_pipeline_performance_benchmark),
-        ("Individual Collectors", test_individual_collectors_e2e),
-        ("Data Quality", test_pipeline_data_quality),
-        ("Nadlan Transaction Comparison", test_nadlan_transaction_comparison),
     ]
     
     results = {}

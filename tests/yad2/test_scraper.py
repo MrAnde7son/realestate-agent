@@ -54,9 +54,9 @@ def test_scrape_page_with_mocked_fetch(monkeypatch):
 
     scraper = Yad2Scraper()
     monkeypatch.setattr(scraper, "fetch_page", lambda url: soup)
-    assets = scraper.scrape_page(1)
-    assert len(assets) == 1
-    assert assets[0].price == 1000
+    listings = scraper.scrape_page(1)
+    assert len(listings) == 1
+    assert listings[0].price == 1000
 
 
 def test_scrape_all_pages_aggregates_results(monkeypatch):
@@ -71,9 +71,9 @@ def test_scrape_all_pages_aggregates_results(monkeypatch):
 
     monkeypatch.setattr(scraper, "scrape_page", fake_scrape_page)
     monkeypatch.setattr("time.sleep", lambda x: None)
-    assets = scraper.scrape_all_pages(max_pages=3, delay=0)
-    assert len(assets) == 2
-    assert scraper.assets == assets
+    listings = scraper.scrape_all_pages(max_pages=3, delay=0)
+    assert len(listings) == 2
+    assert scraper.listings == listings
 
 
 def test_get_search_summary_and_save(tmp_path):
@@ -82,7 +82,7 @@ def test_get_search_summary_and_save(tmp_path):
     listing = RealEstateListing()
     listing.title = "t"
     listing.price = 1
-    scraper.assets = [listing]
+    scraper.listings = [listing]
     summary = scraper.get_search_summary()
     assert summary["parameters"]["maxPrice"] == 500
 
@@ -91,4 +91,4 @@ def test_get_search_summary_and_save(tmp_path):
     assert out == filename
     with open(out, "r", encoding="utf-8") as fh:
         data = json.load(fh)
-    assert data["total_assets"] == 1
+    assert data["total_listings"] == 1

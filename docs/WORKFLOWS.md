@@ -70,21 +70,48 @@ This guide provides step-by-step workflows for real estate brokers and appraiser
 3. **Documents**: Attach relevant documents
 4. **Notes**: Add personal observations
 
-### Step 4: Generate Your First Report (5 minutes)
+### Step 4: Set Up CRM System (10 minutes)
 
-#### 4.1 Create Valuation Report
+#### 4.1 Create Your First Contact
+1. **Navigate**: Go to `/crm` in the sidebar
+2. **Click**: "צור קשר חדש" (Create New Contact)
+3. **Enter Contact Details**:
+   - Name: "יוסי כהן"
+   - Phone: "050-1234567"
+   - Email: "yossi@example.com"
+   - Tags: ["משקיע", "VIP"]
+4. **Save Contact**: Click "שמור" to create the contact
+
+#### 4.2 Create Your First Lead
+1. **Navigate**: Go to "לידים" (Leads) tab in CRM
+2. **Click**: "צור ליד חדש" (Create New Lead)
+3. **Select Contact**: Choose the contact you just created
+4. **Select Asset**: Choose the asset you created earlier
+5. **Set Initial Status**: Choose "חדש" (New)
+6. **Add Notes**: Add initial notes about the lead
+7. **Save Lead**: Click "שמור" to create the lead
+
+#### 4.3 CRM Dashboard Overview
+1. **Review Statistics**: Check total contacts and leads
+2. **Recent Activity**: View latest CRM activity
+3. **Quick Actions**: Access common CRM operations
+4. **Performance Metrics**: Review conversion rates
+
+### Step 5: Generate Your First Report (5 minutes)
+
+#### 5.1 Create Valuation Report
 1. **Navigate**: Go to `/reports` in the sidebar
 2. **Click**: "צור דוח חדש" (Create New Report)
 3. **Select Asset**: Choose the asset you just created
 4. **Report Type**: Select "Valuation Report"
 
-#### 4.2 Configure Report Settings
+#### 5.2 Configure Report Settings
 1. **Analysis Depth**: Choose basic or comprehensive
 2. **Comparable Properties**: Include recent sales
 3. **Market Analysis**: Include neighborhood trends
 4. **Planning Data**: Include zoning and permits
 
-#### 4.3 Export Report
+#### 5.3 Export Report
 1. **Preview**: Review the generated report
 2. **Download PDF**: Export for client presentation
 3. **Share Link**: Generate shareable link
@@ -100,6 +127,12 @@ This guide provides step-by-step workflows for real estate brokers and appraiser
 3. **Save Favorites**: Mark interesting properties
 4. **Update Notes**: Add observations and follow-up actions
 
+#### 1.5 Check CRM Dashboard
+1. **Review New Leads**: Check overnight lead activity
+2. **Follow Up on Leads**: Review leads requiring attention
+3. **Update Lead Status**: Move leads through workflow stages
+4. **Add Lead Notes**: Document conversations and progress
+
 #### 2. Market Analysis
 1. **Price Trends**: Review market movement charts
 2. **New Listings**: Check recent additions to your areas
@@ -111,6 +144,8 @@ This guide provides step-by-step workflows for real estate brokers and appraiser
 2. **Comparable Analysis**: Prepare market comparisons
 3. **Report Generation**: Create client-specific reports
 4. **Documentation**: Organize property files
+5. **CRM Review**: Check client history and preferences
+6. **Lead Preparation**: Prepare lead information for meetings
 
 ### Client Meeting Workflow
 
@@ -119,18 +154,24 @@ This guide provides step-by-step workflows for real estate brokers and appraiser
 2. **Market Analysis**: Generate neighborhood reports
 3. **Comparable Properties**: Find similar recent sales
 4. **Mortgage Analysis**: Calculate affordability scenarios
+5. **CRM Review**: Check client contact history and preferences
+6. **Lead Status**: Review current lead status and notes
 
 #### 2. During Meeting
 1. **Live Data Access**: Show real-time market data
 2. **Interactive Maps**: Display property locations and amenities
 3. **Financial Analysis**: Use mortgage calculator
 4. **Document Sharing**: Share reports and analysis
+5. **CRM Integration**: Update lead status and add notes
+6. **Contact Management**: Update client information if needed
 
 #### 3. Post-Meeting Follow-up
 1. **Save Client Preferences**: Record client criteria
 2. **Set Alerts**: Create alerts for client's criteria
 3. **Schedule Follow-up**: Set reminders for next steps
 4. **Document Meeting**: Add notes and action items
+5. **Update CRM**: Update lead status and add meeting notes
+6. **Create Follow-up Tasks**: Set reminders for next contact
 
 ### Property Listing Workflow
 
@@ -209,6 +250,75 @@ This guide provides step-by-step workflows for real estate brokers and appraiser
 2. **Workflow Refinement**: Optimize daily workflows
 3. **Integration Review**: Check system integrations
 4. **Training Updates**: Complete ongoing training
+
+## CRM Workflows
+
+### Lead Management Workflow
+
+#### 1. Lead Creation and Initial Contact
+1. **Create Contact**: Add new client to CRM system
+2. **Create Lead**: Link contact to specific property asset
+3. **Set Initial Status**: Mark as "חדש" (New)
+4. **Add Initial Notes**: Document first contact details
+5. **Set Follow-up**: Schedule next contact
+
+#### 2. Lead Progression
+1. **Status Updates**: Move through workflow stages:
+   - חדש (New) → יצירת קשר (Contacted)
+   - יצירת קשר (Contacted) → מועמד (Qualified)
+   - מועמד (Qualified) → הצעה (Proposal)
+   - הצעה (Proposal) → משא ומתן (Negotiation)
+   - משא ומתן (Negotiation) → סגור זכה/סגור הפסיד (Closed Won/Lost)
+
+2. **Note Management**: Add timestamped notes for each interaction
+3. **Activity Tracking**: Monitor lead activity and engagement
+4. **Follow-up Scheduling**: Set reminders for next steps
+
+#### 3. Lead Conversion
+1. **Close Won**: Mark successful deals
+2. **Close Lost**: Document reasons for lost deals
+3. **Conversion Analysis**: Review conversion rates and patterns
+4. **Client Retention**: Maintain relationship for future opportunities
+
+### Contact Management Workflow
+
+#### 1. Contact Creation
+1. **Basic Information**: Name, phone, email
+2. **Tagging System**: Add relevant tags (משקיע, VIP, etc.)
+3. **Source Tracking**: Record how contact was acquired
+4. **Initial Notes**: Document first interaction
+
+#### 2. Contact Maintenance
+1. **Regular Updates**: Keep contact information current
+2. **Interaction History**: Track all communications
+3. **Preference Management**: Record client preferences
+4. **Relationship Building**: Maintain ongoing relationships
+
+#### 3. Contact Segmentation
+1. **Tag-based Groups**: Organize contacts by tags
+2. **Status-based Groups**: Group by lead status
+3. **Activity-based Groups**: Group by engagement level
+4. **Custom Groups**: Create specific client segments
+
+### CRM Analytics and Reporting
+
+#### 1. Daily CRM Review
+1. **Lead Pipeline**: Review all active leads
+2. **Conversion Rates**: Check lead conversion metrics
+3. **Activity Levels**: Monitor contact and lead activity
+4. **Follow-up Tasks**: Review pending follow-ups
+
+#### 2. Weekly CRM Analysis
+1. **Performance Metrics**: Analyze lead conversion rates
+2. **Contact Growth**: Track new contact acquisition
+3. **Lead Quality**: Assess lead quality and sources
+4. **Pipeline Health**: Review overall pipeline status
+
+#### 3. Monthly CRM Reporting
+1. **Conversion Analysis**: Detailed conversion rate analysis
+2. **Revenue Tracking**: Track revenue from CRM leads
+3. **Client Satisfaction**: Monitor client satisfaction metrics
+4. **Process Improvement**: Identify areas for improvement
 
 ## Advanced Workflows
 

@@ -115,7 +115,7 @@ class TestUserPlanModel:
             name='test_basic',
             defaults={
                 'display_name': 'Test Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -207,7 +207,7 @@ class TestUserPlanModel:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25,
+                'asset_limit': 10,
                 'advanced_analytics': True,
                 'data_export': True
             }
@@ -216,12 +216,12 @@ class TestUserPlanModel:
         user_plan = UserPlan.objects.create(
             user=user,
             plan_type=plan_type,
-            assets_used=10
+            assets_used=5
         )
-        
+
         # Test asset limit
-        assert user_plan.can_use_feature('assets', 10) is True  # 10 + 10 = 20 < 25
-        assert user_plan.can_use_feature('assets', 20) is False  # 10 + 20 = 30 > 25
+        assert user_plan.can_use_feature('assets', 5) is True  # 5 + 5 = 10 <= 10
+        assert user_plan.can_use_feature('assets', 6) is False  # 5 + 6 = 11 > 10
         
         # Test unlimited features
         assert user_plan.can_use_feature('advanced_analytics') is True
@@ -239,17 +239,17 @@ class TestUserPlanModel:
             name='test_basic',
             defaults={
                 'display_name': 'Test Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
         user_plan = UserPlan.objects.create(
             user=user,
             plan_type=plan_type,
-            assets_used=10
+            assets_used=4
         )
-        
-        assert user_plan.get_remaining_assets() == 15  # 25 - 10
+
+        assert user_plan.get_remaining_assets() == 6  # 10 - 4
 
     def test_user_plan_unlimited_assets(self):
         """Test unlimited assets handling"""
@@ -322,7 +322,7 @@ class TestUserPlanMethods:
             name='test_basic',
             defaults={
                 'display_name': 'Test Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -332,7 +332,7 @@ class TestUserPlanMethods:
             is_active=True
         )
         
-        assert user.get_asset_limit() == 25
+        assert user.get_asset_limit() == 10
 
     def test_user_can_create_asset(self):
         """Test user can_create_asset method"""
@@ -364,7 +364,7 @@ class TestUserPlanMethods:
             name='test_basic',
             defaults={
                 'display_name': 'Test Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -479,7 +479,7 @@ class TestUserPlanMethods:
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
-                'asset_limit': 25
+                'asset_limit': 10
             }
         )
         
@@ -490,5 +490,5 @@ class TestUserPlanMethods:
         )
         
         # Should use active plan limits
-        assert user.get_asset_limit() == 25
+        assert user.get_asset_limit() == 10
         assert user.current_plan.plan_type == plan_type_active

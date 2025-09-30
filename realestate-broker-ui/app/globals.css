@@ -430,6 +430,29 @@
   html[dir="rtl"] .tabs-list {
     flex-direction: row-reverse;
   }
+  
+  /* RTL Table improvements */
+  html[dir="rtl"] table {
+    direction: rtl;
+  }
+  
+  html[dir="rtl"] table th,
+  html[dir="rtl"] table td {
+    text-align: right;
+  }
+  
+  /* RTL table cell padding adjustments */
+  html[dir="rtl"] table th:first-child,
+  html[dir="rtl"] table td:first-child {
+    padding-right: 0.75rem;
+    padding-left: 0.5rem;
+  }
+  
+  html[dir="rtl"] table th:last-child,
+  html[dir="rtl"] table td:last-child {
+    padding-left: 0.75rem;
+    padding-right: 0.5rem;
+  }
 }
 
 /* Custom utility classes */

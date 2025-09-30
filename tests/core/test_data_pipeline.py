@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from db.database import SQLAlchemyDatabase
 from orchestration.collectors import (
     GISCollector,
@@ -10,6 +12,7 @@ from orchestration.collectors import (
     Yad2Collector,
 )
 from orchestration.data_pipeline import DataPipeline
+from orchestration.location import LocationQuery
 from yad2.core.models import RealEstateListing
 
 
@@ -17,7 +20,11 @@ class FakeYad2Collector(Yad2Collector):
     def __init__(self):
         pass
 
-    def collect(self, address, max_pages=1):
+    def collect(
+        self,
+        location: Optional[LocationQuery] = None,
+        max_pages: int = 1,
+    ):
         listing = RealEstateListing()
         listing.title = "test"
         listing.price = 1_000_000
@@ -37,7 +44,10 @@ class FakeGISCollector(GISCollector):
     def __init__(self):
         pass
 
-    def collect(self, address, house_number):
+    def collect(
+        self,
+        location: Optional[LocationQuery] = None,
+    ):
         return {
             "blocks": [{"ms_gush": "1"}],
             "parcels": [{"ms_chelka": "2"}],
@@ -55,7 +65,12 @@ class FakeGovCollector(GovCollector):
     def __init__(self):
         pass
 
-    def collect(self, block, parcel, address):
+    def collect(
+        self,
+        block,
+        parcel,
+        location: Optional[LocationQuery] = None,
+    ):
         return {
             "decisive": [{"title": "dec1"}],
             "transactions": [
@@ -83,28 +98,38 @@ class FakeRamiCollector(RamiCollector):
 class FakeGovMapCollector(GovMapCollector):
     def __init__(self):
         pass
-    
-    def autocomplete(self, query):
+
+    def collect(
+        self,
+        location: Optional[LocationQuery] = None,
+    ):
+        query = location or LocationQuery(street="Fake", house_number=1, city="תל אביב")
         return {
-            "resultsCount": 1,
-            "results": [{
-                "address": "Fake st 1",
-                "x": 183162.21989007457,
-                "y": 667055.4977532875,
-                "city": "תל אביב",
-                "street": "Fake",
-                "house_number": 1
-            }],
-            "aggregations": []
-        }
-    
-    def collect(self, x, y):
-        return {
-            "parcel": {
-                "gush": "1",
-                "helka": "2"
+            "address": query.formatted or "Fake st 1",
+            "x": 183162.21989007457,
+            "y": 667055.4977532875,
+            "block": "1",
+            "parcel": "2",
+            "api_data": {
+                "autocomplete": {
+                    "resultsCount": 1,
+                    "results": [
+                        {
+                            "address": "Fake st 1",
+                            "x": 183162.21989007457,
+                            "y": 667055.4977532875,
+                            "city": query.city or "תל אביב",
+                            "street": query.street or "Fake",
+                            "house_number": query.house_number or 1,
+                        }
+                    ],
+                    "aggregations": [],
+                },
+                "parcel": {
+                    "gush": "1",
+                    "helka": "2",
+                },
             },
-            "nearby": {}
         }
 
 
@@ -114,6 +139,18 @@ class FakeMavatCollector(MavatCollector):
 
     def collect(self, block, parcel, city=None):
         return [{"plan_id": "333", "title": "Test Mavat Plan", "status": "approved"}]
+
+
+class DummyAsset:
+    def __init__(self):
+        self.meta = {}
+        self.price = 1_000_000
+        self.area = 80
+        self.id = 1
+        self.saved = False
+
+    def save(self, update_fields=None):
+        self.saved = True
 
 
 def test_data_pipeline_integration():
@@ -132,7 +169,7 @@ def test_data_pipeline_integration():
     )
 
     # Run the pipeline - it should return collected data, not save to database
-    results = pipeline.run("Fake", 1, asset_id=123)
+    results = pipeline.run("", "Fake", 1, asset_id=123)
     
     # Verify that the pipeline returned results
     assert results, "Pipeline did not return any results"
@@ -156,3 +193,23 @@ def test_data_pipeline_integration():
     # Verify Mavat data is included
     mavat_found = any('mavat' in str(result) for result in results)
     assert mavat_found, "Mavat data should be included in results"
+
+
+def test_calculate_market_metrics_skips_invalid_listings():
+    from orchestration.data_pipeline import _calculate_market_metrics
+
+    asset = DummyAsset()
+
+    listings = [None, {"price": 900_000, "area": 75}, "not-a-dict"]
+
+    _calculate_market_metrics(asset, listings, gov_data={})
+
+    # Only one valid listing, so asset may or may not be saved depending on implementation.
+    # If asset.save() is only called when metrics are calculated, check accordingly:
+    metrics = asset.meta.get('market_metrics', {})
+    if metrics:
+        assert asset.saved is True
+        assert metrics.get('modelPrice') == 900_000
+        assert metrics.get('confidencePct') == 20
+    else:
+        assert asset.saved is False

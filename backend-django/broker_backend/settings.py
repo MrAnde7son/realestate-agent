@@ -21,6 +21,20 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver').split(',')
 
+# LLM configuration
+LLM_DEFAULT_PROVIDER = os.getenv("LLM_DEFAULT_PROVIDER", "gemini")
+LLM_ALLOW_OVERRIDE = os.getenv("LLM_ALLOW_OVERRIDE", "true").lower() == "true"
+
+# Gemini / Google AI Studio
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_MODEL = os.getenv("GOOGLE_MODEL")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or GOOGLE_API_KEY
+GEMINI_MODEL = os.getenv("GEMINI_MODEL") or GOOGLE_MODEL or "gemini-2.5-pro"
+
+# OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
 # Custom user model
 AUTH_USER_MODEL = 'core.User'
 
@@ -36,7 +50,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_spectacular',
-    'core'
+    'core',
+    'crm'
 ]
 
 MIDDLEWARE = [
@@ -74,8 +89,15 @@ WSGI_APPLICATION = 'broker_backend.wsgi.application'
 # Use DATABASE_URL from environment (Render) or fallback to SQLite for development
 if os.getenv('DATABASE_URL'):
     # Parse DATABASE_URL for production (Render)
+    parsed_db = dj_database_url.parse(os.getenv('DATABASE_URL'))
+    # If it's an SQLite URL with a relative path, anchor it to BASE_DIR to avoid accidentally
+    # creating/using a different db.sqlite3 in the project root (which caused missing tables)
+    if parsed_db.get('ENGINE', '').endswith('sqlite3'):
+        name = parsed_db.get('NAME')
+        if name and not os.path.isabs(name):
+            parsed_db['NAME'] = str(BASE_DIR / name)
     DATABASES = {
-        'default': dj_database_url.parse(os.getenv('DATABASE_URL'))
+        'default': parsed_db
     }
 elif os.getenv('USE_POSTGRES', 'false').lower() == 'true':
     # Fallback to individual PostgreSQL environment variables
@@ -242,21 +264,12 @@ APPEND_SLASH = True
 USE_X_FORWARDED_HOST = True
 
 # Email Configuration
-DEFAULT_FROM_EMAIL = config('EMAIL_FROM', default='no-reply@nadlaner.com')
-
-# SendGrid Configuration
-SENDGRID_API_KEY = config('SENDGRID_API_KEY', default='')
-if SENDGRID_API_KEY:
-    EMAIL_BACKEND = 'sendgrid.backends.mail.SendgridBackend'
-    SENDGRID_API_KEY = SENDGRID_API_KEY
-else:
-    # Fallback to SMTP
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = config('SMTP_HOST', default='smtp.gmail.com')
-    EMAIL_PORT = config('SMTP_PORT', default=587, cast=int)
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = config('SMTP_USER', default='')
-    EMAIL_HOST_PASSWORD = config('SMTP_PASSWORD', default='')
+EMAIL_BACKEND = 'core.email_backends.resend_backend.ResendEmailBackend'
+DEFAULT_FROM_EMAIL = config('RESEND_FROM', default='no-reply@nadlaner.com')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+RESEND_API_KEY = config('RESEND_API_KEY', default='')
+RESEND_SANDBOX = config('RESEND_SANDBOX', default=False, cast=bool)
+EMAIL_FALLBACK_TO_CONSOLE = config('EMAIL_FALLBACK_TO_CONSOLE', default=False, cast=bool)
 
 # WhatsApp Configuration (Twilio)
 TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')

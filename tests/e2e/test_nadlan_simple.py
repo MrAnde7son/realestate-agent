@@ -22,9 +22,11 @@ sys.path.insert(0, str(project_root))
 # Import components
 from gov.nadlan.models import Deal
 from orchestration.collectors.gov_collector import GovCollector
+from orchestration.location import LocationQuery
 
 # Test data
 TEST_ADDRESS = "רוזוב 14 תל אביב"
+TEST_LOCATION = LocationQuery(street="רוזוב", house_number=14, city="תל אביב")
 
 # Configure logging
 logging.basicConfig(
@@ -130,12 +132,12 @@ class TestNadlanSimple:
         collector = GovCollector()
         assert collector is not None, "Should create GovCollector instance"
         assert collector.deals_client is not None, "Should have deals client"
-        assert collector.decisive_func is not None, "Should have decisive function"
+        assert collector.decisive_client is not None, "Should have decisive client"
         
         # Test 2: Parameter validation
-        assert collector.validate_parameters(block="1234", parcel="56", address=TEST_ADDRESS) is True, "Should validate correct parameters"
-        assert collector.validate_parameters(block="1234", parcel="56") is False, "Should reject missing address"
-        assert collector.validate_parameters(block="1234") is False, "Should reject missing parcel and address"
+        assert collector.validate_parameters(block="1234", parcel="56", location=TEST_LOCATION) is True, "Should validate correct parameters"
+        assert collector.validate_parameters(block="1234", parcel="56") is False, "Should reject missing location"
+        assert collector.validate_parameters(block="1234") is False, "Should reject missing parcel and location"
         assert collector.validate_parameters() is False, "Should reject empty parameters"
         
         logger.info("✅ GovCollector initialization test passed")
@@ -147,7 +149,7 @@ class TestNadlanSimple:
         collector = GovCollector()
         
         # Test 1: Test collect method structure
-        result = collector.collect(block="1234", parcel="56", address=TEST_ADDRESS)
+        result = collector.collect(block="1234", parcel="56", location=TEST_LOCATION)
         assert isinstance(result, dict), "Should return dictionary"
         assert "decisive" in result, "Should have decisive key"
         assert "transactions" in result, "Should have transactions key"

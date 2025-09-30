@@ -266,10 +266,8 @@ class MavatSeleniumClient:
         district: Optional[str] = None,
         plan_area: Optional[str] = None,
         street: Optional[str] = None,
-        block: Optional[str] = None,
-        parcel: Optional[str] = None,
-        block_number: Optional[str] = None,
-        parcel_number: Optional[str] = None,
+        block: Optional[int] = None,
+        parcel: Optional[int] = None,
         status: Optional[str] = None,
         limit: int = 20,
     ) -> List[MavatSearchHit]:
@@ -312,68 +310,167 @@ class MavatSeleniumClient:
             stored in the ``raw`` attribute.
         """
         if not self.driver:
-            raise RuntimeError("Driver not initialized. Use context manager or call _init_driver() first.")
-        
-        try:
-            # Navigate to the search page
-            print(f"Navigating to: {self.SEARCH_URL}")
-            self.driver.get(self.SEARCH_URL)
+            raise RuntimeError(
+                "Driver not initialized. Use context manager or call __enter__() first."
+            )
 
-            # Wait for page to load
+        # Determine search mode: use basic if a text term or city is supplied
+        if query or city:
+            search_term = query or city
+            return self._search_basic(search_term, limit=limit)
+        # Fallback to advanced search using cadastral parameters
+        return self._search_advanced(
+            block=block,
+            parcel=parcel,
+            statuses=[status] if status else None,
+            city=city,
+            limit=limit,
+        )
+
+    # ------------------------------------------------------------------
+    # Basic search implementation
+    # ------------------------------------------------------------------
+    def _search_basic(self, search_term: str, limit: int = 20) -> List[MavatSearchHit]:
+        """Perform a free‑text search on the SV3 landing page.
+
+        ``search_term`` must contain at least three characters; shorter
+        values will raise a ValueError.
+        """
+        if not search_term or len(search_term.strip()) < 3:
+            raise ValueError("Basic search requires a term of at least 3 characters")
+
+        # Load the search page
+        self.driver.get(self.SEARCH_URL)
+        self._wait_for_spinner()
+
+        # Locate the input box; the SV3 basic search uses id "sv3-search__input"
+        try:
+            input_box = self.wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "#sv3-search__input"))
+            )
+        except TimeoutException:
+            raise RuntimeError("Could not locate basic search input field")
+
+        input_box.clear()
+        input_box.send_keys(search_term.strip())
+
+        # Locate the submit button; the button inside .sv3-search__submit triggers search
+        try:
+            submit_btn = self.wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".sv3-search__submit button"))
+            )
+        except TimeoutException:
+            raise RuntimeError("Could not locate basic search submit button")
+
+        self._safe_click(submit_btn)
+        # Wait for results; spinner hides when done
+        self._wait_for_spinner()
+        # Additional small wait to ensure tables render
+        time.sleep(1.0)
+        return self._parse_results(limit=limit)
+
+    # ------------------------------------------------------------------
+    # Advanced search implementation
+    # ------------------------------------------------------------------
+    def _open_advanced_panel(self) -> None:
+        """Ensure the advanced search panel is open.
+
+        On the SV3 landing page there is a link labelled "חיפוש מתקדם"
+        underneath the basic search bar.  This helper clicks the link
+        if found.  If the link is not present, it silently returns.
+        """
+        # We need to be on the search page
+        self.driver.get(self.SEARCH_URL)
+        self._wait_for_spinner()
+        try:
+            adv_link = self.driver.find_element(By.CSS_SELECTOR, ".search-link a")
+            self._safe_click(adv_link)
+            # Allow any animations to finish
+            time.sleep(0.5)
             self._wait_for_spinner()
-            
-            # Look for search form elements
-            print("Looking for search form...")
-            
-            # Try to find and click on the "תכניות" (Plans) button first
+        except NoSuchElementException:
+            pass
+
+    def _search_advanced(
+        self,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
+        statuses: Optional[List[str]] = None,
+        city: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[MavatSearchHit]:
+        """Perform a cadastral search using the advanced search form.
+
+        Parameters
+        ----------
+        block: str, optional
+            The cadastral block number (גוש).
+        parcel: str, optional
+            The cadastral parcel number (חלקה).
+        statuses: List[str], optional
+            List of status labels to check in the advanced form (e.g.
+            ["מופקדת", "מאושרת"]).  If None, no status filtering is
+            performed.
+        city: str, optional
+            City name to provide additional context when filling the form.
+        limit: int, optional
+            Maximum number of results to return.
+
+        Returns
+        -------
+        List[MavatSearchHit]
+            A list of search hits parsed from the results.
+        """
+        # Open advanced panel
+        self._open_advanced_panel()
+
+        # Fill block and parcel fields using label heuristics.  In SV3
+        # advanced search, the labels often include the Hebrew words
+        # "גוש" (block) and "חלקה" (parcel).  We'll search for
+        # corresponding input siblings.
+        def set_text_by_label(label_contains: str, value: Optional[str]) -> None:
+            if not value:
+                return
+            xpath = f"//label[contains(normalize-space(.), '{label_contains}')]/following::input[1]"
             try:
-                # Try multiple selectors for the plans button
-                plans_button = None
-                button_selectors = [
-                    "//button[contains(text(), 'תכניות')]",
-                    "//button[@aria-label='תכניות']",
-                    "//button[contains(@class, 'select-tab') and contains(text(), 'תכניות')]",
-                    "button[aria-label='תכניות']",
-                    "button:contains('תכניות')"
-                ]
-                
-                for selector in button_selectors:
+                el = self.driver.find_element(By.XPATH, xpath)
+                self._scroll_into_view(el)
+                el.clear()
+                el.send_keys(value)
+            except NoSuchElementException:
+                # If we can't find by label, try fallback IDs from earlier versions
+                fallback_ids = {
+                    'גוש': ['#Gush', '#blockNumber'],
+                    'חלקה': ['#Chelka', '#parcelNumber'],
+                }
+                for css in fallback_ids.get(label_contains, []):
                     try:
-                        if selector.startswith("//"):
-                            plans_button = self.wait.until(
-                                EC.element_to_be_clickable((By.XPATH, selector))
-                            )
-                        else:
-                            plans_button = self.wait.until(
-                                EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
-                            )
-                        if plans_button:
-                            break
-                    except:
+                        el = self.driver.find_element(By.CSS_SELECTOR, css)
+                        self._scroll_into_view(el)
+                        el.clear()
+                        el.send_keys(value)
+                        return
+                    except NoSuchElementException:
                         continue
-                
-                if plans_button:
-                    print("Found plans button, clicking it...")
-                    # Scroll to element and click
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", plans_button)
-                    self._wait_for_spinner()
-                    plans_button.click()
-                    self._wait_for_spinner()
-                else:
-                    print("Could not find plans button, continuing with search...")
-            except Exception as e:
-                print(f"Could not find plans button: {e}")
-            
-            # Look for search input field
-            search_input = None
-            input_selectors = [
-                "input[name='text']",
-                "input[type='text']",
-                "input[placeholder*='הקלדת שם']",
-                "input[placeholder*='חיפוש']"
-            ]
-            
-            for selector in input_selectors:
+
+        set_text_by_label('גוש', block)
+        set_text_by_label('חלקה', parcel)
+
+        # If a city is provided, attempt to fill it into a city autocomplete
+        if city:
+            try:
+                city_input = self.driver.find_element(By.XPATH, "//label[contains(., 'יישוב')]/following::input[1]")
+                self._scroll_into_view(city_input)
+                city_input.clear()
+                city_input.send_keys(city)
+                # Press enter to select the first suggestion
+                city_input.send_keys(Keys.ENTER)
+            except NoSuchElementException:
+                pass
+
+        # Check status checkboxes if requested
+        if statuses:
+            for label in statuses:
                 try:
                     cb_label = self.driver.find_element(By.XPATH, f"//label[contains(normalize-space(.), '{label}')]")
                     self._scroll_into_view(cb_label)
@@ -690,7 +787,7 @@ if __name__ == "__main__":
         else:
             print("Mavat system is reachable. Performing a demo search...")
             try:
-                results = client.search_plans(query="תל אביב", limit=5)
+                results = client.search_plans(block=6336, limit=5)
                 for hit in results:
                     print(f"{hit.plan_id} | {hit.title} | {hit.status}")
                 if results:

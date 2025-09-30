@@ -1,30 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { id } = params
-  const numericId = Number(id)
+  const id = Number(params.id)
+  const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
+  const permitsEndpoint = `${backendUrl}/api/assets/${id}/permits/`
 
   try {
-    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-    console.log(`Fetching permits from: ${backendUrl}/api/assets/${numericId}/permits/`)
-    const resp = await fetch(`${backendUrl}/api/assets/${numericId}/permits/`)
-    console.log(`Response status: ${resp.status}`)
-    if (resp.ok) {
-      const data = await resp.json()
-      console.log(`Response data:`, data)
-      const permits = data.permits || []
-      console.log(`Permits found: ${permits.length}`)
-      return NextResponse.json({ permits })
-    } else {
-      console.log(`Backend response not ok: ${resp.status} ${resp.statusText}`)
+    const resp = await fetch(permitsEndpoint, { cache: 'no-store' })
+    if (!resp.ok) {
+      return NextResponse.json({ error: 'Failed to fetch permits', status: resp.status, permits: [] }, { status: 200 })
     }
-  } catch (err) {
-    console.error('Error fetching permits from backend:', err)
+    const data = await resp.json()
+    return NextResponse.json(data)
+  } catch (e) {
+    return NextResponse.json({ error: 'Network error', permits: [] }, { status: 200 })
   }
-
-  // No fallback: return empty array if backend fails or has none
-  return NextResponse.json({ permits: [] })
 }

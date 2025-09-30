@@ -121,6 +121,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       ? `₪${value.toLocaleString('he-IL')}`
       : null
 
+  const handleDocumentClick = (e: React.MouseEvent<HTMLAnchorElement>, docUrl: string) => {
+    if (!docUrl) {
+      e.preventDefault()
+      alert('קישור לא זמין')
+    } else if (!docUrl.startsWith('http')) {
+      // For relative URLs, construct the full URL
+      e.preventDefault()
+      const fullUrl = docUrl.startsWith('/') 
+        ? `${window.location.origin}${docUrl}`
+        : `${window.location.origin}/${docUrl}`
+      window.open(fullUrl, '_blank')
+    }
+  }
+
   const formatPercent = (value?: number, digits = 0) =>
     value !== undefined && value !== null
       ? `${value.toFixed(digits)}%`
@@ -2032,14 +2046,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                   href={doc.url} 
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  onClick={(e) => {
-                                    if (!doc.url || !doc.url.startsWith('http')) {
-                                      e.preventDefault()
-                                      alert('קישור לא זמין')
-                                    }
-                                  }}
+                                  onClick={(e) => handleDocumentClick(e, doc.url)}
                                 >
-                                  {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
+                                  {doc.url ? 'פתח' : 'לא זמין'}
                                 </a>
                               </Button>
                             </div>
@@ -2211,13 +2220,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                   target="_blank" 
                                   rel="noopener noreferrer"
                                   onClick={(e) => {
-                                    if (!doc.url || !doc.url.startsWith('http')) {
+                                    if (!doc.url) {
                                       e.preventDefault()
                                       alert('קישור לא זמין')
+                                    } else if (!doc.url.startsWith('http')) {
+                                      // For relative URLs, construct the full URL
+                                      e.preventDefault()
+                                      const fullUrl = doc.url.startsWith('/') 
+                                        ? `${window.location.origin}${doc.url}`
+                                        : `${window.location.origin}/${doc.url}`
+                                      window.open(fullUrl, '_blank')
                                     }
                                   }}
                                 >
-                                  {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
+                                  {doc.url ? 'פתח' : 'לא זמין'}
                                 </a>
                               </Button>
                             </div>

@@ -187,8 +187,12 @@ class AuthAPI {
   }
 
   async logout(): Promise<{ message: string }> {
+    const refreshToken = this.getRefreshToken()
+    const body = refreshToken ? { refresh_token: refreshToken } : {}
+
     return this.request<{ message: string }>('/auth/logout/', {
       method: 'POST',
+      body: JSON.stringify(body),
     })
   }
 

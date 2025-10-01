@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -20,10 +20,9 @@ jobs:
         id: changes
         shell: bash
         run: |
-          set -euo pipefail
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
-            files="$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")"
+            files=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
             export CHANGED_FILES="$files"
             python <<'PY'
 import os
@@ -113,7 +112,7 @@ EOF
 
       - name: Set up Python
         if: ${{ steps.changes.outputs.python == 'true' }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
@@ -121,39 +120,31 @@ EOF
         if: ${{ steps.changes.outputs.python == 'true' }}
         shell: bash
         run: |
-          set -euo pipefail
           python -m pip install --upgrade pip
           cd backend-django
           pip install -r requirements.txt
-          cd ..
+          cd -
 
       - name: Install Module Dependencies
         if: ${{ steps.changes.outputs.python == 'true' }}
         shell: bash
         run: |
-          set -euo pipefail
-          # Core DB deps
-          pip install sqlalchemy
-
-          # Optional module requirement files
-          [[ -f "db/requirements.txt" ]] && pip install -r db/requirements.txt || true
-          [[ -f "orchestration/requirements.txt" ]] && pip install -r orchestration/requirements.txt || true
-          [[ -f "gov/requirements.txt" ]] && pip install -r gov/requirements.txt || true
-          [[ -f "gis/requirements.txt" ]] && pip install -r gis/requirements.txt || true
-          [[ -f "yad2/requirements.txt" ]] && pip install -r yad2/requirements.txt || true
-          [[ -f "rami/requirements.txt" ]] && pip install -r rami/requirements.txt || true
-          [[ -f "requirements.txt" ]] && pip install -r requirements.txt || true
-
-          # Test deps
-          pip install responses pytest-mock pytest-asyncio
+          pip install sqlalchemy responses pytest-mock pytest-asyncio
+          if [ -f "db/requirements.txt" ]; then pip install -r db/requirements.txt; fi
+          if [ -f "orchestration/requirements.txt" ]; then pip install -r orchestration/requirements.txt; fi
+          if [ -f "gov/requirements.txt" ]; then pip install -r gov/requirements.txt; fi
+          if [ -f "gis/requirements.txt" ]; then pip install -r gis/requirements.txt; fi
+          if [ -f "yad2/requirements.txt" ]; then pip install -r yad2/requirements.txt; fi
+          if [ -f "rami/requirements.txt" ]; then pip install -r rami/requirements.txt; fi
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          pip install playwright
 
       - name: Install Playwright Browsers
         if: ${{ steps.changes.outputs.python == 'true' }}
         shell: bash
         run: |
-          set -euo pipefail
-          npx playwright install chromium
-          npx playwright install-deps chromium
+          playwright install chromium
+          playwright install-deps chromium
 
       - name: Run Backend Test Suite
         if: ${{ steps.changes.outputs.backend == 'true' }}
@@ -161,13 +152,12 @@ EOF
           PYTHONPATH: ${{ github.workspace }}
         shell: bash
         run: |
-          set -euo pipefail
           echo "Running backend test suite..."
           dirs=()
           for d in backend-django/tests tests/core tests/db tests/utils tests/e2e; do
-            [[ -e "$d" ]] && dirs+=("$d")
+            if [ -e "$d" ]; then dirs+=("$d"); fi
           done
-          if [[ ${#dirs[@]} -eq 0 ]]; then
+          if [ ${#dirs[@]} -eq 0 ]; then
             echo "No backend test targets found"
           else
             echo "pytest targets: ${dirs[*]}"
@@ -180,13 +170,12 @@ EOF
           PYTHONPATH: ${{ github.workspace }}
         shell: bash
         run: |
-          set -euo pipefail
           echo "Running CRM test suite..."
           targets=()
-          [[ -f "backend-django/crm/tests.py" ]] && targets+=("backend-django/crm/tests.py")
-          [[ -d "backend-django/crm/tests" ]] && targets+=("backend-django/crm/tests")
-          [[ -d "tests/crm" ]] && targets+=("tests/crm")
-          if [[ ${#targets[@]} -eq 0 ]]; then
+          if [ -f "backend-django/crm/tests.py" ]; then targets+=("backend-django/crm/tests.py"); fi
+          if [ -d "backend-django/crm/tests" ]; then targets+=("backend-django/crm/tests"); fi
+          if [ -d "tests/crm" ]; then targets+=("tests/crm"); fi
+          if [ ${#targets[@]} -eq 0 ]; then
             echo "No CRM test targets found"
           else
             echo "pytest targets: ${targets[*]}"
@@ -199,13 +188,12 @@ EOF
           PYTHONPATH: ${{ github.workspace }}
         shell: bash
         run: |
-          set -euo pipefail
           echo "Running data pipeline test suite..."
           suites=()
           for d in tests/data tests/gis tests/gov tests/govmap tests/mavat tests/yad2 tests/orchestration tests/rami; do
-            [[ -d "$d" ]] && suites+=("$d")
+            if [ -d "$d" ]; then suites+=("$d"); fi
           done
-          if [[ ${#suites[@]} -gt 0 ]]; then
+          if [ ${#suites[@]} -gt 0 ]; then
             echo "pytest targets: ${suites[*]}"
             pytest -q --tb=short "${suites[@]}"
           else
@@ -213,7 +201,7 @@ EOF
           fi
 
           for module in orchestration gov gis govmap mavat yad2 rami; do
-            if [[ -d "$module" ]]; then
+            if [ -d "$module" ]; then
               echo "Running ${module} module tests..."
               pytest -q --tb=short "$module" || echo "No tests found in ${module} module"
             fi
@@ -221,40 +209,30 @@ EOF
 
       - name: Set up Node
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: realestate-broker-ui/package-lock.json
 
       - name: Install UI dependencies
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         working-directory: realestate-broker-ui
         shell: bash
-        run: |
-          set -euo pipefail
-          npm ci
+        run: npm install
 
       - name: Lint UI
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         working-directory: realestate-broker-ui
         shell: bash
-        run: |
-          set -euo pipefail
-          npm run lint --if-present
+        run: npm run lint --if-present
 
       - name: Run UI tests
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         working-directory: realestate-broker-ui
         shell: bash
-        run: |
-          set -euo pipefail
-          npm test --if-present
+        run: npm test --if-present
 
       - name: Build UI
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         working-directory: realestate-broker-ui
         shell: bash
-        run: |
-          set -euo pipefail
-          npm run build
+        run: npm run build

@@ -60,7 +60,7 @@ client = RealEstateAPIClient(token="your-jwt-token")
 - `login(email, password)` - Login with credentials
 - `register(email, password, username, **kwargs)` - Register new user
 - `refresh_token(refresh_token)` - Refresh access token
-- `logout()` - Logout current user
+- `logout(refresh_token: Optional[str] = None)` - Logout current user and optionally provide a refresh token to blacklist
 - `get_profile()` - Get user profile
 - `update_profile(**data)` - Update user profile
 

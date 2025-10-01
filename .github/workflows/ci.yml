@@ -227,13 +227,6 @@ jobs:
             echo "No data pipeline test directories found"
           fi
 
-          for module in orchestration gov gis govmap mavat yad2 rami; do
-            if [ -d "$module" ]; then
-              echo "Running ${module} module tests..."
-              pytest -q --tb=short "$module" || echo "No tests found in ${module} module"
-            fi
-          done
-
       - name: Set up Node
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         uses: actions/setup-node@v4

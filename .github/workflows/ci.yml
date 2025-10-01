@@ -20,94 +20,95 @@ jobs:
         id: changes
         shell: bash
         run: |
+          set -euo pipefail
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
-            files=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
+            files="$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")"
             export CHANGED_FILES="$files"
-            python <<'PY'
-            import os
+            python - <<'PY'
+import os
 
-            files = [line.strip() for line in os.environ.get("CHANGED_FILES", "").splitlines() if line.strip()]
+files = [line.strip() for line in os.environ.get("CHANGED_FILES", "").splitlines() if line.strip()]
 
-            backend = crm = data_pipeline = broker_ui = False
-            shared = False
+backend = crm = data_pipeline = broker_ui = False
+shared = False
 
-            backend_dirs = {"backend-django", "utils", "db", "scripts"}
-            crm_dirs = {"crm"}
-            data_pipeline_dirs = {"orchestration", "yad2", "mavat", "gov", "gis", "govmap", "rami"}
+backend_dirs = {"backend-django", "utils", "db", "scripts"}
+crm_dirs = {"crm"}
+data_pipeline_dirs = {"orchestration", "yad2", "mavat", "gov", "gis", "govmap", "rami"}
 
-            backend_test_dirs = {"core", "db", "utils", "e2e"}
-            crm_test_dirs = {"crm"}
-            data_pipeline_test_dirs = {"data", "gis", "gov", "govmap", "mavat", "yad2", "orchestration", "rami"}
+backend_test_dirs = {"core", "db", "utils", "e2e"}
+crm_test_dirs = {"crm"}
+data_pipeline_test_dirs = {"data", "gis", "gov", "govmap", "mavat", "yad2", "orchestration", "rami"}
 
-            shared_files = {"pyproject.toml", "pytest.ini", "pytest-ci.ini", "requirements.txt", "setup.py", "setup_assets.py"}
+shared_files = {"pyproject.toml", "pytest.ini", "pytest-ci.ini", "requirements.txt", "setup.py", "setup_assets.py"}
 
-            for path in files:
-                parts = path.split("/") if path else []
-                top = parts[0] if parts else ""
+for path in files:
+    parts = path.split("/") if path else []
+    top = parts[0] if parts else ""
 
-                if path in shared_files or path.startswith("tests/conftest.py") or path.startswith("tests/__init__"):
-                    shared = True
-                    continue
+    if path in shared_files or path.startswith("tests/conftest.py") or path.startswith("tests/__init__"):
+        shared = True
+        continue
 
-                if top == "realestate-broker-ui":
-                    broker_ui = True
-                    continue
+    if top == "realestate-broker-ui":
+        broker_ui = True
+        continue
 
-                if top == "backend-django":
-                    if len(parts) > 1 and parts[1] == "crm":
-                        crm = True
-                    else:
-                        backend = True
-                    continue
+    if top == "backend-django":
+        if len(parts) > 1 and parts[1] == "crm":
+            crm = True
+        else:
+            backend = True
+        continue
 
-                if top == "tests":
-                    if len(parts) == 1:
-                        shared = True
-                        continue
-                    second = parts[1]
-                    if second in backend_test_dirs:
-                        backend = True
-                    elif second in crm_test_dirs:
-                        crm = True
-                    elif second in data_pipeline_test_dirs:
-                        data_pipeline = True
-                    else:
-                        shared = True
-                    continue
+    if top == "tests":
+        if len(parts) == 1:
+            shared = True
+            continue
+        second = parts[1]
+        if second in backend_test_dirs:
+            backend = True
+        elif second in crm_test_dirs:
+            crm = True
+        elif second in data_pipeline_test_dirs:
+            data_pipeline = True
+        else:
+            shared = True
+        continue
 
-                if top in crm_dirs:
-                    crm = True
-                    continue
+    if top in crm_dirs:
+        crm = True
+        continue
 
-                if top in data_pipeline_dirs:
-                    data_pipeline = True
-                    continue
+    if top in data_pipeline_dirs:
+        data_pipeline = True
+        continue
 
-                if top in backend_dirs or path.endswith(".py"):
-                    backend = True
+    if top in backend_dirs or path.endswith(".py"):
+        backend = True
 
-            if shared:
-                backend = crm = data_pipeline = True
+if shared:
+    backend = crm = data_pipeline = True
 
-            python_required = backend or crm or data_pipeline
+python_required = backend or crm or data_pipeline
 
-            output_path = os.environ["GITHUB_OUTPUT"]
-            with open(output_path, "a", encoding="utf-8") as fh:
-                fh.write(f"python={'true' if python_required else 'false'}\n")
-                fh.write(f"backend={'true' if backend else 'false'}\n")
-                fh.write(f"crm={'true' if crm else 'false'}\n")
-                fh.write(f"data_pipeline={'true' if data_pipeline else 'false'}\n")
-                fh.write(f"broker_ui={'true' if broker_ui else 'false'}\n")
+output_path = os.environ["GITHUB_OUTPUT"]
+with open(output_path, "a", encoding="utf-8") as fh:
+    fh.write(f"python={'true' if python_required else 'false'}\n")
+    fh.write(f"backend={'true' if backend else 'false'}\n")
+    fh.write(f"crm={'true' if crm else 'false'}\n")
+    fh.write(f"data_pipeline={'true' if data_pipeline else 'false'}\n")
+    fh.write(f"broker_ui={'true' if broker_ui else 'false'}\n")
 PY
           else
-            cat <<'EOF' >> "$GITHUB_OUTPUT"
-python=true
-backend=true
-crm=true
-data_pipeline=true
-broker_ui=true
-EOF
+            {
+              echo "python=true"
+              echo "backend=true"
+              echo "crm=true"
+              echo "data_pipeline=true"
+              echo "broker_ui=true"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Python
@@ -120,6 +121,7 @@ EOF
         if: ${{ steps.changes.outputs.python == 'true' }}
         shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           cd backend-django
           pip install -r requirements.txt
@@ -129,6 +131,7 @@ EOF
         if: ${{ steps.changes.outputs.python == 'true' }}
         shell: bash
         run: |
+          set -euo pipefail
           pip install sqlalchemy responses pytest-mock pytest-asyncio
           if [ -f "db/requirements.txt" ]; then pip install -r db/requirements.txt; fi
           if [ -f "orchestration/requirements.txt" ]; then pip install -r orchestration/requirements.txt; fi
@@ -143,6 +146,7 @@ EOF
         if: ${{ steps.changes.outputs.python == 'true' }}
         shell: bash
         run: |
+          set -euo pipefail
           playwright install --with-deps chromium
 
       - name: Run Backend Test Suite
@@ -151,6 +155,7 @@ EOF
           PYTHONPATH: ${{ github.workspace }}
         shell: bash
         run: |
+          set -euo pipefail
           echo "Running backend test suite..."
           dirs=()
           for d in backend-django/tests tests/core tests/db tests/utils tests/e2e; do
@@ -169,6 +174,7 @@ EOF
           PYTHONPATH: ${{ github.workspace }}
         shell: bash
         run: |
+          set -euo pipefail
           echo "Running CRM test suite..."
           targets=()
           if [ -f "backend-django/crm/tests.py" ]; then targets+=("backend-django/crm/tests.py"); fi
@@ -187,6 +193,7 @@ EOF
           PYTHONPATH: ${{ github.workspace }}
         shell: bash
         run: |
+          set -euo pipefail
           echo "Running data pipeline test suite..."
           suites=()
           for d in tests/data tests/gis tests/gov tests/govmap tests/mavat tests/yad2 tests/orchestration tests/rami; do
@@ -216,22 +223,30 @@ EOF
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         working-directory: realestate-broker-ui
         shell: bash
-        run: npm install
+        run: |
+          set -euo pipefail
+          npm install
 
       - name: Lint UI
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         working-directory: realestate-broker-ui
         shell: bash
-        run: npm run lint --if-present
+        run: |
+          set -euo pipefail
+          npm run lint --if-present
 
       - name: Run UI tests
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         working-directory: realestate-broker-ui
         shell: bash
-        run: npm run test --if-present
+        run: |
+          set -euo pipefail
+          npm run test --if-present
 
       - name: Build UI
         if: ${{ steps.changes.outputs.broker_ui == 'true' }}
         working-directory: realestate-broker-ui
         shell: bash
-        run: npm run build
+        run: |
+          set -euo pipefail
+          npm run build

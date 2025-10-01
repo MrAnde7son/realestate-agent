@@ -140,9 +140,10 @@ class RealEstateAPIClient:
         
         return response
     
-    def logout(self) -> Dict[str, Any]:
+    def logout(self, refresh_token: Optional[str] = None) -> Dict[str, Any]:
         """Logout the current user."""
-        return self._make_request("POST", "/auth/logout/")
+        payload = {"refresh_token": refresh_token} if refresh_token else {}
+        return self._make_request("POST", "/auth/logout/", json=payload)
     
     def get_profile(self) -> Dict[str, Any]:
         """Get current user profile."""

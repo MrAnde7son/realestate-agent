@@ -63,7 +63,7 @@ const client = new RealEstateAPIClient('http://localhost:8000/api', 'your-jwt-to
 - `login(credentials: LoginRequest)` - Login with credentials
 - `register(userData: RegisterRequest)` - Register new user
 - `refreshToken(refreshToken: string)` - Refresh access token
-- `logout()` - Logout current user
+- `logout(refreshToken?: string)` - Logout current user and optionally provide a refresh token to blacklist
 - `getProfile()` - Get user profile
 - `updateProfile(data: Record<string, any>)` - Update user profile
 

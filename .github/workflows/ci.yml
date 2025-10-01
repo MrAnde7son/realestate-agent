@@ -99,13 +99,13 @@ with open(output_path, "a", encoding="utf-8") as fh:
     fh.write(f"broker_ui={'true' if broker_ui else 'false'}\n")
 PY
           else
-            {
-              echo "python=true"
-              echo "backend=true"
-              echo "crm=true"
-              echo "data_pipeline=true"
-              echo "broker_ui=true"
-            } >> "$GITHUB_OUTPUT"
+            cat <<'EOF' >> "$GITHUB_OUTPUT"
+python=true
+backend=true
+crm=true
+data_pipeline=true
+broker_ui=true
+EOF
           fi
 
       - name: Set up Python

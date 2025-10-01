@@ -21,19 +21,91 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
             files=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
-            python=false
-            broker_ui=false
-            if echo "$files" | grep -E '^(gov|gis|yad2|rami|backend-django|tests)/'; then
-              python=true
-            fi
-            if echo "$files" | grep -E '^realestate-broker-ui/'; then
-              broker_ui=true
-            fi
-            echo "python=$python" >> "$GITHUB_OUTPUT"
-            echo "broker_ui=$broker_ui" >> "$GITHUB_OUTPUT"
+            export CHANGED_FILES="$files"
+            python <<'PY'
+import os
+
+files = [line.strip() for line in os.environ.get("CHANGED_FILES", "").splitlines() if line.strip()]
+
+backend = crm = data_pipeline = broker_ui = False
+shared = False
+
+backend_dirs = {"backend-django", "utils", "db", "scripts"}
+crm_dirs = {"crm"}
+data_pipeline_dirs = {"orchestration", "yad2", "mavat", "gov", "gis", "govmap", "rami"}
+
+backend_test_dirs = {"core", "db", "utils", "e2e"}
+crm_test_dirs = {"crm"}
+data_pipeline_test_dirs = {"data", "gis", "gov", "govmap", "mavat", "yad2", "orchestration", "rami"}
+
+shared_files = {"pyproject.toml", "pytest.ini", "pytest-ci.ini", "requirements.txt", "setup.py", "setup_assets.py"}
+
+for path in files:
+    parts = path.split("/") if path else []
+    top = parts[0] if parts else ""
+
+    if path in shared_files or path.startswith("tests/conftest.py") or path.startswith("tests/__init__"):
+        shared = True
+        continue
+
+    if top == "realestate-broker-ui":
+        broker_ui = True
+        continue
+
+    if top == "backend-django":
+        if len(parts) > 1 and parts[1] == "crm":
+            crm = True
+        else:
+            backend = True
+        continue
+
+    if top == "tests":
+        if len(parts) == 1:
+            shared = True
+            continue
+        second = parts[1]
+        if second in backend_test_dirs:
+            backend = True
+        elif second in crm_test_dirs:
+            crm = True
+        elif second in data_pipeline_test_dirs:
+            data_pipeline = True
+        else:
+            shared = True
+        continue
+
+    if top in crm_dirs:
+        crm = True
+        continue
+
+    if top in data_pipeline_dirs:
+        data_pipeline = True
+        continue
+
+    if top in backend_dirs or path.endswith(".py"):
+        backend = True
+
+if shared:
+    backend = crm = data_pipeline = True
+
+python_required = backend or crm or data_pipeline
+
+output_path = os.environ["GITHUB_OUTPUT"]
+with open(output_path, "a", encoding="utf-8") as fh:
+    fh.write(f"python={'true' if python_required else 'false'}\n")
+    fh.write(f"backend={'true' if backend else 'false'}\n")
+    fh.write(f"crm={'true' if crm else 'false'}\n")
+    fh.write(f"data_pipeline={'true' if data_pipeline else 'false'}\n")
+    fh.write(f"broker_ui={'true' if broker_ui else 'false'}\n")
+PY
           else
-            echo "python=true" >> "$GITHUB_OUTPUT"
-            echo "broker_ui=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "python=true"
+              echo "backend=true"
+              echo "crm=true"
+              echo "data_pipeline=true"
+              echo "broker_ui=true"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Python
@@ -107,36 +179,73 @@ jobs:
           playwright install chromium
           playwright install-deps chromium
 
-      - name: Run Python Tests
-        if: steps.changes.outputs.python == 'true'
+      - name: Run Backend Test Suite
+        if: steps.changes.outputs.backend == 'true'
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          # Run tests for each module if it exists
-          if [ -d "tests" ]; then
-            echo "Running main test suite..."
-            pytest tests/ -q --tb=short
+          echo "Running backend test suite..."
+          dirs=()
+          for d in backend-django/tests tests/core tests/db tests/utils tests/e2e; do
+            if [ -e "$d" ]; then
+              dirs+=("$d")
+            fi
+          done
+          if [ ${#dirs[@]} -eq 0 ]; then
+            echo "No backend test targets found"
+          else
+            echo "pytest targets: ${dirs[*]}"
+            pytest -q --tb=short "${dirs[@]}"
           fi
-          
-          if [ -d "gov" ]; then
-            echo "Running government module tests..."
-            pytest gov/ -q --tb=short || echo "No tests found in gov module"
+
+      - name: Run CRM Test Suite
+        if: steps.changes.outputs.crm == 'true'
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "Running CRM test suite..."
+          targets=()
+          if [ -f "backend-django/crm/tests.py" ]; then
+            targets+=("backend-django/crm/tests.py")
           fi
-          
-          if [ -d "gis" ]; then
-            echo "Running GIS module tests..."
-            pytest gis/ -q --tb=short || echo "No tests found in GIS module"
+          if [ -d "backend-django/crm/tests" ]; then
+            targets+=("backend-django/crm/tests")
           fi
-          
-          if [ -d "yad2" ]; then
-            echo "Running Yad2 module tests..."
-            pytest yad2/ -q --tb=short || echo "No tests found in Yad2 module"
+          if [ -d "tests/crm" ]; then
+            targets+=("tests/crm")
           fi
-          
-          if [ -d "rami" ]; then
-            echo "Running RAMI module tests..."
-            pytest rami/ -q --tb=short || echo "No tests found in RAMI module"
+          if [ ${#targets[@]} -eq 0 ]; then
+            echo "No CRM test targets found"
+          else
+            echo "pytest targets: ${targets[*]}"
+            pytest -q --tb=short "${targets[@]}"
           fi
+
+      - name: Run Data Pipeline Test Suite
+        if: steps.changes.outputs.data_pipeline == 'true'
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "Running data pipeline test suite..."
+          suites=()
+          for d in tests/data tests/gis tests/gov tests/govmap tests/mavat tests/yad2 tests/orchestration tests/rami; do
+            if [ -d "$d" ]; then
+              suites+=("$d")
+            fi
+          done
+          if [ ${#suites[@]} -gt 0 ]; then
+            echo "pytest targets: ${suites[*]}"
+            pytest -q --tb=short "${suites[@]}"
+          else
+            echo "No data pipeline test directories found"
+          fi
+
+          for module in orchestration gov gis govmap mavat yad2 rami; do
+            if [ -d "$module" ]; then
+              echo "Running ${module} module tests..."
+              pytest -q --tb=short "$module" || echo "No tests found in ${module} module"
+            fi
+          done
 
       - name: Set up Node
         if: steps.changes.outputs.broker_ui == 'true'

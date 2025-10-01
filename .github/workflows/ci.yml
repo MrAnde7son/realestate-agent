@@ -21,95 +21,116 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+
+          # Collect changed files for PRs; for pushes (no PR), run everything
+          if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
             git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
-            files="$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")"
-            export CHANGED_FILES="$files"
-            python - <<'PY'
-import os
-
-files = [line.strip() for line in os.environ.get("CHANGED_FILES", "").splitlines() if line.strip()]
-
-backend = crm = data_pipeline = broker_ui = False
-shared = False
-
-backend_dirs = {"backend-django", "utils", "db", "scripts"}
-crm_dirs = {"crm"}
-data_pipeline_dirs = {"orchestration", "yad2", "mavat", "gov", "gis", "govmap", "rami"}
-
-backend_test_dirs = {"core", "db", "utils", "e2e"}
-crm_test_dirs = {"crm"}
-data_pipeline_test_dirs = {"data", "gis", "gov", "govmap", "mavat", "yad2", "orchestration", "rami"}
-
-shared_files = {"pyproject.toml", "pytest.ini", "pytest-ci.ini", "requirements.txt", "setup.py", "setup_assets.py"}
-
-for path in files:
-    parts = path.split("/") if path else []
-    top = parts[0] if parts else ""
-
-    if path in shared_files or path.startswith("tests/conftest.py") or path.startswith("tests/__init__"):
-        shared = True
-        continue
-
-    if top == "realestate-broker-ui":
-        broker_ui = True
-        continue
-
-    if top == "backend-django":
-        if len(parts) > 1 and parts[1] == "crm":
-            crm = True
-        else:
-            backend = True
-        continue
-
-    if top == "tests":
-        if len(parts) == 1:
-            shared = True
-            continue
-        second = parts[1]
-        if second in backend_test_dirs:
-            backend = True
-        elif second in crm_test_dirs:
-            crm = True
-        elif second in data_pipeline_test_dirs:
-            data_pipeline = True
-        else:
-            shared = True
-        continue
-
-    if top in crm_dirs:
-        crm = True
-        continue
-
-    if top in data_pipeline_dirs:
-        data_pipeline = True
-        continue
-
-    if top in backend_dirs or path.endswith(".py"):
-        backend = True
-
-if shared:
-    backend = crm = data_pipeline = True
-
-python_required = backend or crm or data_pipeline
-
-output_path = os.environ["GITHUB_OUTPUT"]
-with open(output_path, "a", encoding="utf-8") as fh:
-    fh.write(f"python={'true' if python_required else 'false'}\n")
-    fh.write(f"backend={'true' if backend else 'false'}\n")
-    fh.write(f"crm={'true' if crm else 'false'}\n")
-    fh.write(f"data_pipeline={'true' if data_pipeline else 'false'}\n")
-    fh.write(f"broker_ui={'true' if broker_ui else 'false'}\n")
-PY
+            mapfile -t files < <(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
           else
-            {
-              echo "python=true"
-              echo "backend=true"
-              echo "crm=true"
-              echo "data_pipeline=true"
-              echo "broker_ui=true"
-            } >> "$GITHUB_OUTPUT"
+            mapfile -t files < <(git ls-files)
           fi
+
+          backend=false
+          crm=false
+          data_pipeline=false
+          broker_ui=false
+          shared=false
+
+          backend_dirs=(backend-django utils db scripts)
+          crm_dirs=(crm)
+          data_pipeline_dirs=(orchestration yad2 mavat gov gis govmap rami)
+
+          backend_test_dirs=(core db utils e2e)
+          crm_test_dirs=(crm)
+          data_pipeline_test_dirs=(data gis gov govmap mavat yad2 orchestration rami)
+
+          shared_files=(pyproject.toml pytest.ini pytest-ci.ini requirements.txt setup.py setup_assets.py)
+
+          in_array() { local e; for e in "${@:2}"; do [[ "$e" == "$1" ]] && return 0; done; return 1; }
+
+          for path in "${files[@]}"; do
+            [[ -z "${path:-}" ]] && continue
+
+            top="${path%%/*}"
+            [[ "$top" == "$path" ]] && second="" || second="${path#*/}"
+            second="${second%%/*}"
+
+            # Shared files / glue tests flip everything on
+            for sf in "${shared_files[@]}"; do
+              if [[ "$path" == "$sf" ]]; then shared=true; fi
+            done
+            if [[ "$path" == "tests/conftest.py" || "$path" == tests/__init__* ]]; then
+              shared=true
+            fi
+
+            # UI
+            if [[ "$top" == "realestate-broker-ui" ]]; then
+              broker_ui=true
+              continue
+            fi
+
+            # Backend root or CRM package
+            if [[ "$top" == "backend-django" ]]; then
+              if [[ "$second" == "crm" ]]; then
+                crm=true
+              else
+                backend=true
+              fi
+              continue
+            fi
+
+            # Top-level tests
+            if [[ "$top" == "tests" ]]; then
+              if [[ -z "$second" ]]; then
+                shared=true
+                continue
+              fi
+              if in_array "$second" "${backend_test_dirs[@]}"; then
+                backend=true
+              elif in_array "$second" "${crm_test_dirs[@]}"; then
+                crm=true
+              elif in_array "$second" "${data_pipeline_test_dirs[@]}"; then
+                data_pipeline=true
+              else
+                shared=true
+              fi
+              continue
+            fi
+
+            # Module roots
+            if in_array "$top" "${crm_dirs[@]}"; then
+              crm=true
+              continue
+            fi
+            if in_array "$top" "${data_pipeline_dirs[@]}"; then
+              data_pipeline=true
+              continue
+            fi
+
+            # Generic Python file or backend-adjacent dirs
+            if in_array "$top" "${backend_dirs[@]}" || [[ "$path" == *.py ]]; then
+              backend=true
+            fi
+          done
+
+          if $shared; then
+            backend=true
+            crm=true
+            data_pipeline=true
+          fi
+
+          python_required=false
+          if $backend || $crm || $data_pipeline; then
+            python_required=true
+          fi
+
+          {
+            echo "python=$python_required"
+            echo "backend=$backend"
+            echo "crm=$crm"
+            echo "data_pipeline=$data_pipeline"
+            echo "broker_ui=$broker_ui"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         if: ${{ steps.changes.outputs.python == 'true' }}

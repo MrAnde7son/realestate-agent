@@ -1,4 +1,8 @@
+import base64
+import hashlib
+import hmac
 import json
+import secrets
 from decimal import Decimal, InvalidOperation
 import urllib.parse
 import requests
@@ -291,6 +295,7 @@ class AuthenticationService:
         """Get Google OAuth URL."""
         try:
             redirect_uri = self._build_callback_url(request)
+
             params = {
                 'client_id': self.settings.GOOGLE_CLIENT_ID,
                 'redirect_uri': redirect_uri,
@@ -299,9 +304,18 @@ class AuthenticationService:
                 'access_type': 'offline',
                 'prompt': 'consent',
             }
-            
+
+            state_payload = {'nonce': secrets.token_urlsafe(16)}
+
+            requested_redirect = request.GET.get('redirect')
+            sanitized_redirect = self._sanitize_redirect(requested_redirect)
+            if sanitized_redirect:
+                state_payload['redirect'] = sanitized_redirect
+
+            params['state'] = self._encode_state(state_payload)
+
             auth_url = f"{self.settings.GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
-            
+
             return {
                 'success': True,
                 'data': {
@@ -309,7 +323,7 @@ class AuthenticationService:
                 },
                 'status': status.HTTP_200_OK
             }
-            
+
         except Exception as e:
             return {
                 'success': False,
@@ -328,7 +342,20 @@ class AuthenticationService:
                     'error': 'Authorization code not provided',
                     'status': status.HTTP_400_BAD_REQUEST
                 }
-            
+
+            redirect_path = None
+            state_param = request.GET.get('state')
+            if state_param:
+                try:
+                    state_data = self._decode_state(state_param)
+                    redirect_path = self._sanitize_redirect(state_data.get('redirect'))
+                except ValueError:
+                    return {
+                        'success': False,
+                        'error': 'Invalid OAuth state parameter',
+                        'status': status.HTTP_400_BAD_REQUEST
+                    }
+
             redirect_uri = self._build_callback_url(request)
             token_data = {
                 'client_id': self.settings.GOOGLE_CLIENT_ID,
@@ -407,16 +434,25 @@ class AuthenticationService:
                 'refresh_token': str(refresh),
                 'user': self._get_user_data(user)
             }
-            
+
             # Encode tokens in URL parameters
-            encoded_tokens = urllib.parse.urlencode(tokens)
-            redirect_url = f"{frontend_url}/auth/google-callback?{encoded_tokens}"
-            
+            frontend_base = frontend_url.rstrip('/')
+            query_params = {
+                'access_token': tokens['access_token'],
+                'refresh_token': tokens['refresh_token'],
+            }
+            if redirect_path:
+                query_params['redirect'] = redirect_path
+
+            encoded_tokens = urllib.parse.urlencode(query_params)
+            redirect_url = f"{frontend_base}/auth/google-callback?{encoded_tokens}"
+
             return {
                 'success': True,
                 'data': {
                     'redirect_url': redirect_url,
-                    'tokens': tokens
+                    'tokens': tokens,
+                    'redirect': redirect_path,
                 },
                 'status': status.HTTP_200_OK
             }
@@ -450,8 +486,59 @@ class AuthenticationService:
             'notify_urgent': getattr(user, 'notify_urgent', False),
             'notification_time': getattr(user, 'notification_time', ''),
         }
-    
+
     def _build_callback_url(self, request) -> str:
         """Build absolute callback URL for Google OAuth."""
         from django.urls import reverse
+        override = getattr(self.settings, 'GOOGLE_OAUTH_REDIRECT_URI', '').strip()
+        if override:
+            return override
         return request.build_absolute_uri(reverse('auth_google_callback'))
+
+    def _sanitize_redirect(self, redirect_to):
+        """Ensure redirect targets stay within the frontend."""
+        if not redirect_to:
+            return None
+
+        redirect_to = str(redirect_to).strip()
+        if not redirect_to.startswith('/'):
+            return None
+        if redirect_to.startswith('//'):
+            return None
+        return redirect_to
+
+    def _encode_state(self, state_data: dict) -> str:
+        """Sign and encode state payload for Google OAuth."""
+        payload = json.dumps(state_data, separators=(',', ':'), sort_keys=True).encode('utf-8')
+        signature = hmac.new(
+            self._state_secret(),
+            payload,
+            hashlib.sha256,
+        ).hexdigest()
+        encoded_payload = base64.urlsafe_b64encode(payload).decode('utf-8').rstrip('=')
+        return f"{encoded_payload}.{signature}"
+
+    def _decode_state(self, state_value: str) -> dict:
+        """Decode and verify a previously encoded state payload."""
+        if not state_value or '.' not in state_value:
+            raise ValueError('Invalid state parameter')
+
+        payload_b64, signature = state_value.split('.', 1)
+        padding = '=' * (-len(payload_b64) % 4)
+        payload_bytes = base64.urlsafe_b64decode(payload_b64 + padding)
+        expected_signature = hmac.new(
+            self._state_secret(),
+            payload_bytes,
+            hashlib.sha256,
+        ).hexdigest()
+
+        if not hmac.compare_digest(signature, expected_signature):
+            raise ValueError('Invalid state signature')
+
+        return json.loads(payload_bytes.decode('utf-8'))
+
+    def _state_secret(self) -> bytes:
+        secret = getattr(self.settings, 'SECRET_KEY', None)
+        if not secret:
+            raise ValueError('SECRET_KEY is not configured')
+        return secret.encode('utf-8')

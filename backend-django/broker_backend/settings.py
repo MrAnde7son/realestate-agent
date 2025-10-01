@@ -243,6 +243,7 @@ SIMPLE_JWT = {
 # Google OAuth Settings
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='your-google-client-id.apps.googleusercontent.com')
 GOOGLE_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='your-google-client-secret')
+GOOGLE_OAUTH_REDIRECT_URI = config('GOOGLE_OAUTH_REDIRECT_URI', default='')
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
 # Google OAuth URLs

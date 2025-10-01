@@ -98,6 +98,11 @@ TWILIO_AUTH_TOKEN=your_twilio_auth_token
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 ALERT_DEFAULT_WHATSAPP_TO=+972XXXXXXXXX
 
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8000/auth/google/callback/
+
 # Security
 SECRET_KEY=your_secret_key_here
 DEBUG=True

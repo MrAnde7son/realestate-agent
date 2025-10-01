@@ -15,6 +15,11 @@ export default function GoogleCallbackPage() {
   const searchParams = useSearchParams()
   const { refreshUser } = useAuth()
 
+  const redirectParam = searchParams.get('redirect')
+  const redirectDestination = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/'
+  const redirectButtonLabel = redirectDestination === '/' ? 'עבור לדף הבית' : 'עבור לדף היעד'
+  const redirectDescription = redirectDestination === '/' ? 'אתה מועבר לדף הבית...' : 'אתה מועבר ליעד שביקשת...'
+
   useEffect(() => {
     const handleCallback = async () => {
       try {
@@ -39,9 +44,9 @@ export default function GoogleCallbackPage() {
         
         // Redirect to home page after a short delay
         setTimeout(() => {
-          router.push('/')
+          router.push(redirectDestination)
         }, 2000)
-        
+
       } catch (err: any) {
         console.error('Google callback error:', err)
         setError(err.message || 'Failed to complete Google authentication')
@@ -50,7 +55,7 @@ export default function GoogleCallbackPage() {
     }
 
     handleCallback()
-  }, [searchParams, router, refreshUser])
+  }, [searchParams, router, refreshUser, redirectDestination])
 
   if (status === 'loading') {
     return (
@@ -101,7 +106,7 @@ export default function GoogleCallbackPage() {
           </div>
           <CardTitle className="text-xl">התחברות הושלמה בהצלחה!</CardTitle>
           <CardDescription>
-            אתה מועבר לדף הבית...
+            {redirectDescription}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center">
@@ -109,11 +114,11 @@ export default function GoogleCallbackPage() {
             <AlertCircle className="h-4 w-4" />
             <span>אם לא תועבר אוטומטית, לחץ על הכפתור למטה</span>
           </div>
-          <Button 
-            onClick={() => router.push('/')} 
+          <Button
+            onClick={() => router.push(redirectDestination)}
             className="w-full mt-4"
           >
-            עבור לדף הבית
+            {redirectButtonLabel}
           </Button>
         </CardContent>
       </Card>

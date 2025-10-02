@@ -1,8 +1,16 @@
-"""Test package placeholder used by Django-specific test runner."""
+"""Initialization for backend Django test suite.
 
-import pytest
+Ensures the repository root is available on ``sys.path`` so relocated tests
+can import application modules regardless of where pytest is invoked.
+"""
 
-pytest.skip(
-    "backend-django/tests are executed via the Django app's test runner",
-    allow_module_level=True,
-)
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))

@@ -1742,6 +1742,21 @@ def asset_permits(request, asset_id):
         permits = []
         seen_keys = set()
 
+        def _normalize_key(value):
+            if value is None:
+                return None
+            key = str(value).strip()
+            return key.lower() if key else None
+
+        def _add_permit(permit, *keys):
+            normalized = [k for k in (_normalize_key(key) for key in keys) if k]
+            for key in normalized:
+                if key in seen_keys:
+                    return
+            for key in normalized:
+                seen_keys.add(key)
+            permits.append(permit)
+
         # Get permits from Document model (single source of truth)
         permit_documents = Document.objects.filter(
             asset_id=asset_id,
@@ -1750,7 +1765,77 @@ def asset_permits(request, asset_id):
 
         for doc in permit_documents:
             serializer = DocumentSerializer(doc)
-            permits.append(serializer.data)
+            data = serializer.data
+            doc_meta = doc.meta or {}
+
+            permit_number = (
+                doc.external_id
+                or doc_meta.get('permit_number')
+                or doc_meta.get('permission_num')
+                or doc_meta.get('permitNumber')
+                or str(doc.id)
+            )
+            request_number = (
+                doc_meta.get('request_number')
+                or doc_meta.get('request_num')
+                or doc_meta.get('requestNumber')
+            )
+
+            document_date = doc.document_date.isoformat() if doc.document_date else None
+            url = doc.external_url or data.get('file_url')
+
+            normalized_permit = {
+                "id": data.get("id"),
+                "asset": data.get("asset"),
+                "permit_number": permit_number,
+                "request_number": request_number,
+                "status": doc.status,
+                "description": doc.description,
+                "document_date": document_date,
+                "document_type": doc.document_type,
+                "url": url,
+                "source": doc.source or "document",
+                "raw": data,
+            }
+
+            _add_permit(
+                normalized_permit,
+                permit_number,
+                doc.external_id,
+                doc_meta.get('permission_num'),
+            )
+
+        # Merge GIS metadata permits (legacy and new keys)
+        gis_data = (asset.meta or {}).get('gis_data', {}) if asset.meta else {}
+        building_permits = gis_data.get('building_permits', [])
+        legacy_permits = gis_data.get('permits', [])
+
+        for raw_permit in [*building_permits, *legacy_permits]:
+            permit_number = (
+                raw_permit.get('permission_num')
+                or raw_permit.get('permit_number')
+                or raw_permit.get('PermitNumber')
+            )
+            request_number = (
+                raw_permit.get('request_num')
+                or raw_permit.get('request_number')
+                or raw_permit.get('RequestNumber')
+            )
+
+            permit_entry = {
+                "id": permit_number or request_number or f"gis_{len(permits)}",
+                "permit_number": permit_number,
+                "request_number": request_number,
+                "status": raw_permit.get('building_stage') or raw_permit.get('status'),
+                "description": raw_permit.get('description') or raw_permit.get('addresses'),
+                "document_date": raw_permit.get('permission_date') or raw_permit.get('document_date'),
+                "address": raw_permit.get('addresses'),
+                "url": raw_permit.get('url_hadmaya') or raw_permit.get('url'),
+                "source": "gis",
+                "raw": raw_permit,
+            }
+
+            _add_permit(permit_entry, permit_number, request_number)
 
         return JsonResponse({"permits": permits, "count": len(permits)})
 

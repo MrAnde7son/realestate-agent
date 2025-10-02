@@ -513,6 +513,16 @@ paths:
       - Authentication
       security:
       - jwtAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: Refresh token to blacklist.
+              additionalProperties: false
       responses:
         '200':
           description: Successful response
@@ -520,6 +530,15 @@ paths:
             application/json:
               schema:
                 type: object
+        '400':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
   /api/auth/profile/:
     get:
       operationId: auth_profile_retrieve

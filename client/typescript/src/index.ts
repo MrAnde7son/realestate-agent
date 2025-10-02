@@ -198,8 +198,12 @@ export class RealEstateAPIClient {
     return response;
   }
 
-  async logout(): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('POST', '/auth/logout/');
+  async logout(refreshToken?: string): Promise<APIResponse> {
+    const payload = refreshToken
+      ? { refresh_token: refreshToken }
+      : {};
+
+    return this.makeRequest<APIResponse>('POST', '/auth/logout/', payload);
   }
 
   async getProfile(): Promise<APIResponse> {

@@ -227,6 +227,24 @@ services:
     sync: false
   - key: BACKEND_URL
     sync: false
+  - key: NODE_OPTIONS
+    value: --dns-result-order=ipv4first
+  - key: NPM_CONFIG_REGISTRY
+    value: https://registry.npmjs.org/
+  - key: NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT
+    value: "120000"
+  - key: NPM_CONFIG_FETCH_RETRY_MINTIMEOUT
+    value: "20000"
+  - key: NPM_CONFIG_FETCH_TIMEOUT
+    value: "120000"
+  - key: NPM_CONFIG_FETCH_RETRIES
+    value: "5"
+  - key: NPM_CONFIG_FETCH_RETRY_FACTOR
+    value: "2"
+  - key: NPM_CONFIG_AUDIT
+    value: "false"
+  - key: NPM_CONFIG_FUND
+    value: "false"
   region: oregon
   buildCommand: npm install && npm run build
   startCommand: npm run start

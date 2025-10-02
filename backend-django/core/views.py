@@ -22,6 +22,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+try:
+    from rest_framework_simplejwt.token_blacklist.models import (
+        BlacklistedToken,
+        OutstandingToken,
+    )
+except ImportError:  # pragma: no cover - blacklist app not installed
+    BlacklistedToken = None
+    OutstandingToken = None
 from drf_spectacular.utils import extend_schema
 
 import logging
@@ -241,8 +250,46 @@ def auth_register(request):
 def auth_logout(request):
     """User logout endpoint."""
     try:
-        # In a real application, you might want to blacklist the token
-        # For now, we'll just return success
+        refresh_token = None
+        if isinstance(request.data, dict):
+            refresh_token = (
+                request.data.get("refresh_token")
+                or request.data.get("refresh")
+            )
+
+        if not refresh_token:
+            refresh_token = request.COOKIES.get("refresh_token")
+
+        tokens_revoked = 0
+
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                if hasattr(token, "blacklist"):
+                    token.blacklist()
+                    tokens_revoked += 1
+                else:  # pragma: no cover - safety net when blacklist app missing
+                    raise AttributeError("Token blacklisting not configured")
+            except TokenError:
+                return Response(
+                    {"error": "Invalid refresh token"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # As a fallback (or when no refresh token provided) blacklist all tokens
+        if BlacklistedToken and OutstandingToken:
+            outstanding_tokens = OutstandingToken.objects.filter(user=request.user)
+            for outstanding in outstanding_tokens:
+                _, created = BlacklistedToken.objects.get_or_create(token=outstanding)
+                if created:
+                    tokens_revoked += 1
+
+        logger.info(
+            "User %s logged out. Revoked %s tokens.",
+            request.user.pk,
+            tokens_revoked,
+        )
+
         return Response({"message": "Logged out successfully"})
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

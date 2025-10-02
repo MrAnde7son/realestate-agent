@@ -121,17 +121,161 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       ? `₪${value.toLocaleString('he-IL')}`
       : null
 
+  const handleDocumentClick = (e: React.MouseEvent<HTMLAnchorElement>, docUrl: string) => {
+    if (!docUrl) {
+      e.preventDefault()
+      alert('קישור לא זמין')
+    } else if (!docUrl.startsWith('http')) {
+      // For relative URLs, construct the full URL
+      e.preventDefault()
+      const fullUrl = docUrl.startsWith('/') 
+        ? `${window.location.origin}${docUrl}`
+        : `${window.location.origin}/${docUrl}`
+      window.open(fullUrl, '_blank')
+    }
+  }
+
+  // Combine all document sources into a unified list
+  const getAllDocuments = () => {
+    const allDocs: any[] = []
+    
+    // Helper function to translate document types to Hebrew
+    const translateDocumentType = (type: string) => {
+      const translations: Record<string, string> = {
+        'tabu': 'נסח טאבו',
+        'condo_plan': 'תשריט בית משותף',
+        'appraisal_decisive': 'שומה החלטית',
+        'appraisal_rmi': 'שומת רמ״י',
+        'permit': 'היתר בנייה',
+        'rights': 'זכויות',
+        'plan': 'תכנית',
+        'other': 'אחר'
+      }
+      return translations[type] || type
+    }
+    
+    // Helper function to translate sources to Hebrew
+    const translateSource = (source: string) => {
+      const translations: Record<string, string> = {
+        'user_upload': 'העלאה ידנית',
+        'GIS': 'מערכת מידע גיאוגרפית',
+        'gis_permit': 'מערכת מידע גיאוגרפית',
+        'gis_rights': 'מערכת מידע גיאוגרפית',
+        'RAMI': 'רמ״י',
+        'rami_plan': 'רמ״י',
+        'Mavat': 'מבת',
+        'Gov': 'ממשלתי',
+        'tabu': 'טאבו',
+        'tabu_upload': 'טאבו',
+        'meta_migration': 'העברה מנתונים קיימים',
+        'yad2': 'יד2',
+        'nadlan': 'נדלן',
+        'pipeline': 'צינור נתונים',
+        'external': 'מקור חיצוני'
+      }
+      return translations[source] || source
+    }
+    
+    // 1. User-uploaded documents from asset.documents
+    console.log('🔍 getAllDocuments - asset:', asset)
+    console.log('🔍 getAllDocuments - asset.documents:', asset?.documents)
+    if (asset?.documents) {
+      console.log('📄 Processing', asset.documents.length, 'user-uploaded documents')
+      allDocs.push(...asset.documents.map((doc: any) => ({
+        ...doc,
+        type: translateDocumentType(doc.type || doc.document_type),
+        source: translateSource(doc.source || 'user_upload'),
+        category: 'מסמכים שהועלו ידנית'
+      })))
+    } else {
+      console.log('❌ No asset.documents found')
+    }
+    
+    // 2. Permits from GIS
+    if (permits && permits.length > 0) {
+      allDocs.push(...permits.map((permit: any) => ({
+        id: `permit_${permit.permission_num}`,
+        title: permit.koteret || `היתר בנייה ${permit.permission_num}`,
+        type: translateDocumentType('permit'),
+        url: permit.url_hadmaya,
+        source: translateSource('GIS'),
+        category: 'היתרי בנייה',
+        date: permit.permission_date,
+        description: permit.sug_bakasha,
+        external_id: permit.permission_num
+      })))
+    }
+    
+    // 3. Plans from RAMI
+    if (plans.local && plans.local.length > 0) {
+      allDocs.push(...plans.local.map((plan: any) => ({
+        id: `rami_${plan.planNumber}`,
+        title: plan.title || `תכנית רמ״י ${plan.planNumber}`,
+        type: translateDocumentType('plan'),
+        url: plan.url,
+        source: translateSource('RAMI'),
+        category: 'תכניות רמ״י',
+        status: plan.status,
+        external_id: plan.planNumber
+      })))
+    }
+    
+    // 4. Plans from Mavat
+    if (plans.mavat && plans.mavat.length > 0) {
+      allDocs.push(...plans.mavat.map((plan: any) => ({
+        id: `mavat_${plan.plan_id}`,
+        title: plan.title || `תכנית מבת ${plan.plan_id}`,
+        type: translateDocumentType('plan'),
+        url: plan.url,
+        source: translateSource('Mavat'),
+        category: 'תכניות מנהל התיכנון',
+        status: plan.status,
+        external_id: plan.plan_id
+      })))
+    }
+    
+    // 5. Decisive appraisals
+    if (decisiveAppraisals && decisiveAppraisals.length > 0) {
+      allDocs.push(...decisiveAppraisals.map((appraisal: any) => ({
+        id: `decisive_${appraisal.id}`,
+        title: `שומה החלטית ${appraisal.id}`,
+        type: translateDocumentType('appraisal_decisive'),
+        url: appraisal.url,
+        source: translateSource('Gov'),
+        category: 'שומות מכריעות',
+        date: appraisal.date,
+        external_id: appraisal.id
+      })))
+    }
+    
+    // 6. RAMI appraisals
+    if (ramiAppraisals && ramiAppraisals.length > 0) {
+      allDocs.push(...ramiAppraisals.map((appraisal: any) => ({
+        id: `rami_appraisal_${appraisal.id}`,
+        title: `שומת רמ״י ${appraisal.id}`,
+        type: translateDocumentType('appraisal_rmi'),
+        url: appraisal.url,
+        source: translateSource('RAMI'),
+        category: 'שומות רמ״י',
+        date: appraisal.date,
+        external_id: appraisal.id
+      })))
+    }
+    
+    return allDocs
+  }
+
   const formatPercent = (value?: number, digits = 0) =>
     value !== undefined && value !== null
       ? `${value.toFixed(digits)}%`
       : null
 
-  const avgCompPricePerSqm = comparables.length
+  const avgCompPricePerSqm = comparableTransactions.length
     ? Math.round(
-        comparables.reduce(
-          (sum, c) => sum + (c.pricePerSqm || 0),
+        comparableTransactions.reduce(
+          (sum, c) => sum + (c.price_per_sqm || 0),
           0
-        ) / comparables.length
+        ) / comparableTransactions.length
       )
     : null
 
@@ -147,7 +291,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         throw new Error('Failed to load rights')
       }
       const data = await response.json()
-      setRightsRows(Array.isArray(data.rows) ? data.rows : [])
+      // Combine tabu_data and gis_rights into a single array for display
+      const allRightsRows = [
+        ...(data.tabu_data || []),
+        ...(data.gis_rights || [])
+      ]
+      setRightsRows(allRightsRows)
     } catch (rightsErr) {
       console.error('Error loading rights data:', rightsErr)
       setRightsRows([])
@@ -192,7 +341,13 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         if (!res.ok) throw new Error('Failed to load asset')
         return res.json()
       })
-      .then(data => setAsset(data.asset || data))
+      .then(data => {
+        const assetData = data.asset || data
+        console.log('🔍 Asset data received:', assetData)
+        console.log('📄 Documents in asset:', assetData.documents)
+        console.log('📄 Documents count:', assetData.documents?.length || 0)
+        setAsset(assetData)
+      })
       .catch(err => {
         console.error('Error loading asset:', err)
         setError('שגיאה בטעינת הנכס')
@@ -232,7 +387,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         if (!res.ok) throw new Error('Failed to load plans')
         return res.json()
       })
-      .then(data => setPlans(data.plans || {local: [], mavat: []}))
+      .then(data => {
+        // Organize plans by source
+        const organizedPlans: {local: any[], mavat: any[]} = {local: [], mavat: []}
+        if (data.plans && Array.isArray(data.plans)) {
+          data.plans.forEach((plan: any) => {
+            if (plan.source === 'mavat') {
+              organizedPlans.mavat.push(plan)
+            } else if (plan.source === 'collected_data' || plan.source === 'rami') {
+              organizedPlans.local.push(plan)
+            }
+          })
+        }
+        setPlans(organizedPlans)
+      })
       .catch(err => console.error('Error loading plans:', err))
   }, [id])
 
@@ -503,7 +671,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         if (normalizedDoc.type === 'tabu') {
           await loadRightsData()
         }
-        e.currentTarget.reset()
+        // Safe form reset - check if form element still exists
+        if (e.currentTarget) {
+          e.currentTarget.reset()
+        }
       }
     } catch (err) {
       console.error('Upload failed:', err)
@@ -1107,10 +1278,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </Card>
 
             {/* Mavat Plans */}
-            {plans.mavat && plans.mavat.length > 0 && (
+            {plans.mavat && plans.mavat.length > 0 ? (
               <Card>
                 <CardHeader>
-                  <CardTitle>תוכניות מ-mavat</CardTitle>
+                  <CardTitle>תוכניות ממינהל התכנון</CardTitle>
                   <p className="text-sm text-muted-foreground">
                     תוכניות תכנון רלוונטיות מהמערכת הממשלתית
                   </p>
@@ -1121,38 +1292,46 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       <div key={idx} className="p-3 border rounded-lg">
                         <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
                           <div className="flex-1">
-                            <h4 className="font-medium text-sm">{plan.title}</h4>
+                            <h4 className="font-medium text-sm">{plan.description || plan.raw?.title || `תכנית מבת ${plan.plan_number}`}</h4>
                             <p className="text-xs text-muted-foreground">
-                              תוכנית מס׳ {plan.plan_id}
+                              תוכנית מס׳ {plan.plan_number}
                             </p>
                           </div>
                           <Badge variant={plan.status === 'מאושר' ? 'success' : 'neutral'}>
-                            {plan.status}
+                            {plan.status || 'לא ידוע'}
                           </Badge>
                         </div>
                         <div className="grid gap-2 text-xs text-muted-foreground">
-                          {plan.authority && (
+                          {plan.raw?.authority && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span>רשות:</span>
-                              <span>{plan.authority}</span>
+                              <span>{plan.raw.authority}</span>
                             </div>
                           )}
-                          {plan.jurisdiction && (
+                          {plan.raw?.jurisdiction && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span>תחום שיפוט:</span>
-                              <span>{plan.jurisdiction}</span>
+                              <span>{plan.raw.jurisdiction}</span>
                             </div>
                           )}
-                          {plan.approval_date && (
+                          {plan.raw?.approval_date && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span>תאריך אישור:</span>
-                              <span>{new Date(plan.approval_date).toLocaleDateString('he-IL')}</span>
+                              <span>{new Date(plan.raw.approval_date).toLocaleDateString('he-IL')}</span>
                             </div>
                           )}
-                          {plan.status_date && (
+                          {plan.raw?.status_date && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span>תאריך סטטוס:</span>
-                              <span>{new Date(plan.status_date).toLocaleDateString('he-IL')}</span>
+                              <span>{new Date(plan.raw.status_date).toLocaleDateString('he-IL')}</span>
+                            </div>
+                          )}
+                          {plan.file_url && (
+                            <div className="flex justify-between rtl:flex-row-reverse">
+                              <span>קובץ:</span>
+                              <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                צפה בקובץ
+                              </a>
                             </div>
                           )}
                         </div>
@@ -1162,6 +1341,25 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="pt-2 border-t mt-4">
                     <div className="text-sm text-muted-foreground text-center">
                       מקור: מערכת mavat - מידע תכנוני ממשלתי
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                <CardTitle>תוכניות ממינהל התכנון</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    תוכניות תכנון רלוונטיות מהמערכת הממשלתית
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <div className="text-muted-foreground mb-2">
+                      לא נמצאו תוכניות ממינהל התיכנון עבור נכס זה
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      ייתכן שהנכס לא נמצא במערכת mavat או שטרם נאסף מידע תכנוני
                     </div>
                   </div>
                 </CardContent>
@@ -1312,6 +1510,90 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 נתוני הטאבו מתעדכנים לאחר העלאת נסח טאבו בלשונית המסמכים.
               </CardFooter>
             </Card>
+
+            {/* Ownership Summary */}
+            {rightsRows.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>סיכום בעלויות</CardTitle>
+                  <CardDescription>מידע על בעלי הנכס שהופק מהנסח טאבו</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Parcel Information */}
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="text-center">
+                        <div className="text-sm text-muted-foreground">גוש</div>
+                        <div className="text-lg font-semibold">
+                          {rightsRows.find(row => row.field?.includes('גוש'))?.value || '—'}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm text-muted-foreground">חלקה</div>
+                        <div className="text-lg font-semibold">
+                          {rightsRows.find(row => row.field?.includes('חלקה'))?.value || '—'}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm text-muted-foreground">תת חלקה</div>
+                        <div className="text-lg font-semibold">
+                          {rightsRows.find(row => row.field?.includes('תת חלקה'))?.value || '—'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Owners Table */}
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="rtl:flex-row-reverse">
+                            <TableHead className="text-right">בעלים</TableHead>
+                            <TableHead className="text-right">אחוז בעלות</TableHead>
+                            <TableHead className="text-right">מספר זיהוי</TableHead>
+                            <TableHead className="text-right">תאריך רכישה</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rightsRows
+                            .filter(row => row.field?.includes('בעלים') || row.field?.includes('owner'))
+                            .map((row, index) => {
+                              const ownerName = row.value
+                              const ownershipRow = rightsRows.find(r => 
+                                r.field?.includes('החלק') || r.field?.includes('percentage') || 
+                                (r.field?.includes('בעלים') && r.value === ownerName)
+                              )
+                              const idRow = rightsRows.find(r => 
+                                r.field?.includes('זיהוי') || r.field?.includes('ת.ז') || 
+                                (r.field?.includes('בעלים') && r.value === ownerName)
+                              )
+                              const dateRow = rightsRows.find(r => 
+                                r.field?.includes('תאריך') || r.field?.includes('date')
+                              )
+                              
+                              return (
+                                <TableRow key={index} className="rtl:flex-row-reverse">
+                                  <TableCell className="text-right font-medium">
+                                    {ownerName || '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {ownershipRow?.value || '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {idRow?.value || '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {dateRow?.value || '—'}
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="environment" className="space-y-4">
@@ -1666,29 +1948,43 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="grid gap-3">
-                    {comparables.map((comp: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse"
-                      >
-                        <div>
-                          <div className="font-medium">{comp.address}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {!!comp.area ? `${comp.area} מ״ר` : ''}
-                            {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
-                            {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
+                  {comparableTransactions.length > 0 ? (
+                    <div className="grid gap-3">
+                      {comparableTransactions.map((comp: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse"
+                        >
+                          <div>
+                            <div className="font-medium">{comp.address}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {!!comp.area ? `${comp.area} מ״ר` : ''}
+                              {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
+                              {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
+                            </div>
+                            {comp.source && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                מקור: {comp.source === 'collected_government' ? 'נדלן' : 'מאגר פנימי'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold">{formatCurrency(comp.price)}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {formatCurrency(comp.price_per_sqm)}/מ״ר
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-bold">{formatCurrency(comp.price)}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatCurrency(comp.pricePerSqm)}/מ״ר
-                          </div>
-                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <div className="text-lg font-medium mb-2">לא נמצאו עסקאות השוואה</div>
+                      <div className="text-sm">
+                        נסה לסנכרן נתונים כדי לקבל עסקאות עדכניות מהאזור
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                   <div className="pt-2 border-t text-center">
                     <div className="text-sm text-muted-foreground">
                       מקור: נתוני עסקאות ממשרד השיכון ומ-data.gov.il
@@ -1963,220 +2259,62 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </Button>
                 </form>
 
-                <div>
-                  <h3 className="font-medium mb-2">מסמכים ידניים</h3>
-                  {manualDocs.length ? (
-                        <div className="space-y-2">
-                          {manualDocs.map((doc: any, idx: number) => (
-                            <div
-                              key={idx}
-                              className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                            >
-                              <span>{doc.name || doc.title}</span>
-                              <Button variant="outline" size="sm" asChild>
-                                <a 
-                                  href={doc.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => {
-                                    if (!doc.url || !doc.url.startsWith('http')) {
-                                      e.preventDefault()
-                                      alert('קישור לא זמין')
-                                    }
-                                  }}
-                                >
-                                  {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                                </a>
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      לא הועלו מסמכים
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">היתרים</h3>
-                  {permitDocs.length ? (
-                    <div className="space-y-2">
-                      {permitDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name || doc.title}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                if (!doc.url || !doc.url.startsWith('http')) {
-                                  e.preventDefault()
-                                  alert('קישור לא זמין')
-                                }
-                              }}
-                            >
-                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">אין היתרים</div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">תוכניות</h3>
-                  {rightsDocs.length ? (
-                    <div className="space-y-2">
-                      {rightsDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name || doc.title}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                if (!doc.url || !doc.url.startsWith('http')) {
-                                  e.preventDefault()
-                                  alert('קישור לא זמין')
-                                }
-                              }}
-                            >
-                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">אין זכויות</div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">שומות מכריעות</h3>
-                  {decisiveDocs.length ? (
-                    <div className="space-y-2">
-                      {decisiveDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name || doc.title}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                if (!doc.url || !doc.url.startsWith('http')) {
-                                  e.preventDefault()
-                                  alert('קישור לא זמין')
-                                }
-                              }}
-                            >
-                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">אין שומות</div>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">שומות רמ״י</h3>
-                  {rmiDocs.length ? (
-                    <div className="space-y-2">
-                      {rmiDocs.map((doc: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                        >
-                          <span>{doc.name || doc.title}</span>
-                          <Button variant="outline" size="sm" asChild>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                if (!doc.url || !doc.url.startsWith('http')) {
-                                  e.preventDefault()
-                                  alert('קישור לא זמין')
-                                }
-                              }}
-                            >
-                              {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">אין שומות</div>
-                  )}
-                </div>
-
-                {/* Fallback section for uncategorized documents */}
+                {/* Unified documents view grouped by category */}
                 {(() => {
-                  const categorizedTypes = ['tabu', 'condo_plan', 'contract', 'deed', 'other', 'permit', 'rights', 'plan', 'appraisal_decisive', 'appraisal_rmi', 'appraisal']
-                  const uncategorizedDocs = asset?.documents?.filter((d: any) => !categorizedTypes.includes(d.type)) ?? []
-                  
-                  if (uncategorizedDocs.length > 0) {
-                    return (
-                      <div>
-                        <h3 className="font-medium mb-2">מסמכים נוספים</h3>
+                  const allDocs = getAllDocuments()
+                  const docsByCategory = allDocs.reduce((acc: any, doc: any) => {
+                    const category = doc.category || 'אחר'
+                    if (!acc[category]) {
+                      acc[category] = []
+                    }
+                    acc[category].push(doc)
+                    return acc
+                  }, {})
+
+                  return Object.entries(docsByCategory).map(([category, docs]: [string, any]) => (
+                    <div key={category}>
+                      <h3 className="font-medium mb-2">{category}</h3>
+                      {docs.length > 0 ? (
                         <div className="space-y-2">
-                          {uncategorizedDocs.map((doc: any, idx: number) => (
+                          {docs.map((doc: any, idx: number) => (
                             <div
-                              key={idx}
+                              key={`${category}_${idx}`}
                               className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
                             >
                               <div className="flex flex-col rtl:items-end">
                                 <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
-                                {doc.type && (
-                                  <span className="text-xs text-muted-foreground">סוג: {doc.type}</span>
-                                )}
+                                <div className="flex gap-2 text-xs text-muted-foreground">
+                                  {doc.type && <span>סוג: {doc.type}</span>}
+                                  {doc.source && <span>מקור: {doc.source}</span>}
+                                  {doc.date && <span>תאריך: {new Date(doc.date).toLocaleDateString('he-IL')}</span>}
+                                </div>
                               </div>
                               <Button variant="outline" size="sm" asChild>
                                 <a 
                                   href={doc.url} 
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  onClick={(e) => {
-                                    if (!doc.url || !doc.url.startsWith('http')) {
-                                      e.preventDefault()
-                                      alert('קישור לא זמין')
-                                    }
-                                  }}
+                                  onClick={(e) => handleDocumentClick(e, doc.url)}
                                 >
-                                  {doc.url && doc.url.startsWith('http') ? 'פתח' : 'לא זמין'}
+                                  {doc.url ? 'פתח' : 'לא זמין'}
                                 </a>
                               </Button>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )
-                  }
-                  return null
+                      ) : (
+                        <div className="text-sm text-muted-foreground">אין מסמכים בקטגוריה זו</div>
+                      )}
+                    </div>
+                  ))
                 })()}
 
+
+
+
+
                 <div className="pt-4 text-center text-sm text-muted-foreground">
-                  סה״כ {asset.documents?.length ?? 0} מסמכים זמינים
+                  סה״כ {getAllDocuments().length} מסמכים זמינים
                 </div>
               </CardContent>
             </Card>

@@ -604,4 +604,4 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(f"Error fetching PDF: {e}")
         else:
-            print("Mavat is not accessible")
+            print("Mavat is not accessible") 

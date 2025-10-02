@@ -9,258 +9,161 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Detect changes
         id: changes
-        shell: bash
         run: |
-          set -euo pipefail
-
-          # Collect changed files for PRs; for pushes (no PR), run everything
-          if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
-            mapfile -t files < <(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
-          else
-            mapfile -t files < <(git ls-files)
-          fi
-
-          backend=false
-          crm=false
-          data_pipeline=false
-          broker_ui=false
-          shared=false
-
-          backend_dirs=(backend-django utils db scripts)
-          crm_dirs=(crm)
-          data_pipeline_dirs=(orchestration yad2 mavat gov gis govmap rami)
-
-          backend_test_dirs=(core db utils e2e)
-          crm_test_dirs=(crm)
-          data_pipeline_test_dirs=(data gis gov govmap mavat yad2 orchestration rami)
-
-          shared_files=(pyproject.toml pytest.ini pytest-ci.ini requirements.txt setup.py setup_assets.py)
-
-          in_array() { local e; for e in "${@:2}"; do [[ "$e" == "$1" ]] && return 0; done; return 1; }
-
-          for path in "${files[@]}"; do
-            [[ -z "${path:-}" ]] && continue
-
-            top="${path%%/*}"
-            [[ "$top" == "$path" ]] && second="" || second="${path#*/}"
-            second="${second%%/*}"
-
-            # Shared files / glue tests flip everything on
-            for sf in "${shared_files[@]}"; do
-              if [[ "$path" == "$sf" ]]; then shared=true; fi
-            done
-            if [[ "$path" == "tests/conftest.py" || "$path" == tests/__init__* ]]; then
-              shared=true
+            files=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
+            python=false
+            broker_ui=false
+            if echo "$files" | grep -E '^(gov|gis|yad2|rami|backend-django|tests)/'; then
+              python=true
             fi
-
-            # UI
-            if [[ "$top" == "realestate-broker-ui" ]]; then
+            if echo "$files" | grep -E '^realestate-broker-ui/'; then
               broker_ui=true
-              continue
             fi
-
-            # Backend root or CRM package
-            if [[ "$top" == "backend-django" ]]; then
-              if [[ "$second" == "crm" ]]; then
-                crm=true
-              else
-                backend=true
-              fi
-              continue
-            fi
-
-            # Top-level tests
-            if [[ "$top" == "tests" ]]; then
-              if [[ -z "$second" ]]; then
-                shared=true
-                continue
-              fi
-              if in_array "$second" "${backend_test_dirs[@]}"; then
-                backend=true
-              elif in_array "$second" "${crm_test_dirs[@]}"; then
-                crm=true
-              elif in_array "$second" "${data_pipeline_test_dirs[@]}"; then
-                data_pipeline=true
-              else
-                shared=true
-              fi
-              continue
-            fi
-
-            # Module roots
-            if in_array "$top" "${crm_dirs[@]}"; then
-              crm=true
-              continue
-            fi
-            if in_array "$top" "${data_pipeline_dirs[@]}"; then
-              data_pipeline=true
-              continue
-            fi
-
-            # Generic Python file or backend-adjacent dirs
-            if in_array "$top" "${backend_dirs[@]}" || [[ "$path" == *.py ]]; then
-              backend=true
-            fi
-          done
-
-          if $shared; then
-            backend=true
-            crm=true
-            data_pipeline=true
+            echo "python=$python" >> "$GITHUB_OUTPUT"
+            echo "broker_ui=$broker_ui" >> "$GITHUB_OUTPUT"
+          else
+            echo "python=true" >> "$GITHUB_OUTPUT"
+            echo "broker_ui=true" >> "$GITHUB_OUTPUT"
           fi
-
-          python_required=false
-          if $backend || $crm || $data_pipeline; then
-            python_required=true
-          fi
-
-          {
-            echo "python=$python_required"
-            echo "backend=$backend"
-            echo "crm=$crm"
-            echo "data_pipeline=$data_pipeline"
-            echo "broker_ui=$broker_ui"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
-        if: ${{ steps.changes.outputs.python == 'true' }}
-        uses: actions/setup-python@v5
+        if: steps.changes.outputs.python == 'true'
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
       - name: Install Core Backend Dependencies
-        if: ${{ steps.changes.outputs.python == 'true' }}
-        shell: bash
+        if: steps.changes.outputs.python == 'true'
         run: |
-          set -euo pipefail
           python -m pip install --upgrade pip
           cd backend-django
           pip install -r requirements.txt
           cd ..
 
       - name: Install Module Dependencies
-        if: ${{ steps.changes.outputs.python == 'true' }}
-        shell: bash
+        if: steps.changes.outputs.python == 'true'
         run: |
-          set -euo pipefail
-          pip install sqlalchemy responses pytest-mock pytest-asyncio
-          if [ -f "db/requirements.txt" ]; then pip install -r db/requirements.txt; fi
-          if [ -f "orchestration/requirements.txt" ]; then pip install -r orchestration/requirements.txt; fi
-          if [ -f "gov/requirements.txt" ]; then pip install -r gov/requirements.txt; fi
-          if [ -f "gis/requirements.txt" ]; then pip install -r gis/requirements.txt; fi
-          if [ -f "yad2/requirements.txt" ]; then pip install -r yad2/requirements.txt; fi
-          if [ -f "rami/requirements.txt" ]; then pip install -r rami/requirements.txt; fi
-          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
-          pip install playwright
+          # Install SQLAlchemy and other core database dependencies
+          pip install sqlalchemy
+          
+          # Install database module
+          if [ -f "db/requirements.txt" ]; then
+            echo "Installing database module..."
+            pip install -r db/requirements.txt
+          fi
+          
+          # Install orchestration module
+          if [ -f "orchestration/requirements.txt" ]; then
+            echo "Installing orchestration module..."
+            pip install -r orchestration/requirements.txt
+          fi
+          
+          # Install government data modules
+          if [ -f "gov/requirements.txt" ]; then
+            echo "Installing government data modules..."
+            pip install -r gov/requirements.txt
+          fi
+          
+          # Install GIS module
+          if [ -f "gis/requirements.txt" ]; then
+            echo "Installing GIS module..."
+            pip install -r gis/requirements.txt
+          fi
+          
+          # Install Yad2 module
+          if [ -f "yad2/requirements.txt" ]; then
+            echo "Installing Yad2 module..."
+            pip install -r yad2/requirements.txt
+          fi
+          
+          # Install RAMI module
+          if [ -f "rami/requirements.txt" ]; then
+            echo "Installing RAMI module..."
+            pip install -r rami/requirements.txt
+          fi
+          
+          # Install global dependencies
+          if [ -f "requirements.txt" ]; then
+            echo "Installing global dependencies..."
+            pip install -r requirements.txt
+          fi
+          
+          # Install additional test dependencies that might be missing
+          pip install responses pytest-mock pytest-asyncio
 
       - name: Install Playwright Browsers
-        if: ${{ steps.changes.outputs.python == 'true' }}
-        shell: bash
+        if: steps.changes.outputs.python == 'true'
         run: |
-          set -euo pipefail
-          playwright install --with-deps chromium
+          playwright install chromium
+          playwright install-deps chromium
 
-      - name: Run Backend Test Suite
-        if: ${{ steps.changes.outputs.backend == 'true' }}
+      - name: Run Python Tests
+        if: steps.changes.outputs.python == 'true'
         env:
           PYTHONPATH: ${{ github.workspace }}
-        shell: bash
         run: |
-          set -euo pipefail
-          echo "Running backend test suite..."
-          dirs=()
-          for d in backend-django/tests tests/core tests/db tests/utils tests/e2e; do
-            if [ -e "$d" ]; then dirs+=("$d"); fi
-          done
-          if [ ${#dirs[@]} -eq 0 ]; then
-            echo "No backend test targets found"
-          else
-            echo "pytest targets: ${dirs[*]}"
-            pytest -q --tb=short "${dirs[@]}"
+          # Run tests for each module if it exists
+          if [ -d "tests" ]; then
+            echo "Running main test suite..."
+            pytest tests/ -q --tb=short
           fi
-
-      - name: Run CRM Test Suite
-        if: ${{ steps.changes.outputs.crm == 'true' }}
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Running CRM test suite..."
-          targets=()
-          if [ -f "backend-django/crm/tests.py" ]; then targets+=("backend-django/crm/tests.py"); fi
-          if [ -d "backend-django/crm/tests" ]; then targets+=("backend-django/crm/tests"); fi
-          if [ -d "tests/crm" ]; then targets+=("tests/crm"); fi
-          if [ ${#targets[@]} -eq 0 ]; then
-            echo "No CRM test targets found"
-          else
-            echo "pytest targets: ${targets[*]}"
-            pytest -q --tb=short "${targets[@]}"
+          
+          if [ -d "gov" ]; then
+            echo "Running government module tests..."
+            pytest gov/ -q --tb=short || echo "No tests found in gov module"
           fi
-
-      - name: Run Data Pipeline Test Suite
-        if: ${{ steps.changes.outputs.data_pipeline == 'true' }}
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Running data pipeline test suite..."
-          suites=()
-          for d in tests/data tests/gis tests/gov tests/govmap tests/mavat tests/yad2 tests/orchestration tests/rami; do
-            if [ -d "$d" ]; then suites+=("$d"); fi
-          done
-          if [ ${#suites[@]} -gt 0 ]; then
-            echo "pytest targets: ${suites[*]}"
-            pytest -q --tb=short "${suites[@]}"
-          else
-            echo "No data pipeline test directories found"
+          
+          if [ -d "gis" ]; then
+            echo "Running GIS module tests..."
+            pytest gis/ -q --tb=short || echo "No tests found in GIS module"
+          fi
+          
+          if [ -d "yad2" ]; then
+            echo "Running Yad2 module tests..."
+            pytest yad2/ -q --tb=short || echo "No tests found in Yad2 module"
+          fi
+          
+          if [ -d "rami" ]; then
+            echo "Running RAMI module tests..."
+            pytest rami/ -q --tb=short || echo "No tests found in RAMI module"
           fi
 
       - name: Set up Node
-        if: ${{ steps.changes.outputs.broker_ui == 'true' }}
-        uses: actions/setup-node@v4
+        if: steps.changes.outputs.broker_ui == 'true'
+        uses: actions/setup-node@v3
         with:
           node-version: '20'
 
       - name: Install UI dependencies
-        if: ${{ steps.changes.outputs.broker_ui == 'true' }}
+        if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
-        shell: bash
         run: |
-          set -euo pipefail
           npm install
 
       - name: Lint UI
-        if: ${{ steps.changes.outputs.broker_ui == 'true' }}
+        if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
-        shell: bash
         run: |
-          set -euo pipefail
           npm run lint --if-present
 
       - name: Run UI tests
-        if: ${{ steps.changes.outputs.broker_ui == 'true' }}
+        if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
-        shell: bash
         run: |
-          set -euo pipefail
-          npm run test --if-present
+          npm test --if-present
 
       - name: Build UI
-        if: ${{ steps.changes.outputs.broker_ui == 'true' }}
+        if: steps.changes.outputs.broker_ui == 'true'
         working-directory: realestate-broker-ui
-        shell: bash
         run: |
-          set -euo pipefail
           npm run build

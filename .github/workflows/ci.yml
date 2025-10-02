@@ -23,7 +23,7 @@ jobs:
             files=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
             python=false
             broker_ui=false
-            if echo "$files" | grep -E '^(gov|gis|yad2|rami|backend-django|tests)/'; then
+            if echo "$files" | grep -E '^(gov|gis|mavat|govmap|orchestration|yad2|rami|backend-django|tests)/'; then
               python=true
             fi
             if echo "$files" | grep -E '^realestate-broker-ui/'; then

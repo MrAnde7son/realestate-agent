@@ -1350,7 +1350,7 @@ export default function DealExpensesPage() {
         {/* Service costs */}
         <Card className="mt-6">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
                   <Receipt className="h-5 w-5 text-orange-600 dark:text-orange-400" />
@@ -1360,12 +1360,22 @@ export default function DealExpensesPage() {
                   <CardDescription>הוסף עלויות עיסקה כמו עורך דין, עמלת תיווך, יועץ משכנתא ועוד</CardDescription>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={applyAllDefaults} size="sm" variant="outline">
+              <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row">
+                <Button
+                  onClick={applyAllDefaults}
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
                   <TrendingUp className="h-4 w-4 ml-2" />
                   ברירות מחדל
                 </Button>
-                <Button onClick={clearAllServices} size="sm" variant="outline">
+                <Button
+                  onClick={clearAllServices}
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
                   <X className="h-4 w-4 ml-2" />
                   נקה הכל
                 </Button>

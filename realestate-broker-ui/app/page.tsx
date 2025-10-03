@@ -318,8 +318,8 @@ export default function HomePage() {
         {/* Login Prompt for Guests */}
         {!isAuthenticated && (
           <div className="bg-blue-50 border border-blue-200 dark:bg-blue-950 dark:border-blue-800 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
                 <h3 className="font-medium text-blue-900 dark:text-blue-100">
                   התחבר כדי לגשת לכל התכונות
                 </h3>
@@ -327,16 +327,17 @@ export default function HomePage() {
                   צור חשבון או התחבר כדי ליצור דוחות, לנתח משכנתאות ולנהל התראות
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
                 <Button
                   onClick={() => router.push("/demo")}
                   variant="outline"
+                  className="w-full sm:w-auto"
                 >
                   נסה הדגמה
                 </Button>
                 <Button
                   onClick={() => router.push("/auth")}
-                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                 >
                   התחבר עכשיו
                 </Button>
@@ -718,12 +719,12 @@ export default function HomePage() {
                       <p className="text-sm text-muted-foreground mb-1">
                         {alert.payload?.message || 'התראה חדשה'}
                       </p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:min-w-0">
+                        <p className="text-xs text-muted-foreground order-2 sm:order-1">
                           {formatDate(alert.occurred_at)}
                         </p>
                         {alert.asset_address && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground order-1 sm:order-2 truncate sm:max-w-[60%]" title={alert.asset_address}>
                             📍 {alert.asset_address}
                           </p>
                         )}

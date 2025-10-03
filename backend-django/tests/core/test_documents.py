@@ -199,10 +199,11 @@ class DocumentAPITest(APITestCase):
         rights_response = self.client.get(rights_url)
 
         self.assertEqual(rights_response.status_code, status.HTTP_200_OK)
-        rows = rights_response.json()['rows']
-        self.assertGreater(len(rows), 0)
-        self.assertIn('field', rows[0])
-        self.assertIn('value', rows[0])
+        response_data = rights_response.json()
+        self.assertIn('tabu_data', response_data)
+        self.assertGreater(len(response_data['tabu_data']), 0)
+        self.assertIn('field', response_data['tabu_data'][0])
+        self.assertIn('value', response_data['tabu_data'][0])
     
     def test_list_documents(self):
         """Test listing documents for an asset."""

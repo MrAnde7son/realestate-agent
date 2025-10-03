@@ -147,7 +147,8 @@ class HebrewPDFGenerationTest(TestCase):
         from core.pdf_generator import HebrewPDFGenerator
         from pathlib import Path
         
-        base_dir = Path(__file__).resolve().parent.parent.parent / 'backend-django'
+        # Since the test is now in backend-django/tests/core/, we need to go up to backend-django root
+        base_dir = Path(__file__).resolve().parent.parent.parent
         pdf_generator = HebrewPDFGenerator(base_dir)
         
         # Check if the Hebrew font is registered

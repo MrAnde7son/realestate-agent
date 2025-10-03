@@ -31,7 +31,7 @@ jobs:
               backend_django=true
             fi
 
-            if echo "$files" | grep -E '^(tests/|gov/|gis/|yad2/|rami/|mavat/|orchestration/|utils/|govmap/|nadlaner-marketing/|fixtures/|db/|client/|scripts/|requirements\.txt$|pyproject\.toml$|setup\.py$|pytest(\-ci)?\.ini$|sitecustomize\.py$)'; then
+            if echo "$files" | grep -E '^(tests/|gov/|mavat/|govmap/|orchestration/|gis/|yad2/|rami/|mavat/|orchestration/|utils/|govmap/|nadlaner-marketing/|fixtures/|db/|client/|scripts/|requirements\.txt$|pyproject\.toml$|setup\.py$|pytest(\-ci)?\.ini$|sitecustomize\.py$)'; then
               python=true
               root_python=true
             fi

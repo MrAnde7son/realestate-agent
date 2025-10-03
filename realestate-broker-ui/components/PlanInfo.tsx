@@ -25,16 +25,16 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
   const planTranslations: Record<string, { name: string; description: string }> = {
     free: {
       name: 'חבילה חינמית',
-      description: 'פתרון מושלם למשתמשים מתחילים שרוצים להכיר את המערכת'
+      description: 'פתרון מושלם למשתמשים מתחילים שרוצים להכיר את המערכת',
     },
     basic: {
       name: 'חבילה בסיסית',
-      description: 'למשתמשים מתקדמים הזקוקים לכלי ניתוח וניהול מורחבים'
+      description: 'למשתמשים מתקדמים הזקוקים לכלי ניתוח וניהול מורחבים',
     },
     pro: {
       name: 'חבילה מקצועית',
-      description: 'לצוותים מקצועיים הדורשים יכולות מתקדמות וללא הגבלה'
-    }
+      description: 'לצוותים מקצועיים הדורשים יכולות מתקדמות וללא הגבלה',
+    },
   }
 
   useEffect(() => {

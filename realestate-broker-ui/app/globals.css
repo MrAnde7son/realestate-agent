@@ -28,6 +28,16 @@
     --text-3xl: 1.875rem;    /* 30px */
     --text-4xl: 2.25rem;     /* 36px */
 
+    /* Mobile Typography Scaling */
+    --text-xs-mobile: 0.75rem;      /* 12px */
+    --text-sm-mobile: 0.875rem;     /* 14px */
+    --text-base-mobile: 1rem;       /* 16px */
+    --text-lg-mobile: 1.125rem;     /* 18px */
+    --text-xl-mobile: 1.25rem;      /* 20px */
+    --text-2xl-mobile: 1.375rem;    /* 22px */
+    --text-3xl-mobile: 1.75rem;     /* 28px */
+    --text-4xl-mobile: 2rem;        /* 32px */
+
     --leading-tight: 1.25;
     --leading-normal: 1.5;
     --leading-relaxed: 1.75;
@@ -537,8 +547,40 @@
   }
 }
 
-::view-transition-new(root) {
-  /* Apply the reveal animation */
-  animation: reveal 0.4s ease-in-out forwards;
+/* Mobile-specific scrolling improvements */
+@media (max-width: 768px) {
+  /* Mobile Typography Scaling */
+  .text-xs { font-size: var(--text-xs-mobile); }
+  .text-sm { font-size: var(--text-sm-mobile); }
+  .text-base { font-size: var(--text-base-mobile); }
+  .text-lg { font-size: var(--text-lg-mobile); }
+  .text-xl { font-size: var(--text-xl-mobile); }
+  .text-2xl { font-size: var(--text-2xl-mobile); }
+  .text-3xl { font-size: var(--text-3xl-mobile); }
+  .text-4xl { font-size: var(--text-4xl-mobile); }
+  
+  /* Mobile-specific improvements */
+  body {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Improve touch targets */
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+  
+  /* Better spacing for mobile */
+  .space-y-4 > * + * {
+    margin-top: 1rem;
+  }
+  
+  .space-y-6 > * + * {
+    margin-top: 1.5rem;
+  }
+  
+  .space-y-8 > * + * {
+    margin-top: 2rem;
+  }
 }
 

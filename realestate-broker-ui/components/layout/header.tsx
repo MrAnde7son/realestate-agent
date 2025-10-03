@@ -11,7 +11,7 @@ import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft } from "lucide-react"
+import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft, X } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -85,16 +85,17 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   }
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 flex h-16 items-center justify-between border-b bg-background px-6">
+    <header className="fixed top-0 inset-x-0 z-50 flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
       {/* Right side - Menu button, logo and company name (RTL layout) */}
-      <div className="flex items-center gap-3 md:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
           <SheetTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden"
+              className="lg:hidden h-10 w-10 p-0"
               onClick={() => setMobileSidebarOpen(true)}
+              aria-label="פתח תפריט ניווט"
             >
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle menu</span>
@@ -107,9 +108,20 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
             
             <div className="flex h-full flex-col">
               {/* Mobile Header */}
-              <div className="flex h-16 items-center border-b px-6">
-                <Logo variant="symbol" size={28} color="var(--brand-teal)" />
-                <span className="ml-3 text-xl font-bold">נדל״נר</span>
+              <div className="flex h-16 items-center justify-between border-b px-6">
+                <div className="flex items-center gap-3">
+                  <Logo variant="symbol" size={28} color="var(--brand-teal)" />
+                  <span className="text-lg font-bold">נדל״נר</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="h-8 w-8 p-0"
+                  aria-label="סגור תפריט"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
               {/* Navigation */}
@@ -126,14 +138,15 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                         href={item.href}
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-[var(--brand-teal)]/10 hover:text-[var(--brand-teal)] mobile-nav-item",
+                          "min-h-[44px]", // Ensure 44px touch target
                           isActive 
                             ? "bg-[var(--brand-teal)]/10 text-[var(--brand-teal)]" 
                             : "text-muted-foreground"
                         )}
                         onClick={() => setMobileSidebarOpen(false)}
                       >
-                        <Icon className="h-5 w-5" />
-                        <span>{item.name}</span>
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="truncate">{item.name}</span>
                       </Link>
                     )
                   })}
@@ -144,24 +157,24 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
                 {/* User Info */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 rounded-lg bg-muted p-3">
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 flex-shrink-0">
                       <AvatarFallback>{getUserInitials()}</AvatarFallback>
                     </Avatar>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{getUserDisplayName()}</div>
-                      <div className="text-xs text-muted-foreground">{user?.email || 'demo@example.com'}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{getUserDisplayName()}</div>
+                      <div className="text-xs text-muted-foreground truncate">{user?.email || 'demo@example.com'}</div>
                       {user?.company && (
-                        <div className="text-xs text-muted-foreground">{user.company}</div>
+                        <div className="text-xs text-muted-foreground truncate">{user.company}</div>
                       )}
                     </div>
                   </div>
                   
                   <Button 
                     variant="outline" 
-                    className="w-full justify-start gap-2"
+                    className="w-full justify-start gap-2 min-h-[44px]"
                     onClick={handleLogout}
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-4 w-4 flex-shrink-0" />
                     <span>התנתק</span>
                   </Button>
                 </div>
@@ -173,18 +186,25 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         <Link
           href="/"
           aria-label="עמוד הבית"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 min-h-[44px]"
         >
-          <Logo variant="symbol" size={28} color="var(--brand-teal)" />
-          <span className="text-base font-semibold text-foreground whitespace-nowrap sm:text-lg">
+          <div className="sm:hidden">
+            <Logo variant="symbol" size={24} color="var(--brand-teal)" />
+          </div>
+          <div className="hidden sm:block">
+            <Logo variant="symbol" size={28} color="var(--brand-teal)" />
+          </div>
+          <span className="text-sm font-semibold text-foreground whitespace-nowrap sm:text-base md:text-lg">
             נדל״נר
           </span>
         </Link>
       </div>
 
       {/* Left side - Global search and theme toggle (enforced LTR for alignment) */}
-      <div className="flex items-center gap-3 md:gap-4" dir="ltr">
-        <GlobalSearch />
+      <div className="flex items-center gap-2 sm:gap-3 md:gap-4" dir="ltr">
+        <div className="hidden sm:block">
+          <GlobalSearch />
+        </div>
         <ThemeToggle />
       </div>
     </header>

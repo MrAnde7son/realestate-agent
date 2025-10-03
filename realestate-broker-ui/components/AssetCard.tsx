@@ -63,7 +63,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
     status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
 
   return (
-    <Card className="p-4 space-y-3">
+    <Card className="p-3 sm:p-4 space-y-2 sm:space-y-3">
       {/* Images */}
       {asset.images && asset.images.length > 0 && (
         <ImageGallery 
@@ -75,37 +75,37 @@ export default function AssetCard({ asset }: AssetCardProps) {
       )}
       
       <div className="flex justify-between items-start gap-2">
-        <div className="font-bold truncate flex-1">{asset.address ?? '—'}</div>
-        <Badge variant={statusVariant}>{statusLabel}</Badge>
+        <div className="font-bold truncate flex-1 text-sm sm:text-base">{asset.address ?? '—'}</div>
+        <Badge variant={statusVariant} className="text-xs sm:text-sm">{statusLabel}</Badge>
       </div>
-      <div className="text-2xl font-semibold text-primary">
+      <div className="text-xl sm:text-2xl font-semibold text-primary">
         {asset.price != null ? fmtCurrency(asset.price) : '—'}
       </div>
-      <div className="flex gap-4 text-sm text-sub">
+      <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm text-sub">
         <div className="flex items-center gap-1">
-          <Bed className="h-4 w-4" />
+          <Bed className="h-3 w-3 sm:h-4 sm:w-4" />
           {asset.rooms ?? '—'}
         </div>
         <div className="flex items-center gap-1">
-          <Bath className="h-4 w-4" />
+          <Bath className="h-3 w-3 sm:h-4 sm:w-4" />
           {asset.bathrooms ?? '—'}
         </div>
         <div className="flex items-center gap-1">
-          <Ruler className="h-4 w-4" />
-          {asset.area != null ? fmtNumber(asset.area) : '—'} מ&quot;ר
+          <Ruler className="h-3 w-3 sm:h-4 sm:w-4" />
+          {asset.area != null ? fmtNumber(asset.area) : '—'} מ"ר
         </div>
       </div>
-      <div className="text-sm text-sub">
-        {asset.pricePerSqm != null ? `${fmtNumber(asset.pricePerSqm)} ₪/מ&quot;ר` : '—'}
+      <div className="text-xs sm:text-sm text-sub">
+        {asset.pricePerSqm != null ? `${fmtNumber(asset.pricePerSqm)} ₪/מ"ר` : '—'}
       </div>
       <div className="flex gap-2 pt-2">
         <Link href={`/assets/${asset.id}`}> 
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px]">
             <Eye className="h-4 w-4" />
             <span className="sr-only">צפה בפרטים</span>
           </Button>
         </Link>
-        <Button variant="outline" size="icon" onClick={() => exportAssetCsv(asset)}>
+        <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px]" onClick={() => exportAssetCsv(asset)}>
           <FileText className="h-4 w-4" />
             <span className="sr-only">ייצוא פרטי נכס</span>
         </Button>

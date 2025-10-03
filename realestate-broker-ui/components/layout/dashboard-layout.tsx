@@ -14,8 +14,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
-      {/* Sidebar - hidden on mobile, sticky on desktop */}
-      <div className="hidden md:flex-shrink-0 md:block">
+      {/* Sidebar - hidden on mobile and large screens, visible on medium screens */}
+      <div className="hidden md:flex-shrink-0 md:block lg:hidden">
         <AppSidebar isCollapsed={!sidebarOpen} />
       </div>
 

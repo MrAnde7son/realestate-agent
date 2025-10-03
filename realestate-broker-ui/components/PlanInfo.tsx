@@ -22,6 +22,21 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const planTranslations: Record<string, { name: string; description: string }> = {
+    free: {
+      name: 'חבילה חינמית',
+      description: 'פתרון מושלם למשתמשים מתחילים שרוצים להכיר את המערכת'
+    },
+    basic: {
+      name: 'חבילה בסיסית',
+      description: 'למשתמשים מתקדמים הזקוקים לכלי ניתוח וניהול מורחבים'
+    },
+    pro: {
+      name: 'חבילה מקצועית',
+      description: 'לצוותים מקצועיים הדורשים יכולות מתקדמות וללא הגבלה'
+    }
+  }
+
   useEffect(() => {
     loadPlanData()
   }, [])
@@ -33,7 +48,7 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
       setPlanInfo(planInfoData)
     } catch (err) {
       console.error('Error loading plan data:', err)
-      setError('Failed to load plan information')
+      setError('אירעה שגיאה בעת טעינת פרטי החבילה')
     } finally {
       setLoading(false)
     }
@@ -58,7 +73,7 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
         <CardContent className="p-6">
           <div className="flex items-center gap-2 text-red-600">
             <AlertCircle className="h-4 w-4" />
-            <span>{error || 'Failed to load plan information'}</span>
+            <span>{error || 'אירעה שגיאה בעת טעינת פרטי החבילה'}</span>
           </div>
         </CardContent>
       </Card>
@@ -68,6 +83,9 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
   const Icon = planIcons[planInfo.plan_name as keyof typeof planIcons] || Star
   const isExpired = planInfo.is_expired
   const isUnlimited = planInfo.limits.assets.limit === -1
+  const translatedPlan = planTranslations[planInfo.plan_name as keyof typeof planTranslations]
+  const displayName = translatedPlan?.name || planInfo.display_name
+  const description = translatedPlan?.description || planInfo.description
 
   return (
     <Card className={className}>
@@ -75,13 +93,13 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">{planInfo.display_name}</CardTitle>
+            <CardTitle className="text-lg">{displayName}</CardTitle>
           </div>
           {isExpired && (
-            <Badge variant="destructive">Expired</Badge>
+            <Badge variant="destructive">פג תוקף</Badge>
           )}
         </div>
-        <CardDescription>{planInfo.description}</CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-4">

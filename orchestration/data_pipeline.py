@@ -33,7 +33,7 @@ from orchestration.observability import (
 )
 
 from django.contrib.auth import get_user_model
-from datetime import datetime
+from datetime import datetime, date
 
 try:  # pragma: no cover - best effort import
     from core.analytics import track  # type: ignore
@@ -45,6 +45,29 @@ except Exception:  # pragma: no cover - fallback when Django not configured
 from orchestration.alerts import Notifier
 
 logger = logging.getLogger(__name__)
+
+
+def _convert_unix_timestamp_to_date(timestamp_ms: int) -> Optional[date]:
+    """Convert Unix timestamp in milliseconds to a date object.
+    
+    Args:
+        timestamp_ms: Unix timestamp in milliseconds
+        
+    Returns:
+        date object or None if timestamp is invalid/zero
+    """
+    if not timestamp_ms or timestamp_ms <= 0:
+        return None
+    
+    try:
+        # Convert milliseconds to seconds
+        timestamp_seconds = timestamp_ms / 1000
+        dt = datetime.fromtimestamp(timestamp_seconds)
+        return dt.date()
+    except (ValueError, OSError) as e:
+        logger.warning(f"Failed to convert timestamp {timestamp_ms} to date: {e}")
+        return None
+
 
 """High level data collection pipeline for real-estate assets.
 
@@ -1102,7 +1125,6 @@ def _process_gis_data(asset, gis_data):
 
     # Building permits
     if gis_data.get('permits'):
-        print("GIS Permits:", gis_data.get('permits'))
         permits = gis_data.get('permits', [])
         if permits:
             recent_permit = permits[0] if permits else {}
@@ -1521,25 +1543,6 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
             }
         )
         
-        # Create Document records from GIS permits
-        if gis_data and gis_data.get('permits'):
-            for permit in gis_data.get('permits', []):
-                if permit.get('permit_number'):
-                    Document.objects.get_or_create(
-                        asset=asset,
-                        external_id=permit.get('permit_number'),
-                        defaults={
-                            'user': system_user,
-                            'title': f"היתר בנייה {permit.get('permit_number')}",
-                            'description': f"היתר בנייה מספר {permit.get('permit_number')}",
-                            'document_type': 'permit',
-                            'status': 'approved',
-                            'external_url': permit.get('url', ''),
-                            'source': 'gis',
-                            'document_date': permit.get('date'),
-                            'meta': permit
-                        }
-                    )
         
         # Create Document records from government appraisals
         if gov_data and gov_data.get('decisive'):
@@ -1643,7 +1646,7 @@ def _create_documents_from_permits(asset, permits):
             existing_doc.external_id = permit.get('permission_num')
             existing_doc.external_url = permit.get('url_hadmaya', '')
             existing_doc.source = 'GIS'
-            existing_doc.document_date = permit.get('permission_date')
+            existing_doc.document_date = _convert_unix_timestamp_to_date(permit.get('permission_date', 0))
             existing_doc.meta = permit
             existing_doc.save()
             logger.debug(f"Updated existing permit document {existing_doc.id} for asset {asset.id}")
@@ -1663,7 +1666,7 @@ def _create_documents_from_permits(asset, permits):
                 external_id=permit.get('permission_num'),
                 external_url=permit.get('url_hadmaya', ''),
                 source='GIS',
-                document_date=permit.get('permission_date'),
+                document_date=_convert_unix_timestamp_to_date(permit.get('permission_date', 0)),
                 meta=permit
             )
             created_count += 1

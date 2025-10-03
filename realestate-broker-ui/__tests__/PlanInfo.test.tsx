@@ -95,6 +95,25 @@ describe('PlanInfo Component', () => {
     vi.clearAllMocks()
   })
 
+  it('falls back to API-provided names when translation is unavailable', async () => {
+    const customPlan = {
+      ...mockPlanInfo,
+      plan_name: 'enterprise',
+      display_name: 'Enterprise Plan',
+      description: 'Enterprise description',
+    }
+
+    mockAuthAPI.getPlanInfo.mockResolvedValue(customPlan)
+
+    render(<PlanInfo />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Enterprise Plan')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Enterprise description')).toBeInTheDocument()
+  })
+
   it('renders loading state initially', () => {
     mockAuthAPI.getPlanInfo.mockImplementation(() => new Promise(() => {})) // Never resolves
     
@@ -110,10 +129,10 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('Basic Plan')).toBeInTheDocument()
+      expect(screen.getByText('חבילה בסיסית')).toBeInTheDocument()
     })
-    
-    expect(screen.getByText('Basic plan for advanced users')).toBeInTheDocument()
+
+    expect(screen.getByText('למשתמשים מתקדמים הזקוקים לכלי ניתוח וניהול מורחבים')).toBeInTheDocument()
     // Price information is no longer displayed in the component
     
     // Check limits
@@ -130,10 +149,10 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('Free Plan')).toBeInTheDocument()
+      expect(screen.getByText('חבילה חינמית')).toBeInTheDocument()
     })
-    
-    expect(screen.getByText('Free plan for basic users')).toBeInTheDocument()
+
+    expect(screen.getByText('פתרון מושלם למשתמשים מתחילים שרוצים להכיר את המערכת')).toBeInTheDocument()
     
     // Check limits
     expect(screen.getByText('0 / 1')).toBeInTheDocument()
@@ -145,10 +164,10 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('Pro Plan')).toBeInTheDocument()
+      expect(screen.getByText('חבילה מקצועית')).toBeInTheDocument()
     })
-    
-    expect(screen.getByText('Professional plan for power users')).toBeInTheDocument()
+
+    expect(screen.getByText('לצוותים מקצועיים הדורשים יכולות מתקדמות וללא הגבלה')).toBeInTheDocument()
     
     // Check unlimited limits
     expect(screen.getByText('100 / ∞')).toBeInTheDocument()
@@ -167,7 +186,7 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('Basic Plan')).toBeInTheDocument()
+      expect(screen.getByText('חבילה בסיסית')).toBeInTheDocument()
     })
     
     // Check that progress bar is rendered (custom div-based progress bar)
@@ -186,7 +205,7 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('Pro Plan')).toBeInTheDocument()
+      expect(screen.getByText('חבילה מקצועית')).toBeInTheDocument()
     })
     
     // Should not have progress bar for unlimited plans
@@ -199,7 +218,7 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('Failed to load plan information')).toBeInTheDocument()
+      expect(screen.getByText('אירעה שגיאה בעת טעינת פרטי החבילה')).toBeInTheDocument()
     })
   })
 
@@ -217,10 +236,10 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('Basic Plan')).toBeInTheDocument()
+      expect(screen.getByText('חבילה בסיסית')).toBeInTheDocument()
     })
-    
+
     // Should show expired status
-    expect(screen.getByText('Expired')).toBeInTheDocument()
+    expect(screen.getByText('פג תוקף')).toBeInTheDocument()
   })
 })

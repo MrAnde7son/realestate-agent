@@ -1046,7 +1046,12 @@ class Document(models.Model):
     @property
     def is_downloadable(self):
         """Check if document can be downloaded."""
-        return bool(self.file_path and os.path.exists(self.file_path))
+        if not self.file_path:
+            return False
+        
+        # Use Django's default_storage to check if file exists
+        from django.core.files.storage import default_storage
+        return default_storage.exists(self.file_path)
     
     def delete_file(self):
         """Delete the physical file from storage."""

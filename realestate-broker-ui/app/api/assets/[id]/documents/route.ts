@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { validateToken } from '@/lib/token-utils'
 
 export async function POST(
   request: NextRequest,
@@ -7,10 +9,28 @@ export async function POST(
   const { id } = params
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
+  // Get authentication token
+  let token = cookies().get('access_token')?.value
+  
+  // If no token in cookies, try to get from request headers
+  if (!token) {
+    const authHeader = request.headers.get('authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7)
+    }
+  }
+  
+  // Validate token
+  const tokenValidation = validateToken(token)
+  if (!tokenValidation.isValid) {
+    console.log('❌ Documents API - Token validation failed:', tokenValidation.error)
+    return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
+  }
+
   const incomingFormData = await request.formData()
   const file = incomingFormData.get('file')
 
-  if (!(file instanceof File)) {
+  if (!file || typeof file === 'string') {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 })
   }
 
@@ -41,23 +61,15 @@ export async function POST(
     backendFormData.append('external_url', externalUrl)
   }
 
-  const headers = new Headers()
-  const cookie = request.headers.get('cookie')
-  const authorization = request.headers.get('authorization')
-  if (cookie) {
-    headers.set('cookie', cookie)
-  }
-  if (authorization) {
-    headers.set('authorization', authorization)
-  }
-
   try {
     const backendResponse = await fetch(
       `${backendUrl}/api/assets/${id}/documents/upload/`,
       {
         method: 'POST',
         body: backendFormData,
-        headers,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       }
     )
 
@@ -81,17 +93,6 @@ export async function POST(
     return NextResponse.json(payload, { status: backendResponse.status })
   } catch (error) {
     console.error('Error uploading document to backend:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-
-  const mockDoc = {
-    id: Date.now().toString(),
-    title,
-    name: title,
-    type: documentType,
-    url: `/uploads/${file.name}`,
-    uploaded_at: new Date().toISOString(),
-    source: 'mock'
-  }
-
-  return NextResponse.json({ doc: mockDoc })
 }

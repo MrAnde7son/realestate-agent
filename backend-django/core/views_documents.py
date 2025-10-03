@@ -275,15 +275,23 @@ class AssetRightsView(APIView):
                 current_owner = value
                 ownership_percentage = 0
             
-            # Look for ownership percentage
-            elif '%' in value or 'אחוז' in field:
+            # Look for ownership percentage - handle fractions like "1/2"
+            elif '%' in value or 'אחוז' in field or '/' in value:
                 try:
-                    # Extract percentage from value
                     import re
-                    percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
-                    if percentage_match:
-                        ownership_percentage = float(percentage_match.group(1))
-                except (ValueError, AttributeError):
+                    # Handle fractions like "1/2" = 50%
+                    if '/' in value:
+                        fraction_match = re.search(r'(\d+)/(\d+)', value)
+                        if fraction_match:
+                            numerator = float(fraction_match.group(1))
+                            denominator = float(fraction_match.group(2))
+                            ownership_percentage = (numerator / denominator) * 100
+                    else:
+                        # Handle regular percentages
+                        percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
+                        if percentage_match:
+                            ownership_percentage = float(percentage_match.group(1))
+                except (ValueError, AttributeError, ZeroDivisionError):
                     pass
             
             # Look for parcel information
@@ -391,8 +399,9 @@ class DocumentDetailView(APIView):
             )
 
 
-class DocumentDownloadView(View):
+class DocumentDownloadView(APIView):
     """Handle document downloads."""
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, asset_id, document_id):
         """Download a document file."""
@@ -401,31 +410,45 @@ class DocumentDownloadView(View):
             document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
             
             # Check permissions
-            if not request.user.is_authenticated:
-                return HttpResponse('Authentication required', status=401)
-            
             if not (document.asset.created_by == request.user or request.user.is_staff):
-                return HttpResponse('Permission denied', status=403)
+                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
             
             # Check if file exists
-            if not document.is_downloadable:
-                raise Http404("File not found")
+            logger.info(f"Document {document_id} file_path: {document.file_path}")
+            logger.info(f"Document {document_id} is_downloadable: {document.is_downloadable}")
+            logger.info(f"Document {document_id} default_storage.exists: {default_storage.exists(document.file_path)}")
             
-            # Get file content
+            if not document.is_downloadable:
+                return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Stream file content through API
+            from django.http import StreamingHttpResponse
+            from django.core.files.storage import default_storage
+            
             try:
-                with default_storage.open(document.file_path, 'rb') as file:
-                    response = HttpResponse(file.read(), content_type=document.mime_type)
-                    response['Content-Disposition'] = f'attachment; filename="{document.filename}"'
-                    return response
+                
+                def file_generator():
+                    with default_storage.open(document.file_path, 'rb') as file:
+                        while True:
+                            chunk = file.read(8192)  # 8KB chunks
+                            if not chunk:
+                                break
+                            yield chunk
+                
+                response = StreamingHttpResponse(
+                    file_generator(),
+                    content_type=document.mime_type
+                )
+                response['Content-Disposition'] = f'attachment; filename="{document.filename}"'
+                response['Content-Length'] = document.file_size
+                return response
             except Exception as e:
                 logger.error(f"Error reading file {document.file_path}: {e}")
-                raise Http404("File not found")
+                return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
                 
-        except Http404:
-            raise
         except Exception as e:
             logger.error(f"Error downloading document: {e}")
-            return HttpResponse('Download failed', status=500)
+            return Response({'error': 'Download failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])

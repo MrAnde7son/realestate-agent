@@ -794,5 +794,13 @@ if __name__ == "__main__":
                     print("\nFetching first plan details...")
                     plan = client.get_plan_details(results[0].plan_id)
                     print(plan)
-            except Exception as e:
-                print(f"Error during demo: {e}")
+                except Exception as e:
+                    print(f"Error fetching plan details: {e}")
+
+                try:
+                    pdf_content = client.fetch_pdf(hit.plan_id)
+                    print(f"Fetched PDF content of size: {len(pdf_content)} bytes")
+                except Exception as e:
+                    print(f"Error fetching PDF: {e}")
+        else:
+            print("Mavat is not accessible") 

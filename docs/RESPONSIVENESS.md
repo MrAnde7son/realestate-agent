@@ -60,19 +60,24 @@ This document outlines the comprehensive mobile responsiveness audit and impleme
 
 ### 3. Tables Mobile Responsiveness
 
-**File**: `realestate-broker-ui/components/AssetsTable.tsx`
+**Files**: 
+- `realestate-broker-ui/components/AssetsTable.tsx`
+- `realestate-broker-ui/app/crm/contacts/page.tsx`
+- `realestate-broker-ui/app/crm/leads/page.tsx`
 
 **Changes**:
 - Wrapped tables in `overflow-x-auto` containers
 - Added `whitespace-nowrap` to prevent text wrapping
 - Set minimum widths for columns to enable proper horizontal scrolling
 - Improved table headers and cells for mobile
+- Enhanced touch targets for action buttons (`min-h-[44px]`)
 
 **Key Features**:
 - Horizontal scrolling for tables on mobile
-- Sticky address column for better navigation
+- Sticky address column for better navigation (AssetsTable)
 - Minimum column widths for readability
 - Proper overflow handling
+- Mobile-friendly action buttons with proper touch targets
 
 ### 4. Table Toolbar Improvements
 

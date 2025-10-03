@@ -267,61 +267,64 @@ export default function ContactsPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>שם</TableHead>
-                <TableHead>אימייל</TableHead>
-                <TableHead>טלפון</TableHead>
-                <TableHead>הון עצמי</TableHead>
-                <TableHead>תגיות</TableHead>
-                <TableHead>נוצר</TableHead>
-                <TableHead className="text-left">פעולות</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredContacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  <TableCell className="font-medium">{contact.name}</TableCell>
-                  <TableCell>{contact.email || '-'}</TableCell>
-                  <TableCell>{contact.phone || '-'}</TableCell>
-                  <TableCell>{formatEquity(contact.equity)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {contact.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(contact.created_at).toLocaleDateString('he-IL')}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingContact(contact)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteContact(contact)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+        <div className="bg-white rounded-lg border overflow-x-auto">
+          <div className="min-w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap min-w-[120px]">שם</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px]">אימייל</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[120px]">טלפון</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px]">הון עצמי</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px]">תגיות</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px]">נוצר</TableHead>
+                  <TableHead className="text-left whitespace-nowrap min-w-[120px]">פעולות</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredContacts.map((contact) => (
+                  <TableRow key={contact.id}>
+                    <TableCell className="font-medium whitespace-nowrap">{contact.name}</TableCell>
+                    <TableCell className="whitespace-nowrap">{contact.email || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{contact.phone || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatEquity(contact.equity)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {contact.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {new Date(contact.created_at).toLocaleDateString('he-IL')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="min-h-[44px] min-w-[44px]"
+                          onClick={() => setEditingContact(contact)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="min-h-[44px] min-w-[44px] text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteContact(contact)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

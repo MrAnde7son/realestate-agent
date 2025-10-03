@@ -208,7 +208,7 @@ export default function ProfilePage() {
                   }
                 </CardTitle>
                 <CardDescription>
-                  {user.role || 'משתמש'}
+                  {roleLabel}
                   {user.company && ` • ${user.company}`}
                 </CardDescription>
               </CardHeader>

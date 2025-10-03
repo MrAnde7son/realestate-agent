@@ -1744,7 +1744,6 @@ def asset_permits(request, asset_id):
             return JsonResponse({"error": "Asset not found"}, status=404)
 
         permits = []
-        seen_keys = set()
 
         # Get permits from Document model (single source of truth)
         permit_documents = Document.objects.filter(

@@ -1,5 +1,6 @@
 import os
 import tempfile
+from pathlib import Path
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -38,7 +39,7 @@ class DocumentModelTest(TestCase):
             description='A test document',
             document_type='permit',
             filename='test.pdf',
-            file_path='/path/to/test.pdf',
+            file_path='documents/test.pdf',
             file_size=1024,
             mime_type='application/pdf'
         )
@@ -56,7 +57,7 @@ class DocumentModelTest(TestCase):
             user=self.user,
             title='Test Document',
             filename='test.pdf',
-            file_path='/path/to/test.pdf',
+            file_path='documents/test.pdf',
             file_size=1024,
             mime_type='application/pdf'
         )
@@ -71,7 +72,7 @@ class DocumentModelTest(TestCase):
             user=self.user,
             title='Test Document',
             filename='test.pdf',
-            file_path='/path/to/test.pdf',
+            file_path='documents/test.pdf',
             file_size=1024,
             mime_type='application/pdf'
         )
@@ -178,7 +179,9 @@ class DocumentAPITest(APITestCase):
         """Uploading a tabu document stores parsed rows and exposes them via the rights endpoint."""
 
         url = reverse('document_upload', kwargs={'asset_id': self.asset.id})
-        with open('/Users/imizrahi/Documents/Git/realestate-agent/tests/data/tabu_sample.pdf', 'rb') as test_pdf:
+        # Get the path to the tabu sample file relative to this test file
+        test_file_path = Path(__file__).parent.parent.parent.parent / 'tests' / 'data' / 'tabu_sample.pdf'
+        with open(test_file_path, 'rb') as test_pdf:
             data = {
                 'file': test_pdf,
                 'title': 'Tabu Document',
@@ -196,10 +199,11 @@ class DocumentAPITest(APITestCase):
         rights_response = self.client.get(rights_url)
 
         self.assertEqual(rights_response.status_code, status.HTTP_200_OK)
-        rows = rights_response.json()['rows']
-        self.assertGreater(len(rows), 0)
-        self.assertIn('field', rows[0])
-        self.assertIn('value', rows[0])
+        response_data = rights_response.json()
+        self.assertIn('tabu_data', response_data)
+        self.assertGreater(len(response_data['tabu_data']), 0)
+        self.assertIn('field', response_data['tabu_data'][0])
+        self.assertIn('value', response_data['tabu_data'][0])
     
     def test_list_documents(self):
         """Test listing documents for an asset."""
@@ -209,7 +213,7 @@ class DocumentAPITest(APITestCase):
             user=self.user,
             title='Test Document',
             filename='test.pdf',
-            file_path='/path/to/test.pdf',
+            file_path='documents/test.pdf',
             file_size=1024,
             mime_type='application/pdf'
         )
@@ -228,7 +232,7 @@ class DocumentAPITest(APITestCase):
             user=self.user,
             title='Test Document',
             filename='test.pdf',
-            file_path='/path/to/test.pdf',
+            file_path='documents/test.pdf',
             file_size=1024,
             mime_type='application/pdf'
         )
@@ -249,7 +253,7 @@ class DocumentAPITest(APITestCase):
             user=self.user,
             title='Test Document',
             filename='test.pdf',
-            file_path='/path/to/test.pdf',
+            file_path='documents/test.pdf',
             file_size=1024,
             mime_type='application/pdf'
         )
@@ -278,7 +282,7 @@ class DocumentAPITest(APITestCase):
             user=self.user,
             title='Test Document',
             filename='test.pdf',
-            file_path='/path/to/test.pdf',
+            file_path='documents/test.pdf',
             file_size=1024,
             mime_type='application/pdf'
         )
@@ -363,7 +367,7 @@ class DocumentSerializerTest(TestCase):
             user=self.user,
             title='Test Document',
             filename='test.pdf',
-            file_path='/path/to/test.pdf',
+            file_path='documents/test.pdf',
             file_size=1024,
             mime_type='application/pdf'
         )

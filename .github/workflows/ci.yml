@@ -22,17 +22,32 @@ jobs:
             git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
             files=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}")
             python=false
+            root_python=false
+            backend_django=false
             broker_ui=false
-            if echo "$files" | grep -E '^(gov|gis|mavat|govmap|orchestration|yad2|rami|backend-django|tests)/'; then
+
+            if echo "$files" | grep -E '^(backend-django/|backend-django$)'; then
               python=true
+              backend_django=true
             fi
+
+            if echo "$files" | grep -E '^(tests/|gov/|mavat/|govmap/|orchestration/|gis/|yad2/|rami/|mavat/|orchestration/|utils/|govmap/|nadlaner-marketing/|fixtures/|db/|client/|scripts/|requirements\.txt$|pyproject\.toml$|setup\.py$|pytest(\-ci)?\.ini$|sitecustomize\.py$)'; then
+              python=true
+              root_python=true
+            fi
+
             if echo "$files" | grep -E '^realestate-broker-ui/'; then
               broker_ui=true
             fi
+
             echo "python=$python" >> "$GITHUB_OUTPUT"
+            echo "root_python=$root_python" >> "$GITHUB_OUTPUT"
+            echo "backend_django=$backend_django" >> "$GITHUB_OUTPUT"
             echo "broker_ui=$broker_ui" >> "$GITHUB_OUTPUT"
           else
             echo "python=true" >> "$GITHUB_OUTPUT"
+            echo "root_python=true" >> "$GITHUB_OUTPUT"
+            echo "backend_django=true" >> "$GITHUB_OUTPUT"
             echo "broker_ui=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -108,7 +123,7 @@ jobs:
           playwright install-deps chromium
 
       - name: Run Python Tests
-        if: steps.changes.outputs.python == 'true'
+        if: steps.changes.outputs.root_python == 'true'
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
@@ -136,6 +151,17 @@ jobs:
           if [ -d "rami" ]; then
             echo "Running RAMI module tests..."
             pytest rami/ -q --tb=short || echo "No tests found in RAMI module"
+          fi
+
+      - name: Run Backend Django Tests
+        if: steps.changes.outputs.backend_django == 'true'
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          if [ -d "backend-django/tests" ]; then
+            echo "Running backend Django test suite..."
+            cd backend-django
+            pytest tests/ -q --tb=short
           fi
 
       - name: Set up Node

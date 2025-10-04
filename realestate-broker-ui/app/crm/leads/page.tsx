@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -284,29 +284,30 @@ export default function LeadsPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8"></TableHead>
-                <TableHead>לקוח</TableHead>
-                <TableHead>נכס</TableHead>
-                <TableHead>משימות</TableHead>
-                <TableHead>סטטוס</TableHead>
-                <TableHead>פעילות אחרונה</TableHead>
-                <TableHead className="text-left">פעולות</TableHead>
-              </TableRow>
-            </TableHeader>
+        <div className="bg-white rounded-lg border overflow-x-auto">
+          <div className="min-w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8 whitespace-nowrap"></TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px]">לקוח</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px]">נכס</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px]">משימות</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px]">סטטוס</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[120px]">פעילות אחרונה</TableHead>
+                  <TableHead className="text-left whitespace-nowrap min-w-[120px]">פעולות</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {filteredLeads.map((lead) => (
-                <>
-                  <TableRow key={lead.id}>
+                <React.Fragment key={lead.id}>
+                  <TableRow>
                     <TableCell>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleRowExpansion(lead.id)}
-                        className="h-6 w-6 p-0"
+                        className="h-8 w-8 p-0 min-h-[44px] min-w-[44px]"
                       >
                         {expandedRows.has(lead.id) ? (
                           <ChevronDown className="h-3 w-3" />
@@ -337,7 +338,7 @@ export default function LeadsPage() {
                         <Button
                           variant="link"
                           size="sm"
-                          className="p-0 h-auto"
+                          className="p-0 h-auto min-h-[44px]"
                           onClick={() => window.open(`/assets/${lead.asset_id_read}`, '_blank')}
                         >
                           <ExternalLink className="h-3 w-3 mr-1" />
@@ -574,10 +575,11 @@ export default function LeadsPage() {
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+                </React.Fragment>
               ))}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

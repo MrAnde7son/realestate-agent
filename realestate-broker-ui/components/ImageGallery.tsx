@@ -34,9 +34,9 @@ export default function ImageGallery({
   }
 
   const sizeClasses = {
-    sm: 'h-20 w-20',
-    md: 'h-32 w-32',
-    lg: 'h-48 w-48'
+    sm: 'h-16 w-16 sm:h-20 sm:w-20',
+    md: 'h-24 w-24 sm:h-32 sm:w-32',
+    lg: 'h-32 w-32 sm:h-48 sm:w-48'
   }
 
   const displayImages = images.slice(0, maxDisplay)
@@ -66,7 +66,7 @@ export default function ImageGallery({
 
   return (
     <>
-      <div className={`flex gap-2 ${className}`}>
+      <div className={`flex gap-1 sm:gap-2 ${className}`}>
         {displayImages.map((image, index) => (
           <div key={index} className="relative group">
             <div className={`relative ${sizeClasses[size]} rounded-lg overflow-hidden cursor-pointer`}>
@@ -76,6 +76,8 @@ export default function ImageGallery({
                 fill
                 className="object-cover transition-transform group-hover:scale-105"
                 onClick={() => openFullscreen(index)}
+                sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 128px"
+                priority={index === 0}
               />
               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
                 <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -113,14 +115,16 @@ export default function ImageGallery({
             </div>
           </DialogHeader>
           
-          <div className="relative flex-1 p-4">
+          <div className="relative flex-1 p-2 sm:p-4">
             {selectedImage !== null && (
-              <div className="relative h-96 md:h-[500px]">
+              <div className="relative h-64 sm:h-96 md:h-[500px]">
                 <Image
                   src={images[selectedImage]}
                   alt={`תמונה ${selectedImage + 1}`}
                   fill
                   className="object-contain"
+                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 80vw"
+                  priority
                 />
                 
                 {/* Navigation buttons */}
@@ -150,12 +154,12 @@ export default function ImageGallery({
 
           {/* Thumbnail strip */}
           {showThumbnails && images.length > 1 && (
-            <div className="p-4 pt-0">
-              <div className="flex gap-2 overflow-x-auto">
+            <div className="p-2 sm:p-4 pt-0">
+              <div className="flex gap-1 sm:gap-2 overflow-x-auto">
                 {images.map((image, index) => (
                   <div
                     key={index}
-                    className={`relative h-16 w-16 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                    className={`relative h-12 w-12 sm:h-16 sm:w-16 rounded-lg overflow-hidden cursor-pointer border-2 transition-all flex-shrink-0 ${
                       selectedImage === index ? 'border-primary' : 'border-transparent'
                     }`}
                     onClick={() => setSelectedImage(index)}
@@ -165,6 +169,7 @@ export default function ImageGallery({
                       alt={`תמונה ${index + 1}`}
                       fill
                       className="object-cover"
+                      sizes="(max-width: 640px) 48px, 64px"
                     />
                   </div>
                 ))}

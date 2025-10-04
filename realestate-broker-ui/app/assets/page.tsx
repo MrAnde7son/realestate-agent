@@ -1025,8 +1025,8 @@ export default function AssetsPage() {
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">רשימת נכסים</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">רשימת נכסים</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {loading ? 'טוען נכסים...' : `${assets.length} נכסים עם נתוני שמאות ותכנון מלאים`}
             </p>
           </div>
@@ -1036,17 +1036,18 @@ export default function AssetsPage() {
         {/* Asset Creation Sheet - Keep the form but remove the trigger button */}
         {isAuthenticated && (
           <Sheet open={open} onOpenChange={setOpen}>
-                <SheetContent>
+                <SheetContent className="w-full sm:w-96 max-w-[95vw]">
                   <SheetHeader>
                     <SheetTitle>הוסף נכס חדש</SheetTitle>
                     <SheetDescription>
                       הזן פרטי הנכס כדי להתחיל תהליך העשרת מידע
                     </SheetDescription>
                   </SheetHeader>
-                  <form
-                    onSubmit={form.handleSubmit(onSubmit)}
-                    className="space-y-4 mt-6"
-                  >
+                  <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+                    <form
+                      onSubmit={form.handleSubmit(onSubmit)}
+                      className="space-y-4 mt-6"
+                    >
                     <div className="space-y-2">
                       <Label htmlFor="locationType">סוג מיקום</Label>
                       <Controller
@@ -1057,7 +1058,7 @@ export default function AssetsPage() {
                             value={field.value}
                             onValueChange={field.onChange}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="min-h-[44px]">
                               <SelectValue placeholder="בחר סוג" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1077,7 +1078,7 @@ export default function AssetsPage() {
                             id="city"
                             list="city-options"
                             placeholder="בחר עיר"
-                            className={form.formState.errors.city ? "border-error" : ""}
+                            className={`min-h-[44px] ${form.formState.errors.city ? "border-error" : ""}`}
                             {...form.register("city", {
                               onChange: (e) =>
                                 fetchCitySuggestions(e.target.value),
@@ -1103,7 +1104,7 @@ export default function AssetsPage() {
                             id="street"
                             list="street-options"
                             placeholder="בחר רחוב"
-                            className={form.formState.errors.street ? "border-error" : ""}
+                            className={`min-h-[44px] ${form.formState.errors.street ? "border-error" : ""}`}
                             {...form.register("street", {
                               onChange: (e) =>
                                 fetchStreetSuggestions(
@@ -1131,6 +1132,7 @@ export default function AssetsPage() {
                           <Input
                             id="houseNumber"
                             placeholder="הזן מספר בית"
+                            className="min-h-[44px]"
                             {...form.register("houseNumber")}
                           />
                         </div>
@@ -1140,6 +1142,7 @@ export default function AssetsPage() {
                           <Input
                             id="apartment"
                             placeholder="הזן מספר דירה"
+                            className="min-h-[44px]"
                             {...form.register("apartment")}
                           />
                         </div>
@@ -1153,7 +1156,7 @@ export default function AssetsPage() {
                           <Input
                             id="block"
                             placeholder="הזן מספר גוש"
-                            className={form.formState.errors.block ? "border-error" : ""}
+                            className={`min-h-[44px] ${form.formState.errors.block ? "border-error" : ""}`}
                             {...form.register("block")}
                             aria-invalid={!!form.formState.errors.block}
                             aria-describedby={form.formState.errors.block ? "block-error" : undefined}
@@ -1169,7 +1172,7 @@ export default function AssetsPage() {
                           <Input
                             id="parcel"
                             placeholder="הזן מספר חלקה"
-                            className={form.formState.errors.parcel ? "border-error" : ""}
+                            className={`min-h-[44px] ${form.formState.errors.parcel ? "border-error" : ""}`}
                             {...form.register("parcel")}
                             aria-invalid={!!form.formState.errors.parcel}
                             aria-describedby={form.formState.errors.parcel ? "parcel-error" : undefined}
@@ -1185,6 +1188,7 @@ export default function AssetsPage() {
                           <Input
                             id="subparcel"
                             placeholder="הזן מספר תת חלקה"
+                            className="min-h-[44px]"
                             {...form.register("subparcel")}
                           />
                         </div>
@@ -1196,14 +1200,16 @@ export default function AssetsPage() {
                       <Input
                         id="radius"
                         type="number"
+                        className="min-h-[44px]"
                         {...form.register("radius", { valueAsNumber: true })}
                       />
                     </div>
 
-                    <Button type="submit" className="w-full">
+                    <Button type="submit" className="w-full min-h-[44px]">
                       הוסף נכס
                     </Button>
-                  </form>
+                    </form>
+                  </div>
                 </SheetContent>
               </Sheet>
             )}
@@ -1212,8 +1218,8 @@ export default function AssetsPage() {
         {/* Assets View */}
         <Card id="main-content">
           <CardHeader>
-            <CardTitle>נכסים זמינים</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">נכסים זמינים</CardTitle>
+            <CardDescription className="text-sm sm:text-base">
               {viewMode === 'map' 
                 ? 'מפת נכסים עם שכבות מידע ממשלתיות ועירוניות'
                 : 'טבלת נכסים עם נתוני שמאות, תכנון וניתוח שווי'
@@ -1226,8 +1232,8 @@ export default function AssetsPage() {
                 <div className="flex flex-col items-center justify-center py-12 space-y-4">
                   <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
                   <div className="text-center">
-                    <p className="text-muted-foreground">טוען נכסים...</p>
-                    <p className="text-sm text-muted-foreground">אנא המתן בזמן שאנחנו מביאים את הנתונים העדכניים</p>
+                    <p className="text-sm sm:text-base text-muted-foreground">טוען נכסים...</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">אנא המתן בזמן שאנחנו מביאים את הנתונים העדכניים</p>
                   </div>
                 </div>
                 {/* Skeleton table for better UX */}

@@ -770,17 +770,21 @@ export default function AssetsTable({
           />
           {/* Table view - show when viewMode is 'table' */}
           {viewMode === 'table' && (
-            <div className="overflow-x-auto" role="region" aria-label="טבלת נכסים">
-              <Table style={{ width: '100%', minWidth: table.getCenterTotalSize() }}>
+            <div className="overflow-x-auto overflow-y-hidden" role="region" aria-label="טבלת נכסים">
+              <div className="min-w-full">
+                <Table style={{ width: '100%', minWidth: table.getCenterTotalSize() }}>
                 <THead>
                   <TR className="group">
                     {table.getFlatHeaders().map(h=>(
                       <TH 
                         key={h.id} 
-                        className={`relative ${h.column.id==='address'?'sticky right-0 bg-card z-10':''} ${
+                        className={`relative whitespace-nowrap ${h.column.id==='address'?'sticky right-0 bg-card z-10':''} ${
                           h.column.getCanResize() ? 'hover:bg-muted/30' : ''
                         } ${h.column.id === 'actions' ? 'w-full' : ''}`}
-                        style={{ width: h.column.id === 'actions' ? 'auto' : h.getSize() }}
+                        style={{ 
+                          width: h.column.id === 'actions' ? 'auto' : h.getSize(),
+                          minWidth: h.column.id === 'address' ? '200px' : '80px'
+                        }}
                       >
                         <div className="flex items-center justify-between w-full">
                           <div className="flex-1">
@@ -854,8 +858,11 @@ export default function AssetsTable({
                         {row.getVisibleCells().map(cell=>(
                           <TD 
                             key={cell.id} 
-                            className={`${cell.column.id==='address'?'sticky right-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
-                            style={{ width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize() }}
+                            className={`whitespace-nowrap ${cell.column.id==='address'?'sticky right-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
+                            style={{ 
+                              width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize(),
+                              minWidth: cell.column.id === 'address' ? '200px' : '80px'
+                            }}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TD>
@@ -864,7 +871,8 @@ export default function AssetsTable({
                     ))
                   )}
                 </TBody>
-              </Table>
+                </Table>
+              </div>
             </div>
           )}
         </div>

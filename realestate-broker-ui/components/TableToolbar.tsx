@@ -217,7 +217,7 @@ export default function TableToolbar({
   };
 
   return (
-    <div className="flex flex-col gap-4 p-3 sm:p-4 border-b border-border bg-muted/30">
+    <div className="flex flex-col gap-3 p-3 sm:p-4 border-b border-border bg-muted/30">
       {/* Search - Full width */}
       <div className="relative w-full">
         <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -225,7 +225,7 @@ export default function TableToolbar({
           placeholder={searchPlaceholder}
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pr-10 text-right w-full"
+          className="pr-10 text-right w-full min-h-[44px]"
           dir="rtl"
         />
       </div>
@@ -235,7 +235,7 @@ export default function TableToolbar({
         {/* Filter toggle */}
         <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="min-h-[44px]">
               <Filter className="h-4 w-4 me-2" />
               <span className="hidden sm:inline">סינון</span>
               {hasActiveFilters && (
@@ -520,7 +520,7 @@ export default function TableToolbar({
             variant={viewMode === 'table' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('table')}
-            className="rounded-r-none"
+            className="rounded-r-none min-h-[44px] min-w-[44px]"
             title="תצוגת טבלה"
           >
             <List className="h-4 w-4" />
@@ -529,7 +529,7 @@ export default function TableToolbar({
             variant={viewMode === 'cards' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('cards')}
-            className="rounded-none border-x"
+            className="rounded-none border-x min-h-[44px] min-w-[44px]"
             title="תצוגת כרטיסים"
           >
             <Grid3X3 className="h-4 w-4" />
@@ -538,7 +538,7 @@ export default function TableToolbar({
             variant={viewMode === 'map' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('map')}
-            className="rounded-l-none"
+            className="rounded-l-none min-h-[44px] min-w-[44px]"
             title="תצוגת מפה"
           >
             <Map className="h-4 w-4" />
@@ -548,7 +548,7 @@ export default function TableToolbar({
         {/* Column selection */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="min-h-[44px]">
               <Settings className="h-4 w-4 me-2" />
               <span className="hidden sm:inline">עמודות</span>
             </Button>
@@ -655,7 +655,7 @@ export default function TableToolbar({
         {/* Export dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="min-h-[44px]">
               <Download className="h-4 w-4 me-2" />
               <span className="hidden sm:inline">ייצוא</span>
             </Button>
@@ -685,6 +685,7 @@ export default function TableToolbar({
           size="sm"
           onClick={onRefresh}
           disabled={loading}
+          className="min-h-[44px]"
         >
           <RefreshCw className={`h-4 w-4 me-2 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
@@ -692,7 +693,7 @@ export default function TableToolbar({
 
         {/* Add new */}
         {onAddNew && (
-          <Button onClick={onAddNew} size="sm">
+          <Button onClick={onAddNew} size="sm" className="min-h-[44px]">
             <Plus className="h-4 w-4 me-2" />
             <span className="hidden sm:inline">הוסף חדש</span>
           </Button>

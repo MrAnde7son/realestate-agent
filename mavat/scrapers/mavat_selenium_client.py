@@ -319,6 +319,76 @@ class MavatSeleniumClient:
             except Exception as e:
                 self.logger.debug(f"Error enabling field with selector {selector}: {e}")
 
+    def _click_parent_clickable(self, element) -> None:
+        """Try to click parent elements that might be the actual clickable element."""
+        try:
+            # Find clickable parent elements (button, a, [onclick], etc.)
+            parent_element = self.driver.execute_script("""
+                let elem = arguments[0];
+                let current = elem;
+                
+                // Look up the DOM tree for clickable parents
+                for (let i = 0; i < 5; i++) {
+                    if (!current || current === document.body) break;
+                    
+                    // Check if current element or parent is clickable
+                    if (current.tagName === 'BUTTON' || 
+                        current.tagName === 'A' ||
+                        current.getAttribute('onclick') ||
+                        current.getAttribute('role') === 'button' ||
+                        current.classList.contains('clickable')) {
+                        return current;
+                    }
+                    current = current.parentElement;
+                }
+                return elem;
+            """, element)
+            
+            if parent_element and parent_element != element:
+                self.logger.info("Found clickable parent element, clicking it...")
+                self.driver.execute_script("arguments[0].click();", parent_element)
+            else:
+                raise Exception("No clickable parent found")
+                
+        except Exception as e:
+            self.logger.debug(f"Parent clickable strategy failed: {e}")
+            raise
+
+    def _hide_overlay_and_click(self, element) -> None:
+        """Temporarily hide overlays and click the element."""
+        try:
+            # Hide common overlay elements that might interfere
+            hide_script = """
+                // Hide common overlays and fixed elements
+                const overlays = document.querySelectorAll(
+                    '.uk-grid, .fixed, .sticky, .modal-backdrop, .overlay, .popup, ' +
+                    '[class*="fixed"], [class*="sticky"], [class*="modal"], [class*="overlay"]'
+                );
+                
+                overlays.forEach(overlay => {
+                    if (overlay && !overlay.contains(arguments[0])) {
+                        overlay.style.display = 'none';
+                    }
+                });
+                
+                // Click the element
+                arguments[0].click();
+                
+                // Restore overlays after a short delay
+                setTimeout(() => {
+                    overlays.forEach(overlay => {
+                        overlay.style.display = '';
+                    });
+                }, 100);
+            """
+            
+            self.driver.execute_script(hide_script, element)
+            self.logger.info("Successfully hid overlays and clicked element")
+            
+        except Exception as e:
+            self.logger.debug(f"Hide overlay strategy failed: {e}")
+            raise
+
     def _fill_advanced_search_form(self, **kwargs) -> None:
         """Fill the advanced search form with provided parameters."""
         self.logger.info("Filling advanced search form...")
@@ -969,10 +1039,37 @@ class MavatSeleniumClient:
             if pdf_button:
                 self.logger.info(f"Clicking PDF button: '{pdf_button.text}'")
                 try:
-                    # Scroll to element and click
+                    # Scroll to element and click with improved error handling
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", pdf_button)
                     time.sleep(1)
-                    pdf_button.click()
+                    
+                    # Try multiple click strategies to handle overlay issues
+                    click_successful = False
+                    click_strategies = [
+                        ("Direct click", lambda: pdf_button.click()),
+                        ("JavaScript click", lambda: self.driver.execute_script("arguments[0].click();", pdf_button)),
+                        ("Actions click", lambda: self.driver.execute_script(
+                            "arguments[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));", 
+                            pdf_button
+                        )),
+                        ("Parent clickable element", lambda: self._click_parent_clickable(pdf_button)),
+                        ("Hide overlay and click", lambda: self._hide_overlay_and_click(pdf_button))
+                    ]
+                    
+                    for strategy_name, click_method in click_strategies:
+                        try:
+                            self.logger.info(f"Trying {strategy_name}...")
+                            click_method()
+                            click_successful = True
+                            self.logger.info(f"PDF button click successful with {strategy_name}")
+                            break
+                        except Exception as e:
+                            self.logger.debug(f"{strategy_name} failed: {e}")
+                            continue
+                    
+                    if not click_successful:
+                        raise RuntimeError("All click strategies failed")
+                        
                     time.sleep(5)  # Wait longer for PDF to load
                     
                     # Check if a new tab/window opened

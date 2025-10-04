@@ -9,6 +9,12 @@ from django.contrib.auth import get_user_model
 from .models import PlanType, UserPlan
 from .constants import PLAN_LIMITS, PLAN_DISPLAY_NAMES, PLAN_DESCRIPTIONS
 
+PLAN_PRICES = {
+    'free': 79,
+    'basic': 399,
+    'pro': 0,  # Custom pricing, handled via sales
+}
+
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
@@ -32,7 +38,7 @@ class PlanService:
                 defaults={
                     'display_name': PLAN_DISPLAY_NAMES.get(plan_name, plan_name.title()),
                     'description': PLAN_DESCRIPTIONS.get(plan_name, ''),
-                    'price': 0 if plan_name == 'free' else (149 if plan_name == 'basic' else 299),
+                    'price': PLAN_PRICES.get(plan_name, 0),
                     'currency': 'ILS',
                     'billing_period': 'monthly',
                     **limits
@@ -56,6 +62,11 @@ class PlanService:
                 if plan_type.description != description:
                     plan_type.description = description
                     updated_fields.append('description')
+                price = PLAN_PRICES.get(plan_name, plan_type.price)
+                if plan_type.price != price:
+                    plan_type.price = price
+                    updated_fields.append('price')
+
                 if updated_fields:
                     plan_type.save(update_fields=updated_fields)
                     logger.info(f"Updated plan type: {plan_type.name}")

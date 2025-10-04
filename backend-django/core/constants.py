@@ -24,8 +24,8 @@ SECTION_TITLES_HE = {
 PLAN_LIMITS = {
     'free': {
         'asset_limit': 1,
-        'report_limit': 10,
-        'alert_limit': 5,
+        'report_limit': 1,
+        'alert_limit': 0,
         'advanced_analytics': False,
         'data_export': False,
         'api_access': False,
@@ -34,13 +34,13 @@ PLAN_LIMITS = {
     },
     'basic': {
         'asset_limit': 10,
-        'report_limit': 50,
+        'report_limit': 25,
         'alert_limit': 25,
-        'advanced_analytics': True,
+        'advanced_analytics': False,
         'data_export': True,
         'api_access': False,
         'priority_support': False,
-        'custom_reports': False,
+        'custom_reports': True,
     },
     'pro': {
         'asset_limit': -1,  # Unlimited
@@ -55,13 +55,13 @@ PLAN_LIMITS = {
 }
 
 PLAN_DISPLAY_NAMES = {
-    'free': 'חבילה חינמית',
-    'basic': 'חבילה בסיסית',
-    'pro': 'חבילה מקצועית',
+    'free': 'פרטי',
+    'basic': 'בסיסי',
+    'pro': 'עיסקי',
 }
 
 PLAN_DESCRIPTIONS = {
-    'free': 'למשתמשים מתחילים',
-    'basic': 'למשתמשים מתקדמים',
-    'pro': 'למשתמשים מקצועיים',
+    'free': 'דוח חד פעמי למשקיע פרטי',
+    'basic': 'מנוי חודשי למשקיע פעיל עם חבילת דוחות מתקדמת',
+    'pro': 'פתרון עסקי לצוותים מקצועיים עם יכולות ללא הגבלה',
 }

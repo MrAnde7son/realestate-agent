@@ -786,21 +786,28 @@ if __name__ == "__main__":
             print("Mavat is not accessible. Check your network or try again later.")
         else:
             print("Mavat system is reachable. Performing a demo search...")
+            results = []
             try:
                 results = client.search_plans(block=6336, limit=5)
                 for hit in results:
                     print(f"{hit.plan_id} | {hit.title} | {hit.status}")
-                if results:
+            except Exception as e:
+                print(f"Error performing search: {e}")
+                results = []
+
+            if results:
+                first_plan_id = results[0].plan_id
+                try:
                     print("\nFetching first plan details...")
-                    plan = client.get_plan_details(results[0].plan_id)
+                    plan = client.get_plan_details(first_plan_id)
                     print(plan)
                 except Exception as e:
                     print(f"Error fetching plan details: {e}")
 
                 try:
-                    pdf_content = client.fetch_pdf(hit.plan_id)
+                    pdf_content = client.fetch_pdf(first_plan_id)
                     print(f"Fetched PDF content of size: {len(pdf_content)} bytes")
                 except Exception as e:
                     print(f"Error fetching PDF: {e}")
-        else:
-            print("Mavat is not accessible") 
+            else:
+                print("No plans found for the demo search.")

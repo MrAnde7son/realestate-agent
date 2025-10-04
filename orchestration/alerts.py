@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 try:  # optional dependency for WhatsApp via Twilio
     from twilio.rest import Client  # type: ignore
@@ -56,7 +59,7 @@ class EmailAlert(Alert):
         fallback_to_console = os.getenv("EMAIL_FALLBACK_TO_CONSOLE", "false").lower() == "true"
 
         if sandbox_enabled and not any(fragment in self.to_email for fragment in SANDBOX_ALLOWED):
-            print(f"RESEND_SANDBOX active - skipping email to {self.to_email}")
+            logger.info(f"RESEND_SANDBOX active - skipping email to {self.to_email}")
             return
 
         if not api_key:

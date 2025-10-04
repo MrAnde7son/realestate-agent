@@ -9,7 +9,7 @@ interactions better than Playwright for government websites.
 Based on the successful approach from: gov/nadlan/scraper_selenium.py
 """
 
-import json
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -21,9 +21,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
-from bs4 import BeautifulSoup
 
 
 @dataclass
@@ -83,6 +81,7 @@ class MavatSeleniumClient:
         self.headless = headless
         self.driver = None
         self.wait = None
+        self.logger = logging.getLogger(__name__)
 
     def _wait_for_spinner(self, timeout: float = 15.0) -> None:
         """Wait for the loading spinner overlay to disappear."""
@@ -146,14 +145,8 @@ class MavatSeleniumClient:
         self,
         query: Optional[str] = None,
         city: Optional[str] = None,
-        district: Optional[str] = None,
-        plan_area: Optional[str] = None,
-        street: Optional[str] = None,
         block: Optional[str] = None,
         parcel: Optional[str] = None,
-        block_number: Optional[str] = None,
-        parcel_number: Optional[str] = None,
-        status: Optional[str] = None,
         limit: int = 20
     ) -> List[MavatSearchHit]:
         """Search for plans using Selenium automation.
@@ -161,14 +154,8 @@ class MavatSeleniumClient:
         Args:
             query: Free text search query
             city: City name
-            district: District name
-            plan_area: Plan area name
-            street: Street name
             block: block (block) number
             parcel: parcel (parcel) number
-            block_number: Block number
-            parcel_number: Parcel number
-            status: Plan status filter
             limit: Maximum results
             
         Returns:
@@ -179,14 +166,14 @@ class MavatSeleniumClient:
         
         try:
             # Navigate to the search page
-            print(f"Navigating to: {self.SEARCH_URL}")
+            self.logger.info(f"Navigating to: {self.SEARCH_URL}")
             self.driver.get(self.SEARCH_URL)
 
             # Wait for page to load
             self._wait_for_spinner()
             
             # Look for search form elements
-            print("Looking for search form...")
+            self.logger.info("Looking for search form...")
             
             # Try to find and click on the "תכניות" (Plans) button first
             try:
@@ -216,16 +203,16 @@ class MavatSeleniumClient:
                         continue
                 
                 if plans_button:
-                    print("Found plans button, clicking it...")
+                    self.logger.info("Found plans button, clicking it...")
                     # Scroll to element and click
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", plans_button)
                     self._wait_for_spinner()
                     plans_button.click()
                     self._wait_for_spinner()
                 else:
-                    print("Could not find plans button, continuing with search...")
+                    self.logger.warning("Could not find plans button, continuing with search...")
             except Exception as e:
-                print(f"Could not find plans button: {e}")
+                self.logger.warning(f"Could not find plans button: {e}")
             
             # Look for search input field
             search_input = None
@@ -241,13 +228,13 @@ class MavatSeleniumClient:
                     search_input = self.wait.until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
                     )
-                    print(f"Found search input with selector: {selector}")
+                    self.logger.info(f"Found search input with selector: {selector}")
                     break
                 except:
                     continue
             
             if not search_input:
-                print("No search input found, trying direct URL approach...")
+                self.logger.info("No search input found, trying direct URL approach...")
                 # Try direct URL with query parameters
                 search_params = []
                 if query:
@@ -261,13 +248,13 @@ class MavatSeleniumClient:
                 
                 if search_params:
                     url = f"{self.SEARCH_URL}?{'&'.join(search_params)}"
-                    print(f"Trying direct URL: {url}")
+                    self.logger.info(f"Trying direct URL: {url}")
                     self.driver.get(url)
                     time.sleep(3)
             else:
                 # Fill search input
                 search_text = query or city
-                print(f"Filling search input with: {search_text}")
+                self.logger.info(f"Filling search input with: {search_text}")
                 search_input.clear()
                 search_input.send_keys(search_text)
                 
@@ -292,20 +279,20 @@ class MavatSeleniumClient:
                         continue
                 
                 if search_button:
-                    print("Found search button, clicking it...")
+                    self.logger.info("Found search button, clicking it...")
                     self._wait_for_spinner()
                     search_button.click()
                     self._wait_for_spinner()
                     time.sleep(3)
                 else:
-                    print("No search button found, trying Enter key...")
+                    self.logger.info("No search button found, trying Enter key...")
                     self._wait_for_spinner()
                     search_input.send_keys(Keys.RETURN)
                     self._wait_for_spinner()
                     time.sleep(3)
 
             # Wait for results to load
-            print("Waiting for search results...")
+            self.logger.info("Waiting for search results...")
             time.sleep(3)
             self._wait_for_spinner()
             
@@ -314,11 +301,11 @@ class MavatSeleniumClient:
             
             # Look for tables with actual data (not empty rows)
             tables = self.driver.find_elements(By.CSS_SELECTOR, "table")
-            print(f"Found {len(tables)} tables on page")
+            self.logger.info(f"Found {len(tables)} tables on page")
             
             for table_idx, table in enumerate(tables):
                 rows = table.find_elements(By.CSS_SELECTOR, "tr")
-                print(f"Table {table_idx}: {len(rows)} rows")
+                self.logger.debug(f"Table {table_idx}: {len(rows)} rows")
                 
                 if len(rows) > 1:  # More than just header
                     # Check if this table has meaningful data
@@ -331,7 +318,7 @@ class MavatSeleniumClient:
                             break
                     
                     if first_data_row:
-                        print(f"Table {table_idx} has data: {first_data_row}")
+                        self.logger.debug(f"Table {table_idx} has data: {first_data_row}")
                         
                         # Extract data from all rows
                         for row_idx, row in enumerate(rows[1:limit+1]):  # Skip header, limit results
@@ -385,13 +372,13 @@ class MavatSeleniumClient:
                                 hits.append(hit)
                                 
                             except Exception as e:
-                                print(f"Error extracting data from row {row_idx}: {e}")
+                                self.logger.warning(f"Error extracting data from row {row_idx}: {e}")
                                 continue
                         
                         if hits:
                             break  # Found results in this table
             
-            print(f"Extracted {len(hits)} search results")
+            self.logger.info(f"Extracted {len(hits)} search results")
             return hits[:limit]
             
         except Exception as e:
@@ -412,7 +399,7 @@ class MavatSeleniumClient:
         try:
             # Navigate to plan page
             plan_url = f"{self.SEARCH_URL}?text={plan_number}"
-            print(f"Navigating to plan page: {plan_url}")
+            self.logger.info(f"Navigating to plan page: {plan_url}")
             self.driver.get(plan_url)
             time.sleep(3)
             
@@ -420,11 +407,11 @@ class MavatSeleniumClient:
             try:
                 plans_tab = self.driver.find_element(By.XPATH, "//button[contains(text(), 'תכניות') or @aria-label='תכניות']")
                 if plans_tab and plans_tab.is_displayed():
-                    print("Clicking plans tab to ensure we're viewing plans...")
+                    self.logger.info("Clicking plans tab to ensure we're viewing plans...")
                     plans_tab.click()
                     time.sleep(2)
             except:
-                print("Could not find plans tab, continuing...")
+                self.logger.warning("Could not find plans tab, continuing...")
             
             # Look for PDF button/link with more comprehensive selectors
             pdf_button = None
@@ -445,7 +432,7 @@ class MavatSeleniumClient:
                 "//a[contains(@href, 'PDF')]"
             ]
             
-            print("Looking for PDF button...")
+            self.logger.info("Looking for PDF button...")
             for selector in pdf_selectors:
                 try:
                     if selector.startswith("//"):
@@ -456,7 +443,7 @@ class MavatSeleniumClient:
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
                             pdf_button = element
-                            print(f"Found PDF button with selector: {selector} - Text: '{element.text}'")
+                            self.logger.info(f"Found PDF button with selector: {selector} - Text: '{element.text}'")
                             break
                     
                     if pdf_button:
@@ -466,7 +453,7 @@ class MavatSeleniumClient:
             
             if not pdf_button:
                 # Try to find any clickable element that might lead to PDF
-                print("No specific PDF button found, looking for any PDF-related elements...")
+                self.logger.info("No specific PDF button found, looking for any PDF-related elements...")
                 clickable_elements = self.driver.find_elements(By.CSS_SELECTOR, "a, button, img")
                 for element in clickable_elements:
                     if element.is_displayed() and element.is_enabled():
@@ -475,11 +462,11 @@ class MavatSeleniumClient:
                         if any(keyword in text for keyword in ['pdf', 'הצג', 'download', 'הורד']) or \
                            any(keyword in title.lower() for keyword in ['pdf', 'הצג', 'download', 'הורד']):
                             pdf_button = element
-                            print(f"Found potential PDF element: '{element.text}' (title: '{title}')")
+                            self.logger.info(f"Found potential PDF element: '{element.text}' (title: '{title}')")
                             break
             
             if pdf_button:
-                print(f"Clicking PDF button: '{pdf_button.text}'")
+                self.logger.info(f"Clicking PDF button: '{pdf_button.text}'")
                 try:
                     # Scroll to element and click
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", pdf_button)
@@ -489,18 +476,18 @@ class MavatSeleniumClient:
                     
                     # Check if a new tab/window opened
                     if len(self.driver.window_handles) > 1:
-                        print("New tab opened, switching to it...")
+                        self.logger.info("New tab opened, switching to it...")
                         self.driver.switch_to.window(self.driver.window_handles[-1])
                         time.sleep(2)
                     
                     # Get the current URL to see if it's a PDF
                     current_url = self.driver.current_url
-                    print(f"Current URL after click: {current_url}")
+                    self.logger.info(f"Current URL after click: {current_url}")
                     
                     if current_url.endswith('.pdf') or 'pdf' in current_url.lower():
                         # Download the PDF content
                         pdf_content = self.driver.page_source.encode('utf-8')
-                        print(f"PDF content size: {len(pdf_content)} bytes")
+                        self.logger.info(f"PDF content size: {len(pdf_content)} bytes")
                         return pdf_content
                     else:
                         # Look for PDF content in the page
@@ -511,7 +498,7 @@ class MavatSeleniumClient:
                             # Check if we can find any PDF links in the page
                             pdf_links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='pdf'], a[href*='PDF']")
                             if pdf_links:
-                                print(f"Found {len(pdf_links)} PDF links, trying first one...")
+                                self.logger.info(f"Found {len(pdf_links)} PDF links, trying first one...")
                                 pdf_links[0].click()
                                 time.sleep(3)
                                 return self.driver.page_source.encode('utf-8')
@@ -540,7 +527,7 @@ class MavatSeleniumClient:
         try:
             # Navigate to plan details page
             plan_url = f"{self.SEARCH_URL}?text={plan_id}"
-            print(f"Navigating to plan details: {plan_url}")
+            self.logger.info(f"Navigating to plan details: {plan_url}")
             self.driver.get(plan_url)
             time.sleep(3)
             

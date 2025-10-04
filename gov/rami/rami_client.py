@@ -7,6 +7,7 @@ method that paginates through results and returns them as a
 
 from __future__ import annotations
 
+import logging
 import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
@@ -51,6 +52,7 @@ class RamiClient:
         if headers:
             self.headers.update(headers)
         self.cookies = cookies
+        self.logger = logging.getLogger(__name__)
         self.page_param = page_param
         self.size_param = size_param
         self.page_size = page_size
@@ -257,7 +259,7 @@ class RamiClient:
         save_path = Path(save_path)
         
         if save_path.exists() and not overwrite:
-            print(f"File already exists, skipping: {save_path}")
+            self.logger.info(f"File already exists, skipping: {save_path}")
             return True
             
         try:
@@ -276,22 +278,22 @@ class RamiClient:
             
             # Check status code first
             if response.status_code == 404:
-                print(f"File not found (404): {url}")
+                self.logger.warning(f"File not found (404): {url}")
                 return False
             elif response.status_code == 403:
-                print(f"Access forbidden (403): {url}")
+                self.logger.warning(f"Access forbidden (403): {url}")
                 return False
             elif response.status_code != 200:
-                print(f"HTTP error {response.status_code} for {url}")
+                self.logger.warning(f"HTTP error {response.status_code} for {url}")
                 return False
             
             # Check if it's actually a PDF/document (not HTML error page)
             content_type = response.headers.get('content-type', '').lower()
             if 'text/html' in content_type:
-                print(f"Warning: Got HTML response instead of document for {url}")
+                self.logger.warning(f"Got HTML response instead of document for {url}")
                 # Log some of the HTML to understand the error
                 html_preview = response.text[:200] if hasattr(response, 'text') else "Cannot read HTML"
-                print(f"HTML preview: {html_preview}...")
+                self.logger.warning(f"HTML preview: {html_preview}...")
                 return False
             
             # Write file in chunks
@@ -302,11 +304,11 @@ class RamiClient:
                         f.write(chunk)
                         total_size += len(chunk)
                         
-            print(f"Downloaded: {save_path} ({total_size} bytes)")
+            self.logger.info(f"Downloaded: {save_path} ({total_size} bytes)")
             return True
             
         except Exception as e:
-            print(f"Failed to download {url}: {e}")
+            self.logger.error(f"Failed to download {url}: {e}")
             return False
 
     def download_plan_documents(self, plan: Dict[str, Any], base_dir: Union[str, Path] = "plans",
@@ -375,7 +377,7 @@ class RamiClient:
         
         for i, plan in enumerate(plans, 1):
             plan_number = plan.get('planNumber', f'plan_{i}')
-            print(f"Downloading documents for plan {i}/{len(plans)}: {plan_number}")
+            self.logger.info(f"Downloading documents for plan {i}/{len(plans)}: {plan_number}")
             
             results = self.download_plan_documents(plan, base_dir, doc_types, overwrite)
             plan_results[plan_number] = results
@@ -383,7 +385,7 @@ class RamiClient:
             total_success += len(results['success'])
             total_failed += len(results['failed'])
             
-            print(f"  ✓ {len(results['success'])} files downloaded, ✗ {len(results['failed'])} failed")
+            self.logger.info(f"  ✓ {len(results['success'])} files downloaded, ✗ {len(results['failed'])} failed")
         
         summary = {
             'total_plans': len(plans),
@@ -392,10 +394,10 @@ class RamiClient:
             'plan_results': plan_results
         }
         
-        print("\nDownload Summary:")
-        print(f"Plans processed: {summary['total_plans']}")
-        print(f"Files downloaded: {summary['total_files_downloaded']}")
-        print(f"Files failed: {summary['total_files_failed']}")
+        self.logger.info("\nDownload Summary:")
+        self.logger.info(f"Plans processed: {summary['total_plans']}")
+        self.logger.info(f"Files downloaded: {summary['total_files_downloaded']}")
+        self.logger.info(f"Files failed: {summary['total_files_failed']}")
         
         return summary
 

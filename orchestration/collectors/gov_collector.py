@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from gov.decisive import DecisiveAppraisalClient, DecisiveAppraisal
 from gov.nadlan.scraper import NadlanDealsScraper
 
-from .base_collector import BaseCollector
+from orchestration.collectors.base_collector import BaseCollector
 from orchestration.location import LocationQuery, ensure_location_query
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class GovCollector(BaseCollector):
     def collect(
         self,
         block: str,
-        parcel: str,
+        parcel: Optional[str] = None,
         location: Optional[LocationQuery] = None,
     ) -> Dict[str, Any]:
         """Collect government data for a given block/parcel and location."""
@@ -71,3 +71,8 @@ class GovCollector(BaseCollector):
             and isinstance(location, LocationQuery)
             and not location.is_empty()
         )
+
+if __name__ == "__main__":
+    collector = GovCollector()
+    result = collector.collect(block="6336", location=LocationQuery("תל אביב-יפו", "רוזוב", 4))
+    print(result)

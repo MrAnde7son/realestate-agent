@@ -15,61 +15,57 @@ import { authAPI, PlanInfo as PlanInfoType } from '@/lib/auth'
 
 const plans = [
   {
-    name: "חבילה חינמית",
-    description: "למשתמשים מתחילים",
-    price: "0 ₪",
-    priceDescription: "לחודש",
+    name: "פרטי",
+    description: "דוח חד פעמי עם כל שכבות המידע",
+    price: "79 ₪",
+    priceDescription: "לדוח",
     features: [
-      "נכס אחד במעקב",
-      "התראות בסיסיות",
-      "מחשבון משכנתא בסיסי",
-      "דוחות בסיסיים",
-      "תמיכה בדוא״ל, וואטסאפ"
+      "דוח אינדיקטיבי מלא לנכס אחד",
+      "נתוני תכנון, משפט ומיסוי",
+      "הערכת שווי ופוטנציאל",
+      "חישובי משכנתא ועלויות עסקה",
+      "תמיכה בדוא״ל"
     ],
     limitations: [
-      "ללא ניתוח מתקדם",
-      "ללא ייצוא נתונים",
-      "ללא תמיכה טלפונית"
+      "ללא דוחות נוספים",
+      "ללא התראות מתמשכות",
+      "ללא ייצוא ממותג"
     ],
     popular: false,
     icon: Star
   },
   {
-    name: "חבילה בסיסית",
-    description: "למשתמשים מתקדמים",
-    price: "149 ₪",
+    name: "בסיסי",
+    description: "המנוי המושלם למשקיע פעיל",
+    price: "249 ₪",
     priceDescription: "לחודש",
     features: [
-      "עד 10 נכסים במעקב",
-      "התראות מתקדמות",
-      "מחשבון משכנתא מתקדם",
-      "דוחות מפורטים",
-      "ייצוא נתונים ל-Excel",
-      "ניתוח שוק בסיסי"
+      "עד 10 נכסים בחודש",
+      "עד 25 דוחות בחודש",
+      "התראות חכמות עד 25 כללים",
+      "ייצוא דוחות ממותגים",
+      "חישובי משכנתא ועלויות עסקה ללא הגבלה",
+      "תמיכה בדוא״ל ובוואטסאפ"
     ],
     limitations: [
-      "ללא ניתוח AI מתקדם",
-      "ללא אינטגרציה עם מערכות חיצוניות"
+      "ללא גישת API",
+      "ללא יכולות AI מתקדמות"
     ],
     popular: true,
     icon: Zap
   },
   {
-    name: "חבילה מקצועית",
-    description: "למשתמשים מקצועיים",
-    price: "299 ₪",
+    name: "עיסקי",
+    description: "לצוותים מקצועיים וחברות",
+    price: "799 ₪",
     priceDescription: "לחודש",
     features: [
-      "נכסים במעקב ללא הגבלה",
-      "התראות מותאמות אישית",
-      "מחשבון משכנתא מתקדם",
-      "דוחות מותאמים אישית",
-      "ייצוא נתונים לכל הפורמטים",
-      "ניתוח שוק מתקדם",
-      "ניתוח AI מתקדם",
-      "אינטגרציה עם מערכות חיצוניות",
-      "API גישה",
-      "ניהול משתמשים והרשאות"
+      "נכסים ודוחות ללא הגבלה",
+      "התראות ללא הגבלה",
+      "יכולות ניהול לקוחות",
+      "ניתוח מבוסס בינה מלאכותית",
+      "תמיכה עדיפה",
+      "גישה ל-API ואינטגרציות"
     ],
     limitations: [],
     popular: false,
@@ -102,37 +98,41 @@ export default function BillingPage() {
   }
 
   const getPlanButtonText = (planName: string) => {
-    if (!currentPlan) return "התחל עכשיו"
-    
-    const planMap: Record<string, string> = {
-      "חבילה חינמית": "free",
-      "חבילה בסיסית": "basic", 
-      "חבילה מקצועית": "pro"
+    if (!currentPlan) {
+      return "התחל עכשיו"
     }
     
+    const planMap: Record<string, string> = {
+      "פרטי": "free",
+      "בסיסי": "basic",
+      "עיסקי": "pro"
+    }
+
     const planKey = planMap[planName]
     if (planKey === currentPlan.plan_name) {
       return "החבילה הנוכחית"
     }
-    
-    return "בחר חבילה"
+
+    return "בחר מסלול"
   }
 
   const getPlanButtonVariant = (planName: string) => {
-    if (!currentPlan) return "outline" as const
-    
-    const planMap: Record<string, string> = {
-      "חבילה חינמית": "free",
-      "חבילה בסיסית": "basic",
-      "חבילה מקצועית": "pro"
+    if (!currentPlan) {
+      return planName === "בסיסי" ? "default" as const : "outline" as const
     }
-    
+
+    const planMap: Record<string, string> = {
+      "פרטי": "free",
+      "בסיסי": "basic",
+      "עיסקי": "pro"
+    }
+
     const planKey = planMap[planName]
     if (planKey === currentPlan.plan_name) {
       return "secondary" as const
     }
-    
-    return planName === "חבילה בסיסית" ? "default" as const : "outline" as const
+
+    return planName === "בסיסי" ? "default" as const : "outline" as const
   }
 
   return (

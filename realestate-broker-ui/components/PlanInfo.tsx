@@ -24,16 +24,16 @@ export default function PlanInfoComponent({ className }: PlanInfoProps) {
 
   const planTranslations: Record<string, { name: string; description: string }> = {
     free: {
-      name: 'חבילה חינמית',
-      description: 'פתרון מושלם למשתמשים מתחילים שרוצים להכיר את המערכת',
+      name: 'פרטי',
+      description: 'דוח חד פעמי הכולל נתוני נכס, הערכת שווי ועלויות עסקה ומשכנתא',
     },
     basic: {
-      name: 'חבילה בסיסית',
-      description: 'למשתמשים מתקדמים הזקוקים לכלי ניתוח וניהול מורחבים',
+      name: 'בסיסי',
+      description: 'מנוי חודשי עם עד 10 נכסים, עד 25 דוחות וייצוא דוחות ממותגים',
     },
     pro: {
-      name: 'חבילה מקצועית',
-      description: 'לצוותים מקצועיים הדורשים יכולות מתקדמות וללא הגבלה',
+      name: 'עיסקי',
+      description: 'לצוותים מקצועיים עם נכסים והתראות ללא הגבלה ויכולות AI מתקדמות',
     },
   }
 

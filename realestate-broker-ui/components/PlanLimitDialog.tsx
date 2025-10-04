@@ -33,9 +33,9 @@ const planIcons = {
 }
 
 const planNames = {
-  free: 'חבילה חינמית',
-  basic: 'חבילה בסיסית',
-  pro: 'חבילה מקצועית',
+  free: 'פרטי',
+  basic: 'בסיסי',
+  pro: 'עיסקי',
 }
 
 export default function PlanLimitDialog({ open, onOpenChange, error }: PlanLimitDialogProps) {
@@ -92,12 +92,12 @@ export default function PlanLimitDialog({ open, onOpenChange, error }: PlanLimit
 
           {/* Upgrade Benefits */}
           <div className="space-y-2">
-            <h4 className="text-sm font-medium">שדרוג החבילה יאפשר לך:</h4>
+            <h4 className="text-sm font-medium">שדרוג המסלול יאפשר לך:</h4>
             <ul className="text-sm text-gray-600 space-y-1">
-              <li>• עד 25 נכסים במעקב (חבילה בסיסית)</li>
-              <li>• נכסים ללא הגבלה (חבילה מקצועית)</li>
-              <li>• תכונות מתקדמות נוספות</li>
-              <li>• תמיכה מועדפת</li>
+              <li>• עד 10 נכסים בחודש (מסלול בסיסי)</li>
+              <li>• דוחות עד 25 בחודש (מסלול בסיסי)</li>
+              <li>• נכסים והתראות ללא הגבלה (מסלול עיסקי)</li>
+              <li>• יכולות מתקדמות, כולל תמיכה עדיפה ו-AI</li>
             </ul>
           </div>
         </div>

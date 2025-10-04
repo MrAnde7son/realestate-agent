@@ -23,23 +23,23 @@ describe('PlanInfo Component', () => {
     plan_name: 'basic',
     display_name: 'Basic Plan',
     description: 'Basic plan for advanced users',
-    price: 149.00,
+    price: 249.00,
     currency: 'ILS',
     billing_period: 'monthly',
     is_active: true,
     is_expired: false,
     expires_at: null,
     limits: {
-      assets: { limit: 25, used: 10, remaining: 15 },
-      reports: { limit: 50, used: 5, remaining: 45 },
+      assets: { limit: 10, used: 4, remaining: 6 },
+      reports: { limit: 25, used: 5, remaining: 20 },
       alerts: { limit: 25, used: 3, remaining: 22 }
     },
     features: {
-      advanced_analytics: true,
+      advanced_analytics: false,
       data_export: true,
       api_access: false,
       priority_support: false,
-      custom_reports: false
+      custom_reports: true
     }
   }
 
@@ -47,7 +47,7 @@ describe('PlanInfo Component', () => {
     plan_name: 'free',
     display_name: 'Free Plan',
     description: 'Free plan for basic users',
-    price: 0,
+    price: 79,
     currency: 'ILS',
     billing_period: 'monthly',
     is_active: true,
@@ -55,8 +55,8 @@ describe('PlanInfo Component', () => {
     expires_at: null,
     limits: {
       assets: { limit: 1, used: 0, remaining: 1 },
-      reports: { limit: 10, used: 1, remaining: 9 },
-      alerts: { limit: 5, used: 0, remaining: 5 }
+      reports: { limit: 1, used: 0, remaining: 1 },
+      alerts: { limit: 0, used: 0, remaining: 0 }
     },
     features: {
       advanced_analytics: false,
@@ -71,7 +71,7 @@ describe('PlanInfo Component', () => {
     plan_name: 'pro',
     display_name: 'Pro Plan',
     description: 'Professional plan for power users',
-    price: 299.00,
+    price: 799,
     currency: 'ILS',
     billing_period: 'monthly',
     is_active: true,
@@ -125,50 +125,51 @@ describe('PlanInfo Component', () => {
 
   it('renders plan information correctly for basic plan', async () => {
     mockAuthAPI.getPlanInfo.mockResolvedValue(mockPlanInfo)
-    
+
     render(<PlanInfo />)
-    
+
     await waitFor(() => {
-      expect(screen.getByText('חבילה בסיסית')).toBeInTheDocument()
+      expect(screen.getByText('בסיסי')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('למשתמשים מתקדמים הזקוקים לכלי ניתוח וניהול מורחבים')).toBeInTheDocument()
+    expect(screen.getByText('מנוי חודשי עם עד 10 נכסים, עד 25 דוחות וייצוא דוחות ממותגים')).toBeInTheDocument()
     // Price information is no longer displayed in the component
-    
+
     // Check limits
-    expect(screen.getByText('10 / 25')).toBeInTheDocument()
-    
+    expect(screen.getByText('4 / 10')).toBeInTheDocument()
+
     // Check features
     expect(screen.getByText('ניתוח מתקדם')).toBeInTheDocument()
     expect(screen.getByText('ייצוא נתונים')).toBeInTheDocument()
+    expect(screen.getByText('דוחות מותאמים')).toBeInTheDocument()
   })
 
   it('renders plan information correctly for free plan', async () => {
     mockAuthAPI.getPlanInfo.mockResolvedValue(mockFreePlanInfo)
-    
+
     render(<PlanInfo />)
-    
+
     await waitFor(() => {
-      expect(screen.getByText('חבילה חינמית')).toBeInTheDocument()
+      expect(screen.getByText('פרטי')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('פתרון מושלם למשתמשים מתחילים שרוצים להכיר את המערכת')).toBeInTheDocument()
-    
+    expect(screen.getByText('דוח חד פעמי הכולל נתוני נכס, הערכת שווי ועלויות עסקה ומשכנתא')).toBeInTheDocument()
+
     // Check limits
     expect(screen.getByText('0 / 1')).toBeInTheDocument()
   })
 
   it('renders unlimited plan correctly for pro plan', async () => {
     mockAuthAPI.getPlanInfo.mockResolvedValue(mockProPlanInfo)
-    
+
     render(<PlanInfo />)
-    
+
     await waitFor(() => {
-      expect(screen.getByText('חבילה מקצועית')).toBeInTheDocument()
+      expect(screen.getByText('עיסקי')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('לצוותים מקצועיים הדורשים יכולות מתקדמות וללא הגבלה')).toBeInTheDocument()
-    
+    expect(screen.getByText('לצוותים מקצועיים עם נכסים והתראות ללא הגבלה ויכולות AI מתקדמות')).toBeInTheDocument()
+
     // Check unlimited limits
     expect(screen.getByText('100 / ∞')).toBeInTheDocument()
     
@@ -182,13 +183,13 @@ describe('PlanInfo Component', () => {
 
   it('renders progress bar correctly', async () => {
     mockAuthAPI.getPlanInfo.mockResolvedValue(mockPlanInfo)
-    
+
     render(<PlanInfo />)
-    
+
     await waitFor(() => {
-      expect(screen.getByText('חבילה בסיסית')).toBeInTheDocument()
+      expect(screen.getByText('בסיסי')).toBeInTheDocument()
     })
-    
+
     // Check that progress bar is rendered (custom div-based progress bar)
     const progressBar = document.querySelector('.w-full.bg-gray-200.rounded-full.h-2')
     expect(progressBar).toBeInTheDocument()
@@ -205,7 +206,7 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('חבילה מקצועית')).toBeInTheDocument()
+      expect(screen.getByText('עיסקי')).toBeInTheDocument()
     })
     
     // Should not have progress bar for unlimited plans
@@ -236,7 +237,7 @@ describe('PlanInfo Component', () => {
     render(<PlanInfo />)
     
     await waitFor(() => {
-      expect(screen.getByText('חבילה בסיסית')).toBeInTheDocument()
+      expect(screen.getByText('בסיסי')).toBeInTheDocument()
     })
 
     // Should show expired status

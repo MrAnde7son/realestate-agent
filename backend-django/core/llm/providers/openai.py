@@ -38,7 +38,7 @@ class OpenAIAdapter(LLMClient):
         schema: Dict[str, Any],
         options: Optional[BaseGenOptions] = None,
     ) -> Dict[str, Any]:
-        opts = options or BaseGenOptions(json=True)
+        opts = options or BaseGenOptions(json_mode=True)
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[

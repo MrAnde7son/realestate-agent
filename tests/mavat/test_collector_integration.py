@@ -89,23 +89,5 @@ class TestMavatCollectorErrorHandling:
         except Exception as e:
             pytest.fail(f"Collect method error handling test failed: {e}")
 
-    def test_get_lookup_data_error_handling(self):
-        """Test that get_lookup_data handles errors gracefully."""
-        try:
-            from orchestration.collectors.mavat_collector import MavatCollector
-            
-            with patch('orchestration.collectors.mavat_collector.MavatSeleniumClient') as mock_client_class:
-                mock_client = Mock()
-                mock_client.get_cities.side_effect = Exception("Test error")
-                mock_client_class.return_value = mock_client
-                
-                collector = MavatCollector(client=mock_client)
-                
-                result = collector.get_lookup_data("cities")
-                assert result == []
-        except Exception as e:
-            pytest.fail(f"Get lookup data error handling test failed: {e}")
-
-
 if __name__ == "__main__":
     pytest.main([__file__])

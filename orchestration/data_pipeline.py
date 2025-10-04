@@ -94,7 +94,7 @@ try:  # pragma: no cover - best effort import
 
     from core.models import AlertRule, Document, Plan  # type: ignore
 except ImportError as e:  # pragma: no cover - best effort
-    print(f"Failed to import Django models: {e}")
+    logging.getLogger(__name__).warning(f"Failed to import Django models: {e}")
 
     class AlertRule:  # type: ignore
         objects = []
@@ -113,7 +113,7 @@ def _load_user_notifiers() -> List[Notifier]:
             if notifier:
                 notifiers.append(notifier)
     except Exception as e:  # pragma: no cover - best effort
-        print(f"Failed to create user notifiers: {e}")
+        logging.getLogger(__name__).warning(f"Failed to create user notifiers: {e}")
     return notifiers
 
 

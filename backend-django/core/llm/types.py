@@ -9,7 +9,7 @@ LLMProvider = Literal["gemini", "openai"]
 
 class BaseGenOptions(BaseModel):
     temperature: float = 0.2
-    json: bool = False
+    json_mode: bool = False
     response_schema: Optional[Dict[str, Any]] = None
 
 

@@ -47,4 +47,4 @@ def test_run_data_pipeline_task(monkeypatch):
 
     assert result == [42]
     # Expect the pipeline to be invoked with asset's address fields
-    assert dummy.calls == [("City", "Main", 5, 1, 1)]
+    assert dummy.calls == [("City", "Main", 5, 1, 1, "", "")]

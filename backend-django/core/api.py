@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from .models import Asset, Permit, Plan, Document, PlanningMetrics
-from .serializers import AssetSerializer, PermitSerializer, PlanSerializer, DocumentSerializer
+from .serializers import PermitSerializer, PlanSerializer, DocumentSerializer
 from .services.planning_service import PlanningService
 from .services.cost_service import CostService
 
@@ -13,65 +13,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@extend_schema_view(
-    list=extend_schema(
-        summary="List all assets",
-        description="Retrieve a list of all real estate assets",
-        tags=["Assets"],
-    ),
-    create=extend_schema(
-        summary="Create a new asset",
-        description="Create a new real estate asset",
-        tags=["Assets"],
-    ),
-    retrieve=extend_schema(
-        summary="Retrieve an asset",
-        description="Get details of a specific asset by ID",
-        tags=["Assets"],
-    ),
-    update=extend_schema(
-        summary="Update an asset",
-        description="Update an existing asset",
-        tags=["Assets"],
-    ),
-    partial_update=extend_schema(
-        summary="Partially update an asset",
-        description="Partially update an existing asset",
-        tags=["Assets"],
-    ),
-    destroy=extend_schema(
-        summary="Delete an asset",
-        description="Delete an asset by ID",
-        tags=["Assets"],
-    ),
-)
-class AssetViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing real estate assets.
-    
-    Provides CRUD operations for real estate assets including permits and plans.
-    """
-    queryset = Asset.objects.all()
-    serializer_class = AssetSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def perform_create(self, serializer):
-        asset = serializer.save()
-        logger.info("Asset created with id %s", asset.id)
-
-    @extend_schema(
-        summary="Get asset statistics",
-        description="Get statistics about assets",
-        tags=["Assets"],
-    )
-    @action(detail=False, methods=['get'])
-    def stats(self, request):
-        """Get asset statistics."""
-        total_assets = self.get_queryset().count()
-        return Response({
-            'total_assets': total_assets,
-            'active_assets': self.get_queryset().filter(is_active=True).count(),
-        })
 
 
 @extend_schema_view(

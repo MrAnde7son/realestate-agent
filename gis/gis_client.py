@@ -144,6 +144,77 @@ class TelAvivGS:
         self._logger.info("Geocoded address -> coords", extra={"x": x, "y": y})
         return x, y
 
+    def get_addresses_by_block_parcel(self, block: str, parcel: str) -> List[Dict[str, Any]]:
+        """
+        Returns list of addresses for a given block and parcel.
+        Each address includes street name, house number, and coordinates.
+        """
+        self._logger.info("Looking up addresses by block/parcel", extra={"block": block, "parcel": parcel})
+        
+        # First, get the coordinates of the block/parcel center
+        try:
+            # Query parcels layer to get the geometry
+            parcel_params = {
+                "f": "pjson",
+                "where": f"ms_gush = {block} AND ms_chelka = {parcel}",
+                "outFields": "ms_gush,ms_chelka",
+                "returnGeometry": "true",
+                "resultRecordCount": 1,
+            }
+            parcel_data = self._query(self.L_PARCELS, parcel_params)
+            parcel_feats = parcel_data.get("features", [])
+            
+            if not parcel_feats:
+                self._logger.warning("Parcel not found", extra={"block": block, "parcel": parcel})
+                return []
+            
+            # Get the geometry of the parcel
+            parcel_geom = parcel_feats[0].get("geometry", {})
+            if not parcel_geom:
+                self._logger.warning("No geometry found for parcel", extra={"block": block, "parcel": parcel})
+                return []
+            
+            # Query addresses that intersect with this parcel
+            address_params = {
+                "f": "pjson",
+                "where": "1=1",
+                "geometry": json.dumps(parcel_geom),
+                "geometryType": "esriGeometryPolygon",
+                "inSR": 2039,
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": "t_rechov,ms_bayit,x,y",
+                "returnGeometry": "false",
+            }
+            
+            address_data = self._query(self.L_ADDR, address_params)
+            address_feats = address_data.get("features", [])
+            
+            addresses = []
+            for feat in address_feats:
+                attrs = feat.get("attributes", {})
+                if attrs.get("t_rechov") and attrs.get("ms_bayit"):
+                    addresses.append({
+                        "street": attrs.get("t_rechov", ""),
+                        "house_number": attrs.get("ms_bayit"),
+                        "x": float(attrs.get("x", 0)),
+                        "y": float(attrs.get("y", 0)),
+                    })
+            
+            self._logger.info("Found addresses for block/parcel", extra={
+                "block": block, 
+                "parcel": parcel, 
+                "count": len(addresses)
+            })
+            return addresses
+            
+        except Exception as e:
+            self._logger.error("Failed to lookup addresses by block/parcel", extra={
+                "block": block, 
+                "parcel": parcel, 
+                "error": str(e)
+            })
+            return []
+
     def get_building_permits(self, x: float, y: float, radius: int = 50,
                              fields: Optional[Iterable[str]] = None,
                              download_pdfs: bool = False,
@@ -450,7 +521,6 @@ class TelAvivGS:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
     ap = argparse.ArgumentParser()
     ap.add_argument("--street", required=True)
     ap.add_argument("--num", type=int, required=True)

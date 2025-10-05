@@ -1527,7 +1527,7 @@ def asset_detail(request, asset_id):
             "CRM": crm_data,
         })
         
-        return JsonResponse(asset_data)
+        return JsonResponse({"asset": asset_data})
 
     except Exception as e:
         logger.error("Error retrieving asset %s: %s", asset_id, e)

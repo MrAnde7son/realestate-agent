@@ -21,8 +21,10 @@ class GISCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Geocode and collect GIS data for a given address."""
+        """Geocode and collect GIS data for a given address or block/parcel."""
 
         query = ensure_location_query(location)
         street = query.street
@@ -30,8 +32,13 @@ class GISCollector(BaseCollector):
         search_street = (street or query.formatted or "").strip()
         number = query.house_number or 0
 
+        # Handle block/parcel-only queries
+        if block and parcel and block.strip() and parcel.strip() and not search_street:
+            logger.info(f"Processing block/parcel-only query: {block}/{parcel}")
+            return self._collect_by_block_parcel(block, parcel)
+
         if not search_street:
-            raise ValueError("GISCollector requires at least a street name")
+            raise ValueError("GISCollector requires at least a street name or block/parcel")
 
         x, y = self._geocode(search_street, number, city)
         data = {
@@ -46,6 +53,55 @@ class GISCollector(BaseCollector):
         }
         block, parcel = self._extract_block_parcel(data)
         data.update({"block": block, "parcel": parcel, "x": x, "y": y})
+        return data
+
+    def _collect_by_block_parcel(self, block: str, parcel: str) -> Dict[str, Any]:
+        """Collect GIS data using block/parcel numbers."""
+        logger.info(f"Collecting GIS data for block {block}, parcel {parcel}")
+        
+        # Get addresses for this block/parcel
+        addresses = self.client.get_addresses_by_block_parcel(block, parcel)
+        
+        if not addresses:
+            logger.warning(f"No addresses found for block {block}, parcel {parcel}")
+            return {
+                "blocks": [],
+                "parcels": [],
+                "permits": [],
+                "rights": [],
+                "shelters": [],
+                "green": [],
+                "noise": [],
+                "antennas": [],
+                "addresses": [],
+                "block": block,
+                "parcel": parcel,
+                "x": None,
+                "y": None,
+            }
+        
+        # Use the first address for coordinate-based queries
+        first_address = addresses[0]
+        x, y = first_address["x"], first_address["y"]
+        
+        logger.info(f"Using coordinates from first address: {first_address['street']} {first_address['house_number']}")
+        
+        data = {
+            "blocks": self.client.get_blocks(x, y),
+            "parcels": self.client.get_parcels(x, y),
+            "permits": self.client.get_building_permits(x, y, download_pdfs=True),
+            "rights": self.client.get_land_use_main(x, y),
+            "shelters": self.client.get_shelters(x, y),
+            "green": self.client.get_green_areas(x, y),
+            "noise": self.client.get_noise_levels(x, y),
+            "antennas": self.client.get_cell_antennas(x, y),
+            "addresses": addresses,  # Include all addresses found
+            "block": block,
+            "parcel": parcel,
+            "x": x,
+            "y": y,
+        }
+        
         return data
 
     def _geocode(self, street: str, house_number: int, city: str = "") -> Tuple[float, float]:

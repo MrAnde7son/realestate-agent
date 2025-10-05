@@ -210,7 +210,7 @@ services:
     sync: false
   region: oregon
   dockerContext: .
-  dockerfilePath: ./Dockerfile
+  dockerfilePath: ./backend-django/Dockerfile
   autoDeployTrigger: commit
   rootDir: backend-django
   previews:

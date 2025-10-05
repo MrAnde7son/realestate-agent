@@ -17,7 +17,7 @@ Notes
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List
 
 import requests
 from pyproj import Transformer
@@ -245,6 +245,160 @@ class GovMapClient:
                 raise GovMapError(f"Parcel search failed: {e}")
 
         raise GovMapError("Parcel search failed after all retry attempts")
+
+    def get_parcel_addresses(self, objectid: int) -> List[Dict[str, Any]]:
+        """Get detailed address information for a parcel using its objectid."""
+        logger.info(f"Getting parcel addresses for objectid: {objectid}")
+        
+        try:
+            url = f"https://www.govmap.gov.il/api/layers-catalog/apps/address-search/parcel/{objectid}"
+            r = self.http.get(url, timeout=self.timeout, verify=False)
+            
+            if r.status_code != 200:
+                logger.warning(f"Parcel address API returned HTTP {r.status_code}")
+                return []
+            
+            data = r.json()
+            if not isinstance(data, list) or not data:
+                logger.warning(f"No address data found for objectid {objectid}")
+                return []
+            
+            addresses = []
+            for feature in data:
+                if feature.get("type") == "Feature":
+                    props = feature.get("properties", {})
+                    geometry = feature.get("geometry", {})
+                    
+                    # Extract coordinates from geometry
+                    coords = None
+                    if geometry.get("type") == "MultiPolygon":
+                        # Get centroid of the first polygon
+                        coords_list = geometry.get("coordinates", [[]])
+                        if coords_list and coords_list[0] and coords_list[0][0]:
+                            # Calculate centroid
+                            polygon_coords = coords_list[0][0]
+                            if polygon_coords:
+                                x_sum = sum(coord[0] for coord in polygon_coords)
+                                y_sum = sum(coord[1] for coord in polygon_coords)
+                                coords = (x_sum / len(polygon_coords), y_sum / len(polygon_coords))
+                    
+                    address = {
+                        "street": props.get("str_name", ""),
+                        "house_number": props.get("house_num"),
+                        "city": props.get("setl_name", ""),
+                        "locality": props.get("locality_name", ""),
+                        "objectid": props.get("address_objectid"),
+                        "x": coords[0] if coords else None,
+                        "y": coords[1] if coords else None,
+                    }
+                    
+                    addresses.append(address)
+            
+            logger.info(f"Found {len(addresses)} addresses for objectid {objectid}")
+            return addresses
+            
+        except Exception as e:
+            logger.error(f"Failed to get parcel addresses for objectid {objectid}: {e}")
+            return []
+
+    def get_addresses_by_block_parcel(self, block: str, parcel: str) -> List[Dict[str, Any]]:
+        """Get addresses for a given block and parcel using GovMap autocomplete API."""
+        logger.info(f"Looking up addresses by block/parcel in GovMap: {block}/{parcel}")
+        
+        try:
+            # Search for the specific parcel using autocomplete
+            parcel_query = f"גוש {block} חלקה {parcel}"
+            logger.info(f"Searching for parcel: {parcel_query}")
+            
+            parcel_result = self.autocomplete(parcel_query, max_results=50)
+            parcel_results = parcel_result.get("results", [])
+            
+            if not parcel_results:
+                logger.warning(f"Parcel not found in GovMap autocomplete: {parcel_query}")
+                return []
+            
+            # Find the exact parcel match
+            target_parcel = None
+            for result in parcel_results:
+                if result.get("type") == "parcel" and result.get("text") == parcel_query:
+                    target_parcel = result
+                    break
+            
+            if not target_parcel:
+                logger.warning(f"Exact parcel match not found for {parcel_query}")
+                return []
+            
+            # Extract coordinates from the parcel
+            parcel_coords = self.extract_coordinates_from_shapes(target_parcel)
+            if not parcel_coords:
+                logger.warning(f"Could not extract coordinates from parcel {parcel_query}")
+                return []
+            
+            parcel_x, parcel_y = parcel_coords
+            logger.info(f"Found parcel {parcel_query} at coordinates: {parcel_x}, {parcel_y}")
+            
+            # Now search for addresses in the same area using the block
+            # Use the block number to find nearby addresses
+            address_query = f"גוש {block}"
+            logger.info(f"Searching for addresses near block: {address_query}")
+            
+            address_result = self.autocomplete(address_query, max_results=100)
+            address_results = address_result.get("results", [])
+            
+            addresses = []
+            for result in address_results:
+                result_type = result.get("type", "")
+                result_text = result.get("text", "")
+                
+                # Look for address-related results (streets, settlements, etc.)
+                if result_type in ["address", "settlement", "poi"] and result_text:
+                    coords = self.extract_coordinates_from_shapes(result)
+                    if coords:
+                        addr_x, addr_y = coords
+                        # Check if the address is reasonably close to our parcel
+                        distance = ((addr_x - parcel_x) ** 2 + (addr_y - parcel_y) ** 2) ** 0.5
+                        if distance < 2000:  # Within 2km
+                            # Parse the address text
+                            street_name = result_text
+                            
+                            # Try to extract house number if present
+                            house_number = None
+                            if " " in result_text:
+                                parts = result_text.split()
+                                for part in parts:
+                                    if part.isdigit():
+                                        house_number = int(part)
+                                        break
+                            
+                            addresses.append({
+                                "street": street_name,
+                                "house_number": house_number,
+                                "city": "",  # Will be extracted from context
+                                "x": addr_x,
+                                "y": addr_y,
+                            })
+            
+            # If we found addresses, return them
+            if addresses:
+                logger.info(f"Found {len(addresses)} addresses for block {block}, parcel {parcel}")
+                return addresses
+            
+            # If no specific addresses found, create a generic one based on the parcel
+            logger.info("No specific addresses found, creating generic address from parcel location")
+            addresses.append({
+                "street": f"גוש {block} חלקה {parcel}",
+                "house_number": None,
+                "city": "",
+                "x": parcel_x,
+                "y": parcel_y,
+            })
+            
+            logger.info(f"Created generic address for block {block}, parcel {parcel}")
+            return addresses
+            
+        except Exception as e:
+            logger.error(f"Failed to lookup addresses by block/parcel in GovMap: {e}")
+            return []
 
     def get_base_layers(self) -> Dict[str, Any]:
         """Get base layers from GovMap API."""

@@ -64,9 +64,11 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     street = asset.street or ""
     city = asset.city or ""
     house_number = asset.number or 0
+    block = asset.block or ""
+    parcel = asset.parcel or ""
     logger.info("Starting data pipeline for asset %s", asset_id)
     try:
-        result = pipeline.run(city, street, house_number, max_pages=max_pages, asset_id=asset_id)
+        result = pipeline.run(city, street, house_number, max_pages=max_pages, asset_id=asset_id, block=block, parcel=parcel)
         track('asset_sync', asset_id=asset_id)
         asset.status = "done"
         asset.last_enriched_at = timezone.now()

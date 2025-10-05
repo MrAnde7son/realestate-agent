@@ -18,9 +18,11 @@ class DummyPipeline:
         house_number: int,
         max_pages: int = 1,
         asset_id: Optional[int] = None,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
     ):
         # Record a single tuple of the call arguments
-        self.calls.append((city, street, house_number, max_pages, asset_id))
+        self.calls.append((city, street, house_number, max_pages, asset_id, block, parcel))
         return [42]
 
 
@@ -45,4 +47,4 @@ def test_run_data_pipeline_task(monkeypatch):
 
     assert result == [42]
     # Expect the pipeline to be invoked with asset's address fields
-    assert dummy.calls == [("City", "Main", 5, 1, 1)]
+    assert dummy.calls == [("City", "Main", 5, 1, 1, "", "")]

@@ -50,15 +50,6 @@ class TestPlanAPIEndpoints:
                 'is_active': True
             }
         )
-        self.free_plan.price = Decimal('79.00')
-        self.free_plan.report_limit = 1
-        self.free_plan.alert_limit = 0
-        self.free_plan.advanced_analytics = False
-        self.free_plan.data_export = False
-        self.free_plan.api_access = False
-        self.free_plan.priority_support = False
-        self.free_plan.custom_reports = False
-        self.free_plan.save()
 
         self.basic_plan, created = PlanType.objects.get_or_create(
             name='basic',
@@ -79,15 +70,6 @@ class TestPlanAPIEndpoints:
                 'is_active': True
             }
         )
-        self.basic_plan.price = Decimal('249.00')
-        self.basic_plan.report_limit = 25
-        self.basic_plan.alert_limit = 25
-        self.basic_plan.advanced_analytics = False
-        self.basic_plan.data_export = True
-        self.basic_plan.api_access = False
-        self.basic_plan.priority_support = False
-        self.basic_plan.custom_reports = True
-        self.basic_plan.save()
 
         self.pro_plan, created = PlanType.objects.get_or_create(
             name='pro',
@@ -108,15 +90,6 @@ class TestPlanAPIEndpoints:
                 'is_active': True
             }
         )
-        self.pro_plan.price = Decimal('799.00')
-        self.pro_plan.alert_limit = -1
-        self.pro_plan.report_limit = -1
-        self.pro_plan.advanced_analytics = True
-        self.pro_plan.data_export = True
-        self.pro_plan.api_access = True
-        self.pro_plan.priority_support = True
-        self.pro_plan.custom_reports = True
-        self.pro_plan.save()
 
     def test_user_plan_info_authenticated(self):
         """Test getting user plan info when authenticated"""

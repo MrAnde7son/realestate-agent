@@ -62,10 +62,6 @@ class PlanService:
                 if plan_type.description != description:
                     plan_type.description = description
                     updated_fields.append('description')
-                price = PLAN_PRICES.get(plan_name, plan_type.price)
-                if plan_type.price != price:
-                    plan_type.price = price
-                    updated_fields.append('price')
 
                 if updated_fields:
                     plan_type.save(update_fields=updated_fields)

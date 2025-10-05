@@ -212,7 +212,7 @@ services:
   dockerContext: ./
   dockerfilePath: ./Dockerfile
   autoDeployTrigger: commit
-  rootDir: backend-django
+  rootDir: /app/backend-django
   previews:
     generation: manual
 - type: web

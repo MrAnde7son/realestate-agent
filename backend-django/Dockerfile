@@ -44,11 +44,11 @@ COPY govmap /app/govmap
 COPY mavat /app/mavat
 
 # Copy the Django project
-COPY backend-django .
+COPY backend-django /app/backend-django
 
 # Supervisor config + boot script
-RUN cp /app/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN chmod +x /app/deploy/boot.sh
+RUN cp /app/backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN chmod +x /backend-django/app/deploy/boot.sh
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \
@@ -60,4 +60,4 @@ EXPOSE 8000
 
 
 # Run: migrate -> supervisor (gunicorn + celery)
-CMD ["/app/deploy/boot.sh"]
+CMD ["/app/backend-django/deploy/boot.sh"]

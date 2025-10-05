@@ -88,6 +88,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
     <header className="fixed top-0 inset-x-0 z-50 flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
       {/* Right side - Menu button, logo and company name (RTL layout) */}
       <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+        {/* Mobile hamburger menu */}
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
           <SheetTrigger asChild>
             <Button
@@ -182,6 +183,18 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
             </div>
           </SheetContent>
         </Sheet>
+
+        {/* Desktop hamburger menu for sidebar toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden md:flex h-10 w-10 p-0"
+          onClick={onToggleSidebar}
+          aria-label="הצג/הסתר תפריט צדדי"
+        >
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">Toggle sidebar</span>
+        </Button>
 
         <Link
           href="/"

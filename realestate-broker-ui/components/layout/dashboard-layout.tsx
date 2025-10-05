@@ -11,17 +11,34 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(true)
+  const [mounted, setMounted] = React.useState(false)
+
+  // Initialize sidebar state from localStorage
+  React.useEffect(() => {
+    const savedSidebarState = localStorage.getItem('sidebar-open')
+    if (savedSidebarState !== null) {
+      setSidebarOpen(JSON.parse(savedSidebarState))
+    }
+    setMounted(true)
+  }, [])
+
+  // Save sidebar state to localStorage when it changes
+  const handleToggleSidebar = () => {
+    const newState = !sidebarOpen
+    setSidebarOpen(newState)
+    localStorage.setItem('sidebar-open', JSON.stringify(newState))
+  }
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
-      {/* Sidebar - hidden on mobile and large screens, visible on medium screens */}
-      <div className="hidden md:flex-shrink-0 md:block lg:hidden">
+      {/* Sidebar - hidden on mobile, visible on medium screens and larger */}
+      <div className="hidden md:flex-shrink-0 md:block">
         <AppSidebar isCollapsed={!sidebarOpen} />
       </div>
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+        <Header onToggleSidebar={handleToggleSidebar} />
         
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background pt-16 touch-pan-y -webkit-overflow-scrolling-touch">
           <div className="min-h-full">

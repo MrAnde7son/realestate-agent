@@ -18,9 +18,11 @@ class DummyPipeline:
         house_number: int,
         max_pages: int = 1,
         asset_id: Optional[int] = None,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
     ):
         # Record a single tuple of the call arguments
-        self.calls.append((city, street, house_number, max_pages, asset_id))
+        self.calls.append((city, street, house_number, max_pages, asset_id, block, parcel))
         return [42]
 
 

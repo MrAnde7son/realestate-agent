@@ -47,6 +47,9 @@ class FakeGISCollector(GISCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        *,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
     ):
         return {
             "blocks": [{"ms_gush": "1"}],
@@ -102,6 +105,9 @@ class FakeGovMapCollector(GovMapCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        *,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
     ):
         query = location or LocationQuery(street="Fake", house_number=1, city="תל אביב")
         return {

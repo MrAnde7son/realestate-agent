@@ -33,7 +33,7 @@ class PlanService:
         created_plans = []
         
         for plan_name, limits in PLAN_LIMITS.items():
-            plan_type, created = PlanType.objects.get_or_create(
+            plan_type, created = PlanType.objects.update_or_create(
                 name=plan_name,
                 defaults={
                     'display_name': PLAN_DISPLAY_NAMES.get(plan_name, plan_name.title()),

@@ -31,7 +31,7 @@ class TestPlanAPIEndpoints:
         )
         
         # Create plan types
-        self.free_plan, created = PlanType.objects.get_or_create(
+        self.free_plan, created = PlanType.objects.update_or_create(
             name='free',
             defaults={
                 'display_name': 'Free Plan',
@@ -51,7 +51,7 @@ class TestPlanAPIEndpoints:
             }
         )
 
-        self.basic_plan, created = PlanType.objects.get_or_create(
+        self.basic_plan, created = PlanType.objects.update_or_create(
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
@@ -71,7 +71,7 @@ class TestPlanAPIEndpoints:
             }
         )
 
-        self.pro_plan, created = PlanType.objects.get_or_create(
+        self.pro_plan, created = PlanType.objects.update_or_create(
             name='pro',
             defaults={
                 'display_name': 'Pro Plan',

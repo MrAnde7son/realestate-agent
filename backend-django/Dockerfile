@@ -47,7 +47,7 @@ COPY mavat /app/mavat
 COPY backend-django .
 
 # Supervisor config + boot script
-COPY backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN cp /app/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN chmod +x /app/deploy/boot.sh
 
 # Create a non-root user

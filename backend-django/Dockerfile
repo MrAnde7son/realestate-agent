@@ -48,7 +48,7 @@ COPY backend-django /app/backend-django
 
 # Supervisor config + boot script
 RUN cp /app/backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN chmod +x /backend-django/app/deploy/boot.sh
+RUN chmod +x /app/backend-django/deploy/boot.sh
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \

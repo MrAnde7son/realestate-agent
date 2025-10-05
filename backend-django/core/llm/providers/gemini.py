@@ -74,7 +74,7 @@ class GeminiAdapter(LLMClient):
         self, prompt: str, options: Optional[BaseGenOptions] = None
     ) -> str:
         opts = options or BaseGenOptions()
-        model = self._get_model(bool(opts.json), opts.response_schema)
+        model = self._get_model(bool(opts.json_mode), opts.response_schema)
         response = await model.generate_content_async([prompt])
         return response.text
 
@@ -99,7 +99,7 @@ class GeminiAdapter(LLMClient):
             raise ValueError("The last chat message must have role 'user'")
 
         model = self._get_model(
-            bool(opts.json), opts.response_schema, system_instruction
+            bool(opts.json_mode), opts.response_schema, system_instruction
         )
         session = model.start_chat(history=history)
         response = await session.send_message_async(last_message["parts"][0])

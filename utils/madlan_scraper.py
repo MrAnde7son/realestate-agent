@@ -1,10 +1,13 @@
 import csv
+import logging
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import requests
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -103,7 +106,7 @@ class MadlanParser:
                 "property_type": prop_type
             }
         except Exception as e:
-            print(f"Error extracting card info: {e}")
+            logger.error(f"Error extracting card info: {e}")
             return {}
 
     @staticmethod
@@ -146,7 +149,7 @@ class MadlanParser:
                 "additional_details": details
             }
         except Exception as e:
-            print(f"Error extracting detailed info: {e}")
+            logger.error(f"Error extracting detailed info: {e}")
             return {"description": "", "features": [], "additional_details": {}}
 
 

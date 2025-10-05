@@ -161,7 +161,8 @@ export default function AppSidebar({
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                  "flex items-center rounded-lg text-sm transition-colors",
+                  isCollapsed ? "justify-center px-2 py-3" : "gap-2 px-3 py-2",
                   active
                     ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)] font-semibold"
                     : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8"
@@ -169,11 +170,11 @@ export default function AppSidebar({
               >
                 <item.icon
                     className={cn(
-                      "h-4 w-4",
+                      isCollapsed ? "h-8 w-8" : "h-4 w-4",
                       active && "text-primary"
                     )}
                   />
-                <span>{item.name}</span>
+                {!isCollapsed && <span>{item.name}</span>}
               </Link>
             );
           })}

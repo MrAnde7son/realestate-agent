@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from orchestration.collectors.base_collector import BaseCollector
@@ -13,8 +14,9 @@ class MavatCollector(BaseCollector):
 
     def __init__(self, client: Optional[MavatSeleniumClient] = None) -> None:
         self.client = client or MavatSeleniumClient()
+        self.logger = logging.getLogger(__name__)
 
-    def collect(self, block: str, parcel: str, city: Optional[str] = None) -> List[Dict[str, Any]]:
+    def collect(self, block: str, parcel: Optional[str] = None, city: Optional[str] = None) -> List[Dict[str, Any]]:
         """Collect Mavat plans for a given block/parcel.
         
         This method implements the base collect interface and provides
@@ -57,131 +59,13 @@ class MavatCollector(BaseCollector):
         except Exception:
             return []
 
-    def get_plan_details(self, plan_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch detailed information for a single plan.
-        
-        Parameters
-        ----------
-        plan_id: str
-            Identifier of the plan to retrieve.
-            
-        Returns
-        -------
-        Optional[Dict[str, Any]]
-            A dictionary containing plan details and raw payloads,
-            or None if the plan is not found.
-        """
-        try:
-            with self.client as client:
-                plan = client.get_plan_details(plan_id)
-                
-                return {
-                    "plan_id": plan.plan_id,
-                    "plan_name": plan.plan_name,
-                    "status": plan.status,
-                    "authority": plan.authority,
-                    "jurisdiction": plan.jurisdiction,
-                    "last_update": plan.last_update,
-                    "entity_number": plan.entity_number,
-                    "approval_date": plan.approval_date,
-                    "status_date": plan.status_date,
-                    "raw": plan.raw
-                }
-        except Exception:
-            return None
-
-    def get_plan_attachments(self, plan_id: str, entity_name: str) -> List[Dict[str, Any]]:
-        """Get attachments for a specific plan.
-        
-        Parameters
-        ----------
-        plan_id: str
-            The unique identifier of the plan.
-        entity_name: str
-            The entity name for constructing the attachment URL.
-            
-        Returns
-        -------
-        List[Dict[str, Any]]
-            A list of attachment information.
-        """
-        try:
-            # Selenium client doesn't have get_plan_attachments method yet
-            # For now, return empty list - can be implemented later
-            return []
-        except Exception:
-            return []
-
-    def get_lookup_data(self, data_type: str = "cities", force_refresh: bool = False) -> List[Dict[str, Any]]:
-        """Get lookup data for various planning entities.
-        
-        Parameters
-        ----------
-        data_type: str
-            Type of lookup data to retrieve. Options: "cities", "districts", 
-            "streets", "plan_areas", "authorities", "plan_types", "statuses".
-        force_refresh: bool, optional
-            Whether to force refresh the cache. Defaults to False.
-            
-        Returns
-        -------
-        List[Dict[str, Any]]
-            A list of lookup items in consistent format.
-        """
-        try:
-            # Selenium client doesn't have lookup methods yet
-            # Return empty list for now - can be implemented later
-            return []
-        except Exception:
-            return []
-
-    def search_lookup(self, search_text: str, table_type: Optional[str] = None, 
-                     force_refresh: bool = False) -> List[Dict[str, Any]]:
-        """Search lookup tables by text.
-        
-        Parameters
-        ----------
-        search_text: str
-            Text to search for in lookup tables.
-        table_type: str, optional
-            Specific table type to search (4=districts, 5=cities, 6=plan_areas, 
-            7=streets, 8=authorities, 9=plan_types, 10=statuses).
-        force_refresh: bool, optional
-            Whether to force refresh the cache. Defaults to False.
-            
-        Returns
-        -------
-        List[Dict[str, Any]]
-            A list of matching lookup items in consistent format.
-        """
-        try:
-            # Selenium client doesn't have lookup methods yet
-            # Return empty list for now - can be implemented later
-            return []
-        except Exception:
-            return []
-
-    def get_all_lookup_tables(self, force_refresh: bool = False) -> Dict[str, List[Dict[str, Any]]]:
-        """Get all available lookup tables.
-        
-        Parameters
-        ----------
-        force_refresh: bool, optional
-            Whether to force refresh the cache. Defaults to False.
-            
-        Returns
-        -------
-        Dict[str, List[Dict[str, Any]]]
-            A dictionary containing all lookup tables in consistent format.
-        """
-        try:
-            # Selenium client doesn't have lookup methods yet
-            # Return empty dict for now - can be implemented later
-            return {}
-        except Exception:
-            return {}
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for Mavat collection."""
         required_params = ['block', 'parcel']
         return all(param in kwargs for param in required_params)
+
+if __name__ == '__main__':
+    collector = MavatCollector()
+    result = collector.collect(block=6336, city="תמא")
+    print(result)

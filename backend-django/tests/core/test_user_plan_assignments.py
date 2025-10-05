@@ -55,7 +55,7 @@ class TestUserPlanAssignments:
             
             # Check that it's the free plan
             assert demo_user.current_plan.plan_type.name == 'free'
-            assert demo_user.current_plan.plan_type.display_name == 'חבילה חינמית'
+            assert demo_user.current_plan.plan_type.display_name == 'פרטי'
             
             # Check free plan features
             plan_type = demo_user.current_plan.plan_type
@@ -139,21 +139,22 @@ class TestUserPlanAssignments:
     def test_plan_assignments_have_correct_pricing(self):
         """Test that assigned plans have correct pricing"""
         try:
+            PlanService.get_or_create_plan_types()
             admin_user = User.objects.get(email='admin@example.com')
             demo_user = User.objects.get(email='demo@example.com')
-            
+
             # Check admin plan pricing
             admin_plan = admin_user.current_plan.plan_type
-            assert admin_plan.price == Decimal('299.00')
+            assert admin_plan.price == Decimal('799.00')
             assert admin_plan.currency == 'ILS'
             assert admin_plan.billing_period == 'monthly'
-            
+
             # Check demo plan pricing (free plan)
             demo_plan = demo_user.current_plan.plan_type
-            assert demo_plan.price == Decimal('0.00')
+            assert demo_plan.price == Decimal('79.00')
             assert demo_plan.currency == 'ILS'
             assert demo_plan.billing_period == 'monthly'
-            
+
         except User.DoesNotExist:
             pytest.skip("Users not found - may not be created in test environment")
 
@@ -175,7 +176,7 @@ class TestUserPlanAssignments:
             
             # Check remaining assets calculation
             assert admin_user.current_plan.get_remaining_assets() == -1  # Unlimited
-            assert demo_user.current_plan.get_remaining_assets() == 1  # Free plan limit
+            assert demo_user.current_plan.get_remaining_assets() == 1  # מסלול פרטי
             
         except User.DoesNotExist:
             pytest.skip("Users not found - may not be created in test environment")

@@ -100,17 +100,17 @@ class TestPlanService:
             defaults={
                 'display_name': 'Basic Plan',
                 'description': 'Basic plan for users',
-                'price': Decimal('149.00'),
+                'price': Decimal('249.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
                 'asset_limit': 10,
-                'report_limit': 50,
+                'report_limit': 25,
                 'alert_limit': 25,
-                'advanced_analytics': True,
+                'advanced_analytics': False,
                 'data_export': True,
                 'api_access': False,
                 'priority_support': False,
-                'custom_reports': False
+                'custom_reports': True
             }
         )
         
@@ -137,7 +137,7 @@ class TestPlanService:
         assert plan_info['plan_name'] == 'test_basic_service'
         assert plan_info['display_name'] == 'Basic Plan'
         assert plan_info['description'] == 'Basic plan for users'
-        assert plan_info['price'] == Decimal('149.00')
+        assert plan_info['price'] == Decimal('249.00')
         assert plan_info['currency'] == 'ILS'
         assert plan_info['billing_period'] == 'monthly'
         assert plan_info['is_active'] is True
@@ -148,20 +148,20 @@ class TestPlanService:
         assert plan_info['limits']['assets']['used'] == 10
         assert plan_info['limits']['assets']['remaining'] == 0
         
-        assert plan_info['limits']['reports']['limit'] == 50
+        assert plan_info['limits']['reports']['limit'] == 25
         assert plan_info['limits']['reports']['used'] == 0
-        assert plan_info['limits']['reports']['remaining'] == 50
+        assert plan_info['limits']['reports']['remaining'] == 25
         
         assert plan_info['limits']['alerts']['limit'] == 25
         assert plan_info['limits']['alerts']['used'] == 0
         assert plan_info['limits']['alerts']['remaining'] == 25
         
         # Check features
-        assert plan_info['features']['advanced_analytics'] is True
+        assert plan_info['features']['advanced_analytics'] is False
         assert plan_info['features']['data_export'] is True
+        assert plan_info['features']['custom_reports'] is True
         assert plan_info['features']['api_access'] is False
         assert plan_info['features']['priority_support'] is False
-        assert plan_info['features']['custom_reports'] is False
 
     def test_get_user_plan_info_no_plan(self):
         """Test getting plan info when user has no plan"""
@@ -176,7 +176,7 @@ class TestPlanService:
         plan_info = PlanService.get_user_plan_info(user)
         
         assert plan_info['plan_name'] == 'free'
-        assert plan_info['display_name'] == 'חבילה חינמית'
+        assert plan_info['display_name'] == 'פרטי'
         assert plan_info['limits']['assets']['limit'] == 1
 
     def test_validate_asset_creation_success(self):

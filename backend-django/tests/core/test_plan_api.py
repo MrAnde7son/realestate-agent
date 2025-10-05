@@ -31,17 +31,17 @@ class TestPlanAPIEndpoints:
         )
         
         # Create plan types
-        self.free_plan, created = PlanType.objects.get_or_create(
+        self.free_plan, created = PlanType.objects.update_or_create(
             name='free',
             defaults={
                 'display_name': 'Free Plan',
                 'description': 'Free plan for basic users',
-                'price': Decimal('0.00'),
+                'price': Decimal('79.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
                 'asset_limit': 1,
-                'report_limit': 10,
-                'alert_limit': 5,
+                'report_limit': 1,
+                'alert_limit': 0,
                 'advanced_analytics': False,
                 'data_export': False,
                 'api_access': False,
@@ -50,33 +50,33 @@ class TestPlanAPIEndpoints:
                 'is_active': True
             }
         )
-        
-        self.basic_plan, created = PlanType.objects.get_or_create(
+
+        self.basic_plan, created = PlanType.objects.update_or_create(
             name='basic',
             defaults={
                 'display_name': 'Basic Plan',
                 'description': 'Basic plan for advanced users',
-                'price': Decimal('149.00'),
+                'price': Decimal('249.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
                 'asset_limit': 10,
-                'report_limit': 50,
+                'report_limit': 25,
                 'alert_limit': 25,
-                'advanced_analytics': True,
+                'advanced_analytics': False,
                 'data_export': True,
                 'api_access': False,
                 'priority_support': False,
-                'custom_reports': False,
+                'custom_reports': True,
                 'is_active': True
             }
         )
-        
-        self.pro_plan, created = PlanType.objects.get_or_create(
+
+        self.pro_plan, created = PlanType.objects.update_or_create(
             name='pro',
             defaults={
                 'display_name': 'Pro Plan',
                 'description': 'Professional plan for power users',
-                'price': Decimal('299.00'),
+                'price': Decimal('799.00'),
                 'currency': 'ILS',
                 'billing_period': 'monthly',
                 'asset_limit': -1,  # Unlimited
@@ -120,12 +120,13 @@ class TestPlanAPIEndpoints:
         data = response.json()
         assert data['plan_name'] == 'basic'
         assert data['display_name'] == 'Basic Plan'
-        assert data['price'] == '149.00'
+        assert data['price'] == '249.00'
         assert data['limits']['assets']['limit'] == 10
         assert data['limits']['assets']['used'] == 10
         assert data['limits']['assets']['remaining'] == 0
-        assert data['features']['advanced_analytics'] is True
+        assert data['features']['advanced_analytics'] is False
         assert data['features']['data_export'] is True
+        assert data['features']['custom_reports'] is True
 
     def test_user_plan_info_unauthenticated(self):
         """Test getting user plan info when not authenticated"""
@@ -162,9 +163,9 @@ class TestPlanAPIEndpoints:
         # Check basic plan details
         basic_plan_data = next(plan for plan in data['plans'] if plan['name'] == 'basic')
         assert basic_plan_data['display_name'] == 'Basic Plan'
-        assert basic_plan_data['price'] == '149.00'
+        assert basic_plan_data['price'] == '249.00'
         assert basic_plan_data['asset_limit'] == 10
-        assert basic_plan_data['advanced_analytics'] is True
+        assert basic_plan_data['advanced_analytics'] is False
 
     def test_upgrade_plan_success(self):
         """Test successful plan upgrade"""

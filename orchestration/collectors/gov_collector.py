@@ -43,7 +43,8 @@ class GovCollector(BaseCollector):
     def _collect_decisive(self, block: str, parcel: str) -> List[Dict[str, Any]]:
         """Collect decisive appraisals for a given block/parcel."""
         try:
-            appraisals = self.decisive_client.fetch_appraisals(block=block, plot=parcel)
+            # Block search is enough for decisive appraisals to cover larger area
+            appraisals = self.decisive_client.fetch_appraisals(block=block)
             return [appraisal.to_dict() for appraisal in appraisals]
         except Exception as e:
             logger.error(f"Error collecting decisive appraisals: {e}")
@@ -67,7 +68,6 @@ class GovCollector(BaseCollector):
         location = kwargs.get("location")
         return (
             bool(kwargs.get('block'))
-            and bool(kwargs.get('parcel'))
             and isinstance(location, LocationQuery)
             and not location.is_empty()
         )

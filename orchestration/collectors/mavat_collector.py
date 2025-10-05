@@ -37,9 +37,9 @@ class MavatCollector(BaseCollector):
             A list of plan summaries in consistent format.
         """
         try:
-            # Search by block and parcel using Selenium client
+            # Block search is enough for mavat to cover larger area
             with self.client as client:
-                plans = client.search_plans(block=block, parcel=parcel, city=city)
+                plans = client.search_plans(block=block, city=city)
                 
                 # Convert to consistent format
                 formatted_plans = []

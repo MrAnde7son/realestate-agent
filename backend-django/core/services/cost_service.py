@@ -50,6 +50,31 @@ class CostService:
             "facade_upgrade": 0.25  # Facade improvements
         }
     
+    def _parse_area(self, value: Any) -> float:
+        """Safely parse the provided area value into a float."""
+        if isinstance(value, (int, float, Decimal)):
+            return float(value)
+
+        if value is None:
+            return 0.0
+
+        try:
+            # Convert to string first to handle Decimal, Fraction, etc. gracefully
+            return float(str(value).strip())
+        except (TypeError, ValueError):
+            self.logger.warning("Invalid area_m2 value received for Dekel estimate", extra={"value": value})
+            return 0.0
+
+    def _normalize_scope(self, scope_value: Any) -> List[str]:
+        """Ensure the scope value is always returned as a list of scope codes."""
+        if isinstance(scope_value, str):
+            return [scope_value]
+
+        if isinstance(scope_value, (list, tuple, set)):
+            return [str(item) for item in scope_value if isinstance(item, str)] or ["shell"]
+
+        return ["shell"]
+
     def estimate_build_cost(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Estimate building construction costs based on area, scope, region, and quality.
@@ -65,24 +90,30 @@ class CostService:
             Dict with cost breakdown and totals
         """
         try:
-            area_m2 = payload.get("area_m2", 0)
-            scope = payload.get("scope", ["shell"])
-            region = payload.get("region", "CENTER")
-            quality = payload.get("quality", "standard")
-            
+            area_m2 = self._parse_area(payload.get("area_m2", 0))
+            scope = self._normalize_scope(payload.get("scope", ["shell"]))
+            region = str(payload.get("region", "CENTER")).upper()
+            quality = str(payload.get("quality", "standard")).lower()
+
             if area_m2 <= 0:
                 return self._empty_estimate()
-            
+
             # Get base cost per sqm
-            base_cost_per_sqm = self.base_costs.get(region, {}).get(quality, 6000)
-            
+            region_costs = self.base_costs.get(region)
+            if not region_costs:
+                self.logger.warning("Unknown region for Dekel estimate, falling back to CENTER", extra={"region": region})
+                region = "CENTER"
+                region_costs = self.base_costs[region]
+
+            base_cost_per_sqm = float(region_costs.get(quality, region_costs.get("standard", 6000)))
+
             # Calculate costs for each scope
             breakdown = {}
-            total_cost = 0
-            
+            total_cost = 0.0
+
             for scope_item in scope:
                 if scope_item in self.scope_multipliers:
-                    multiplier = self.scope_multipliers[scope_item]
+                    multiplier = float(self.scope_multipliers[scope_item])
                     scope_cost = area_m2 * base_cost_per_sqm * multiplier
                     breakdown[scope_item] = {
                         "cost_per_sqm": base_cost_per_sqm * multiplier,
@@ -90,7 +121,7 @@ class CostService:
                         "area_m2": area_m2
                     }
                     total_cost += scope_cost
-            
+
             # Calculate Low/Base/High estimates
             low_multiplier = 0.85
             high_multiplier = 1.25

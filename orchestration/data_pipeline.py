@@ -450,6 +450,8 @@ class DataPipeline:
         house_number: int,
         max_pages: int = 1,
         asset_id: Optional[int] = None,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
     ) -> List[Any]:
         """Run the pipeline for a given location.
 
@@ -523,8 +525,8 @@ class DataPipeline:
             y_itm = None
             lon_wgs84 = None
             lat_wgs84 = None
-            block = ""
-            parcel = ""
+            block = block or ""
+            parcel = parcel or ""
             
             # Use GovMap collector to get coordinates and parcel data
             try:
@@ -532,10 +534,12 @@ class DataPipeline:
                 govmap_data = self._collect_with_observability(
                     "govmap",
                     self.govmap.collect,
-                    location,
+                    location=location,
                     timeout=self.TIMEOUTS.get("govmap"),
                     retries=self.RETRIES.get("govmap", 0),
                     asset_id=asset_id,
+                    block=block,
+                    parcel=parcel,
                 )
                 track("collector_success", source="govmap")
                 
@@ -573,10 +577,12 @@ class DataPipeline:
                 gis_data = self._collect_with_observability(
                     "gis",
                     self.gis.collect,
-                    location,
+                    location=location,
                     timeout=self.TIMEOUTS.get("gis"),
                     retries=self.RETRIES.get("gis", 0),
                     asset_id=asset_id,
+                    block=block,
+                    parcel=parcel,
                 )
                 track("collector_success", source="gis")
                 
@@ -849,6 +855,27 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 logger.exception("Failed to convert GIS coordinates for asset %s; storing raw ITM", asset_id)
                 asset.lat = gis_data.get('x')
                 asset.lon = gis_data.get('y')
+        # Update street/city from GIS addresses if found and asset doesn't have them
+        if gis_data.get('addresses') and not getattr(asset, 'street', None):
+            addresses = gis_data.get('addresses', [])
+            if addresses:
+                # Use the first address found
+                first_address = addresses[0]
+                asset.street = first_address.get('street', '')
+                asset.number = first_address.get('house_number')
+                logger.info(f"Updated asset {asset_id} with street from GIS: {asset.street}, number: {asset.number}")
+        
+        # Update street/city from GovMap addresses if found and asset doesn't have them
+        if govmap_data.get('addresses') and not getattr(asset, 'street', None):
+            addresses = govmap_data.get('addresses', [])
+            if addresses:
+                # Use the first address found
+                first_address = addresses[0]
+                asset.street = first_address.get('street', '')
+                asset.number = first_address.get('house_number')
+                asset.city = first_address.get('city', '')
+                logger.info(f"Updated asset {asset_id} with street from GovMap: {asset.street}, number: {asset.number}, city: {asset.city}")
+        
         if getattr(asset, 'street', None) and getattr(asset, 'number', None):
             asset.normalized_address = f"{asset.street} {asset.number}" + (f" דירה {asset.apartment}" if getattr(asset, 'apartment', None) else '') + (f" {asset.city}" if getattr(asset, 'city', None) else '')
         if not asset.meta:

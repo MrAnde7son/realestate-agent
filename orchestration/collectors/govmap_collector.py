@@ -35,6 +35,8 @@ class GovMapCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Collect data from GovMap using address autocomplete and parcel data.
 
@@ -43,19 +45,37 @@ class GovMapCollector(BaseCollector):
         location : Optional[LocationQuery]
             Structured address information. When ``None`` an empty query is
             assumed.
+        block : Optional[str]
+            Block number for block/parcel-only queries
+        parcel : Optional[str]
+            Parcel number for block/parcel-only queries
         """
 
         query = ensure_location_query(location)
         address = query.formatted or query.street or query.city
 
-        out: Dict[str, Any] = {
-            "address": address,
-            "api_data": {},
-        }
+        # Determine search query based on input
+        if block and parcel and block.strip() and parcel.strip() and not address:
+            # Block/parcel-only query
+            search_query = f"גוש {block} חלקה {parcel}"
+            logger.info(f"Processing block/parcel-only query in GovMap: {block}/{parcel}")
+            out: Dict[str, Any] = {
+                "address": search_query,
+                "api_data": {},
+                "block": block,
+                "parcel": parcel,
+            }
+        else:
+            # Address-based query
+            search_query = address
+            out: Dict[str, Any] = {
+                "address": search_query,
+                "api_data": {},
+            }
 
         try:
-            # Get autocomplete results for the address
-            autocomplete_result = self.client.autocomplete(address)
+            # Get autocomplete results
+            autocomplete_result = self.client.autocomplete(search_query)
             out["api_data"]["autocomplete"] = autocomplete_result
 
             # Extract coordinates from the first result
@@ -79,10 +99,9 @@ class GovMapCollector(BaseCollector):
             else:
                 logger.warning("Autocomplete response did not contain results")
         except Exception as e:
-            logger.error(f"Failed to process address '{address}': {e}")
+            logger.error(f"Failed to process query '{search_query}': {e}")
 
         return out
-
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate that a non-empty location is provided."""
@@ -95,10 +114,7 @@ if __name__ == "__main__":
     from orchestration.location import LocationQuery
 
     collector = GovMapCollector()
-    result = collector.collect(LocationQuery(street="רוזוב", house_number=14, city="תל אביב"))
+    result = collector.collect(block="7793", parcel="102")
     print("Address:", result["address"])
-    if "x" in result and "y" in result:
-        print(f"Coordinates: x={result['x']}, y={result['y']}")
-        print("Parcel data:", result["api_data"].get("parcel", "Not available"))
-    else:
-        print("Could not extract coordinates from address")
+    print("Parcel data:", result["api_data"])
+

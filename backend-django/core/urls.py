@@ -9,14 +9,13 @@ from . import views
 from . import views_analytics as va
 from . import views_support as vs
 from . import views_documents as vd
-from .api import AssetViewSet, PermitViewSet, PlanViewSet, DocumentViewSet, compute_planning_metrics, get_planning_metrics, estimate_build_cost, get_cost_options
+from .api import PermitViewSet, PlanViewSet, DocumentViewSet, compute_planning_metrics, get_planning_metrics, estimate_build_cost, get_cost_options
 
 class OpenApiYamlView(SpectacularAPIView):
     """Custom view to serve OpenAPI spec in YAML format."""
     renderer_classes = [OpenApiYamlRenderer]
 
 router = DefaultRouter()
-router.register(r'assets', AssetViewSet)
 router.register(r'permits', PermitViewSet)
 router.register(r'plans', PlanViewSet)
 router.register(r'documents', DocumentViewSet)

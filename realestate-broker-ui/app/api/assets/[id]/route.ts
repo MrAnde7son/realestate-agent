@@ -16,11 +16,12 @@ export async function GET(
       const data = await backendResponse.json()
       console.log('Backend response block/parcel:', { block: data.block, parcel: data.parcel, subparcel: data.subparcel })
       
+      // Extract asset from the response (backend returns {"asset": {...}})
       const backendAsset = Array.isArray((data as any)?.rows)
         ? (data as any).rows.find(
             (l: any) => l.id?.toString() === id || l['external_id']?.toString() === id
           )
-        : data
+        : (data.asset || data)
 
       if (backendAsset) {
         console.log('Backend asset block/parcel:', { block: backendAsset.block, parcel: backendAsset.parcel, subparcel: backendAsset.subparcel })

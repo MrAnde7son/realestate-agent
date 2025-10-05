@@ -47,7 +47,6 @@ class FakeGISCollector(GISCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        *,
         block: Optional[str] = None,
         parcel: Optional[str] = None,
     ):
@@ -105,7 +104,6 @@ class FakeGovMapCollector(GovMapCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        *,
         block: Optional[str] = None,
         parcel: Optional[str] = None,
     ):

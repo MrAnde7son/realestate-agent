@@ -246,6 +246,61 @@ class GovMapClient:
 
         raise GovMapError("Parcel search failed after all retry attempts")
 
+    def get_parcel_addresses(self, objectid: int) -> List[Dict[str, Any]]:
+        """Get detailed address information for a parcel using its objectid."""
+        logger.info(f"Getting parcel addresses for objectid: {objectid}")
+        
+        try:
+            url = f"https://www.govmap.gov.il/api/layers-catalog/apps/address-search/parcel/{objectid}"
+            r = self.http.get(url, timeout=self.timeout, verify=False)
+            
+            if r.status_code != 200:
+                logger.warning(f"Parcel address API returned HTTP {r.status_code}")
+                return []
+            
+            data = r.json()
+            if not isinstance(data, list) or not data:
+                logger.warning(f"No address data found for objectid {objectid}")
+                return []
+            
+            addresses = []
+            for feature in data:
+                if feature.get("type") == "Feature":
+                    props = feature.get("properties", {})
+                    geometry = feature.get("geometry", {})
+                    
+                    # Extract coordinates from geometry
+                    coords = None
+                    if geometry.get("type") == "MultiPolygon":
+                        # Get centroid of the first polygon
+                        coords_list = geometry.get("coordinates", [[]])
+                        if coords_list and coords_list[0] and coords_list[0][0]:
+                            # Calculate centroid
+                            polygon_coords = coords_list[0][0]
+                            if polygon_coords:
+                                x_sum = sum(coord[0] for coord in polygon_coords)
+                                y_sum = sum(coord[1] for coord in polygon_coords)
+                                coords = (x_sum / len(polygon_coords), y_sum / len(polygon_coords))
+                    
+                    address = {
+                        "street": props.get("str_name", ""),
+                        "house_number": props.get("house_num"),
+                        "city": props.get("setl_name", ""),
+                        "locality": props.get("locality_name", ""),
+                        "objectid": props.get("address_objectid"),
+                        "x": coords[0] if coords else None,
+                        "y": coords[1] if coords else None,
+                    }
+                    
+                    addresses.append(address)
+            
+            logger.info(f"Found {len(addresses)} addresses for objectid {objectid}")
+            return addresses
+            
+        except Exception as e:
+            logger.error(f"Failed to get parcel addresses for objectid {objectid}: {e}")
+            return []
+
     def get_addresses_by_block_parcel(self, block: str, parcel: str) -> List[Dict[str, Any]]:
         """Get addresses for a given block and parcel using GovMap autocomplete API."""
         logger.info(f"Looking up addresses by block/parcel in GovMap: {block}/{parcel}")

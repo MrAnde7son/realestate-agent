@@ -91,6 +91,32 @@ class GovMapCollector(BaseCollector):
                     try:
                         parcel_data = self.client.get_parcel_data(x, y)
                         out["api_data"]["parcel"] = parcel_data
+                        
+                        # If we have parcel data with objectid, get detailed addresses
+                        if parcel_data and parcel_data.get("properties", {}).get("objectid"):
+                            objectid = parcel_data["properties"]["objectid"]
+                            logger.info(f"Getting detailed addresses for parcel objectid: {objectid}")
+                            
+                            try:
+                                addresses = self.client.get_parcel_addresses(objectid)
+                                if addresses:
+                                    out["addresses"] = addresses
+                                    logger.info(f"Found {len(addresses)} detailed addresses")
+                                    
+                                    # Update the main address with the first detailed address
+                                    first_addr = addresses[0]
+                                    if first_addr.get("street") and first_addr.get("city"):
+                                        detailed_address = f"{first_addr['street']}"
+                                        if first_addr.get("house_number"):
+                                            detailed_address += f" {first_addr['house_number']}"
+                                        detailed_address += f", {first_addr['city']}"
+                                        out["address"] = detailed_address
+                                        logger.info(f"Updated address to: {detailed_address}")
+                                else:
+                                    logger.warning(f"No detailed addresses found for objectid {objectid}")
+                            except Exception as e:
+                                logger.warning(f"Failed to get detailed addresses for objectid {objectid}: {e}")
+                        
                     except Exception as e:
                         logger.warning(f"Failed to get parcel data: {e}")
 
@@ -116,5 +142,5 @@ if __name__ == "__main__":
     collector = GovMapCollector()
     result = collector.collect(block="7793", parcel="102")
     print("Address:", result["address"])
-    print("Parcel data:", result["api_data"])
+    print("result:", result)
 

@@ -1,9 +1,7 @@
 FROM python:3.11-slim
-
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# OS deps...
 RUN apt-get update && apt-get install -y \
     gcc g++ libpq-dev supervisor \
     libnss3 libatk-bridge2.0-0 libxcb1 libxcomposite1 libxdamage1 libxfixes3 \
@@ -14,34 +12,29 @@ RUN apt-get update && apt-get install -y \
     libffi-dev libfreetype6 fontconfig libjpeg62-turbo fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the repository contents (frontend directories excluded via .dockerignore)
+# --- Install backend requirements FIRST, explicitly ---
+# Works whether context is repo root or not; fails fast if the file is actually missing
+COPY backend-django/requirements.txt /tmp/backend-reqs.txt
+RUN pip install --no-cache-dir -r /tmp/backend-reqs.txt
+
+# If you truly need per-module reqs, do them explicitly (optional):
+# COPY orchestration/requirements.txt /tmp/orchestration-reqs.txt
+# RUN pip install --no-cache-dir -r /tmp/orchestration-reqs.txt
+# ...repeat for others only if those files exist in the repo...
+
+# --- Now copy the whole repo (UI excluded via .dockerignore if you want) ---
 COPY . .
 
-# Install Python dependencies for each internal service
-RUN set -eux; \
-    pip install --no-cache-dir -r ./backend-django/requirements.txt; \
-    for req in orchestration gov govmap yad2 mavat gis db; do \
-        req_file="./${req}/requirements.txt"; \
-        if [ -f "${req_file}" ]; then \
-            pip install --no-cache-dir -r "${req_file}"; \
-        fi; \
-    done
+# Supervisor + boot
+RUN cp ./backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf \
+ && chmod +x ./backend-django/deploy/boot.sh
 
-# Supervisor config + boot script
-RUN cp ./backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN chmod +x ./backend-django/deploy/boot.sh
+# Work in Django folder
+WORKDIR /app/backend-django
 
-# Set the working directory to the Django project so manage.py commands run correctly
-WORKDIR ./backend-django
-
-# Create a non-root user
-RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app
+# Non-root (if supervisord/gunicorn paths permit)
+RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
 USER app
 
-# Expose port
 EXPOSE 8000
-
-
-# Run: migrate -> supervisor (gunicorn + celery)
 CMD ["/app/backend-django/deploy/boot.sh"]

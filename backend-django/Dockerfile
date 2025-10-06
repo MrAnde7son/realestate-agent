@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the repository contents (frontend directories excluded via .dockerignore)
-COPY . /app
+COPY ../ /app
 
 # Ensure required internal modules are present when the Docker build context is misconfigured
 RUN set -eux; \

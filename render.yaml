@@ -209,10 +209,10 @@ services:
   - key: ALLOWED_HOSTS
     sync: false
   region: oregon
-  dockerContext: ./
+  dockerContext: .
   dockerfilePath: ./Dockerfile
   autoDeployTrigger: commit
-  rootDir: /app/backend-django
+  rootDir: backend-django
   previews:
     generation: manual
 - type: web

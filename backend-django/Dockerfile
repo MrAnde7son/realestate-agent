@@ -50,6 +50,9 @@ COPY backend-django /app/backend-django
 RUN cp /app/backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN chmod +x /app/backend-django/deploy/boot.sh
 
+# Set the working directory to the Django project so manage.py commands run correctly
+WORKDIR /app/backend-django
+
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app

@@ -56,6 +56,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies for backend + pipeline + collectors
 COPY requirements-production.txt /tmp/requirements-production.txt
+# Copy all referenced requirement files so nested -r directives resolve during install
+COPY backend-django/requirements.txt /tmp/backend-django/requirements.txt
+COPY db/requirements.txt /tmp/db/requirements.txt
+COPY orchestration/requirements.txt /tmp/orchestration/requirements.txt
+COPY gov/requirements.txt /tmp/gov/requirements.txt
+COPY govmap/requirements.txt /tmp/govmap/requirements.txt
+COPY gis/requirements.txt /tmp/gis/requirements.txt
+COPY yad2/requirements.txt /tmp/yad2/requirements.txt
+COPY mavat/requirements.txt /tmp/mavat/requirements.txt
 RUN python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r /tmp/requirements-production.txt
 

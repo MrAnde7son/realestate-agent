@@ -15,15 +15,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
-COPY backend-django/requirements.txt .
-COPY orchestration/requirements.txt ./orchestration-requirements.txt
-COPY gov/requirements.txt ./gov-requirements.txt
-COPY govmap/requirements.txt ./govmap-requirements.txt
-COPY yad2/requirements.txt ./yad2-requirements.txt
-COPY mavat/requirements.txt ./mavat-requirements.txt
-COPY gis/requirements.txt ./gis-requirements.txt
-COPY db/requirements.txt ./db-requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt && \
+COPY ./backend-django/requirements.txt ./backend-requirements.txt
+COPY ./orchestration/requirements.txt ./orchestration-requirements.txt
+COPY ./gov/requirements.txt ./gov-requirements.txt
+COPY ./govmap/requirements.txt ./govmap-requirements.txt
+COPY ./yad2/requirements.txt ./yad2-requirements.txt
+COPY ./mavat/requirements.txt ./mavat-requirements.txt
+COPY ./gis/requirements.txt ./gis-requirements.txt
+COPY ./db/requirements.txt ./db-requirements.txt
+RUN pip install --no-cache-dir -r backend-requirements.txt && \
     pip install --no-cache-dir -r orchestration-requirements.txt && \
     pip install --no-cache-dir -r gov-requirements.txt && \
     pip install --no-cache-dir -r govmap-requirements.txt && \
@@ -34,21 +34,21 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 # Copy all required modules from root directory
 # Note: Data pipeline imports from orchestration, utils, db, yad2, gov, gis, govmap, mavat
-COPY orchestration /app/orchestration
-COPY utils /app/utils
-COPY db /app/db
-COPY yad2 /app/yad2
-COPY gov /app/gov
-COPY gis /app/gis
-COPY govmap /app/govmap
-COPY mavat /app/mavat
+COPY ./orchestration /app/orchestration
+COPY ./utils /app/utils
+COPY ./db /app/db
+COPY ./yad2 /app/yad2
+COPY ./gov /app/gov
+COPY ./gis /app/gis
+COPY ./govmap /app/govmap
+COPY ./mavat /app/mavat
 
 # Copy the Django project
-COPY backend-django /app/backend-django
+COPY ./backend-django /app/backend-django
 
 # Supervisor config + boot script
 RUN cp /app/backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN chmod +x /backend-django/app/deploy/boot.sh
+RUN chmod +x /app/backend-django/deploy/boot.sh
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \

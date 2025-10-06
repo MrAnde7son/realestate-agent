@@ -19,20 +19,20 @@ COPY . .
 
 # Install Python dependencies for each internal service
 RUN set -eux; \
-    pip install --no-cache-dir -r /app/backend-django/requirements.txt; \
+    pip install --no-cache-dir -r ./backend-django/requirements.txt; \
     for req in orchestration gov govmap yad2 mavat gis db; do \
-        req_file="/app/${req}/requirements.txt"; \
+        req_file="./${req}/requirements.txt"; \
         if [ -f "${req_file}" ]; then \
             pip install --no-cache-dir -r "${req_file}"; \
         fi; \
     done
 
 # Supervisor config + boot script
-RUN cp /app/backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN chmod +x /app/backend-django/deploy/boot.sh
+RUN cp ./backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN chmod +x ./backend-django/deploy/boot.sh
 
 # Set the working directory to the Django project so manage.py commands run correctly
-WORKDIR /app/backend-django
+WORKDIR ./backend-django
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \

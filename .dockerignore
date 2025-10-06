@@ -48,6 +48,10 @@ yarn-error.log*
 .npm
 .yarn-integrity
 
+# Frontend apps (handled separately)
+client/
+realestate-broker-ui/
+
 # Next.js
 .next/
 out/

@@ -14,41 +14,37 @@ RUN apt-get update && apt-get install -y \
     libffi-dev libfreetype6 fontconfig libjpeg62-turbo fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY backend-django/requirements.txt .
-COPY orchestration/requirements.txt ./orchestration-requirements.txt
-COPY gov/requirements.txt ./gov-requirements.txt
-COPY govmap/requirements.txt ./govmap-requirements.txt
-COPY yad2/requirements.txt ./yad2-requirements.txt
-COPY mavat/requirements.txt ./mavat-requirements.txt
-COPY gis/requirements.txt ./gis-requirements.txt
-COPY db/requirements.txt ./db-requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r orchestration-requirements.txt && \
-    pip install --no-cache-dir -r gov-requirements.txt && \
-    pip install --no-cache-dir -r govmap-requirements.txt && \
-    pip install --no-cache-dir -r yad2-requirements.txt && \
-    pip install --no-cache-dir -r mavat-requirements.txt && \
-    pip install --no-cache-dir -r gis-requirements.txt && \
-    pip install --no-cache-dir -r db-requirements.txt
+# Copy the repository contents (frontend directories excluded via .dockerignore)
+COPY . /app
 
-# Copy all required modules from root directory
-# Note: Data pipeline imports from orchestration, utils, db, yad2, gov, gis, govmap, mavat
-COPY orchestration /app/orchestration
-COPY utils /app/utils
-COPY db /app/db
-COPY yad2 /app/yad2
-COPY gov /app/gov
-COPY gis /app/gis
-COPY govmap /app/govmap
-COPY mavat /app/mavat
+# Ensure required internal modules are present when the Docker build context is misconfigured
+RUN set -eux; \
+    missing=""; \
+    for dir in backend-django orchestration utils db yad2 gov gis govmap mavat; do \
+        if [ ! -d "/app/${dir}" ]; then missing="${missing} ${dir}"; fi; \
+    done; \
+    if [ -n "${missing}" ]; then \
+        echo "ERROR: Missing directories in build context:${missing}"; \
+        echo "Ensure you build the image from the repository root so these modules are available."; \
+        exit 1; \
+    fi
 
-# Copy the Django project
-COPY backend-django /app/backend-django
+# Install Python dependencies for each internal service
+RUN set -eux; \
+    pip install --no-cache-dir -r /app/backend-django/requirements.txt; \
+    for req in orchestration gov govmap yad2 mavat gis db; do \
+        req_file="/app/${req}/requirements.txt"; \
+        if [ -f "${req_file}" ]; then \
+            pip install --no-cache-dir -r "${req_file}"; \
+        fi; \
+    done
 
 # Supervisor config + boot script
 RUN cp /app/backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN chmod +x /app/backend-django/deploy/boot.sh
+
+# Set the working directory to the Django project so manage.py commands run correctly
+WORKDIR /app/backend-django
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \

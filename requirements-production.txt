@@ -1,0 +1,9 @@
+# Production requirements for the backend container including data pipeline and collectors
+-r backend-django/requirements.txt
+-r db/requirements.txt
+-r orchestration/requirements.txt
+-r gov/requirements.txt
+-r govmap/requirements.txt
+-r gis/requirements.txt
+-r yad2/requirements.txt
+-r mavat/requirements.txt

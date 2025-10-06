@@ -1,0 +1,86 @@
+# syntax=docker/dockerfile:1
+FROM python:3.11-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+WORKDIR /app
+
+# Install system dependencies required for Django, Celery, Playwright and geo/GIS collectors
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    libpq-dev \
+    supervisor \
+    curl \
+    # Playwright/Chromium runtime deps
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libxcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrender1 \
+    libxtst6 \
+    libxi6 \
+    libdbus-1-3 \
+    libxrandr2 \
+    libasound2 \
+    libatk1.0-0 \
+    libgtk-3-0 \
+    libdrm2 \
+    libgbm1 \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libpangocairo-1.0-0 \
+    libatspi2.0-0 \
+    libgobject-2.0-0 \
+    libglib2.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    libffi-dev \
+    libfreetype6 \
+    fontconfig \
+    fonts-noto-core \
+    # GIS/geo stack dependencies used by collectors
+    gdal-bin \
+    libgdal-dev \
+    libgeos-dev \
+    proj-bin \
+    libproj-dev \
+    libspatialindex-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies for backend + pipeline + collectors
+COPY requirements-production.txt /tmp/requirements-production.txt
+RUN python -m pip install --upgrade pip \
+    && pip install --no-cache-dir -r /tmp/requirements-production.txt
+
+# Preinstall Chromium for Playwright collectors
+RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
+    && python -m playwright install chromium
+
+# Copy the full repository so orchestration/collector modules are available to Django
+COPY . /app
+
+# Prepare supervisor configuration and boot script
+RUN mkdir -p /etc/supervisor/conf.d \
+    && cp backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf \
+    && chmod +x backend-django/deploy/boot.sh
+
+# Ensure runtime user has access to application files and Playwright browsers
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app "$PLAYWRIGHT_BROWSERS_PATH"
+
+USER app
+
+# Work from the Django project directory but keep project root on PYTHONPATH
+ENV PYTHONPATH=/app:/app/backend-django
+WORKDIR /app/backend-django
+
+EXPOSE 8000
+
+CMD ["./deploy/boot.sh"]

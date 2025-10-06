@@ -9,7 +9,15 @@ from . import views
 from . import views_analytics as va
 from . import views_support as vs
 from . import views_documents as vd
-from .api import PermitViewSet, PlanViewSet, DocumentViewSet, compute_planning_metrics, get_planning_metrics, estimate_build_cost, get_cost_options
+from .api import (
+    PermitViewSet,
+    PlanViewSet,
+    DocumentViewSet,
+    compute_planning_metrics,
+    get_planning_metrics,
+    estimate_build_cost,
+    get_cost_options,
+)
 
 class OpenApiYamlView(SpectacularAPIView):
     """Custom view to serve OpenAPI spec in YAML format."""
@@ -79,8 +87,8 @@ urlpatterns = [
     path('planning/<int:asset_id>/', get_planning_metrics, name='get_planning_metrics'),
     
     # Cost estimation endpoints
-    path('cost/estimate/build/', estimate_build_cost, name='estimate_build_cost'),
-    path('cost/options/', get_cost_options, name='get_cost_options'),
+    path('cost/estimate/build', estimate_build_cost, name='estimate_build_cost'),
+    path('cost/options', get_cost_options, name='get_cost_options'),
 
     
     # Authentication endpoints

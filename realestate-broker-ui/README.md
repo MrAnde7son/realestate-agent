@@ -99,7 +99,7 @@ Edit `.env.local` with your settings:
 
 ```env
 # API Configuration
-BACKEND_URL=http://localhost:8000
+BACKEND_URL=http://127.0.0.1:8000
 NEXT_PUBLIC_WS_URL=ws://localhost:8000
 
 # Map Configuration (Optional - MapView uses OpenStreetMap by default)
@@ -133,7 +133,9 @@ pnpm build
 
 ### 4️⃣ Backend Setup
 
-Ensure the Django backend is running (see `../backend-django/README.md`):
+Ensure the Django backend is running (see `../backend-django/README.md`).
+The UI proxies cost estimation requests via `BACKEND_URL`, so confirm your `.env.local`
+includes `BACKEND_URL=http://127.0.0.1:8000` when running locally:
 
 ```bash
 # In a separate terminal

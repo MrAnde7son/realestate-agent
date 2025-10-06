@@ -40,13 +40,14 @@ ENV/
 env.bak/
 venv.bak/
 
-# Node.js
+# Node.js / Frontend
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .npm
 .yarn-integrity
+realestate-broker-ui/
 
 # Next.js
 .next/

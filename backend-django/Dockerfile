@@ -17,18 +17,6 @@ RUN apt-get update && apt-get install -y \
 # Copy the repository contents (frontend directories excluded via .dockerignore)
 COPY . .
 
-# Ensure required internal modules are present when the Docker build context is misconfigured
-RUN set -eux; \
-    missing=""; \
-    for dir in backend-django orchestration utils db yad2 gov gis govmap mavat; do \
-        if [ ! -d "/app/${dir}" ]; then missing="${missing} ${dir}"; fi; \
-    done; \
-    if [ -n "${missing}" ]; then \
-        echo "ERROR: Missing directories in build context:${missing}"; \
-        echo "Ensure you build the image from the repository root so these modules are available."; \
-        exit 1; \
-    fi
-
 # Install Python dependencies for each internal service
 RUN set -eux; \
     pip install --no-cache-dir -r /app/backend-django/requirements.txt; \

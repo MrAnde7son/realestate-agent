@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """Integration tests for MavatCollector."""
 
+from importlib import import_module
+from inspect import isclass
 from unittest.mock import Mock, patch
 
 import pytest
@@ -13,9 +15,13 @@ class TestMavatCollectorIntegration:
     def test_collector_import(self):
         """Test that MavatCollector can be imported."""
         try:
-            assert True
+            module = import_module("orchestration.collectors.mavat_collector")
+            mavat_cls = getattr(module, "MavatCollector")
+            assert isclass(mavat_cls), "MavatCollector is not a class"
         except ImportError as e:
-            pytest.fail(f"Failed to import MavatCollector: {e}")
+            pytest.fail(f"Failed to import MavatCollector module: {e}")
+        except AttributeError as e:
+            pytest.fail(f"MavatCollector class missing: {e}")
 
     def test_collector_creation(self):
         """Test that MavatCollector can be created."""
@@ -46,9 +52,13 @@ class TestMavatCollectorDataPipelineIntegration:
     def test_data_pipeline_import(self):
         """Test that DataPipeline can import MavatCollector."""
         try:
-            assert True
+            module = import_module("orchestration.data_pipeline")
+            pipeline_cls = getattr(module, "DataPipeline")
+            assert isclass(pipeline_cls), "DataPipeline is not a class"
         except ImportError as e:
-            pytest.fail(f"Failed to import DataPipeline or MavatCollector: {e}")
+            pytest.fail(f"Failed to import DataPipeline module: {e}")
+        except AttributeError as e:
+            pytest.fail(f"DataPipeline class missing: {e}")
 
     def test_data_pipeline_has_mavat_collector(self):
         """Test that DataPipeline includes MavatCollector."""

@@ -6,7 +6,11 @@ histograms defined below as well as the HTTP metrics endpoint exposed via
 ``start_metrics_server``.
 """
 
+import errno
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 from prometheus_client import Counter, Histogram, start_http_server
 from opentelemetry import trace
@@ -59,13 +63,24 @@ _metrics_server = None
 
 def start_metrics_server(port: int = 8000) -> None:
     global _metrics_started, _metrics_server
-    if not _metrics_started:
-        try:
-            _metrics_server = start_http_server(port)
+    if _metrics_started:
+        logger.debug("Metrics server already started; skipping start for port %s", port)
+        return
+
+    try:
+        _metrics_server = start_http_server(port)
+        _metrics_started = True
+        logger.info("Started orchestration metrics server on port %s", port)
+    except OSError as e:
+        if e.errno in {errno.EADDRINUSE, 48}:
+            # In test environment (or when another worker already started it),
+            # this is expected - just mark as started so downstream code continues.
             _metrics_started = True
-        except OSError as e:
-            if e.errno == 48:  # Address already in use
-                # In test environment, this is expected - just mark as started
-                _metrics_started = True
-            else:
-                raise
+            logger.warning(
+                "Metrics server port %s already in use; assuming existing server", port
+            )
+        else:
+            logger.exception(
+                "Failed to start orchestration metrics server on port %s", port
+            )
+            raise

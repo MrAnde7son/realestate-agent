@@ -83,18 +83,18 @@ class TestAssetFieldPopulation:
         assert asset.save_called
 
     def test_populate_from_yad2_listings_street_match(self):
-        """Test populating asset fields from Yad2 listing with street match."""
+        """Test that street matching is not supported - only exact matches work."""
         # Create mock asset
         asset = MockAsset()
         asset.normalized_address = None  # No exact address
         asset.street = "הרצל"
         
-        # Mock listings with street match
+        # Mock listings with street match but no exact match
         listings = [
             {
                 'price': 2800000,
                 'area': 110,
-                'address': 'רחוב הרצל 25, תל אביב',
+                'address': 'רחוב הרצל 25, תל אביב',  # Different address
                 'rooms': 4,
                 'bedrooms': 3
             },
@@ -110,19 +110,18 @@ class TestAssetFieldPopulation:
         # Test population
         _populate_asset_fields_from_listings(asset, listings)
         
-        # Verify street match was used (first listing)
-        assert asset.price == 2800000
-        assert asset.total_area == 110
-        assert asset.price_per_sqm == 25454  # 2800000 / 110
-        assert asset.rooms == 4
-        assert asset.bedrooms == 3
+        # Verify no fields were populated since there's no exact match
+        assert asset.price is None
+        assert asset.total_area is None
+        assert asset.price_per_sqm is None
+        assert asset.rooms is None
+        assert asset.bedrooms is None
         
-        # Verify source tracking
-        assert 'primary_listing_source' in asset.meta
-        assert asset.meta['primary_listing_source']['source'] == 'yad2'
+        # Verify save was not called
+        assert not asset.save_called
 
     def test_populate_from_yad2_listings_fallback(self):
-        """Test populating asset fields from Yad2 listing fallback to first complete listing."""
+        """Test that fallback behavior is not supported - only exact matches work."""
         # Create mock asset
         asset = MockAsset()
         asset.normalized_address = None
@@ -149,12 +148,15 @@ class TestAssetFieldPopulation:
         # Test population
         _populate_asset_fields_from_listings(asset, listings)
         
-        # Verify first complete listing was used
-        assert asset.price == 2000000
-        assert asset.total_area == 80
-        assert asset.price_per_sqm == 25000  # 2000000 / 80
-        assert asset.rooms == 3
-        assert asset.bedrooms == 2
+        # Verify no fields were populated since there's no exact match
+        assert asset.price is None
+        assert asset.total_area is None
+        assert asset.price_per_sqm is None
+        assert asset.rooms is None
+        assert asset.bedrooms is None
+        
+        # Verify save was not called
+        assert not asset.save_called
 
     def test_populate_from_yad2_listings_no_overwrite_existing(self):
         """Test that existing asset fields are not overwritten."""
@@ -163,13 +165,14 @@ class TestAssetFieldPopulation:
         asset.price = 2000000  # Already has price
         asset.total_area = 90   # Already has area
         asset.rooms = 3        # Already has rooms
+        asset.normalized_address = "רחוב הרצל 15, תל אביב"  # Add exact address for matching
         
         # Mock listings
         listings = [
             {
                 'price': 3000000,  # Different price
                 'area': 120,      # Different area
-                'address': 'רחוב הרצל 15, תל אביב',
+                'address': 'רחוב הרצל 15, תל אביב',  # Exact match
                 'rooms': 5,       # Different rooms
                 'bedrooms': 4,
                 'floor': 2

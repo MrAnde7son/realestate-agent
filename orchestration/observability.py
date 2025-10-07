@@ -61,7 +61,7 @@ COLLECTOR_FAILURE = Counter(
 _metrics_started = False
 _metrics_server = None
 
-def start_metrics_server(port: int = 8000) -> None:
+def start_metrics_server(port: int = 9000) -> None:
     global _metrics_started, _metrics_server
     if _metrics_started:
         logger.debug("Metrics server already started; skipping start for port %s", port)

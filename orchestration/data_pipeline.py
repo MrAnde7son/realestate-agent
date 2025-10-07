@@ -309,7 +309,7 @@ class DataPipeline:
         # Note: GovMap client is now accessed through the collector
 
         # Expose Prometheus metrics endpoint
-        start_metrics_server(int(os.getenv("METRICS_PORT", "8000")))
+        start_metrics_server(int(os.getenv("METRICS_PORT", "9000")))
 
         # Ensure database is ready when we manage it ourselves.
         if self.db is not None:

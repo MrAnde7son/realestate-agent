@@ -30,10 +30,10 @@ class GISCollector(BaseCollector):
         street = query.street
         city = query.city
         search_street = (street or query.formatted or "").strip()
-        number = query.house_number or 0
+        number = query.house_number if query.house_number is not None else 0
 
         # Handle block/parcel-only queries
-        if block and parcel and block.strip() and parcel.strip() and not search_street:
+        if block and parcel and str(block).strip() and str(parcel).strip() and not search_street:
             logger.info(f"Processing block/parcel-only query: {block}/{parcel}")
             return self._collect_by_block_parcel(block, parcel)
 
@@ -57,13 +57,17 @@ class GISCollector(BaseCollector):
 
     def _collect_by_block_parcel(self, block: str, parcel: str) -> Dict[str, Any]:
         """Collect GIS data using block/parcel numbers."""
-        logger.info(f"Collecting GIS data for block {block}, parcel {parcel}")
+        # Ensure block and parcel are strings
+        block_str = str(block).strip()
+        parcel_str = str(parcel).strip()
+        
+        logger.info(f"Collecting GIS data for block {block_str}, parcel {parcel_str}")
         
         # Get addresses for this block/parcel
-        addresses = self.client.get_addresses_by_block_parcel(block, parcel)
+        addresses = self.client.get_addresses_by_block_parcel(block_str, parcel_str)
         
         if not addresses:
-            logger.warning(f"No addresses found for block {block}, parcel {parcel}")
+            logger.warning(f"No addresses found for block {block_str}, parcel {parcel_str}")
             return {
                 "blocks": [],
                 "parcels": [],
@@ -74,8 +78,8 @@ class GISCollector(BaseCollector):
                 "noise": [],
                 "antennas": [],
                 "addresses": [],
-                "block": block,
-                "parcel": parcel,
+                "block": block_str,
+                "parcel": parcel_str,
                 "x": None,
                 "y": None,
             }
@@ -83,8 +87,10 @@ class GISCollector(BaseCollector):
         # Use the first address for coordinate-based queries
         first_address = addresses[0]
         x, y = first_address["x"], first_address["y"]
+        city="תל אביב - יפו"
+
         
-        logger.info(f"Using coordinates from first address: {first_address['street']} {first_address['house_number']}")
+        logger.info(f"Using coordinates from first address: {first_address['street']} {first_address['house_number']}, city: {city}")
         
         data = {
             "blocks": self.client.get_blocks(x, y),
@@ -96,8 +102,9 @@ class GISCollector(BaseCollector):
             "noise": self.client.get_noise_levels(x, y),
             "antennas": self.client.get_cell_antennas(x, y),
             "addresses": addresses,  # Include all addresses found
-            "block": block,
-            "parcel": parcel,
+            "block": block_str,
+            "parcel": parcel_str,
+            "city": city,
             "x": x,
             "y": y,
         }
@@ -146,8 +153,20 @@ class GISCollector(BaseCollector):
         """Validate the parameters for GIS collection."""
 
         location = kwargs.get("location")
-        return (
-            isinstance(location, LocationQuery)
-            and bool(location.street)
-            and location.house_number is not None
-        )
+        block = kwargs.get("block")
+        parcel = kwargs.get("parcel")
+        
+        # Valid if we have a location with street, or block/parcel
+        if isinstance(location, LocationQuery) and bool(location.street):
+            return True
+        
+        # Also valid if we have block and parcel
+        if block and parcel:
+            return True
+            
+        return False
+
+if __name__ == "__main__":
+    gis_collector = GISCollector()
+    data = gis_collector.collect(block="6638", parcel="402")
+    print(data)

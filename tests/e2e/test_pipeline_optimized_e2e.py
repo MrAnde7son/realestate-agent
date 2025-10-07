@@ -1,208 +1,357 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Optimized End-to-End Test for Real Estate Data Pipeline
+from __future__ import annotations
 
-This test runs the pipeline with real data but with optimized settings
-to handle performance and timeout issues.
-"""
+import contextlib
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
-import sys
-import os
-import time
-import logging
-from typing import Dict, List, Any
+import pytest
 
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from orchestration.collectors.mavat_collector import MavatCollector
+from orchestration.collectors.yad2_collector import Yad2Collector
+from orchestration.data_pipeline import DataPipeline
+from orchestration.location import LocationQuery
 
 
-def test_pipeline_e2e_optimized():
-    """Test the complete pipeline with optimized settings."""
-    try:
-        from orchestration.data_pipeline import DataPipeline
-        
-        # Create pipeline
-        pipeline = DataPipeline()
-        logger.info("✅ Pipeline created successfully")
-        
-        # Test with a well-known Tel Aviv address
-        city = "תל אביב"
-        address = "רוטשילד"
-        house_number = 1
-        
-        logger.info(f"🚀 Running optimized pipeline for: {address} {house_number}")
-        
-        # Run the pipeline with max_pages=1 to limit data
-        start_time = time.time()
-        results = pipeline.run(city, address, house_number, max_pages=1)
-        execution_time = time.time() - start_time
-        
-        # Basic assertions with more reasonable timeout
-        assert results is not None, "Pipeline should return results"
-        assert len(results) > 0, "Pipeline should return at least some data"
-        assert execution_time < 300, f"Pipeline should complete within 5 minutes, took {execution_time:.2f}s"
-        
-        # Analyze results
-        sources = analyze_results_by_source(results)
-        
-        logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
-        logger.info(f"📊 Collected data from {len(sources)} sources: {list(sources.keys())}")
-        
-        # Verify we got data from multiple sources
-        assert len(sources) >= 2, f"Expected data from multiple sources, got: {list(sources.keys())}"
-        
-        # Verify Yad2 data
-        if 'yad2' in sources:
-            yad2_data = sources['yad2']
-            assert len(yad2_data) > 0, "Should have Yad2 listings"
-            logger.info(f"🏠 Found {len(yad2_data)} Yad2 listings")
-            
-            # Check first listing
-            first_listing = yad2_data[0]
-            assert hasattr(first_listing, 'title'), "Listing should have title"
-            assert hasattr(first_listing, 'address'), "Listing should have address"
-            logger.info(f"   First listing: {first_listing.title} - {first_listing.address}")
-        
-        # Verify GIS data
-        if 'gis' in sources:
-            gis_data = sources['gis']
-            # GIS data can be a list of dictionaries or a single dictionary
-            if isinstance(gis_data, list) and len(gis_data) > 0:
-                gis_data = gis_data[0]  # Take the first item if it's a list
-            
-            assert isinstance(gis_data, dict), f"GIS data should be a dictionary, got {type(gis_data)}"
-            if 'x' in gis_data and 'y' in gis_data:
-                logger.info(f"📍 GIS coordinates: {gis_data['x']}, {gis_data['y']}")
-            if 'block' in gis_data and 'parcel' in gis_data:
-                logger.info(f"📍 Block/Parcel: {gis_data['block']}/{gis_data['parcel']}")
-        
-        logger.info("🎉 Optimized E2E test completed successfully!")
-        return True
-        
-    except ImportError as e:
-        logger.error(f"❌ Import error: {e}")
-        logger.error("This might be due to missing dependencies. Try installing them first.")
-        return False
-        
-    except Exception as e:
-        logger.error(f"❌ Pipeline error: {e}")
-        import traceback
-        traceback.print_exc()
+@dataclass
+class FakePlan:
+    plan_id: str
+    title: str
+
+    def __post_init__(self) -> None:
+        self.status = "approved"
+        self.authority = "Test Authority"
+        self.entity_number = "123"
+        self.approval_date = "2024-01-01"
+        self.status_date = "2024-02-01"
+        self.raw = {"id": self.plan_id, "title": self.title}
+
+
+class FakeMavatClient:
+    def __init__(self, plans):
+        self._plans = plans
+        self.calls: List[Dict[str, Any]] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
         return False
 
-
-def test_pipeline_error_handling():
-    """Test pipeline resilience with invalid address."""
-    try:
-        from orchestration.data_pipeline import DataPipeline
-        
-        # Create pipeline
-        pipeline = DataPipeline()
-        
-        # Test with an address that should fail gracefully
-        city = ""
-        address = "nonexistent_street_12345"
-        house_number = 999
-        
-        logger.info(f"🚀 Testing error handling with: {address} {house_number}")
-        
-        # Run the pipeline - should not crash
-        start_time = time.time()
-        results = pipeline.run(city, address, house_number, max_pages=1)
-        execution_time = time.time() - start_time
-        
-        # Should still return results (even if empty)
-        assert results is not None, "Pipeline should return results even on error"
-        assert execution_time < 60, f"Pipeline should fail fast, took {execution_time:.2f}s"
-        
-        # Should have at least Yad2 data (general search)
-        sources = analyze_results_by_source(results)
-        assert 'yad2' in sources, "Should have Yad2 data even with invalid address"
-        
-        logger.info(f"✅ Error handling test completed in {execution_time:.2f}s")
-        logger.info("🎉 Error handling E2E test completed successfully!")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Error handling test error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-def analyze_results_by_source(results: List[Any]) -> Dict[str, List[Any]]:
-    """Analyze pipeline results and group by source."""
-    sources = {}
-    
-    for result in results:
-        if hasattr(result, 'title'):  # Yad2 listing
-            if 'yad2' not in sources:
-                sources['yad2'] = []
-            sources['yad2'].append(result)
-        elif isinstance(result, dict) and 'source' in result:
-            source = result['source']
-            if source not in sources:
-                sources[source] = []
-            sources[source].append(result['data'])
-        else:
-            # Unknown result type
-            if 'unknown' not in sources:
-                sources['unknown'] = []
-            sources['unknown'].append(result)
-    
-    return sources
+    def search_plans(self, *, block: str, city: str | None = None, **_):
+        self.calls.append({"block": block, "city": city})
+        return list(self._plans)
 
 
-def main():
-    """Run all optimized e2e tests."""
-    print("🚀 REAL ESTATE PIPELINE OPTIMIZED E2E TESTS")
-    print("=" * 60)
-    
-    tests = [
-        ("Optimized Pipeline", test_pipeline_e2e_optimized),
-        ("Error Handling", test_pipeline_error_handling),
+class StubYad2Collector(Yad2Collector):
+    def __init__(self, listings: List[Any] | None = None):
+        super().__init__(client=object())
+        self.listings = list(listings or [])
+        self.fetch_calls: List[tuple[str, int]] = []
+
+    def _fetch_listings(self, address: str, max_pages: int):
+        self.fetch_calls.append((address, max_pages))
+        return list(self.listings)
+
+
+@dataclass
+class FakeListing:
+    title: str
+    address: str
+    listing_id: str
+    price: int = 0
+    rooms: int = 0
+    floor: int = 0
+    size: int = 0
+    property_type: str = "apartment"
+    description: str = ""
+    url: str = "https://example.test/listing"
+    coordinates: tuple[float, float] = (34.78, 32.06)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "title": self.title,
+            "address": self.address,
+            "listing_id": self.listing_id,
+            "price": self.price,
+            "rooms": self.rooms,
+            "floor": self.floor,
+            "size": self.size,
+            "property_type": self.property_type,
+        }
+
+
+def test_mavat_collector_formats_results_without_network_calls():
+    plans = [FakePlan("123", "Tel Aviv Plan"), FakePlan("456", "Residential")]
+    client = FakeMavatClient(plans)
+    collector = MavatCollector(client=client)
+
+    formatted = collector.collect(block="6336", city="Tel Aviv")
+
+    assert formatted == [
+        {
+            "plan_id": "123",
+            "title": "Tel Aviv Plan",
+            "status": "approved",
+            "authority": "Test Authority",
+            "entity_number": "123",
+            "approval_date": "2024-01-01",
+            "status_date": "2024-02-01",
+            "raw": {"id": "123", "title": "Tel Aviv Plan"},
+        },
+        {
+            "plan_id": "456",
+            "title": "Residential",
+            "status": "approved",
+            "authority": "Test Authority",
+            "entity_number": "123",
+            "approval_date": "2024-01-01",
+            "status_date": "2024-02-01",
+            "raw": {"id": "456", "title": "Residential"},
+        },
     ]
-    
-    results = {}
-    
-    for test_name, test_func in tests:
-        print(f"\n🧪 Running: {test_name}")
-        print("-" * 40)
-        
-        try:
-            success = test_func()
-            results[test_name] = success
-            if success:
-                print(f"✅ {test_name}: PASSED")
-            else:
-                print(f"❌ {test_name}: FAILED")
-        except Exception as e:
-            print(f"❌ {test_name}: ERROR - {e}")
-            results[test_name] = False
-    
-    # Summary
-    print("\n📊 TEST SUMMARY")
-    print("=" * 40)
-    passed = sum(1 for success in results.values() if success)
-    total = len(results)
-    
-    for test_name, success in results.items():
-        status = "✅ PASSED" if success else "❌ FAILED"
-        print(f"{test_name}: {status}")
-    
-    print(f"\nOverall: {passed}/{total} tests passed")
-    
-    if passed == total:
-        print("🎉 All optimized E2E tests passed!")
-        return 0
-    else:
-        print("⚠️ Some optimized E2E tests failed")
-        return 1
+    assert client.calls == [{"block": "6336", "city": "Tel Aviv"}]
 
 
-if __name__ == "__main__":
-    exit(main())
+def test_yad2_collector_uses_location_query():
+    listing = FakeListing(
+        title="Cozy Apartment",
+        address="רוזוב 14 תל אביב",
+        listing_id="TLV-1",
+    )
+    collector = StubYad2Collector([listing])
+    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
+
+    listings = collector.collect(location, max_pages=2)
+
+    assert [l.listing_id for l in listings] == ["TLV-1"]
+    assert collector.fetch_calls == [("רוזוב תל אביב", 2)]
+
+
+def test_yad2_prepare_location_parameters_prefers_matching_city():
+    autocomplete_payload = {
+        "cities": [
+            {"cityId": "5000", "topAreaId": "10", "areaId": "200"},
+            {"cityId": "123", "topAreaId": "11", "areaId": "201"},
+        ],
+        "top_areas": [{"id": "10"}],
+        "areas": [{"id": "200"}],
+        "hoods": [
+            {"hoodId": "901", "cityId": "5000"},
+            {"hoodId": "999", "cityId": "123"},
+        ],
+        "streets": [
+            {"streetId": "321", "cityId": "5000", "name": "רוזוב"},
+            {"streetId": "777", "cityId": "123", "name": "Other"},
+        ],
+    }
+
+    params = Yad2Collector._prepare_location_parameters(autocomplete_payload)
+
+    assert params == {
+        "city": 5000,
+        "topArea": 10,
+        "area": 200,
+        "neighborhood": 901,
+        "street": "321",
+    }
+
+
+def test_yad2_prepare_location_parameters_handles_missing_values():
+    params = Yad2Collector._prepare_location_parameters({})
+    assert params == {}
+
+
+class DummyMetric:
+    def __init__(self) -> None:
+        self.records: List[tuple[str, float]] = []
+
+    def labels(self, *args, **kwargs):
+        return self
+
+    def observe(self, value: float) -> None:  # Histogram interface
+        self.records.append(("observe", float(value)))
+
+    def inc(self, amount: float = 1) -> None:  # Counter interface
+        self.records.append(("inc", float(amount)))
+
+
+class DummyTracer:
+    @contextlib.contextmanager
+    def start_as_current_span(self, *args, **kwargs):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def isolate_pipeline(monkeypatch):
+    import orchestration.data_pipeline as module
+
+    monkeypatch.setattr(module, "start_metrics_server", lambda *a, **k: None)
+    monkeypatch.setattr(module, "COLLECTOR_LATENCY", DummyMetric())
+    monkeypatch.setattr(module, "COLLECTOR_SUCCESS", DummyMetric())
+    monkeypatch.setattr(module, "COLLECTOR_FAILURE", DummyMetric())
+    monkeypatch.setattr(module, "tracer", DummyTracer())
+    monkeypatch.setattr(module, "_load_user_notifiers", lambda: [])
+    monkeypatch.setattr(module, "track", lambda *a, **k: None)
+    monkeypatch.setattr(module, "itm_to_wgs84", lambda x, y: (x / 1000.0, y / 1000.0))
+    yield
+
+
+class FakeSession:
+    def __init__(self):
+        self.added: List[Any] = []
+        self._id_counter = 1
+        self.committed = False
+        self.closed = False
+        self.rolled_back = False
+
+    def add(self, obj: Any) -> None:
+        self.added.append(obj)
+
+    def flush(self) -> None:
+        for obj in self.added:
+            if hasattr(obj, "id") and getattr(obj, "id", None) is None:
+                setattr(obj, "id", self._id_counter)
+                self._id_counter += 1
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def rollback(self) -> None:
+        self.rolled_back = True
+
+    def close(self) -> None:
+        self.closed = True
+class StubGISCollector:
+    def __init__(self, payload: Dict[str, Any]):
+        self.payload = payload
+        self.calls: List[Dict[str, Any]] = []
+
+    def collect(self, *, location=None, block=None, parcel=None, **kwargs):
+        self.calls.append({
+            "block": block,
+            "parcel": parcel,
+            "street": getattr(location, "street", None),
+        })
+        return dict(self.payload)
+
+
+class StubGovMapCollector:
+    def __init__(self, payload: Dict[str, Any]):
+        self.payload = payload
+        self.calls: List[Dict[str, Any]] = []
+
+    def collect(self, *, location=None, block=None, parcel=None, **kwargs):
+        self.calls.append({
+            "block": block,
+            "parcel": parcel,
+            "street": getattr(location, "street", None),
+        })
+        return dict(self.payload)
+
+
+class StubGovCollector:
+    def __init__(self, payload: Dict[str, Any]):
+        self.payload = payload
+        self.calls: List[Any] = []
+
+    def collect(self, block, parcel, location, **kwargs):
+        self.calls.append((block, parcel, location.street))
+        return dict(self.payload)
+
+
+class StubRamiCollector:
+    def __init__(self, plans: List[Dict[str, Any]]):
+        self.plans = plans
+        self.calls: List[Any] = []
+
+    def collect(self, *, block=None, parcel=None, **kwargs):
+        self.calls.append((block, parcel))
+        return list(self.plans)
+
+
+class StubMavatCollector:
+    def __init__(self, plans: List[Dict[str, Any]]):
+        self.plans = plans
+        self.calls: List[Any] = []
+
+    def collect(self, *, block=None, parcel=None, city=None, **kwargs):
+        self.calls.append((block, parcel, city))
+        return list(self.plans)
+
+
+def _build_pipeline(session: FakeSession, listings: List[FakeListing]):
+    govmap_payload = {
+        "x": 180000,
+        "y": 665000,
+        "address": "רוזוב 14, תל אביב",
+        "api_data": {
+            "autocomplete": {"results": [{"id": 1}]},
+            "parcel": {"properties": {"gushnumber": "6336", "parcelnumber": "7"}},
+        },
+        "addresses": [
+            {"street": "רוזוב", "house_number": 14, "city": "תל אביב"}
+        ],
+    }
+    gis_payload = {
+        "x": 180010,
+        "y": 665005,
+        "block": "6336",
+        "parcel": "7",
+        "addresses": [
+            {"street": "רוזוב", "house_number": 14, "city": "תל אביב"}
+        ],
+    }
+    gov_payload = {
+        "decisive": [{"plan": "תכנית"}],
+        "transactions": [{"deal_amount": "1,450,000", "rooms": 3}],
+    }
+    rami_plans = [{"name": "Plan A"}]
+    mavat_plans = [{"plan_id": "123", "title": "Plan B"}]
+
+    pipeline = DataPipeline(
+        db=None,
+        db_session=session,
+        yad2=StubYad2Collector(listings),
+        gis=StubGISCollector(gis_payload),
+        gov=StubGovCollector(gov_payload),
+        govmap=StubGovMapCollector(govmap_payload),
+        rami=StubRamiCollector(rami_plans),
+        mavat=StubMavatCollector(mavat_plans),
+    )
+    return pipeline
+
+
+def test_pipeline_combines_collector_results_with_stubs():
+    session = FakeSession()
+    listings = [FakeListing(title="Sunny flat", address="רוזוב 14 תל אביב", listing_id="TLV-1")]
+    pipeline = _build_pipeline(session, listings)
+
+    results = pipeline.run(city="תל אביב", street="רוזוב", house_number=14, max_pages=1)
+
+    # Listing plus enrichment payloads from the collectors
+    sources = [
+        r["source"] if isinstance(r, dict) else "yad2"
+        for r in results
+    ]
+    assert "yad2" in sources
+    assert {"govmap", "gis", "decisive", "transactions", "gov_rami", "mavat"}.issubset(set(sources))
+    assert session.committed is True
+
+
+def test_pipeline_handles_empty_listing_results():
+    session = FakeSession()
+    pipeline = _build_pipeline(session, listings=[])
+
+    results = pipeline.run(city="תל אביב", street="רוזוב", house_number=14, max_pages=1)
+
+    assert all(isinstance(entry, dict) for entry in results)
+    assert {entry["source"] for entry in results} == {
+        "govmap",
+        "govmap_autocomplete",
+        "gis",
+        "decisive",
+        "transactions",
+        "gov_rami",
+        "mavat",
+    }
+    assert session.committed is True

@@ -480,34 +480,21 @@ class DataPipeline:
         )
         start_time = time.perf_counter()
 
+        # Prepare attributes for OpenTelemetry (only include non-None values)
+        span_attributes = {
+            "city": location.city,
+            "street": location.street,
+            "full_address": full_address,
+            "max_pages": max_pages,
+        }
+        # Only add house_number if it's not None
+        if location.house_number is not None:
+            span_attributes["house_number"] = location.house_number
+            
         with tracer.start_as_current_span(
             "data_pipeline.run",
-            attributes={
-                "city": location.city,
-                "street": location.street,
-                "house_number": location.house_number,
-                "full_address": full_address,
-                "max_pages": max_pages,
-            },
+            attributes=span_attributes,
         ):
-            # Search Yad2 for listings
-            try:
-                listings = self._collect_with_observability(
-                    "yad2",
-                    self.yad2.collect,
-                    location,
-                    max_pages=max_pages,
-                    timeout=self.TIMEOUTS.get("yad2"),
-                    retries=self.RETRIES.get("yad2", 0),
-                    asset_id=asset_id,
-                )
-                track("collector_success", source="yad2")
-                logger.info(f"📊 Found {len(listings)} Yad2 listings")
-            except Exception as e:
-                track("collector_fail", source="yad2", error_code=str(e))
-                logger.error(f"❌ Yad2 collection failed: {e}")
-                listings = []
-
             # Load user notifiers once per run
             notifiers = _load_user_notifiers()
 
@@ -660,6 +647,38 @@ class DataPipeline:
                     mavat_plans = []
                     track("collector_fail", source="mavat", error_code=str(e))
                     logger.warning(f"⚠️ Mavat collection failed: {e}")
+            
+            # Search Yad2 for listings
+            try:
+                logger.info("🏠 Searching Yad2 for listings...")
+                
+                # Update location with address information from GovMap if location is not properly provided
+                if govmap_data.get('addresses') and govmap_data['addresses'] and not (location.street and location.city):
+                    first_address = govmap_data['addresses'][0]
+                    if first_address.get('street') and first_address.get('city'):
+                        # Create new location with the detailed address
+                        location = LocationQuery(
+                            street=first_address.get('street', ''),
+                            city=first_address.get('city', ''),
+                            house_number=first_address.get('house_number')
+                        )
+                        logger.info(f"Updated location for Yad2 search: {location.street} {location.house_number}, {location.city}")
+                
+                listings = self._collect_with_observability(
+                    "yad2",
+                    self.yad2.collect,
+                    location,
+                    max_pages=max_pages,
+                    timeout=self.TIMEOUTS.get("yad2"),
+                    retries=self.RETRIES.get("yad2", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="yad2")
+                logger.info(f"📊 Found {len(listings)} Yad2 listings")
+            except Exception as e:
+                track("collector_fail", source="yad2", error_code=str(e))
+                logger.error(f"❌ Yad2 collection failed: {e}")
+                listings = []
             
             try:
                 # Process listings if any exist
@@ -875,6 +894,12 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 asset.number = first_address.get('house_number')
                 asset.city = first_address.get('city', '')
                 logger.info(f"Updated asset {asset_id} with street from GovMap: {asset.street}, number: {asset.number}, city: {asset.city}")
+        
+        # Also update the normalized_address field if GovMap provided a detailed address
+        if govmap_data.get('address') and govmap_data.get('address') != f"גוש {block} חלקה {parcel}":
+            # Only update if it's not the generic block/parcel format
+            asset.normalized_address = govmap_data.get('address')
+            logger.info(f"Updated asset {asset_id} normalized_address field from GovMap: {asset.normalized_address}")
         
         if getattr(asset, 'street', None) and getattr(asset, 'number', None):
             asset.normalized_address = f"{asset.street} {asset.number}" + (f" דירה {asset.apartment}" if getattr(asset, 'apartment', None) else '') + (f" {asset.city}" if getattr(asset, 'city', None) else '')

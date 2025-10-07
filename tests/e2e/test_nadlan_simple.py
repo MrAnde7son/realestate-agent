@@ -8,12 +8,8 @@ Selenium browser automation, focusing on API and data structure validation.
 """
 
 import logging
-import os
 import sys
 from pathlib import Path
-import pytest
-import time
-from typing import List, Dict, Any
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -23,6 +19,8 @@ sys.path.insert(0, str(project_root))
 from gov.nadlan.models import Deal
 from orchestration.collectors.gov_collector import GovCollector
 from orchestration.location import LocationQuery
+
+from .fakes import FakeDecisiveClient, FakeNadlanScraper
 
 # Test data
 TEST_ADDRESS = "רוזוב 14 תל אביב"
@@ -129,7 +127,9 @@ class TestNadlanSimple:
         logger.info("Testing GovCollector initialization...")
         
         # Test 1: Default initialization
-        collector = GovCollector()
+        collector = GovCollector(
+            deals_client=FakeNadlanScraper(), decisive_client=FakeDecisiveClient()
+        )
         assert collector is not None, "Should create GovCollector instance"
         assert collector.deals_client is not None, "Should have deals client"
         assert collector.decisive_client is not None, "Should have decisive client"
@@ -146,15 +146,42 @@ class TestNadlanSimple:
         """Test GovCollector data structure methods."""
         logger.info("Testing GovCollector data structure...")
         
-        collector = GovCollector()
-        
-        # Test 1: Test collect method structure
+        deals = [
+            Deal.from_item(
+                {
+                    "address": "רוזוב 14, תל אביב-יפו",
+                    "dealAmount": 2_500_000,
+                    "dealDate": "2023-01-15",
+                }
+            )
+        ]
+        appraisals = [
+            {
+                "title": "Appraisal",
+                "date": "15.01.2023",
+                "appraiser": "צוות",
+                "committee": "ועדה",
+                "pdf_url": "https://example.invalid/appraisal.pdf",
+                "appraisal_type": "full",
+                "appraisal_version": "1",
+                "appraiser_type": "city",
+                "block": "1234",
+                "plot": "56",
+                "publicity_date": "16.01.2023",
+            }
+        ]
+        collector = GovCollector(
+            deals_client=FakeNadlanScraper(deals),
+            decisive_client=FakeDecisiveClient(appraisals),
+        )
+
         result = collector.collect(block="1234", parcel="56", location=TEST_LOCATION)
         assert isinstance(result, dict), "Should return dictionary"
         assert "decisive" in result, "Should have decisive key"
         assert "transactions" in result, "Should have transactions key"
         assert isinstance(result["decisive"], list), "Decisive should be list"
         assert isinstance(result["transactions"], list), "Transactions should be list"
+        assert [entry["deal_amount"] for entry in result["transactions"]] == [2_500_000]
         
         logger.info("✅ GovCollector data structure test passed")
 

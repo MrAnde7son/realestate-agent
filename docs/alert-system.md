@@ -92,10 +92,8 @@ cd backend-django
 python manage.py test_alerts
 ```
 
-#### Using Test Script
-```bash
-python test_alerts.py
-```
+> **Note:** The legacy `test_alerts.py` helper script has been removed. Use the Django
+> management command above for all alert verification workflows.
 
 #### Testing Specific Channels
 ```bash

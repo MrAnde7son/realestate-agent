@@ -44,6 +44,9 @@ const newAssetSchema = z.object({
   modelPrice: z.number().optional(),
   confidencePct: z.number().optional(),
   capRatePct: z.number().optional(),
+  avgPricePerSqm: z.number().optional(),
+  minPricePerSqm: z.number().optional(),
+  maxPricePerSqm: z.number().optional(),
   antennaDistanceM: z.number().optional(),
   shelterDistanceM: z.number().optional(),
   rentEstimate: z.number().optional()
@@ -179,6 +182,9 @@ export async function POST(req: Request) {
       'modelPrice',
       'confidencePct',
       'capRatePct',
+      'avgPricePerSqm',
+      'minPricePerSqm',
+      'maxPricePerSqm',
       'antennaDistanceM',
       'shelterDistanceM',
       'rentEstimate'

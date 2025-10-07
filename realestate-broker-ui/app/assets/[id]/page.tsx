@@ -291,10 +291,14 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         throw new Error('Failed to load rights')
       }
       const data = await response.json()
-      // Combine tabu_data and gis_rights into a single array for display
+      // Combine tabu_data, gis_rights, and detailed_rights into a single array for display
       const allRightsRows = [
         ...(data.tabu_data || []),
-        ...(data.gis_rights || [])
+        ...(data.gis_rights || []),
+        ...(data.detailed_rights?.rights_details || []),
+        ...(data.detailed_rights?.building_lines || []),
+        ...(data.detailed_rights?.floor_details || []),
+        ...(data.detailed_rights?.notes || [])
       ]
       setRightsRows(allRightsRows)
     } catch (rightsErr) {
@@ -1042,7 +1046,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">חדרים:</span>
-                    <span>{asset.bedrooms ?? '—'}</span>
+                    <span>{asset.rooms ?? '—'}</span>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">ייעוד:</span>
@@ -1909,7 +1913,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             <Card>
               <CardHeader>עיסקאות השוואה</CardHeader>
               <CardBody className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-4">
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
                       {!!asset.pricePerSqm
@@ -1924,19 +1928,27 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
-                      {avgCompPricePerSqm !== null
-                        ? formatCurrency(avgCompPricePerSqm)
+                      {asset.avgPricePerSqm !== null
+                        ? formatCurrency(asset.avgPricePerSqm)
                         : '—'}
                     </div>
-                    <div className="text-sm text-muted-foreground">ממוצע באזור</div>
+                    <div className="text-sm text-muted-foreground">ממוצע PPM</div>
                   </div>
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
-                      {!!asset.pricePerSqm && !!avgCompPricePerSqm
-                        ? `${Math.round(((asset.pricePerSqm / avgCompPricePerSqm) - 1) * 100)}%`
+                      {asset.minPricePerSqm !== null && asset.maxPricePerSqm !== null
+                        ? `${formatCurrency(asset.minPricePerSqm)} - ${formatCurrency(asset.maxPricePerSqm)}`
                         : '—'}
                     </div>
-                    <div className="text-sm text-muted-foreground">פער מהאזור</div>
+                    <div className="text-sm text-muted-foreground">טווח PPM</div>
+                  </div>
+                  <div className="text-center rtl:text-right">
+                    <div className="text-2xl font-bold">
+                      {!!asset.pricePerSqm && !!asset.avgPricePerSqm
+                        ? `${Math.round(((asset.pricePerSqm / asset.avgPricePerSqm) - 1) * 100)}%`
+                        : '—'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">פער מהממוצע</div>
                   </div>
                 </div>
                 </CardBody>
@@ -2181,44 +2193,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                 )}
 
-                {/* Comparable Transactions Section */}
-                {comparableTransactions.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>עסקאות השוואה באזור</CardTitle>
-                      <CardDescription>
-                        {comparableTransactions.length} עסקאות נמצאו
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {comparableTransactions.map((trans, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
-                            <div>
-                              <div className="font-medium">{trans.address}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {!!trans.area ? `${trans.area} מ״ר` : ''}
-                                {trans.rooms ? ` • ${trans.rooms} חדרים` : ''}
-                                {trans.date ? ` • ${new Date(trans.date).toLocaleDateString('he-IL')}` : ''}
-                              </div>
-                              {trans.source && (
-                                <div className="text-xs text-blue-600 mt-1">
-                                  מקור: {trans.source === 'external_nadlan' ? 'נדלן' : 'מאגר פנימי'}
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <div className="font-bold">{formatCurrency(trans.price)}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {formatCurrency(trans.price_per_sqm)}/מ״ר
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </CardContent>
             </Card>
           </TabsContent>

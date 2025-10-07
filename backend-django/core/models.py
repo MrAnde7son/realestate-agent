@@ -455,6 +455,11 @@ class Asset(models.Model):
     competition_1km = models.CharField(max_length=20, blank=True, null=True)
     risk_flags = models.JSONField(blank=True, null=True, default=list)
     dom_percentile = models.IntegerField(blank=True, null=True)
+    
+    # Price per square meter metrics
+    avg_price_per_sqm = models.FloatField(blank=True, null=True)
+    min_price_per_sqm = models.FloatField(blank=True, null=True)
+    max_price_per_sqm = models.FloatField(blank=True, null=True)
 
     # Legal/Planning fields
     zoning = models.CharField(max_length=100, blank=True, null=True)

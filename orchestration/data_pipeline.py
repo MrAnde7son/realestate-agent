@@ -1001,6 +1001,10 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             logger.debug("All listings dropped while normalizing Yad2 data for asset %s", asset_id)
         if normalized_listings:
             asset.meta['yad2_listings'] = normalized_listings
+            
+            # Populate asset fields from Yad2 listings
+            _populate_asset_fields_from_listings(asset, normalized_listings)
+            
             prices = [l.get('price') for l in normalized_listings if l.get('price')]
             areas = [l.get('area') for l in normalized_listings if l.get('area')]
             market_data = asset.meta.setdefault('market_data', {})
@@ -1494,10 +1498,190 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                     # If exists, we do not re-link to a different asset
                     pass
 
+def _populate_asset_fields_from_listings(asset, normalized_listings):
+    """Populate asset fields from Yad2 listings data.
+    
+    This function extracts the most relevant listing data to populate
+    the asset's own fields (price, area, price_per_sqm, etc.) rather than
+    just storing market analysis data.
+    """
+    if not normalized_listings:
+        return
+    
+    # Find the best listing to use as the primary source
+    # Priority: exact address match > same street > any listing
+    best_listing = None
+    
+    # Try to find exact address match first
+    if asset.normalized_address:
+        asset_address = asset.normalized_address.lower()
+        # Extract street and number for more precise matching
+        asset_parts = asset_address.split()
+        street_number = None
+        if len(asset_parts) >= 2 and asset_parts[1].isdigit():
+            street_number = f"{asset_parts[0]} {asset_parts[1]}"
+        
+        for listing in normalized_listings:
+            listing_address = listing.get('address', '').lower()
+            
+            # Check for exact match with full address
+            if asset_address == listing_address:
+                best_listing = listing
+                break
+            
+            # Check for street + number match (e.g., "רוזוב 14")
+            if street_number and street_number in listing_address:
+                best_listing = listing
+                break
+    
+    if not best_listing:
+        return
+    
+    # Populate asset fields from the best listing
+    update_fields = set()
+    
+    # Price
+    if best_listing.get('price') and not asset.price:
+        asset.price = best_listing['price']
+        update_fields.add('price')
+        logger.debug('[ASSET_FIELDS] Set price from listing: %s', asset.price)
+    
+    # Area (prefer area for net area, fallback to total_area)
+    listing_area = best_listing.get('area')
+    if listing_area:
+        if not asset.area:
+            asset.area = listing_area
+            update_fields.add('area')
+            logger.debug('[ASSET_FIELDS] Set area from listing: %s', asset.area)
+        elif not asset.total_area:
+            asset.total_area = listing_area
+            update_fields.add('total_area')
+            logger.debug('[ASSET_FIELDS] Set total_area from listing: %s', asset.total_area)
+    
+    # Calculate price_per_sqm if we have both price and area
+    if asset.price and (asset.total_area or asset.area):
+        area_to_use = asset.total_area or asset.area
+        if area_to_use > 0:
+            asset.price_per_sqm = int(asset.price / area_to_use)
+            update_fields.add('price_per_sqm')
+            logger.debug('[ASSET_FIELDS] Calculated price_per_sqm: %s', asset.price_per_sqm)
+    
+    # Additional fields from listing
+    if best_listing.get('rooms') and not asset.rooms:
+        asset.rooms = best_listing['rooms']
+        update_fields.add('rooms')
+    
+    if best_listing.get('bedrooms') and not asset.bedrooms:
+        asset.bedrooms = best_listing['bedrooms']
+        update_fields.add('bedrooms')
+    
+    # Building type - only use if available from listing
+    if not asset.building_type:
+        listing_property_type = best_listing.get('property_type')
+        if listing_property_type:
+            asset.building_type = listing_property_type
+            update_fields.add('building_type')
+            logger.debug('[ASSET_FIELDS] Set building_type from listing: %s', asset.building_type)
+    
+    if best_listing.get('floor') and not asset.floor:
+        floor_value = best_listing['floor']
+        # Parse Hebrew floor descriptions to numbers
+        if isinstance(floor_value, str):
+            floor_str = floor_value.lower()
+            if 'קרקע' in floor_str or 'ground' in floor_str:
+                asset.floor = 0
+            elif 'מרתף' in floor_str or 'basement' in floor_str:
+                asset.floor = -1
+            else:
+                # Try to extract number from string
+                import re
+                numbers = re.findall(r'\d+', floor_str)
+                if numbers:
+                    asset.floor = int(numbers[0])
+                else:
+                    asset.floor = None
+        else:
+            asset.floor = floor_value
+        update_fields.add('floor')
+    
+    # Store source information in meta
+    if not asset.meta:
+        asset.meta = {}
+    
+    asset.meta['primary_listing_source'] = {
+        'source': 'yad2',
+        'listing_id': best_listing.get('listing_id'),
+        'address': best_listing.get('address'),
+        'url': best_listing.get('url'),
+        'populated_fields': list(update_fields)
+    }
+    
+    if update_fields:
+        asset.save(update_fields=list(update_fields))
+        logger.info('[ASSET_FIELDS] Updated asset %s fields: %s', asset.id, list(update_fields))
+
+
+def _populate_asset_fields_from_tabu(asset, tabu_data):
+    """Populate asset fields from Tabu document data.
+    
+    This function extracts relevant information from Tabu documents
+    to populate asset fields, particularly area and ownership information.
+    """
+    if not tabu_data:
+        return
+    
+    update_fields = set()
+    
+    # Look for area information in Tabu data
+    # Tabu documents might contain area information in various formats
+    for row in tabu_data:
+        field = row.get('field', '').lower()
+        value = row.get('value', '')
+        
+        # Look for area-related fields
+        if any(keyword in field for keyword in ['שטח', 'area', 'מ״ר', 'מטר']):
+            try:
+                # Extract numeric value from the field
+                import re
+                numbers = re.findall(r'\d+(?:\.\d+)?', value)
+                if numbers:
+                    area_value = float(numbers[0])
+                    # Only update if we don't have area data or if this is more specific
+                    if not asset.total_area and not asset.area:
+                        asset.total_area = area_value
+                        update_fields.add('total_area')
+                        logger.debug('[ASSET_FIELDS] Set total_area from Tabu: %s', asset.total_area)
+            except (ValueError, TypeError):
+                pass
+        
+        # Look for building type information
+        elif any(keyword in field for keyword in ['סוג', 'type', 'בניין']):
+            if not asset.building_type:
+                asset.building_type = value
+                update_fields.add('building_type')
+                logger.debug('[ASSET_FIELDS] Set building_type from Tabu: %s', asset.building_type)
+    
+    # Store Tabu source information in meta
+    if not asset.meta:
+        asset.meta = {}
+    
+    asset.meta['tabu_source'] = {
+        'source': 'tabu',
+        'rows_count': len(tabu_data),
+        'populated_fields': list(update_fields)
+    }
+    
+    if update_fields:
+        asset.save(update_fields=list(update_fields))
+        logger.info('[ASSET_FIELDS] Updated asset %s from Tabu: %s', asset.id, list(update_fields))
+
+
 def _calculate_market_metrics(asset, listings, gov_data):
     """Calculate and persist market metrics.
 
-    - Computes metrics from Yad2 listings (prices, areas)
+    - Computes metrics from Yad2 listings and Nadlan transactions (prices, areas)
+    - Calculates price per square meter (PPM) from both sources
+    - Derives model price as PPM × asset total area
     - Derives confidence, competition, rent estimate, cap rate, DOM percentile
     - Generates risk flags heuristically
     - Stores camelCase metrics in asset.meta['market_metrics'] for backward compatibility
@@ -1507,29 +1691,104 @@ def _calculate_market_metrics(asset, listings, gov_data):
         listing_dicts = _normalize_listings(listings or []) if listings else []
         metrics: Dict[str, Any] = {}
 
-        # --- Price / Area derived metrics ---
-        if listing_dicts:
-            prices = [l.get('price') for l in listing_dicts if l.get('price')]
-            areas = [l.get('area') for l in listing_dicts if l.get('area')]
+        # --- Extract transaction data from gov_data ---
+        transactions = []
+        if gov_data and 'transactions' in gov_data:
+            transactions = gov_data['transactions'] or []
 
-            if prices:
+        # --- Calculate Price Per Square Meter (PPM) from both sources ---
+        ppm_data = []
+        
+        # From Yad2 listings
+        if listing_dicts:
+            for listing in listing_dicts:
+                price = listing.get('price')
+                area = listing.get('area')
+                if price and area and area > 0:
+                    ppm = price / area
+                    ppm_data.append({
+                        'ppm': ppm,
+                        'price': price,
+                        'area': area,
+                        'source': 'yad2',
+                        'address': listing.get('address', ''),
+                        'rooms': listing.get('rooms'),
+                        'floor': listing.get('floor')
+                    })
+
+        # From Nadlan transactions
+        if transactions:
+            for transaction in transactions:
+                price = transaction.get('deal_amount') or transaction.get('price')
+                area = transaction.get('area')
+                if price and area and area > 0:
+                    ppm = price / area
+                    ppm_data.append({
+                        'ppm': ppm,
+                        'price': price,
+                        'area': area,
+                        'source': 'nadlan',
+                        'address': transaction.get('address', ''),
+                        'rooms': transaction.get('rooms'),
+                        'floor': transaction.get('floor'),
+                        'deal_date': transaction.get('deal_date')
+                    })
+
+        # --- Calculate market metrics based on PPM ---
+        if ppm_data:
+            ppm_values = [d['ppm'] for d in ppm_data]
+            prices = [d['price'] for d in ppm_data]
+            areas = [d['area'] for d in ppm_data]
+            
+            # Calculate average PPM
+            avg_ppm = sum(ppm_values) / len(ppm_values)
+            
+            # Calculate model price as PPM × asset total area
+            asset_total_area = asset.total_area or asset.area
+            if asset_total_area and asset_total_area > 0:
+                model_price = int(avg_ppm * asset_total_area)
+                metrics['modelPrice'] = model_price
+                
+                # Calculate price gap if asset has a price
+                if asset.price and model_price > 0:
+                    metrics['priceGapPct'] = round(((asset.price - model_price) / model_price) * 100, 2)
+            else:
+                # Fallback to simple average price if no area available
                 avg_price = sum(prices) / len(prices)
                 metrics['modelPrice'] = int(avg_price)
-                metrics['expectedPriceRange'] = f"{min(prices):,} - {max(prices):,}"
                 if asset.price and avg_price > 0:
                     metrics['priceGapPct'] = round(((asset.price - avg_price) / avg_price) * 100, 2)
-                # Confidence: 20% per comp up to 100
-                metrics['confidencePct'] = min(100, len(prices) * 20)
-            else:
-                metrics['confidencePct'] = 0
 
+            # Store PPM statistics
+            metrics['avgPricePerSqm'] = round(avg_ppm, 2)
+            metrics['minPricePerSqm'] = round(min(ppm_values), 2)
+            metrics['maxPricePerSqm'] = round(max(ppm_values), 2)
+            metrics['expectedPriceRange'] = f"{min(prices):,} - {max(prices):,}"
+            
+            # Enhanced confidence calculation
+            # Weight transactions higher than listings (transactions are actual sales)
+            transaction_count = len([d for d in ppm_data if d['source'] == 'nadlan'])
+            listing_count = len([d for d in ppm_data if d['source'] == 'yad2'])
+            
+            # Base confidence: 15% per transaction, 10% per listing, max 100%
+            confidence = min(100, (transaction_count * 15) + (listing_count * 10))
+            metrics['confidencePct'] = confidence
+            
+            # Store source breakdown
+            metrics['ppmSources'] = {
+                'transactions': transaction_count,
+                'listings': listing_count,
+                'total': len(ppm_data)
+            }
+
+            # Area comparison
             if areas and asset.area:
                 avg_area = sum(areas) / len(areas)
                 if avg_area > 0:
                     metrics['deltaVsAreaPct'] = round(((asset.area - avg_area) / avg_area) * 100, 2)
 
-            # Competition heuristic based on number of listings
-            n = len(listing_dicts)
+            # Competition heuristic based on total comparable data
+            n = len(ppm_data)
             if n > 10:
                 metrics['competition1km'] = 'גבוהה'
             elif n > 5:
@@ -1542,6 +1801,7 @@ def _calculate_market_metrics(asset, listings, gov_data):
         else:
             # No comps -> low confidence baseline
             metrics['confidencePct'] = 0
+            metrics['ppmSources'] = {'transactions': 0, 'listings': 0, 'total': 0}
 
         # --- Rent & Cap Rate ---
         if asset.area and asset.price:  # need both for cap rate
@@ -1578,6 +1838,9 @@ def _calculate_market_metrics(asset, listings, gov_data):
             'riskFlags': 'risk_flags',
             'domPercentile': 'dom_percentile',
             'rentEstimate': 'rent_estimate',
+            'avgPricePerSqm': 'avg_price_per_sqm',
+            'minPricePerSqm': 'min_price_per_sqm',
+            'maxPricePerSqm': 'max_price_per_sqm',
         }
         update_fields = {'meta'}
         for camel, snake in field_map.items():
@@ -1659,10 +1922,35 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                         }
                     )
         
+        # Process existing Tabu documents for asset field population
+        _process_existing_tabu_documents(asset)
+        
         logger.info(f"Created documents and plans for asset {asset.id}")
         
     except Exception as e:
         logger.error(f"Failed to create documents and plans for asset {asset.id}: {e}")
+
+
+def _process_existing_tabu_documents(asset):
+    """Process existing Tabu documents to populate asset fields."""
+    try:
+        from core.models import Document
+        
+        # Find existing Tabu documents for this asset
+        tabu_docs = Document.objects.filter(
+            asset=asset,
+            document_type='tabu',
+            meta__isnull=False
+        )
+        
+        for doc in tabu_docs:
+            tabu_rows = doc.meta.get('tabu_rows', [])
+            if tabu_rows:
+                _populate_asset_fields_from_tabu(asset, tabu_rows)
+                logger.debug('[TABU_PROCESSING] Processed Tabu document %s for asset %s', doc.id, asset.id)
+                
+    except Exception as e:
+        logger.error('[TABU_PROCESSING] Failed to process Tabu documents for asset %s: %s', asset.id, e)
 
 
 def _create_documents_from_permits(asset, permits):

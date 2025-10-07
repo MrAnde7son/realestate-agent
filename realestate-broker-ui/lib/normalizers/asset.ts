@@ -57,6 +57,9 @@ export type Asset = {
   modelPrice?: number | null;
   confidencePct?: number | null;
   capRatePct?: number | null;
+  avgPricePerSqm?: number | null;
+  minPricePerSqm?: number | null;
+  maxPricePerSqm?: number | null;
   antennaDistanceM?: number | null;
   shelterDistanceM?: number | null;
   rentEstimate?: number | null;
@@ -199,6 +202,9 @@ export function normalizeFromBackend(row: any): Asset {
     modelPrice: row.modelPrice ?? row.model_price ?? null,
     confidencePct: row.confidencePct ?? row.confidence_pct ?? null,
     capRatePct: row.capRatePct ?? row.cap_rate_pct ?? null,
+    avgPricePerSqm: row.avgPricePerSqm ?? row.avg_price_per_sqm ?? null,
+    minPricePerSqm: row.minPricePerSqm ?? row.min_price_per_sqm ?? null,
+    maxPricePerSqm: row.maxPricePerSqm ?? row.max_price_per_sqm ?? null,
     antennaDistanceM: row.antennaDistanceM ?? row.antenna_distance_m ?? null,
     shelterDistanceM: row.shelterDistanceM ?? row.shelter_distance_m ?? null,
     rentEstimate: row.rentEstimate ?? row.rent_estimate ?? null,

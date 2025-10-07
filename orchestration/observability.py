@@ -6,6 +6,7 @@ histograms defined below as well as the HTTP metrics endpoint exposed via
 ``start_metrics_server``.
 """
 
+import errno
 import os
 
 from prometheus_client import Counter, Histogram, start_http_server
@@ -64,8 +65,9 @@ def start_metrics_server(port: int = 8000) -> None:
             _metrics_server = start_http_server(port)
             _metrics_started = True
         except OSError as e:
-            if e.errno == 48:  # Address already in use
-                # In test environment, this is expected - just mark as started
+            if e.errno in {errno.EADDRINUSE, 48}:
+                # In test environment (or when another worker already started it),
+                # this is expected - just mark as started
                 _metrics_started = True
             else:
                 raise

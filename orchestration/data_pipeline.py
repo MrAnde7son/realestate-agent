@@ -874,17 +874,7 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 logger.exception("Failed to convert GIS coordinates for asset %s; storing raw ITM", asset_id)
                 asset.lat = gis_data.get('x')
                 asset.lon = gis_data.get('y')
-        # Update street/city from GIS addresses if found and asset doesn't have them
-        if gis_data.get('addresses') and not getattr(asset, 'street', None):
-            addresses = gis_data.get('addresses', [])
-            if addresses:
-                # Use the first address found
-                first_address = addresses[0]
-                asset.street = first_address.get('street', '')
-                asset.number = first_address.get('house_number')
-                logger.info(f"Updated asset {asset_id} with street from GIS: {asset.street}, number: {asset.number}")
-        
-        # Update street/city from GovMap addresses if found and asset doesn't have them
+        # Update street/city from GovMap addresses first (broader coverage)
         if govmap_data.get('addresses') and not getattr(asset, 'street', None):
             addresses = govmap_data.get('addresses', [])
             if addresses:
@@ -894,6 +884,27 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 asset.number = first_address.get('house_number')
                 asset.city = first_address.get('city', '')
                 logger.info(f"Updated asset {asset_id} with street from GovMap: {asset.street}, number: {asset.number}, city: {asset.city}")
+        
+        # Fallback: Update city from GovMap data directly if available and asset doesn't have city
+        if govmap_data.get('city') and not getattr(asset, 'city', None):
+            asset.city = govmap_data.get('city', '')
+            logger.info(f"Updated asset {asset_id} with city from GovMap data: {asset.city}")
+        
+        # Update street/city from GIS addresses if found and asset doesn't have them (Tel Aviv specific)
+        if gis_data.get('addresses') and not getattr(asset, 'street', None):
+            addresses = gis_data.get('addresses', [])
+            if addresses:
+                # Use the first address found
+                first_address = addresses[0]
+                asset.street = first_address.get('street', '')
+                asset.number = first_address.get('house_number')
+                asset.city = first_address.get('city', '')
+                logger.info(f"Updated asset {asset_id} with street from GIS: {asset.street}, number: {asset.number}, city: {asset.city}")
+        
+        # Fallback: Update city from GIS data directly if available and asset doesn't have city
+        if gis_data.get('city') and not getattr(asset, 'city', None):
+            asset.city = gis_data.get('city', '')
+            logger.info(f"Updated asset {asset_id} with city from GIS data: {asset.city}")
         
         # Also update the normalized_address field if GovMap provided a detailed address
         if govmap_data.get('address') and govmap_data.get('address') != f"גוש {block} חלקה {parcel}":

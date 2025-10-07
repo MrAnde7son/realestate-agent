@@ -41,7 +41,6 @@ class GISCollector(BaseCollector):
             raise ValueError("GISCollector requires at least a street name or block/parcel")
 
         x, y = self._geocode(search_street, number, city)
-
         data = {
             "blocks": self.client.get_blocks(x, y),
             "parcels": self.client.get_parcels(x, y),
@@ -51,11 +50,9 @@ class GISCollector(BaseCollector):
             "green": self.client.get_green_areas(x, y),
             "noise": self.client.get_noise_levels(x, y),
             "antennas": self.client.get_cell_antennas(x, y),
-            "x": x,
-            "y": y,
         }
         block, parcel = self._extract_block_parcel(data)
-        data.update({"block": block, "parcel": parcel})
+        data.update({"block": block, "parcel": parcel, "x": x, "y": y})
         return data
 
     def _collect_by_block_parcel(self, block: str, parcel: str) -> Dict[str, Any]:
@@ -91,15 +88,14 @@ class GISCollector(BaseCollector):
         first_address = addresses[0]
         x, y = first_address["x"], first_address["y"]
         
-        logger.info(f"Using coordinates from first address: {first_address['street']} {first_address['house_number']}")
+        # Extract city from the first address
+        city = first_address.get("city", "")
         
-        # Get blocks and parcels for this location
-        blocks = self.client.get_blocks(x, y)
-        parcels = self.client.get_parcels(x, y)
+        logger.info(f"Using coordinates from first address: {first_address['street']} {first_address['house_number']}, city: {city}")
         
         data = {
-            "blocks": blocks,
-            "parcels": parcels,
+            "blocks": self.client.get_blocks(x, y),
+            "parcels": self.client.get_parcels(x, y),
             "permits": self.client.get_building_permits(x, y, download_pdfs=True),
             "rights": self.client.get_land_use_main(x, y),
             "shelters": self.client.get_shelters(x, y),
@@ -109,6 +105,7 @@ class GISCollector(BaseCollector):
             "addresses": addresses,  # Include all addresses found
             "block": block_str,
             "parcel": parcel_str,
+            "city": city,  # Include city from GIS data
             "x": x,
             "y": y,
         }

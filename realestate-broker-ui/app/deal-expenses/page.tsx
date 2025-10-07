@@ -454,28 +454,50 @@ export default function DealExpensesPage() {
 
   const handleUseDekelToggle = (value: boolean) => {
     setUseDekelEstimate(value)
-    if (value && buildEstimate) {
-      // Apply the estimate to construction cost and area
-      const estimateKey = estimateType === 'low' ? 'low_cost_with_vat' : 
-                         estimateType === 'high' ? 'high_cost_with_vat' : 
-                         'base_cost_with_vat'
-      const estimatedCost = buildEstimate.totals[estimateKey]
-      setConstructionArea(dekelArea)
-      setConstructionCostPerSqm(estimatedCost / dekelArea)
+    if (!value) return
+
+    // Preconditions
+    if (!buildEstimate) {
+      alert('אין אומדן זמין. חשב אומדן קודם.')
+      return
     }
+    if (!dekelArea || dekelArea <= 0) {
+      alert('יש להזין שטח בנייה גדול מ-0 למ"ר.')
+      return
+    }
+
+    const estimateKey =
+      estimateType === 'low' ? 'low_cost_with_vat'
+      : estimateType === 'high' ? 'high_cost_with_vat'
+      : 'base_cost_with_vat'
+
+    const estimatedCost = buildEstimate.totals?.[estimateKey]
+    if (typeof estimatedCost !== 'number' || !isFinite(estimatedCost)) {
+      alert('האומדן שהתקבל אינו תקין.')
+      return
+    }
+
+    setConstructionArea(dekelArea)
+    setConstructionCostPerSqm(estimatedCost / dekelArea)
   }
 
   const handleEstimateTypeChange = (value: 'low' | 'base' | 'high') => {
     setEstimateType(value)
-    if (useDekelEstimate && buildEstimate) {
-      // Apply the new estimate type to construction cost and area
-      const estimateKey = value === 'low' ? 'low_cost_with_vat' : 
-                         value === 'high' ? 'high_cost_with_vat' : 
-                         'base_cost_with_vat'
-      const estimatedCost = buildEstimate.totals[estimateKey]
-      setConstructionArea(dekelArea)
-      setConstructionCostPerSqm(estimatedCost / dekelArea)
-    }
+
+    // Only auto-apply when toggle is on and inputs are valid
+    if (!useDekelEstimate || !buildEstimate) return
+    if (!dekelArea || dekelArea <= 0) return
+
+    const estimateKey =
+      value === 'low' ? 'low_cost_with_vat'
+      : value === 'high' ? 'high_cost_with_vat'
+      : 'base_cost_with_vat'
+
+    const estimatedCost = buildEstimate.totals?.[estimateKey]
+    if (typeof estimatedCost !== 'number' || !isFinite(estimatedCost)) return
+
+    setConstructionArea(dekelArea)
+    setConstructionCostPerSqm(estimatedCost / dekelArea)
   }
 
   function calculate() {

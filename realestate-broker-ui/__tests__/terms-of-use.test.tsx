@@ -22,7 +22,7 @@ vi.mock('@/components/ui/Card', () => ({
 describe('TermsOfUsePage', () => {
   it('renders terms of use content', () => {
     render(<TermsOfUsePage />)
-    expect(screen.getByText('תנאי שימוש')).toBeInTheDocument()
-    expect(screen.getByText('הגדרות')).toBeInTheDocument()
+    expect(screen.getByText('🧾 תנאי שימוש באתר Nadlaner')).toBeInTheDocument()
+    expect(screen.getByText('1. מטרת האתר')).toBeInTheDocument()
   })
 })

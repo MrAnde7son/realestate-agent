@@ -67,7 +67,7 @@ class TestAssetFieldPopulation:
         
         # Verify exact match was used (first listing)
         assert asset.price == 2500000
-        assert asset.total_area == 100
+        assert asset.area == 100  # Changed from total_area to area
         assert asset.price_per_sqm == 25000  # 2500000 / 100
         assert asset.rooms == 4
         assert asset.bedrooms == 3

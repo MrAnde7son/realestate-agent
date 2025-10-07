@@ -33,9 +33,12 @@ class GISCollector(BaseCollector):
         number = query.house_number or 0
 
         # Handle block/parcel-only queries
-        if block and parcel and block.strip() and parcel.strip() and not search_street:
+        block_str = str(block).strip() if block is not None else ""
+        parcel_str = str(parcel).strip() if parcel is not None else ""
+
+        if block_str and parcel_str and not search_street:
             logger.info(f"Processing block/parcel-only query: {block}/{parcel}")
-            return self._collect_by_block_parcel(block, parcel)
+            return self._collect_by_block_parcel(block_str, parcel_str)
 
         if not search_street:
             raise ValueError("GISCollector requires at least a street name or block/parcel")

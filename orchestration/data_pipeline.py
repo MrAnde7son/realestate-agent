@@ -1232,11 +1232,21 @@ def _process_gis_data(asset, gis_data):
     # Get greenWithin300m value for conditional logic
     green_within_300m = asset.get_property_value('greenWithin300m')
     asset.set_property('openSpacesNearby', 'פארקים ושטחים פתוחים בקרבת מקום' if green_within_300m else 'אין שטחים פתוחים קרובים', source='GIS (calculated)', url='https://www.govmap.gov.il/')
-    asset.set_property('publicBuildings', 'מבני ציבור בקרבת מקום', source='GIS (calculated)', url='https://www.govmap.gov.il/')
-    asset.set_property('parking', 'חניה זמינה', source='GIS (calculated)', url='https://www.govmap.gov.il/')
-    asset.set_property('nearbyProjects', 'פרויקטים חדשים באזור', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
-    # Additional planning fields
+    # Calculate public buildings based on available infrastructure
+    public_buildings_text = _calculate_public_buildings(gis_data, asset)
+    asset.set_property('publicBuildings', public_buildings_text, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    
+    # Calculate parking availability based on permits and land use
+    parking_text = _calculate_parking_availability(gis_data, asset)
+    asset.set_property('parking', parking_text, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    
+    # Calculate nearby projects based on recent permits and plans
+    nearby_projects_text = _calculate_nearby_projects(gis_data, asset)
+    asset.set_property('nearbyProjects', nearby_projects_text, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    
+    # Additional planning fields - will be calculated in _process_rami_plans
+    # These are set as defaults here, but will be overridden if RAMI data is available
     asset.set_property('additionalPlanRights', 'אין זכויות נוספות', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     asset.set_property('publicObligations', 'אין חובות ציבוריות', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
@@ -1300,6 +1310,16 @@ def _process_rami_plans(asset, plans):
             asset.set_property('planActive', True, source='RAMI', url='https://rami.gov.il/')
         else:
             asset.set_property('planActive', False, source='RAMI', url='https://rami.gov.il/')
+
+        # Calculate additional plan rights and public obligations based on RAMI plans
+        additional_rights_text = _calculate_additional_plan_rights(plans, asset)
+        asset.set_property('additionalPlanRights', additional_rights_text, source='RAMI (calculated)', url='https://rami.gov.il/')
+        
+        # Get permits data for public obligations calculation
+        gis_data = asset.meta.get('gis_data', {})
+        permits = gis_data.get('building_permits', [])
+        public_obligations_text = _calculate_public_obligations(plans, permits)
+        asset.set_property('publicObligations', public_obligations_text, source='RAMI (calculated)', url='https://rami.gov.il/')
 
         # Create documents from RAMI plans
         _create_documents_from_rami_plans(asset, plans)
@@ -2140,6 +2160,169 @@ def _create_documents_from_rami_plans(asset, plans):
         created += 1
 
     logger.info("Created %d RAMI plan documents for asset %s", created, asset.id)
+
+# ---------------------------------------------------------------------------
+# Dynamic field calculation helpers
+# ---------------------------------------------------------------------------
+
+def _calculate_public_buildings(gis_data: Dict[str, Any], asset) -> str:
+    """Calculate public buildings text based on available infrastructure."""
+    indicators = []
+    
+    # Check for shelters (public safety infrastructure)
+    shelter_distance = asset.get_property_value('shelterDistanceM')
+    if shelter_distance and shelter_distance <= 200:
+        indicators.append('מקלטים קרובים')
+    
+    # Check for green areas (public spaces)
+    green_within_300m = asset.get_property_value('greenWithin300m')
+    if green_within_300m:
+        indicators.append('שטחים ירוקים')
+    
+    # Check for public buildings in permits
+    permits = gis_data.get('permits', [])
+    public_building_permits = []
+    for permit in permits:
+        if isinstance(permit, dict):
+            # Look for permits that might indicate public buildings
+            building_stage = permit.get('building_stage', '').lower()
+            tochen_bakasha = permit.get('tochen_bakasha', '').lower()
+            if any(keyword in building_stage or keyword in tochen_bakasha 
+                   for keyword in ['ציבורי', 'ממשלתי', 'עירייה', 'בית ספר', 'גן ילדים', 'מרפאה']):
+                public_building_permits.append(permit)
+    
+    if public_building_permits:
+        indicators.append(f'מבני ציבור בהקמה ({len(public_building_permits)} היתרים)')
+    
+    if indicators:
+        return f"מבני ציבור בקרבת מקום: {', '.join(indicators)}"
+    else:
+        return "אין מבני ציבור קרובים"
+
+def _calculate_parking_availability(gis_data: Dict[str, Any], asset) -> str:
+    """Calculate parking availability based on permits and land use data."""
+    parking_indicators = []
+    
+    # Check permits for parking-related information
+    permits = gis_data.get('permits', [])
+    parking_permits = []
+    for permit in permits:
+        if isinstance(permit, dict):
+            # Look for parking-related fields in permits
+            tochen_bakasha = permit.get('tochen_bakasha', '').lower()
+            hakala_tosefet_achuz_shetach = permit.get('hakala_tosefet_achuz_shetach', '')
+            if any(keyword in tochen_bakasha for keyword in ['חניה', 'חניון', 'מקום חניה']):
+                parking_permits.append(permit)
+            elif hakala_tosefet_achuz_shetach and float(hakala_tosefet_achuz_shetach or 0) > 0:
+                parking_permits.append(permit)
+    
+    if parking_permits:
+        parking_indicators.append(f'היתרי חניה ({len(parking_permits)} היתרים)')
+    
+    # Check land use rights for parking obligations
+    rights = gis_data.get('rights', [])
+    if rights:
+        for right in rights:
+            if isinstance(right, dict):
+                land_use = right.get('land_use', '').lower()
+                if 'חניה' in land_use or 'חניון' in land_use:
+                    parking_indicators.append('זכויות חניה בקרקע')
+                    break
+    
+    # Check privilege page data for parking rights
+    privilege_data = asset.get_property_value('privilege_page_data')
+    if privilege_data:
+        parking_percentages = privilege_data.get('parking_percentages', [])
+        if parking_percentages:
+            parking_indicators.append('זכויות חניה בתוכנית')
+    
+    if parking_indicators:
+        return f"חניה זמינה: {', '.join(parking_indicators)}"
+    else:
+        return "אין מידע על חניה"
+
+def _calculate_nearby_projects(gis_data: Dict[str, Any], asset) -> str:
+    """Calculate nearby projects based on recent permits and development activity."""
+    from datetime import datetime, timedelta
+    
+    projects = []
+    
+    # Check for recent building permits (last 3 years)
+    permits = gis_data.get('permits', [])
+    recent_permits = []
+    cutoff_date = datetime.now() - timedelta(days=3*365)
+    
+    for permit in permits:
+        if isinstance(permit, dict) and permit.get('permission_date'):
+            try:
+                permit_date = datetime.fromtimestamp(permit['permission_date'] / 1000)
+                if permit_date >= cutoff_date:
+                    recent_permits.append(permit)
+            except (ValueError, TypeError):
+                continue
+    
+    if recent_permits:
+        projects.append(f'היתרי בניה חדשים ({len(recent_permits)} היתרים)')
+    
+    # Check for ongoing construction
+    ongoing_permits = [p for p in recent_permits 
+                      if p.get('building_stage', '').lower() in ['בבניה', 'הקמה', 'בתהליך']]
+    if ongoing_permits:
+        projects.append(f'פרויקטים בהקמה ({len(ongoing_permits)} פרויקטים)')
+    
+    # Check for TAMA 38 projects (renovation/expansion projects)
+    tama38_permits = [p for p in recent_permits 
+                     if p.get('sw_tama_38') or p.get('sw_tama_38_chadash') or p.get('sw_tama_38_tosefet')]
+    if tama38_permits:
+        projects.append(f'פרויקטי תמ״א 38 ({len(tama38_permits)} פרויקטים)')
+    
+    if projects:
+        return f"פרויקטים חדשים באזור: {', '.join(projects)}"
+    else:
+        return "אין פרויקטים חדשים באזור"
+
+def _calculate_additional_plan_rights(plans: List[Dict[str, Any]], asset) -> str:
+    """Calculate additional plan rights from RAMI plans."""
+    if not plans:
+        return "אין זכויות נוספות"
+    
+    additional_rights = []
+    
+    for plan in plans:
+        if isinstance(plan, dict):
+            plan_name = plan.get('planName', '')
+            
+            # Look for plans that grant additional rights
+            if any(keyword in plan_name.lower() for keyword in ['הרחבה', 'תוספת', 'הגדלה', 'פיתוח']):
+                additional_rights.append(f"תכנית {plan.get('planNumber', '')}: {plan_name}")
+    
+    if additional_rights:
+        return f"זכויות נוספות: {'; '.join(additional_rights[:3])}"  # Limit to 3 plans
+    else:
+        return "אין זכויות נוספות"
+
+def _calculate_public_obligations(plans: List[Dict[str, Any]], permits: List[Dict[str, Any]]) -> str:
+    """Calculate public obligations from RAMI plans and permits."""
+    obligations = []
+    
+    # Check RAMI plans for public obligations
+    for plan in plans:
+        if isinstance(plan, dict):
+            plan_name = plan.get('planName', '')
+            if any(keyword in plan_name.lower() for keyword in ['חובה', 'תרומה', 'השקעה', 'תשתית']):
+                obligations.append(f"תכנית {plan.get('planNumber', '')}: {plan_name}")
+    
+    # Check permits for public obligations
+    for permit in permits:
+        if isinstance(permit, dict):
+            tochen_bakasha = permit.get('tochen_bakasha', '').lower()
+            if any(keyword in tochen_bakasha for keyword in ['חובה', 'תרומה', 'תשתית', 'שירותים']):
+                obligations.append(f"היתר {permit.get('permission_num', '')}: חובות ציבוריות")
+    
+    if obligations:
+        return f"חובות ציבוריות: {'; '.join(obligations[:3])}"  # Limit to 3 obligations
+    else:
+        return "אין חובות ציבוריות"
 
 # ---------------------------------------------------------------------------
 # Improved debugging helpers

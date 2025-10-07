@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 try:
     from urllib.parse import urljoin
 except ImportError:
-    from urlparse import urljoin  # type: ignore
+    from urlparse import urljoin
 
 from ..core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
 
@@ -37,17 +37,10 @@ class Yad2Scraper:
         
         # Default headers to mimic a real browser
         self.headers = headers or {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)... Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Cache-Control": "max-age=0"
+            "Connection": "keep-alive"
         }
         # Initialize search parameters
         if isinstance(search_params, dict):
@@ -157,22 +150,7 @@ class Yad2Scraper:
                 response = self.session.get(url, timeout=30)
                 
                 if response.status_code == 200:
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    
-                    # Check if we got a CAPTCHA page
-                    if self.is_captcha_page(soup):
-                        logger.warning("CAPTCHA page detected on attempt {}".format(attempt + 1))
-                        if attempt < retries - 1:
-                            # Wait longer before retrying
-                            wait_time = delay * (attempt + 1) * 2
-                            logger.info("Waiting {} seconds before retry...".format(wait_time))
-                            time.sleep(wait_time)
-                            continue
-                        else:
-                            logger.error("CAPTCHA page received on final attempt")
-                            return None
-                    
-                    return soup
+                    return BeautifulSoup(response.content, 'html.parser')
                 elif response.status_code == 429:  # Rate limited
                     logger.warning("Rate limited, waiting {} seconds...".format(delay * (attempt + 1)))
                     time.sleep(delay * (attempt + 1))
@@ -185,44 +163,6 @@ class Yad2Scraper:
                     time.sleep(delay)
         
         return None
-    
-    def is_captcha_page(self, soup):
-        """
-        Check if the page is a CAPTCHA page.
-        
-        Args:
-            soup: BeautifulSoup object
-            
-        Returns:
-            bool: True if CAPTCHA page detected
-        """
-        if not soup:
-            return False
-            
-        # Check for common CAPTCHA indicators
-        title = soup.find('title')
-        if title and 'captcha' in title.get_text().lower():
-            return True
-            
-        # Check for ShieldSquare CAPTCHA
-        if soup.find(text=lambda text: text and 'shieldsquare' in text.lower()):
-            return True
-            
-        # Check for common CAPTCHA elements
-        captcha_indicators = [
-            'captcha',
-            'challenge',
-            'verification',
-            'robot',
-            'bot detection'
-        ]
-        
-        page_text = soup.get_text().lower()
-        for indicator in captcha_indicators:
-            if indicator in page_text:
-                return True
-                
-        return False
     
     def extract_listing_info(self, listing_element):
         """
@@ -237,55 +177,31 @@ class Yad2Scraper:
         try:
             listing = RealEstateListing()
             
-            # Extract price using multiple possible selectors
-            price_elem = (
-                listing_element.select_one('[data-testid="price"]') or
-                listing_element.select_one('.feed-item-price_price__ygoeF') or
-                listing_element.select_one('.yad1-listing-data-content_priceBox__trQtc')
-            )
+            # Extract price using working selector
+            price_elem = listing_element.select_one('[data-testid="price"]')
             if price_elem:
                 price_text = price_elem.get_text(strip=True)
-                # Only process if it looks like a real price (contains numbers and currency symbols)
-                if price_text and any(char in price_text for char in ['₪', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ',']):
-                    listing.price = URLUtils.clean_price(price_text)
+                listing.price = URLUtils.clean_price(price_text)
             
-            # Extract title/address using multiple possible selectors
-            title_elem = (
-                listing_element.select_one("span.item-data-content_heading__tphH4") or
-                listing_element.select_one(".yad1-listing-data-content_heading__Gc3bF") or
-                listing_element.select_one("h2[data-nagish='content-section-title'] span")
-            )
+            # Extract title/address using working selector
+            title_elem = listing_element.select_one("span.item-data-content_heading__tphH4")
             if title_elem:
                 listing.title = title_elem.get_text(strip=True)
                 listing.address = title_elem.get_text(strip=True)
             
-            # Extract property details using multiple possible selectors
-            desc_lines = (
-                listing_element.select("span.item-data-content_itemInfoLine__AeoPP") or
-                listing_element.select(".yad1-listing-data-content_itemInfoLine__eufuS")
-            )
-            
+            # Extract property details using working selector
+            desc_lines = listing_element.select("span.item-data-content_itemInfoLine__AeoPP")
             if len(desc_lines) > 1:
-                # Try to extract rooms, floor, size from the second line
-                second_line = desc_lines[1].get_text(strip=True)
-                if '•' in second_line:
-                    values = second_line.split(' • ')
-                    if len(values) >= 1:
-                        listing.rooms = URLUtils.extract_number(values[0])
-                    if len(values) >= 2:
-                        listing.floor = values[1].strip()
-                    if len(values) >= 3:
-                        listing.size = URLUtils.extract_number(values[2])
-                else:
-                    # Try to extract rooms from the text directly
-                    listing.rooms = URLUtils.extract_number(second_line)
+                values = desc_lines[1].get_text(strip=True).split(' • ')
+                if len(values) >= 1:
+                    listing.rooms = URLUtils.extract_number(values[0])
+                if len(values) >= 2:
+                    listing.floor = values[1].strip()
+                if len(values) >= 3:
+                    listing.size = URLUtils.extract_number(values[2])
             
-            # Extract URL using multiple possible selectors
-            link_elem = (
-                listing_element.find('a', href=True) or
-                listing_element.select_one('a[data-nagish="feed-item-layout-link"]') or
-                listing_element.select_one('a[data-nagish="king-of-the-har-link"]')
-            )
+            # Extract URL
+            link_elem = listing_element.find('a', href=True)
             if link_elem:
                 listing.url = urljoin(self.base_url, link_elem['href'])
                 listing.listing_id = URLUtils.extract_listing_id(listing.url)
@@ -314,38 +230,24 @@ class Yad2Scraper:
             logger.error("Failed to fetch page {}".format(page))
             return []
         
+        # Use the working selector from utils
+        items = soup.select("a.item-layout_itemLink__CZZ7w")
+        if not items:
+            logger.info("No listings found on page {} - trying fallback extraction".format(page))
+            return []
+        
+        logger.debug("Found {} listings using working selector".format(len(items)))
+        
         listings = []
+        for item in items:
+            # Find the parent card container
+            card = item.find_parent("div", class_="card_cardBox__KLi9I")
+            if card:
+                listing = self.extract_listing_info(card)
+                if listing and listing.title:  # Only add if we got meaningful data
+                    listings.append(listing)
         
-        # Try multiple selectors to catch different types of listings
-        selectors_to_try = [
-            "a.item-layout_itemLink__CZZ7w",  # Original selector
-            "li[data-testid='platinum-item']",  # Platinum listings
-            "li[data-testid='yad1-listing-basic']",  # Yad1 listings
-            "li[data-testid='king-item']",  # King/agency listings
-        ]
-        
-        for selector in selectors_to_try:
-            items = soup.select(selector)
-            if items:
-                logger.debug("Found {} items using selector: {}".format(len(items), selector))
-                
-                for item in items:
-                    # Find the parent card container or use the item itself
-                    card = item.find_parent("div", class_="card_cardBox__KLi9I") or item
-                    listing = self.extract_listing_info(card)
-                    if listing and listing.title:  # Only add if we got meaningful data
-                        listings.append(listing)
-        
-        # Remove duplicates based on URL
-        seen_urls = set()
-        unique_listings = []
-        for listing in listings:
-            if listing.url and listing.url not in seen_urls:
-                seen_urls.add(listing.url)
-                unique_listings.append(listing)
-        
-        logger.info("Found {} unique listings on page {}".format(len(unique_listings), page))
-        return unique_listings
+        return listings
     
     def scrape_all_pages(self, max_pages=10, delay=2):
         """

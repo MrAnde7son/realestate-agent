@@ -5,152 +5,113 @@ import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 
+type TermsSection =
+  | {
+      title: string
+      list: string[]
+      description?: never
+    }
+  | {
+      title: string
+      description: string
+      list?: never
+    }
+
+const LAST_UPDATED = '6 באוקטובר 2025'
+
+const hasList = (section: TermsSection): section is Extract<TermsSection, { list: string[] }> =>
+  Array.isArray(section.list)
+
+const SECTIONS: TermsSection[] = [
+  {
+    title: '1. מטרת האתר',
+    description:
+      'Nadlaner הוא פלטפורמה מקוונת המספקת למשתמשים מידע, ניתוחים והערכות שווי לנכסים בישראל, בהתבסס על מקורות מידע ציבוריים ופרטיים, לרבות מאגרי נדל״ן ממשלתיים, נתוני שוק ותוכן גולשים.',
+  },
+  {
+    title: '2. שימוש באתר',
+    list: [
+      'האתר מיועד לשימוש אישי בלבד ואינו מהווה ייעוץ משפטי, שמאי, פיננסי או אחר.',
+      'המשתמש מצהיר כי הוא בגיר (מעל גיל 18) ומוסמך להתקשר בהסכם זה.',
+      'אין לעשות שימוש באתר לצורך ביצוע עבירה, פגיעה בזכויות צדדים שלישיים, או פעולה העלולה לפגוע בפעילות האתר.',
+      'המפעיל רשאי להגביל או לחסום גישה למשתמשים לפי שיקול דעתו.',
+    ],
+  },
+  {
+    title: '3. אחריות מוגבלת',
+    list: [
+      'השירותים באתר ניתנים ״כמות שהם״ (AS IS) ללא אחריות מכל סוג.',
+      'המידע עשוי להתבסס על מקורות חיצוניים (כגון govmap, nadlan.gov, MAVAT) ולכן ייתכנו טעויות, עיכובים או אי-דיוקים.',
+      'המפעיל לא יישא באחריות לכל נזק ישיר או עקיף, הפסד כספי או תביעה הנובעים מהסתמכות על מידע באתר.',
+      'המשתמש אחראי הבלעדי לבדוק את המידע מול מקורות מוסמכים לפני קבלת החלטות.',
+    ],
+  },
+  {
+    title: '4. קניין רוחני',
+    list: [
+      'כל זכויות היוצרים והקניין הרוחני באתר, לרבות עיצוב, קוד, טקסטים, לוגו, תוכן, תמונות ואלגוריתמים — שייכים למפעיל בלבד.',
+      'אין לשכפל, להעתיק, להפיץ או לעשות שימוש מסחרי כלשהו בתכנים ללא רשות בכתב.',
+      'סימני מסחר ושמות מסחריים שייכים לבעליהם החוקיים.',
+    ],
+  },
+  {
+    title: '5. תוכן משתמשים',
+    list: [
+      'המשתמש אחראי לכל תוכן שהוא מעלה לאתר (כגון הערות, טפסים או קבצים).',
+      'המשתמש מצהיר שהתוכן אינו מפר זכויות יוצרים או דין כלשהו.',
+      'המפעיל רשאי להסיר תוכן לפי שיקול דעתו.',
+    ],
+  },
+  {
+    title: '6. שינוי והפסקת השירות',
+    list: [
+      'המפעיל רשאי לשנות את מבנה האתר, תוכנו או השירותים המוצעים בו, בכל עת, ללא הודעה מוקדמת.',
+      'המפעיל רשאי להפסיק את פעילות האתר באופן זמני או קבוע.',
+      'במקרה של שינוי מהותי בתנאי השימוש, תפורסם הודעה באתר.',
+    ],
+  },
+  {
+    title: '7. שיפוי',
+    description:
+      'המשתמש מתחייב לשפות את המפעיל בגין כל נזק, תביעה או הוצאה (כולל שכר טרחת עו״ד) הנובעים מהפרת תנאי שימוש אלה או מפעולה אסורה מצד המשתמש.',
+  },
+  {
+    title: '8. הדין החל וסמכות השיפוט',
+    description:
+      'הדין החל הוא הדין הישראלי בלבד, וסמכות השיפוט הבלעדית נתונה לבתי המשפט המוסמכים בעיר תל-אביב-יפו.',
+  },
+]
+
 export default function TermsOfUsePage() {
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader heading="תנאי שימוש" />
+        <DashboardHeader heading="🧾 תנאי שימוש באתר Nadlaner" text={`עודכן לאחרונה: ${LAST_UPDATED}`} />
         <div className="space-y-6 text-sm leading-6">
           <p>
-            ברוך הבא ל־Nadlaner.com (&quot;האתר&quot;). שימוש באתר ובשירותים הניתנים בו מהווה
-            הסכמה מלאה לתנאים המפורטים להלן. אם אינך מסכים לתנאים אלה – אנא הימנע
-            משימוש באתר.
+            ברוך הבא לאתר Nadlaner (״האתר״), המופעל על ידי איתמר מזרחי (״המפעיל״, ״אנחנו״).
+            השימוש באתר ובשירותיו כפוף לתנאים המפורטים להלן. השימוש באתר מהווה הסכמה לכל תנאי השימוש.
+            אם אינך מסכים – אנא הימנע מלהשתמש באתר.
           </p>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>הגדרות</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>&quot;האתר&quot; – Nadlaner.com וכל התכנים והשירותים הכלולים בו.</li>
-                <li>&quot;משתמש&quot; – כל אדם הגולש או עושה שימוש באתר.</li>
-                <li>
-                  &quot;שירותים&quot; – כלים, מחשבונים, דוחות, מידע ונתונים המוצגים באתר.
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>מטרת האתר</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                האתר נועד לספק למתווכים, שמאים, משקיעים ומשתמשים פרטיים מידע, ניתוחים
-                וכלים בתחום הנדל&quot;ן. אין לראות במידע המופיע באתר ייעוץ משפטי, פיננסי או
-                מקצועי מחייב.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>שימוש מותר</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                המשתמש מתחייב להשתמש באתר בהתאם לדין, בתום לב ולמטרות אישיות בלבד. אין
-                להעתיק, לשכפל, להפיץ, למכור, לשדר או לפרסם מידע ונתונים מהאתר ללא אישור
-                מראש ובכתב מהנהלת האתר.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>אחריות מוגבלת</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>
-                  המידע באתר נאסף ממקורות שונים (כגון מאגרי מידע ציבוריים, ממשלתיים ואתרים
-                  חיצוניים).
-                </li>
-                <li>
-                  האתר עושה מאמצים לשמור על דיוק המידע, אך ייתכנו טעויות, אי־עדכונים או
-                  שגיאות.
-                </li>
-                <li>
-                  הנהלת האתר אינה אחראית לכל נזק שייגרם עקב הסתמכות על המידע או השירותים
-                  באתר.
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>הרשמה ושירותים בתשלום</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                חלק מהשירותים באתר ניתנים ללא תשלום וחלקם כרוכים בהרשמה או בתשלום דמי
-                מנוי. הנהלת האתר רשאית לשנות את מחירי המנויים או את תנאי השימוש בכל עת.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>פרטיות ושמירת מידע</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                האתר רשאי לאסוף מידע סטטיסטי ושימושי לצורך שיפור השירותים. מידע אישי
-                שיימסר על ידי המשתמשים ישמר בהתאם למדיניות הפרטיות של האתר.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>קישורים לאתרים חיצוניים</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                האתר עשוי לכלול קישורים לאתרים חיצוניים. הנהלת האתר אינה אחראית לתוכן או
-                למדיניות באתרים אלה.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>הפסקת שירות</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                הנהלת האתר רשאית להפסיק את פעילות האתר או לשנותו, באופן זמני או קבוע,
-                ללא צורך במתן הודעה מוקדמת וללא אחריות כלשהי כלפי המשתמשים.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>שיפוי</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                המשתמש מתחייב לשפות את הנהלת האתר בגין כל נזק, הפסד, תביעה או הוצאה
-                שייגרמו לה עקב שימוש בניגוד לתנאי השימוש או בניגוד לדין.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>דין ושיפוט</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                תנאי שימוש אלה כפופים לדיני מדינת ישראל. סמכות השיפוט הבלעדית בכל מחלוקת
-                הנוגעת לתנאי שימוש אלו נתונה לבית המשפט המוסמך במחוז תל אביב.
-              </p>
-            </CardContent>
-          </Card>
+          {SECTIONS.map((section) => (
+            <Card key={section.title}>
+              <CardHeader>
+                <CardTitle>{section.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {hasList(section) ? (
+                  <ul className="list-disc pr-5 space-y-2">
+                    {section.list.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{section.description}</p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </DashboardShell>
     </DashboardLayout>

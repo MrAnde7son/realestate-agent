@@ -87,9 +87,8 @@ class GISCollector(BaseCollector):
         # Use the first address for coordinate-based queries
         first_address = addresses[0]
         x, y = first_address["x"], first_address["y"]
-        
-        # Extract city from the first address
-        city = first_address.get("city", "")
+        city="תל אביב - יפו"
+
         
         logger.info(f"Using coordinates from first address: {first_address['street']} {first_address['house_number']}, city: {city}")
         
@@ -105,7 +104,7 @@ class GISCollector(BaseCollector):
             "addresses": addresses,  # Include all addresses found
             "block": block_str,
             "parcel": parcel_str,
-            "city": city,  # Include city from GIS data
+            "city": city,
             "x": x,
             "y": y,
         }
@@ -166,3 +165,8 @@ class GISCollector(BaseCollector):
             return True
             
         return False
+
+if __name__ == "__main__":
+    gis_collector = GISCollector()
+    data = gis_collector.collect(block="6638", parcel="402")
+    print(data)

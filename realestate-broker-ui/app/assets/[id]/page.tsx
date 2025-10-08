@@ -1280,35 +1280,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>זכויות בנייה מפורטות</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{formatNumber(asset.remainingRightsSqm) ?? '—'}</div>
-                    <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">
-                      {!!asset.remainingRightsSqm && !!asset.area
-                        ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
-                        : '—'}
-                    </div>
-                    <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">
-                      {!!asset.pricePerSqm && !!asset.remainingRightsSqm
-                        ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
-                        : '—'}
-                    </div>
-                    <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Mavat Plans */}
             {plans.mavat && plans.mavat.length > 0 ? (
@@ -1474,9 +1445,42 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </TabsContent>
 
           <TabsContent value="rights" className="space-y-4">
+            {/* Summary Metrics */}
             <Card>
               <CardHeader>
-                <CardTitle>זכויות בנייה</CardTitle>
+                <CardTitle>סיכום זכויות בנייה</CardTitle>
+                <CardDescription>מבט כללי על זכויות הבנייה של הנכס</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{formatNumber(asset.remainingRightsSqm) ?? '—'}</div>
+                    <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">
+                      {!!asset.remainingRightsSqm && !!asset.area
+                        ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
+                        : '—'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">
+                      {!!asset.pricePerSqm && !!asset.remainingRightsSqm
+                        ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
+                        : '—'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detailed Rights Data */}
+            <Card>
+              <CardHeader>
+                <CardTitle>פרטי זכויות בנייה</CardTitle>
                 <CardDescription>נתונים מטאבו, GIS, רמ״י ומסמכים שהועלו בלשונית המסמכים.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

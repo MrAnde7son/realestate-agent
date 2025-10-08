@@ -557,6 +557,51 @@ class DataPipeline:
                 # Note: Additional GovMap data (parcel API, layers catalog, search types) 
                 # is now collected by the enhanced GovMap collector above
             
+            # Update location with corrected address from GovMap if available
+            if govmap_data.get("address") and govmap_data.get("address") != location.formatted:
+                # GovMap provided a corrected address, update the location object
+                corrected_address = govmap_data["address"]
+                logger.info(f"🔄 Using corrected address from GovMap: {corrected_address}")
+                
+                # Parse the corrected address to update the location object
+                try:
+                    # Try to extract street, house number, and city from the corrected address
+                    import re
+                    # Pattern to match Hebrew addresses like "רחוב שם 123, עיר"
+                    address_pattern = r'^(.+?)\s+(\d+)(?:\s*,\s*(.+))?$'
+                    match = re.match(address_pattern, corrected_address.strip())
+                    
+                    if match:
+                        street_part = match.group(1).strip()
+                        house_number = int(match.group(2))
+                        city_part = match.group(3).strip() if match.group(3) else location.city
+                        
+                        # Update the location object with corrected address components
+                        location = LocationQuery(
+                            street=street_part,
+                            house_number=house_number,
+                            city=city_part
+                        )
+                        logger.info(f"📍 Updated location: street='{street_part}', number={house_number}, city='{city_part}'")
+                    else:
+                        # If parsing fails, try to extract just the street name
+                        # Split by space and take the first part as street, rest as city
+                        parts = corrected_address.split(',')
+                        if len(parts) >= 2:
+                            street_part = parts[0].strip()
+                            city_part = parts[1].strip()
+                            location = LocationQuery(
+                                street=street_part,
+                                house_number=location.house_number,
+                                city=city_part
+                            )
+                            logger.info(f"📍 Updated location (simple parse): street='{street_part}', city='{city_part}'")
+                        else:
+                            logger.info("📍 Could not parse corrected address, keeping original location")
+                except Exception as e:
+                    logger.warning(f"Failed to parse corrected address '{corrected_address}': {e}")
+                    logger.info("📍 Keeping original location due to parsing error")
+            
             # Get GIS data (supplementary or fallback for coordinates)
             gis_data = {}
             try:

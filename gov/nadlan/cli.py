@@ -9,7 +9,7 @@ from typing import List
 
 from .exceptions import NadlanError
 from .models import Deal
-from .scraper import NadlanDealsScraper
+from .scraper_selenium import NadlanDealsScraper
 
 
 def write_csv(path: str, deals: List[Deal]) -> None:

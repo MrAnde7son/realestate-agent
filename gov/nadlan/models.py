@@ -15,6 +15,7 @@ class Deal:
     asset_type: Optional[str] = None
     year_built: Optional[str] = None
     area: Optional[float] = None
+    neighborhood: Optional[str] = None  # Neighborhood information
     # Parcel information
     parcel_block: Optional[str] = None  # גוש
     parcel_parcel: Optional[str] = None  # חלקה
@@ -111,6 +112,7 @@ class Deal:
             asset_type=d.get("asset_type") or d.get("assetType") or d.get("AssetType"),
             year_built=(str(d.get("year_built") or d.get("yearBuilt") or d.get("BuildingYear") or "") or None),
             area=cls._parse_number(d.get("area") or d.get("TotalArea")),
+            neighborhood=d.get("neighborhood") or d.get("Neighborhood"),
             # Parcel information
             parcel_block=block,
             parcel_parcel=parcel,
@@ -119,7 +121,11 @@ class Deal:
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        """Convert to dictionary, excluding the raw field to prevent recursive nesting."""
+        result = asdict(self)
+        # Remove the raw field to prevent recursive nesting in cache
+        result.pop('raw', None)
+        return result
 
 
 @dataclass
@@ -130,4 +136,5 @@ class NeighborhoodInfo:
     setl_name: str
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
         return asdict(self)

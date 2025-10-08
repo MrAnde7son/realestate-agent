@@ -497,5 +497,5 @@ def get_deals_by_neighborhood_id(neighbourhood_id: str, timeout: float = 30.0) -
 
 if __name__ == "__main__":
     scraper = NadlanDealsScraper()
-    results = scraper.get_deals_by_neighborhood_id("65210036")
+    results = scraper.get_deals_by_address("רוזוב 14 תל אביב")
     print(results)

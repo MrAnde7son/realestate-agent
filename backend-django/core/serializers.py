@@ -109,19 +109,6 @@ class AssetSerializer(MetaSerializerMixin):
         property_type = obj.get_property_value('property_type')
         if property_type:
             return property_type
-        
-        # Fallback: infer property type from asset characteristics
-        if obj.rooms and obj.area:
-            if obj.rooms >= 6 and obj.area >= 200:
-                return "בית פרטי"  # Large house
-            elif obj.rooms >= 4 and obj.area >= 120:
-                return "דירה"  # Large apartment
-            elif obj.rooms >= 2 and obj.area >= 60:
-                return "דירה"  # Regular apartment
-            elif obj.rooms == 1 and obj.area >= 30:
-                return "סטודיו"  # Studio
-            else:
-                return "דירה"  # Default to apartment
             
         return None
     

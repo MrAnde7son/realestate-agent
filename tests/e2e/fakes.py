@@ -25,7 +25,7 @@ class FakeNadlanScraper:
         self.fail = fail
         self.calls: List[str] = []
 
-    def get_deals_by_address(self, address: str) -> List[object]:
+    def get_deals_by_address(self, address: str, max_age_days: int = None, force_refresh: bool = False) -> List[object]:
         self.calls.append(address)
         if self.fail:
             raise RuntimeError("forced nadlan failure")

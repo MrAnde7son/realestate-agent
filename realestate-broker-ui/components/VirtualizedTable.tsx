@@ -140,6 +140,18 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       const value = info.getValue() as string | undefined
       return <Badge>{value ?? '—'}</Badge>
     } },
+  { header:'מספר היתרים', accessorKey:'totalPermits', enableHiding: true, cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'יחידות דיור בהיתר', accessorKey:'permitHousingUnits', enableHiding: true, cell: info => {
+      const value = info.getValue() as number | undefined
+      return <Badge>{value ?? '—'}</Badge>
+    } },
+  { header:'שטח מגורים בהיתר (מ״ר)', accessorKey:'permitResidentialArea', enableHiding: true, cell: info => {
+      const value = info.getValue() as number | undefined
+      return <span className="font-mono">{value == null ? '—' : fmtNumber(value)}</span>
+    } },
   { header:'קבצים', id:'docsCount', accessorFn: row => row.documents?.length ?? 0, enableHiding: true, cell: info => {
       const value = info.getValue() as number | undefined
       return <Badge>{fmtNumber(value)}</Badge>

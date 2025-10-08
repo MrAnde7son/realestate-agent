@@ -159,7 +159,17 @@ class AssetSerializer(MetaSerializerMixin):
             'avg_price_per_sqm','min_price_per_sqm','max_price_per_sqm',
             'priceGapPct','modelPrice','confidencePct','capRatePct','avgPricePerSqm','minPricePerSqm','maxPricePerSqm',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
-            'last_enriched_at', 'created_at', 'meta', 'documents'
+            'last_enriched_at', 'created_at', 'meta', 'documents',
+            # GIS Collector Data Fields
+            'parcel_area', 'parcel_registered_area', 'parcel_status', 'parcel_accuracy',
+            'block_area', 'block_registered_area', 'block_total_parcels', 'block_status', 'block_last_update',
+            'total_permits', 'permit_request_num', 'permit_permission_num', 'permit_building_num',
+            'permit_housing_units', 'permit_commercial_area', 'permit_residential_area', 'permit_residential_units',
+            'permit_public_area', 'permit_parking_area', 'permit_parking_units', 'permit_small_apartments',
+            'permit_unified_housing_area', 'permit_unified_housing_units', 'permit_accessible_apartments',
+            'permit_public_built_area', 'permit_total_area', 'permit_mavat_plan_num', 'permit_parking_rooms_calculated',
+            'permit_full_utilization', 'permit_subject_type', 'permit_process', 'permit_rights_notification',
+            'permit_repartition', 'permit_urban_renewal', 'permit_open_request_date', 'permit_construction_start_date'
         ]
 
 

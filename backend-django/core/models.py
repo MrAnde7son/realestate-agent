@@ -467,6 +467,51 @@ class Asset(models.Model):
     permit_status = models.CharField(max_length=50, blank=True, null=True)
     permit_date = models.DateField(blank=True, null=True)
 
+    # GIS Collector Data Fields
+    # Parcel data
+    parcel_area = models.FloatField(blank=True, null=True, help_text="שטח חלקה")
+    parcel_registered_area = models.FloatField(blank=True, null=True, help_text="שטח חלקה רשום")
+    parcel_status = models.CharField(max_length=100, blank=True, null=True, help_text="סטטוס חלקה")
+    parcel_accuracy = models.IntegerField(blank=True, null=True, help_text="דרגת דיוק חלקה")
+    
+    # Block data
+    block_area = models.FloatField(blank=True, null=True, help_text="שטח גוש")
+    block_registered_area = models.FloatField(blank=True, null=True, help_text="שטח גוש רשום")
+    block_total_parcels = models.IntegerField(blank=True, null=True, help_text="מספר חלקות בגוש")
+    block_status = models.CharField(max_length=100, blank=True, null=True, help_text="סטטוס גוש")
+    block_last_update = models.BigIntegerField(blank=True, null=True, help_text="תאריך עדכון אחרון גוש")
+    
+    # Address data (using existing fields: street, number, city, lat, lon)
+    
+    # Permit data
+    total_permits = models.IntegerField(blank=True, null=True, help_text="מספר היתרים")
+    permit_request_num = models.CharField(max_length=100, blank=True, null=True, help_text="מספר בקשה")
+    permit_permission_num = models.CharField(max_length=100, blank=True, null=True, help_text="מספר היתר")
+    permit_building_num = models.CharField(max_length=50, blank=True, null=True, help_text="מספר בניין")
+    permit_housing_units = models.IntegerField(blank=True, null=True, help_text="יחידות דיור")
+    permit_commercial_area = models.FloatField(blank=True, null=True, help_text="שטח מסחרי")
+    permit_residential_area = models.FloatField(blank=True, null=True, help_text="שטח מגורים")
+    permit_residential_units = models.IntegerField(blank=True, null=True, help_text="יחידות מגורים")
+    permit_public_area = models.FloatField(blank=True, null=True, help_text="שטח ציבורי")
+    permit_parking_area = models.FloatField(blank=True, null=True, help_text="שטח חניה")
+    permit_parking_units = models.IntegerField(blank=True, null=True, help_text="יחידות חניה")
+    permit_small_apartments = models.IntegerField(blank=True, null=True, help_text="דירות קטנות")
+    permit_unified_housing_area = models.FloatField(blank=True, null=True, help_text="שטח דיור מאוחד")
+    permit_unified_housing_units = models.IntegerField(blank=True, null=True, help_text="יחידות דיור מאוחד")
+    permit_accessible_apartments = models.IntegerField(blank=True, null=True, help_text="דירות נגישות")
+    permit_public_built_area = models.FloatField(blank=True, null=True, help_text="שטח ציבורי בנוי")
+    permit_total_area = models.FloatField(blank=True, null=True, help_text="שטח כולל")
+    permit_mavat_plan_num = models.CharField(max_length=100, blank=True, null=True, help_text="מספר תוכנית מבאו")
+    permit_parking_rooms_calculated = models.IntegerField(blank=True, null=True, help_text="חדרי חניה מחושבים")
+    permit_full_utilization = models.BooleanField(default=False, help_text="ניצול מלא")
+    permit_subject_type = models.CharField(max_length=100, blank=True, null=True, help_text="סוג נושא")
+    permit_process = models.CharField(max_length=100, blank=True, null=True, help_text="מסלול")
+    permit_rights_notification = models.BooleanField(default=False, help_text="הודעה על זכויות")
+    permit_repartition = models.BooleanField(default=False, help_text="חלוקה מחדש")
+    permit_urban_renewal = models.BooleanField(default=False, help_text="חידוש עירוני")
+    permit_open_request_date = models.DateField(blank=True, null=True, help_text="תאריך פתיחת בקשה")
+    permit_construction_start_date = models.DateField(blank=True, null=True, help_text="תאריך התחלת בנייה")
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     is_demo = models.BooleanField(default=False)
     meta = models.JSONField(default=dict)
@@ -491,6 +536,14 @@ class Asset(models.Model):
             models.Index(fields=["area"]),
             models.Index(fields=["rooms"]),
             models.Index(fields=["zoning"]),
+            # GIS fields indexes (using existing fields)
+            models.Index(fields=["permit_status"]),
+            models.Index(fields=["permit_date"]),
+            models.Index(fields=["total_permits"]),
+            models.Index(fields=["parcel_area"]),
+            models.Index(fields=["block_area"]),
+            models.Index(fields=["permit_housing_units"]),
+            models.Index(fields=["permit_residential_area"]),
         ]
 
     # Attribution fields
@@ -1160,49 +1213,6 @@ class AnalyticsEvent(models.Model):
         related_name="analytics_events",
     )
     asset_id = models.IntegerField(null=True, blank=True)
-    class Meta:
-        indexes = [
-            models.Index(fields=["asset"]),
-            models.Index(fields=["permit_number"]),
-            models.Index(fields=["request_num"]),
-            models.Index(fields=["status"]),
-            models.Index(fields=["building_stage"]),
-            models.Index(fields=["sug_bakasha"]),  # Request type
-            models.Index(fields=["sw_tama_38"]),  # TAMA 38
-            models.Index(fields=["finished"]),
-            models.Index(fields=["issued_date"]),
-            models.Index(fields=["expiry_date"]),
-            models.Index(fields=["source"]),
-            models.Index(fields=["created_at"]),
-        ]
-
-    def __str__(self):
-        return f"Permit({self.permit_number or self.request_num}, {self.status})"
-
-    @property
-    def is_tama_38(self):
-        """Check if this is a TAMA 38 related permit."""
-        return any([self.sw_tama_38, self.sw_tama_38_chadash, self.sw_tama_38_tosefet])
-
-    @property
-    def has_construction_allowances(self):
-        """Check if this permit has construction allowances."""
-        return any([
-            self.hakala_tosefet_achuz_shetach,
-            self.hakala_yd_hagdala_achuz,
-            self.hakala_yd_mevukash,
-            self.hakala_yd_mutar
-        ])
-
-    @property
-    def display_title(self):
-        """Get a display-friendly title for the permit."""
-        if self.koteret:
-            return self.koteret
-        if self.sug_bakasha:
-            return self.sug_bakasha
-        return f"היתר {self.permit_number or self.request_num or 'לא ידוע'}"
-
     source = models.CharField(max_length=100, null=True, blank=True)
     error_code = models.CharField(max_length=100, null=True, blank=True)
     meta = models.JSONField(default=dict, blank=True)
@@ -1214,6 +1224,9 @@ class AnalyticsEvent(models.Model):
             models.Index(fields=["source"]),
             models.Index(fields=["error_code"]),
         ]
+
+    def __str__(self):
+        return f"AnalyticsEvent({self.event}, {self.created_at})"
 
 
 class UserSession(models.Model):

@@ -3,6 +3,120 @@
 from django.db import migrations, models
 
 
+def _fetch_existing_indexes(schema_editor, table_name):
+    connection = schema_editor.connection
+
+    with connection.cursor() as cursor:
+        vendor = connection.vendor
+
+        if vendor == "sqlite":
+            safe_table_name = table_name.replace("'", "''")
+            query = (
+                "SELECT name FROM sqlite_master "
+                "WHERE type='index' AND tbl_name='{}'"
+            ).format(safe_table_name)
+            cursor.execute(query)
+        elif vendor == "postgresql":
+            cursor.execute(
+                """
+                SELECT indexname
+                FROM pg_indexes
+                WHERE schemaname = current_schema() AND tablename = %s
+                """,
+                [table_name],
+            )
+        else:
+            return set()
+
+        return {row[0] for row in cursor.fetchall()}
+
+
+def _drop_index_if_exists(cursor, schema_editor, name):
+    cursor.execute(f"DROP INDEX IF EXISTS {schema_editor.quote_name(name)}")
+
+
+def _create_index(cursor, schema_editor, name, table_name, column):
+    cursor.execute(
+        "CREATE INDEX {} ON {} ({})".format(
+            schema_editor.quote_name(name),
+            schema_editor.quote_name(table_name),
+            schema_editor.quote_name(column),
+        )
+    )
+
+
+_ASSET_INDEX_MAPPINGS = (
+    (
+        ("core_asset_block_dc43e9_idx",),
+        "core_asset_block_531195_idx",
+        "block",
+    ),
+    (
+        ("core_asset_parcel_38f908_idx",),
+        "core_asset_parcel_ebd705_idx",
+        "parcel",
+    ),
+    (
+        ("core_asset_subhelk_ec1101_idx", "core_asset_subparcel_ec1101_idx"),
+        "core_asset_subparc_d57846_idx",
+        "subparcel",
+    ),
+)
+
+
+def ensure_asset_ppm_index_names(apps, schema_editor):
+    """Create the canonical asset indexes if the legacy ones are missing."""
+
+    existing = _fetch_existing_indexes(schema_editor, "core_asset")
+    connection = schema_editor.connection
+
+    with connection.cursor() as cursor:
+        for legacy_names, canonical_name, column in _ASSET_INDEX_MAPPINGS:
+            if canonical_name in existing:
+                continue
+
+            for legacy_name in legacy_names:
+                if legacy_name in existing:
+                    _drop_index_if_exists(cursor, schema_editor, legacy_name)
+                    existing.discard(legacy_name)
+
+            _create_index(
+                cursor,
+                schema_editor,
+                canonical_name,
+                "core_asset",
+                column,
+            )
+            existing.add(canonical_name)
+
+
+def restore_asset_ppm_index_names(apps, schema_editor):
+    """Recreate the legacy asset index names when rolling back."""
+
+    existing = _fetch_existing_indexes(schema_editor, "core_asset")
+    connection = schema_editor.connection
+
+    with connection.cursor() as cursor:
+        for legacy_names, canonical_name, column in _ASSET_INDEX_MAPPINGS:
+            legacy_name = legacy_names[0]
+
+            if legacy_name in existing:
+                continue
+
+            if canonical_name in existing:
+                _drop_index_if_exists(cursor, schema_editor, canonical_name)
+                existing.discard(canonical_name)
+
+            _create_index(
+                cursor,
+                schema_editor,
+                legacy_name,
+                "core_asset",
+                column,
+            )
+            existing.add(legacy_name)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,20 +124,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_block_531195_idx",
-            old_name="core_asset_block_dc43e9_idx",
-        ),
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_parcel_ebd705_idx",
-            old_name="core_asset_parcel_38f908_idx",
-        ),
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_subparc_d57846_idx",
-            old_name="core_asset_subhelk_ec1101_idx",
+        migrations.RunPython(
+            ensure_asset_ppm_index_names,
+            restore_asset_ppm_index_names,
         ),
         migrations.AddField(
             model_name="asset",

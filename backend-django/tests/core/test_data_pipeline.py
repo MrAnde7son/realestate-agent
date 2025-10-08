@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Optional
 
+import pytest
+
 from db.database import SQLAlchemyDatabase
+from db.models import Listing
 from orchestration.collectors import (
     GISCollector,
     GovCollector,
@@ -197,6 +200,48 @@ def test_data_pipeline_integration():
     # Verify Mavat data is included
     mavat_found = any('mavat' in str(result) for result in results)
     assert mavat_found, "Mavat data should be included in results"
+
+
+@pytest.mark.parametrize(
+    "raw_floor, expected",
+    [
+        ("קומה \u200eקרקע\u200f", 0),
+        ("קומה 5 מתוך 7", 5),
+        ("מרתף", -1),
+        ("שניה", 2),
+        (None, None),
+    ],
+)
+def test_store_listing_normalizes_floor_values(raw_floor, expected):
+    db = SQLAlchemyDatabase("sqlite:///:memory:")
+    db.init_db()
+    db.create_tables()
+
+    pipeline = DataPipeline(db=db)
+    session = db.get_session()
+
+    listing = RealEstateListing()
+    listing.title = "test"
+    listing.price = 1_000_000
+    listing.address = "Fake st 1"
+    listing.rooms = 3
+    listing.floor = raw_floor
+    listing.size = 80
+    listing.property_type = "apartment"
+    listing.description = "desc"
+    listing.url = "http://example.com"
+    listing.listing_id = f"listing-{expected}-{hash(str(raw_floor))}"
+
+    try:
+        stored_listing = pipeline._store_listing(session, listing)
+        assert stored_listing.floor == expected
+
+        fetched = session.query(Listing).filter_by(id=stored_listing.id).one()
+        assert fetched.floor == expected
+    finally:
+        session.close()
+        if pipeline.session is not None:
+            pipeline.session.close()
 
 
 def test_calculate_market_metrics_skips_invalid_listings():

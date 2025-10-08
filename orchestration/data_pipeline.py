@@ -4,6 +4,8 @@ from typing import Any, Iterable, List, Optional, Dict, Tuple
 import os
 import time
 import logging
+import re
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from types import SimpleNamespace
 from contextlib import contextmanager  # added import
@@ -45,6 +47,62 @@ except Exception:  # pragma: no cover - fallback when Django not configured
 from orchestration.alerts import Notifier
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_floor_value(raw_floor: Any) -> Optional[int]:
+    """Convert various floor representations into an integer."""
+
+    if raw_floor is None:
+        return None
+
+    # Handle numeric inputs (int/float-like strings)
+    if isinstance(raw_floor, (int, float)):
+        try:
+            return int(raw_floor)
+        except (TypeError, ValueError):
+            return None
+
+    if isinstance(raw_floor, str):
+        # Normalize unicode to remove direction marks and other artefacts
+        normalized = unicodedata.normalize("NFKC", raw_floor).strip()
+        if not normalized:
+            return None
+
+        lowered = normalized.lower()
+
+        # Common Hebrew / English descriptors
+        if "קרקע" in lowered or "ground" in lowered:
+            return 0
+        if "מרתף" in lowered or "basement" in lowered:
+            return -1
+
+        # Map specific Hebrew ordinal words to numbers
+        floor_word_map = {
+            "ראשונה": 1,
+            "שניה": 2,
+            "שנייה": 2,
+            "שלישית": 3,
+            "רביעית": 4,
+            "חמישית": 5,
+            "שישית": 6,
+            "שביעית": 7,
+            "שמינית": 8,
+            "תשיעית": 9,
+            "עשירית": 10,
+        }
+        for word, number in floor_word_map.items():
+            if word in lowered:
+                return number
+
+        # Extract the first integer found in the string (supports negative values)
+        match = re.search(r"-?\d+", lowered)
+        if match:
+            try:
+                return int(match.group())
+            except ValueError:
+                return None
+
+    return None
 
 
 def _convert_unix_timestamp_to_date(timestamp_ms: int) -> Optional[date]:
@@ -394,7 +452,7 @@ class DataPipeline:
             price=listing.price,
             address=listing.address,
             rooms=listing.rooms,
-            floor=listing.floor,
+            floor=_normalize_floor_value(listing.floor),
             size=listing.size,
             property_type=listing.property_type,
             description=listing.description,

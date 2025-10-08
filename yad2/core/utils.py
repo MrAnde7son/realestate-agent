@@ -72,6 +72,42 @@ class URLUtils:
             return None
         match = re.search(r'/(\d+)/?$', url)
         return match.group(1) if match else None
+    
+    @staticmethod
+    def parse_floor(floor_text):
+        """
+        Parse Hebrew floor descriptions to standardized format.
+        
+        Args:
+            floor_text (str): Raw floor text from Yad2 (e.g., "קומה קרקע", "קומה 3")
+            
+        Returns:
+            str: Normalized floor description
+        """
+        if not floor_text:
+            return None
+            
+        floor_text = floor_text.strip()
+        
+        # Handle ground floor variations
+        if any(phrase in floor_text.lower() for phrase in ['קרקע', 'ground', 'קומה קרקע']):
+            return '0'
+        
+        # Handle basement variations
+        if any(phrase in floor_text.lower() for phrase in ['מרתף', 'basement', 'קומה מרתף']):
+            return '-1'
+        
+        # Handle roof/penthouse variations
+        if any(phrase in floor_text.lower() for phrase in ['גג', 'roof', 'קומה גג', 'פנטהאוס', 'penthouse']):
+            return 'roof'
+        
+        # Extract numeric floor number
+        numbers = re.findall(r'\d+', floor_text)
+        if numbers:
+            return numbers[0]
+        
+        # If no recognizable pattern, return the original text
+        return floor_text
 
 
 class DataUtils:

@@ -18,7 +18,7 @@ class Listing(Base):
     price = Column(Float)
     address = Column(String(255))
     rooms = Column(Float)
-    floor = Column(Integer)
+    floor = Column(String(50))
     size = Column(Float)
     property_type = Column(String(100))
     description = Column(Text)

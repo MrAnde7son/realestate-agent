@@ -196,7 +196,7 @@ class Yad2Scraper:
                 if len(values) >= 1:
                     listing.rooms = URLUtils.extract_number(values[0])
                 if len(values) >= 2:
-                    listing.floor = values[1].strip()
+                    listing.floor = URLUtils.parse_floor(values[1].strip())
                 if len(values) >= 3:
                     listing.size = URLUtils.extract_number(values[2])
             

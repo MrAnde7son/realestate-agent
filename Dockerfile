@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     supervisor \
     curl \
+    wget \
+    gnupg \
     # Playwright/Chromium runtime deps
     libnss3 \
     libatk-bridge2.0-0 \
@@ -52,6 +54,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     proj-bin \
     libproj-dev \
     libspatialindex-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Chrome for Selenium
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies for backend + pipeline + collectors

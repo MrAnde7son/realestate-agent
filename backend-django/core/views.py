@@ -1703,7 +1703,7 @@ def asset_transactions(request, asset_id):
             }
         }
         
-        # Process transactions
+        # Process RealEstateTransaction records
         for trans in transactions:
             transaction_data["transactions"].append({
                 "id": trans.id,
@@ -1714,7 +1714,8 @@ def asset_transactions(request, asset_id):
                 "floor": trans.floor,
                 "address": trans.address,
                 "price_per_sqm": trans.price / trans.area if trans.price and trans.area else None,
-                "deal_id": trans.deal_id
+                "deal_id": trans.deal_id,
+                "source": "government"  # Mark as government source
             })
         
         # Calculate market analysis

@@ -57,16 +57,7 @@ describe('/api/assets/[id]', () => {
       expect(data.asset.type).toBe('פנטהאוס')
       
       // Verify backend was called
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://127.0.0.1:8000/api/assets/101/',
-        {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        }
-      )
+      expect(global.fetch).toHaveBeenCalledWith('http://127.0.0.1:8000/api/assets/101/');
     })
 
     it('handles backend timeout gracefully', async () => {

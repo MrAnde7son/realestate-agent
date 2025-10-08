@@ -10,22 +10,11 @@ export async function GET(
 
   try {
     // Fetch from backend
-    const backendResponse = await fetch(backendUrl, {
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache'
-      }
-    })
+    const backendResponse = await fetch(backendUrl);
 
     if (backendResponse.ok) {
       const data = await backendResponse.json()
-      return NextResponse.json(data, {
-        headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      })
+      return NextResponse.json(data);
     }
 
     // If backend returns an error status, return that error

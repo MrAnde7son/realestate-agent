@@ -6,26 +6,16 @@ export async function GET(
 ) {
   const { id } = params
   const numericId = Number(id)
-  const backendUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/appraisal/`
 
   try {
     // Fetch from backend
-    const backendResponse = await fetch(backendUrl, {
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache'
-      }
-    })
+    const backendResponse = await fetch(
+      `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/appraisal/`
+    );
 
     if (backendResponse.ok) {
-      const data = await backendResponse.json()
-      return NextResponse.json(data, {
-        headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      })
+      const data = await backendResponse.json();
+      return NextResponse.json(data);
     }
 
     // If backend returns an error status, return that error

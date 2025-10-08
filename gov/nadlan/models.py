@@ -121,7 +121,11 @@ class Deal:
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        """Convert to dictionary, excluding the raw field to prevent recursive nesting."""
+        result = asdict(self)
+        # Remove the raw field to prevent recursive nesting in cache
+        result.pop('raw', None)
+        return result
 
 
 @dataclass
@@ -132,4 +136,5 @@ class NeighborhoodInfo:
     setl_name: str
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
         return asdict(self)

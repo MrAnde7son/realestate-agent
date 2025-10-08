@@ -47,7 +47,7 @@ class MetaSerializerMixin(serializers.ModelSerializer):
 class AssetSerializer(MetaSerializerMixin):
     address = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
-    type = serializers.CharField(source='building_type', read_only=True)
+    type = serializers.SerializerMethodField()
     # Expose market metric fields (snake_case) directly
     price_gap_pct = serializers.FloatField(read_only=True)
     expected_price_range = serializers.CharField(read_only=True)
@@ -91,6 +91,39 @@ class AssetSerializer(MetaSerializerMixin):
             if obj.city:
                 parts.append(obj.city)
             return " ".join(parts) if parts else None
+    
+    def get_type(self, obj):
+        """Get property type from building_type or fallback to Yad2 listings."""
+        # First try the direct building_type field
+        if obj.building_type:
+            return obj.building_type
+        
+        # Fallback: try to get property type from Yad2 listings
+        yad2_listings = obj.get_property_value('yad2_listings', [])
+        if yad2_listings:
+            for listing in yad2_listings:
+                if listing.get('property_type'):
+                    return listing['property_type']
+        
+        # Fallback: try to get property type from meta
+        property_type = obj.get_property_value('property_type')
+        if property_type:
+            return property_type
+        
+        # Fallback: infer property type from asset characteristics
+        if obj.rooms and obj.area:
+            if obj.rooms >= 6 and obj.area >= 200:
+                return "בית פרטי"  # Large house
+            elif obj.rooms >= 4 and obj.area >= 120:
+                return "דירה"  # Large apartment
+            elif obj.rooms >= 2 and obj.area >= 60:
+                return "דירה"  # Regular apartment
+            elif obj.rooms == 1 and obj.area >= 30:
+                return "סטודיו"  # Studio
+            else:
+                return "דירה"  # Default to apartment
+            
+        return None
     
     def get_documents(self, obj):
         """Get documents from both Document model and meta field."""

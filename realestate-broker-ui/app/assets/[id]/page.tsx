@@ -1482,8 +1482,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="rights" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>זכויות מהנסח טאבו</CardTitle>
-                <CardDescription>נתונים שהופקו אוטומטית מהמסמכים שהועלו בלשונית המסמכים.</CardDescription>
+                <CardTitle>זכויות בנייה</CardTitle>
+                <CardDescription>נתונים מטאבו, GIS, רמ״י ומסמכים שהועלו בלשונית המסמכים.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1565,12 +1565,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                 ) : (
                   <div className="py-6 text-sm text-muted-foreground text-right">
-                    לא נמצאו נתוני טאבו תואמים
+                    לא נמצאו נתוני זכויות זמינים
                   </div>
                 )}
               </CardContent>
               <CardFooter className="justify-end text-sm text-muted-foreground">
-                נתוני הטאבו מתעדכנים לאחר העלאת נסח טאבו בלשונית המסמכים.
+                נתוני הטאבו מתעדכנים לאחר העלאת נסח טאבו בלשונית המסמכים. נתוני GIS ורמ״י מתעדכנים אוטומטית.
               </CardFooter>
             </Card>
 

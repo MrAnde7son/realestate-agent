@@ -205,22 +205,66 @@ class AssetRightsView(APIView):
             if gis_rights:
                 for idx, right in enumerate(gis_rights):
                     if isinstance(right, dict):
-                        right_data = {
-                            'id': f"gis_rights_{idx}",
-                            'source': 'gis',
-                            'type': 'land_use',
-                            'land_use': right.get('land_use', ''),
-                            'plan_name': right.get('plan_name', ''),
-                            'plan_number': right.get('plan_number', ''),
-                            'status': right.get('status', ''),
-                            'area': right.get('area', ''),
-                            'description': f"שימוש קרקע: {right.get('land_use', '')}",
-                            'raw_data': right
-                        }
+                        # Extract meaningful data from raw GIS data
+                        raw_data = right.get('raw_data', {})
+                        land_use = raw_data.get('t_yeud_karka', '') or right.get('land_use', '')
+                        main_purpose = raw_data.get('t_yeud_rashi', '') or right.get('plan_name', '')
+                        area = raw_data.get('ms_shetach', '') or right.get('area', '')
+                        block = raw_data.get('ms_gush', '') or ''
+                        parcel = raw_data.get('ms_migrash', '') or ''
                         
-                        # Filter by query if provided
-                        if not query or any(query in str(v).lower() for v in right_data.values() if v):
-                            rights_data['gis_rights'].append(right_data)
+                        # Create multiple rows for different GIS data points
+                        gis_rows = []
+                        
+                        if land_use:
+                            gis_rows.append({
+                                'id': f"gis_rights_{idx}_land_use",
+                                'source': 'gis',
+                                'field': 'שימוש קרקע',
+                                'value': land_use,
+                                'type': 'land_use'
+                            })
+                        
+                        if main_purpose:
+                            gis_rows.append({
+                                'id': f"gis_rights_{idx}_purpose",
+                                'source': 'gis',
+                                'field': 'יעוד ראשי',
+                                'value': main_purpose,
+                                'type': 'land_use'
+                            })
+                        
+                        if area:
+                            gis_rows.append({
+                                'id': f"gis_rights_{idx}_area",
+                                'source': 'gis',
+                                'field': 'שטח (מ״ר)',
+                                'value': str(area),
+                                'type': 'land_use'
+                            })
+                        
+                        if block:
+                            gis_rows.append({
+                                'id': f"gis_rights_{idx}_block",
+                                'source': 'gis',
+                                'field': 'גוש',
+                                'value': str(block),
+                                'type': 'land_use'
+                            })
+                        
+                        if parcel:
+                            gis_rows.append({
+                                'id': f"gis_rights_{idx}_parcel",
+                                'source': 'gis',
+                                'field': 'חלקה',
+                                'value': str(parcel),
+                                'type': 'land_use'
+                            })
+                        
+                        # Add all GIS rows that match the query
+                        for row in gis_rows:
+                            if not query or query in row['field'].lower() or query in row['value'].lower():
+                                rights_data['gis_rights'].append(row)
 
             # 3. Get building rights information
             if asset.meta:

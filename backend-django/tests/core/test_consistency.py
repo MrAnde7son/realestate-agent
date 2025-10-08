@@ -27,11 +27,11 @@ def test_listing_consistency_across_surfaces(client):
     r = client.get(reverse("assets"))
     assert r.status_code == 200
     row = next(x for x in r.json()["rows"] if x["id"] == a.id)
-    assert row["netSqm"] == 85
+    assert row["area"] == 85
     assert row["price"] == 2900000
 
     listing = build_listing(a, a.source_records.all())
-    assert listing["netSqm"] == row["netSqm"]
+    assert listing["netSqm"] == row["area"]
     assert listing["price"] == row["price"]
 
     m = client.post(

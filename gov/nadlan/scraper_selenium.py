@@ -269,151 +269,6 @@ class NadlanDealsScraper:
         """Context manager exit."""
         self._cleanup_driver()
     
-    def get_deals_by_street_id(self, street_id: str) -> List[Deal]:
-        """
-        Fetch deals for a specific street ID.
-
-        Args:
-            street_id: The street ID from the search results
-
-        Returns:
-            List of Deal objects
-
-        Raises:
-            NadlanAPIError: If the fetch fails
-        """
-        logger.info("Fetching deals for street %s", street_id)
-        try:
-            self._init_driver()
-            deals = self._fetch_deals_by_street_id_selenium(street_id)
-            logger.info("Fetched %s deals for street %s", len(deals), street_id)
-            return deals
-        except Exception as e:
-            logger.exception("Failed to fetch deals for street %s", street_id)
-            raise NadlanAPIError(f"Failed to fetch deals for street {street_id}: {e}")
-        finally:
-            self._cleanup_driver()
-
-    def get_deals_by_neighborhood_id(self, neighbourhood_id: str) -> List[Deal]:
-        """Retrieve deals using a neighbourhood identifier.
-
-        Args:
-            neighbourhood_id: The numeric ID as seen in the URL
-
-        Returns:
-            List of Deal objects
-
-        Raises:
-            NadlanAPIError: If the API call fails
-        """
-        logger.info("Fetching deals for neighborhood %s", neighbourhood_id)
-        try:
-            self._init_driver()
-            deals = self._fetch_deals_by_neighborhood_id_selenium(neighbourhood_id)
-            logger.info("Fetched %s deals for neighborhood %s", len(deals), neighbourhood_id)
-            return deals
-        except Exception as e:
-            logger.exception("Failed to fetch deals for neighborhood %s", neighbourhood_id)
-            raise NadlanAPIError(f"Failed to fetch deals for neighborhood {neighbourhood_id}: {e}")
-        finally:
-            self._cleanup_driver()
-
-    def search_address(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Search for addresses using the Nadlan website search.
-
-        Args:
-            query: Address search query (in Hebrew or English)
-            limit: Maximum number of results to return
-
-        Returns:
-            List of address suggestions with IDs and names
-        """
-        logger.info("Searching for address '%s'", query)
-        try:
-            self._init_driver()
-            results = self._search_address_selenium(query, limit)
-            logger.info("Found %s results for '%s'", len(results), query)
-            return results
-        except Exception as e:
-            logger.exception("Address search failed for '%s'", query)
-            raise NadlanAPIError(f"Failed to search for address '{query}': {e}")
-        finally:
-            self._cleanup_driver()
-
-    def get_deals_by_address(self, address_query: str) -> List[Deal]:
-        """Retrieve deals by searching for an address first, then fetching deals.
-
-        Args:
-            address_query: Address or neighborhood name to search for
-
-        Returns:
-            List of Deal objects
-
-        Raises:
-            NadlanAPIError: If the search or fetch fails
-        """
-        logger.info("Fetching deals for address '%s'", address_query)
-        try:
-            # First search for the address
-            search_results = self.search_address(address_query, limit=5)
-
-            if not search_results:
-                raise NadlanAPIError(f"No addresses found for query: {address_query}")
-
-            # Get the first (most relevant) result
-            best_match = search_results[0]
-            
-            # Check if we have a direct address match (preferred)
-            if best_match.get('type') == 'address' and best_match.get('key'):
-                address_id = best_match['key']
-                logger.info("Using direct address ID %s for address '%s'", address_id, address_query)
-                try:
-                    deals = self.get_deals_by_address_id(address_id)
-                    logger.info("Fetched %s deals for address '%s' using address ID", len(deals), address_query)
-                    return deals
-                except Exception as e:
-                    logger.warning("Failed to fetch deals by address ID %s, falling back to neighborhood: %s", 
-                        address_id, str(e))
-            
-            # Fallback to neighborhood-based approach
-            neighborhood_id = best_match.get('neighborhood_id')
-            if not neighborhood_id:
-                raise NadlanAPIError(f"Could not determine neighborhood ID for: {best_match['value']}")
-
-            logger.info("Using neighborhood %s for address '%s'", neighborhood_id, address_query)
-            # Fetch deals using the neighborhood ID
-            deals = self.get_deals_by_neighborhood_id(neighborhood_id)
-            logger.info("Fetched %s deals for address '%s'", len(deals), address_query)
-            return deals
-
-        except Exception as e:
-            logger.exception("Failed to get deals for address '%s'", address_query)
-            raise NadlanAPIError(f"Failed to get deals for address '{address_query}': {e}")
-
-    def get_deals_by_address_id(self, address_id: str) -> List[Deal]:
-        """Retrieve deals by address ID directly.
-
-        Args:
-            address_id: The address ID from the search results
-
-        Returns:
-            List of Deal objects
-
-        Raises:
-            NadlanAPIError: If the fetch fails
-        """
-        logger.info("Fetching deals for address ID '%s'", address_id)
-        try:
-            self._init_driver()
-            deals = self._fetch_deals_by_address_id_selenium(address_id)
-            logger.info("Fetched %s deals for address ID '%s'", len(deals), address_id)
-            return deals
-        except Exception as e:
-            logger.exception("Failed to fetch deals for address ID '%s'", address_id)
-            raise NadlanAPIError(f"Failed to fetch deals for address ID '{address_id}': {e}")
-        finally:
-            self._cleanup_driver()
-
     def get_neighborhood_info(self, neighbourhood_id: str) -> Dict[str, Any]:
         """Get information about a neighborhood.
 
@@ -438,250 +293,25 @@ class NadlanDealsScraper:
         finally:
             self._cleanup_driver()
 
-    def _search_address_selenium(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Search for addresses using the Nadlan website search."""
-        # Navigate to the Nadlan website
-        self.driver.get("https://www.nadlan.gov.il/")
-        time.sleep(3)
-        
-        # Find the search input field
-        search_box = self.driver.find_element(By.ID, "myInput2")
-        
-        # Clear and enter the search query
-        search_box.clear()
-        search_box.send_keys(query)
-        
-        # Submit the search by pressing Enter
-        search_box.send_keys(Keys.RETURN)
-        
-        # Wait for results to load
-        time.sleep(5)
-        
-        # Check if we got redirected to a specific address page
-        current_url = self.driver.current_url
-        if "view=address" in current_url and "id=" in current_url:
-            # Extract address ID from URL
-            import re
-            match = re.search(r'id=(\d+)', current_url)
-            if match:
-                address_id = match.group(1)
-                # Try to extract neighborhood ID from the page
-                neighborhood_id = self._extract_neighborhood_id_from_page()
-                
-                return [{
-                    'type': 'address',
-                    'key': address_id,
-                    'value': query,
-                    'neighborhood_id': neighborhood_id,
-                    'rank': 0
-                }]
-        
-        # If no direct address match, try to find results on the page
-        results = []
-        
-        # Look for address suggestions or results
-        try:
-            # Look for any clickable elements that might be address results
-            address_elements = self.driver.find_elements(By.CSS_SELECTOR, 
-                "div[class*='result'], div[class*='address'], div[class*='item'], a[href*='view=address']")
-            
-            for element in address_elements[:limit]:
-                try:
-                    href = element.get_attribute('href')
-                    text = element.text.strip()
-                    
-                    if href and 'view=address' in href and text:
-                        # Extract address ID from href
-                        match = re.search(r'id=(\d+)', href)
-                        if match:
-                            address_id = match.group(1)
-                            neighborhood_id = self._extract_neighborhood_id_from_page()
-                            
-                            results.append({
-                                'type': 'address',
-                                'key': address_id,
-                                'value': text,
-                                'neighborhood_id': neighborhood_id,
-                                'rank': len(results)
-                            })
-                except Exception:
-                    continue
-                    
-        except Exception as e:
-            logger.warning(f"Error finding address results: {e}")
-        
-        # If no results found, try to search using the govmap API directly
-        if not results:
-            results = self._search_address_govmap_api(query, limit)
-        
-        return results[:limit]
-    
-    def _extract_neighborhood_id_from_page(self) -> Optional[str]:
-        """Extract neighborhood ID from the current page."""
-        try:
-            # Look for neighborhood ID in various places on the page
-            page_source = self.driver.page_source
-            
-            # Try to find neighborhood ID in JavaScript variables or data attributes
-            import re
-            patterns = [
-                r'neighborhood[^=]*=.*?(\d+)',
-                r'neighborhoodId[^=]*=.*?(\d+)',
-                r'hoodId[^=]*=.*?(\d+)',
-                r'"neighborhood_id":\s*"(\d+)"',
-                r'"hoodId":\s*"(\d+)"'
-            ]
-            
-            for pattern in patterns:
-                match = re.search(pattern, page_source, re.IGNORECASE)
-                if match:
-                    return match.group(1)
-            
-            # Look for neighborhood ID in data attributes
-            elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-neighborhood-id], [data-hood-id]")
-            for element in elements:
-                neighborhood_id = (element.get_attribute('data-neighborhood-id') or 
-                                 element.get_attribute('data-hood-id'))
-                if neighborhood_id:
-                    return neighborhood_id
-                    
-        except Exception as e:
-            logger.warning(f"Error extracting neighborhood ID: {e}")
-        
-        return None
-    
-    def _search_address_govmap_api(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Fallback: Search using the govmap API directly."""
-        import urllib.parse
-        import requests
-        
-        try:
-            # Encode the query for URL
-            encoded_query = urllib.parse.quote(query)
-            
-            # Construct the autocomplete URL
-            url = f"https://es.govmap.gov.il/TldSearch/api/AutoComplete?query={encoded_query}&ids=276267023&gid=govmap"
-            
-            # Make the request
-            response = requests.get(url, timeout=self.timeout)
-            response.raise_for_status()
-            
-            data = response.json()
-            results = []
-            
-            # Process ADDRESS results (most relevant)
-            if 'res' in data and 'ADDRESS' in data['res']:
-                for item in data['res']['ADDRESS'][:limit]:
-                    neighborhood_id = self._extract_neighborhood_id_from_poi(item)
-                    results.append({
-                        'type': 'address',
-                        'key': item['Key'],
-                        'value': item['Value'],
-                        'neighborhood_id': neighborhood_id,
-                        'rank': item.get('Rank', 0)
-                    })
-            
-            # Process other result types if no addresses found
-            if not results:
-                for result_type in ['NEIGHBORHOOD', 'POI_MID_POINT', 'STREET', 'SETTLEMENT']:
-                    if 'res' in data and result_type in data['res']:
-                        for item in data['res'][result_type][:limit//2]:
-                            neighborhood_id = self._extract_neighborhood_id_from_poi(item)
-                            results.append({
-                                'type': result_type.lower(),
-                                'key': item['Key'],
-                                'value': item['Value'],
-                                'neighborhood_id': neighborhood_id,
-                                'rank': item.get('Rank', 0)
-                            })
-            
-            # Sort by rank and return top results
-            results.sort(key=lambda x: x.get('rank', 0))
-            return results[:limit]
-            
-        except Exception as e:
-            logger.warning(f"Govmap API search failed: {e}")
-            return []
-
-    def _extract_neighborhood_id_from_poi(self, poi_item: Dict[str, Any]) -> Optional[str]:
-        """Extract neighborhood ID from POI (Point of Interest) data.
-        
-        This is a simplified mapping - in practice you might want to use
-        a more sophisticated approach or maintain a mapping table.
-        """
-        # This is a placeholder implementation
-        # In practice, you'd need to implement proper neighborhood ID extraction
-        # based on the actual POI data structure
-        return None
-
-    def _fetch_deals_by_address_id_selenium(self, address_id: str) -> List[Deal]:
-        """Fetch deals by address ID using Selenium."""
-        # Navigate to the address page
-        url = f"https://www.nadlan.gov.il/?view=address&id={address_id}&page=deals"
-        logger.info(f"Navigating to: {url}")
-        
-        self.driver.get(url)
-        
-        # Wait for page to load
-        time.sleep(5)
-        
-        # Check if page loaded successfully
-        current_url = self.driver.current_url
-        logger.info(f"Current URL: {current_url}")
-        
-        # Try to find deals data in the page
-        deals = []
-        
-        try:
-            # Look for deals in various possible locations
-            deals_data = self.driver.execute_script("""
-                // Look for deals data in various possible locations
-                if (window.dealsData) return window.dealsData;
-                if (window.app && window.app.deals) return window.app.deals;
-                if (window.data && window.data.deals) return window.data.deals;
-                
-                // Look for script tags with deals data
-                const scripts = document.querySelectorAll('script');
-                for (let script of scripts) {
-                    const content = script.textContent || script.innerText;
-                    if (content && content.includes('deals') && content.includes('[')) {
-                        try {
-                            const match = content.match(/deals[^=]*=\\s*(\\[.*?\\])/);
-                            if (match) {
-                                return JSON.parse(match[1]);
-                            }
-                        } catch (e) {
-                            // Continue searching
-                        }
-                    }
-                }
-                return null;
-            """)
-            
-            if deals_data and isinstance(deals_data, list):
-                logger.info(f"Found deals data in page content: {len(deals_data)} items")
-                deals = [Deal.from_item(item) for item in deals_data]
-            else:
-                # Try to find deals in table format
-                deals = self._extract_deals_from_table()
-                
-        except Exception as e:
-            logger.warning(f"Failed to extract deals from page content: {e}")
-            # Try to find deals in table format as fallback
-            deals = self._extract_deals_from_table()
-        
-        return deals
-    
     def _extract_deals_from_table(self) -> List[Deal]:
-        """Extract deals from table format on the page."""
+        """Extract deals from all tables on the page."""
         deals = []
         
         try:
-            # First try to find the main deals table
-            main_table = self.driver.find_element(By.CSS_SELECTOR, "table#dealsTable, .mainTable, table")
-            if main_table:
+            # Find all tables that might contain deals
+            tables = self.driver.find_elements(By.CSS_SELECTOR, "table#dealsTable, .mainTable, table")
+            
+            for table_idx, main_table in enumerate(tables):
+                logger.info(f"Processing table {table_idx + 1}")
+                
                 # Extract from the main table structure
                 rows = main_table.find_elements(By.CSS_SELECTOR, "tbody tr")
+                
+                if len(rows) == 0:
+                    logger.info(f"Table {table_idx + 1} has no data rows")
+                    continue
+                
+                logger.info(f"Table {table_idx + 1} has {len(rows)} data rows")
                 
                 for row in rows:
                     try:
@@ -695,7 +325,6 @@ class NadlanDealsScraper:
                                 continue
                             
                             # Extract deal information based on table structure
-                            # From the HTML: מספר סידורי, כתובת, שטח במ"ר, תאריך העסקה, מחיר העסקה, גוש/חלקה/תת-חלקה, סוג נכס, חדרים, קומה, מגמת שינוי
                             deal_data = {
                                 'serial_number': cell_texts[0] if len(cell_texts) > 0 else '',
                                 'address': cell_texts[1] if len(cell_texts) > 1 else '',
@@ -719,155 +348,270 @@ class NadlanDealsScraper:
                                     # Create a basic deal object
                                     deals.append(Deal(
                                         address=deal_data.get('address', ''),
-                                        price=deal_data.get('price', ''),
-                                        date=deal_data.get('date', ''),
+                                        deal_amount=deal_data.get('deal_amount', ''),
+                                        deal_date=deal_data.get('deal_date', ''),
                                         rooms=deal_data.get('rooms', ''),
-                                        floor=deal_data.get('floor', ''),
-                                        area=deal_data.get('area', '')
+                                        area=deal_data.get('area', ''),
+                                        parcel_block=deal_data.get('parcelNum', '').split('-')[0] if deal_data.get('parcelNum') else '',
+                                        parcel_parcel=deal_data.get('parcelNum', '').split('-')[1] if deal_data.get('parcelNum') and '-' in deal_data.get('parcelNum', '') else '',
+                                        parcel_sub_parcel=deal_data.get('parcelNum', '').split('-')[2] if deal_data.get('parcelNum') and deal_data.get('parcelNum', '').count('-') >= 2 else '',
+                                        asset_type=deal_data.get('asset_type', '')
                                     ))
                                     
                     except Exception as e:
                         logger.debug(f"Error processing table row: {e}")
                         continue
+                
+                logger.info(f"Extracted {len([d for d in deals if d])} deals from table {table_idx + 1}")
                         
         except Exception as e:
-            logger.debug(f"Main table not found, trying alternative selectors: {e}")
+            logger.debug(f"Error extracting deals from tables: {e}")
             
-            # Fallback: Look for any rows that might contain deal data
-            try:
-                rows = self.driver.find_elements(By.CSS_SELECTOR, 
-                    "div[class*='row'], div[class*='deal'], div[class*='transaction'], tr")
-                
-                for row in rows:
-                    try:
-                        # Try to extract deal information from the row
-                        cells = row.find_elements(By.CSS_SELECTOR, "div, td, span")
-                        if len(cells) >= 3:  # Minimum cells for a deal
-                            cell_texts = [cell.text.strip() for cell in cells if cell.text.strip()]
-                            
-                            # Look for patterns that might indicate a deal
-                            if any(keyword in ' '.join(cell_texts).lower() for keyword in 
-                                   ['₪', 'שקל', 'מחיר', 'תאריך', 'חדר', 'קומה']):
-                                
-                                # Create a basic deal object
-                                deal_data = {
-                                    'address': cell_texts[0] if cell_texts else '',
-                                    'price': cell_texts[1] if len(cell_texts) > 1 else '',
-                                    'date': cell_texts[2] if len(cell_texts) > 2 else '',
-                                    'rooms': cell_texts[3] if len(cell_texts) > 3 else '',
-                                    'floor': cell_texts[4] if len(cell_texts) > 4 else '',
-                                    'area': cell_texts[5] if len(cell_texts) > 5 else ''
-                                }
-                                
-                                # Try to create a Deal object
-                                try:
-                                    deal = Deal.from_item(deal_data)
-                                    deals.append(deal)
-                                except Exception:
-                                    # If we can't create a proper Deal object, create a basic one
-                                    deals.append(Deal(
-                                        address=deal_data.get('address', ''),
-                                        price=deal_data.get('price', ''),
-                                        date=deal_data.get('date', ''),
-                                        rooms=deal_data.get('rooms', ''),
-                                        floor=deal_data.get('floor', ''),
-                                        area=deal_data.get('area', '')
-                                    ))
-                                    
-                    except Exception as e:
-                        logger.debug(f"Error processing row: {e}")
-                        continue
-                        
-            except Exception as e:
-                logger.warning(f"Error extracting deals from table: {e}")
-        
-        logger.info(f"Extracted {len(deals)} deals from table format")
+        logger.info(f"Total extracted {len(deals)} deals from all tables")
         return deals
 
-    def _fetch_deals_by_neighborhood_id_selenium(self, neighbourhood_id: str) -> List[Deal]:
-        """Fetch deals by neighborhood ID using Selenium."""
-        # Navigate to the neighborhood page
-        url = f"https://www.nadlan.gov.il/?view=neighborhood&id={neighbourhood_id}&page=deals"
-        logger.info(f"Navigating to: {url}")
-        
-        self.driver.get(url)
-        
-        # Wait for page to load completely and check for errors
-        self._wait_for_page_load()
-        
-        # Check for error modal first - improved detection
-        error_modal_found = False
+    def get_deals_by_address(self, address: str) -> List[Deal]:
+        """Retrieve deals using a specific address.
+
+        Args:
+            address: The address to search for (e.g., "רוזוב 4 תל אביב")
+
+        Returns:
+            List of Deal objects
+
+        Raises:
+            NadlanAPIError: If the API call fails
+        """
+        logger.info("Fetching deals for address %s", address)
         try:
-            # Try multiple selectors for error modals
-            error_selectors = [
-                ".modal.show",
-                ".error-modal", 
-                "[class*='error']",
-                "[class*='modal'][style*='display: block']",
-                ".modal[style*='display: block']",
-                ".modal.show[style*='display: block']",
-                "[role='dialog'][class*='modal']",
-                ".fade.contanctModal.centerModal.smModal.titleContainer.modal.show"
+            self._init_driver()
+            return self._fetch_deals_by_address_selenium(address)
+        except Exception as e:
+            logger.error(f"Error fetching deals for address {address}: {e}")
+            raise NadlanAPIError(f"Failed to fetch deals for address {address}: {e}")
+    
+    def _fetch_deals_by_address_selenium(self, address: str) -> List[Deal]:
+        """Fetch deals by address using Selenium with search-based navigation."""
+        try:
+            # First, try to navigate to deals page using search
+            if self._navigate_to_deals_via_search(address):
+                # Wait for page to load completely and check for errors
+                self._wait_for_page_load()
+                
+                # Check for error modal first
+                error_modal_found = False
+                try:
+                    # Try multiple selectors for error modals
+                    error_selectors = [
+                        ".modal.show",
+                        ".error-modal", 
+                        "[class*='error']",
+                        "[class*='modal'][style*='display: block']",
+                        ".modal[style*='display: block']",
+                        ".modal.show[style*='display: block']",
+                        "[role='dialog'][class*='modal']",
+                        ".fade.contanctModal.centerModal.smModal.titleContainer.modal.show"
+                    ]
+                    
+                    for selector in error_selectors:
+                        try:
+                            error_modals = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                            for modal in error_modals:
+                                if modal.is_displayed():
+                                    error_text = modal.text.strip()
+                                    if any(keyword in error_text for keyword in ['שגיאה', 'error', 'Error', 'טעינת נתונים']):
+                                        logger.error(f"Error modal detected with selector '{selector}': {error_text}")
+                                        error_modal_found = True
+                                        break
+                            if error_modal_found:
+                                break
+                        except Exception as e:
+                            logger.debug(f"Error checking selector '{selector}': {e}")
+                            continue
+                    
+                    if error_modal_found:
+                        # Take a screenshot for debugging
+                        try:
+                            screenshot_path = f"error_modal_{address.replace(' ', '_')}_{int(time.time())}.png"
+                            self.driver.save_screenshot(screenshot_path)
+                            logger.info(f"Screenshot saved: {screenshot_path}")
+                        except Exception as e:
+                            logger.debug(f"Could not save screenshot: {e}")
+                        
+                        # Try to close the error modal and continue
+                        if self._try_close_error_modal():
+                            logger.info("Error modal closed, continuing with data extraction...")
+                        else:
+                            raise NadlanAPIError("Website showed error modal: שגיאה בטעינת הנתונים")
+                            
+                except NadlanAPIError:
+                    raise
+                except Exception as e:
+                    logger.debug(f"Error during modal detection: {e}")
+                    pass  # Continue if we can't detect modals
+                
+                # Wait for deals API call to complete
+                logger.info("Waiting for deals API call to complete...")
+                api_success = self._wait_for_deals_api_call(timeout=20)
+                if not api_success:
+                    logger.warning("Deals API call may have failed, continuing with data extraction...")
+                
+                # Wait for the deals table or data to load
+                max_wait_time = 30  # Maximum wait time in seconds
+                wait_interval = 1   # Check every 1 second
+                waited_time = 0
+                
+                deals = []
+                
+                # First, get deals from the current page
+                deals = self._extract_deals_from_current_page()
+                
+                # Then, check for pagination and get deals from all pages
+                if deals:
+                    deals.extend(self._extract_deals_from_all_pages())
+                
+                return deals
+            else:
+                logger.error("Failed to navigate to deals page via search")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error fetching deals for address {address}: {e}")
+            raise NadlanAPIError(f"Failed to fetch deals for address {address}: {e}")
+    
+    def _navigate_to_deals_via_search(self, search_term: str) -> bool:
+        """Navigate to deals page using the search functionality."""
+        try:
+            # Navigate to the main page
+            logger.info("Navigating to main page...")
+            self.driver.get("https://www.nadlan.gov.il/")
+            time.sleep(3)
+            
+            # Find the search input with multiple selectors
+            search_input = None
+            selectors = [
+                "#myInput2",
+                ".react-autosuggest__input", 
+                "input[placeholder*='הקלד כתובת']",
+                "input[placeholder*='כתובת']",
+                "input[type='text']",
+                ".searchRow input",
+                ".autosuggestContainer input"
             ]
             
-            for selector in error_selectors:
+            for selector in selectors:
                 try:
-                    error_modals = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for modal in error_modals:
-                        if modal.is_displayed():
-                            error_text = modal.text.strip()
-                            if any(keyword in error_text for keyword in ['שגיאה', 'error', 'Error', 'טעינת נתונים']):
-                                logger.error(f"Error modal detected with selector '{selector}': {error_text}")
-                                error_modal_found = True
-                                break
-                    if error_modal_found:
+                    search_input = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if search_input and search_input.is_displayed():
+                        logger.info(f"Found search input with selector: {selector}")
                         break
                 except Exception as e:
-                    logger.debug(f"Error checking selector '{selector}': {e}")
+                    logger.debug(f"Selector '{selector}' failed: {e}")
                     continue
             
-            if error_modal_found:
-                # Take a screenshot for debugging
-                try:
-                    screenshot_path = f"error_modal_{neighbourhood_id}_{int(time.time())}.png"
-                    self.driver.save_screenshot(screenshot_path)
-                    logger.info(f"Screenshot saved: {screenshot_path}")
-                except Exception as e:
-                    logger.debug(f"Could not save screenshot: {e}")
+            if not search_input:
+                logger.error("Could not find search input with any selector")
+                return False
+            
+            # Use the provided search term directly
+            logger.info(f"Searching for: {search_term}")
+            
+            # Use JavaScript to interact with the input to avoid click interception
+            logger.info("Using JavaScript to interact with search input")
+            
+            # Focus the input using JavaScript
+            self.driver.execute_script("arguments[0].focus();", search_input)
+            time.sleep(1)
+            
+            # Clear and set the value using JavaScript
+            self.driver.execute_script("arguments[0].value = '';", search_input)
+            self.driver.execute_script("arguments[0].value = arguments[1];", search_input, search_term)
+            
+            # Trigger input events to make the autocomplete work
+            self.driver.execute_script("""
+                var input = arguments[0];
+                var event = new Event('input', { bubbles: true });
+                input.dispatchEvent(event);
+                var changeEvent = new Event('change', { bubbles: true });
+                input.dispatchEvent(changeEvent);
+            """, search_input)
+            
+            time.sleep(3)  # Wait longer for autocomplete
+            
+            # Look for autocomplete suggestions
+            suggestions = self.driver.find_elements(By.CSS_SELECTOR, 
+                ".react-autosuggest__suggestions-list li, .autosuggest-item, [role='option'], .react-autosuggest__suggestion")
+            
+            if suggestions:
+                logger.info(f"Found {len(suggestions)} suggestions for '{search_term}'")
                 
-                # Try to close the error modal and continue
-                if self._try_close_error_modal():
-                    logger.info("Error modal closed, continuing with data extraction...")
+                # Try to find an address-related suggestion
+                address_suggestion = None
+                for suggestion in suggestions:
+                    suggestion_text = suggestion.text.strip()
+                    if any(keyword in suggestion_text.lower() for keyword in ['רחוב', 'street', 'כתובת', 'address']):
+                        address_suggestion = suggestion
+                        break
+                
+                # Use address suggestion if found, otherwise use first suggestion
+                target_suggestion = address_suggestion or suggestions[0]
+                logger.info(f"Clicking suggestion: {target_suggestion.text.strip()}")
+                
+                target_suggestion.click()
+                time.sleep(3)  # Wait for navigation
+                
+                # Check if we're on an address page
+                current_url = self.driver.current_url
+                logger.info(f"Current URL after search: {current_url}")
+                
+                if 'address' in current_url:
+                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
+                    logger.info(f"Navigating to deals page: {deals_url}")
+                    self.driver.get(deals_url)
+                    time.sleep(3)
+                    return True
+                elif 'neighborhood' in current_url:
+                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
+                    logger.info(f"Navigating to deals page: {deals_url}")
+                    self.driver.get(deals_url)
+                    time.sleep(3)
+                    return True
                 else:
-                    raise NadlanAPIError("Website showed error modal: שגיאה בטעינת הנתונים")
+                    logger.warning(f"Search '{search_term}' did not lead to address or neighborhood page")
+                    return False
+            else:
+                logger.warning(f"No autocomplete suggestions found for '{search_term}'")
+                # Try pressing Enter to search
+                search_input.send_keys(Keys.RETURN)
+                time.sleep(3)
                 
-        except NadlanAPIError:
-            raise
+                # Check if we're on an address or neighborhood page
+                current_url = self.driver.current_url
+                if 'address' in current_url or 'neighborhood' in current_url:
+                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
+                    logger.info(f"Navigating to deals page: {deals_url}")
+                    self.driver.get(deals_url)
+                    time.sleep(3)
+                    return True
+                else:
+                    logger.warning("Search did not lead to address or neighborhood page")
+                    return False
+                    
         except Exception as e:
-            logger.debug(f"Error during modal detection: {e}")
-            pass  # Continue if we can't detect modals
-        
-        # Wait for deals API call to complete
-        logger.info("Waiting for deals API call to complete...")
-        api_success = self._wait_for_deals_api_call(timeout=20)
-        if not api_success:
-            logger.warning("Deals API call may have failed, continuing with data extraction...")
-        
-        # Wait for the deals table or data to load
-        max_wait_time = 30  # Maximum wait time in seconds
-        wait_interval = 1   # Check every 1 second
-        waited_time = 0
-        
-        deals = []
-        
-        # First, get deals from the current page
-        deals = self._extract_deals_from_current_page()
-        
-        # Then, check for pagination and get deals from all pages
-        if deals:
-            deals.extend(self._extract_deals_from_all_pages())
-        
-        return deals
+            logger.error(f"Error during search navigation: {e}")
+            return False
+    
+    def _navigate_to_deals_direct_url(self, neighbourhood_id: str) -> bool:
+        """Fallback: Navigate directly to deals page using URL."""
+        try:
+            url = f"https://www.nadlan.gov.il/?view=neighborhood&id={neighbourhood_id}&page=deals"
+            logger.info(f"Navigating directly to: {url}")
+            self.driver.get(url)
+            time.sleep(3)
+            return True
+        except Exception as e:
+            logger.error(f"Error with direct URL navigation: {e}")
+            return False
     
     def _extract_deals_from_current_page(self) -> List[Deal]:
         """Extract deals from the current page."""
@@ -1058,60 +802,6 @@ class NadlanDealsScraper:
         
         return False
 
-    def _fetch_deals_by_street_id_selenium(self, street_id: str) -> List[Deal]:
-        """Fetch deals by street ID using Selenium."""
-        # Navigate to the street page
-        url = f"https://www.nadlan.gov.il/?view=street&id={street_id}&page=deals"
-        logger.info(f"Navigating to: {url}")
-        
-        self.driver.get(url)
-        
-        # Wait for page to load
-        time.sleep(5)
-        
-        # Try to find deals data in the page
-        deals = []
-        
-        try:
-            # Look for deals in various possible locations
-            deals_data = self.driver.execute_script("""
-                // Look for deals data in various possible locations
-                if (window.dealsData) return window.dealsData;
-                if (window.app && window.app.deals) return window.app.deals;
-                if (window.data && window.data.deals) return window.data.deals;
-                
-                // Look for script tags with deals data
-                const scripts = document.querySelectorAll('script');
-                for (let script of scripts) {
-                    const content = script.textContent || script.innerText;
-                    if (content && content.includes('deals') && content.includes('[')) {
-                        try {
-                            const match = content.match(/deals[^=]*=\\s*(\\[.*?\\])/);
-                            if (match) {
-                                return JSON.parse(match[1]);
-                            }
-                        } catch (e) {
-                            // Continue searching
-                        }
-                    }
-                }
-                return null;
-            """)
-            
-            if deals_data and isinstance(deals_data, list):
-                logger.info(f"Found deals data in page content: {len(deals_data)} items")
-                deals = [Deal.from_item(item) for item in deals_data]
-            else:
-                # Try to find deals in table format
-                deals = self._extract_deals_from_table()
-                
-        except Exception as e:
-            logger.warning(f"Failed to extract deals from page content: {e}")
-            # Try to find deals in table format as fallback
-            deals = self._extract_deals_from_table()
-        
-        return deals
-
     def _get_neighborhood_info_selenium(self, neighbourhood_id: str) -> Dict[str, Any]:
         """Get neighborhood info using Selenium."""
         # Navigate to the neighborhood page
@@ -1148,6 +838,6 @@ class NadlanDealsScraper:
 
 if __name__ == "__main__":
     scraper = NadlanDealsScraper(headless=False)
-    deals = scraper.get_deals_by_neighborhood_id("65210036")
+    deals = scraper.get_deals_by_address("רוזוב 14 תל אביב")
     for deal in deals:
         print(f"{deal.address} - ₪{deal.deal_amount:,.0f}")

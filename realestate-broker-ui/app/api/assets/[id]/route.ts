@@ -10,11 +10,16 @@ export async function GET(
   try {
     // Try to fetch from backend first
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-    const backendResponse = await fetch(`${backendUrl}/api/assets/${id}/`)
+    const backendResponse = await fetch(`${backendUrl}/api/assets/${id}/`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
 
     if (backendResponse.ok) {
       const data = await backendResponse.json()
-      console.log('Backend response block/parcel:', { block: data.block, parcel: data.parcel, subparcel: data.subparcel })
       
       // Extract asset from the response (backend returns {"asset": {...}})
       const backendAsset = Array.isArray((data as any)?.rows)
@@ -24,14 +29,16 @@ export async function GET(
         : (data.asset || data)
 
       if (backendAsset) {
-        console.log('Backend asset block/parcel:', { block: backendAsset.block, parcel: backendAsset.parcel, subparcel: backendAsset.subparcel })
-        
         // The backend now provides unified structure with _meta already populated
         const asset: any = normalizeFromBackend(backendAsset)
-        
-        console.log('Normalized asset block/parcel:', { block: asset.block, parcel: asset.parcel, subparcel: asset.subparcel })
 
-        return NextResponse.json({ asset })
+        return NextResponse.json({ asset }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        })
       }
     }
   } catch (error) {

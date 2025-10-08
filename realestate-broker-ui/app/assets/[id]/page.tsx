@@ -77,6 +77,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [decisiveAppraisals, setDecisiveAppraisals] = useState<any[]>([])
   const [ramiAppraisals, setRamiAppraisals] = useState<any[]>([])
   const [comparableTransactions, setComparableTransactions] = useState<any[]>([])
+  const [marketAnalysis, setMarketAnalysis] = useState<any>(null)
   const [permits, setPermits] = useState<any[]>([])
   const [plans, setPlans] = useState<{local: any[], mavat: any[]}>({local: [], mavat: []})
   const [uploading, setUploading] = useState(false)
@@ -375,9 +376,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         setAppraisal(data.appraisal || null)
         setDecisiveAppraisals(data.decisive_appraisals || [])
         setRamiAppraisals(data.rami_appraisals || [])
-        setComparableTransactions(data.comparable_transactions || [])
       })
       .catch(err => console.error('Error loading appraisal:', err))
+  }, [id])
+
+  useEffect(() => {
+    fetch(`/api/assets/${id}/transactions`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load transactions')
+        return res.json()
+      })
+      .then(data => {
+        setComparableTransactions(data.transactions || [])
+        setMarketAnalysis(data.market_analysis || null)
+      })
+      .catch(err => console.error('Error loading transactions:', err))
   }, [id])
 
   useEffect(() => {
@@ -2009,24 +2022,24 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
-                      {asset.avgPricePerSqm !== null
-                        ? formatCurrency(asset.avgPricePerSqm)
+                      {marketAnalysis?.avg_price_per_sqm !== null && marketAnalysis?.avg_price_per_sqm !== undefined
+                        ? formatCurrency(marketAnalysis?.avg_price_per_sqm)
                         : '—'}
                     </div>
-                    <div className="text-sm text-muted-foreground">ממוצע PPM</div>
+                    <div className="text-sm text-muted-foreground">ממוצע מחיר למ״ר</div>
                   </div>
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
-                      {asset.minPricePerSqm !== null && asset.maxPricePerSqm !== null
-                        ? `${formatCurrency(asset.minPricePerSqm)} - ${formatCurrency(asset.maxPricePerSqm)}`
+                      {marketAnalysis?.min_price_per_sqm !== null && marketAnalysis?.max_price_per_sqm !== null
+                        ? `${formatCurrency(marketAnalysis?.min_price_per_sqm)} - ${formatCurrency(marketAnalysis?.max_price_per_sqm)}`
                         : '—'}
                     </div>
-                    <div className="text-sm text-muted-foreground">טווח PPM</div>
+                    <div className="text-sm text-muted-foreground">טווח מחיר למ״ר</div>
                   </div>
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
-                      {!!asset.pricePerSqm && !!asset.avgPricePerSqm
-                        ? `${Math.round(((asset.pricePerSqm / asset.avgPricePerSqm) - 1) * 100)}%`
+                      {!!asset.pricePerSqm && !!marketAnalysis?.avg_price_per_sqm
+                        ? `${Math.round(((asset.pricePerSqm / marketAnalysis?.avg_price_per_sqm) - 1) * 100)}%`
                         : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">פער מהממוצע</div>
@@ -2093,7 +2106,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   )}
                   <div className="pt-2 border-t text-center">
                     <div className="text-sm text-muted-foreground">
-                      מקור: נתוני עסקאות ממשרד השיכון ומ-data.gov.il
+                      מקור: נתוני עסקאות מ-nadlan.gov.il
                     </div>
                   </div>
                 </div>
@@ -2129,9 +2142,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                             setAppraisal(data.appraisal || null)
                             setDecisiveAppraisals(data.decisive_appraisals || [])
                             setRamiAppraisals(data.rami_appraisals || [])
-                            setComparableTransactions(data.comparable_transactions || [])
                           })
                           .catch(err => console.error('Error refreshing appraisal:', err))
+                        
+                        // Refresh transaction data
+                        fetch(`/api/assets/${id}/transactions`)
+                          .then(res => res.json())
+                          .then(data => {
+                            setComparableTransactions(data.transactions || [])
+                          })
+                          .catch(err => console.error('Error refreshing transactions:', err))
                       }}
                     >
                       🔄 רענן מידע

@@ -1571,25 +1571,67 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
     # Create RealEstateTransaction records from government data
     if gov_data and gov_data.get('transactions'):
         for transaction in gov_data.get('transactions', []):
-            if transaction.get('deal_id'):
-                # deal_id expected unique globally; safe to lookup by it only
+            # Generate a unique deal_id from address + date + price if not present
+            deal_id = transaction.get('deal_id')
+            if not deal_id:
+                # Create a unique identifier from available fields
+                address = transaction.get('address', '')
+                deal_date = transaction.get('deal_date', '')
+                deal_amount = transaction.get('deal_amount', '')
+                deal_id = f"{address}_{deal_date}_{deal_amount}".replace(' ', '_')
+            
+            # Parse deal_date to proper date format
+            parsed_date = None
+            if transaction.get('deal_date'):
                 try:
-                    RealEstateTransaction.objects.get_or_create(
-                        deal_id=str(transaction.get('deal_id')),
-                        defaults={
-                            'asset': asset,
-                            'date': transaction.get('date'),
-                            'price': transaction.get('price'),
-                            'rooms': transaction.get('rooms'),
-                            'area': transaction.get('area'),
-                            'floor': transaction.get('floor'),
-                            'address': transaction.get('address'),
-                            'raw': transaction,
-                        },
-                    )
-                except IntegrityError:
-                    # If exists, we do not re-link to a different asset
+                    from datetime import datetime
+                    parsed_date = datetime.strptime(transaction.get('deal_date'), "%d/%m/%Y")
+                except (ValueError, TypeError):
                     pass
+            
+            # Parse rooms to integer
+            rooms = transaction.get('rooms')
+            if rooms:
+                try:
+                    # Extract number from rooms string (e.g., "3" from "3 חדרים")
+                    import re
+                    rooms_match = re.search(r'\d+', str(rooms))
+                    rooms = int(rooms_match.group()) if rooms_match else None
+                except (ValueError, AttributeError):
+                    rooms = None
+            
+            # Parse floor to integer
+            floor = transaction.get('floor')
+            if floor:
+                try:
+                    # Extract number from floor string (e.g., "2" from "שניה")
+                    floor_map = {'ראשונה': 1, 'שניה': 2, 'שלישית': 3, 'רביעית': 4, 'חמישית': 5}
+                    if floor in floor_map:
+                        floor = floor_map[floor]
+                    else:
+                        import re
+                        floor_match = re.search(r'\d+', str(floor))
+                        floor = int(floor_match.group()) if floor_match else None
+                except (ValueError, AttributeError):
+                    floor = None
+            
+            try:
+                RealEstateTransaction.objects.get_or_create(
+                    deal_id=str(deal_id),
+                    defaults={
+                        'asset': asset,
+                        'date': parsed_date,
+                        'price': transaction.get('deal_amount'),
+                        'rooms': rooms,
+                        'area': transaction.get('area'),
+                        'floor': floor,
+                        'address': transaction.get('address'),
+                        'raw': transaction,
+                    },
+                )
+            except IntegrityError:
+                # If exists, we do not re-link to a different asset
+                pass
 
 def _populate_asset_fields_from_listings(asset, normalized_listings):
     """Populate asset fields from Yad2 listings data.

@@ -6,7 +6,7 @@ export async function GET(
 ) {
   const { id } = params
   const numericId = Number(id)
-  const backendUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/appraisal/`
+  const backendUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/transactions/`
 
   try {
     // Fetch from backend
@@ -30,11 +30,11 @@ export async function GET(
 
     // If backend returns an error status, return that error
     return NextResponse.json(
-      { error: 'Failed to fetch appraisal data' },
+      { error: 'Failed to fetch transaction data' },
       { status: backendResponse.status }
     )
   } catch (error) {
-    console.error('Error fetching appraisal from backend:', error)
+    console.error('Error fetching transactions from backend:', error)
     return NextResponse.json(
       { error: 'Backend service unavailable' },
       { status: 503 }

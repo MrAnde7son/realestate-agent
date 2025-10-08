@@ -1555,15 +1555,11 @@ def asset_appraisal(request, asset_id):
             source__in=['appraisal_decisive', 'appraisal_rmi', 'decisive', 'rami']
         )
         
-        # Get transactions for comparable analysis
-        transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
-        
         # Build appraisal data
         appraisal_data = {
             "appraisal": None,
             "decisive_appraisals": [],
             "rami_appraisals": [],
-            "comparable_transactions": [],
             "market_analysis": {},
             "asset_info": {
                 "address": asset.address,
@@ -1622,38 +1618,6 @@ def asset_appraisal(request, asset_id):
                         "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
                     })
         
-        # Process comparable transactions
-        for trans in transactions:
-            appraisal_data["comparable_transactions"].append({
-                "id": trans.id,
-                "date": trans.date.isoformat() if trans.date else None,
-                "price": trans.price,
-                "rooms": trans.rooms,
-                "area": trans.area,
-                "floor": trans.floor,
-                "address": trans.address,
-                "price_per_sqm": trans.price / trans.area if trans.price and trans.area else None
-            })
-        
-        # Calculate market analysis
-        if appraisal_data["comparable_transactions"]:
-            prices = [t["price"] for t in appraisal_data["comparable_transactions"] if t["price"]]
-            ppsqm_values = [t["price_per_sqm"] for t in appraisal_data["comparable_transactions"] if t["price_per_sqm"]]
-            
-            if prices:
-                appraisal_data["market_analysis"] = {
-                    "avg_price": sum(prices) / len(prices),
-                    "min_price": min(prices),
-                    "max_price": max(prices),
-                    "median_price": sorted(prices)[len(prices) // 2],
-                    "transaction_count": len(prices)
-                }
-            
-            if ppsqm_values:
-                appraisal_data["market_analysis"]["avg_price_per_sqm"] = sum(ppsqm_values) / len(ppsqm_values)
-                appraisal_data["market_analysis"]["min_price_per_sqm"] = min(ppsqm_values)
-                appraisal_data["market_analysis"]["max_price_per_sqm"] = max(ppsqm_values)
-        
         # Get additional data from asset metadata (collected by data pipeline)
         if asset.meta:
             # Get decisive appraisals from government data
@@ -1686,22 +1650,6 @@ def asset_appraisal(request, asset_id):
                             "status": plan.get('status', '')
                         })
             
-            # Get comparable transactions from collected data
-            transaction_history = asset.get_property_value('government_data.transaction_history', [])
-            if transaction_history:
-                for transaction in transaction_history:
-                    appraisal_data["comparable_transactions"].append({
-                        "id": f"collected_gov_{transaction.get('deal_id', '')}",
-                        "date": transaction.get('date', ''),
-                        "price": transaction.get('price', None),
-                        "rooms": transaction.get('rooms', None),
-                        "area": transaction.get('area', None),
-                        "floor": transaction.get('floor', None),
-                        "address": transaction.get('address', ''),
-                        "price_per_sqm": transaction.get('price_per_sqm', None),
-                        "source": "collected_government"
-                    })
-            
             # Get market metrics if available
             market_metrics = asset.get_property_value('market_metrics', {})
             if market_metrics:
@@ -1727,6 +1675,77 @@ def asset_appraisal(request, asset_id):
         logger.error("Error retrieving appraisal data for asset %s: %s", asset_id, e)
         return JsonResponse(
             {"error": "Failed to retrieve appraisal data", "details": str(e)}, status=500
+        )
+
+
+@csrf_exempt
+def asset_transactions(request, asset_id):
+    """Get comparable transactions for an asset."""
+    if request.method != "GET":
+        return JsonResponse({"error": "GET method required"}, status=405)
+
+    try:
+        # Get asset
+        try:
+            asset = Asset.objects.get(id=asset_id)
+        except Asset.DoesNotExist:
+            return JsonResponse({"error": "Asset not found"}, status=404)
+
+        # Get transactions for comparable analysis
+        transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
+        
+        # Build transaction data
+        transaction_data = {
+            "transactions": [],
+            "market_analysis": {},
+            "asset_info": {
+                "address": asset.address,
+                "city": asset.city,
+                "area": asset.area,
+                "block": asset.block,
+                "plot": asset.parcel
+            }
+        }
+        
+        # Process transactions
+        for trans in transactions:
+            transaction_data["transactions"].append({
+                "id": trans.id,
+                "date": trans.date.isoformat() if trans.date else None,
+                "price": trans.price,
+                "rooms": trans.rooms,
+                "area": trans.area,
+                "floor": trans.floor,
+                "address": trans.address,
+                "price_per_sqm": trans.price / trans.area if trans.price and trans.area else None,
+                "deal_id": trans.deal_id
+            })
+        
+        # Calculate market analysis
+        if transaction_data["transactions"]:
+            prices = [t["price"] for t in transaction_data["transactions"] if t["price"]]
+            ppsqm_values = [t["price_per_sqm"] for t in transaction_data["transactions"] if t["price_per_sqm"]]
+            
+            if prices:
+                transaction_data["market_analysis"] = {
+                    "avg_price": sum(prices) / len(prices),
+                    "min_price": min(prices),
+                    "max_price": max(prices),
+                    "median_price": sorted(prices)[len(prices) // 2],
+                    "transaction_count": len(prices)
+                }
+            
+            if ppsqm_values:
+                transaction_data["market_analysis"]["avg_price_per_sqm"] = sum(ppsqm_values) / len(ppsqm_values)
+                transaction_data["market_analysis"]["min_price_per_sqm"] = min(ppsqm_values)
+                transaction_data["market_analysis"]["max_price_per_sqm"] = max(ppsqm_values)
+        
+        return JsonResponse(transaction_data)
+
+    except Exception as e:
+        logger.error("Error retrieving transaction data for asset %s: %s", asset_id, e)
+        return JsonResponse(
+            {"error": "Failed to retrieve transaction data", "details": str(e)}, status=500
         )
 
 

@@ -8,11 +8,8 @@ and enables incremental updates for better performance.
 
 import json
 import logging
-import os
-import pickle
-import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 from .models import Deal
@@ -225,14 +222,16 @@ class IncrementalDealCollector:
         
         # Fetch fresh deals
         logger.info(f"Fetching fresh deals for {address}")
-        fresh_deals = self.scraper.get_deals_by_address(address, max_age_days=max_age_days)
+        # Use force_refresh=True to bypass caching and prevent recursion
+        fresh_deals = self.scraper.get_deals_by_address(address, max_age_days=max_age_days, force_refresh=True)
         
         # Store in cache (store ALL deals, not just filtered ones)
         # We need to fetch without date filtering to store complete data
         if max_age_days is not None:
             original_max_age = self.scraper.max_age_days
             self.scraper.max_age_days = 0  # Disable date filtering for caching
-            all_deals = self.scraper.get_deals_by_address(address)
+            # Use force_refresh=True to bypass caching and prevent recursion
+            all_deals = self.scraper.get_deals_by_address(address, force_refresh=True)
             self.scraper.max_age_days = original_max_age
             self.cache.store_deals(address, all_deals)
         else:

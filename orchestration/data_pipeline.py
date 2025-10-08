@@ -1196,6 +1196,17 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
 
 def _process_gis_data(asset, gis_data):
     """Process GIS data and store using unified metadata structure."""
+    # Extract total area from parcels data
+    total_area_from_gis = None
+    if gis_data.get('parcels'):
+        parcels = gis_data.get('parcels', [])
+        if parcels:
+            # Get the total area from the first parcel (ms_shetach)
+            first_parcel = parcels[0]
+            total_area_from_gis = first_parcel.get('ms_shetach')
+            if total_area_from_gis:
+                asset.set_property('totalArea', total_area_from_gis, source='GIS', url='https://www.govmap.gov.il/')
+    
     # Noise levels
     if gis_data.get('noise'):
         noise_levels = gis_data.get('noise', [])
@@ -1208,11 +1219,14 @@ def _process_gis_data(asset, gis_data):
         rights = gis_data.get('rights', [])
         if rights:
             main_rights = rights[0] if rights else {}
-            asset.set_property('zoning', main_rights.get('land_use', ''), source='GIS', url='https://www.govmap.gov.il/')
-            asset.set_property('program', main_rights.get('plan_name', ''), source='GIS', url='https://www.govmap.gov.il/')
+            # Map the correct field names from GIS rights data
+            land_use_designation = main_rights.get('t_yeud_karka', '')  # ייעוד קרקע
+            main_designation = main_rights.get('t_yeud_rashi', '')      # ייעוד ראשי
+            asset.set_property('zoning', land_use_designation, source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('program', main_designation, source='GIS', url='https://www.govmap.gov.il/')
             
-            # Building rights estimation - try to get real data from privilege pages
-            area_for_calculation = asset.area or 80  # Default to 80 sqm if no area
+            # Building rights estimation - use total area for calculations
+            area_for_calculation = total_area_from_gis or asset.total_area or asset.area or 80
             
             # Try to get real building rights data
             remaining_rights_sqm = None

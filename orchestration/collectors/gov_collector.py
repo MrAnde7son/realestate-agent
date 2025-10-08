@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from gov.decisive import DecisiveAppraisalClient, DecisiveAppraisal
-from gov.nadlan.scraper import NadlanDealsScraper
+from gov.nadlan.scraper_selenium import NadlanDealsScraper
 
 from orchestration.collectors.base_collector import BaseCollector
 from orchestration.location import LocationQuery, ensure_location_query

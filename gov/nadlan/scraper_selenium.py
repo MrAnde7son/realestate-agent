@@ -31,16 +31,13 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
-from bs4 import BeautifulSoup
 
 from .exceptions import NadlanAPIError
 from .models import Deal
@@ -75,15 +72,190 @@ class NadlanDealsScraper:
             options.add_argument('--window-size=1280,720')
             options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36')
             
+            # Enable logging for better debugging
+            options.add_argument('--enable-logging')
+            options.add_argument('--log-level=0')
+            
+            # Disable images and CSS for faster loading (optional)
+            # prefs = {"profile.managed_default_content_settings.images": 2}
+            # options.add_experimental_option("prefs", prefs)
+            
             self.driver = webdriver.Chrome(service=service, options=options)
             self.driver.set_page_load_timeout(self.timeout)
+            
+            # Enable network logging
+            self.driver.execute_cdp_cmd('Network.enable', {})
+            self.driver.execute_cdp_cmd('Runtime.enable', {})
+    
+    def _wait_for_deals_api_call(self, timeout: int = 30) -> bool:
+        """Wait for the deals API call to complete by monitoring network requests."""
+        import time
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            try:
+                # Get network logs
+                logs = self.driver.get_log('performance')
+                
+                for log in logs:
+                    message = log.get('message', {})
+                    if isinstance(message, str):
+                        try:
+                            message = json.loads(message)
+                        except (json.JSONDecodeError, TypeError):
+                            continue
+                    
+                    method = message.get('method', '')
+                    
+                    # Check for completed API calls
+                    if method == 'Network.responseReceived':
+                        response = message.get('params', {}).get('response', {})
+                        url = response.get('url', '')
+                        
+                        # Look for deals API endpoints
+                        if any(endpoint in url for endpoint in ['/api/deal', '/deal', 'deals']):
+                            status = response.get('status', 0)
+                            if status == 200:
+                                logger.info(f"Deals API call completed successfully: {url}")
+                                return True
+                            elif status >= 400:
+                                logger.warning(f"Deals API call failed with status {status}: {url}")
+                                return False
+                    
+                    # Check for failed requests
+                    elif method == 'Network.loadingFailed':
+                        error = message.get('params', {}).get('errorText', '')
+                        url = message.get('params', {}).get('requestId', '')
+                        logger.warning(f"Network request failed: {error}")
+                
+                time.sleep(1)
+                
+            except Exception as e:
+                logger.debug(f"Error monitoring network requests: {e}")
+                time.sleep(1)
+        
+        logger.warning("Timeout waiting for deals API call")
+        return False
+    
+    def _check_for_error_modal(self) -> bool:
+        """Check if an error modal is currently displayed."""
+        try:
+            # Try multiple selectors for error modals
+            error_selectors = [
+                ".modal.show",
+                ".error-modal", 
+                "[class*='error']",
+                "[class*='modal'][style*='display: block']",
+                ".modal[style*='display: block']",
+                ".modal.show[style*='display: block']",
+                "[role='dialog'][class*='modal']",
+                ".fade.contanctModal.centerModal.smModal.titleContainer.modal.show"
+            ]
+            
+            for selector in error_selectors:
+                try:
+                    error_modals = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for modal in error_modals:
+                        if modal.is_displayed():
+                            error_text = modal.text.strip()
+                            if any(keyword in error_text for keyword in ['שגיאה', 'error', 'Error', 'טעינת נתונים']):
+                                logger.error(f"Error modal detected: {error_text}")
+                                return True
+                except Exception:
+                    continue
+            return False
+        except Exception as e:
+            logger.debug(f"Error during modal check: {e}")
+            return False
+    
+    def _try_close_error_modal(self) -> bool:
+        """Try to close the error modal and return True if successful."""
+        try:
+            # Try different close button selectors
+            close_selectors = [
+                ".closeModalBtnContainer",
+                ".closeModalBtn",
+                ".modal .close",
+                ".modal .btn-close",
+                "[aria-label='Close']",
+                "[title='Close']",
+                ".modal-header .close",
+                "button[class*='close']"
+            ]
+            
+            for selector in close_selectors:
+                try:
+                    close_buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for button in close_buttons:
+                        if button.is_displayed():
+                            logger.info(f"Found close button with selector: {selector}")
+                            button.click()
+                            time.sleep(1)  # Wait for modal to close
+                            
+                            # Check if modal is still visible
+                            if not self._check_for_error_modal():
+                                logger.info("Error modal successfully closed")
+                                return True
+                except Exception as e:
+                    logger.debug(f"Error clicking close button with selector '{selector}': {e}")
+                    continue
+            
+            # Try pressing Escape key
+            try:
+                from selenium.webdriver.common.keys import Keys
+                self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                time.sleep(1)
+                if not self._check_for_error_modal():
+                    logger.info("Error modal closed with Escape key")
+                    return True
+            except Exception as e:
+                logger.debug(f"Error pressing Escape key: {e}")
+            
+            return False
+        except Exception as e:
+            logger.debug(f"Error during modal close attempt: {e}")
+            return False
+    
+    def _wait_for_page_load(self):
+        """Wait for the page to load completely and check for errors."""
+        try:
+            # Wait for basic page load
+            time.sleep(3)
+            
+            # Wait for JavaScript to finish loading
+            self.driver.execute_script("return document.readyState") == "complete"
+            
+            # Wait a bit more for dynamic content
+            time.sleep(2)
+            
+            # Check if there are any loading indicators
+            loading_selectors = [
+                "[class*='loading']",
+                "[class*='spinner']", 
+                ".loading",
+                ".spinner"
+            ]
+            
+            for selector in loading_selectors:
+                try:
+                    loading_elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in loading_elements:
+                        if element.is_displayed():
+                            logger.info("Waiting for loading indicator to disappear...")
+                            time.sleep(2)
+                            break
+                except Exception:
+                    continue
+                    
+        except Exception as e:
+            logger.debug(f"Error during page load wait: {e}")
     
     def _cleanup_driver(self):
         """Clean up the Selenium WebDriver."""
         if self.driver:
             try:
                 self.driver.quit()
-            except:
+            except Exception:
                 pass
             finally:
                 self.driver = None
@@ -332,7 +504,7 @@ class NadlanDealsScraper:
                                 'neighborhood_id': neighborhood_id,
                                 'rank': len(results)
                             })
-                except:
+                except Exception:
                     continue
                     
         except Exception as e:
@@ -505,52 +677,109 @@ class NadlanDealsScraper:
         deals = []
         
         try:
-            # Look for table rows that might contain deal data
-            rows = self.driver.find_elements(By.CSS_SELECTOR, 
-                "div[class*='row'], div[class*='deal'], div[class*='transaction'], tr")
-            
-            for row in rows:
-                try:
-                    # Try to extract deal information from the row
-                    cells = row.find_elements(By.CSS_SELECTOR, "div, td, span")
-                    if len(cells) >= 3:  # Minimum cells for a deal
-                        cell_texts = [cell.text.strip() for cell in cells if cell.text.strip()]
-                        
-                        # Look for patterns that might indicate a deal
-                        if any(keyword in ' '.join(cell_texts).lower() for keyword in 
-                               ['₪', 'שקל', 'מחיר', 'תאריך', 'חדר', 'קומה']):
+            # First try to find the main deals table
+            main_table = self.driver.find_element(By.CSS_SELECTOR, "table#dealsTable, .mainTable, table")
+            if main_table:
+                # Extract from the main table structure
+                rows = main_table.find_elements(By.CSS_SELECTOR, "tbody tr")
+                
+                for row in rows:
+                    try:
+                        cells = row.find_elements(By.CSS_SELECTOR, "td")
+                        if len(cells) >= 5:  # Should have at least 5 columns
+                            cell_texts = [cell.text.strip() for cell in cells]
                             
-                            # Create a basic deal object
+                            # Skip header rows
+                            if any(keyword in ' '.join(cell_texts).lower() for keyword in 
+                                   ['מספר סידורי', 'כתובת', 'header']):
+                                continue
+                            
+                            # Extract deal information based on table structure
+                            # From the HTML: מספר סידורי, כתובת, שטח במ"ר, תאריך העסקה, מחיר העסקה, גוש/חלקה/תת-חלקה, סוג נכס, חדרים, קומה, מגמת שינוי
                             deal_data = {
-                                'address': cell_texts[0] if cell_texts else '',
-                                'price': cell_texts[1] if len(cell_texts) > 1 else '',
-                                'date': cell_texts[2] if len(cell_texts) > 2 else '',
-                                'rooms': cell_texts[3] if len(cell_texts) > 3 else '',
-                                'floor': cell_texts[4] if len(cell_texts) > 4 else '',
-                                'area': cell_texts[5] if len(cell_texts) > 5 else ''
+                                'serial_number': cell_texts[0] if len(cell_texts) > 0 else '',
+                                'address': cell_texts[1] if len(cell_texts) > 1 else '',
+                                'area': cell_texts[2] if len(cell_texts) > 2 else '',
+                                'deal_date': cell_texts[3] if len(cell_texts) > 3 else '',
+                                'deal_amount': cell_texts[4] if len(cell_texts) > 4 else '',
+                                'parcelNum': cell_texts[5] if len(cell_texts) > 5 else '',
+                                'asset_type': cell_texts[6] if len(cell_texts) > 6 else '',
+                                'rooms': cell_texts[7] if len(cell_texts) > 7 else '',
+                                'floor': cell_texts[8] if len(cell_texts) > 8 else '',
+                                'trend': cell_texts[9] if len(cell_texts) > 9 else ''
                             }
                             
-                            # Try to create a Deal object
-                            try:
-                                deal = Deal.from_item(deal_data)
-                                deals.append(deal)
-                            except:
-                                # If we can't create a proper Deal object, create a basic one
-                                deals.append(Deal(
-                                    address=deal_data.get('address', ''),
-                                    price=deal_data.get('price', ''),
-                                    date=deal_data.get('date', ''),
-                                    rooms=deal_data.get('rooms', ''),
-                                    floor=deal_data.get('floor', ''),
-                                    area=deal_data.get('area', '')
-                                ))
-                                
-                except Exception as e:
-                    logger.debug(f"Error processing row: {e}")
-                    continue
-                    
+                            # Only process if we have essential data
+                            if deal_data['address'] and deal_data['deal_amount']:
+                                try:
+                                    deal = Deal.from_item(deal_data)
+                                    deals.append(deal)
+                                except Exception as e:
+                                    logger.debug(f"Error creating Deal object: {e}")
+                                    # Create a basic deal object
+                                    deals.append(Deal(
+                                        address=deal_data.get('address', ''),
+                                        price=deal_data.get('price', ''),
+                                        date=deal_data.get('date', ''),
+                                        rooms=deal_data.get('rooms', ''),
+                                        floor=deal_data.get('floor', ''),
+                                        area=deal_data.get('area', '')
+                                    ))
+                                    
+                    except Exception as e:
+                        logger.debug(f"Error processing table row: {e}")
+                        continue
+                        
         except Exception as e:
-            logger.warning(f"Error extracting deals from table: {e}")
+            logger.debug(f"Main table not found, trying alternative selectors: {e}")
+            
+            # Fallback: Look for any rows that might contain deal data
+            try:
+                rows = self.driver.find_elements(By.CSS_SELECTOR, 
+                    "div[class*='row'], div[class*='deal'], div[class*='transaction'], tr")
+                
+                for row in rows:
+                    try:
+                        # Try to extract deal information from the row
+                        cells = row.find_elements(By.CSS_SELECTOR, "div, td, span")
+                        if len(cells) >= 3:  # Minimum cells for a deal
+                            cell_texts = [cell.text.strip() for cell in cells if cell.text.strip()]
+                            
+                            # Look for patterns that might indicate a deal
+                            if any(keyword in ' '.join(cell_texts).lower() for keyword in 
+                                   ['₪', 'שקל', 'מחיר', 'תאריך', 'חדר', 'קומה']):
+                                
+                                # Create a basic deal object
+                                deal_data = {
+                                    'address': cell_texts[0] if cell_texts else '',
+                                    'price': cell_texts[1] if len(cell_texts) > 1 else '',
+                                    'date': cell_texts[2] if len(cell_texts) > 2 else '',
+                                    'rooms': cell_texts[3] if len(cell_texts) > 3 else '',
+                                    'floor': cell_texts[4] if len(cell_texts) > 4 else '',
+                                    'area': cell_texts[5] if len(cell_texts) > 5 else ''
+                                }
+                                
+                                # Try to create a Deal object
+                                try:
+                                    deal = Deal.from_item(deal_data)
+                                    deals.append(deal)
+                                except Exception:
+                                    # If we can't create a proper Deal object, create a basic one
+                                    deals.append(Deal(
+                                        address=deal_data.get('address', ''),
+                                        price=deal_data.get('price', ''),
+                                        date=deal_data.get('date', ''),
+                                        rooms=deal_data.get('rooms', ''),
+                                        floor=deal_data.get('floor', ''),
+                                        area=deal_data.get('area', '')
+                                    ))
+                                    
+                    except Exception as e:
+                        logger.debug(f"Error processing row: {e}")
+                        continue
+                        
+            except Exception as e:
+                logger.warning(f"Error extracting deals from table: {e}")
         
         logger.info(f"Extracted {len(deals)} deals from table format")
         return deals
@@ -563,51 +792,271 @@ class NadlanDealsScraper:
         
         self.driver.get(url)
         
-        # Wait for page to load
-        time.sleep(5)
+        # Wait for page to load completely and check for errors
+        self._wait_for_page_load()
         
-        # Try to find deals data in the page
+        # Check for error modal first - improved detection
+        error_modal_found = False
+        try:
+            # Try multiple selectors for error modals
+            error_selectors = [
+                ".modal.show",
+                ".error-modal", 
+                "[class*='error']",
+                "[class*='modal'][style*='display: block']",
+                ".modal[style*='display: block']",
+                ".modal.show[style*='display: block']",
+                "[role='dialog'][class*='modal']",
+                ".fade.contanctModal.centerModal.smModal.titleContainer.modal.show"
+            ]
+            
+            for selector in error_selectors:
+                try:
+                    error_modals = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for modal in error_modals:
+                        if modal.is_displayed():
+                            error_text = modal.text.strip()
+                            if any(keyword in error_text for keyword in ['שגיאה', 'error', 'Error', 'טעינת נתונים']):
+                                logger.error(f"Error modal detected with selector '{selector}': {error_text}")
+                                error_modal_found = True
+                                break
+                    if error_modal_found:
+                        break
+                except Exception as e:
+                    logger.debug(f"Error checking selector '{selector}': {e}")
+                    continue
+            
+            if error_modal_found:
+                # Take a screenshot for debugging
+                try:
+                    screenshot_path = f"error_modal_{neighbourhood_id}_{int(time.time())}.png"
+                    self.driver.save_screenshot(screenshot_path)
+                    logger.info(f"Screenshot saved: {screenshot_path}")
+                except Exception as e:
+                    logger.debug(f"Could not save screenshot: {e}")
+                
+                # Try to close the error modal and continue
+                if self._try_close_error_modal():
+                    logger.info("Error modal closed, continuing with data extraction...")
+                else:
+                    raise NadlanAPIError("Website showed error modal: שגיאה בטעינת הנתונים")
+                
+        except NadlanAPIError:
+            raise
+        except Exception as e:
+            logger.debug(f"Error during modal detection: {e}")
+            pass  # Continue if we can't detect modals
+        
+        # Wait for deals API call to complete
+        logger.info("Waiting for deals API call to complete...")
+        api_success = self._wait_for_deals_api_call(timeout=20)
+        if not api_success:
+            logger.warning("Deals API call may have failed, continuing with data extraction...")
+        
+        # Wait for the deals table or data to load
+        max_wait_time = 30  # Maximum wait time in seconds
+        wait_interval = 1   # Check every 1 second
+        waited_time = 0
+        
         deals = []
         
-        try:
-            # Look for deals in various possible locations
-            deals_data = self.driver.execute_script("""
-                // Look for deals data in various possible locations
-                if (window.dealsData) return window.dealsData;
-                if (window.app && window.app.deals) return window.app.deals;
-                if (window.data && window.data.deals) return window.data.deals;
+        # First, get deals from the current page
+        deals = self._extract_deals_from_current_page()
+        
+        # Then, check for pagination and get deals from all pages
+        if deals:
+            deals.extend(self._extract_deals_from_all_pages())
+        
+        return deals
+    
+    def _extract_deals_from_current_page(self) -> List[Deal]:
+        """Extract deals from the current page."""
+        max_wait_time = 30  # Maximum wait time in seconds
+        wait_interval = 1   # Check every 1 second
+        waited_time = 0
+        
+        while waited_time < max_wait_time:
+            try:
+                # Check for error modal again during the wait
+                if self._check_for_error_modal():
+                    raise NadlanAPIError("Error modal appeared during data loading: שגיאה בטעינת הנתונים")
                 
-                // Look for script tags with deals data
-                const scripts = document.querySelectorAll('script');
-                for (let script of scripts) {
-                    const content = script.textContent || script.innerText;
-                    if (content && content.includes('deals') && content.includes('[')) {
-                        try {
-                            const match = content.match(/deals[^=]*=\\s*(\\[.*?\\])/);
-                            if (match) {
-                                return JSON.parse(match[1]);
+                # Check if deals table has loaded with data
+                table_rows = self.driver.find_elements(By.CSS_SELECTOR, 
+                    "tbody tr, .deal-row, [class*='deal'], [class*='transaction']")
+                
+                # Check if we have actual data rows (not just headers)
+                if len(table_rows) > 0:
+                    # Look for deals data in various possible locations
+                    deals_data = self.driver.execute_script("""
+                        // Look for deals data in various possible locations
+                        if (window.dealsData) return window.dealsData;
+                        if (window.app && window.app.deals) return window.app.deals;
+                        if (window.data && window.data.deals) return window.data.deals;
+                        if (window.vue && window.vue.$data && window.vue.$data.deals) return window.vue.$data.deals;
+                        
+                        // Look for Vue.js data
+                        if (window.vue && window.vue.$children) {
+                            for (let child of window.vue.$children) {
+                                if (child.deals) return child.deals;
                             }
-                        } catch (e) {
-                            // Continue searching
                         }
-                    }
-                }
-                return null;
-            """)
-            
-            if deals_data and isinstance(deals_data, list):
-                logger.info(f"Found deals data in page content: {len(deals_data)} items")
-                deals = [Deal.from_item(item) for item in deals_data]
-            else:
-                # Try to find deals in table format
-                deals = self._extract_deals_from_table()
+                        
+                        // Look for script tags with deals data
+                        const scripts = document.querySelectorAll('script');
+                        for (let script of scripts) {
+                            const content = script.textContent || script.innerText;
+                            if (content && content.includes('deals') && content.includes('[')) {
+                                try {
+                                    // Try different patterns
+                                    const patterns = [
+                                        /deals[^=]*=\\s*(\\[.*?\\])/,
+                                        /"deals"\\s*:\\s*(\\[.*?\\])/,
+                                        /deals\\s*:\\s*(\\[.*?\\])/,
+                                        /data\\.deals\\s*=\\s*(\\[.*?\\])/
+                                    ];
+                                    
+                                    for (let pattern of patterns) {
+                                        const match = content.match(pattern);
+                                        if (match) {
+                                            return JSON.parse(match[1]);
+                                        }
+                                    }
+                                } catch (e) {
+                                    // Continue searching
+                                }
+                            }
+                        }
+                        return null;
+                    """)
+                    
+                    if deals_data and isinstance(deals_data, list) and len(deals_data) > 0:
+                        logger.info(f"Found deals data in page content: {len(deals_data)} items")
+                        deals = [Deal.from_item(item) for item in deals_data]
+                        break
+                    
+                    # Try to extract deals from table format
+                    deals = self._extract_deals_from_table()
+                    if deals:
+                        logger.info(f"Extracted {len(deals)} deals from table")
+                        break
                 
-        except Exception as e:
-            logger.warning(f"Failed to extract deals from page content: {e}")
-            # Try to find deals in table format as fallback
+                # Check if there's a "no deals found" message
+                no_deals_msg = self.driver.find_elements(By.CSS_SELECTOR, 
+                    "[class*='no-deals'], [class*='empty'], [class*='no-data'], .tableSummary")
+                if no_deals_msg:
+                    for msg in no_deals_msg:
+                        if msg.is_displayed() and any(keyword in msg.text.lower() for keyword in 
+                            ['לא נמצאו', 'no deals', 'empty', '0 עסקאות']):
+                            logger.info("No deals found for this neighborhood")
+                            return []
+                
+                # Wait a bit more
+                time.sleep(wait_interval)
+                waited_time += wait_interval
+                
+            except Exception as e:
+                logger.warning(f"Error during data extraction attempt: {e}")
+                time.sleep(wait_interval)
+                waited_time += wait_interval
+        
+        if not deals:
+            logger.warning("No deals data found after waiting %s seconds", max_wait_time)
+            # Try one final attempt to extract from table
             deals = self._extract_deals_from_table()
         
         return deals
+    
+    def _extract_deals_from_all_pages(self) -> List[Deal]:
+        """Extract deals from all pages using pagination."""
+        all_deals = []
+        
+        try:
+            # Get pagination info
+            pagination_info = self._get_pagination_info()
+            if not pagination_info:
+                logger.info("No pagination found, only one page of deals")
+                return []
+            
+            total_pages = pagination_info['total_pages']
+            current_page = pagination_info['current_page']
+            
+            logger.info(f"Found pagination: {current_page} / {total_pages} pages")
+            
+            # Navigate through all remaining pages
+            for page_num in range(current_page + 1, total_pages + 1):
+                logger.info(f"Extracting deals from page {page_num}/{total_pages}")
+                
+                # Click next button or navigate to specific page
+                if self._navigate_to_page(page_num):
+                    # Wait for page to load
+                    time.sleep(2)
+                    
+                    # Extract deals from current page
+                    page_deals = self._extract_deals_from_table()
+                    if page_deals:
+                        logger.info(f"Found {len(page_deals)} deals on page {page_num}")
+                        all_deals.extend(page_deals)
+                    else:
+                        logger.warning(f"No deals found on page {page_num}")
+                else:
+                    logger.warning(f"Failed to navigate to page {page_num}")
+                    break
+                    
+        except Exception as e:
+            logger.error(f"Error during pagination: {e}")
+        
+        logger.info(f"Total deals collected from all pages: {len(all_deals)}")
+        return all_deals
+    
+    def _get_pagination_info(self) -> dict:
+        """Get pagination information from the page."""
+        try:
+            # Look for pagination info in the table summary
+            pagination_elements = self.driver.find_elements(By.CSS_SELECTOR, 
+                ".tableSummary .pagination .paginate")
+            
+            for element in pagination_elements:
+                text = element.text.strip()
+                if '/' in text:
+                    # Parse "1 / 52" format
+                    parts = text.split('/')
+                    if len(parts) == 2:
+                        current_page = int(parts[0].strip())
+                        total_pages = int(parts[1].strip())
+                        return {
+                            'current_page': current_page,
+                            'total_pages': total_pages
+                        }
+            
+            # Alternative: look for next button to determine if pagination exists
+            next_button = self.driver.find_elements(By.CSS_SELECTOR, "#next, .nextBtn")
+            if next_button and next_button[0].is_displayed():
+                # If there's a next button, assume we're on page 1 and there are more pages
+                return {
+                    'current_page': 1,
+                    'total_pages': 2  # Conservative estimate, will be updated as we navigate
+                }
+                
+        except Exception as e:
+            logger.debug(f"Error getting pagination info: {e}")
+        
+        return None
+    
+    def _navigate_to_page(self, page_num: int) -> bool:
+        """Navigate to a specific page number."""
+        try:
+            # Try to click the next button
+            next_button = self.driver.find_elements(By.CSS_SELECTOR, "#next, .nextBtn")
+            if next_button and next_button[0].is_displayed():
+                next_button[0].click()
+                time.sleep(1)  # Wait for navigation
+                return True
+                
+        except Exception as e:
+            logger.debug(f"Error navigating to page {page_num}: {e}")
+        
+        return False
 
     def _fetch_deals_by_street_id_selenium(self, street_id: str) -> List[Deal]:
         """Fetch deals by street ID using Selenium."""
@@ -681,7 +1130,7 @@ class NadlanDealsScraper:
             # Look for neighborhood name
             name_element = self.driver.find_element(By.CSS_SELECTOR, "h1, .neighborhood-name, .title")
             info['neigh_name'] = name_element.text.strip()
-        except:
+        except Exception:
             info['neigh_name'] = f"Neighborhood {neighbourhood_id}"
         
         try:
@@ -692,7 +1141,13 @@ class NadlanDealsScraper:
                 if ':' in text:
                     key, value = text.split(':', 1)
                     info[key.strip()] = value.strip()
-        except:
+        except Exception:
             pass
         
         return info
+
+if __name__ == "__main__":
+    scraper = NadlanDealsScraper(headless=False)
+    deals = scraper.get_deals_by_neighborhood_id("65210036")
+    for deal in deals:
+        print(f"{deal.address} - ₪{deal.deal_amount:,.0f}")

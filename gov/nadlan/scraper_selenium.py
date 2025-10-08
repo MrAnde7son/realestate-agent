@@ -756,31 +756,48 @@ class NadlanDealsScraper:
     def _get_pagination_info(self) -> dict:
         """Get pagination information from the page."""
         try:
-            # Look for pagination info in the table summary
+            # Look for pagination info in ALL table summaries
             pagination_elements = self.driver.find_elements(By.CSS_SELECTOR, 
                 ".tableSummary .pagination .paginate")
             
-            for element in pagination_elements:
+            logger.info(f"Found {len(pagination_elements)} pagination elements")
+            
+            # Collect all pagination info and choose the one with most pages
+            pagination_options = []
+            
+            for i, element in enumerate(pagination_elements):
                 text = element.text.strip()
+                logger.info(f"Pagination element {i+1}: '{text}'")
                 if '/' in text:
                     # Parse "1 / 52" format
                     parts = text.split('/')
                     if len(parts) == 2:
                         current_page = int(parts[0].strip())
                         total_pages = int(parts[1].strip())
-                        return {
+                        logger.info(f"Found pagination option: {current_page} / {total_pages}")
+                        pagination_options.append({
                             'current_page': current_page,
                             'total_pages': total_pages
-                        }
+                        })
+            
+            # Choose the pagination with the most pages (likely the neighborhood table)
+            if pagination_options:
+                best_option = max(pagination_options, key=lambda x: x['total_pages'])
+                logger.info(f"Selected pagination with most pages: {best_option['current_page']} / {best_option['total_pages']}")
+                return best_option
             
             # Alternative: look for next button to determine if pagination exists
-            next_button = self.driver.find_elements(By.CSS_SELECTOR, "#next, .nextBtn")
-            if next_button and next_button[0].is_displayed():
-                # If there's a next button, assume we're on page 1 and there are more pages
-                return {
-                    'current_page': 1,
-                    'total_pages': 2  # Conservative estimate, will be updated as we navigate
-                }
+            next_buttons = self.driver.find_elements(By.CSS_SELECTOR, "#next, .nextBtn")
+            logger.info(f"Found {len(next_buttons)} next buttons")
+            
+            for i, next_button in enumerate(next_buttons):
+                if next_button.is_displayed() and not next_button.get_attribute('disabled'):
+                    logger.info(f"Next button {i+1} is enabled and visible")
+                    # If there's a next button, assume we're on page 1 and there are more pages
+                    return {
+                        'current_page': 1,
+                        'total_pages': 2  # Conservative estimate, will be updated as we navigate
+                    }
                 
         except Exception as e:
             logger.debug(f"Error getting pagination info: {e}")
@@ -790,15 +807,56 @@ class NadlanDealsScraper:
     def _navigate_to_page(self, page_num: int) -> bool:
         """Navigate to a specific page number."""
         try:
-            # Try to click the next button
-            next_button = self.driver.find_elements(By.CSS_SELECTOR, "#next, .nextBtn")
-            if next_button and next_button[0].is_displayed():
-                next_button[0].click()
-                time.sleep(1)  # Wait for navigation
-                return True
-                
+            # Find all next buttons and try to click the one that's enabled
+            next_buttons = self.driver.find_elements(By.CSS_SELECTOR, "#next, .nextBtn")
+            logger.info(f"Found {len(next_buttons)} next buttons for page {page_num}")
+            
+            for i, next_button in enumerate(next_buttons):
+                try:
+                    if next_button.is_displayed() and not next_button.get_attribute('disabled'):
+                        logger.info(f"Attempting to click next button {i+1} for page {page_num}")
+                        
+                        # Try regular click first
+                        try:
+                            self.driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
+                            time.sleep(0.5)
+                            next_button.click()
+                            time.sleep(3)  # Wait longer for page load
+                            
+                            # Check if pagination changed
+                            new_pagination = self._get_pagination_info()
+                            if new_pagination and new_pagination['current_page'] > 1:
+                                logger.info(f"Regular click successful for button {i+1}, now on page {new_pagination['current_page']}")
+                                return True
+                            else:
+                                logger.debug(f"Regular click didn't change page for button {i+1}")
+                                
+                        except Exception as click_error:
+                            logger.debug(f"Regular click failed for button {i+1}: {click_error}")
+                            
+                            # Try JavaScript click as fallback
+                            try:
+                                self.driver.execute_script("arguments[0].click();", next_button)
+                                time.sleep(3)  # Wait longer for page load
+                                
+                                # Check if pagination changed
+                                new_pagination = self._get_pagination_info()
+                                if new_pagination and new_pagination['current_page'] > 1:
+                                    logger.info(f"JavaScript click successful for button {i+1}, now on page {new_pagination['current_page']}")
+                                    return True
+                                else:
+                                    logger.debug(f"JavaScript click didn't change page for button {i+1}")
+                                    
+                            except Exception as js_error:
+                                logger.debug(f"JavaScript click failed for button {i+1}: {js_error}")
+                                continue
+                                
+                except Exception as e:
+                    logger.debug(f"Error with next button {i+1}: {e}")
+                    continue
+                    
         except Exception as e:
-            logger.debug(f"Error navigating to page {page_num}: {e}")
+            logger.warning(f"Error navigating to page {page_num}: {e}")
         
         return False
 

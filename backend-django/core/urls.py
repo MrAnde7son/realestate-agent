@@ -55,6 +55,7 @@ urlpatterns = [
     path('assets/', views.assets, name='assets'),
     path('assets/<int:asset_id>/', views.asset_detail, name='asset_detail'),
     path('assets/<int:asset_id>/appraisal/', views.asset_appraisal, name='asset_appraisal'),
+    path('assets/<int:asset_id>/transactions/', views.asset_transactions, name='asset_transactions'),
     path('assets/<int:asset_id>/permits/', views.asset_permits, name='asset_permits'),
     path('assets/<int:asset_id>/plans/', views.asset_plans, name='asset_plans'),
     path('assets/<int:asset_id>/rights/', vd.AssetRightsView.as_view(), name='asset_rights'),

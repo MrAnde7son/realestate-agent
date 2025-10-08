@@ -13,47 +13,7 @@ from datetime import datetime
 
 class PropertyTypeUtils:
     """Utility class for property type operations."""
-
-    _HEBREW_TO_CODE = {
-        # Main property types - matching official parameters.py
-        'דירה': 1,                    # Apartment
-        'דירה עם גינה': 3,            # Apartment with Garden
-        'נטהאוס': 6,                  # Penthouse
-        'דופלקס': 7,                  # Duplex
-        'מלון': 25,                   # Hotel
-        'מרתף': 49,                   # Basement
-        'טריפלקס': 51,                # Triplex
-        'דירה משנית': 11,             # Sub-apartment
-        'סטודיו': 4,                  # Studio
-        'קוטג': 5,                    # Cottage
-        'וילה': 5,                    # Cottage (synonym)
-        'בית דו משפחתי': 39,          # Two-family house
-        'משק חקלאי': 32,              # Agricultural farm
-        'חצר': 52,                    # Farm
-        'קרקע': 33,                   # Land
-        'בית בטוח': 61,               # Safe house
-        'ממ"ד': 61,                   # Safe house (synonym)
-        'בניין': 44,                  # Building
-        'גראז': 45,                   # Garage
-        'חניה': 30,                   # Parking
-        'דירה עתידית': 50,            # Future apartment
-
-        # Additional Hebrew names for better coverage
-        'בית פרטי': 39,               # Two-family house (same as בית דו משפחתי)
-        'בית': 39,                    # Two-family house (same as בית דו משפחתי)
-        'דירת גן': 3,                 # Apartment with Garden (same as דירה עם גינה)
-        'גג': 6,                      # Penthouse (same as נטהאוס)
-        'יחידה': 1,                   # Apartment (same as דירה)
-        'מיני פנטהאוס': 6,           # Penthouse (same as נטהאוס)
-        'לופט': 7,                    # Duplex (same as דופלקס)
-        'דירת נופש': 25,              # Hotel (same as מלון)
-        'בית מלון': 25,               # Hotel (same as מלון)
-        'מרחב מוגן דירתי': 61,       # Safe house (same as ממ"ד)
-        'בית דו-משפחתי': 39,          # Two-family house
-        'דו משפחתי': 39,              # Two-family house
-        'דו-משפחתי': 39,              # Two-family house
-    }
-
+    
     @staticmethod
     def translate_to_english(hebrew_name):
         """Translate Hebrew property type names to English."""
@@ -78,7 +38,43 @@ class PropertyTypeUtils:
     @staticmethod
     def hebrew_name_to_code(hebrew_name):
         """Convert Hebrew property type names to Yad2 codes."""
-        return PropertyTypeUtils._HEBREW_TO_CODE.get(hebrew_name, None)
+        hebrew_to_code = {
+            # Main property types - matching official parameters.py
+            'דירה': 1,                    # Apartment
+            'דירה עם גינה': 3,            # Apartment with Garden
+            'נטהאוס': 6,                  # Penthouse
+            'דופלקס': 7,                  # Duplex
+            'מלון': 25,                   # Hotel
+            'מרתף': 49,                   # Basement
+            'טריפלקס': 51,                # Triplex
+            'דירה משנית': 11,             # Sub-apartment
+            'סטודיו': 4,                  # Studio
+            'קוטג': 5,                    # Cottage
+            'וילה': 5,                    # Cottage (synonym)
+            'בית דו משפחתי': 39,          # Two-family house
+            'משק חקלאי': 32,              # Agricultural farm
+            'חצר': 52,                    # Farm
+            'קרקע': 33,                   # Land
+            'בית בטוח': 61,               # Safe house
+            'ממ"ד': 61,                   # Safe house (synonym)
+            'בניין': 44,                  # Building
+            'גראז': 45,                   # Garage
+            'חניה': 30,                   # Parking
+            'דירה עתידית': 50,            # Future apartment
+            
+            # Additional Hebrew names for better coverage
+            'בית פרטי': 39,               # Two-family house (same as בית דו משפחתי)
+            'בית': 39,                    # Two-family house (same as בית דו משפחתי)
+            'דירת גן': 3,                 # Apartment with Garden (same as דירה עם גינה)
+            'גג': 6,                      # Penthouse (same as נטהאוס)
+            'יחידה': 1,                   # Apartment (same as דירה)
+            'מיני פנטהאוס': 6,           # Penthouse (same as נטהאוס)
+            'לופט': 7,                    # Duplex (same as דופלקס)
+            'דירת נופש': 25,              # Hotel (same as מלון)
+            'בית מלון': 25,               # Hotel (same as מלון)
+            'מרחב מוגן דירתי': 61,       # Safe house (same as ממ"ד)
+        }
+        return hebrew_to_code.get(hebrew_name, None)
     
     @staticmethod
     def english_name_to_code(english_name):
@@ -124,21 +120,49 @@ class PropertyTypeUtils:
     @staticmethod
     def search_hebrew_name_to_code(search_term):
         """Search for Hebrew property type names and return matching codes."""
-        if not search_term:
-            return []
-
+        hebrew_to_code = {
+            'דירה': 1,
+            'דירה עם גינה': 3,
+            'נטהאוס': 6,
+            'דופלקס': 7,
+            'קוטג': 5,  # Updated: קוטג instead of וילה
+            'וילה': 5,  # Keep for backward compatibility
+            'בית': 39,  # Fixed: בית should be Single-family house (39), not Villa (5)
+            'בית פרטי': 39,  # Fixed: בית פרטי should be Single-family house (39), not Villa (5)
+            'בית דו משפחתי': 39,  # Fixed: בית דו משפחתי should be Two-family house (39)
+            'בית דו-משפחתי': 39,  # Fixed: בית דו-משפחתי should be Two-family house (39)
+            'דו משפחתי': 39,  # Fixed: דו משפחתי should be Two-family house (39)
+            'דו-משפחתי': 39,  # Fixed: דו-משפחתי should be Two-family house (39)
+            'קרקע': 33,
+            'בניין': 44,
+            'גראז': 45,
+            'חניה': 30,
+            'דירה עתידית': 50,
+            'דירת גן': 3,
+            'גג': 6,
+            'יחידה': 36,
+            'מיני פנטהאוס': 37,
+            'טריפלקס': 32,
+            'לופט': 31,
+            'מלון': 25,
+            'מרתף': 49,
+            'דירת נופש': 25,
+            'בית מלון': 25,
+            'חצר': 52,
+            'משק חקלאי': 32,
+            'בית בטוח': 61,
+            'ממ"ד': 61,
+            'מרחב מוגן דירתי': 61
+        }
+        
+        # Search for partial matches
         matching_codes = []
         search_term_lower = search_term.lower()
-
-        for hebrew_name, code in PropertyTypeUtils._HEBREW_TO_CODE.items():
-            hebrew_name_lower = hebrew_name.lower()
-            if (
-                search_term_lower in hebrew_name_lower
-                or hebrew_name_lower in search_term_lower
-            ):
+        
+        for hebrew_name, code in hebrew_to_code.items():
+            if search_term_lower in hebrew_name.lower() or hebrew_name.lower() in search_term_lower:
                 matching_codes.append((code, hebrew_name))
-
-        matching_codes.sort(key=lambda item: item[1])
+        
         return matching_codes
     
     @staticmethod
@@ -310,10 +334,10 @@ class PropertyTypeUtils:
             'דירה עתידית': {'code': 50, 'english': 'Future apartment', 'description': 'דירה עתידית'},
             'דירת גן': {'code': 3, 'english': 'Garden Apartment', 'description': 'דירת גן'},
             'גג': {'code': 6, 'english': 'Rooftop', 'description': 'גג'},
-            'יחידה': {'code': 1, 'english': 'Unit', 'description': 'יחידה'},
-            'מיני פנטהאוס': {'code': 6, 'english': 'Mini Penthouse', 'description': 'מיני פנטהאוס'},
-            'טריפלקס': {'code': 51, 'english': 'Triplex', 'description': 'טריפלקס'},
-            'לופט': {'code': 7, 'english': 'Loft', 'description': 'לופט'},
+            'יחידה': {'code': 36, 'english': 'Unit', 'description': 'יחידה'},
+            'מיני פנטהאוס': {'code': 37, 'english': 'Mini Penthouse', 'description': 'מיני פנטהאוס'},
+            'טריפלקס': {'code': 32, 'english': 'Triplex', 'description': 'טריפלקס'},
+            'לופט': {'code': 31, 'english': 'Loft', 'description': 'לופט'},
             'מלון': {'code': 25, 'english': 'Hotel', 'description': 'מלון'},
             'מרתף': {'code': 49, 'english': 'Basement', 'description': 'מרתף'},
             'דירת נופש': {'code': 25, 'english': 'Vacation apartment', 'description': 'דירת נופש'},

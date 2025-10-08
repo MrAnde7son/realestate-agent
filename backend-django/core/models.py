@@ -567,9 +567,6 @@ class Asset(models.Model):
             "fetched_at": timezone.now().isoformat(),
             "url": url
         }
-        
-        # Also store the original key in meta for backward compatibility
-        self.meta[key] = value
 
     def set_properties(self, data_dict, source=None, url=None, meta_prefix=""):
         """Bulk setter for multiple properties with unified metadata."""
@@ -590,7 +587,7 @@ class Asset(models.Model):
         Examples:
             asset.get_property_value('price')  # Simple field
             asset.get_property_value('government_data.decisive_appraisals', [])  # Nested
-            asset.get_property_value('gis_data.land_use_rights', [])  # Nested
+            asset.get_property_value('gis_data.rights', [])  # Nested
         """
         # Handle nested access with dot notation
         if '.' in key:

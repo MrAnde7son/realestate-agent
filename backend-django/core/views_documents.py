@@ -201,17 +201,16 @@ class AssetRightsView(APIView):
                         rights_data['tabu_data'].append(row_data)
 
             # 2. Get GIS rights data from asset metadata
-            gis_rights = asset.get_property_value('gis_data.land_use_rights', [])
+            gis_rights = asset.get_property_value('gis_data.rights', [])
             if gis_rights:
                 for idx, right in enumerate(gis_rights):
                     if isinstance(right, dict):
                         # Extract meaningful data from raw GIS data
-                        raw_data = right.get('raw_data', {})
-                        land_use = raw_data.get('t_yeud_karka', '') or right.get('land_use', '')
-                        main_purpose = raw_data.get('t_yeud_rashi', '') or right.get('plan_name', '')
-                        area = raw_data.get('ms_shetach', '') or right.get('area', '')
-                        block = raw_data.get('ms_gush', '') or ''
-                        parcel = raw_data.get('ms_migrash', '') or ''
+                        land_use = right.get('t_yeud_karka', '')
+                        main_purpose = right.get('t_yeud_rashi', '')
+                        area = right.get('ms_shetach', '')
+                        block = right.get('ms_gush', '')
+                        parcel = right.get('ms_migrash', '')
                         
                         # Create multiple rows for different GIS data points
                         gis_rows = []

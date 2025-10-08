@@ -28,6 +28,7 @@ import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
+import { apiClient } from '@/lib/api-client'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
@@ -292,11 +293,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     setRightsLoading(true)
     setRightsError(null)
     try {
-      const response = await fetch(`/api/assets/${id}/rights`)
+      const response = await apiClient.get(`/api/assets/${id}/rights`)
       if (!response.ok) {
-        throw new Error('Failed to load rights')
+        throw new Error(response.error || 'Failed to load rights')
       }
-      const data = await response.json()
+      const data = response.data
       // Combine tabu_data, gis_rights, and detailed_rights into a single array for display
       const allRightsRows = [
         ...(data.tabu_data || []),
@@ -346,13 +347,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/assets/${id}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load asset')
-        return res.json()
-      })
-      .then(data => {
-        const assetData = data.asset || data
+    apiClient.get(`/api/assets/${id}`)
+      .then(response => {
+        if (!response.ok) throw new Error(response.error || 'Failed to load asset')
+        const assetData = response.data?.asset || response.data
         console.log('🔍 Asset data received:', assetData)
         console.log('📄 Documents in asset:', assetData.documents)
         console.log('📄 Documents count:', assetData.documents?.length || 0)
@@ -470,30 +468,26 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     setSyncMessage('מסנכרן נתונים...')
     
     try {
-      const res = await fetch(`/api/assets/${id}/sync`, {
+      const response = await apiClient.request(`/api/assets/${id}/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: asset.address })
       })
       
-      if (res.ok) {
-        const result = await res.json()
-        setSyncMessage(result.message || 'סנכרון נתונים התחיל בהצלחה')
+      if (response.ok) {
+        setSyncMessage(response.data?.message || 'סנכרון נתונים התחיל בהצלחה')
         
         // Refresh the asset data after a short delay to show updated status
         setTimeout(async () => {
-          const assetRes = await fetch(`/api/assets/${id}`)
-          if (assetRes.ok) {
-            const data = await assetRes.json()
-            setAsset(data.asset || data)
+          const assetResponse = await apiClient.get(`/api/assets/${id}`)
+          if (assetResponse.ok) {
+            setAsset(assetResponse.data?.asset || assetResponse.data)
           }
         }, 2000)
         
         // Clear message after 10 seconds
         setTimeout(() => setSyncMessage(''), 10000)
       } else {
-        const errorData = await res.json().catch(() => ({}))
-        setSyncMessage(errorData.error || 'שגיאה בסנכרון הנתונים')
+        setSyncMessage(response.error || 'שגיאה בסנכרון הנתונים')
         setTimeout(() => setSyncMessage(''), 5000)
       }
     } catch (err) {

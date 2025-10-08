@@ -966,8 +966,8 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
     with asset_update_phase("process_gis", asset_id):
         if gis_data:
             asset.meta['gis_data'] = {
-                'building_permits': gis_data.get('permits', []),
-                'land_use_rights': gis_data.get('rights', []),
+                'permits': gis_data.get('permits', []),
+                'rights': gis_data.get('rights', []),
                 'shelters': gis_data.get('shelters', []),
                 'green_areas': gis_data.get('green', []),
                 'noise_levels': gis_data.get('noise', []),
@@ -980,7 +980,8 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             try:
                 from gis.gis_client import TelAvivGS  # type: ignore
                 from gis.parse_zchuyot import parse_zchuyot  # type: ignore
-                x = gis_data.get('x'); y = gis_data.get('y')
+                x = gis_data.get('x')
+                y = gis_data.get('y')
                 if x and y:
                     gis_client = TelAvivGS()
                     privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
@@ -1218,7 +1219,7 @@ def _process_gis_data(asset, gis_data):
     if gis_data.get('rights'):
         rights = gis_data.get('rights', [])
         if rights:
-            main_rights = rights[0] if rights else {}
+            main_rights = rights[0]
             # Map the correct field names from GIS rights data
             land_use_designation = main_rights.get('t_yeud_karka', '')  # ייעוד קרקע
             main_designation = main_rights.get('t_yeud_rashi', '')      # ייעוד ראשי
@@ -1404,7 +1405,7 @@ def _process_rami_plans(asset, plans):
         
         # Get permits data for public obligations calculation
         gis_data = asset.meta.get('gis_data', {})
-        permits = gis_data.get('building_permits', [])
+        permits = gis_data.get('permits', [])
         public_obligations_text = _calculate_public_obligations(plans, permits)
         asset.set_property('publicObligations', public_obligations_text, source='RAMI (calculated)', url='https://rami.gov.il/')
 

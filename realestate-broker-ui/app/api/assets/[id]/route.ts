@@ -10,7 +10,9 @@ export async function GET(
   try {
     // Try to fetch from backend first
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-    const backendResponse = await fetch(`${backendUrl}/api/assets/${id}/`);
+    const backendResponse = await fetch(`${backendUrl}/api/assets/${id}/`, {
+      cache: 'no-store'
+    });
 
     if (backendResponse.ok) {
       const data = await backendResponse.json()
@@ -26,7 +28,13 @@ export async function GET(
         // The backend now provides unified structure with _meta already populated
         const asset: any = normalizeFromBackend(backendAsset)
 
-        return NextResponse.json({ asset });
+        return NextResponse.json({ asset }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
       }
     }
   } catch (error) {

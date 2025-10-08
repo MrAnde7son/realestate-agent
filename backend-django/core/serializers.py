@@ -58,6 +58,20 @@ class AssetSerializer(MetaSerializerMixin):
     competition_1km = serializers.CharField(read_only=True)
     risk_flags = serializers.JSONField(read_only=True)
     dom_percentile = serializers.IntegerField(read_only=True)
+    
+    # Price per square meter metrics
+    avg_price_per_sqm = serializers.FloatField(read_only=True)
+    min_price_per_sqm = serializers.FloatField(read_only=True)
+    max_price_per_sqm = serializers.FloatField(read_only=True)
+    
+    # CamelCase fields for frontend compatibility
+    priceGapPct = serializers.FloatField(source='price_gap_pct', read_only=True)
+    modelPrice = serializers.IntegerField(source='model_price', read_only=True)
+    confidencePct = serializers.FloatField(source='confidence_pct', read_only=True)
+    capRatePct = serializers.FloatField(source='cap_rate_pct', read_only=True)
+    avgPricePerSqm = serializers.FloatField(source='avg_price_per_sqm', read_only=True)
+    minPricePerSqm = serializers.FloatField(source='min_price_per_sqm', read_only=True)
+    maxPricePerSqm = serializers.FloatField(source='max_price_per_sqm', read_only=True)
 
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
@@ -122,6 +136,8 @@ class AssetSerializer(MetaSerializerMixin):
             'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',
             'last_renovation', 'price', 'price_per_sqm', 'rent_estimate',
             'price_gap_pct','expected_price_range','model_price','confidence_pct','delta_vs_area_pct','cap_rate_pct','competition_1km','risk_flags','dom_percentile',
+            'avg_price_per_sqm','min_price_per_sqm','max_price_per_sqm',
+            'priceGapPct','modelPrice','confidencePct','capRatePct','avgPricePerSqm','minPricePerSqm','maxPricePerSqm',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'last_enriched_at', 'created_at', 'meta', 'documents'
         ]

@@ -98,6 +98,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [rightsError, setRightsError] = useState<string | null>(null)
   const [rightsSearch, setRightsSearch] = useState('')
   const [rightsDocFilter, setRightsDocFilter] = useState('all')
+  const [transactionsSearch, setTransactionsSearch] = useState('')
+  const [appraisalsSearch, setAppraisalsSearch] = useState('')
+  const [documentsSearch, setDocumentsSearch] = useState('')
+  const [plansSearch, setPlansSearch] = useState('')
+  const [permitsSearch, setPermitsSearch] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const { id } = params
@@ -291,10 +296,14 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         throw new Error('Failed to load rights')
       }
       const data = await response.json()
-      // Combine tabu_data and gis_rights into a single array for display
+      // Combine tabu_data, gis_rights, and detailed_rights into a single array for display
       const allRightsRows = [
         ...(data.tabu_data || []),
-        ...(data.gis_rights || [])
+        ...(data.gis_rights || []),
+        ...(data.detailed_rights?.rights_details || []),
+        ...(data.detailed_rights?.building_lines || []),
+        ...(data.detailed_rights?.floor_details || []),
+        ...(data.detailed_rights?.notes || [])
       ]
       setRightsRows(allRightsRows)
     } catch (rightsErr) {
@@ -1042,7 +1051,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">חדרים:</span>
-                    <span>{asset.bedrooms ?? '—'}</span>
+                    <span>{asset.rooms ?? '—'}</span>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">ייעוד:</span>
@@ -1165,6 +1174,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center rtl:flex-row-reverse">
+                  <CardTitle>תוכניות</CardTitle>
+                  <Input
+                    placeholder="חפש תוכניות..."
+                    value={plansSearch}
+                    onChange={(e) => setPlansSearch(e.target.value)}
+                    className="w-64"
+                  />
+                </div>
+              </CardHeader>
+            </Card>
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -1288,7 +1310,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {plans.mavat.map((plan: any, idx: number) => (
+                    {plans.mavat
+                      .filter((plan: any) => {
+                        if (!plansSearch) return true
+                        const searchLower = plansSearch.toLowerCase()
+                        return (
+                          plan.description?.toLowerCase().includes(searchLower) ||
+                          plan.plan_number?.toLowerCase().includes(searchLower) ||
+                          plan.status?.toLowerCase().includes(searchLower) ||
+                          plan.raw?.title?.toLowerCase().includes(searchLower) ||
+                          plan.raw?.authority?.toLowerCase().includes(searchLower) ||
+                          plan.raw?.jurisdiction?.toLowerCase().includes(searchLower)
+                        )
+                      })
+                      .map((plan: any, idx: number) => (
                       <div key={idx} className="p-3 border rounded-lg">
                         <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
                           <div className="flex-1">
@@ -1377,7 +1412,18 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {plans.local.map((plan: any, idx: number) => (
+                    {plans.local
+                      .filter((plan: any) => {
+                        if (!plansSearch) return true
+                        const searchLower = plansSearch.toLowerCase()
+                        return (
+                          plan.description?.toLowerCase().includes(searchLower) ||
+                          plan.plan_number?.toLowerCase().includes(searchLower) ||
+                          plan.status?.toLowerCase().includes(searchLower) ||
+                          plan.effective_date?.toLowerCase().includes(searchLower)
+                        )
+                      })
+                      .map((plan: any, idx: number) => (
                       <div key={idx} className="p-3 border rounded-lg">
                         <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
                           <div className="flex-1">
@@ -1685,6 +1731,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </TabsContent>
 
           <TabsContent value="permits" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center rtl:flex-row-reverse">
+                  <CardTitle>היתרים</CardTitle>
+                  <Input
+                    placeholder="חפש היתרים..."
+                    value={permitsSearch}
+                    onChange={(e) => setPermitsSearch(e.target.value)}
+                    className="w-64"
+                  />
+                </div>
+              </CardHeader>
+            </Card>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader>פרטי היתר</CardHeader>
@@ -1789,7 +1848,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </div>
                 {permits.length > 0 && (
                   <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2 text-right">
-                    {permits.map((p: any) => (
+                    {permits
+                      .filter((p: any) => {
+                        if (!permitsSearch) return true
+                        const searchLower = permitsSearch.toLowerCase()
+                        return (
+                          p.title?.toLowerCase().includes(searchLower) ||
+                          p.status?.toLowerCase().includes(searchLower) ||
+                          p.meta?.permit_number?.toLowerCase().includes(searchLower) ||
+                          p.meta?.tochen_bakasha?.toLowerCase().includes(searchLower) ||
+                          p.meta?.request_num?.toLowerCase().includes(searchLower) ||
+                          p.meta?.addresses?.toLowerCase().includes(searchLower) ||
+                          p.meta?.building_stage?.toLowerCase().includes(searchLower)
+                        )
+                      })
+                      .map((p: any) => (
                       <div key={p.external_id || p.meta.request_num} className="p-4 border rounded-lg text-right space-y-3">
                         {/* Header with permit type/description */}
                         <div className="flex justify-between items-start rtl:flex-row-reverse">
@@ -1907,9 +1980,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
           <TabsContent value="transactions" className="space-y-4">
             <Card>
-              <CardHeader>עיסקאות השוואה</CardHeader>
+              <CardHeader>
+                <div className="flex justify-between items-center rtl:flex-row-reverse">
+                  <CardTitle>עיסקאות השוואה</CardTitle>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="חפש עסקאות..."
+                      value={transactionsSearch}
+                      onChange={(e) => setTransactionsSearch(e.target.value)}
+                      className="w-64"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
               <CardBody className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-4">
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
                       {!!asset.pricePerSqm
@@ -1924,19 +2009,27 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
-                      {avgCompPricePerSqm !== null
-                        ? formatCurrency(avgCompPricePerSqm)
+                      {asset.avgPricePerSqm !== null
+                        ? formatCurrency(asset.avgPricePerSqm)
                         : '—'}
                     </div>
-                    <div className="text-sm text-muted-foreground">ממוצע באזור</div>
+                    <div className="text-sm text-muted-foreground">ממוצע PPM</div>
                   </div>
                   <div className="text-center rtl:text-right">
                     <div className="text-2xl font-bold">
-                      {!!asset.pricePerSqm && !!avgCompPricePerSqm
-                        ? `${Math.round(((asset.pricePerSqm / avgCompPricePerSqm) - 1) * 100)}%`
+                      {asset.minPricePerSqm !== null && asset.maxPricePerSqm !== null
+                        ? `${formatCurrency(asset.minPricePerSqm)} - ${formatCurrency(asset.maxPricePerSqm)}`
                         : '—'}
                     </div>
-                    <div className="text-sm text-muted-foreground">פער מהאזור</div>
+                    <div className="text-sm text-muted-foreground">טווח PPM</div>
+                  </div>
+                  <div className="text-center rtl:text-right">
+                    <div className="text-2xl font-bold">
+                      {!!asset.pricePerSqm && !!asset.avgPricePerSqm
+                        ? `${Math.round(((asset.pricePerSqm / asset.avgPricePerSqm) - 1) * 100)}%`
+                        : '—'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">פער מהממוצע</div>
                   </div>
                 </div>
                 </CardBody>
@@ -1950,7 +2043,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <div className="space-y-3">
                   {comparableTransactions.length > 0 ? (
                     <div className="grid gap-3">
-                      {comparableTransactions.map((comp: any, idx: number) => (
+                      {comparableTransactions
+                        .filter((comp: any) => {
+                          if (!transactionsSearch) return true
+                          const searchLower = transactionsSearch.toLowerCase()
+                          return (
+                            comp.address?.toLowerCase().includes(searchLower) ||
+                            comp.area?.toString().includes(searchLower) ||
+                            comp.rooms?.toString().includes(searchLower) ||
+                            comp.price?.toString().includes(searchLower) ||
+                            comp.price_per_sqm?.toString().includes(searchLower) ||
+                            comp.source?.toLowerCase().includes(searchLower)
+                          )
+                        })
+                        .map((comp: any, idx: number) => (
                         <div
                           key={idx}
                           className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse"
@@ -2005,24 +2111,32 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       מידע מעודכן מרמ״י, שומות מכריעות ועסקאות השוואה באזור
                     </CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // Refresh appraisal data
-                      fetch(`/api/assets/${id}/appraisal`)
-                        .then(res => res.json())
-                        .then(data => {
-                          setAppraisal(data.appraisal || null)
-                          setDecisiveAppraisals(data.decisive_appraisals || [])
-                          setRamiAppraisals(data.rami_appraisals || [])
-                          setComparableTransactions(data.comparable_transactions || [])
-                        })
-                        .catch(err => console.error('Error refreshing appraisal:', err))
-                    }}
-                  >
-                    🔄 רענן מידע
-                  </Button>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="חפש שומות..."
+                      value={appraisalsSearch}
+                      onChange={(e) => setAppraisalsSearch(e.target.value)}
+                      className="w-64"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Refresh appraisal data
+                        fetch(`/api/assets/${id}/appraisal`)
+                          .then(res => res.json())
+                          .then(data => {
+                            setAppraisal(data.appraisal || null)
+                            setDecisiveAppraisals(data.decisive_appraisals || [])
+                            setRamiAppraisals(data.rami_appraisals || [])
+                            setComparableTransactions(data.comparable_transactions || [])
+                          })
+                          .catch(err => console.error('Error refreshing appraisal:', err))
+                      }}
+                    >
+                      🔄 רענן מידע
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2126,7 +2240,18 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
-                            {decisiveAppraisals.map((app, idx) => (
+                            {decisiveAppraisals
+                              .filter((app: any) => {
+                                if (!appraisalsSearch) return true
+                                const searchLower = appraisalsSearch.toLowerCase()
+                                return (
+                                  app.appraiser?.toLowerCase().includes(searchLower) ||
+                                  app.appraisedValue?.toString().includes(searchLower) ||
+                                  app.date?.toLowerCase().includes(searchLower) ||
+                                  app.source?.toLowerCase().includes(searchLower)
+                                )
+                              })
+                              .map((app, idx) => (
                               <div key={idx} className="p-3 border rounded rtl:text-right">
                                 <div className="font-medium">{app.appraiser}</div>
                                 <div className="text-sm text-muted-foreground">
@@ -2155,7 +2280,19 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
-                            {ramiAppraisals.map((app, idx) => (
+                            {ramiAppraisals
+                              .filter((app: any) => {
+                                if (!appraisalsSearch) return true
+                                const searchLower = appraisalsSearch.toLowerCase()
+                                return (
+                                  app.plan_number?.toLowerCase().includes(searchLower) ||
+                                  app.marketValue?.toString().includes(searchLower) ||
+                                  app.date?.toLowerCase().includes(searchLower) ||
+                                  app.status?.toLowerCase().includes(searchLower) ||
+                                  app.source?.toLowerCase().includes(searchLower)
+                                )
+                              })
+                              .map((app, idx) => (
                               <div key={idx} className="p-3 border rounded rtl:text-right">
                                 <div className="font-medium">
                                   {app.plan_number ? `תכנית ${app.plan_number}` : 'תכנית רמ״י'}
@@ -2181,44 +2318,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                 )}
 
-                {/* Comparable Transactions Section */}
-                {comparableTransactions.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>עסקאות השוואה באזור</CardTitle>
-                      <CardDescription>
-                        {comparableTransactions.length} עסקאות נמצאו
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {comparableTransactions.map((trans, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse">
-                            <div>
-                              <div className="font-medium">{trans.address}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {!!trans.area ? `${trans.area} מ״ר` : ''}
-                                {trans.rooms ? ` • ${trans.rooms} חדרים` : ''}
-                                {trans.date ? ` • ${new Date(trans.date).toLocaleDateString('he-IL')}` : ''}
-                              </div>
-                              {trans.source && (
-                                <div className="text-xs text-blue-600 mt-1">
-                                  מקור: {trans.source === 'external_nadlan' ? 'נדלן' : 'מאגר פנימי'}
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <div className="font-bold">{formatCurrency(trans.price)}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {formatCurrency(trans.price_per_sqm)}/מ״ר
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -2226,7 +2325,15 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="documents" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>מסמכים</CardTitle>
+                <div className="flex justify-between items-center rtl:flex-row-reverse">
+                  <CardTitle>מסמכים</CardTitle>
+                  <Input
+                    placeholder="חפש מסמכים..."
+                    value={documentsSearch}
+                    onChange={(e) => setDocumentsSearch(e.target.value)}
+                    className="w-64"
+                  />
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <form
@@ -2271,42 +2378,58 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     return acc
                   }, {})
 
-                  return Object.entries(docsByCategory).map(([category, docs]: [string, any]) => (
-                    <div key={category}>
-                      <h3 className="font-medium mb-2">{category}</h3>
-                      {docs.length > 0 ? (
-                        <div className="space-y-2">
-                          {docs.map((doc: any, idx: number) => (
-                            <div
-                              key={`${category}_${idx}`}
-                              className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                            >
-                              <div className="flex flex-col rtl:items-end">
-                                <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
-                                <div className="flex gap-2 text-xs text-muted-foreground">
-                                  {doc.type && <span>סוג: {doc.type}</span>}
-                                  {doc.source && <span>מקור: {doc.source}</span>}
-                                  {doc.date && <span>תאריך: {new Date(doc.date).toLocaleDateString('he-IL')}</span>}
+                  return Object.entries(docsByCategory).map(([category, docs]: [string, any]) => {
+                    const filteredDocs = docs.filter((doc: any) => {
+                      if (!documentsSearch) return true
+                      const searchLower = documentsSearch.toLowerCase()
+                      return (
+                        doc.title?.toLowerCase().includes(searchLower) ||
+                        doc.name?.toLowerCase().includes(searchLower) ||
+                        doc.type?.toLowerCase().includes(searchLower) ||
+                        doc.source?.toLowerCase().includes(searchLower) ||
+                        doc.category?.toLowerCase().includes(searchLower)
+                      )
+                    })
+                    
+                    if (filteredDocs.length === 0 && documentsSearch) return null
+                    
+                    return (
+                      <div key={category}>
+                        <h3 className="font-medium mb-2">{category}</h3>
+                        {filteredDocs.length > 0 ? (
+                          <div className="space-y-2">
+                            {filteredDocs.map((doc: any, idx: number) => (
+                              <div
+                                key={`${category}_${idx}`}
+                                className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
+                              >
+                                <div className="flex flex-col rtl:items-end">
+                                  <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
+                                  <div className="flex gap-2 text-xs text-muted-foreground">
+                                    {doc.type && <span>סוג: {doc.type}</span>}
+                                    {doc.source && <span>מקור: {doc.source}</span>}
+                                    {doc.date && <span>תאריך: {new Date(doc.date).toLocaleDateString('he-IL')}</span>}
+                                  </div>
                                 </div>
+                                <Button variant="outline" size="sm" asChild>
+                                  <a 
+                                    href={doc.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => handleDocumentClick(e, doc.url)}
+                                  >
+                                    {doc.url ? 'פתח' : 'לא זמין'}
+                                  </a>
+                                </Button>
                               </div>
-                              <Button variant="outline" size="sm" asChild>
-                                <a 
-                                  href={doc.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => handleDocumentClick(e, doc.url)}
-                                >
-                                  {doc.url ? 'פתח' : 'לא זמין'}
-                                </a>
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-muted-foreground">אין מסמכים בקטגוריה זו</div>
-                      )}
-                    </div>
-                  ))
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">אין מסמכים בקטגוריה זו</div>
+                        )}
+                      </div>
+                    )
+                  })
                 })()}
 
 

@@ -234,11 +234,17 @@ class AssetRightsView(APIView):
                 }
                 rights_data['building_rights'] = building_rights
 
-            # 4. Parse ownership information from Tabu data
+            # 4. Get detailed privilege page data
+            privilege_data = asset.get_property_value('privilege_page_data')
+            if privilege_data:
+                detailed_rights = self._process_privilege_page_data(privilege_data)
+                rights_data['detailed_rights'] = detailed_rights
+
+            # 5. Parse ownership information from Tabu data
             ownership_info = self._parse_ownership_from_tabu(rights_data['tabu_data'])
             rights_data['ownership_summary'] = ownership_info
 
-            # 5. Calculate total rows
+            # 6. Calculate total rows
             rights_data['total_rows'] = len(rights_data['tabu_data']) + len(rights_data['gis_rights'])
 
             return Response(rights_data)
@@ -313,6 +319,83 @@ class AssetRightsView(APIView):
         ownership['total_ownership_percentage'] = sum(owner['percentage'] for owner in ownership['owners'])
         
         return ownership
+
+    def _process_privilege_page_data(self, privilege_data):
+        """Process privilege page data into detailed building rights format."""
+        detailed_rights = {
+            'source': 'privilege_page',
+            'rights_details': [],
+            'building_lines': [],
+            'floor_details': [],
+            'percentages': {},
+            'areas': {},
+            'notes': []
+        }
+        
+        if not isinstance(privilege_data, dict):
+            return detailed_rights
+            
+        rights = privilege_data.get('rights', {})
+        basic = privilege_data.get('basic', {})
+        
+        # Extract building lines
+        building_lines = rights.get('building_lines', [])
+        for line in building_lines:
+            detailed_rights['building_lines'].append({
+                'type': 'building_line',
+                'description': line,
+                'source': 'privilege_page'
+            })
+        
+        # Extract floor details
+        floor_details = rights.get('floor_details', [])
+        for floor in floor_details:
+            detailed_rights['floor_details'].append({
+                'type': floor.get('type', ''),
+                'percentage': floor.get('percentage', 0),
+                'area_sqm': floor.get('area_sqm', 0),
+                'source': 'privilege_page'
+            })
+        
+        # Extract percentages
+        if rights.get('percent_building'):
+            detailed_rights['percentages']['building_percentage'] = rights['percent_building']
+        
+        # Extract areas
+        areas = rights.get('areas', [])
+        for area in areas:
+            detailed_rights['areas'][f'area_{len(detailed_rights["areas"])}'] = area
+        
+        # Extract specific building rights
+        specific_rights = rights.get('specific_building_rights', [])
+        for right in specific_rights:
+            detailed_rights['rights_details'].append({
+                'type': 'specific_right',
+                'description': right,
+                'source': 'privilege_page'
+            })
+        
+        # Extract notes
+        notes = rights.get('notes', [])
+        for note in notes:
+            if isinstance(note, dict):
+                detailed_rights['notes'].append({
+                    'text': note.get('text', ''),
+                    'type': note.get('type', 'general'),
+                    'source': 'privilege_page'
+                })
+            else:
+                detailed_rights['notes'].append({
+                    'text': str(note),
+                    'type': 'general',
+                    'source': 'privilege_page'
+                })
+        
+        # Extract basic information
+        if basic.get('parcel_area_sqm'):
+            detailed_rights['areas']['parcel_area_sqm'] = basic['parcel_area_sqm']
+        
+        return detailed_rights
 
 
 class DocumentDetailView(APIView):

@@ -81,6 +81,14 @@ class GovMapCollector(BaseCollector):
             # Extract coordinates from the first result
             results = autocomplete_result.get("results") if isinstance(autocomplete_result, dict) else None
             if results:
+                logger.info(f"GovMap autocomplete returned {len(results)} results for '{search_query}'")
+                
+                # Log the first few results for debugging
+                for i, result in enumerate(results[:3]):
+                    result_text = result.get("text", "N/A")
+                    result_type = result.get("type", "N/A")
+                    logger.info(f"  Result {i+1}: '{result_text}' (type: {result_type})")
+                
                 coords = self.client.extract_coordinates_from_shapes(results[0])
                 if coords:
                     x, y = coords
@@ -103,15 +111,38 @@ class GovMapCollector(BaseCollector):
                                     out["addresses"] = addresses
                                     logger.info(f"Found {len(addresses)} detailed addresses")
                                     
-                                    # Update the main address with the first detailed address
+                                    # Validate that the corrected address is actually related to the original search
                                     first_addr = addresses[0]
                                     if first_addr.get("street") and first_addr.get("city"):
-                                        detailed_address = f"{first_addr['street']}"
-                                        if first_addr.get("house_number"):
-                                            detailed_address += f" {first_addr['house_number']}"
-                                        detailed_address += f", {first_addr['city']}"
-                                        out["address"] = detailed_address
-                                        logger.info(f"Updated address to: {detailed_address}")
+                                        corrected_street = first_addr["street"]
+                                        corrected_city = first_addr["city"]
+                                        corrected_number = first_addr.get("house_number")
+                                        
+                                        # Check if the corrected address is similar to the original search
+                                        original_street = query.street.lower() if query.street else ""
+                                        corrected_street_lower = corrected_street.lower()
+                                        
+                                        # Only update if there's some similarity or if the original search was very generic
+                                        should_update = (
+                                            # Street names are similar (contains or is contained)
+                                            original_street in corrected_street_lower or 
+                                            corrected_street_lower in original_street or
+                                            # Original search was very short/generic
+                                            len(original_street) <= 3 or
+                                            # Street names share common words
+                                            any(word in corrected_street_lower for word in original_street.split() if len(word) > 2)
+                                        )
+                                        
+                                        if should_update:
+                                            detailed_address = f"{corrected_street}"
+                                            if corrected_number:
+                                                detailed_address += f" {corrected_number}"
+                                            detailed_address += f", {corrected_city}"
+                                            out["address"] = detailed_address
+                                            logger.info(f"✅ Updated address to: {detailed_address} (similarity validated)")
+                                        else:
+                                            logger.warning(f"⚠️ Corrected address '{corrected_street}' is too different from original '{original_street}', keeping original")
+                                            logger.info(f"Original: '{search_query}' -> Corrected: '{corrected_street}' (rejected)")
                                 else:
                                     logger.warning(f"No detailed addresses found for objectid {objectid}")
                             except Exception as e:

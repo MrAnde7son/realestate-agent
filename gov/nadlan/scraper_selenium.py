@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from selenium import webdriver
@@ -41,6 +42,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from .exceptions import NadlanAPIError
 from .models import Deal
+from .cache import DealCache, IncrementalDealCollector
 
 logger = logging.getLogger(__name__)
 
@@ -48,16 +50,29 @@ logger = logging.getLogger(__name__)
 class NadlanDealsScraper:
     """Simple scraper for real estate deals from nadlan.gov.il."""
     
-    def __init__(self, timeout: float = 30.0, headless: bool = True):
+    def __init__(self, timeout: float = 30.0, headless: bool = True, max_age_days: int = 365, use_cache: bool = True):
         """Initialize the scraper.
         
         Args:
             timeout: Request timeout in seconds
             headless: Whether to run browser in headless mode
+            max_age_days: Maximum age of deals to fetch (in days)
+            use_cache: Whether to use caching for better performance
         """
         self.timeout = timeout
         self.headless = headless
+        self.max_age_days = max_age_days
+        self.use_cache = use_cache
         self.driver = None
+        self.current_search_address = None  # Store the current search address for full address construction
+        
+        # Initialize cache if enabled
+        if self.use_cache:
+            self.cache = DealCache()
+            self.incremental_collector = IncrementalDealCollector(self, self.cache)
+        else:
+            self.cache = None
+            self.incremental_collector = None
     
     def _init_driver(self):
         """Initialize the Selenium WebDriver."""
@@ -260,6 +275,172 @@ class NadlanDealsScraper:
             finally:
                 self.driver = None
     
+    def _extract_city_from_search_address(self, search_address: str) -> str:
+        """Extract city name from the search address.
+        
+        Args:
+            search_address: The full search address (e.g., "רוזוב 4 תל אביב-יפו")
+            
+        Returns:
+            City name (e.g., "תל אביב-יפו")
+        """
+        if not search_address:
+            return ""
+            
+        # Common patterns for extracting city from address
+        # Look for common city patterns at the end of the address
+        city_patterns = [
+            "תל אביב-יפו", "תל אביב", "ירושלים", "חיפה", "באר שבע", "אשדוד", "פתח תקווה",
+            "נתניה", "בת ים", "רמת גן", "אשקלון", "רחובות", "הרצליה", "כפר סבא", "ראשון לציון",
+            "גבעתיים", "קרית גת", "קרית ביאליק", "קרית מוצקין", "קרית ים", "קרית אתא",
+            "קרית שמונה", "קרית מלאכי", "קרית אונו", "קרית טבעון", "קרית חיים", "קרית מוצקין"
+        ]
+        
+        # Try to find city at the end of the address
+        for city in city_patterns:
+            if search_address.endswith(city):
+                return city
+                
+        # If no city found, try to extract the last word/phrase
+        parts = search_address.split()
+        if len(parts) >= 2:
+            # Take the last 1-2 parts as potential city
+            return " ".join(parts[-2:]) if len(parts[-1]) > 3 else " ".join(parts[-1:])
+            
+        return ""
+    
+    def _build_full_address(self, street_address: str) -> str:
+        """Build full address by combining street address with city from search.
+        
+        Args:
+            street_address: Street address from table (e.g., "עולי הגרדום 20")
+            
+        Returns:
+            Full address (e.g., "עולי הגרדום 20, תל אביב-יפו")
+        """
+        if not street_address or not self.current_search_address:
+            return street_address
+            
+        city = self._extract_city_from_search_address(self.current_search_address)
+        if city and city not in street_address:
+            return f"{street_address}, {city}"
+            
+        return street_address
+    
+    def _extract_neighborhood_from_page(self) -> str:
+        """Extract neighborhood name from the page content.
+        
+        Returns:
+            Neighborhood name (e.g., "נמל תל-אביב")
+        """
+        try:
+            # Look for the neighborhood section with class "otherNeighborhoodsSection"
+            neighborhood_section = self.driver.find_elements(By.CSS_SELECTOR, ".otherNeighborhoodsSection .mainTitle")
+            
+            if neighborhood_section:
+                title_text = neighborhood_section[0].text.strip()
+                # Extract neighborhood from title like "עסקאות נוספות בשכונה נמל תל-אביב לפי רחובות"
+                if "בשכונה" in title_text:
+                    # Split by "בשכונה" and take the part after it
+                    parts = title_text.split("בשכונה")
+                    if len(parts) > 1:
+                        neighborhood_part = parts[1].strip()
+                        # Remove "לפי רחובות" if present
+                        if "לפי רחובות" in neighborhood_part:
+                            neighborhood_part = neighborhood_part.split("לפי רחובות")[0].strip()
+                        return neighborhood_part
+                        
+            # Fallback: look for neighborhood in other possible locations
+            neighborhood_elements = self.driver.find_elements(By.CSS_SELECTOR, "[class*='neighborhood'], [class*='שכונה']")
+            for element in neighborhood_elements:
+                text = element.text.strip()
+                if text and len(text) < 50:  # Reasonable neighborhood name length
+                    return text
+                    
+        except Exception as e:
+            logger.warning(f"Failed to extract neighborhood from page: {e}")
+            
+        return ""
+
+    def _parse_deal_date(self, date_str: str) -> Optional[datetime]:
+        """Parse deal date string to datetime object.
+        
+        Args:
+            date_str: Date string in various formats (e.g., "01/01/2023", "2023-01-01")
+            
+        Returns:
+            Parsed datetime object or None if parsing fails
+        """
+        if not date_str:
+            return None
+            
+        # Common date formats in Hebrew/Israeli context
+        date_formats = [
+            "%d/%m/%Y",      # 01/01/2023
+            "%Y-%m-%d",      # 2023-01-01
+            "%d.%m.%Y",      # 01.01.2023
+            "%d-%m-%Y",      # 01-01-2023
+            "%d/%m/%y",      # 01/01/23
+            "%d.%m.%y",      # 01.01.23
+        ]
+        
+        for fmt in date_formats:
+            try:
+                parsed_date = datetime.strptime(date_str.strip(), fmt)
+                
+                # Handle future dates - if year is in the future, assume it's actually the previous year
+                current_year = datetime.now().year
+                if parsed_date.year > current_year:
+                    logger.warning(f"Date {date_str} appears to be in the future ({parsed_date.year}), assuming it's {parsed_date.year - 1}")
+                    parsed_date = parsed_date.replace(year=parsed_date.year - 1)
+                
+                return parsed_date
+            except ValueError:
+                continue
+                
+        logger.warning(f"Could not parse date: {date_str}")
+        return None
+    
+    def _is_deal_recent(self, deal: Deal, cutoff_date: datetime) -> bool:
+        """Check if a deal is recent enough to include.
+        
+        Args:
+            deal: Deal object to check
+            cutoff_date: Cutoff date for filtering
+            
+        Returns:
+            True if deal is recent enough, False otherwise
+        """
+        if not deal.deal_date:
+            # If no date, include the deal (conservative approach)
+            return True
+            
+        deal_date = self._parse_deal_date(deal.deal_date)
+        if not deal_date:
+            # If can't parse date, include the deal (conservative approach)
+            return True
+            
+        return deal_date >= cutoff_date
+    
+    def _filter_deals_by_age(self, deals: List[Deal]) -> List[Deal]:
+        """Filter deals by age based on max_age_days setting.
+        
+        Args:
+            deals: List of deals to filter
+            
+        Returns:
+            Filtered list of recent deals
+        """
+        if self.max_age_days <= 0:
+            return deals
+            
+        cutoff_date = datetime.now() - timedelta(days=self.max_age_days)
+        recent_deals = [deal for deal in deals if self._is_deal_recent(deal, cutoff_date)]
+        
+        logger.info(f"Filtered {len(deals)} deals to {len(recent_deals)} recent deals (last {self.max_age_days} days)")
+        return recent_deals
+    
+    
     def __enter__(self):
         """Context manager entry."""
         self._init_driver()
@@ -293,7 +474,7 @@ class NadlanDealsScraper:
         finally:
             self._cleanup_driver()
 
-    def _extract_deals_from_table(self) -> List[Deal]:
+    def _extract_deals_from_table(self, neighborhood: str = "") -> List[Deal]:
         """Extract deals from all tables on the page."""
         deals = []
         
@@ -327,7 +508,7 @@ class NadlanDealsScraper:
                             # Extract deal information based on table structure
                             deal_data = {
                                 'serial_number': cell_texts[0] if len(cell_texts) > 0 else '',
-                                'address': cell_texts[1] if len(cell_texts) > 1 else '',
+                                'address': self._build_full_address(cell_texts[1]) if len(cell_texts) > 1 else '',
                                 'area': cell_texts[2] if len(cell_texts) > 2 else '',
                                 'deal_date': cell_texts[3] if len(cell_texts) > 3 else '',
                                 'deal_amount': cell_texts[4] if len(cell_texts) > 4 else '',
@@ -335,7 +516,8 @@ class NadlanDealsScraper:
                                 'asset_type': cell_texts[6] if len(cell_texts) > 6 else '',
                                 'rooms': cell_texts[7] if len(cell_texts) > 7 else '',
                                 'floor': cell_texts[8] if len(cell_texts) > 8 else '',
-                                'trend': cell_texts[9] if len(cell_texts) > 9 else ''
+                                'trend': cell_texts[9] if len(cell_texts) > 9 else '',
+                                'neighborhood': neighborhood  # Add neighborhood information
                             }
                             
                             # Only process if we have essential data
@@ -370,11 +552,13 @@ class NadlanDealsScraper:
         logger.info(f"Total extracted {len(deals)} deals from all tables")
         return deals
 
-    def get_deals_by_address(self, address: str) -> List[Deal]:
-        """Retrieve deals using a specific address.
+    def get_deals_by_address(self, address: str, max_age_days: Optional[int] = None, force_refresh: bool = False) -> List[Deal]:
+        """Retrieve deals using a specific address with optional caching.
 
         Args:
             address: The address to search for (e.g., "רוזוב 4 תל אביב")
+            max_age_days: Override the default max age for this request
+            force_refresh: Force refresh even if cache is available
 
         Returns:
             List of Deal objects
@@ -383,12 +567,40 @@ class NadlanDealsScraper:
             NadlanAPIError: If the API call fails
         """
         logger.info("Fetching deals for address %s", address)
+        
+        # Store the search address for full address construction
+        self.current_search_address = address
+        
+        # Use incremental collector if caching is enabled
+        if self.use_cache and self.incremental_collector and not force_refresh:
+            try:
+                deals = self.incremental_collector.get_deals_incremental(address, force_refresh, max_age_days)
+                return deals
+            except Exception as e:
+                logger.warning(f"Incremental collection failed, falling back to direct fetch: {e}")
+        
+        # Use Selenium scraping (API fallback disabled until implementation is fixed)
         try:
             self._init_driver()
-            return self._fetch_deals_by_address_selenium(address)
+            deals = self._fetch_deals_by_address_selenium(address)
         except Exception as e:
-            logger.error(f"Error fetching deals for address {address}: {e}")
+            logger.error(f"Selenium scraping failed for address {address}: {e}")
             raise NadlanAPIError(f"Failed to fetch deals for address {address}: {e}")
+        
+        # Apply date filtering if specified
+        if max_age_days is not None:
+            original_max_age = self.max_age_days
+            self.max_age_days = max_age_days
+            deals = self._filter_deals_by_age(deals)
+            self.max_age_days = original_max_age
+        else:
+            deals = self._filter_deals_by_age(deals)
+        
+        # Store in cache if enabled
+        if self.use_cache and self.cache:
+            self.cache.store_deals(address, deals)
+            
+        return deals
     
     def _fetch_deals_by_address_selenium(self, address: str) -> List[Deal]:
         """Fetch deals by address using Selenium with search-based navigation."""
@@ -397,6 +609,11 @@ class NadlanDealsScraper:
             if self._navigate_to_deals_via_search(address):
                 # Wait for page to load completely and check for errors
                 self._wait_for_page_load()
+                
+                # Extract neighborhood from the page
+                neighborhood = self._extract_neighborhood_from_page()
+                if neighborhood:
+                    logger.info(f"Extracted neighborhood: {neighborhood}")
                 
                 # Check for error modal first
                 error_modal_found = False
@@ -464,11 +681,11 @@ class NadlanDealsScraper:
                 deals = []
                 
                 # First, get deals from the current page
-                deals = self._extract_deals_from_current_page()
+                deals = self._extract_deals_from_current_page(neighborhood)
                 
                 # Then, check for pagination and get deals from all pages
                 if deals:
-                    deals.extend(self._extract_deals_from_all_pages())
+                    deals.extend(self._extract_deals_from_all_pages(neighborhood))
                 
                 return deals
             else:
@@ -613,7 +830,7 @@ class NadlanDealsScraper:
             logger.error(f"Error with direct URL navigation: {e}")
             return False
     
-    def _extract_deals_from_current_page(self) -> List[Deal]:
+    def _extract_deals_from_current_page(self, neighborhood: str = "") -> List[Deal]:
         """Extract deals from the current page."""
         max_wait_time = 30  # Maximum wait time in seconds
         wait_interval = 1   # Check every 1 second
@@ -680,7 +897,7 @@ class NadlanDealsScraper:
                         break
                     
                     # Try to extract deals from table format
-                    deals = self._extract_deals_from_table()
+                    deals = self._extract_deals_from_table(neighborhood)
                     if deals:
                         logger.info(f"Extracted {len(deals)} deals from table")
                         break
@@ -707,12 +924,12 @@ class NadlanDealsScraper:
         if not deals:
             logger.warning("No deals data found after waiting %s seconds", max_wait_time)
             # Try one final attempt to extract from table
-            deals = self._extract_deals_from_table()
+            deals = self._extract_deals_from_table(neighborhood)
         
         return deals
     
-    def _extract_deals_from_all_pages(self) -> List[Deal]:
-        """Extract deals from all pages using pagination."""
+    def _extract_deals_from_all_pages(self, neighborhood: str = "") -> List[Deal]:
+        """Extract deals from all pages using pagination with early termination for old deals."""
         all_deals = []
         
         try:
@@ -727,7 +944,10 @@ class NadlanDealsScraper:
             
             logger.info(f"Found pagination: {current_page} / {total_pages} pages")
             
-            # Navigate through all remaining pages
+            # Calculate cutoff date for early termination
+            cutoff_date = datetime.now() - timedelta(days=self.max_age_days) if self.max_age_days > 0 else None
+            
+            # Navigate through remaining pages with early termination
             for page_num in range(current_page + 1, total_pages + 1):
                 logger.info(f"Extracting deals from page {page_num}/{total_pages}")
                 
@@ -737,9 +957,17 @@ class NadlanDealsScraper:
                     time.sleep(2)
                     
                     # Extract deals from current page
-                    page_deals = self._extract_deals_from_table()
+                    page_deals = self._extract_deals_from_table(neighborhood)
                     if page_deals:
                         logger.info(f"Found {len(page_deals)} deals on page {page_num}")
+                        
+                        # Check if we should stop pagination due to old deals
+                        if cutoff_date and self._all_deals_older_than(page_deals, cutoff_date):
+                            logger.info(f"Stopping pagination at page {page_num} - all deals are older than {self.max_age_days} days")
+                            # Still add the deals from this page before stopping
+                            all_deals.extend(page_deals)
+                            break
+                            
                         all_deals.extend(page_deals)
                     else:
                         logger.warning(f"No deals found on page {page_num}")
@@ -752,6 +980,25 @@ class NadlanDealsScraper:
         
         logger.info(f"Total deals collected from all pages: {len(all_deals)}")
         return all_deals
+    
+    def _all_deals_older_than(self, deals: List[Deal], cutoff_date: datetime) -> bool:
+        """Check if all deals in the list are older than the cutoff date.
+        
+        Args:
+            deals: List of deals to check
+            cutoff_date: Cutoff date for comparison
+            
+        Returns:
+            True if all deals are older than cutoff date
+        """
+        if not deals:
+            return False
+            
+        for deal in deals:
+            if self._is_deal_recent(deal, cutoff_date):
+                return False
+                
+        return True
     
     def _get_pagination_info(self) -> dict:
         """Get pagination information from the page."""

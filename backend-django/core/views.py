@@ -56,6 +56,7 @@ from .serializers import (
     AlertRuleSerializer,
     AlertEventSerializer,
     AssetContributionSerializer,
+    AssetSerializer,
     UserProfileSerializer,
     PlanTypeSerializer,
     UserPlanSerializer,
@@ -1364,13 +1365,8 @@ def _get_assets_list():
 
     try:
         assets_qs = Asset.objects.all().order_by("-created_at")
-        rows = []
-        for asset in assets_qs:
-            srcs = SourceRecord.objects.filter(asset_id=asset.id).order_by(
-                "-fetched_at"
-            )
-            rows.append(build_listing(asset, srcs))
-        return Response({"rows": rows})
+        serializer = AssetSerializer(assets_qs, many=True)
+        return Response({"rows": serializer.data})
     except Exception as e:
         logger.error("Error fetching assets: %s", e)
         return Response(

@@ -1071,6 +1071,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <span>{asset.zoning ?? '—'}</span>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
+                    <span className="text-muted-foreground">שכונה:</span>
+                    <span>{asset.neighborhood ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">רמת ביטחון:</span>
                     <Badge variant={asset.confidencePct >= 80 ? 'success' : 'warning'}>
                       {asset.confidencePct}%

@@ -980,6 +980,9 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 'transaction_history': gov_data.get('transactions', []),
             }
             _process_government_data(asset, gov_data)
+            
+            # Extract neighborhood from transaction data
+            _extract_neighborhood_from_transactions(asset, gov_data.get('transactions', []))
 
     # RAMI plans ----------------------------------------------------------------------
     with asset_update_phase("process_rami", asset_id):
@@ -1283,6 +1286,31 @@ def _process_government_data(asset, gov_data):
             
             # Create documents from appraisals
             _create_documents_from_appraisals(asset, decisive)
+
+
+def _extract_neighborhood_from_transactions(asset, transactions):
+    """Extract neighborhood information from transaction data and update asset."""
+    if not transactions or asset.neighborhood:
+        # Only update if asset doesn't already have neighborhood info
+        return
+        
+    neighborhood_counts = {}
+    
+    for transaction in transactions:
+        if isinstance(transaction, dict):
+            neighborhood = transaction.get('neighborhood')
+            if neighborhood and isinstance(neighborhood, str) and neighborhood.strip():
+                neighborhood_counts[neighborhood] = neighborhood_counts.get(neighborhood, 0) + 1
+    
+    if neighborhood_counts:
+        # Use the most common neighborhood from transactions
+        most_common_neighborhood = max(neighborhood_counts.items(), key=lambda x: x[1])[0]
+        asset.neighborhood = most_common_neighborhood
+        logger.info(f"Updated asset {asset.id} neighborhood from transactions: {most_common_neighborhood}")
+        
+        # Store neighborhood source information
+        asset.set_property('neighborhoodSource', 'Nadlan Transactions', source='Nadlan', url='https://nadlan.gov.il/')
+        asset.set_property('neighborhoodConfidence', len(neighborhood_counts), source='Nadlan', url='https://nadlan.gov.il/')
 
 
 def _process_rami_plans(asset, plans):

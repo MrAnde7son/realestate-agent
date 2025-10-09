@@ -22,6 +22,7 @@ from orchestration.collectors.gov_collector import GovCollector
 from orchestration.collectors.govmap_collector import GovMapCollector
 from orchestration.collectors.rami_collector import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
+from orchestration.planning_legal_analyzer import calculate_planning_legal_analysis, apply_planning_legal_analysis_to_asset
 from orchestration.location import LocationQuery
 from govmap.api_client import itm_to_wgs84
 from orchestration.observability import (
@@ -1119,6 +1120,10 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
     with asset_update_phase("calculate_market_metrics", asset_id):
         _calculate_market_metrics(asset, normalized_listings, gov_data)
 
+    # Planning and Legal Analysis -----------------------------------------------------
+    with asset_update_phase("calculate_planning_legal_analysis", asset_id):
+        _calculate_planning_legal_analysis(asset, gis_data, gov_data)
+
     logger.info("Updated asset %s with block=%s, parcel=%s", asset_id, block, parcel)
 
 
@@ -2159,6 +2164,49 @@ def _calculate_market_metrics(asset, listings, gov_data):
         logger.debug('[MARKET_METRICS] asset=%s metrics=%s', asset.id, metrics)
     except Exception as e:  # pragma: no cover - defensive
         logger.error('Failed to calculate market metrics for asset %s: %s', getattr(asset, 'id', '?'), e)
+
+
+def _calculate_planning_legal_analysis(asset, gis_data: Dict[str, Any], gov_data: Dict[str, Any]) -> None:
+    """Calculate and persist planning and legal analysis fields.
+    
+    Calculates:
+    - Rights usage percentage (רמת ניצול זכויות)
+    - Legal restrictions (מגבלות משפטיות)
+    - Urban renewal potential (פוטנציאל התחדשות)
+    - Betterment levy (היטל השבחה צפוי)
+    """
+    try:
+        # Get tabu data from gov_data if available
+        tabu_data = gov_data.get('tabu_data') if gov_data else None
+        
+        # Calculate planning and legal analysis
+        analysis = calculate_planning_legal_analysis(asset, gis_data, tabu_data)
+        
+        # Apply results to asset
+        apply_planning_legal_analysis_to_asset(asset, analysis)
+        
+        # Save the asset with updated fields
+        update_fields = []
+        if analysis.rights_usage_pct is not None:
+            update_fields.append('rights_usage_pct')
+        if analysis.legal_restrictions:
+            update_fields.append('legal_restrictions')
+        if analysis.urban_renewal_potential:
+            update_fields.append('urban_renewal_potential')
+        if analysis.betterment_levy:
+            update_fields.append('betterment_levy')
+            
+        if update_fields:
+            asset.save(update_fields=update_fields)
+            logger.debug('[PLANNING_LEGAL] asset=%s analysis=%s', asset.id, {
+                'rights_usage_pct': analysis.rights_usage_pct,
+                'legal_restrictions': analysis.legal_restrictions,
+                'urban_renewal_potential': analysis.urban_renewal_potential,
+                'betterment_levy': analysis.betterment_levy
+            })
+        
+    except Exception as e:  # pragma: no cover - defensive
+        logger.error('Failed to calculate planning and legal analysis for asset %s: %s', getattr(asset, 'id', '?'), e)
 
 
 def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):

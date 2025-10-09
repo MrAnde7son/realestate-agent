@@ -466,6 +466,12 @@ class Asset(models.Model):
     building_rights = models.CharField(max_length=200, blank=True, null=True)
     permit_status = models.CharField(max_length=50, blank=True, null=True)
     permit_date = models.DateField(blank=True, null=True)
+    
+    # Planning and Legal Analysis fields
+    rights_usage_pct = models.FloatField(blank=True, null=True, help_text="רמת ניצול זכויות (%)")
+    legal_restrictions = models.TextField(blank=True, null=True, help_text="מגבלות משפטיות")
+    urban_renewal_potential = models.CharField(max_length=200, blank=True, null=True, help_text="פוטנציאל התחדשות")
+    betterment_levy = models.CharField(max_length=200, blank=True, null=True, help_text="היטל השבחה צפוי")
 
     # GIS Collector Data Fields
     # Parcel data
@@ -536,6 +542,9 @@ class Asset(models.Model):
             models.Index(fields=["area"]),
             models.Index(fields=["rooms"]),
             models.Index(fields=["zoning"]),
+            # Planning and Legal Analysis fields indexes
+            models.Index(fields=["rights_usage_pct"]),
+            models.Index(fields=["urban_renewal_potential"]),
             # GIS fields indexes (using existing fields)
             models.Index(fields=["permit_status"]),
             models.Index(fields=["permit_date"]),

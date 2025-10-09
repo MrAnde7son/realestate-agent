@@ -12,26 +12,24 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/Badge';
-import { Search, ExternalLink, Plus, ChevronDown, ChevronRight, CheckSquare, Edit, Trash2 } from 'lucide-react';
+import { Search, ExternalLink, Plus, ChevronDown, ChevronRight, Edit, Trash2 } from 'lucide-react';
 import { Lead, CrmApi, ContactTask, CreateTaskData, UpdateTaskData } from '@/lib/api/crm';
 import { LeadStatusBadge } from '@/components/crm/lead-status-badge';
 import { LeadRowActions } from '@/components/crm/lead-row-actions';
-import { LeadTasksPanel } from '@/components/crm/lead-tasks-panel';
-import { LeadTaskSummary } from '@/components/crm/lead-task-summary';
+import { LeadTaskSummary, clearTaskCache } from '@/components/crm/lead-task-summary';
 import { TaskForm } from '@/components/crm/task-form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import DashboardLayout from '@/components/layout/dashboard-layout';
 import { PageLoader } from '@/components/ui/page-loader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import Link from 'next/link';
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLeadForTasks, setSelectedLeadForTasks] = useState<Lead | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [leadTasks, setLeadTasks] = useState<Map<number, ContactTask[]>>(new Map());
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState<number | null>(null);
@@ -83,9 +81,6 @@ export default function LeadsPage() {
     }
   };
 
-  const handleShowTasks = (lead: Lead) => {
-    setSelectedLeadForTasks(lead);
-  };
 
   const toggleRowExpansion = (leadId: number) => {
     setExpandedRows(prev => {
@@ -127,6 +122,7 @@ export default function LeadsPage() {
       
       await CrmApi.createTask(createData);
       await loadTasksForLead(leadId);
+      clearTaskCache(leadId);
       setIsCreateTaskModalOpen(null);
       toast({
         title: 'משימה נוצרה',
@@ -145,6 +141,7 @@ export default function LeadsPage() {
     try {
       await CrmApi.completeTask(taskId);
       await loadTasksForLead(leadId);
+      clearTaskCache(leadId);
       toast({
         title: 'משימה הושלמה',
         description: 'המשימה סומנה כהושלמה',
@@ -171,6 +168,7 @@ export default function LeadsPage() {
       
       await CrmApi.updateTask(editingTask.id, updateData);
       await loadTasksForLead(leadId);
+      clearTaskCache(leadId);
       setEditingTask(null);
       toast({
         title: 'משימה עודכנה',
@@ -193,6 +191,7 @@ export default function LeadsPage() {
     try {
       await CrmApi.deleteTask(taskId);
       await loadTasksForLead(leadId);
+      clearTaskCache(leadId);
       toast({
         title: 'משימה נמחקה',
         description: 'המשימה נמחקה בהצלחה',
@@ -205,6 +204,8 @@ export default function LeadsPage() {
       });
     }
   };
+
+
 
   const filteredLeads = leads.filter(lead =>
     lead.contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -348,27 +349,10 @@ export default function LeadsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      {leadTasks.get(lead.id) ? (
-                        <>
-                          {leadTasks.get(lead.id)!.filter(t => t.status === 'pending').length > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {leadTasks.get(lead.id)!.filter(t => t.status === 'pending').length} ממתינות
-                            </Badge>
-                          )}
-                          {leadTasks.get(lead.id)!.filter(t => t.status === 'completed').length > 0 && (
-                            <Badge variant="outline" className="text-xs">
-                              {leadTasks.get(lead.id)!.filter(t => t.status === 'completed').length} הושלמו
-                            </Badge>
-                          )}
-                          {leadTasks.get(lead.id)!.length === 0 && (
-                            <span className="text-xs text-muted-foreground">אין משימות</span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">טוען...</span>
-                      )}
-                    </div>
+                    <LeadTaskSummary 
+                      lead={lead} 
+                      compact={true}
+                    />
                   </TableCell>
                   <TableCell>
                     <LeadStatusBadge status={lead.status} />
@@ -383,7 +367,6 @@ export default function LeadsPage() {
                       lead={lead}
                       onUpdate={handleLeadUpdate}
                       onDelete={() => handleLeadDelete(lead)}
-                      onShowTasks={() => handleShowTasks(lead)}
                     />
                   </TableCell>
                 </TableRow>
@@ -470,23 +453,29 @@ export default function LeadsPage() {
                         <div>
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-medium">ניהול משימות</h4>
-                            <Dialog open={isCreateTaskModalOpen === lead.id} onOpenChange={(open) => setIsCreateTaskModalOpen(open ? lead.id : null)}>
-                              <DialogTrigger asChild>
-                                <Button size="sm" className="h-7 px-3">
-                                  <Plus className="h-3 w-3 mr-1" />
-                                  משימה חדשה
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="mx-4 sm:mx-0">
-                                <DialogHeader>
-                                  <DialogTitle>יצירת משימה חדשה</DialogTitle>
-                                </DialogHeader>
-                                <TaskForm
-                                  onSubmit={(data) => handleCreateTask(lead.id, data)}
-                                  onCancel={() => setIsCreateTaskModalOpen(null)}
-                                />
-                              </DialogContent>
-                            </Dialog>
+                            <div className="flex items-center gap-2">
+                              <LeadTaskSummary 
+                                lead={lead} 
+                                compact={false}
+                              />
+                              <Dialog open={isCreateTaskModalOpen === lead.id} onOpenChange={(open) => setIsCreateTaskModalOpen(open ? lead.id : null)}>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" className="h-7 px-3">
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    משימה חדשה
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="mx-4 sm:mx-0">
+                                  <DialogHeader>
+                                    <DialogTitle>יצירת משימה חדשה</DialogTitle>
+                                  </DialogHeader>
+                                  <TaskForm
+                                    onSubmit={(data) => handleCreateTask(lead.id, data)}
+                                    onCancel={() => setIsCreateTaskModalOpen(null)}
+                                  />
+                                </DialogContent>
+                              </Dialog>
+                            </div>
                             
                             {/* Edit Task Dialog */}
                             <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>

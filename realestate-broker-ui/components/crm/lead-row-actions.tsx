@@ -33,7 +33,7 @@ interface LeadRowActionsProps {
   lead: Lead;
   onUpdate: () => void;
   onDelete: (leadId: number) => void;
-  onShowTasks: () => void;
+  onShowTasks?: () => void;
 }
 
 const statusOptions: { value: LeadStatus; label: string }[] = [
@@ -209,16 +209,18 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
       </Dialog>
 
       {/* Show Tasks */}
-      <Button 
-        variant="outline" 
-        size="sm" 
-        onClick={onShowTasks}
-        disabled={isLoading}
-        className="h-8 w-8 p-0"
-        title="הצג משימות"
-      >
-        <CheckSquare className="h-3 w-3" />
-      </Button>
+      {onShowTasks && (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={onShowTasks}
+          disabled={isLoading}
+          className="h-8 w-8 p-0"
+          title="הצג משימות"
+        >
+          <CheckSquare className="h-3 w-3" />
+        </Button>
+      )}
 
       {/* Send Report */}
       <Button 

@@ -3,6 +3,112 @@
 from django.db import migrations, models
 
 
+def safe_rename_indexes(apps, schema_editor):
+    """Safely rename indexes, handling cases where old indexes don't exist."""
+    connection = schema_editor.connection
+
+    with connection.cursor() as cursor:
+        # Get existing indexes
+        vendor = connection.vendor
+
+        if vendor == "sqlite":
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'core_asset%'"
+            )
+            existing_indexes = [idx[0] for idx in cursor.fetchall()]
+        elif vendor == "postgresql":
+            cursor.execute(
+                """
+                SELECT indexname
+                FROM pg_indexes
+                WHERE schemaname = current_schema() AND tablename = %s
+                """,
+                ["core_asset"],
+            )
+            existing_indexes = [idx[0] for idx in cursor.fetchall()]
+        else:
+            # Default to no-op for unsupported vendors.
+            existing_indexes = []
+
+        # Define the renames we want to do (old_name, new_name, field_name)
+        renames = [
+            ('core_asset_block_dc43e9_idx', 'core_asset_block_531195_idx', 'block'),
+            ('core_asset_parcel_38f908_idx', 'core_asset_parcel_ebd705_idx', 'parcel'),
+            ('core_asset_subhelk_ec1101_idx', 'core_asset_subparc_d57846_idx', 'subparcel'),
+        ]
+        
+        for old_name, new_name, field_name in renames:
+            if old_name in existing_indexes and new_name not in existing_indexes:
+                # Drop the old index
+                cursor.execute(f"DROP INDEX {schema_editor.quote_name(old_name)}")
+                print(f"Dropped old index: {old_name}")
+
+                # Create the new index
+                cursor.execute(
+                    "CREATE INDEX {} ON {} ({})".format(
+                        schema_editor.quote_name(new_name),
+                        schema_editor.quote_name('core_asset'),
+                        schema_editor.quote_name(field_name),
+                    )
+                )
+                print(f"Created new index: {new_name}")
+            elif new_name in existing_indexes:
+                print(f"Index {new_name} already exists, skipping")
+            else:
+                print(f"Index {old_name} not found, skipping")
+
+
+def reverse_safe_rename_indexes(apps, schema_editor):
+    """Reverse the index renames by dropping new ones and creating old ones."""
+    connection = schema_editor.connection
+
+    with connection.cursor() as cursor:
+        # Get existing indexes
+        vendor = connection.vendor
+
+        if vendor == "sqlite":
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'core_asset%'"
+            )
+            existing_indexes = [idx[0] for idx in cursor.fetchall()]
+        elif vendor == "postgresql":
+            cursor.execute(
+                """
+                SELECT indexname
+                FROM pg_indexes
+                WHERE schemaname = current_schema() AND tablename = %s
+                """,
+                ["core_asset"],
+            )
+            existing_indexes = [idx[0] for idx in cursor.fetchall()]
+        else:
+            # Default to no-op for unsupported vendors.
+            existing_indexes = []
+
+        # Define the reverse renames (new_name, old_name, field_name)
+        reverse_renames = [
+            ('core_asset_block_531195_idx', 'core_asset_block_dc43e9_idx', 'block'),
+            ('core_asset_parcel_ebd705_idx', 'core_asset_parcel_38f908_idx', 'parcel'),
+            ('core_asset_subparc_d57846_idx', 'core_asset_subhelk_ec1101_idx', 'subparcel'),
+        ]
+        
+        for new_name, old_name, field_name in reverse_renames:
+            if new_name in existing_indexes and old_name not in existing_indexes:
+                # Drop the new index
+                cursor.execute(f"DROP INDEX {schema_editor.quote_name(new_name)}")
+                print(f"Dropped new index: {new_name}")
+
+                # Create the old index
+                cursor.execute(
+                    "CREATE INDEX {} ON {} ({})".format(
+                        schema_editor.quote_name(old_name),
+                        schema_editor.quote_name('core_asset'),
+                        schema_editor.quote_name(field_name),
+                    )
+                )
+                print(f"Created old index: {old_name}")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,21 +116,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_block_531195_idx",
-            old_name="core_asset_block_dc43e9_idx",
-        ),
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_parcel_ebd705_idx",
-            old_name="core_asset_parcel_38f908_idx",
-        ),
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_subparc_d57846_idx",
-            old_name="core_asset_subhelk_ec1101_idx",
-        ),
+        migrations.RunPython(safe_rename_indexes, reverse_safe_rename_indexes),
         migrations.AddField(
             model_name="asset",
             name="betterment_levy",

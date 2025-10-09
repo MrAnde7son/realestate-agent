@@ -1131,6 +1131,45 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <span className="text-muted-foreground">היטל השבחה צפוי:</span>
                   <span>{asset.bettermentLevy ?? '—'}</span>
                 </div>
+                
+                {/* Enhanced Planning Metrics */}
+                <div className="flex justify-between rtl:flex-row-reverse">
+                  <span className="text-muted-foreground">אחוז כיסוי בנייה:</span>
+                  <span>{asset.buildingCoveragePct ? `${asset.buildingCoveragePct}%` : '—'}</span>
+                </div>
+                
+                {/* Height Analysis */}
+                {asset.heightAnalysis && (
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-muted-foreground">ניתוח גובה:</div>
+                    <div className="flex justify-between rtl:flex-row-reverse text-sm">
+                      <span>קומות נוכחיות:</span>
+                      <span>{asset.heightAnalysis.current_floors ?? '—'}</span>
+                    </div>
+                    <div className="flex justify-between rtl:flex-row-reverse text-sm">
+                      <span>קומות מותרות:</span>
+                      <span>{asset.heightAnalysis.allowed_floors ?? '—'}</span>
+                    </div>
+                    {asset.heightAnalysis.height_compliance && (
+                      <div className="flex justify-between rtl:flex-row-reverse text-sm">
+                        <span>עמידה בתקן:</span>
+                        <span className={asset.heightAnalysis.height_compliance === 'compliant' ? 'text-green-600' : 'text-red-600'}>
+                          {asset.heightAnalysis.height_compliance === 'compliant' ? 'עומד' : 'לא עומד'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Setback Analysis */}
+                {asset.setbackAnalysis && asset.setbackAnalysis.violations && asset.setbackAnalysis.violations.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-muted-foreground">הפרות נסיגה:</div>
+                    <div className="text-sm text-red-600">
+                      {asset.setbackAnalysis.violations.join('; ')}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1374,9 +1413,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="text-center py-8">
                     <div className="text-muted-foreground mb-2">
                       לא נמצאו תוכניות ממינהל התיכנון עבור נכס זה
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      ייתכן שהנכס לא נמצא במערכת mavat או שטרם נאסף מידע תכנוני
                     </div>
                   </div>
                 </CardContent>

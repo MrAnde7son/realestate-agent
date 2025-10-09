@@ -422,7 +422,7 @@ export default function HomePage() {
               <CardTitle>מגמות שוק - מחירים ממוצעים</CardTitle>
               <CardDescription>
                 {isAuthenticated 
-                  ? "שינויי מחירים לאורך 6 החודשים האחרונים"
+                  ? "מחירים ממוצעים מבוססים על נתוני מודעות למכירה"
                   : "מגמות מחירים זמינות במערכת"
                 }
               </CardDescription>
@@ -539,15 +539,15 @@ export default function HomePage() {
 
         {/* Market Volume and Transactions */}
         <Card>
-          <CardHeader>
-            <CardTitle>נפח עסקאות ושוק</CardTitle>
-            <CardDescription>
-              {isAuthenticated 
-                ? "סך העסקאות ונפח השוק החודשי"
-                : "נתוני עסקאות ושוק זמינים"
-              }
-            </CardDescription>
-          </CardHeader>
+            <CardHeader>
+              <CardTitle>נפח עסקאות ושוק</CardTitle>
+              <CardDescription>
+                {isAuthenticated 
+                  ? "עסקאות נדלן - נפח שוק חודשי"
+                  : "נתוני עסקאות ושוק זמינים"
+                }
+              </CardDescription>
+            </CardHeader>
           <CardContent>
             {displayData.marketData && displayData.marketData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -559,7 +559,7 @@ export default function HomePage() {
                   <Tooltip
                     formatter={(value: number, name: string) => [
                       name === "transactions" ? value : fmtCurrency(value),
-                      name === "transactions" ? "עסקאות" : "נפח שוק",
+                      name === "transactions" ? "עסקאות + רשימות" : "נפח שוק",
                     ]}
                   />
                   <Bar

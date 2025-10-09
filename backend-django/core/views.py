@@ -1687,8 +1687,16 @@ def asset_transactions(request, asset_id):
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
-        # Get transactions for comparable analysis
-        transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
+        # Get transactions for comparable analysis - use neighborhood-based approach
+        # First try to get transactions from the same neighborhood
+        if asset.neighborhood:
+            transactions = RealEstateTransaction.objects.filter(
+                asset__neighborhood=asset.neighborhood,
+                asset__city=asset.city
+            ).distinct()
+        else:
+            # Fallback to asset-specific transactions if no neighborhood
+            transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
         
         # Build transaction data
         transaction_data = {
@@ -2438,3 +2446,114 @@ def asset_listings(request, asset_id):
     except Exception as e:
         logger.error(f"Error fetching listings for asset {asset_id}: {e}")
         return Response({"error": "Failed to fetch listings"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def dashboard_market_data(request):
+    """Get aggregated market data for dashboard charts."""
+    try:
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+        
+        # Get last 6 months of data
+        now = datetime.now()
+        six_months_ago = now - timedelta(days=180)
+        
+        # Aggregate government transaction data by month
+        gov_transactions = RealEstateTransaction.objects.filter(
+            date__gte=six_months_ago,
+            price__isnull=False,
+            price__gt=0
+        ).values('date', 'price', 'area', 'rooms')
+        
+        # Aggregate Yad2 market data by month from asset metadata
+        yad2_data = []
+        assets_with_yad2 = Asset.objects.filter(
+            meta__yad2_listings__isnull=False
+        ).exclude(meta__yad2_listings=[])
+        
+        for asset in assets_with_yad2:
+            yad2_listings = asset.get_property_value('yad2_listings', [])
+            for listing in yad2_listings:
+                if listing.get('price'):
+                    # Use scraped_at if available, otherwise skip
+                    date_field = listing.get('scraped_at') or listing.get('date_posted')
+                    if date_field:
+                        try:
+                            date_scraped = datetime.fromisoformat(date_field.replace('Z', '+00:00'))
+                            if date_scraped >= six_months_ago:
+                                yad2_data.append({
+                                    'date': date_scraped,
+                                    'price': listing['price'],
+                                    'area': listing.get('area'),
+                                    'rooms': listing.get('rooms')
+                                })
+                        except (ValueError, TypeError):
+                            continue
+        
+        # Group data by month
+        gov_by_month = defaultdict(lambda: {'count': 0, 'volume': 0, 'prices': []})
+        yad2_by_month = defaultdict(lambda: {'count': 0, 'volume': 0, 'prices': []})
+        
+        # Process government transactions
+        for tx in gov_transactions:
+            if tx['date']:
+                month_key = tx['date'].strftime('%Y-%m')
+                gov_by_month[month_key]['count'] += 1
+                gov_by_month[month_key]['volume'] += tx['price']
+                gov_by_month[month_key]['prices'].append(tx['price'])
+        
+        # Process Yad2 data
+        for listing in yad2_data:
+            month_key = listing['date'].strftime('%Y-%m')
+            yad2_by_month[month_key]['count'] += 1
+            yad2_by_month[month_key]['volume'] += listing['price']
+            yad2_by_month[month_key]['prices'].append(listing['price'])
+        
+        # Hebrew month names mapping
+        hebrew_months = {
+            1: 'ינואר', 2: 'פברואר', 3: 'מרץ', 4: 'אפריל',
+            5: 'מאי', 6: 'יוני', 7: 'יולי', 8: 'אוגוסט',
+            9: 'ספטמבר', 10: 'אוקטובר', 11: 'נובמבר', 12: 'דצמבר'
+        }
+        
+        # Build response data for last 6 months
+        market_data = []
+        for i in range(6):
+            month_date = now - timedelta(days=30*i)
+            month_key = month_date.strftime('%Y-%m')
+            month_label = hebrew_months[month_date.month]
+            
+            gov_data = gov_by_month[month_key]
+            yad2_data_month = yad2_by_month[month_key]
+            
+            # Calculate average prices
+            gov_avg_price = sum(gov_data['prices']) / len(gov_data['prices']) if gov_data['prices'] else 0
+            yad2_avg_price = sum(yad2_data_month['prices']) / len(yad2_data_month['prices']) if yad2_data_month['prices'] else 0
+            
+            market_data.append({
+                'month': month_label,
+                'avgPrice': int((gov_avg_price + yad2_avg_price) / 2) if gov_avg_price and yad2_avg_price else int(gov_avg_price or yad2_avg_price),
+                'transactions': gov_data['count'],
+                'volume': gov_data['volume'],
+                'yad2_listings': yad2_data_month['count'],
+                'yad2_volume': yad2_data_month['volume']
+            })
+        
+        # Reverse to show oldest first
+        market_data.reverse()
+        
+        return Response({
+            'marketData': market_data,
+            'summary': {
+                'totalTransactions': sum(gov_by_month[m]['count'] for m in gov_by_month),
+                'totalVolume': sum(gov_by_month[m]['volume'] for m in gov_by_month),
+                'totalYad2Listings': sum(yad2_by_month[m]['count'] for m in yad2_by_month),
+                'totalYad2Volume': sum(yad2_by_month[m]['volume'] for m in yad2_by_month)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching dashboard market data: {e}")
+        return Response({"error": "Failed to fetch market data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

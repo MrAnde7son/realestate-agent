@@ -28,6 +28,7 @@ import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
+import { apiClient } from '@/lib/api-client'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
@@ -292,11 +293,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     setRightsLoading(true)
     setRightsError(null)
     try {
-      const response = await fetch(`/api/assets/${id}/rights`)
+      const response = await apiClient.get(`/api/assets/${id}/rights`)
       if (!response.ok) {
-        throw new Error('Failed to load rights')
+        throw new Error(response.error || 'Failed to load rights')
       }
-      const data = await response.json()
+      const data = response.data
       // Combine tabu_data, gis_rights, and detailed_rights into a single array for display
       const allRightsRows = [
         ...(data.tabu_data || []),
@@ -346,13 +347,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/assets/${id}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load asset')
-        return res.json()
-      })
-      .then(data => {
-        const assetData = data.asset || data
+    apiClient.get(`/api/assets/${id}`)
+      .then(response => {
+        if (!response.ok) throw new Error(response.error || 'Failed to load asset')
+        const assetData = response.data?.asset || response.data
         console.log('🔍 Asset data received:', assetData)
         console.log('📄 Documents in asset:', assetData.documents)
         console.log('📄 Documents count:', assetData.documents?.length || 0)
@@ -470,30 +468,26 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     setSyncMessage('מסנכרן נתונים...')
     
     try {
-      const res = await fetch(`/api/assets/${id}/sync`, {
+      const response = await apiClient.request(`/api/assets/${id}/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: asset.address })
       })
       
-      if (res.ok) {
-        const result = await res.json()
-        setSyncMessage(result.message || 'סנכרון נתונים התחיל בהצלחה')
+      if (response.ok) {
+        setSyncMessage(response.data?.message || 'סנכרון נתונים התחיל בהצלחה')
         
         // Refresh the asset data after a short delay to show updated status
         setTimeout(async () => {
-          const assetRes = await fetch(`/api/assets/${id}`)
-          if (assetRes.ok) {
-            const data = await assetRes.json()
-            setAsset(data.asset || data)
+          const assetResponse = await apiClient.get(`/api/assets/${id}`)
+          if (assetResponse.ok) {
+            setAsset(assetResponse.data?.asset || assetResponse.data)
           }
         }, 2000)
         
         // Clear message after 10 seconds
         setTimeout(() => setSyncMessage(''), 10000)
       } else {
-        const errorData = await res.json().catch(() => ({}))
-        setSyncMessage(errorData.error || 'שגיאה בסנכרון הנתונים')
+        setSyncMessage(response.error || 'שגיאה בסנכרון הנתונים')
         setTimeout(() => setSyncMessage(''), 5000)
       }
     } catch (err) {
@@ -1286,35 +1280,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>זכויות בנייה מפורטות</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{formatNumber(asset.remainingRightsSqm) ?? '—'}</div>
-                    <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">
-                      {!!asset.remainingRightsSqm && !!asset.area
-                        ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
-                        : '—'}
-                    </div>
-                    <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">
-                      {!!asset.pricePerSqm && !!asset.remainingRightsSqm
-                        ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
-                        : '—'}
-                    </div>
-                    <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Mavat Plans */}
             {plans.mavat && plans.mavat.length > 0 ? (
@@ -1480,9 +1445,42 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </TabsContent>
 
           <TabsContent value="rights" className="space-y-4">
+            {/* Summary Metrics */}
             <Card>
               <CardHeader>
-                <CardTitle>זכויות בנייה</CardTitle>
+                <CardTitle>סיכום זכויות בנייה</CardTitle>
+                <CardDescription>מבט כללי על זכויות הבנייה של הנכס</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{formatNumber(asset.remainingRightsSqm) ?? '—'}</div>
+                    <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">
+                      {!!asset.remainingRightsSqm && !!asset.area
+                        ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
+                        : '—'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">
+                      {!!asset.pricePerSqm && !!asset.remainingRightsSqm
+                        ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
+                        : '—'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detailed Rights Data */}
+            <Card>
+              <CardHeader>
+                <CardTitle>פרטי זכויות בנייה</CardTitle>
                 <CardDescription>נתונים מטאבו, GIS, רמ״י ומסמכים שהועלו בלשונית המסמכים.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1574,6 +1572,268 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </CardFooter>
             </Card>
 
+            {/* Privilege Page Data */}
+            {rightsRows.some(row => row.source === 'privilege_page') && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>דף זכויות בנייה</CardTitle>
+                  <CardDescription>נתונים מדף הזכויות של עיריית תל אביב</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Building Lines */}
+                    {rightsRows.some(row => row.type === 'building_line') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">קווי בניין</h4>
+                        <div className="space-y-2">
+                          {rightsRows
+                            .filter(row => row.type === 'building_line')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg bg-blue-50">
+                                <div className="text-sm text-muted-foreground">קו בניין</div>
+                                <div className="text-lg font-medium">{row.description}</div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Floor Details */}
+                    {rightsRows.some(row => row.type === 'floor_details') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">פרטי קומות</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => row.type === 'floor_details')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.type}</div>
+                                <div className="text-lg font-medium">
+                                  {row.percentage ? `${row.percentage}%` : row.area_sqm ? `${row.area_sqm} מ״ר` : '—'}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">קומה</div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Specific Rights */}
+                    {rightsRows.some(row => row.type === 'specific_right') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">זכויות ספציפיות</h4>
+                        <div className="space-y-2">
+                          {rightsRows
+                            .filter(row => row.type === 'specific_right')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg bg-green-50">
+                                <div className="text-sm text-muted-foreground">זכות בנייה</div>
+                                <div className="text-lg font-medium">{row.description}</div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* General Notes */}
+                    {rightsRows.some(row => row.source === 'privilege_page' && row.type === 'general') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">הערות כלליות</h4>
+                        <div className="space-y-2">
+                          {rightsRows
+                            .filter(row => row.source === 'privilege_page' && row.type === 'general')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg bg-gray-50">
+                                <div className="text-sm text-muted-foreground">הערה</div>
+                                <div className="text-lg font-medium">{row.text}</div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* GIS Data Sources */}
+            {rightsRows.some(row => row.source?.startsWith('gis')) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>נתוני GIS מפורטים</CardTitle>
+                  <CardDescription>נתונים ממערכת המידע הגיאוגרפית של תל אביב</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Cadastral Information */}
+                    {rightsRows.some(row => row.type === 'cadastral') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">מידע קדסטרלי</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => row.type === 'cadastral')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.field}</div>
+                                <div className="text-lg font-medium">{row.value}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {row.source === 'gis_blocks' ? 'גושים' : 
+                                   row.source === 'gis_parcels' ? 'חלקות' : 'GIS'}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Building Permits */}
+                    {rightsRows.some(row => row.type === 'permits') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">היתרי בנייה</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => row.type === 'permits')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.field}</div>
+                                <div className="text-lg font-medium">{row.value}</div>
+                                <div className="text-xs text-muted-foreground mt-1">היתרים</div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Land Use Information */}
+                    {(rightsRows.some(row => row.type === 'land_use') || 
+                      rightsRows.some(row => row.type === 'land_use_detailed')) && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">שימושי קרקע</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => row.type === 'land_use' || row.type === 'land_use_detailed')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.field}</div>
+                                <div className="text-lg font-medium">{row.value}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {row.type === 'land_use_detailed' ? 'שימוש מפורט' : 'שימוש כללי'}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Environmental Data */}
+                    {(rightsRows.some(row => row.type === 'green_areas') || 
+                      rightsRows.some(row => row.type === 'noise') ||
+                      rightsRows.some(row => row.type === 'shelters')) && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">נתונים סביבתיים</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => ['green_areas', 'noise', 'shelters'].includes(row.type))
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.field}</div>
+                                <div className="text-lg font-medium">{row.value}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {row.type === 'green_areas' ? 'שטחים ירוקים' :
+                                   row.type === 'noise' ? 'רעש' :
+                                   row.type === 'shelters' ? 'מחסות' : 'סביבתי'}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Infrastructure Data */}
+                    {(rightsRows.some(row => row.type === 'antennas') || 
+                      rightsRows.some(row => row.type === 'preservation') ||
+                      rightsRows.some(row => row.type === 'dangerous')) && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">תשתיות ומידע נוסף</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => ['antennas', 'preservation', 'dangerous'].includes(row.type))
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.field}</div>
+                                <div className="text-lg font-medium">{row.value}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {row.type === 'antennas' ? 'אנטנות' :
+                                   row.type === 'preservation' ? 'שימור' :
+                                   row.type === 'dangerous' ? 'מבנים מסוכנים' : 'תשתית'}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Address Data */}
+                    {rightsRows.some(row => row.type === 'address') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">מידע כתובת</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => row.type === 'address')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.field}</div>
+                                <div className="text-lg font-medium">{row.value}</div>
+                                <div className="text-xs text-muted-foreground mt-1">כתובת GIS</div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Summary Data */}
+                    {rightsRows.some(row => row.type === 'summary') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">סיכום GIS</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => row.type === 'summary')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.field}</div>
+                                <div className="text-lg font-medium">{row.value}</div>
+                                <div className="text-xs text-muted-foreground mt-1">סיכום GIS</div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Planning Data */}
+                    {rightsRows.some(row => row.type === 'plans') && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">תכניות</h4>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {rightsRows
+                            .filter(row => row.type === 'plans')
+                            .map((row: any) => (
+                              <div key={row.id} className="p-3 border rounded-lg">
+                                <div className="text-sm text-muted-foreground">{row.field}</div>
+                                <div className="text-lg font-medium">{row.value}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {row.source === 'gis_local_plans' ? 'תכנית מקומית' :
+                                   row.source === 'gis_city_plans' ? 'תכנית עירונית' : 'תכנית'}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Ownership Summary */}
             {rightsRows.length > 0 && (
               <Card>
@@ -1664,44 +1924,42 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardHeader>
                 <CardTitle>מידע סביבתי</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {!!asset.noiseLevel ? `${asset.noiseLevel}/5` : '—'}
-                      <DataBadge source={asset?._meta?.noiseLevel?.source} fetchedAt={asset?._meta?.noiseLevel?.fetched_at} />
-                    </div>
-                    <div className="text-sm text-muted-foreground">רמת רעש</div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {!!asset.greenWithin300m ? (
-                        <>
-                          <Badge variant={asset.greenWithin300m ? 'success' : 'error'}>
-                            {asset.greenWithin300m ? 'כן' : 'לא'}
-                          </Badge>
-                          <DataBadge
-                            source={asset?._meta?.greenWithin300m?.source}
-                            fetchedAt={asset?._meta?.greenWithin300m?.fetched_at}
-                          />
-                        </>
-                      ) : (
-                        '—'
-                      )}
-                    </div>
-                    <div className="text-sm text-muted-foreground">שטחי ציבור ≤300מ׳</div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="text-2xl font-bold flex items-center justify-center gap-1">
-                      {!!asset.antennaDistanceM ? `${asset.antennaDistanceM}מ׳` : '—'}
-                      <DataBadge source={asset?._meta?.antennaDistanceM?.source} fetchedAt={asset?._meta?.antennaDistanceM?.fetched_at} />
-                    </div>
-                    <div className="text-sm text-muted-foreground">מרחק מאנטנה</div>
-                  </div>
+              <CardContent className="space-y-2" dir="rtl">
+                {/* Environmental Measurements */}
+                <div className="flex justify-between text-right">
+                  <span className="text-muted-foreground">רמת רעש:</span>
+                  {renderValue(asset.noiseLevel ? `${asset.noiseLevel}/5` : '—', 'noiseLevel')}
                 </div>
-
+                <div className="flex justify-between text-right">
+                  <span className="text-muted-foreground">מרחק מאנטנה:</span>
+                  {renderValue(asset.antennaDistanceM ? `${asset.antennaDistanceM} מ׳` : '—', 'antennaDistanceM')}
+                </div>
+                <div className="flex justify-between text-right">
+                  <span className="text-muted-foreground">מרחק ממקלט:</span>
+                  {renderValue(asset.shelterDistanceM ? `${asset.shelterDistanceM} מ׳` : '—', 'shelterDistanceM')}
+                </div>
+                
+                {/* Environmental Features */}
+                <div className="flex justify-between text-right">
+                  <span className="text-muted-foreground">שטחים ירוקים:</span>
+                  {renderValue(asset.greenWithin300m ? 'כן' : 'לא', 'greenWithin300m')}
+                </div>
+                <div className="flex justify-between text-right">
+                  <span className="text-muted-foreground">תחבורה ציבורית:</span>
+                  {renderValue(asset.publicTransport ?? '—', 'publicTransport')}
+                </div>
+                <div className="flex justify-between text-right">
+                  <span className="text-muted-foreground">מבני ציבור:</span>
+                  {renderValue(asset.publicBuildings ?? '—', 'publicBuildings')}
+                </div>
+                <div className="flex justify-between text-right">
+                  <span className="text-muted-foreground">מצב חניה:</span>
+                  {renderValue(asset.parking ?? '—', 'parking')}
+                </div>
+                <div className="flex justify-between text-right">
+                  <span className="text-muted-foreground">פרויקטים סמוכים:</span>
+                  {renderValue(asset.nearbyProjects ?? '—', 'nearbyProjects')}
+                </div>
               </CardContent>
             </Card>
 
@@ -1718,33 +1976,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </Card>
             )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>סביבת הנכס</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between rtl:flex-row-reverse">
-                  <span className="text-muted-foreground">תחבורה ציבורית:</span>
-                  {renderValue(asset.publicTransport ?? '—', 'publicTransport')}
-                </div>
-                <div className="flex justify-between rtl:flex-row-reverse">
-                  <span className="text-muted-foreground">שטחים פתוחים בקרבת מקום:</span>
-                  {renderValue(asset.openSpacesNearby ?? '—', 'openSpacesNearby')}
-                </div>
-                <div className="flex justify-between rtl:flex-row-reverse">
-                  <span className="text-muted-foreground">מבני ציבור:</span>
-                  {renderValue(asset.publicBuildings ?? '—', 'publicBuildings')}
-                </div>
-                <div className="flex justify-between rtl:flex-row-reverse">
-                  <span className="text-muted-foreground">מצב חניה:</span>
-                  {renderValue(asset.parking ?? '—', 'parking')}
-                </div>
-                <div className="flex justify-between rtl:flex-row-reverse">
-                  <span className="text-muted-foreground">פרויקטים סמוכים:</span>
-                  {renderValue(asset.nearbyProjects ?? '—', 'nearbyProjects')}
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="permits" className="space-y-4">
@@ -1763,42 +1994,52 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </Card>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
-                <CardHeader>פרטי היתר</CardHeader>
+                <CardHeader>נתוני גוש חלקה</CardHeader>
                 <CardBody className="space-y-2" dir="rtl">
+                  {/* Parcel Information */}
                   <div className="flex justify-between text-right">
-                    <span className="text-muted-foreground">תאריך היתר:</span>
-                    {renderValue(asset.permitDate, 'permitDate')}
+                    <span className="text-muted-foreground">שטח חלקה:</span>
+                    {renderValue(asset.parcelArea ? `${asset.parcelArea.toLocaleString()} מ״ר` : '—', 'parcelArea')}
                   </div>
                   <div className="flex justify-between text-right">
-                    <span className="text-muted-foreground">סטטוס:</span>
-                    {renderValue(asset.permitStatus, 'permitStatus')}
+                    <span className="text-muted-foreground">סטטוס חלקה:</span>
+                    {renderValue(asset.parcelStatus, 'parcelStatus')}
+                  </div>
+                  
+                  {/* Block Information */}
+                  <div className="flex justify-between text-right">
+                    <span className="text-muted-foreground">שטח גוש:</span>
+                    {renderValue(asset.blockArea ? `${asset.blockArea.toLocaleString()} מ״ר` : '—', 'blockArea')}
                   </div>
                   <div className="flex justify-between text-right">
-                    <span className="text-muted-foreground">פירוט:</span>
-                    {renderValue(asset.permitDetails, 'permitDetails')}
+                    <span className="text-muted-foreground">מספר חלקות בגוש:</span>
+                    {renderValue(asset.blockTotalParcels, 'blockTotalParcels')}
+                  </div>
+                  
+                  {/* Permit Information */}
+                  <div className="flex justify-between text-right">
+                    <span className="text-muted-foreground">מספר היתרים:</span>
+                    {renderValue(asset.totalPermits, 'totalPermits')}
                   </div>
                   <div className="flex justify-between text-right">
-                    <span className="text-muted-foreground">שטח עיקרי:</span>
-                    {renderValue(asset.permitMainArea ? `${asset.permitMainArea} מ״ר` : '—', 'permitMainArea')}
+                    <span className="text-muted-foreground">מספר בקשה:</span>
+                    {renderValue(asset.permitRequestNum, 'permitRequestNum')}
                   </div>
                   <div className="flex justify-between text-right">
-                    <span className="text-muted-foreground">שטחי שירות:</span>
-                    {renderValue(asset.permitServiceArea ? `${asset.permitServiceArea} מ״ר` : '—', 'permitServiceArea')}
+                    <span className="text-muted-foreground">יחידות דיור:</span>
+                    {renderValue(asset.permitHousingUnits, 'permitHousingUnits')}
                   </div>
                   <div className="flex justify-between text-right">
-                    <span className="text-muted-foreground">מבקש:</span>
-                    {renderValue(asset.permitApplicant, 'permitApplicant')}
+                    <span className="text-muted-foreground">שטח מגורים:</span>
+                    {renderValue(asset.permitResidentialArea ? `${asset.permitResidentialArea.toLocaleString()} מ״ר` : '—', 'permitResidentialArea')}
                   </div>
                   <div className="flex justify-between text-right">
-                    <span className="text-muted-foreground">מסמך:</span>
-                    {renderValue(
-                      asset.permitDocUrl ? (
-                        <a href={asset.permitDocUrl} target="_blank" className="text-blue-500 underline">צפה</a>
-                      ) : (
-                        '—'
-                      ),
-                      'permitDocUrl'
-                    )}
+                    <span className="text-muted-foreground">שטח חניה:</span>
+                    {renderValue(asset.permitParkingArea ? `${asset.permitParkingArea.toLocaleString()} מ״ר` : '—', 'permitParkingArea')}
+                  </div>
+                  <div className="flex justify-between text-right">
+                    <span className="text-muted-foreground">יחידות חניה:</span>
+                    {renderValue(asset.permitParkingUnits, 'permitParkingUnits')}
                   </div>
                 </CardBody>
               </Card>
@@ -2603,3 +2844,4 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     </DashboardLayout>
   )
 }
+

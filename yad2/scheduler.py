@@ -65,6 +65,8 @@ def _store_assets(
                     street=item.address.split()[0] if item.address else None,
                     number=item.address.split()[-1] if item.address else None,
                     status='done',
+                    # Set building_type directly from property_type
+                    building_type=item.property_type,
                     meta={
                         'yad2_data': {
                             'listing_id': item.listing_id,

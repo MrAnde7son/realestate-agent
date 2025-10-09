@@ -252,7 +252,7 @@ class DataPipeline:
     # be overridden via environment variables if needed.
     TIMEOUTS = {
         "yad2": float(os.getenv("YAD2_TIMEOUT", "30")),
-        "gis": float(os.getenv("GIS_TIMEOUT", "30")),
+        "gis": float(os.getenv("GIS_TIMEOUT", "60")),
         "gov": float(os.getenv("GOV_TIMEOUT", "60")),
         "govmap": float(os.getenv("GOVMAP_TIMEOUT", "60")),
         "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
@@ -964,10 +964,11 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
 
     # GIS processing ------------------------------------------------------------------
     with asset_update_phase("process_gis", asset_id):
+        logger.info(f"Asset {asset_id}: GIS processing - gis_data exists: {bool(gis_data)}, keys: {list(gis_data.keys()) if gis_data else 'None'}")
         if gis_data:
             asset.meta['gis_data'] = {
-                'building_permits': gis_data.get('permits', []),
-                'land_use_rights': gis_data.get('rights', []),
+                'permits': gis_data.get('permits', []),
+                'rights': gis_data.get('rights', []),
                 'shelters': gis_data.get('shelters', []),
                 'green_areas': gis_data.get('green', []),
                 'noise_levels': gis_data.get('noise', []),
@@ -979,18 +980,36 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             # Privilege page attempt + parse
             try:
                 from gis.gis_client import TelAvivGS  # type: ignore
-                from gis.parse_zchuyot import parse_zchuyot  # type: ignore
-                x = gis_data.get('x'); y = gis_data.get('y')
+                x = gis_data.get('x')
+                y = gis_data.get('y')
                 if x and y:
                     gis_client = TelAvivGS()
                     privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
-                    if privilege_data and isinstance(privilege_data, dict) and privilege_data.get('content_type') == 'pdf':
-                        pdf_path = privilege_data.get('file_path')
-                        if pdf_path:
-                            asset.meta['privilege_page_data'] = parse_zchuyot(pdf_path)
+                    if privilege_data and isinstance(privilege_data, dict):
+                        # Initialize privilege_page_data as a list if it doesn't exist
+                        if 'privilege_page_data' not in asset.meta:
+                            asset.meta['privilege_page_data'] = []
+                        
+                        # Use already parsed data from get_building_privilege_page
+                        if privilege_data.get('content_type') == 'pdf' and privilege_data.get('pdf_data'):
+                            # For direct PDF content, add all parsed data to the list
+                            pdf_data = privilege_data['pdf_data']
+                            for pdf_item in pdf_data:
+                                if pdf_item.get('data'):
+                                    asset.meta['privilege_page_data'].append(pdf_item['data'])
+                        elif privilege_data.get('content_type') == 'html' and privilege_data.get('pdf_data'):
+                            # For HTML content with linked PDFs, add all parsed PDFs to the list
+                            pdf_data = privilege_data['pdf_data']
+                            for pdf_item in pdf_data:
+                                if pdf_item.get('data'):
+                                    asset.meta['privilege_page_data'].append(pdf_item['data'])
             except Exception:
                 logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
-            _process_gis_data(asset, gis_data)
+        else:
+            logger.info(f"Asset {asset_id}: No GIS data available for processing")
+        
+        # Always process GIS data (even if empty) to store gis_collector_data
+        _process_gis_data(asset, gis_data)
 
     # GovMap autocomplete --------------------------------------------------------------
     with asset_update_phase("process_govmap_autocomplete", asset_id):
@@ -1196,6 +1215,12 @@ def _create_asset_snapshot(asset_id: int, results: List[Any]) -> None:
 
 def _process_gis_data(asset, gis_data):
     """Process GIS data and store using unified metadata structure."""
+    logger.info(f"Asset {asset.id}: _process_gis_data called with gis_data keys: {list(gis_data.keys()) if gis_data else 'None/empty'}")
+    
+    # Store the complete GIS collector data in metadata
+    asset.meta['gis_collector_data'] = gis_data
+    logger.info(f"Asset {asset.id}: Stored gis_collector_data in metadata")
+    
     # Extract total area from parcels data
     total_area_from_gis = None
     if gis_data.get('parcels'):
@@ -1206,6 +1231,61 @@ def _process_gis_data(asset, gis_data):
             total_area_from_gis = first_parcel.get('ms_shetach')
             if total_area_from_gis:
                 asset.set_property('totalArea', total_area_from_gis, source='GIS', url='https://www.govmap.gov.il/')
+                
+            # Extract additional parcel information
+            parcel_data = first_parcel
+            asset.set_property('parcelArea', parcel_data.get('ms_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('parcelRegisteredArea', parcel_data.get('ms_shetach_rashum'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('parcelStatus', parcel_data.get('t_status_hesder'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('parcelAccuracy', parcel_data.get('k_dargat_diyuk'), source='GIS', url='https://www.govmap.gov.il/')
+            
+            # Map to direct model fields
+            asset.parcel_area = parcel_data.get('ms_shetach')
+            asset.parcel_registered_area = parcel_data.get('ms_shetach_rashum')
+            asset.parcel_status = parcel_data.get('t_status_hesder')
+            asset.parcel_accuracy = parcel_data.get('k_dargat_diyuk')
+    
+    # Process blocks data
+    if gis_data.get('blocks'):
+        blocks = gis_data.get('blocks', [])
+        if blocks:
+            block_data = blocks[0]
+            asset.set_property('blockArea', block_data.get('ms_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('blockRegisteredArea', block_data.get('ms_shetach_rashum'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('blockTotalParcels', block_data.get('ms_mispar_chelkot'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('blockStatus', block_data.get('t_status_hesder'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('blockLastUpdate', block_data.get('tr_idkun_acharon'), source='GIS', url='https://www.govmap.gov.il/')
+            
+            # Map to direct model fields
+            asset.block_area = block_data.get('ms_shetach')
+            asset.block_registered_area = block_data.get('ms_shetach_rashum')
+            asset.block_total_parcels = block_data.get('ms_mispar_chelkot')
+            asset.block_status = block_data.get('t_status_hesder')
+            asset.block_last_update = block_data.get('tr_idkun_acharon')
+    
+    # Process addresses data (using existing fields)
+    if gis_data.get('addresses'):
+        addresses = gis_data.get('addresses', [])
+        if addresses:
+            address_data = addresses[0]
+            asset.set_property('street', address_data.get('street'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('number', address_data.get('house_number'), source='GIS', url='https://www.govmap.gov.il/')
+            # Convert ITM coordinates to WGS84 for lat/lon
+            if address_data.get('x') and address_data.get('y'):
+                try:
+                    from govmap.api_client import itm_to_wgs84
+                    lon_wgs84, lat_wgs84 = itm_to_wgs84(address_data.get('x'), address_data.get('y'))
+                    asset.set_property('lat', lat_wgs84, source='GIS', url='https://www.govmap.gov.il/')
+                    asset.set_property('lon', lon_wgs84, source='GIS', url='https://www.govmap.gov.il/')
+                except Exception as e:
+                    logger.debug(f"Failed to convert ITM coordinates: {e}")
+    
+    # Store summary coordinates if available
+    if gis_data.get('x') and gis_data.get('y'):
+        asset.set_property('gisCoordinates', {'x': gis_data.get('x'), 'y': gis_data.get('y')}, source='GIS', url='https://www.govmap.gov.il/')
+    
+    if gis_data.get('city'):
+        asset.set_property('city', gis_data.get('city'), source='GIS', url='https://www.govmap.gov.il/')
     
     # Noise levels
     if gis_data.get('noise'):
@@ -1218,7 +1298,7 @@ def _process_gis_data(asset, gis_data):
     if gis_data.get('rights'):
         rights = gis_data.get('rights', [])
         if rights:
-            main_rights = rights[0] if rights else {}
+            main_rights = rights[0]
             # Map the correct field names from GIS rights data
             land_use_designation = main_rights.get('t_yeud_karka', '')  # ייעוד קרקע
             main_designation = main_rights.get('t_yeud_rashi', '')      # ייעוד ראשי
@@ -1233,18 +1313,37 @@ def _process_gis_data(asset, gis_data):
             source = 'GIS (calculated)'
             
             # Check if we have privilege page data
-            privilege_data = asset.get_property_value('privilege_page_data')
-            if privilege_data:
-                try:
-                    from gis.rights_calculator import get_remaining_rights_sqm
-                    remaining_rights_sqm = get_remaining_rights_sqm(
-                        privilege_data, 
-                        area_for_calculation
-                    )
-                    if remaining_rights_sqm:
-                        source = 'GIS (privilege page)'
-                except Exception as e:
-                    logger.warning(f"Failed to calculate rights from privilege page: {e}")
+            privilege_data_list = asset.get_property_value('privilege_page_data')
+            if privilege_data_list:
+                # Handle both old single dict format and new list format
+                if isinstance(privilege_data_list, list):
+                    # New list format - try each privilege page data
+                    for privilege_data in privilege_data_list:
+                        if privilege_data:
+                            try:
+                                from gis.rights_calculator import get_remaining_rights_sqm
+                                remaining_rights_sqm = get_remaining_rights_sqm(
+                                    privilege_data, 
+                                    area_for_calculation
+                                )
+                                if remaining_rights_sqm:
+                                    source = 'GIS (privilege page)'
+                                    break  # Use the first successful calculation
+                            except Exception as e:
+                                logger.warning(f"Failed to calculate rights from privilege page: {e}")
+                                continue
+                elif isinstance(privilege_data_list, dict):
+                    # Old single dict format - maintain backward compatibility
+                    try:
+                        from gis.rights_calculator import get_remaining_rights_sqm
+                        remaining_rights_sqm = get_remaining_rights_sqm(
+                            privilege_data_list, 
+                            area_for_calculation
+                        )
+                        if remaining_rights_sqm:
+                            source = 'GIS (privilege page)'
+                    except Exception as e:
+                        logger.warning(f"Failed to calculate rights from privilege page: {e}")
             
             asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
             asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
@@ -1252,19 +1351,78 @@ def _process_gis_data(asset, gis_data):
             service_rights_sqm = int(remaining_rights_sqm * 0.1) if remaining_rights_sqm is not None else None
             asset.set_property('serviceRightsSqm', service_rights_sqm, source='GIS (calculated)', url='https://www.govmap.gov.il/')
 
-    # Building permits
+    # Building permits - Enhanced processing for GIS collector data
     if gis_data.get('permits'):
         permits = gis_data.get('permits', [])
         if permits:
+            # Store all permits data
+            asset.set_property('totalPermits', len(permits), source='GIS', url='https://www.govmap.gov.il/')
+            asset.total_permits = len(permits)
+            
+            # Process the most recent permit
             recent_permit = permits[0] if permits else {}
-            asset.set_property('permitStatus', recent_permit.get('building_stage', ''), source='GIS', url='https://www.govmap.gov.il/')
+            
+            # Extract comprehensive permit information
+            asset.set_property('permitRequestNum', recent_permit.get('request_num'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitPermissionNum', recent_permit.get('permission_num'), source='GIS', url='https://www.govmap.gov.il/')
+            
+            # Map to direct model fields
+            asset.permit_request_num = recent_permit.get('request_num')
+            asset.permit_permission_num = recent_permit.get('permission_num')
+            asset.set_property('permitBuildingNum', recent_permit.get('building_num'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitHousingUnits', recent_permit.get('yechidot_diyur'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitCommercialArea', recent_permit.get('mischar_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitResidentialArea', recent_permit.get('megurim_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitResidentialUnits', recent_permit.get('megurim_yechidot'), source='GIS', url='https://www.govmap.gov.il/')
+            
+            # Map to direct model fields
+            asset.permit_building_num = recent_permit.get('building_num')
+            asset.permit_housing_units = recent_permit.get('yechidot_diyur')
+            asset.permit_commercial_area = recent_permit.get('mischar_shetach')
+            asset.permit_residential_area = recent_permit.get('megurim_shetach')
+            asset.permit_residential_units = recent_permit.get('megurim_yechidot')
+            asset.set_property('permitPublicArea', recent_permit.get('mivney_tzibur_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitParkingArea', recent_permit.get('melonaut_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitParkingUnits', recent_permit.get('melonaut_yechidot'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitSmallApartments', recent_permit.get('dirot_ktanot'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitUnifiedHousingArea', recent_permit.get('diyur_meuchad_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitUnifiedHousingUnits', recent_permit.get('diyur_meuchad_yechidot'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitAccessibleApartments', recent_permit.get('dirot_haskara'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitPublicBuiltArea', recent_permit.get('tziburi_banuy_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitTotalArea', recent_permit.get('sach_shetach'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitMavatPlanNum', recent_permit.get('mispar_tochnit_mavat'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitParkingRoomsCalculated', recent_permit.get('melonaut_rooms_mechushav'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitFullUtilization', recent_permit.get('sw_mimush_male'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitSubjectType', recent_permit.get('sug_nose'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitProcess', recent_permit.get('maslul'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitRightsNotification', recent_permit.get('sw_niyud_zchuyot'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitRepartition', recent_permit.get('sw_repartzelatzya'), source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('permitUrbanRenewal', recent_permit.get('sw_hitchadshut_ironit'), source='GIS', url='https://www.govmap.gov.il/')
+            
+            # Handle dates
             if recent_permit.get('permission_date'):
                 try:
-                    permit_date = datetime.fromtimestamp(recent_permit['permission_date'] or 0 / 1000)
-                    asset.set_property('permitDate', permit_date.date(), source='GIS', url='https://www.govmap.gov.il/')
+                    permit_date = datetime.fromtimestamp(recent_permit['permission_date'] / 1000)
+                    asset.set_property('permitDate', permit_date.date().isoformat(), source='GIS', url='https://www.govmap.gov.il/')
                 except Exception as e:
                     logger.debug(f"Failed to parse permit date: {e}")
-                    pass
+            
+            if recent_permit.get('open_request'):
+                try:
+                    open_request_date = datetime.fromtimestamp(recent_permit['open_request'] / 1000)
+                    asset.set_property('permitOpenRequestDate', open_request_date.date().isoformat(), source='GIS', url='https://www.govmap.gov.il/')
+                except Exception as e:
+                    logger.debug(f"Failed to parse open request date: {e}")
+            
+            if recent_permit.get('tr_hathalat_bniya'):
+                try:
+                    construction_start_date = datetime.fromtimestamp(recent_permit['tr_hathalat_bniya'] / 1000)
+                    asset.set_property('permitConstructionStartDate', construction_start_date.date().isoformat(), source='GIS', url='https://www.govmap.gov.il/')
+                except Exception as e:
+                    logger.debug(f"Failed to parse construction start date: {e}")
+            
+            # Store permit status
+            asset.set_property('permitStatus', recent_permit.get('building_stage', ''), source='GIS', url='https://www.govmap.gov.il/')
             
             # Create documents from permits
             _create_documents_from_permits(asset, permits)
@@ -1404,7 +1562,7 @@ def _process_rami_plans(asset, plans):
         
         # Get permits data for public obligations calculation
         gis_data = asset.meta.get('gis_data', {})
-        permits = gis_data.get('building_permits', [])
+        permits = gis_data.get('permits', [])
         public_obligations_text = _calculate_public_obligations(plans, permits)
         asset.set_property('publicObligations', public_obligations_text, source='RAMI (calculated)', url='https://rami.gov.il/')
 
@@ -2359,11 +2517,22 @@ def _calculate_parking_availability(gis_data: Dict[str, Any], asset) -> str:
                     break
     
     # Check privilege page data for parking rights
-    privilege_data = asset.get_property_value('privilege_page_data')
-    if privilege_data:
-        parking_percentages = privilege_data.get('parking_percentages', [])
-        if parking_percentages:
-            parking_indicators.append('זכויות חניה בתוכנית')
+    privilege_data_list = asset.get_property_value('privilege_page_data')
+    if privilege_data_list:
+        # Handle both old single dict format and new list format
+        if isinstance(privilege_data_list, list):
+            # New list format - check all privilege page data
+            for privilege_data in privilege_data_list:
+                if privilege_data and isinstance(privilege_data, dict):
+                    parking_percentages = privilege_data.get('parking_percentages', [])
+                    if parking_percentages:
+                        parking_indicators.append('זכויות חניה בתוכנית')
+                        break  # Found parking rights, no need to check others
+        elif isinstance(privilege_data_list, dict):
+            # Old single dict format - maintain backward compatibility
+            parking_percentages = privilege_data_list.get('parking_percentages', [])
+            if parking_percentages:
+                parking_indicators.append('זכויות חניה בתוכנית')
     
     if parking_indicators:
         return f"חניה זמינה: {', '.join(parking_indicators)}"

@@ -1375,9 +1375,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div className="text-muted-foreground mb-2">
                       לא נמצאו תוכניות ממינהל התיכנון עבור נכס זה
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      ייתכן שהנכס לא נמצא במערכת mavat או שטרם נאסף מידע תכנוני
-                    </div>
                   </div>
                 </CardContent>
               </Card>

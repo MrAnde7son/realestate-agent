@@ -9,8 +9,13 @@ export async function GET(
   const backendUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/transactions/`
 
   try {
-    // Fetch from backend
-    const backendResponse = await fetch(backendUrl);
+    // Fetch from backend with cache-busting to ensure fresh data
+    const backendResponse = await fetch(backendUrl, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
 
     if (backendResponse.ok) {
       const data = await backendResponse.json()

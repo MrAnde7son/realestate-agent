@@ -1687,8 +1687,16 @@ def asset_transactions(request, asset_id):
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
-        # Get transactions for comparable analysis
-        transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
+        # Get transactions for comparable analysis - use neighborhood-based approach
+        # First try to get transactions from the same neighborhood
+        if asset.neighborhood:
+            transactions = RealEstateTransaction.objects.filter(
+                asset__neighborhood=asset.neighborhood,
+                asset__city=asset.city
+            ).distinct()
+        else:
+            # Fallback to asset-specific transactions if no neighborhood
+            transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
         
         # Build transaction data
         transaction_data = {

@@ -78,6 +78,11 @@ class AssetSerializer(MetaSerializerMixin):
     legalRestrictions = serializers.CharField(source='legal_restrictions', read_only=True)
     urbanRenewalPotential = serializers.CharField(source='urban_renewal_potential', read_only=True)
     bettermentLevy = serializers.CharField(source='betterment_levy', read_only=True)
+    
+    # Enhanced Planning Metrics
+    buildingCoveragePct = serializers.FloatField(source='building_coverage_pct', read_only=True)
+    heightAnalysis = serializers.JSONField(source='height_analysis', read_only=True)
+    setbackAnalysis = serializers.JSONField(source='setback_analysis', read_only=True)
 
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
@@ -165,6 +170,7 @@ class AssetSerializer(MetaSerializerMixin):
             'avg_price_per_sqm','min_price_per_sqm','max_price_per_sqm',
             'priceGapPct','modelPrice','confidencePct','capRatePct','avgPricePerSqm','minPricePerSqm','maxPricePerSqm',
             'rightsUsagePct','legalRestrictions','urbanRenewalPotential','bettermentLevy',
+            'buildingCoveragePct','heightAnalysis','setbackAnalysis',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'last_enriched_at', 'created_at', 'meta', 'documents',
             # GIS Collector Data Fields

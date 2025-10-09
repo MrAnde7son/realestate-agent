@@ -21,6 +21,10 @@ class PlanningLegalAnalysis:
     legal_restrictions: Optional[str] = None
     urban_renewal_potential: Optional[str] = None
     betterment_levy: Optional[str] = None
+    # Enhanced planning metrics
+    building_coverage_pct: Optional[float] = None
+    height_analysis: Optional[Dict[str, Any]] = None
+    setback_analysis: Optional[Dict[str, Any]] = None
 
 
 def calculate_planning_legal_analysis(asset, gis_data: Dict[str, Any], tabu_data: Dict[str, Any] = None) -> PlanningLegalAnalysis:
@@ -48,6 +52,11 @@ def calculate_planning_legal_analysis(asset, gis_data: Dict[str, Any], tabu_data
     
     # Calculate betterment levy
     analysis.betterment_levy = _calculate_betterment_levy(asset, gis_data)
+    
+    # Calculate enhanced planning metrics
+    analysis.building_coverage_pct = _calculate_building_coverage(asset, gis_data)
+    analysis.height_analysis = _calculate_height_analysis(asset, gis_data)
+    analysis.setback_analysis = _calculate_setback_analysis(asset, gis_data)
     
     return analysis
 
@@ -238,10 +247,6 @@ def _calculate_urban_renewal_potential(asset, gis_data: Dict[str, Any]) -> Optio
         if urban_renewal_plans:
             return f'תוכניות חידוש עירוני באזור ({len(urban_renewal_plans)} תוכניות)'
         
-        # Default assessment based on location
-        if asset.city and any(city in asset.city for city in ['תל אביב', 'רמת גן', 'פתח תקווה']):
-            return 'פוטנציאל חידוש עירוני (מיקום מרכזי)'
-        
     except (ValueError, TypeError):
         pass
         
@@ -320,3 +325,180 @@ def apply_planning_legal_analysis_to_asset(asset, analysis: PlanningLegalAnalysi
         
     if analysis.betterment_levy:
         asset.betterment_levy = analysis.betterment_levy
+        
+    if analysis.building_coverage_pct is not None:
+        asset.building_coverage_pct = analysis.building_coverage_pct
+        
+    if analysis.height_analysis:
+        asset.height_analysis = analysis.height_analysis
+        
+    if analysis.setback_analysis:
+        asset.setback_analysis = analysis.setback_analysis
+
+
+def _calculate_building_coverage(asset, gis_data: Dict[str, Any]) -> Optional[float]:
+    """
+    Calculate building coverage percentage based on permit data and parcel area.
+    
+    Coverage = (Total Building Area / Parcel Area) * 100
+    """
+    try:
+        # Get parcel area
+        parcel_area = asset.parcel_area
+        if not parcel_area:
+            return None
+            
+        # Calculate total building area from permits
+        total_building_area = 0
+        permits = gis_data.get('permits', [])
+        
+        for permit in permits:
+            if isinstance(permit, dict):
+                # Sum all building areas from permits
+                residential_area = float(permit.get('permit_residential_area', 0) or 0)
+                commercial_area = float(permit.get('permit_commercial_area', 0) or 0)
+                public_area = float(permit.get('permit_public_area', 0) or 0)
+                parking_area = float(permit.get('permit_parking_area', 0) or 0)
+                
+                total_building_area += residential_area + commercial_area + public_area + parking_area
+        
+        # If no permits, try to estimate from existing building
+        if total_building_area == 0 and asset.total_area:
+            total_building_area = asset.total_area
+            
+        # Calculate coverage percentage
+        if parcel_area > 0 and total_building_area > 0:
+            coverage_pct = (total_building_area / parcel_area) * 100
+            return round(min(coverage_pct, 100), 1)  # Cap at 100%
+            
+    except (ValueError, TypeError, ZeroDivisionError):
+        pass
+        
+    return None
+
+
+def _calculate_height_analysis(asset, gis_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Calculate height analysis including current vs allowed height/floors.
+    """
+    try:
+        height_analysis = {
+            'current_floors': None,
+            'current_height_m': None,
+            'allowed_floors': None,
+            'allowed_height_m': None,
+            'height_compliance': 'unknown',
+            'confidence': 'low'
+        }
+        
+        # Get current building data
+        current_floors = asset.total_floors
+        if current_floors:
+            height_analysis['current_floors'] = current_floors
+            # Estimate height: assume 3 meters per floor
+            height_analysis['current_height_m'] = current_floors * 3
+        
+        # Get height data from permits
+        permits = gis_data.get('permits', [])
+        permit_floors = []
+        
+        for permit in permits:
+            if isinstance(permit, dict):
+                housing_units = permit.get('permit_housing_units')
+                if housing_units:
+                    # Estimate floors from housing units (rough approximation)
+                    estimated_floors = max(1, housing_units // 2)  # Assume 2 units per floor
+                    permit_floors.append(estimated_floors)
+        
+        if permit_floors:
+            max_permit_floors = max(permit_floors)
+            if not current_floors or max_permit_floors > current_floors:
+                height_analysis['current_floors'] = max_permit_floors
+                height_analysis['current_height_m'] = max_permit_floors * 3
+        
+        # Get allowed height from rights data
+        rights = gis_data.get('rights', [])
+        if rights and isinstance(rights, list) and len(rights) > 0:
+            right = rights[0]
+            if isinstance(right, dict):
+                # Look for height restrictions in rights data
+                # This would need to be parsed from Hebrew text in real implementation
+                pass
+        
+        # Get allowed height from privilege page data
+        privilege_data_list = gis_data.get('privilege_page_data', [])
+        if privilege_data_list:
+            privilege_data = privilege_data_list[0] if isinstance(privilege_data_list, list) else privilege_data_list
+            if isinstance(privilege_data, dict):
+                rights = privilege_data.get('rights', {})
+                number_of_floors = rights.get('number_of_floors')
+                if number_of_floors:
+                    height_analysis['allowed_floors'] = number_of_floors
+                    height_analysis['allowed_height_m'] = number_of_floors * 3
+        
+        # Determine compliance
+        if height_analysis['current_floors'] and height_analysis['allowed_floors']:
+            if height_analysis['current_floors'] <= height_analysis['allowed_floors']:
+                height_analysis['height_compliance'] = 'compliant'
+            else:
+                height_analysis['height_compliance'] = 'non_compliant'
+            height_analysis['confidence'] = 'high'
+        elif height_analysis['current_floors'] or height_analysis['allowed_floors']:
+            height_analysis['confidence'] = 'medium'
+        
+        return height_analysis
+        
+    except (ValueError, TypeError):
+        pass
+        
+    return None
+
+
+def _calculate_setback_analysis(asset, gis_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Calculate setback analysis based on building footprint and parcel boundaries.
+    This is a simplified implementation - in production you'd use proper GIS calculations.
+    """
+    try:
+        setback_analysis = {
+            'violations': [],
+            'front_setback': None,
+            'side_setback': None,
+            'rear_setback': None,
+            'confidence': 'low'
+        }
+        
+        # Get parcel and building data
+        parcel_area = asset.parcel_area
+        building_area = asset.total_area or asset.area
+        
+        if parcel_area and building_area:
+            # Simple setback estimation based on area ratios
+            # This is a very rough approximation
+            coverage_ratio = building_area / parcel_area
+            
+            if coverage_ratio > 0.8:
+                setback_analysis['violations'].append('ניצול גבוה - חסרים שטחי נסיגה')
+                setback_analysis['confidence'] = 'medium'
+            elif coverage_ratio > 0.6:
+                setback_analysis['violations'].append('ניצול בינוני - בדיקת נסיגות נדרשת')
+                setback_analysis['confidence'] = 'low'
+            else:
+                setback_analysis['confidence'] = 'low'
+        
+        # Check for specific setback requirements in permits
+        permits = gis_data.get('permits', [])
+        for permit in permits:
+            if isinstance(permit, dict):
+                # Look for setback-related information in permit data
+                permit_type = permit.get('permit_subject_type', '')
+                if 'נסיגה' in permit_type or 'setback' in permit_type.lower():
+                    setback_analysis['violations'].append('הגבלות נסיגה בהיתר')
+                    setback_analysis['confidence'] = 'high'
+        
+        return setback_analysis
+        
+    except (ValueError, TypeError):
+        pass
+        
+    return None

@@ -172,54 +172,31 @@ export function useDashboardData() {
           totalReports = reports.length
         }
 
-        // Fetch comparables for all assets to build market data (only for authenticated users)
-        let comparables: any[] = []
-        if (isAuthenticated && assetsRes.status === 'fulfilled' && assetsRes.value.ok) {
-          const assets = assetsRes.value.data?.rows || []
-          const compResponses = await Promise.allSettled(
-            assets.map((a: any) => api.get(`/api/assets/${a.id}/appraisal`))
-          )
-          compResponses.forEach(res => {
-            if (res.status === 'fulfilled' && res.value.ok) {
-              comparables.push(...(res.value.data?.comps || []))
-            }
-          })
-        }
-
-        const compByMonth: Record<string, { count: number; volume: number }> = {}
-        comparables.forEach(comp => {
-          if (comp.date && comp.price) {
-            const d = new Date(comp.date)
-            const key = `${d.getFullYear()}-${d.getMonth()}`
-            if (!compByMonth[key]) {
-              compByMonth[key] = { count: 0, volume: 0 }
-            }
-            compByMonth[key].count++
-            compByMonth[key].volume += comp.price
+        // Fetch market data from the new dashboard API endpoint
+        let marketData: Array<{
+          month: string
+          avgPrice: number
+          transactions: number
+          volume: number
+        }> = []
+        
+        try {
+          const marketDataRes = await api.get('/api/dashboard/market-data/')
+          if (marketDataRes.ok && marketDataRes.data?.marketData) {
+            marketData = marketDataRes.data.marketData.map((item: any) => ({
+              month: item.month,
+              avgPrice: item.avgPrice || 0,
+              // Combine government transactions and Yad2 listings for total market activity
+              transactions: (item.transactions || 0) + (item.yad2_listings || 0),
+              // Use government volume as primary, fallback to Yad2 volume
+              volume: item.volume || item.yad2_volume || 0
+            }))
           }
-        })
-
-        // Build last six months keys and labels
-        const monthEntries: Array<{ key: string; label: string }> = []
-        const now = new Date()
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-          monthEntries.push({
-            key: `${d.getFullYear()}-${d.getMonth()}`,
-            label: d.toLocaleString('he-IL', { month: 'long' })
-          })
+        } catch (error) {
+          console.warn('Failed to fetch market data:', error)
+          // Fallback to empty data
+          marketData = []
         }
-
-        const marketData = monthEntries.map(({ key, label }) => {
-          const priceInfo = assetPriceByMonth[key]
-          const compInfo = compByMonth[key]
-          return {
-            month: label,
-            avgPrice: priceInfo ? Math.round(priceInfo.sum / priceInfo.count) : 0,
-            transactions: compInfo?.count || 0,
-            volume: compInfo?.volume || 0
-          }
-        })
 
         // Calculate market trend based on actual data
         let marketTrend: 'up' | 'down' | 'stable' = 'stable'

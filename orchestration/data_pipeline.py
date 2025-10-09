@@ -2195,6 +2195,12 @@ def _calculate_planning_legal_analysis(asset, gis_data: Dict[str, Any], gov_data
             update_fields.append('urban_renewal_potential')
         if analysis.betterment_levy:
             update_fields.append('betterment_levy')
+        if analysis.building_coverage_pct is not None:
+            update_fields.append('building_coverage_pct')
+        if analysis.height_analysis:
+            update_fields.append('height_analysis')
+        if analysis.setback_analysis:
+            update_fields.append('setback_analysis')
             
         if update_fields:
             asset.save(update_fields=update_fields)

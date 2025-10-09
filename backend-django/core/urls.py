@@ -13,8 +13,6 @@ from .api import (
     PermitViewSet,
     PlanViewSet,
     DocumentViewSet,
-    compute_planning_metrics,
-    get_planning_metrics,
     estimate_build_cost,
     get_cost_options,
 )
@@ -62,6 +60,7 @@ urlpatterns = [
     path('assets/<int:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
     path('assets/<int:asset_id>/listings/', views.asset_listings, name='asset_listings'),
     path('assets/<int:asset_id>/sync/', views.sync_asset, name='sync_asset'),
+    path('dashboard/market-data/', views.dashboard_market_data, name='dashboard_market_data'),
 
     # Document management endpoints
     path('assets/<int:asset_id>/documents/', vd.DocumentListView.as_view(), name='asset_documents'),
@@ -82,10 +81,6 @@ urlpatterns = [
     path('plans/info/', views.user_plan_info, name='user_plan_info'),
     path('plans/types/', views.plan_types, name='plan_types'),
     path('plans/upgrade/', views.upgrade_plan, name='upgrade_plan'),
-    
-    # Planning endpoints
-    path('planning/<int:asset_id>/compute/', compute_planning_metrics, name='compute_planning_metrics'),
-    path('planning/<int:asset_id>/', get_planning_metrics, name='get_planning_metrics'),
     
     # Cost estimation endpoints
     path('cost/estimate/build', estimate_build_cost, name='estimate_build_cost'),

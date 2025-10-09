@@ -131,6 +131,23 @@ export type Asset = {
   legalRestrictions?: string | null;
   urbanRenewalPotential?: string | null;
   bettermentLevy?: string | null;
+  // Enhanced Planning Metrics
+  buildingCoveragePct?: number | null;
+  heightAnalysis?: {
+    current_floors?: number | null;
+    current_height_m?: number | null;
+    allowed_floors?: number | null;
+    allowed_height_m?: number | null;
+    height_compliance?: string;
+    confidence?: string;
+  } | null;
+  setbackAnalysis?: {
+    violations?: string[];
+    front_setback?: number | null;
+    side_setback?: number | null;
+    rear_setback?: number | null;
+    confidence?: string;
+  } | null;
   _meta?: Record<string, {
     source?: string;
     fetched_at?: string;
@@ -314,6 +331,10 @@ export function normalizeFromBackend(row: any): Asset {
     legalRestrictions: row.legalRestrictions ?? row.legal_restrictions ?? null,
     urbanRenewalPotential: row.urbanRenewalPotential ?? row.urban_renewal_potential ?? null,
     bettermentLevy: row.bettermentLevy ?? row.betterment_levy ?? null,
+    // Enhanced Planning Metrics
+    buildingCoveragePct: row.buildingCoveragePct ?? row.building_coverage_pct ?? null,
+    heightAnalysis: row.heightAnalysis ?? row.height_analysis ?? null,
+    setbackAnalysis: row.setbackAnalysis ?? row.setback_analysis ?? null,
     _meta: row._meta ?? undefined,
     attribution: row.attribution ?? undefined,
     recent_contributions: row.recent_contributions ?? undefined,

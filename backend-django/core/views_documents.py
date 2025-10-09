@@ -545,6 +545,10 @@ class AssetRightsView(APIView):
                         'commercial_area_sqm': float(commercial_area) if commercial_area else 0
                     })
         
+        # If no permits data or permits show 0 area, use asset's current area as current usage
+        if total_current_area == 0 and asset.area:
+            total_current_area = asset.area
+        
         calculated_rights['current_usage'] = {
             'total_current_area_sqm': total_current_area,
             'total_housing_units': total_housing_units,

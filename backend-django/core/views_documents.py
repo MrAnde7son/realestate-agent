@@ -165,7 +165,6 @@ class AssetRightsView(APIView):
             # Initialize response data
             rights_data = {
                 'tabu_data': [],
-                'gis_rights': [],
                 'building_rights': {},
                 'ownership_summary': {},
                 'total_rows': 0
@@ -211,47 +210,11 @@ class AssetRightsView(APIView):
             else:
                 logger.info(f"Asset {asset_id}: No GIS collector data found in metadata. Available meta keys: {list(asset.meta.keys()) if asset.meta else 'no meta'}")
             
-            # Process land use rights data
-            gis_rights = gis_data.get('rights', [])
-            if gis_rights:
-                for idx, right in enumerate(gis_rights):
-                    if isinstance(right, dict):
-                        # Extract meaningful data from raw GIS data
-                        land_use = right.get('t_yeud_karka', '')
-                        main_purpose = right.get('t_yeud_rashi', '')
-                        area = right.get('ms_shetach', '')
-                        block = right.get('ms_gush', '')
-                        parcel = right.get('ms_migrash', '')
-                        
-                        # Skip basic land use data - it's already shown in other tabs
-                        # Create multiple rows for different GIS data points
-                        gis_rows = []
-                        
-                        if block:
-                            gis_rows.append({
-                                'id': f"gis_rights_{idx}_block",
-                                'source': 'gis',
-                                'field': 'גוש',
-                                'value': str(block),
-                                'type': 'land_use'
-                            })
-                        
-                        if parcel:
-                            gis_rows.append({
-                                'id': f"gis_rights_{idx}_parcel",
-                                'source': 'gis',
-                                'field': 'חלקה',
-                                'value': str(parcel),
-                                'type': 'land_use'
-                            })
-                        
-                        # Add all GIS rows that match the query
-                        for row in gis_rows:
-                            if not query or query in row['field'].lower() or query in row['value'].lower():
-                                rights_data['gis_rights'].append(row)
+            # Process land use rights data - DISABLED (legacy data)
+            # All GIS data processing has been removed as it's redundant with other tabs
             
-            # Process additional GIS data sources
-            self._process_gis_data_sources(gis_data, rights_data, query)
+            # Process additional GIS data sources - DISABLED (legacy data)
+            # self._process_gis_data_sources(gis_data, rights_data, query)
 
             # 3. Get building rights information
             if asset.meta:
@@ -266,8 +229,17 @@ class AssetRightsView(APIView):
                 rights_data['building_rights'] = building_rights
 
             # 4. Calculate building rights and privileges
-            calculated_rights = self._calculate_building_rights(asset)
-            rights_data['calculated_rights'] = calculated_rights
+            try:
+                calculated_rights = self._calculate_building_rights(asset)
+                rights_data['calculated_rights'] = calculated_rights
+            except Exception as e:
+                logger.error(f"Error calculating building rights for asset {asset.id}: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                rights_data['calculated_rights'] = {
+                    'error': f'Failed to calculate building rights: {str(e)}',
+                    'source': 'error'
+                }
 
             # 5. Get detailed privilege page data
             privilege_data_list = asset.get_property_value('privilege_page_data')
@@ -292,7 +264,8 @@ class AssetRightsView(APIView):
             rights_data['ownership_summary'] = ownership_info
 
             # 6. Calculate total rows
-            rights_data['total_rows'] = len(rights_data['tabu_data']) + len(rights_data['gis_rights'])
+            # Calculate total rows
+            rights_data['total_rows'] = len(rights_data['tabu_data'])
 
             return Response(rights_data)
 
@@ -393,13 +366,16 @@ class AssetRightsView(APIView):
         }
         
         # Get privilege page data for detailed calculations
-        privilege_data_list = asset.get_property_value('privilege_page_data')
+        privilege_data_list = meta.get('privilege_page_data')
+        logger.debug(f"Privilege data type: {type(privilege_data_list)}")
         if privilege_data_list:
-            # Use the first privilege page data for calculations
-            privilege_data = privilege_data_list[0] if isinstance(privilege_data_list, list) else privilege_data_list
+            # Use the privilege page data directly
+            privilege_data = privilege_data_list
+            logger.debug(f"Privilege data keys: {list(privilege_data.keys()) if isinstance(privilege_data, dict) else 'Not a dict'}")
             
-            if isinstance(privilege_data, dict) and 'rights' in privilege_data:
-                rights = privilege_data['rights']
+            if isinstance(privilege_data, dict) and ('rights' in privilege_data or 'rights_details' in privilege_data):
+                rights = privilege_data.get('rights') or privilege_data.get('rights_details', {})
+                logger.debug(f"Rights type: {type(rights)}, keys: {list(rights.keys()) if isinstance(rights, dict) else 'Not a dict'}")
                 
                 # Extract building privileges from privilege page
                 min_values = rights.get('minimum_values', [])
@@ -413,13 +389,13 @@ class AssetRightsView(APIView):
                 total_building_privilege = 0
                 if max_values:
                     # Sum up all maximum values for total building rights
-                    total_building_privilege = sum([mv.get('value', 0) for mv in max_values if mv.get('value')])
+                    total_building_privilege = sum([float(mv.get('value', 0)) for mv in max_values if mv.get('value')])
                 
                 # Calculate floor-specific privileges
                 floor_privileges = {}
                 for fp in floor_percentages:
-                    floor_type = fp.get('type', '')
-                    percentage = fp.get('percentage', 0)
+                    floor_type = fp.get('floor', fp.get('type', ''))
+                    percentage = float(fp.get('percentage', 0))
                     if floor_type and percentage > 0:
                         floor_area = (total_building_privilege * percentage / 100) if total_building_privilege > 0 else 0
                         floor_privileges[floor_type] = {
@@ -431,8 +407,8 @@ class AssetRightsView(APIView):
                 # Calculate building line requirements
                 building_line_requirements = []
                 for bl in building_lines:
-                    line_type = bl.get('type', '')
-                    distance = bl.get('distance_meters', 0)
+                    line_type = bl.get('line', bl.get('type', ''))
+                    distance = float(bl.get('distance', bl.get('distance_meters', 0)))
                     if line_type and distance > 0:
                         building_line_requirements.append({
                             'type': line_type,
@@ -442,28 +418,41 @@ class AssetRightsView(APIView):
                 
                 # Calculate parking requirements
                 parking_requirements = []
-                for pr in parking_req:
-                    parking_value = pr.get('value', 0)
-                    if parking_value > 0:
-                        parking_requirements.append({
-                            'area_sqm': parking_value,
-                            'raw_text': pr.get('raw_text', '')
-                        })
+                if isinstance(parking_req, str):
+                    # Handle string parking requirements
+                    parking_requirements.append({
+                        'area_sqm': 0,  # Can't extract numeric value from string
+                        'raw_text': parking_req
+                    })
+                elif isinstance(parking_req, list):
+                    for pr in parking_req:
+                        if isinstance(pr, dict):
+                            parking_value = pr.get('value', 0)
+                            if parking_value > 0:
+                                parking_requirements.append({
+                                    'area_sqm': parking_value,
+                                    'raw_text': pr.get('raw_text', '')
+                                })
+                        elif isinstance(pr, str):
+                            parking_requirements.append({
+                                'area_sqm': 0,
+                                'raw_text': pr
+                            })
                 
                 calculated_rights['building_privileges'] = {
                     'total_building_privilege_sqm': total_building_privilege,
                     'floor_privileges': floor_privileges,
                     'building_line_requirements': building_line_requirements,
-                    'auxiliary_building_area_sqm': auxiliary_area,
+                    'auxiliary_building_area_sqm': float(auxiliary_area) if auxiliary_area else 0,
                     'parking_requirements': parking_requirements,
-                    'minimum_values': [mv.get('value', 0) for mv in min_values],
-                    'maximum_values': [mv.get('value', 0) for mv in max_values]
+                    'minimum_values': [float(mv.get('value', 0)) for mv in min_values],
+                    'maximum_values': [float(mv.get('value', 0)) for mv in max_values]
                 }
                 
                 calculated_rights['privilege_page_details'] = {
                     'source_file': privilege_data.get('source_file', ''),
                     'extracted_at': privilege_data.get('extracted_at', ''),
-                    'basic_info': privilege_data.get('basic', {}),
+                    'basic_info': privilege_data.get('basic_info', privilege_data.get('basic', {})),
                     'alerts': privilege_data.get('alerts', []),
                     'plans_count': len(privilege_data.get('plans', {}).get('in_force', {}).get('local', [])) if privilege_data.get('plans') else 0
                 }
@@ -512,11 +501,11 @@ class AssetRightsView(APIView):
             'total_current_area_sqm': total_current_area,
             'total_housing_units': total_housing_units,
             'building_details': current_building_details,
-            'usage_percentage': (total_current_area / calculated_rights['building_privileges'].get('total_building_privilege_sqm', 1) * 100) if calculated_rights['building_privileges'].get('total_building_privilege_sqm', 0) > 0 else 0
+            'usage_percentage': 0  # Will be calculated after building_privileges is set
         }
         
         # Calculate remaining rights
-        total_privilege = calculated_rights['building_privileges'].get('total_building_privilege_sqm', 0)
+        total_privilege = calculated_rights.get('building_privileges', {}).get('total_building_privilege_sqm', 0)
         remaining_area = total_privilege - total_current_area
         remaining_percentage = (remaining_area / total_privilege * 100) if total_privilege > 0 else 0
         
@@ -526,6 +515,9 @@ class AssetRightsView(APIView):
             'is_fully_utilized': remaining_area <= 0,
             'can_expand': remaining_area > 0
         }
+        
+        # Update usage percentage now that we have total_privilege
+        calculated_rights['current_usage']['usage_percentage'] = (total_current_area / total_privilege * 100) if total_privilege > 0 else 0
         
         # Create summary
         calculated_rights['summary'] = {
@@ -558,8 +550,8 @@ class AssetRightsView(APIView):
         if not isinstance(privilege_data, dict):
             return detailed_rights
             
-        rights = privilege_data.get('rights', {})
-        basic = privilege_data.get('basic', {})
+        rights = privilege_data.get('rights_details', privilege_data.get('rights', {}))
+        basic = privilege_data.get('basic_info', privilege_data.get('basic', {}))
         plans = privilege_data.get('plans', {})
         policy = privilege_data.get('policy', [])
         alerts = privilege_data.get('alerts', [])

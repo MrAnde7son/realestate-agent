@@ -19,7 +19,7 @@ def backwards(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0036_add_ppm_metrics"),
+        ("core", "0037_add_gis_collector_fields"),
     ]
 
     operations = [

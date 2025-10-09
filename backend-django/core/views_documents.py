@@ -527,7 +527,7 @@ class AssetRightsView(APIView):
             'remaining_rights_sqm': max(0, remaining_area),
             'utilization_percentage': calculated_rights['current_usage']['usage_percentage'],
             'status': 'Fully utilized' if remaining_area <= 0 else 'Can expand',
-            'privilege_source': 'Municipality privilege page' if privilege_data_list else 'GIS data'
+            'privilege_source': 'דף זכויות'
         }
         
         return calculated_rights

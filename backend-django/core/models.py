@@ -27,6 +27,8 @@ class User(AbstractUser):
         ADMIN = "admin", "Admin"
         BROKER = "broker", "Broker"
         APPRAISER = "appraiser", "Appraiser"
+        INVESTOR = "investor", "Investor"
+        VIEWER = "viewer", "Viewer"
         PRIVATE = "private", "Private"
 
     role = models.CharField(

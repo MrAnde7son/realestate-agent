@@ -9,6 +9,7 @@ from . import views
 from . import views_analytics as va
 from . import views_support as vs
 from . import views_documents as vd
+from .admin_views import AdminUserViewSet
 from .api import (
     PermitViewSet,
     PlanViewSet,
@@ -25,6 +26,10 @@ router = DefaultRouter()
 router.register(r'permits', PermitViewSet)
 router.register(r'plans', PlanViewSet)
 router.register(r'documents', DocumentViewSet)
+
+# Admin router for user management
+admin_router = DefaultRouter()
+admin_router.register(r'admin/users', AdminUserViewSet, basename='admin-users')
 
 urlpatterns = [
     # Core endpoints
@@ -103,4 +108,5 @@ urlpatterns = [
     path('docs/openapi.yaml', OpenApiYamlView.as_view(), name='openapi-yaml'),
     path('me', views.me),
     path('', include(router.urls)),
+    path('', include(admin_router.urls)),
 ]

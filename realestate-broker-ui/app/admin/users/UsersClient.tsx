@@ -349,11 +349,19 @@ export default function UsersClient() {
   const pagination = data?.pagination
   const loading = isLoading || isValidating
 
-  const sortState = useMemo(() => {
+  const sortState = useMemo<{
+    key: SortKey | null
+    direction: "asc" | "desc" | null
+  }>(() => {
     const { ordering } = filters
-    if (!ordering) return { key: null as SortKey | null, direction: null as "asc" | "desc" | null }
+
+    if (!ordering || ordering === "-created_at") {
+      return { key: null, direction: null }
+    }
+
     const desc = ordering.startsWith("-")
     const key = (desc ? ordering.slice(1) : ordering) as SortKey
+
     return { key, direction: desc ? "desc" : "asc" }
   }, [filters])
 

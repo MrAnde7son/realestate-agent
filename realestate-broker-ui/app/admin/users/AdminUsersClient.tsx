@@ -43,9 +43,9 @@ import {
   UserX,
   Key,
   Trash2,
-  Filter,
   Download,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PageLoader } from '@/components/ui/page-loader';
@@ -120,12 +120,11 @@ export default function AdminUsersClient() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [showFilters, setShowFilters] = useState(false);
   const { toast } = useToast();
 
   const loadUsers = useCallback(async () => {
@@ -138,8 +137,8 @@ export default function AdminUsersClient() {
       });
       
       if (searchTerm) params.append('search', searchTerm);
-      if (roleFilter) params.append('role', roleFilter);
-      if (statusFilter) params.append('status', statusFilter);
+      if (roleFilter && roleFilter !== 'all') params.append('role', roleFilter);
+      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       
       const response = await api.get(`/api/admin/users/?${params.toString()}`);
       
@@ -337,8 +336,8 @@ export default function AdminUsersClient() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setRoleFilter('');
-    setStatusFilter('');
+    setRoleFilter('all');
+    setStatusFilter('all');
     setCurrentPage(1);
   };
 
@@ -400,20 +399,20 @@ export default function AdminUsersClient() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                מסננים
-              </Button>
-              {(searchTerm || roleFilter || statusFilter) && (
+              <UserFilters
+                roleFilter={roleFilter}
+                statusFilter={statusFilter}
+                onRoleFilter={handleRoleFilter}
+                onStatusFilter={handleStatusFilter}
+                onClearFilters={clearFilters}
+              />
+              {(searchTerm || (roleFilter && roleFilter !== 'all') || (statusFilter && statusFilter !== 'all')) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={clearFilters}
                 >
+                  <X className="h-4 w-4 mr-2" />
                   נקה מסננים
                 </Button>
               )}
@@ -461,15 +460,6 @@ export default function AdminUsersClient() {
             />
           </div>
           
-          {/* Filters */}
-          {showFilters && (
-            <UserFilters
-              roleFilter={roleFilter}
-              statusFilter={statusFilter}
-              onRoleFilter={handleRoleFilter}
-              onStatusFilter={handleStatusFilter}
-            />
-          )}
         </CardHeader>
         
         <CardContent>

@@ -189,6 +189,12 @@ class Yad2Scraper:
                 listing.title = title_elem.get_text(strip=True)
                 listing.address = title_elem.get_text(strip=True)
             
+            # Extract property type from title or content
+            # Look for property type patterns in the title/content
+            property_type = self._extract_property_type(listing_element)
+            if property_type:
+                listing.property_type = property_type
+            
             # Extract property details using working selector
             desc_lines = listing_element.select("span.item-data-content_itemInfoLine__AeoPP")
             if len(desc_lines) > 1:
@@ -210,6 +216,71 @@ class Yad2Scraper:
             
         except Exception as e:
             logger.error("Error extracting listing info: {}".format(e))
+            return None
+    
+    def _extract_property_type(self, listing_element):
+        """
+        Extract property type from listing element.
+        
+        Args:
+            listing_element: BeautifulSoup element containing listing data
+            
+        Returns:
+            Property type string or None
+        """
+        try:
+            # Get all text content from the listing element
+            text_content = listing_element.get_text()
+            
+            # Define property type patterns to look for
+            property_patterns = [
+                r'בית פרטי/?\s*קוטג',
+                r'בית פרטי',
+                r'דירה',
+                r'פנטהאוס',
+                r'קוטג',
+                r'וילה',
+                r'בית דו משפחתי',
+                r'דופלקס',
+                r'טריפלקס',
+                r'סטודיו',
+                r'דירת גן',
+                r'דירה עם גינה'
+            ]
+            
+            # Look for property type patterns in the text
+            import re
+            for pattern in property_patterns:
+                match = re.search(pattern, text_content, re.IGNORECASE)
+                if match:
+                    property_type = match.group(0).strip()
+                    
+                    # Clean up the property type
+                    if '/' in property_type:
+                        # Handle cases like "בית פרטי/ קוטג" - take the first part
+                        property_type = property_type.split('/')[0].strip()
+                    
+                    # Map to standard property type names
+                    property_type_mapping = {
+                        'בית פרטי': 'בית פרטי',
+                        'קוטג': 'קוטג',
+                        'וילה': 'קוטג',  # Villa maps to cottage
+                        'דירה': 'דירה',
+                        'פנטהאוס': 'פנטהאוס',
+                        'בית דו משפחתי': 'בית דו משפחתי',
+                        'דופלקס': 'דופלקס',
+                        'טריפלקס': 'טריפלקס',
+                        'סטודיו': 'סטודיו',
+                        'דירת גן': 'דירת גן',
+                        'דירה עם גינה': 'דירה עם גינה'
+                    }
+                    
+                    return property_type_mapping.get(property_type, property_type)
+            
+            return None
+            
+        except Exception as e:
+            logger.error("Error extracting property type: {}".format(e))
             return None
     
     def scrape_page(self, page=1):

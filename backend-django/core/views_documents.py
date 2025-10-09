@@ -165,7 +165,6 @@ class AssetRightsView(APIView):
             # Initialize response data
             rights_data = {
                 'tabu_data': [],
-                'gis_rights': [],
                 'building_rights': {},
                 'ownership_summary': {},
                 'total_rows': 0
@@ -211,73 +210,11 @@ class AssetRightsView(APIView):
             else:
                 logger.info(f"Asset {asset_id}: No GIS collector data found in metadata. Available meta keys: {list(asset.meta.keys()) if asset.meta else 'no meta'}")
             
-            # Process land use rights data
-            gis_rights = gis_data.get('rights', [])
-            if gis_rights:
-                for idx, right in enumerate(gis_rights):
-                    if isinstance(right, dict):
-                        # Extract meaningful data from raw GIS data
-                        land_use = right.get('t_yeud_karka', '')
-                        main_purpose = right.get('t_yeud_rashi', '')
-                        area = right.get('ms_shetach', '')
-                        block = right.get('ms_gush', '')
-                        parcel = right.get('ms_migrash', '')
-                        
-                        # Create multiple rows for different GIS data points
-                        gis_rows = []
-                        
-                        if land_use:
-                            gis_rows.append({
-                                'id': f"gis_rights_{idx}_land_use",
-                                'source': 'gis',
-                                'field': 'שימוש קרקע',
-                                'value': land_use,
-                                'type': 'land_use'
-                            })
-                        
-                        if main_purpose:
-                            gis_rows.append({
-                                'id': f"gis_rights_{idx}_purpose",
-                                'source': 'gis',
-                                'field': 'יעוד ראשי',
-                                'value': main_purpose,
-                                'type': 'land_use'
-                            })
-                        
-                        if area:
-                            gis_rows.append({
-                                'id': f"gis_rights_{idx}_area",
-                                'source': 'gis',
-                                'field': 'שטח (מ״ר)',
-                                'value': str(area),
-                                'type': 'land_use'
-                            })
-                        
-                        if block:
-                            gis_rows.append({
-                                'id': f"gis_rights_{idx}_block",
-                                'source': 'gis',
-                                'field': 'גוש',
-                                'value': str(block),
-                                'type': 'land_use'
-                            })
-                        
-                        if parcel:
-                            gis_rows.append({
-                                'id': f"gis_rights_{idx}_parcel",
-                                'source': 'gis',
-                                'field': 'חלקה',
-                                'value': str(parcel),
-                                'type': 'land_use'
-                            })
-                        
-                        # Add all GIS rows that match the query
-                        for row in gis_rows:
-                            if not query or query in row['field'].lower() or query in row['value'].lower():
-                                rights_data['gis_rights'].append(row)
+            # Process land use rights data - DISABLED (legacy data)
+            # All GIS data processing has been removed as it's redundant with other tabs
             
-            # Process additional GIS data sources
-            self._process_gis_data_sources(gis_data, rights_data, query)
+            # Process additional GIS data sources - DISABLED (legacy data)
+            # self._process_gis_data_sources(gis_data, rights_data, query)
 
             # 3. Get building rights information
             if asset.meta:
@@ -291,7 +228,20 @@ class AssetRightsView(APIView):
                 }
                 rights_data['building_rights'] = building_rights
 
-            # 4. Get detailed privilege page data
+            # 4. Calculate building rights and privileges
+            try:
+                calculated_rights = self._calculate_building_rights(asset)
+                rights_data['calculated_rights'] = calculated_rights
+            except Exception as e:
+                logger.error(f"Error calculating building rights for asset {asset.id}: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                rights_data['calculated_rights'] = {
+                    'error': f'Failed to calculate building rights: {str(e)}',
+                    'source': 'error'
+                }
+
+            # 5. Get detailed privilege page data
             privilege_data_list = asset.get_property_value('privilege_page_data')
             if privilege_data_list:
                 # Handle both old single dict format and new list format
@@ -314,7 +264,8 @@ class AssetRightsView(APIView):
             rights_data['ownership_summary'] = ownership_info
 
             # 6. Calculate total rows
-            rights_data['total_rows'] = len(rights_data['tabu_data']) + len(rights_data['gis_rights'])
+            # Calculate total rows
+            rights_data['total_rows'] = len(rights_data['tabu_data'])
 
             return Response(rights_data)
 
@@ -389,6 +340,263 @@ class AssetRightsView(APIView):
         
         return ownership
 
+    def _calculate_building_rights(self, asset):
+        """Calculate comprehensive building rights and privileges from all available data sources."""
+        calculated_rights = {
+            'source': 'calculated',
+            'parcel_info': {},
+            'building_privileges': {},
+            'current_usage': {},
+            'remaining_rights': {},
+            'privilege_page_details': {},
+            'summary': {}
+        }
+        
+        # Get basic parcel information
+        meta = asset.meta or {}
+        
+        # Parcel area information
+        parcel_area = meta.get('parcelArea', {}).get('value') if isinstance(meta.get('parcelArea'), dict) else meta.get('parcelArea')
+        parcel_registered_area = meta.get('parcelRegisteredArea', {}).get('value') if isinstance(meta.get('parcelRegisteredArea'), dict) else meta.get('parcelRegisteredArea')
+        
+        calculated_rights['parcel_info'] = {
+            'parcel_area_sqm': parcel_area,
+            'parcel_registered_area_sqm': parcel_registered_area,
+            'area_source': meta.get('parcelArea', {}).get('source', 'GIS') if isinstance(meta.get('parcelArea'), dict) else 'GIS'
+        }
+        
+        # Get privilege page data for detailed calculations
+        privilege_data_list = meta.get('privilege_page_data')
+        logger.debug(f"Privilege data type: {type(privilege_data_list)}")
+        if privilege_data_list:
+            # Use the privilege page data directly
+            privilege_data = privilege_data_list
+            logger.debug(f"Privilege data keys: {list(privilege_data.keys()) if isinstance(privilege_data, dict) else 'Not a dict'}")
+            
+            if isinstance(privilege_data, dict) and ('rights' in privilege_data or 'rights_details' in privilege_data):
+                rights = privilege_data.get('rights') or privilege_data.get('rights_details', {})
+                logger.debug(f"Rights type: {type(rights)}, keys: {list(rights.keys()) if isinstance(rights, dict) else 'Not a dict'}")
+                
+                # Extract building privileges from privilege page
+                min_values = rights.get('minimum_values', [])
+                max_values = rights.get('maximum_values', [])
+                floor_percentages = rights.get('floor_percentages_detailed', [])
+                building_lines = rights.get('building_lines_detailed', [])
+                auxiliary_area = rights.get('auxiliary_building_area', 0)
+                parking_req = rights.get('parking_requirements', [])
+                
+                # Calculate total building privilege (use maximum values as they represent allowed building)
+                total_building_privilege = 0
+                if max_values:
+                    # Sum up all maximum values for total building rights
+                    total_building_privilege = sum([float(mv.get('value', 0)) for mv in max_values if mv.get('value')])
+                
+                # Calculate floor-specific privileges
+                floor_privileges = {}
+                
+                # First pass: Calculate absolute floor areas (percentages of total building privilege)
+                absolute_floors = {}
+                for fp in floor_percentages:
+                    floor_type = fp.get('floor', fp.get('type', ''))
+                    percentage = float(fp.get('percentage', 0))
+                    if floor_type and percentage > 0:
+                        # Check if this is a standard/typical floor (usually the base for relative calculations)
+                        is_standard_floor = floor_type in ['טיפוסית', 'ראשונה'] or 'טיפוסית' in fp.get('raw_text', '')
+                        
+                        floor_area = (total_building_privilege * percentage / 100) if total_building_privilege > 0 else 0
+                        absolute_floors[floor_type] = {
+                            'percentage': percentage,
+                            'area_sqm': floor_area,
+                            'raw_text': fp.get('raw_text', ''),
+                            'is_standard': is_standard_floor
+                        }
+                
+                # Second pass: Calculate relative floors (percentages of base floors)
+                for fp in floor_percentages:
+                    floor_type = fp.get('floor', fp.get('type', ''))
+                    percentage = float(fp.get('percentage', 0))
+                    raw_text = fp.get('raw_text', '')
+                    
+                    if floor_type and percentage > 0:
+                        # Check if this floor is relative to another floor (e.g., "75% מקומה טיפוסית")
+                        is_relative = False
+                        base_floor_type = None
+                        
+                        # Look for patterns like "75% מקומה טיפוסית" or "75% of standard floor"
+                        if 'מקומה' in raw_text or 'of' in raw_text.lower():
+                            is_relative = True
+                            # Try to identify the base floor from the raw text
+                            if 'טיפוסית' in raw_text:
+                                base_floor_type = 'טיפוסית'
+                            elif 'ראשונה' in raw_text:
+                                base_floor_type = 'ראשונה'
+                            else:
+                                # Default to the first standard floor found
+                                for floor_name, floor_data in absolute_floors.items():
+                                    if floor_data.get('is_standard', False):
+                                        base_floor_type = floor_name
+                                        break
+                        
+                        if is_relative and base_floor_type and base_floor_type in absolute_floors:
+                            # Calculate as percentage of the base floor
+                            base_area = absolute_floors[base_floor_type]['area_sqm']
+                            floor_area = base_area * (percentage / 100)
+                            floor_privileges[floor_type] = {
+                                'percentage': percentage,
+                                'area_sqm': floor_area,
+                                'raw_text': raw_text,
+                                'is_relative': True,
+                                'base_floor': base_floor_type
+                            }
+                        else:
+                            # Use absolute calculation
+                            floor_privileges[floor_type] = absolute_floors[floor_type]
+                
+                # Calculate building line requirements
+                building_line_requirements = []
+                for bl in building_lines:
+                    line_type = bl.get('line', bl.get('type', ''))
+                    distance = float(bl.get('distance', bl.get('distance_meters', 0)))
+                    if line_type and distance > 0:
+                        building_line_requirements.append({
+                            'type': line_type,
+                            'distance_meters': distance,
+                            'raw_text': bl.get('raw_text', '')
+                        })
+                
+                # Calculate parking requirements
+                parking_requirements = []
+                if isinstance(parking_req, str):
+                    # Handle string parking requirements
+                    parking_requirements.append({
+                        'area_sqm': 0,  # Can't extract numeric value from string
+                        'raw_text': parking_req
+                    })
+                elif isinstance(parking_req, list):
+                    for pr in parking_req:
+                        if isinstance(pr, dict):
+                            parking_value = pr.get('value', 0)
+                            if parking_value > 0:
+                                parking_requirements.append({
+                                    'area_sqm': parking_value,
+                                    'raw_text': pr.get('raw_text', '')
+                                })
+                        elif isinstance(pr, str):
+                            parking_requirements.append({
+                                'area_sqm': 0,
+                                'raw_text': pr
+                            })
+                
+                calculated_rights['building_privileges'] = {
+                    'total_building_privilege_sqm': total_building_privilege,
+                    'floor_privileges': floor_privileges,
+                    'building_line_requirements': building_line_requirements,
+                    'auxiliary_building_area_sqm': float(auxiliary_area) if auxiliary_area else 0,
+                    'parking_requirements': parking_requirements,
+                    'minimum_values': [float(mv.get('value', 0)) for mv in min_values],
+                    'maximum_values': [float(mv.get('value', 0)) for mv in max_values]
+                }
+                
+                calculated_rights['privilege_page_details'] = {
+                    'source_file': privilege_data.get('source_file', ''),
+                    'extracted_at': privilege_data.get('extracted_at', ''),
+                    'basic_info': privilege_data.get('basic_info', privilege_data.get('basic', {})),
+                    'alerts': privilege_data.get('alerts', []),
+                    'plans_count': len(privilege_data.get('plans', {}).get('in_force', {}).get('local', [])) if privilege_data.get('plans') else 0
+                }
+        
+        # Get current building usage from permits and other sources
+        gis_data = meta.get('gis_data', {})
+        permits = gis_data.get('permits', [])
+        
+        # Calculate current usage from permits
+        total_current_area = 0
+        total_housing_units = 0
+        current_building_details = []
+        
+        for permit in permits:
+            if isinstance(permit, dict):
+                permit_num = permit.get('permit_number', '')
+                building_num = permit.get('building_num', '')
+                total_area = permit.get('sach_shetach', '')
+                housing_units = permit.get('yechidot_diyur', '')
+                residential_area = permit.get('megurim_shetach', '')
+                commercial_area = permit.get('mischar_shetach', '')
+                
+                if total_area:
+                    try:
+                        total_current_area += float(total_area)
+                    except:
+                        pass
+                
+                if housing_units:
+                    try:
+                        total_housing_units += int(housing_units)
+                    except:
+                        pass
+                
+                if permit_num or building_num:
+                    current_building_details.append({
+                        'permit_number': permit_num,
+                        'building_number': building_num,
+                        'total_area_sqm': float(total_area) if total_area else 0,
+                        'housing_units': int(housing_units) if housing_units else 0,
+                        'residential_area_sqm': float(residential_area) if residential_area else 0,
+                        'commercial_area_sqm': float(commercial_area) if commercial_area else 0
+                    })
+        
+        # If no permits data or permits show 0 area, use asset's current area as current usage
+        if total_current_area == 0 and asset.area:
+            total_current_area = asset.area
+        
+        calculated_rights['current_usage'] = {
+            'total_current_area_sqm': total_current_area,
+            'total_housing_units': total_housing_units,
+            'building_details': current_building_details,
+            'usage_percentage': 0  # Will be calculated after building_privileges is set
+        }
+        
+        # Calculate remaining rights
+        total_privilege = calculated_rights.get('building_privileges', {}).get('total_building_privilege_sqm', 0)
+        remaining_area = total_privilege - total_current_area
+        remaining_percentage = (remaining_area / total_privilege * 100) if total_privilege > 0 else 0
+        
+        calculated_rights['remaining_rights'] = {
+            'remaining_area_sqm': max(0, remaining_area),
+            'remaining_percentage': max(0, remaining_percentage),
+            'is_fully_utilized': remaining_area <= 0,
+            'can_expand': remaining_area > 0
+        }
+        
+        # Update usage percentage now that we have total_privilege
+        calculated_rights['current_usage']['usage_percentage'] = (total_current_area / total_privilege * 100) if total_privilege > 0 else 0
+        
+        # Calculate additional rights percentage (אחוז זכויות נוספות)
+        additional_rights_percentage = 0
+        if asset.area and asset.area > 0 and remaining_area > 0:
+            additional_rights_percentage = round((remaining_area / asset.area) * 100, 1)
+        
+        # Calculate estimated rights value (ערך משוער זכויות)
+        estimated_rights_value = 0
+        if asset.price_per_sqm and remaining_area > 0:
+            # Use 0.7 factor as seen in the frontend calculation
+            estimated_rights_value = round((asset.price_per_sqm * remaining_area * 0.7) / 1000)
+        
+        # Create summary
+        calculated_rights['summary'] = {
+            'parcel_area_sqm': parcel_area,
+            'total_building_privilege_sqm': total_privilege,
+            'current_usage_sqm': total_current_area,
+            'remaining_rights_sqm': max(0, remaining_area),
+            'additional_rights_percentage': additional_rights_percentage,
+            'estimated_rights_value_k': estimated_rights_value,
+            'utilization_percentage': calculated_rights['current_usage']['usage_percentage'],
+            'status': 'Fully utilized' if remaining_area <= 0 else 'Can expand',
+            'privilege_source': 'דף זכויות'
+        }
+        
+        return calculated_rights
+
     def _process_privilege_page_data(self, privilege_data):
         """Process privilege page data into detailed building rights format."""
         detailed_rights = {
@@ -398,16 +606,127 @@ class AssetRightsView(APIView):
             'floor_details': [],
             'percentages': {},
             'areas': {},
-            'notes': []
+            'notes': [],
+            'plans': [],
+            'policy': [],
+            'alerts': []
         }
         
         if not isinstance(privilege_data, dict):
             return detailed_rights
             
-        rights = privilege_data.get('rights', {})
-        basic = privilege_data.get('basic', {})
+        rights = privilege_data.get('rights_details', privilege_data.get('rights', {}))
+        basic = privilege_data.get('basic_info', privilege_data.get('basic', {}))
+        plans = privilege_data.get('plans', {})
+        policy = privilege_data.get('policy', [])
+        alerts = privilege_data.get('alerts', [])
         
-        # Extract building lines
+        # Extract basic information
+        if basic.get('issue_date'):
+            detailed_rights['rights_details'].append({
+                'type': 'basic_info',
+                'field': 'תאריך הפקה',
+                'value': basic['issue_date'],
+                'source': 'privilege_page'
+            })
+        
+        if basic.get('address'):
+            detailed_rights['rights_details'].append({
+                'type': 'basic_info',
+                'field': 'כתובת',
+                'value': basic['address'],
+                'source': 'privilege_page'
+            })
+        
+        if basic.get('block'):
+            detailed_rights['rights_details'].append({
+                'type': 'basic_info',
+                'field': 'גוש',
+                'value': str(basic['block']),
+                'source': 'privilege_page'
+            })
+        
+        if basic.get('parcel'):
+            detailed_rights['rights_details'].append({
+                'type': 'basic_info',
+                'field': 'חלקה',
+                'value': str(basic['parcel']),
+                'source': 'privilege_page'
+            })
+        
+        if basic.get('parcel_area_sqm'):
+            detailed_rights['areas']['parcel_area_sqm'] = basic['parcel_area_sqm']
+            detailed_rights['rights_details'].append({
+                'type': 'basic_info',
+                'field': 'שטח חלקה (מ״ר)',
+                'value': str(basic['parcel_area_sqm']),
+                'source': 'privilege_page'
+            })
+        
+        # Extract alerts
+        for alert in alerts:
+            detailed_rights['alerts'].append({
+                'type': 'alert',
+                'text': alert,
+                'source': 'privilege_page'
+            })
+            detailed_rights['rights_details'].append({
+                'type': 'alert',
+                'field': 'התראה',
+                'value': alert,
+                'source': 'privilege_page'
+            })
+        
+        # Extract plans data
+        if plans:
+            for category, plan_list in plans.items():
+                if isinstance(plan_list, dict):
+                    for subcategory, plans_in_category in plan_list.items():
+                        for plan in plans_in_category:
+                            plan_info = {
+                                'type': 'plan',
+                                'category': f"{category}_{subcategory}",
+                                'plan_number': plan.get('plan_number', ''),
+                                'name': plan.get('name', ''),
+                                'deposit_date': plan.get('deposit_date', ''),
+                                'effective_date': plan.get('effective_date', ''),
+                                'urls': plan.get('urls', []),
+                                'source': 'privilege_page'
+                            }
+                            detailed_rights['plans'].append(plan_info)
+                            
+                            # Add to rights_details for display
+                            detailed_rights['rights_details'].append({
+                                'type': 'plan',
+                                'field': f'תכנית {plan.get("plan_number", "")}',
+                                'value': plan.get('name', ''),
+                                'plan_number': plan.get('plan_number', ''),
+                                'effective_date': plan.get('effective_date', ''),
+                                'urls': plan.get('urls', []),
+                                'source': 'privilege_page'
+                            })
+        
+        # Extract policy documents
+        for policy_doc in policy:
+            policy_info = {
+                'type': 'policy',
+                'policy_number': policy_doc.get('policy_number', ''),
+                'name': policy_doc.get('name', ''),
+                'date': policy_doc.get('date', ''),
+                'source': 'privilege_page'
+            }
+            detailed_rights['policy'].append(policy_info)
+            
+            detailed_rights['rights_details'].append({
+                'type': 'policy',
+                'field': f'מדיניות {policy_doc.get("policy_number", "")}',
+                'value': policy_doc.get('name', ''),
+                'policy_number': policy_doc.get('policy_number', ''),
+                'date': policy_doc.get('date', ''),
+                'source': 'privilege_page'
+            })
+        
+        # Extract building lines (both simple and detailed)
         building_lines = rights.get('building_lines', [])
         for line in building_lines:
             detailed_rights['building_lines'].append({
@@ -415,32 +734,125 @@ class AssetRightsView(APIView):
                 'description': line,
                 'source': 'privilege_page'
             })
-        
-        # Extract floor details
-        floor_details = rights.get('floor_details', [])
-        for floor in floor_details:
-            detailed_rights['floor_details'].append({
-                'type': floor.get('type', ''),
-                'percentage': floor.get('percentage', 0),
-                'area_sqm': floor.get('area_sqm', 0),
+            detailed_rights['rights_details'].append({
+                'type': 'building_line',
+                'field': 'קו בניין',
+                'value': line,
                 'source': 'privilege_page'
             })
         
-        # Extract percentages
-        if rights.get('percent_building'):
-            detailed_rights['percentages']['building_percentage'] = rights['percent_building']
-        
-        # Extract areas
-        areas = rights.get('areas', [])
-        for area in areas:
-            detailed_rights['areas'][f'area_{len(detailed_rights["areas"])}'] = area
-        
-        # Extract specific building rights
-        specific_rights = rights.get('specific_building_rights', [])
-        for right in specific_rights:
+        # Extract detailed building lines
+        building_lines_detailed = rights.get('building_lines_detailed', [])
+        for line_detail in building_lines_detailed:
+            detailed_rights['building_lines'].append({
+                'type': 'building_line_detailed',
+                'line_type': line_detail.get('type', ''),
+                'distance_meters': line_detail.get('distance_meters', 0),
+                'raw_text': line_detail.get('raw_text', ''),
+                'source': 'privilege_page'
+            })
             detailed_rights['rights_details'].append({
-                'type': 'specific_right',
-                'description': right,
+                'type': 'building_line_detailed',
+                'field': f'קו בניין {line_detail.get("type", "")}',
+                'value': f'{line_detail.get("distance_meters", 0)} מטרים',
+                'raw_text': line_detail.get('raw_text', ''),
+                'source': 'privilege_page'
+            })
+        
+        # Extract floor percentages (detailed)
+        floor_percentages_detailed = rights.get('floor_percentages_detailed', [])
+        for floor_percent in floor_percentages_detailed:
+            detailed_rights['floor_details'].append({
+                'type': floor_percent.get('type', ''),
+                'percentage': floor_percent.get('percentage', 0),
+                'raw_text': floor_percent.get('raw_text', ''),
+                'source': 'privilege_page'
+            })
+            detailed_rights['rights_details'].append({
+                'type': 'floor_percentage',
+                'field': f'אחוז קומה {floor_percent.get("type", "")}',
+                'value': f'{floor_percent.get("percentage", 0)}%',
+                'raw_text': floor_percent.get('raw_text', ''),
+                'source': 'privilege_page'
+            })
+        
+        # Extract minimum values
+        minimum_values = rights.get('minimum_values', [])
+        for min_val in minimum_values:
+            detailed_rights['rights_details'].append({
+                'type': 'minimum_value',
+                'field': 'ערך מינימלי',
+                'value': str(min_val.get('value', '')),
+                'raw_text': min_val.get('raw_text', ''),
+                'source': 'privilege_page'
+            })
+        
+        # Extract maximum values
+        maximum_values = rights.get('maximum_values', [])
+        for max_val in maximum_values:
+            detailed_rights['rights_details'].append({
+                'type': 'maximum_value',
+                'field': 'ערך מקסימלי',
+                'value': str(max_val.get('value', '')),
+                'raw_text': max_val.get('raw_text', ''),
+                'source': 'privilege_page'
+            })
+        
+        # Extract dwelling units
+        if rights.get('dwelling_units'):
+            detailed_rights['rights_details'].append({
+                'type': 'dwelling_units',
+                'field': 'יחידות דיור',
+                'value': str(rights['dwelling_units']),
+                'source': 'privilege_page'
+            })
+        
+        # Extract number of floors
+        if rights.get('number_of_floors'):
+            detailed_rights['rights_details'].append({
+                'type': 'floors',
+                'field': 'מספר קומות',
+                'value': str(rights['number_of_floors']),
+                'source': 'privilege_page'
+            })
+        
+        # Extract building coverage percentage
+        if rights.get('building_coverage_percentage'):
+            detailed_rights['percentages']['building_coverage'] = rights['building_coverage_percentage']
+            detailed_rights['rights_details'].append({
+                'type': 'coverage',
+                'field': 'אחוז בנייה',
+                'value': f"{rights['building_coverage_percentage']}%",
+                'source': 'privilege_page'
+            })
+        
+        # Extract parking requirements
+        parking_requirements = rights.get('parking_requirements', [])
+        for parking in parking_requirements:
+            detailed_rights['rights_details'].append({
+                'type': 'parking',
+                'field': 'דרישות חניה',
+                'value': str(parking.get('value', '')),
+                'raw_text': parking.get('raw_text', ''),
+                'source': 'privilege_page'
+            })
+        
+        # Extract auxiliary building area
+        if rights.get('auxiliary_building_area'):
+            detailed_rights['rights_details'].append({
+                'type': 'auxiliary_building',
+                'field': 'שטח בניין עזר',
+                'value': f"{rights['auxiliary_building_area']} מ״ר",
+                'source': 'privilege_page'
+            })
+        
+        # Extract referred plans
+        referred_plans = rights.get('referred_plans', [])
+        for plan_ref in referred_plans:
+            detailed_rights['rights_details'].append({
+                'type': 'referred_plan',
+                'field': 'תכנית מופנית',
+                'value': plan_ref,
                 'source': 'privilege_page'
             })
         
@@ -453,16 +865,26 @@ class AssetRightsView(APIView):
                     'type': note.get('type', 'general'),
                     'source': 'privilege_page'
                 })
+                detailed_rights['rights_details'].append({
+                    'type': 'note',
+                    'field': 'הערה',
+                    'value': note.get('text', ''),
+                    'note_type': note.get('type', 'general'),
+                    'source': 'privilege_page'
+                })
             else:
                 detailed_rights['notes'].append({
                     'text': str(note),
                     'type': 'general',
                     'source': 'privilege_page'
                 })
-        
-        # Extract basic information
-        if basic.get('parcel_area_sqm'):
-            detailed_rights['areas']['parcel_area_sqm'] = basic['parcel_area_sqm']
+                detailed_rights['rights_details'].append({
+                    'type': 'note',
+                    'field': 'הערה',
+                    'value': str(note),
+                    'note_type': 'general',
+                    'source': 'privilege_page'
+                })
         
         return detailed_rights
 
@@ -563,106 +985,9 @@ class AssetRightsView(APIView):
                         'type': 'cadastral'
                     })
         
-        # Process comprehensive building permits data
-        permits = gis_data.get('permits', [])
-        for idx, permit in enumerate(permits):
-            if isinstance(permit, dict):
-                # Basic permit info
-                permit_number = permit.get('permit_number', '')
-                request_num = permit.get('request_num', '')
-                permission_num = permit.get('permission_num', '')
-                building_num = permit.get('building_num', '')
-                permit_type = permit.get('permit_type', '')
-                permit_date = permit.get('permit_date', '')
-                
-                # Permit areas and units
-                housing_units = permit.get('yechidot_diyur', '')
-                commercial_area = permit.get('mischar_shetach', '')
-                residential_area = permit.get('megurim_shetach', '')
-                residential_units = permit.get('megurim_yechidot', '')
-                public_area = permit.get('mivney_tzibur_shetach', '')
-                parking_area = permit.get('melonaut_shetach', '')
-                parking_units = permit.get('melonaut_yechidot', '')
-                total_area = permit.get('sach_shetach', '')
-                
-                # Permit flags and special features
-                small_apartments = permit.get('dirot_ktanot', '')
-                unified_housing_area = permit.get('diyur_meuchad_shetach', '')
-                unified_housing_units = permit.get('diyur_meuchad_yechidot', '')
-                accessible_apartments = permit.get('dirot_haskara', '')
-                public_built_area = permit.get('tziburi_banuy_shetach', '')
-                mavat_plan_num = permit.get('mispar_tochnit_mavat', '')
-                parking_rooms_calculated = permit.get('melonaut_rooms_mechushav', '')
-                full_utilization = permit.get('sw_mimush_male', '')
-                subject_type = permit.get('sug_nose', '')
-                process = permit.get('maslul', '')
-                rights_notification = permit.get('sw_niyud_zchuyot', '')
-                repartition = permit.get('sw_repartzelatzya', '')
-                urban_renewal = permit.get('sw_hitchadshut_ironit', '')
-                
-                # Add all permit fields to rights data
-                permit_fields = [
-                    ('מספר היתר', permit_number),
-                    ('מספר בקשה', request_num),
-                    ('מספר אישור', permission_num),
-                    ('מספר בניין', building_num),
-                    ('סוג היתר', permit_type),
-                    ('תאריך היתר', permit_date),
-                    ('יחידות דיור', housing_units),
-                    ('שטח מסחרי (מ״ר)', commercial_area),
-                    ('שטח מגורים (מ״ר)', residential_area),
-                    ('יחידות מגורים', residential_units),
-                    ('שטח ציבורי (מ״ר)', public_area),
-                    ('שטח חניה (מ״ר)', parking_area),
-                    ('יחידות חניה', parking_units),
-                    ('שטח כולל (מ״ר)', total_area),
-                    ('דירות קטנות', small_apartments),
-                    ('שטח דיור מאוחד (מ״ר)', unified_housing_area),
-                    ('יחידות דיור מאוחד', unified_housing_units),
-                    ('דירות נגישות', accessible_apartments),
-                    ('שטח ציבורי בנוי (מ״ר)', public_built_area),
-                    ('מספר תוכנית מבאו', mavat_plan_num),
-                    ('חדרי חניה מחושבים', parking_rooms_calculated),
-                    ('ניצול מלא', 'כן' if full_utilization else 'לא' if full_utilization is not None else ''),
-                    ('סוג נושא', subject_type),
-                    ('מסלול', process),
-                    ('הודעה על זכויות', 'כן' if rights_notification else 'לא' if rights_notification is not None else ''),
-                    ('חלוקה מחדש', 'כן' if repartition else 'לא' if repartition is not None else ''),
-                    ('חידוש עירוני', 'כן' if urban_renewal else 'לא' if urban_renewal is not None else ''),
-                ]
-                
-                for field_name, field_value in permit_fields:
-                    if field_value and str(field_value).strip():
-                        rights_data['gis_rights'].append({
-                            'id': f"gis_permits_{idx}_{field_name.replace(' ', '_').replace('(', '').replace(')', '')}",
-                            'source': 'gis_permits',
-                            'field': field_name,
-                            'value': str(field_value),
-                            'type': 'permits'
-                        })
+        # Skip permits data - it's already shown in other tabs and not relevant for building rights
         
-        # Process detailed land use data
-        land_use_detailed = gis_data.get('land_use_detailed', [])
-        for idx, land_use in enumerate(land_use_detailed):
-            if isinstance(land_use, dict):
-                land_use_type = land_use.get('land_use_type', '')
-                land_use_area = land_use.get('area', '')
-                if land_use_type:
-                    rights_data['gis_rights'].append({
-                        'id': f"gis_land_use_detailed_{idx}_type",
-                        'source': 'gis_land_use_detailed',
-                        'field': 'סוג שימוש מפורט',
-                        'value': str(land_use_type),
-                        'type': 'land_use_detailed'
-                    })
-                if land_use_area:
-                    rights_data['gis_rights'].append({
-                        'id': f"gis_land_use_detailed_{idx}_area",
-                        'source': 'gis_land_use_detailed',
-                        'field': 'שטח שימוש מפורט (מ״ר)',
-                        'value': str(land_use_area),
-                        'type': 'land_use_detailed'
-                    })
+        # Skip detailed land use data - it's already shown in other tabs
         
         # Process shelters data
         shelters = gis_data.get('shelters', [])

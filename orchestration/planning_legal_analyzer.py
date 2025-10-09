@@ -9,7 +9,6 @@ This module calculates the four key planning and legal analysis fields:
 4. Betterment Levy (היטל השבחה צפוי)
 """
 
-import re
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
@@ -41,17 +40,20 @@ def calculate_planning_legal_analysis(asset, gis_data: Dict[str, Any], tabu_data
     """
     analysis = PlanningLegalAnalysis()
     
+    # Get privilege page data from asset metadata (where it's actually stored)
+    privilege_page_data = asset.meta.get('privilege_page_data', []) if hasattr(asset, 'meta') else []
+    
     # Calculate rights usage percentage
-    analysis.rights_usage_pct = _calculate_rights_usage_percentage(asset, gis_data)
+    analysis.rights_usage_pct = _calculate_rights_usage_percentage(asset, gis_data, privilege_page_data)
     
     # Calculate legal restrictions
-    analysis.legal_restrictions = _calculate_legal_restrictions(asset, gis_data, tabu_data)
+    analysis.legal_restrictions = _calculate_legal_restrictions(asset, gis_data, tabu_data, privilege_page_data)
     
     # Calculate urban renewal potential
     analysis.urban_renewal_potential = _calculate_urban_renewal_potential(asset, gis_data)
     
     # Calculate betterment levy
-    analysis.betterment_levy = _calculate_betterment_levy(asset, gis_data)
+    analysis.betterment_levy = _calculate_betterment_levy(asset, gis_data, privilege_page_data)
     
     # Calculate enhanced planning metrics
     analysis.building_coverage_pct = _calculate_building_coverage(asset, gis_data)
@@ -61,7 +63,7 @@ def calculate_planning_legal_analysis(asset, gis_data: Dict[str, Any], tabu_data
     return analysis
 
 
-def _calculate_rights_usage_percentage(asset, gis_data: Dict[str, Any]) -> Optional[float]:
+def _calculate_rights_usage_percentage(asset, gis_data: Dict[str, Any], privilege_page_data: List[Dict[str, Any]] = None) -> Optional[float]:
     """
     Calculate the percentage of building rights utilization.
     
@@ -92,7 +94,7 @@ def _calculate_rights_usage_percentage(asset, gis_data: Dict[str, Any]) -> Optio
             current_building_area = asset.total_area
             
         # Get maximum allowed building area from rights data
-        max_building_area = _get_maximum_building_area(gis_data, parcel_area)
+        max_building_area = _get_maximum_building_area(gis_data, parcel_area, privilege_page_data)
         
         if max_building_area and max_building_area > 0:
             usage_pct = (current_building_area / max_building_area) * 100
@@ -104,27 +106,24 @@ def _calculate_rights_usage_percentage(asset, gis_data: Dict[str, Any]) -> Optio
     return None
 
 
-def _get_maximum_building_area(gis_data: Dict[str, Any], parcel_area: float) -> Optional[float]:
+def _get_maximum_building_area(gis_data: Dict[str, Any], parcel_area: float, privilege_page_data: List[Dict[str, Any]] = None) -> Optional[float]:
     """Get maximum allowed building area from rights data."""
     try:
-        # Check privilege page data first
-        privilege_data_list = gis_data.get('privilege_page_data', [])
-        if privilege_data_list:
-            # Handle both old single dict format and new list format
-            privilege_data = privilege_data_list[0] if isinstance(privilege_data_list, list) else privilege_data_list
-            
-            if isinstance(privilege_data, dict):
-                rights = privilege_data.get('rights', {})
-                
-                # Try to get building percentage
-                percent_building = rights.get('percent_building')
-                if percent_building and parcel_area:
-                    return (percent_building / 100) * parcel_area
-                
-                # Try to get specific building rights areas
-                building_rights_areas = rights.get('building_rights_areas', [])
-                if building_rights_areas:
-                    return sum(building_rights_areas)
+        # Check privilege page data first (from asset.meta)
+        if privilege_page_data:
+            for privilege_data in privilege_page_data:
+                if isinstance(privilege_data, dict):
+                    rights = privilege_data.get('rights', {})
+                    
+                    # Try to get building percentage
+                    percent_building = rights.get('percent_building')
+                    if percent_building and parcel_area:
+                        return (percent_building / 100) * parcel_area
+                    
+                    # Try to get specific building rights areas
+                    building_rights_areas = rights.get('building_rights_areas', [])
+                    if building_rights_areas:
+                        return sum(building_rights_areas)
         
         # Check GIS rights data
         rights = gis_data.get('rights', [])
@@ -144,7 +143,7 @@ def _get_maximum_building_area(gis_data: Dict[str, Any], parcel_area: float) -> 
         return None
 
 
-def _calculate_legal_restrictions(asset, gis_data: Dict[str, Any], tabu_data: Dict[str, Any] = None) -> Optional[str]:
+def _calculate_legal_restrictions(asset, gis_data: Dict[str, Any], tabu_data: Dict[str, Any] = None, privilege_page_data: List[Dict[str, Any]] = None) -> Optional[str]:
     """
     Calculate legal restrictions based on permits, plans, and tabu data.
     """
@@ -186,13 +185,13 @@ def _calculate_legal_restrictions(asset, gis_data: Dict[str, Any], tabu_data: Di
                 restrictions.append(f'הערות אזהרה ({len(liens)} הערות)')
         
         # Check privilege page for alerts
-        privilege_data_list = gis_data.get('privilege_page_data', [])
-        if privilege_data_list:
-            privilege_data = privilege_data_list[0] if isinstance(privilege_data_list, list) else privilege_data_list
-            if isinstance(privilege_data, dict):
-                alerts = privilege_data.get('alerts', [])
-                if alerts:
-                    restrictions.append(f'הערות אזהרה בקרקע ({len(alerts)} הערות)')
+        if privilege_page_data:
+            for privilege_data in privilege_page_data:
+                if isinstance(privilege_data, dict):
+                    alerts = privilege_data.get('alerts', [])
+                    if alerts:
+                        restrictions.append(f'הערות אזהרה בקרקע ({len(alerts)} הערות)')
+                        break  # Only add once
         
         if restrictions:
             return '; '.join(restrictions)
@@ -253,7 +252,7 @@ def _calculate_urban_renewal_potential(asset, gis_data: Dict[str, Any]) -> Optio
     return None
 
 
-def _calculate_betterment_levy(asset, gis_data: Dict[str, Any]) -> Optional[str]:
+def _calculate_betterment_levy(asset, gis_data: Dict[str, Any], privilege_page_data: List[Dict[str, Any]] = None) -> Optional[str]:
     """
     Calculate expected betterment levy based on building rights and zoning.
     """
@@ -264,7 +263,7 @@ def _calculate_betterment_levy(asset, gis_data: Dict[str, Any]) -> Optional[str]
             return None
         
         # Get maximum building rights
-        max_building_area = _get_maximum_building_area(gis_data, parcel_area)
+        max_building_area = _get_maximum_building_area(gis_data, parcel_area, privilege_page_data)
         if not max_building_area:
             return None
         

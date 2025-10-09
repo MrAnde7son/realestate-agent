@@ -100,6 +100,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [rightsError, setRightsError] = useState<string | null>(null)
   const [rightsSearch, setRightsSearch] = useState('')
   const [rightsDocFilter, setRightsDocFilter] = useState('all')
+  const [calculatedRights, setCalculatedRights] = useState<any>(null)
   const [transactionsSearch, setTransactionsSearch] = useState('')
   const [appraisalsSearch, setAppraisalsSearch] = useState('')
   const [documentsSearch, setDocumentsSearch] = useState('')
@@ -298,19 +299,23 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         throw new Error(response.error || 'Failed to load rights')
       }
       const data = response.data
+      // Store calculated rights for the new UI
+      setCalculatedRights(() => data.calculated_rights || null)
+      
       // Combine tabu_data, gis_rights, and detailed_rights into a single array for display
       const allRightsRows = [
         ...(data.tabu_data || []),
         ...(data.gis_rights || []),
-        ...(data.detailed_rights?.rights_details || []),
-        ...(data.detailed_rights?.building_lines || []),
-        ...(data.detailed_rights?.floor_details || []),
-        ...(data.detailed_rights?.notes || [])
+        ...(data.detailed_rights?.[0]?.rights_details || []),
+        ...(data.detailed_rights?.[0]?.building_lines || []),
+        ...(data.detailed_rights?.[0]?.floor_details || []),
+        ...(data.detailed_rights?.[0]?.notes || [])
       ]
       setRightsRows(allRightsRows)
     } catch (rightsErr) {
       console.error('Error loading rights data:', rightsErr)
       setRightsRows([])
+      setCalculatedRights(null)
       setRightsError('שגיאה בטעינת נתוני טאבו')
     } finally {
       setRightsLoading(false)
@@ -1143,16 +1148,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   <div className="space-y-1">
                     <div className="text-sm font-medium text-muted-foreground">ניתוח גובה:</div>
                     <div className="flex justify-between rtl:flex-row-reverse text-sm">
-                      <span>קומות נוכחיות:</span>
+                      <span className="text-muted-foreground">קומות נוכחיות:</span>
                       <span>{asset.heightAnalysis.current_floors ?? '—'}</span>
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse text-sm">
-                      <span>קומות מותרות:</span>
+                      <span className="text-muted-foreground">קומות מותרות:</span>
                       <span>{asset.heightAnalysis.allowed_floors ?? '—'}</span>
                     </div>
                     {asset.heightAnalysis.height_compliance && (
                       <div className="flex justify-between rtl:flex-row-reverse text-sm">
-                        <span>עמידה בתקן:</span>
+                        <span className="text-muted-foreground">עמידה בתקן:</span>
                         <span className={asset.heightAnalysis.height_compliance === 'compliant' ? 'text-green-600' : 'text-red-600'}>
                           {asset.heightAnalysis.height_compliance === 'compliant' ? 'עומד' : 'לא עומד'}
                         </span>
@@ -1490,22 +1495,30 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{formatNumber(asset.remainingRightsSqm) ?? '—'}</div>
+                    <div className="text-2xl font-bold">
+                      {calculatedRights?.summary?.remaining_rights_sqm 
+                        ? formatNumber(calculatedRights.summary.remaining_rights_sqm)
+                        : formatNumber(asset.remainingRightsSqm) ?? '—'}
+                    </div>
                     <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {!!asset.remainingRightsSqm && !!asset.area
-                        ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
-                        : '—'}
+                      {calculatedRights?.summary?.additional_rights_percentage 
+                        ? `${calculatedRights.summary.additional_rights_percentage}%`
+                        : (!!asset.remainingRightsSqm && !!asset.area
+                            ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
+                            : '—')}
                     </div>
                     <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {!!asset.pricePerSqm && !!asset.remainingRightsSqm
-                        ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
-                        : '—'}
+                      {calculatedRights?.summary?.estimated_rights_value_k 
+                        ? `₪${calculatedRights.summary.estimated_rights_value_k}K`
+                        : (!!asset.pricePerSqm && !!asset.remainingRightsSqm
+                            ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
+                            : '—')}
                     </div>
                     <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
                   </div>
@@ -1513,101 +1526,147 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </CardContent>
             </Card>
 
-            {/* Detailed Rights Data */}
-            <Card>
-              <CardHeader>
-                <CardTitle>פרטי זכויות בנייה</CardTitle>
-                <CardDescription>נתונים מטאבו, GIS, רמ״י ומסמכים שהועלו בלשונית המסמכים.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <Input
-                    value={rightsSearch}
-                    onChange={event => setRightsSearch(event.target.value)}
-                    placeholder="חיפוש לפי שדה או ערך"
-                    className="w-full md:max-w-sm"
-                  />
-                  <Select value={rightsDocFilter} onValueChange={setRightsDocFilter}>
-                    <SelectTrigger className="w-full md:w-64">
-                      <SelectValue placeholder="בחר מסמך" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">כל המסמכים</SelectItem>
-                      {rightsDocOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {rightsError && (
-                  <div className="text-sm text-red-500 text-right">{rightsError}</div>
-                )}
-
-                {rightsLoading ? (
-                  <div className="flex items-center justify-center py-6">
-                    <Loader2 className="h-5 w-5 animate-spin" />
+            {/* Calculated Building Rights */}
+            {calculatedRights && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>זכויות בנייה מחושבות</CardTitle>
+                  <CardDescription>חישוב זכויות בנייה על בסיס דף הזכויות של עיריית תל אביב ונתונים נוכחיים</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-sm font-medium text-muted-foreground">שטח חלקה</div>
+                        <div className="text-2xl font-bold">{calculatedRights.summary.parcel_area_sqm?.toFixed(1) || '—'} מ״ר</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-sm font-medium text-muted-foreground">זכות בנייה כוללת</div>
+                        <div className="text-2xl font-bold">{calculatedRights.summary.total_building_privilege_sqm?.toLocaleString() || '—'} מ״ר</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-sm font-medium text-muted-foreground">שימוש נוכחי</div>
+                        <div className="text-2xl font-bold">{calculatedRights.summary.current_usage_sqm?.toLocaleString() || '—'} מ״ר</div>
+                        <div className="text-sm text-muted-foreground">{calculatedRights.summary.utilization_percentage?.toFixed(1) || '0'}% ניצול</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-sm font-medium text-muted-foreground">זכויות נותרות</div>
+                        <div className="text-2xl font-bold text-green-600">{calculatedRights.summary.remaining_rights_sqm?.toLocaleString() || '—'} מ״ר</div>
+                        <div className="text-sm text-muted-foreground">{calculatedRights.remaining_rights?.remaining_percentage?.toFixed(1) || '0'}% זמין</div>
+                      </CardContent>
+                    </Card>
                   </div>
-                ) : filteredRights.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="rtl:flex-row-reverse">
-                          <TableHead className="text-right">שדה</TableHead>
-                          <TableHead className="text-right">ערך</TableHead>
-                          <TableHead className="text-right">מסמך</TableHead>
-                          <TableHead className="text-right">תאריך העלאה</TableHead>
-                          <TableHead className="text-right">מקור</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredRights.map((row: any) => (
-                          <TableRow key={row.id} className="rtl:flex-row-reverse">
-                            <TableCell className="text-right font-medium whitespace-nowrap">
-                              {row.field || '—'}
-                            </TableCell>
-                            <TableCell className="text-right whitespace-pre-wrap break-words">
-                              {row.value || '—'}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex flex-col gap-1 rtl:items-end">
-                                <span>{row.document_title || `מסמך ${row.document_id}`}</span>
-                                {row.document_url && (
-                                  <a
-                                    href={row.document_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 underline"
-                                  >
-                                    צפה במסמך
-                                  </a>
+
+                  {/* Status */}
+                  <div className="flex items-center gap-2">
+                    <Badge variant={calculatedRights.remaining_rights?.can_expand ? "default" : "destructive"}>
+                      {calculatedRights.summary.status === 'Can expand' ? 'ניתן להרחבה' : 'מנוצל במלואו'}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      מקור: {calculatedRights.summary.privilege_source}
+                    </span>
+                  </div>
+
+                  {/* Floor Privileges */}
+                  {calculatedRights.building_privileges?.floor_privileges && Object.keys(calculatedRights.building_privileges.floor_privileges).length > 0 && (
+                    <div>
+                      <h4 className="text-lg font-semibold mb-3">זכויות קומות</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {Object.entries(calculatedRights.building_privileges.floor_privileges).map(([floorType, details]: [string, any]) => (
+                          <Card key={floorType}>
+                            <CardContent className="p-4">
+                              <div className="text-sm font-medium text-muted-foreground">קומה {floorType}</div>
+                              <div className="text-xl font-bold">{details.percentage}%</div>
+                              <div className="text-sm text-muted-foreground">{details.area_sqm?.toLocaleString()} מ״ר</div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Building Requirements */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Building Lines */}
+                    {calculatedRights.building_privileges?.building_line_requirements && calculatedRights.building_privileges.building_line_requirements.length > 0 && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-3">קווי בניין</h4>
+                        <div className="space-y-2">
+                          {calculatedRights.building_privileges.building_line_requirements.map((line: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center p-3 border rounded-lg">
+                              <span className="font-medium">קו {line.type}</span>
+                              <span className="text-sm text-muted-foreground">{line.distance_meters} מטרים</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Additional Requirements */}
+                    <div>
+                      <h4 className="text-lg font-semibold mb-3">דרישות נוספות</h4>
+                      <div className="space-y-2">
+                        {calculatedRights.building_privileges?.auxiliary_building_area_sqm > 0 && (
+                          <div className="flex justify-between items-center p-3 border rounded-lg">
+                            <span className="font-medium">בניין עזר</span>
+                            <span className="text-sm text-muted-foreground">{calculatedRights.building_privileges.auxiliary_building_area_sqm} מ״ר</span>
+                          </div>
+                        )}
+                        {calculatedRights.building_privileges?.parking_requirements && calculatedRights.building_privileges.parking_requirements.length > 0 && (
+                          <div className="flex justify-between items-center p-3 border rounded-lg">
+                            <span className="font-medium">חניה</span>
+                            <span className="text-sm text-muted-foreground">{calculatedRights.building_privileges.parking_requirements[0]?.area_sqm} מ״ר</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Current Building Details */}
+                  {calculatedRights.current_usage?.building_details && calculatedRights.current_usage.building_details.length > 0 && (
+                    <div>
+                      <h4 className="text-lg font-semibold mb-3">בניינים קיימים</h4>
+                      <div className="space-y-2">
+                        {calculatedRights.current_usage.building_details.map((building: any, index: number) => (
+                          <div key={index} className="p-3 border rounded-lg">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-medium">
+                                  {building.permit_number ? `היתר ${building.permit_number}` : `בניין ${building.building_number}`}
+                                </div>
+                                {building.housing_units > 0 && (
+                                  <div className="text-sm text-muted-foreground">{building.housing_units} יחידות דיור</div>
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap">
-                              {row.uploaded_at ? new Date(row.uploaded_at).toLocaleDateString('he-IL') : '—'}
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap">
-                              {row.source ? <Badge variant="outline">{row.source}</Badge> : '—'}
-                            </TableCell>
-                          </TableRow>
+                              <div className="text-right text-sm">
+                                {building.total_area_sqm > 0 && (
+                                  <div className="font-medium">{building.total_area_sqm.toLocaleString()} מ״ר</div>
+                                )}
+                                {building.residential_area_sqm > 0 && (
+                                  <div className="text-muted-foreground">מגורים: {building.residential_area_sqm.toLocaleString()} מ״ר</div>
+                                )}
+                                {building.commercial_area_sqm > 0 && (
+                                  <div className="text-muted-foreground">מסחר: {building.commercial_area_sqm.toLocaleString()} מ״ר</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="py-6 text-sm text-muted-foreground text-right">
-                    לא נמצאו נתוני זכויות זמינים
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="justify-end text-sm text-muted-foreground">
-                נתוני הטאבו מתעדכנים לאחר העלאת נסח טאבו בלשונית המסמכים. נתוני GIS ורמ״י מתעדכנים אוטומטית.
-              </CardFooter>
-            </Card>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
+    
             {/* Privilege Page Data */}
             {rightsRows.some(row => row.source === 'privilege_page') && (
               <Card>
@@ -1692,183 +1751,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </Card>
             )}
 
-            {/* GIS Data Sources */}
-            {rightsRows.some(row => row.source?.startsWith('gis')) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>נתוני GIS מפורטים</CardTitle>
-                  <CardDescription>נתונים ממערכת המידע הגיאוגרפית של תל אביב</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Cadastral Information */}
-                    {rightsRows.some(row => row.type === 'cadastral') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">מידע קדסטרלי</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => row.type === 'cadastral')
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.field}</div>
-                                <div className="text-lg font-medium">{row.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {row.source === 'gis_blocks' ? 'גושים' : 
-                                   row.source === 'gis_parcels' ? 'חלקות' : 'GIS'}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Building Permits */}
-                    {rightsRows.some(row => row.type === 'permits') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">היתרי בנייה</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => row.type === 'permits')
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.field}</div>
-                                <div className="text-lg font-medium">{row.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">היתרים</div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Land Use Information */}
-                    {(rightsRows.some(row => row.type === 'land_use') || 
-                      rightsRows.some(row => row.type === 'land_use_detailed')) && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">שימושי קרקע</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => row.type === 'land_use' || row.type === 'land_use_detailed')
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.field}</div>
-                                <div className="text-lg font-medium">{row.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {row.type === 'land_use_detailed' ? 'שימוש מפורט' : 'שימוש כללי'}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Environmental Data */}
-                    {(rightsRows.some(row => row.type === 'green_areas') || 
-                      rightsRows.some(row => row.type === 'noise') ||
-                      rightsRows.some(row => row.type === 'shelters')) && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">נתונים סביבתיים</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => ['green_areas', 'noise', 'shelters'].includes(row.type))
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.field}</div>
-                                <div className="text-lg font-medium">{row.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {row.type === 'green_areas' ? 'שטחים ירוקים' :
-                                   row.type === 'noise' ? 'רעש' :
-                                   row.type === 'shelters' ? 'מחסות' : 'סביבתי'}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Infrastructure Data */}
-                    {(rightsRows.some(row => row.type === 'antennas') || 
-                      rightsRows.some(row => row.type === 'preservation') ||
-                      rightsRows.some(row => row.type === 'dangerous')) && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">תשתיות ומידע נוסף</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => ['antennas', 'preservation', 'dangerous'].includes(row.type))
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.field}</div>
-                                <div className="text-lg font-medium">{row.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {row.type === 'antennas' ? 'אנטנות' :
-                                   row.type === 'preservation' ? 'שימור' :
-                                   row.type === 'dangerous' ? 'מבנים מסוכנים' : 'תשתית'}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Address Data */}
-                    {rightsRows.some(row => row.type === 'address') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">מידע כתובת</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => row.type === 'address')
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.field}</div>
-                                <div className="text-lg font-medium">{row.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">כתובת GIS</div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Summary Data */}
-                    {rightsRows.some(row => row.type === 'summary') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">סיכום GIS</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => row.type === 'summary')
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.field}</div>
-                                <div className="text-lg font-medium">{row.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">סיכום GIS</div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Planning Data */}
-                    {rightsRows.some(row => row.type === 'plans') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">תכניות</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => row.type === 'plans')
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.field}</div>
-                                <div className="text-lg font-medium">{row.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {row.source === 'gis_local_plans' ? 'תכנית מקומית' :
-                                   row.source === 'gis_city_plans' ? 'תכנית עירונית' : 'תכנית'}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {/* Ownership Summary */}
             {rightsRows.length > 0 && (

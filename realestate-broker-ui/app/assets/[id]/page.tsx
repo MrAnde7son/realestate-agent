@@ -1495,22 +1495,30 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{formatNumber(asset.remainingRightsSqm) ?? '—'}</div>
+                    <div className="text-2xl font-bold">
+                      {calculatedRights?.summary?.remaining_rights_sqm 
+                        ? formatNumber(calculatedRights.summary.remaining_rights_sqm)
+                        : formatNumber(asset.remainingRightsSqm) ?? '—'}
+                    </div>
                     <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {!!asset.remainingRightsSqm && !!asset.area
-                        ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
-                        : '—'}
+                      {calculatedRights?.summary?.additional_rights_percentage 
+                        ? `${calculatedRights.summary.additional_rights_percentage}%`
+                        : (!!asset.remainingRightsSqm && !!asset.area
+                            ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
+                            : '—')}
                     </div>
                     <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {!!asset.pricePerSqm && !!asset.remainingRightsSqm
-                        ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
-                        : '—'}
+                      {calculatedRights?.summary?.estimated_rights_value_k 
+                        ? `₪${calculatedRights.summary.estimated_rights_value_k}K`
+                        : (!!asset.pricePerSqm && !!asset.remainingRightsSqm
+                            ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
+                            : '—')}
                     </div>
                     <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
                   </div>

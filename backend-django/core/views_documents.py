@@ -393,16 +393,64 @@ class AssetRightsView(APIView):
                 
                 # Calculate floor-specific privileges
                 floor_privileges = {}
+                
+                # First pass: Calculate absolute floor areas (percentages of total building privilege)
+                absolute_floors = {}
                 for fp in floor_percentages:
                     floor_type = fp.get('floor', fp.get('type', ''))
                     percentage = float(fp.get('percentage', 0))
                     if floor_type and percentage > 0:
+                        # Check if this is a standard/typical floor (usually the base for relative calculations)
+                        is_standard_floor = floor_type in ['טיפוסית', 'ראשונה'] or 'טיפוסית' in fp.get('raw_text', '')
+                        
                         floor_area = (total_building_privilege * percentage / 100) if total_building_privilege > 0 else 0
-                        floor_privileges[floor_type] = {
+                        absolute_floors[floor_type] = {
                             'percentage': percentage,
                             'area_sqm': floor_area,
-                            'raw_text': fp.get('raw_text', '')
+                            'raw_text': fp.get('raw_text', ''),
+                            'is_standard': is_standard_floor
                         }
+                
+                # Second pass: Calculate relative floors (percentages of base floors)
+                for fp in floor_percentages:
+                    floor_type = fp.get('floor', fp.get('type', ''))
+                    percentage = float(fp.get('percentage', 0))
+                    raw_text = fp.get('raw_text', '')
+                    
+                    if floor_type and percentage > 0:
+                        # Check if this floor is relative to another floor (e.g., "75% מקומה טיפוסית")
+                        is_relative = False
+                        base_floor_type = None
+                        
+                        # Look for patterns like "75% מקומה טיפוסית" or "75% of standard floor"
+                        if 'מקומה' in raw_text or 'of' in raw_text.lower():
+                            is_relative = True
+                            # Try to identify the base floor from the raw text
+                            if 'טיפוסית' in raw_text:
+                                base_floor_type = 'טיפוסית'
+                            elif 'ראשונה' in raw_text:
+                                base_floor_type = 'ראשונה'
+                            else:
+                                # Default to the first standard floor found
+                                for floor_name, floor_data in absolute_floors.items():
+                                    if floor_data.get('is_standard', False):
+                                        base_floor_type = floor_name
+                                        break
+                        
+                        if is_relative and base_floor_type and base_floor_type in absolute_floors:
+                            # Calculate as percentage of the base floor
+                            base_area = absolute_floors[base_floor_type]['area_sqm']
+                            floor_area = base_area * (percentage / 100)
+                            floor_privileges[floor_type] = {
+                                'percentage': percentage,
+                                'area_sqm': floor_area,
+                                'raw_text': raw_text,
+                                'is_relative': True,
+                                'base_floor': base_floor_type
+                            }
+                        else:
+                            # Use absolute calculation
+                            floor_privileges[floor_type] = absolute_floors[floor_type]
                 
                 # Calculate building line requirements
                 building_line_requirements = []
@@ -519,12 +567,25 @@ class AssetRightsView(APIView):
         # Update usage percentage now that we have total_privilege
         calculated_rights['current_usage']['usage_percentage'] = (total_current_area / total_privilege * 100) if total_privilege > 0 else 0
         
+        # Calculate additional rights percentage (אחוז זכויות נוספות)
+        additional_rights_percentage = 0
+        if asset.area and asset.area > 0 and remaining_area > 0:
+            additional_rights_percentage = round((remaining_area / asset.area) * 100, 1)
+        
+        # Calculate estimated rights value (ערך משוער זכויות)
+        estimated_rights_value = 0
+        if asset.price_per_sqm and remaining_area > 0:
+            # Use 0.7 factor as seen in the frontend calculation
+            estimated_rights_value = round((asset.price_per_sqm * remaining_area * 0.7) / 1000)
+        
         # Create summary
         calculated_rights['summary'] = {
             'parcel_area_sqm': parcel_area,
             'total_building_privilege_sqm': total_privilege,
             'current_usage_sqm': total_current_area,
             'remaining_rights_sqm': max(0, remaining_area),
+            'additional_rights_percentage': additional_rights_percentage,
+            'estimated_rights_value_k': estimated_rights_value,
             'utilization_percentage': calculated_rights['current_usage']['usage_percentage'],
             'status': 'Fully utilized' if remaining_area <= 0 else 'Can expand',
             'privilege_source': 'דף זכויות'

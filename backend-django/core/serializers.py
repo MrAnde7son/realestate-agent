@@ -1,5 +1,22 @@
+from django.utils.crypto import get_random_string
 from rest_framework import serializers
-from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile, PlanType, UserPlan, Document
+from .models import (
+    Asset,
+    Permit,
+    Plan,
+    SupportTicket,
+    ConsultationRequest,
+    AlertRule,
+    AlertEvent,
+    Snapshot,
+    AssetContribution,
+    UserProfile,
+    PlanType,
+    UserPlan,
+    Document,
+    User,
+    Organization,
+)
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -501,11 +518,151 @@ class DocumentListSerializer(serializers.ModelSerializer):
     file_url = serializers.ReadOnlyField()
     is_downloadable = serializers.ReadOnlyField()
     uploaded_by = serializers.StringRelatedField(source='user', read_only=True)
-    
+
     class Meta:
         model = Document
         fields = [
-            'id', 'title', 'document_type', 'status', 'filename', 
-            'file_size', 'document_date', 'uploaded_at', 'file_url', 
+            'id', 'title', 'document_type', 'status', 'filename',
+            'file_size', 'document_date', 'uploaded_at', 'file_url',
             'is_downloadable', 'uploaded_by'
         ]
+
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = ["id", "name", "domain"]
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    organization = OrganizationSerializer(read_only=True)
+    organization_id = serializers.PrimaryKeyRelatedField(
+        source="organization",
+        queryset=Organization.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    organization_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    full_name = serializers.SerializerMethodField()
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "username",
+            "first_name",
+            "last_name",
+            "full_name",
+            "role",
+            "phone_number",
+            "company",
+            "organization",
+            "organization_id",
+            "organization_name",
+            "is_active",
+            "status",
+            "created_at",
+            "updated_at",
+            "last_login",
+            "password",
+        ]
+        read_only_fields = [
+            "id",
+            "username",
+            "organization",
+            "created_at",
+            "updated_at",
+            "last_login",
+        ]
+
+    def get_full_name(self, obj):
+        if obj.first_name or obj.last_name:
+            return f"{obj.first_name} {obj.last_name}".strip()
+        return obj.email
+
+    def get_status(self, obj):
+        return "active" if obj.is_active else "inactive"
+
+    def _extract_organization(self, validated_data):
+        touched = False
+
+        if "organization" in validated_data:
+            touched = True
+        organization = validated_data.pop("organization", None)
+
+        organization_name = validated_data.pop("organization_name", None)
+        if organization is not None:
+            return organization, True
+
+        if organization_name is not None:
+            touched = True
+            organization_name = organization_name.strip()
+            if organization_name:
+                organization, _ = Organization.objects.get_or_create(name=organization_name)
+                return organization, True
+            return None, True
+
+        return None, touched
+
+    def create(self, validated_data):
+        organization, touched = self._extract_organization(validated_data)
+        password = validated_data.pop("password", "")
+        email = validated_data.get("email")
+        username = validated_data.get("username") or email
+
+        if not email:
+            raise serializers.ValidationError({"email": "Email is required"})
+
+        if not username:
+            raise serializers.ValidationError({"username": "Username could not be determined"})
+
+        user = User(
+            username=username,
+            **validated_data,
+        )
+        if touched:
+            user.organization = organization
+
+        if password:
+            user.set_password(password)
+            self._temporary_password = None
+        else:
+            temporary_password = get_random_string(12)
+            user.set_password(temporary_password)
+            self._temporary_password = temporary_password
+
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        organization, touched = self._extract_organization(validated_data)
+        password = validated_data.pop("password", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if touched:
+            instance.organization = organization
+
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        self._temporary_password = None
+        return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.organization:
+            data["organization_name"] = instance.organization.name
+        else:
+            data["organization_name"] = ""
+
+        temporary_password = getattr(self, "_temporary_password", None)
+        if temporary_password:
+            data["temporary_password"] = temporary_password
+        return data

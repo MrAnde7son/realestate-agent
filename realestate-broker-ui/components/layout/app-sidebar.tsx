@@ -19,6 +19,7 @@ import {
   Receipt,
   Banknote,
   Users,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -100,7 +101,19 @@ export default function AppSidebar({
     .map((item) => ({ ...item }));
 
   if (user?.role === "admin") {
-    navigation.push({ name: "מעקב", href: "/admin/analytics", icon: LineChart });
+    const adminLinks = [
+      { name: "משתמשים", href: "/admin/users", icon: Shield },
+      { name: "מעקב", href: "/admin/analytics", icon: LineChart },
+    ];
+
+    const assetsIndex = navigation.findIndex((item) => item.href === "/assets");
+    adminLinks.forEach((link, index) => {
+      if (assetsIndex >= 0) {
+        navigation.splice(assetsIndex + 1 + index, 0, link);
+      } else {
+        navigation.push(link);
+      }
+    });
   }
 
   const handleLogout = async () => {

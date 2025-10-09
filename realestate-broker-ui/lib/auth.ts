@@ -40,7 +40,7 @@ export interface RegisterCredentials {
   first_name?: string
   last_name?: string
   company?: string
-  role: 'broker' | 'appraiser' | 'private'
+  role: 'broker' | 'appraiser' | 'investor' | 'viewer'
   equity?: number
 }
 
@@ -124,7 +124,11 @@ export interface PlanType {
   is_active: boolean
 }
 
-const API_BASE_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE ||
+  process.env.BACKEND_URL ||
+  'http://127.0.0.1:8000'
 
 class AuthAPI {
 

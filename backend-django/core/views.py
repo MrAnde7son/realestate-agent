@@ -17,10 +17,11 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from asgiref.sync import async_to_sync
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status, viewsets
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 try:
@@ -36,6 +37,8 @@ from drf_spectacular.utils import extend_schema
 import logging
 
 # Import Django models
+from django.db.models import Q
+
 from .models import (
     AlertRule,
     AlertEvent,
@@ -48,7 +51,8 @@ from .models import (
     UserProfile,
     Snapshot,
     Document,
-    Plan
+    Plan,
+    User,
 )
 
 from .listing_builder import build_listing
@@ -60,8 +64,11 @@ from .serializers import (
     UserProfileSerializer,
     PlanTypeSerializer,
     UserPlanSerializer,
-    UserPlanInfoSerializer, DocumentSerializer,
+    UserPlanInfoSerializer,
+    DocumentSerializer,
+    AdminUserSerializer,
 )
+from .permissions import IsAdmin
 from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
 
@@ -488,7 +495,7 @@ def me(request):
         {
             "authenticated": True,
             "email": u.email,
-            "role": getattr(u, "role", "private"),
+            "role": getattr(u, "role", "investor"),
         }
     )
 
@@ -2438,3 +2445,139 @@ def asset_listings(request, asset_id):
     except Exception as e:
         logger.error(f"Error fetching listings for asset {asset_id}: {e}")
         return Response({"error": "Failed to fetch listings"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminUserPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class AdminUserViewSet(viewsets.ModelViewSet):
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = AdminUserPagination
+
+    def get_queryset(self):
+        queryset = (
+            User.objects.select_related("organization")
+            .order_by("-created_at")
+        )
+
+        params = self.request.query_params
+        search = params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(email__icontains=search)
+            )
+
+        role = params.get("role")
+        if role:
+            queryset = queryset.filter(role=role)
+
+        status_filter = params.get("status")
+        if status_filter == "active":
+            queryset = queryset.filter(is_active=True)
+        elif status_filter == "inactive":
+            queryset = queryset.filter(is_active=False)
+
+        registration_date = params.get("registration_date")
+        if registration_date:
+            try:
+                date_value = datetime.strptime(registration_date, "%Y-%m-%d").date()
+                queryset = queryset.filter(created_at__date=date_value)
+            except ValueError:
+                pass
+
+        ordering = params.get("ordering")
+        if ordering:
+            queryset = self.apply_ordering(queryset, ordering)
+
+        return queryset
+
+    def apply_ordering(self, queryset, ordering):
+        allowed = {
+            "name",
+            "-name",
+            "role",
+            "-role",
+            "last_login",
+            "-last_login",
+            "created_at",
+            "-created_at",
+        }
+
+        if ordering not in allowed:
+            return queryset
+
+        if ordering.endswith("name"):
+            direction = "-" if ordering.startswith("-") else ""
+            return queryset.order_by(f"{direction}first_name", f"{direction}last_name")
+
+        return queryset.order_by(ordering)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            pagination = {
+                "count": self.paginator.page.paginator.count,
+                "page": self.paginator.page.number,
+                "page_size": self.paginator.get_page_size(request),
+                "total_pages": self.paginator.page.paginator.num_pages,
+            }
+            return Response({"data": serializer.data, "pagination": pagination})
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"data": serializer.data})
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response({"data": serializer.data}, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response({"data": serializer.data})
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "User deleted"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="deactivate")
+    def deactivate(self, request, pk=None):
+        user = self.get_object()
+        user.is_active = False
+        user.save()
+        serializer = self.get_serializer(user)
+        return Response({"data": serializer.data})
+
+    @action(detail=True, methods=["post"], url_path="activate")
+    def activate(self, request, pk=None):
+        user = self.get_object()
+        user.is_active = True
+        user.save()
+        serializer = self.get_serializer(user)
+        return Response({"data": serializer.data})
+
+    @action(detail=True, methods=["post"], url_path="reset-password")
+    def reset_password(self, request, pk=None):
+        user = self.get_object()
+        temporary_password = get_random_string(12)
+        user.set_password(temporary_password)
+        user.save()
+        serializer = self.get_serializer(user)
+        data = serializer.data
+        data["temporary_password"] = temporary_password
+        return Response({"data": data})

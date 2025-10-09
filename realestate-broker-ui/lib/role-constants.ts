@@ -2,14 +2,16 @@ export const ROLE_LABELS = {
   admin: 'מנהל מערכת',
   broker: 'מתווך',
   appraiser: 'שמאי',
-  private: 'פרטי',
+  investor: 'משקיע',
+  viewer: 'צופה',
 } as const
 
 export const ROLE_DESCRIPTIONS = {
   admin: 'גישה מלאה לכל הפונקציות',
   broker: 'גישה מלאה למודול הלקוחות, דוחות וניתוחי שוק מקצועיים',
   appraiser: 'גישה מלאה למודול הלקוחות, דוחות ושומות מקצועיות',
-  private: 'גישה לפונקציות בסיסיות ולנתוני שוק',
+  investor: 'גישה לפונקציות השקעה, דוחות בסיסיים והתראות',
+  viewer: 'גישה לצפייה בלבד בנתונים שהוקצו על ידי הארגון',
 } as const
 
 export type UserRole = keyof typeof ROLE_LABELS

@@ -35,7 +35,7 @@ export default function MortgageAnalyzePage() {
   const [userEquity, setUserEquity] = useState<number>(0)
 
   useEffect(() => {
-    if (user?.role === 'private') {
+    if (user?.role === 'investor') {
       const equityValue = typeof user.equity === 'number' ? user.equity : 0
       setUserEquity(equityValue)
     }

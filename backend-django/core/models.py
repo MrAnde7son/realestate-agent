@@ -5,16 +5,39 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
+
+
+class Organization(models.Model):
+    """Represents an optional organization that a user can belong to."""
+
+    name = models.CharField(max_length=255, unique=True)
+    domain = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
 
 
 class User(AbstractUser):
     """Custom user model for the real estate application."""
 
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     company = models.CharField(max_length=100, blank=True, null=True)
+    organization = models.ForeignKey(
+        "Organization",
+        related_name="users",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     equity = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -24,15 +47,16 @@ class User(AbstractUser):
     )
 
     class Role(models.TextChoices):
-        ADMIN = "admin", "Admin"
-        BROKER = "broker", "Broker"
-        APPRAISER = "appraiser", "Appraiser"
-        PRIVATE = "private", "Private"
+        ADMIN = "admin", _("Admin")
+        BROKER = "broker", _("Broker")
+        APPRAISER = "appraiser", _("Appraiser")
+        INVESTOR = "investor", _("Investor")
+        VIEWER = "viewer", _("Viewer")
 
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
-        default=Role.PRIVATE,
+        default=Role.INVESTOR,
         db_index=True,
     )
     is_verified = models.BooleanField(default=False)
@@ -56,6 +80,16 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    @property
+    def phone(self):
+        """Backwards compatible accessor for legacy phone usages."""
+
+        return self.phone_number
+
+    @phone.setter
+    def phone(self, value):
+        self.phone_number = value
 
     @property
     def current_plan(self):

@@ -13,10 +13,11 @@ User = get_user_model()
 ALLOWED_REGISTRATION_ROLES = {
     User.Role.BROKER,
     User.Role.APPRAISER,
-    User.Role.PRIVATE,
+    User.Role.INVESTOR,
+    User.Role.VIEWER,
 }
 
-DEFAULT_REGISTRATION_ROLE = User.Role.PRIVATE
+DEFAULT_REGISTRATION_ROLE = User.Role.INVESTOR
 
 
 class AuthenticationService:
@@ -76,7 +77,7 @@ class AuthenticationService:
             )
 
             equity = None
-            if role == str(User.Role.PRIVATE) and raw_equity not in (None, ""):
+            if role == str(User.Role.INVESTOR) and raw_equity not in (None, ""):
                 try:
                     equity = Decimal(str(raw_equity))
                 except (InvalidOperation, TypeError):

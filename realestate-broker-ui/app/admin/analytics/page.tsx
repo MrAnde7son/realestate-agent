@@ -3,6 +3,11 @@ import AnalyticsClient from "./AnalyticsClient";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { DashboardShell, DashboardHeader } from "@/components/layout/dashboard-shell";
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE ||
+  "http://127.0.0.1:8000"
+
 async function getMe() {
   try {
     // Get the access token from cookies (similar to middleware)
@@ -15,7 +20,7 @@ async function getMe() {
       return { authenticated: false };
     }
     
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"}/api/me`, {
+    const res = await fetch(`${API_BASE}/api/me`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -32,7 +37,6 @@ async function getMe() {
 }
 
 async function getAnalytics() {
-  const base = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
   try {
     // Get the access token from cookies
     const { cookies } = await import('next/headers');
@@ -50,8 +54,8 @@ async function getAnalytics() {
     };
     
     const [tsRes, topRes] = await Promise.all([
-      fetch(`${base}/api/analytics/timeseries`, { headers, cache: "no-store" }),
-      fetch(`${base}/api/analytics/top-failures`, { headers, cache: "no-store" }),
+      fetch(`${API_BASE}/api/analytics/timeseries`, { headers, cache: "no-store" }),
+      fetch(`${API_BASE}/api/analytics/top-failures`, { headers, cache: "no-store" }),
     ]);
     const series = tsRes.ok ? (await tsRes.json()).series : [];
     const top = topRes.ok ? (await topRes.json()).rows : [];

@@ -29,7 +29,7 @@ const registerSchema = z.object({
   first_name: z.string().min(2, 'שם פרטי חייב להכיל לפחות 2 תווים'),
   last_name: z.string().min(2, 'שם משפחה חייב להכיל לפחות 2 תווים'),
   company: z.string().optional(),
-  role: z.enum(['broker', 'appraiser', 'private'], {
+  role: z.enum(['broker', 'appraiser', 'investor', 'viewer'], {
     required_error: 'בחר סוג משתמש',
   }),
   equity: z.preprocess((val) => {
@@ -74,7 +74,7 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      role: 'private',
+      role: 'investor',
       equity: undefined,
     },
   })
@@ -94,7 +94,7 @@ export default function AuthPage() {
       setError('')
       const { confirmPassword, equity, ...registerData } = data
       const payload: RegisterCredentials = { ...registerData }
-      if (registerData.role === 'private' && typeof equity === 'number' && !Number.isNaN(equity)) {
+      if (registerData.role === 'investor' && typeof equity === 'number' && !Number.isNaN(equity)) {
         payload.equity = equity
       }
       await register(payload, redirectTo)
@@ -307,7 +307,7 @@ export default function AuthPage() {
                   <Select
                     value={registerForm.watch('role')}
                     onValueChange={(value) =>
-                      registerForm.setValue('role', value as 'broker' | 'appraiser' | 'private', {
+                      registerForm.setValue('role', value as RegisterFormData['role'], {
                         shouldValidate: true,
                         shouldDirty: true,
                       })
@@ -319,7 +319,8 @@ export default function AuthPage() {
                     <SelectContent>
                       <SelectItem value="broker">מתווך</SelectItem>
                       <SelectItem value="appraiser">שמאי</SelectItem>
-                      <SelectItem value="private">פרטי</SelectItem>
+                      <SelectItem value="investor">משקיע</SelectItem>
+                      <SelectItem value="viewer">צופה</SelectItem>
                     </SelectContent>
                   </Select>
                   {registerForm.formState.errors.role && (
@@ -339,7 +340,7 @@ export default function AuthPage() {
                     />
                   </div>
 
-                  {selectedRole === 'private' && (
+                  {selectedRole === 'investor' && (
                     <div className="space-y-2">
                       <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
                       <Input

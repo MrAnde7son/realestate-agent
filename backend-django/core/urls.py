@@ -27,6 +27,7 @@ router = DefaultRouter()
 router.register(r'permits', PermitViewSet)
 router.register(r'plans', PlanViewSet)
 router.register(r'documents', DocumentViewSet)
+router.register(r'admin/users', views.AdminUserViewSet, basename='admin-users')
 
 urlpatterns = [
     # Core endpoints

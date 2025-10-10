@@ -1291,7 +1291,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   onChange: setPlansStatusFilter,
                   options: [
                     { value: 'all', label: 'הכל' },
-                    ...Array.from(new Set(plans.map(p => p.status).filter(Boolean))).map(status => ({
+                    ...Array.from(new Set((plans || []).map(p => p.status).filter(Boolean))).map(status => ({
                       value: status,
                       label: status
                     }))

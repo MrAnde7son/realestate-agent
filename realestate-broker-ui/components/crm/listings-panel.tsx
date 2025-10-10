@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Search, Filter, ExternalLink, RefreshCw, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api-client'
+import TableToolbar from '@/components/TableToolbar'
+import { useAnalytics } from '@/hooks/useAnalytics'
 
 interface Listing {
   id: string
@@ -31,6 +33,7 @@ interface ListingsPanelProps {
 }
 
 export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
+  const { trackFeatureUsage } = useAnalytics()
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -154,6 +157,84 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
     return colors[source] || 'bg-gray-100 text-gray-800'
   }
 
+  // Prepare additional filters for TableToolbar
+  const additionalFilters = React.useMemo(() => {
+    const filters = []
+    
+    if (listings.length > 0) {
+      // Rooms filter
+      const rooms = [...new Set(listings.map(listing => listing.rooms.toString()))]
+      if (rooms.length > 1) {
+        filters.push({
+          key: 'rooms',
+          label: 'חדרים',
+          type: 'select',
+          value: roomsFilter,
+          options: [
+            { value: 'all', label: 'כל החדרים' },
+            ...rooms.map(room => ({
+              value: room,
+              label: `${room} חדרים`
+            }))
+          ]
+        })
+      }
+
+      // Property type filter
+      const propertyTypes = [...new Set(listings.map(listing => listing.property_type).filter(Boolean))]
+      if (propertyTypes.length > 1) {
+        filters.push({
+          key: 'propertyType',
+          label: 'סוג נכס',
+          type: 'select',
+          value: propertyTypeFilter,
+          options: [
+            { value: 'all', label: 'כל הסוגים' },
+            ...propertyTypes.map(type => ({ value: type, label: type }))
+          ]
+        })
+      }
+
+      // Source filter
+      const sources = [...new Set(listings.map(listing => listing.source))]
+      if (sources.length > 1) {
+        filters.push({
+          key: 'source',
+          label: 'מקור',
+          type: 'select',
+          value: sourceFilter,
+          options: [
+            { value: 'all', label: 'כל המקורות' },
+            ...sources.map(source => ({
+              value: source,
+              label: getSourceDisplay(source)
+            }))
+          ]
+        })
+      }
+    }
+
+    return filters
+  }, [listings, roomsFilter, propertyTypeFilter, sourceFilter])
+
+  const handleAdditionalFilterChange = (key: string, value: string) => {
+    trackFeatureUsage('filter', undefined, { filter_type: key, value })
+    
+    switch (key) {
+      case 'rooms':
+        setRoomsFilter(value)
+        break
+      case 'propertyType':
+        setPropertyTypeFilter(value)
+        break
+      case 'source':
+        setSourceFilter(value)
+        break
+      default:
+        break
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -163,187 +244,119 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
             מודעות נדלן מהאתרים השונים
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search and Filters */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" dir="rtl">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-right block">חיפוש</label>
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="חיפוש במודעות..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pr-10 text-right"
-                />
+        <CardContent className="p-0">
+          <div className="rounded-xl border border-border bg-card overflow-x-auto">
+            {/* Integrated Toolbar */}
+            <TableToolbar
+              searchValue={searchTerm}
+              onSearchChange={setSearchTerm}
+              searchPlaceholder="חיפוש במודעות..."
+              filters={{
+                city: { value: 'all', onChange: () => {}, options: [] },
+                type: { value: 'all', onChange: () => {}, options: [] },
+                priceMin: { 
+                  value: priceRange.min ? parseInt(priceRange.min) : undefined, 
+                  onChange: (value) => setPriceRange(prev => ({ ...prev, min: value?.toString() || '' }))
+                },
+                priceMax: { 
+                  value: priceRange.max ? parseInt(priceRange.max) : undefined, 
+                  onChange: (value) => setPriceRange(prev => ({ ...prev, max: value?.toString() || '' }))
+                }
+              }}
+              additionalFilters={additionalFilters}
+              onAdditionalFilterChange={handleAdditionalFilterChange}
+              columns={[]}
+              selectedCount={0}
+              totalCount={filteredListings.length}
+              onExportSelected={() => {}}
+              onExportAll={() => {}}
+              viewMode="table"
+              onViewModeChange={() => {}}
+              onRefresh={fetchListings}
+              loading={loading}
+            />
+
+            {/* Results Summary */}
+            <div className="px-4 py-2 border-b border-border bg-muted/30">
+              <div className="flex justify-between items-center text-sm text-muted-foreground" dir="rtl">
+                <span>נמצאו {filteredListings.length} מודעות</span>
+                <span>מתוך {listings.length} מודעות</span>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-right block">מחיר מינימלי</label>
-              <Input
-                placeholder="0"
-                value={priceRange.min}
-                onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
-                type="number"
-                className="text-right"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-right block">מחיר מקסימלי</label>
-              <Input
-                placeholder="10000000"
-                value={priceRange.max}
-                onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
-                type="number"
-                className="text-right"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-right block">חדרים</label>
-              <Select value={roomsFilter} onValueChange={setRoomsFilter}>
-                <SelectTrigger className="text-right" dir="rtl">
-                  <SelectValue placeholder="כל החדרים" />
-                </SelectTrigger>
-                <SelectContent dir="rtl">
-                  <SelectItem value="all">כל החדרים</SelectItem>
-                  <SelectItem value="1">1 חדר</SelectItem>
-                  <SelectItem value="2">2 חדרים</SelectItem>
-                  <SelectItem value="3">3 חדרים</SelectItem>
-                  <SelectItem value="4">4 חדרים</SelectItem>
-                  <SelectItem value="5">5+ חדרים</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-right block">סוג נכס</label>
-              <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
-                <SelectTrigger className="text-right" dir="rtl">
-                  <SelectValue placeholder="כל הסוגים" />
-                </SelectTrigger>
-                <SelectContent dir="rtl">
-                  <SelectItem value="all">כל הסוגים</SelectItem>
-                  <SelectItem value="דירה">דירה</SelectItem>
-                  <SelectItem value="בית פרטי">בית פרטי</SelectItem>
-                  <SelectItem value="נטהאוז">נטהאוז</SelectItem>
-                  <SelectItem value="דופלקס">דופלקס</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-right block">מקור</label>
-              <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="text-right" dir="rtl">
-                  <SelectValue placeholder="כל המקורות" />
-                </SelectTrigger>
-                <SelectContent dir="rtl">
-                  <SelectItem value="all">כל המקורות</SelectItem>
-                  <SelectItem value="yad2">יד2</SelectItem>
-                  <SelectItem value="madlan">מדלן</SelectItem>
-                  <SelectItem value="homeless">Homeless</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex items-end">
-              <Button 
-                onClick={fetchListings} 
-                disabled={loading}
-                variant="outline"
-                className="w-full"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                רענן
-              </Button>
-            </div>
-          </div>
 
-          {/* Results Summary */}
-          <div className="flex justify-between items-center text-sm text-muted-foreground" dir="rtl">
-            <span>נמצאו {filteredListings.length} מודעות</span>
-            <span>מתוך {listings.length} מודעות</span>
-          </div>
-
-          {/* Listings Table */}
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : error ? (
-            <div className="text-center py-8 text-red-500">
-              <p>{error}</p>
-              <Button onClick={fetchListings} variant="outline" className="mt-2">
-                נסה שוב
-              </Button>
-            </div>
-          ) : filteredListings.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>לא נמצאו מודעות מתאימות</p>
-            </div>
-          ) : (
-            <div className="border rounded-lg" dir="rtl">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">כותרת</TableHead>
-                    <TableHead className="text-right">מחיר</TableHead>
-                    <TableHead className="text-right">חדרים</TableHead>
-                    <TableHead className="text-right">גודל</TableHead>
-                    <TableHead className="text-right">מקור</TableHead>
-                    <TableHead className="text-right">תאריך</TableHead>
-                    <TableHead className="text-right">פעולות</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredListings.map((listing) => (
-                    <TableRow key={listing.id}>
-                      <TableCell className="text-right">
-                        <div>
-                          <p className="font-medium">{listing.title}</p>
-                          <p className="text-sm text-muted-foreground">{listing.address}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatPrice(listing.price)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {listing.rooms} חדרים
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {listing.size} מ&quot;ר
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge className={getSourceColor(listing.source)}>
-                          {getSourceDisplay(listing.source)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {new Date(listing.date_posted).toLocaleDateString('he-IL')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(listing.url, '_blank')}
-                          className="mr-0 ml-2"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+            {/* Listings Table */}
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : error ? (
+              <div className="text-center py-8 text-red-500">
+                <p>{error}</p>
+                <Button onClick={fetchListings} variant="outline" className="mt-2">
+                  נסה שוב
+                </Button>
+              </div>
+            ) : filteredListings.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>לא נמצאו מודעות מתאימות</p>
+              </div>
+            ) : (
+              <div className="relative rtl">
+                <Table className="rtl">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right rtl:text-right">כותרת</TableHead>
+                      <TableHead className="text-right rtl:text-right">מחיר</TableHead>
+                      <TableHead className="text-right rtl:text-right">חדרים</TableHead>
+                      <TableHead className="text-right rtl:text-right">גודל</TableHead>
+                      <TableHead className="text-right rtl:text-right">מקור</TableHead>
+                      <TableHead className="text-right rtl:text-right">תאריך</TableHead>
+                      <TableHead className="text-right rtl:text-right">פעולות</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  </TableHeader>
+                  <TableBody>
+                    {filteredListings.map((listing) => (
+                      <TableRow key={listing.id} className="hover:bg-muted/50">
+                        <TableCell className="text-right rtl:text-right">
+                          <div>
+                            <p className="font-medium">{listing.title}</p>
+                            <p className="text-sm text-muted-foreground">{listing.address}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right rtl:text-right font-medium">
+                          {formatPrice(listing.price)}
+                        </TableCell>
+                        <TableCell className="text-right rtl:text-right">
+                          {listing.rooms} חדרים
+                        </TableCell>
+                        <TableCell className="text-right rtl:text-right">
+                          {listing.size} מ&quot;ר
+                        </TableCell>
+                        <TableCell className="text-right rtl:text-right">
+                          <Badge className={getSourceColor(listing.source)}>
+                            {getSourceDisplay(listing.source)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right rtl:text-right">
+                          {new Date(listing.date_posted).toLocaleDateString('he-IL')}
+                        </TableCell>
+                        <TableCell className="text-right rtl:text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(listing.url, '_blank')}
+                            className="mr-0 ml-2"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

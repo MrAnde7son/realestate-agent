@@ -27,11 +27,15 @@ import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
+import DocumentSearch from '@/components/DocumentSearch'
+import DocumentCategory from '@/components/DocumentCategory'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
+import PlansTable from '@/components/PlansTable'
+import TransactionsTable from '@/components/TransactionsTable'
 import { ListingsPanel } from '@/components/crm/listings-panel'
 import {
   Breadcrumb,
@@ -80,7 +84,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [comparableTransactions, setComparableTransactions] = useState<any[]>([])
   const [marketAnalysis, setMarketAnalysis] = useState<any>(null)
   const [permits, setPermits] = useState<any[]>([])
-  const [plans, setPlans] = useState<{local: any[], mavat: any[]}>({local: [], mavat: []})
+  const [plans, setPlans] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
@@ -98,13 +102,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [rightsRows, setRightsRows] = useState<any[]>([])
   const [rightsLoading, setRightsLoading] = useState(false)
   const [rightsError, setRightsError] = useState<string | null>(null)
+  const [documentsSearch, setDocumentsSearch] = useState('')
+  const [documentsByCategory, setDocumentsByCategory] = useState<any>({})
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [documentsError, setDocumentsError] = useState<string | null>(null)
   const [rightsSearch, setRightsSearch] = useState('')
   const [rightsDocFilter, setRightsDocFilter] = useState('all')
   const [calculatedRights, setCalculatedRights] = useState<any>(null)
   const [transactionsSearch, setTransactionsSearch] = useState('')
   const [appraisalsSearch, setAppraisalsSearch] = useState('')
-  const [documentsSearch, setDocumentsSearch] = useState('')
   const [plansSearch, setPlansSearch] = useState('')
+  const [plansSourceFilter, setPlansSourceFilter] = useState('all')
+  const [plansStatusFilter, setPlansStatusFilter] = useState('all')
+  const [transactionsSourceFilter, setTransactionsSourceFilter] = useState('all')
+  const [transactionsAreaFilter, setTransactionsAreaFilter] = useState('all')
   const [permitsSearch, setPermitsSearch] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -214,31 +225,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       })))
     }
     
-    // 3. Plans from RAMI
-    if (plans.local && plans.local.length > 0) {
-      allDocs.push(...plans.local.map((plan: any) => ({
-        id: `rami_${plan.planNumber}`,
-        title: plan.title || `תכנית רמ״י ${plan.planNumber}`,
+    // 3. Plans
+    if (plans && plans.length > 0) {
+      allDocs.push(...plans.map((plan: any) => ({
+        id: `plan_${plan.id}`,
+        title: plan.description || `תכנית ${plan.plan_number}`,
         type: translateDocumentType('plan'),
-        url: plan.url,
-        source: translateSource('RAMI'),
-        category: 'תכניות רמ״י',
+        url: plan.file_url,
+        source: translateSource(plan.source === 'rami' ? 'RAMI' : plan.source === 'mavat' ? 'Mavat' : 'Local'),
+        category: plan.source === 'rami' ? 'תכניות רמ״י' : plan.source === 'mavat' ? 'תכניות מנהל התיכנון' : 'תכניות מקומיות',
         status: plan.status,
-        external_id: plan.planNumber
-      })))
-    }
-    
-    // 4. Plans from Mavat
-    if (plans.mavat && plans.mavat.length > 0) {
-      allDocs.push(...plans.mavat.map((plan: any) => ({
-        id: `mavat_${plan.plan_id}`,
-        title: plan.title || `תכנית מבת ${plan.plan_id}`,
-        type: translateDocumentType('plan'),
-        url: plan.url,
-        source: translateSource('Mavat'),
-        category: 'תכניות מנהל התיכנון',
-        status: plan.status,
-        external_id: plan.plan_id
+        external_id: plan.plan_number
       })))
     }
     
@@ -350,6 +347,58 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     })
   }, [rightsRows, rightsDocFilter, rightsSearch])
 
+  // Load documents organized by category
+  const loadDocumentsByCategory = React.useCallback(async () => {
+    if (!id) return
+    
+    setDocumentsLoading(true)
+    setDocumentsError(null)
+    
+    try {
+      const response = await apiClient.get(`/api/documents/by_category/?asset_id=${id}`)
+      
+      if (response.ok) {
+        setDocumentsByCategory(response.data)
+      } else {
+        console.error('Failed to load documents by category:', response.error)
+        setDocumentsError('שגיאה בטעינת מסמכים')
+        setDocumentsByCategory({})
+      }
+    } catch (error) {
+      console.error('Error loading documents by category:', error)
+      setDocumentsError('שגיאה בטעינת מסמכים')
+      setDocumentsByCategory({})
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [id])
+
+  // Handle document search results
+  const handleDocumentResults = React.useCallback((results: any) => {
+    if (results.type === 'category') {
+      setDocumentsByCategory(results.data)
+    } else if (results.type === 'search') {
+      // Convert search results to category format for display
+      const searchResultsByCategory: any = {}
+      results.data.forEach((doc: any) => {
+        const category = doc.hebrew_category || 'אחר'
+        if (!searchResultsByCategory[category]) {
+          searchResultsByCategory[category] = []
+        }
+        searchResultsByCategory[category].push(doc)
+      })
+      setDocumentsByCategory(searchResultsByCategory)
+    } else if (results.type === 'error') {
+      setDocumentsError('שגיאה בחיפוש מסמכים')
+      setDocumentsByCategory({})
+    }
+  }, [])
+
+  // Load documents when component mounts
+  React.useEffect(() => {
+    loadDocumentsByCategory()
+  }, [loadDocumentsByCategory])
+
   useEffect(() => {
     setLoading(true)
     apiClient.get(`/api/assets/${id}`)
@@ -413,18 +462,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         return res.json()
       })
       .then(data => {
-        // Organize plans by source
-        const organizedPlans: {local: any[], mavat: any[]} = {local: [], mavat: []}
-        if (data.plans && Array.isArray(data.plans)) {
-          data.plans.forEach((plan: any) => {
-            if (plan.source === 'mavat') {
-              organizedPlans.mavat.push(plan)
-            } else if (plan.source === 'collected_data' || plan.source === 'rami') {
-              organizedPlans.local.push(plan)
-            }
-          })
-        }
-        setPlans(organizedPlans)
+        setPlans(data.plans || [])
       })
       .catch(err => console.error('Error loading plans:', err))
   }, [id])
@@ -1065,7 +1103,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <span className="text-muted-foreground">חדרים:</span>
                     <span>{asset.rooms ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">ייעוד:</span>
                     <span>{asset.zoning ?? '—'}</span>
                   </div>
@@ -1229,19 +1267,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center rtl:flex-row-reverse">
-                  <CardTitle>תוכניות</CardTitle>
-                  <Input
-                    placeholder="חפש תוכניות..."
-                    value={plansSearch}
-                    onChange={(e) => setPlansSearch(e.target.value)}
-                    className="w-64"
-                  />
-                </div>
-              </CardHeader>
-            </Card>
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -1304,164 +1329,48 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </div>
 
 
-            {/* Mavat Plans */}
-            {plans.mavat && plans.mavat.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>תוכניות ממינהל התכנון</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    תוכניות תכנון רלוונטיות מהמערכת הממשלתית
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {plans.mavat
-                      .filter((plan: any) => {
-                        if (!plansSearch) return true
-                        const searchLower = plansSearch.toLowerCase()
-                        return (
-                          plan.description?.toLowerCase().includes(searchLower) ||
-                          plan.plan_number?.toLowerCase().includes(searchLower) ||
-                          plan.status?.toLowerCase().includes(searchLower) ||
-                          plan.raw?.title?.toLowerCase().includes(searchLower) ||
-                          plan.raw?.authority?.toLowerCase().includes(searchLower) ||
-                          plan.raw?.jurisdiction?.toLowerCase().includes(searchLower)
-                        )
-                      })
-                      .map((plan: any, idx: number) => (
-                      <div key={idx} className="p-3 border rounded-lg">
-                        <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">{plan.description || plan.raw?.title || `תכנית מבת ${plan.plan_number}`}</h4>
-                            <p className="text-xs text-muted-foreground">
-                              תוכנית מס׳ {plan.plan_number}
-                            </p>
-                          </div>
-                          <Badge variant={plan.status === 'מאושר' ? 'success' : 'neutral'}>
-                            {plan.status || 'לא ידוע'}
-                          </Badge>
-                        </div>
-                        <div className="grid gap-2 text-xs text-muted-foreground">
-                          {plan.raw?.authority && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>רשות:</span>
-                              <span>{plan.raw.authority}</span>
-                            </div>
-                          )}
-                          {plan.raw?.jurisdiction && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>תחום שיפוט:</span>
-                              <span>{plan.raw.jurisdiction}</span>
-                            </div>
-                          )}
-                          {plan.raw?.approval_date && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>תאריך אישור:</span>
-                              <span>{new Date(plan.raw.approval_date).toLocaleDateString('he-IL')}</span>
-                            </div>
-                          )}
-                          {plan.raw?.status_date && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>תאריך סטטוס:</span>
-                              <span>{new Date(plan.raw.status_date).toLocaleDateString('he-IL')}</span>
-                            </div>
-                          )}
-                          {plan.file_url && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>קובץ:</span>
-                              <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                צפה בקובץ
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="pt-2 border-t mt-4">
-                    <div className="text-sm text-muted-foreground text-center">
-                      מקור: מערכת mavat - מידע תכנוני ממשלתי
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader>
-                <CardTitle>תוכניות ממינהל התכנון</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    תוכניות תכנון רלוונטיות מהמערכת הממשלתית
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <div className="text-muted-foreground mb-2">
-                      לא נמצאו תוכניות ממינהל התיכנון עבור נכס זה
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Local Plans */}
-            {plans.local && plans.local.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>תוכניות מקומיות</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    תוכניות שמורות במערכת המקומית
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {plans.local
-                      .filter((plan: any) => {
-                        if (!plansSearch) return true
-                        const searchLower = plansSearch.toLowerCase()
-                        return (
-                          plan.description?.toLowerCase().includes(searchLower) ||
-                          plan.plan_number?.toLowerCase().includes(searchLower) ||
-                          plan.status?.toLowerCase().includes(searchLower) ||
-                          plan.effective_date?.toLowerCase().includes(searchLower)
-                        )
-                      })
-                      .map((plan: any, idx: number) => (
-                      <div key={idx} className="p-3 border rounded-lg">
-                        <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">{plan.description || plan.plan_number}</h4>
-                            <p className="text-xs text-muted-foreground">
-                              תוכנית מס׳ {plan.plan_number}
-                            </p>
-                          </div>
-                          <Badge variant={plan.status === 'מאושר' ? 'success' : 'neutral'}>
-                            {plan.status}
-                          </Badge>
-                        </div>
-                        {plan.effective_date && (
-                          <div className="text-xs text-muted-foreground">
-                            <span>תאריך תוקף: </span>
-                            <span>{new Date(plan.effective_date).toLocaleDateString('he-IL')}</span>
-                          </div>
-                        )}
-                        {plan.file_url && (
-                          <div className="mt-2">
-                            <a
-                              href={plan.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 text-xs underline"
-                            >
-                              צפה במסמך
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Plans Table */}
+            <PlansTable
+              data={plans}
+              loading={false}
+              searchValue={plansSearch}
+              onSearchChange={setPlansSearch}
+              filters={{
+                source: {
+                  value: plansSourceFilter,
+                  onChange: setPlansSourceFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'rami', label: 'רמ״י' },
+                    { value: 'mavat', label: 'מנהל התיכנון' },
+                    { value: 'unknown', label: 'מקומי' }
+                  ]
+                },
+                status: {
+                  value: plansStatusFilter,
+                  onChange: setPlansStatusFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    ...Array.from(new Set((plans || []).map(p => p.status).filter(Boolean))).map(status => ({
+                      value: status,
+                      label: status
+                    }))
+                  ]
+                }
+              }}
+              onRefresh={() => {
+                // Refresh plans data
+                fetch(`/api/assets/${id}/plans`)
+                  .then(res => {
+                    if (!res.ok) throw new Error('Failed to load plans')
+                    return res.json()
+                  })
+                  .then(data => {
+                    setPlans(data.plans || [])
+                  })
+                  .catch(err => console.error('Error loading plans:', err))
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="rights" className="space-y-4">
@@ -1824,24 +1733,100 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                             <TableHead className="text-right">אחוז בעלות</TableHead>
                             <TableHead className="text-right">מספר זיהוי</TableHead>
                             <TableHead className="text-right">תאריך רכישה</TableHead>
+                            <TableHead className="text-right">הערות</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {rightsRows
-                            .filter(row => row.field?.includes('בעלים') || row.field?.includes('owner'))
+                            .filter(row => 
+                              (row.field?.includes('בעלים') || row.field?.includes('owner')) &&
+                              !row.field?.includes('משכנתה') && 
+                              !row.field?.includes('בעלי המשכנתה')
+                            )
                             .map((row, index) => {
                               const ownerName = row.value
+                              
+                              // Find ownership percentage - look for the specific field
                               const ownershipRow = rightsRows.find(r => 
-                                r.field?.includes('החלק') || r.field?.includes('percentage') || 
-                                (r.field?.includes('בעלים') && r.value === ownerName)
+                                r.field === 'החלק בנכס'
                               )
+                              
+                              // Convert fraction to percentage
+                              const convertToPercentage = (value: string) => {
+                                if (!value) return '—'
+                                
+                                // Handle "בשלמות" (full ownership) = 100%
+                                if (value.includes('בשלמות')) return '100%'
+                                
+                                // Handle fractions like "1/2" = 50%
+                                if (value.includes('/')) {
+                                  const parts = value.split('/')
+                                  if (parts.length === 2) {
+                                    const numerator = parseFloat(parts[0])
+                                    const denominator = parseFloat(parts[1])
+                                    if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+                                      const percentage = Math.round((numerator / denominator) * 100)
+                                      return `${percentage}%`
+                                    }
+                                  }
+                                }
+                                
+                                // Handle existing percentages
+                                if (value.includes('%')) return value
+                                
+                                // Handle decimal numbers
+                                const num = parseFloat(value)
+                                if (!isNaN(num)) {
+                                  if (num <= 1) {
+                                    // Assume it's a decimal (0.5 = 50%)
+                                    return `${Math.round(num * 100)}%`
+                                  } else {
+                                    // Assume it's already a percentage
+                                    return `${Math.round(num)}%`
+                                  }
+                                }
+                                
+                                return value
+                              }
+                              
+                              // Find ID number - look for the specific field
                               const idRow = rightsRows.find(r => 
-                                r.field?.includes('זיהוי') || r.field?.includes('ת.ז') || 
-                                (r.field?.includes('בעלים') && r.value === ownerName)
+                                r.field === 'מספר זיהוי' || r.field === 'ת.ז'
                               )
+                              
+                              // Find date - look for the specific field
                               const dateRow = rightsRows.find(r => 
-                                r.field?.includes('תאריך') || r.field?.includes('date')
+                                r.field === 'תאריך רכישה' || r.field === 'תאריך'
                               )
+                              
+                              // Check for mortgages associated with this owner
+                              const hasMortgage = rightsRows.some(r => 
+                                r.field === 'בעלי המשכנתה' || 
+                                (r.field === 'מהות פעולה' && r.value?.includes('משכנתה'))
+                              )
+                              
+                              // Get mortgage details if available
+                              const mortgageHolder = rightsRows.find(r => 
+                                r.field === 'בעלי המשכנתה'
+                              )
+                              
+                              const mortgageAmount = rightsRows.find(r => 
+                                r.field === 'סכום'
+                              )
+                              
+                              const getMortgageNotes = () => {
+                                if (!hasMortgage) return '—'
+                                
+                                const notes = []
+                                if (mortgageHolder?.value) {
+                                  notes.push(`משכנתה: ${mortgageHolder.value}`)
+                                }
+                                if (mortgageAmount?.value) {
+                                  notes.push(`סכום: ${mortgageAmount.value}`)
+                                }
+                                
+                                return notes.length > 0 ? notes.join(', ') : 'יש משכנתה'
+                              }
                               
                               return (
                                 <TableRow key={index} className="rtl:flex-row-reverse">
@@ -1849,13 +1834,16 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                     {ownerName || '—'}
                                   </TableCell>
                                   <TableCell className="text-right">
-                                    {ownershipRow?.value || '—'}
+                                    {convertToPercentage(ownershipRow?.value || '')}
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {idRow?.value || '—'}
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {dateRow?.value || '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm">
+                                    {getMortgageNotes()}
                                   </TableCell>
                                 </TableRow>
                               )
@@ -2189,17 +2177,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="transactions" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center rtl:flex-row-reverse">
-                  <CardTitle>עיסקאות השוואה</CardTitle>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="חפש עסקאות..."
-                      value={transactionsSearch}
-                      onChange={(e) => setTransactionsSearch(e.target.value)}
-                      className="w-64"
-                    />
-                  </div>
-                </div>
+                <CardTitle>עיסקאות השוואה</CardTitle>
               </CardHeader>
               <CardBody className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-4">
@@ -2243,70 +2221,48 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardBody>
               </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>עסקאות אחרונות ברדיוס 500 מטר</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {comparableTransactions.length > 0 ? (
-                    <div className="grid gap-3">
-                      {comparableTransactions
-                        .filter((comp: any) => {
-                          if (!transactionsSearch) return true
-                          const searchLower = transactionsSearch.toLowerCase()
-                          return (
-                            comp.address?.toLowerCase().includes(searchLower) ||
-                            comp.area?.toString().includes(searchLower) ||
-                            comp.rooms?.toString().includes(searchLower) ||
-                            comp.price?.toString().includes(searchLower) ||
-                            comp.price_per_sqm?.toString().includes(searchLower) ||
-                            comp.source?.toLowerCase().includes(searchLower)
-                          )
-                        })
-                        .map((comp: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse"
-                        >
-                          <div>
-                            <div className="font-medium">{comp.address}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {!!comp.area ? `${comp.area} מ״ר` : ''}
-                              {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
-                              {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
-                            </div>
-                            {comp.source && (
-                              <div className="text-xs text-blue-600 mt-1">
-                                מקור: {comp.source === 'collected_government' ? 'נדלן' : 'מאגר פנימי'}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold">{formatCurrency(comp.price)}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {formatCurrency(comp.price_per_sqm)}/מ״ר
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <div className="text-lg font-medium mb-2">לא נמצאו עסקאות השוואה</div>
-                      <div className="text-sm">
-                        נסה לסנכרן נתונים כדי לקבל עסקאות עדכניות מהאזור
-                      </div>
-                    </div>
-                  )}
-                  <div className="pt-2 border-t text-center">
-                    <div className="text-sm text-muted-foreground">
-                      מקור: נתוני עסקאות מ-nadlan.gov.il
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Transactions Table */}
+            <TransactionsTable
+              data={comparableTransactions}
+              loading={false}
+              searchValue={transactionsSearch}
+              onSearchChange={setTransactionsSearch}
+              filters={{
+                source: {
+                  value: transactionsSourceFilter,
+                  onChange: setTransactionsSourceFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'collected_government', label: 'ממשלתי' },
+                    { value: 'internal', label: 'מאגר פנימי' }
+                  ]
+                },
+                area: {
+                  value: transactionsAreaFilter,
+                  onChange: setTransactionsAreaFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: '0-50', label: '0-50 מ״ר' },
+                    { value: '50-100', label: '50-100 מ״ר' },
+                    { value: '100-150', label: '100-150 מ״ר' },
+                    { value: '150-200', label: '150-200 מ״ר' },
+                    { value: '200+', label: '200+ מ״ר' }
+                  ]
+                }
+              }}
+              onRefresh={() => {
+                // Refresh transactions data
+                fetch(`/api/assets/${id}/transactions`)
+                  .then(res => {
+                    if (!res.ok) throw new Error('Failed to load transactions')
+                    return res.json()
+                  })
+                  .then(data => {
+                    setComparableTransactions(data.transactions || [])
+                  })
+                  .catch(err => console.error('Error loading transactions:', err))
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="appraisals" className="space-y-4">
@@ -2542,12 +2498,26 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardHeader>
                 <div className="flex justify-between items-center rtl:flex-row-reverse">
                   <CardTitle>מסמכים</CardTitle>
-                  <Input
-                    placeholder="חפש מסמכים..."
-                    value={documentsSearch}
-                    onChange={(e) => setDocumentsSearch(e.target.value)}
-                    className="w-64"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadDocumentsByCategory}
+                      disabled={documentsLoading}
+                    >
+                      {documentsLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          טוען...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          רענן
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -2581,79 +2551,50 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </Button>
                 </form>
 
-                {/* Unified documents view grouped by category */}
-                {(() => {
-                  const allDocs = getAllDocuments()
-                  const docsByCategory = allDocs.reduce((acc: any, doc: any) => {
-                    const category = doc.category || 'אחר'
-                    if (!acc[category]) {
-                      acc[category] = []
-                    }
-                    acc[category].push(doc)
-                    return acc
-                  }, {})
+                {/* Document Search and Filter */}
+                <DocumentSearch
+                  assetId={parseInt(id)}
+                  onResultsChange={handleDocumentResults}
+                  onLoadingChange={setDocumentsLoading}
+                />
 
-                  return Object.entries(docsByCategory).map(([category, docs]: [string, any]) => {
-                    const filteredDocs = docs.filter((doc: any) => {
-                      if (!documentsSearch) return true
-                      const searchLower = documentsSearch.toLowerCase()
-                      return (
-                        doc.title?.toLowerCase().includes(searchLower) ||
-                        doc.name?.toLowerCase().includes(searchLower) ||
-                        doc.type?.toLowerCase().includes(searchLower) ||
-                        doc.source?.toLowerCase().includes(searchLower) ||
-                        doc.category?.toLowerCase().includes(searchLower)
-                      )
-                    })
-                    
-                    if (filteredDocs.length === 0 && documentsSearch) return null
-                    
-                    return (
-                      <div key={category}>
-                        <h3 className="font-medium mb-2">{category}</h3>
-                        {filteredDocs.length > 0 ? (
-                          <div className="space-y-2">
-                            {filteredDocs.map((doc: any, idx: number) => (
-                              <div
-                                key={`${category}_${idx}`}
-                                className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                              >
-                                <div className="flex flex-col rtl:items-end">
-                                  <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
-                                  <div className="flex gap-2 text-xs text-muted-foreground">
-                                    {doc.type && <span>סוג: {doc.type}</span>}
-                                    {doc.source && <span>מקור: {doc.source}</span>}
-                                    {doc.date && <span>תאריך: {new Date(doc.date).toLocaleDateString('he-IL')}</span>}
-                                  </div>
-                                </div>
-                                <Button variant="outline" size="sm" asChild>
-                                  <a 
-                                    href={doc.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => handleDocumentClick(e, doc.url)}
-                                  >
-                                    {doc.url ? 'פתח' : 'לא זמין'}
-                                  </a>
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground">אין מסמכים בקטגוריה זו</div>
-                        )}
-                      </div>
-                    )
-                  })
-                })()}
+                {/* Error Display */}
+                {documentsError && (
+                  <div className="text-red-600 text-sm bg-red-50 p-3 rounded">
+                    {documentsError}
+                  </div>
+                )}
 
-
-
-
-
-                <div className="pt-4 text-center text-sm text-muted-foreground">
-                  סה״כ {getAllDocuments().length} מסמכים זמינים
-                </div>
+                {/* Documents by Category */}
+                {documentsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    טוען מסמכים...
+                  </div>
+                ) : Object.keys(documentsByCategory).length > 0 ? (
+                  <div className="space-y-6">
+                    {Object.entries(documentsByCategory).map(([category, documents]: [string, any]) => (
+                      <DocumentCategory
+                        key={category}
+                        category={category}
+                        documents={documents}
+                        onDocumentClick={(document) => {
+                          if (document.file_url) {
+                            window.open(document.file_url, '_blank')
+                          } else if (document.external_url) {
+                            window.open(document.external_url, '_blank')
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>אין מסמכים זמינים</p>
+                    <p className="text-sm">העלה מסמכים או רענן את הנתונים</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

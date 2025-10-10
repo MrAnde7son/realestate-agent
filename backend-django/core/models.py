@@ -2,6 +2,7 @@ import os
 import logging
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -1010,18 +1011,47 @@ class Document(models.Model):
     """Document model for storing file metadata and managing document uploads."""
     
     DOCUMENT_TYPE_CHOICES = [
-        ("tabu", "Tabu"),
-        ("condo_plan", "Condominium Plan"),
-        ("permit", "Building Permit"),
+        # שומות (Appraisals)
         ("appraisal", "Appraisal"),
         ("appraisal_decisive", "Decisive Appraisal"),
         ("appraisal_rmi", "RAMI Appraisal"),
-        ("rights", "Rights Document"),
+        
+        # היתרים (Permits)
+        ("permit", "Building Permit"),
+        ("permit_construction", "Construction Permit"),
+        ("permit_renovation", "Renovation Permit"),
+        
+        # תוכניות (Plans)
         ("plan", "Planning Document"),
-        ("contract", "Contract"),
+        ("plan_local", "Local Plan"),
+        ("plan_citywide", "Citywide Plan"),
+        ("plan_detailed", "Detailed Plan"),
+        
+        # נסחים (Documents/Deeds)
+        ("tabu", "Tabu"),
         ("deed", "Deed"),
+        ("contract", "Contract"),
+        ("rights", "Rights Document"),
+        
+        # תשריטים (Drawings/Blueprints)
+        ("condo_plan", "Condominium Plan"),
+        ("blueprint", "Blueprint"),
+        ("architectural_drawing", "Architectural Drawing"),
+        ("technical_drawing", "Technical Drawing"),
+        
+        # אחר (Other)
         ("other", "Other"),
     ]
+    
+    # Hebrew category mapping for UI organization
+    DOCUMENT_CATEGORIES = {
+        "שומות": ["appraisal", "appraisal_decisive", "appraisal_rmi"],
+        "היתרים": ["permit", "permit_construction", "permit_renovation"],
+        "תוכניות": ["plan", "plan_local", "plan_citywide", "plan_detailed"],
+        "נסחים": ["tabu", "deed", "contract", "rights"],
+        "תשריטים": ["condo_plan", "blueprint", "architectural_drawing", "technical_drawing"],
+        "אחר": ["other"]
+    }
     
     STATUS_CHOICES = [
         ("pending", "Pending"),
@@ -1124,6 +1154,48 @@ class Document(models.Model):
         # Use Django's default_storage to check if file exists
         from django.core.files.storage import default_storage
         return default_storage.exists(self.file_path)
+    
+    @property
+    def hebrew_category(self):
+        """Get the Hebrew category for this document type."""
+        for category, types in self.DOCUMENT_CATEGORIES.items():
+            if self.document_type in types:
+                return category
+        return "אחר"
+    
+    @classmethod
+    def get_documents_by_category(cls, asset_id=None):
+        """Get documents organized by Hebrew categories."""
+        queryset = cls.objects.all()
+        if asset_id:
+            queryset = queryset.filter(asset_id=asset_id)
+        
+        documents_by_category = {}
+        for category in cls.DOCUMENT_CATEGORIES.keys():
+            documents_by_category[category] = []
+        
+        for doc in queryset:
+            category = doc.hebrew_category
+            documents_by_category[category].append(doc)
+        
+        return documents_by_category
+    
+    @classmethod
+    def search_documents(cls, query, asset_id=None):
+        """Search documents by title, description, or external_id."""
+        queryset = cls.objects.all()
+        if asset_id:
+            queryset = queryset.filter(asset_id=asset_id)
+        
+        if query:
+            queryset = queryset.filter(
+                Q(title__icontains=query) |
+                Q(description__icontains=query) |
+                Q(external_id__icontains=query) |
+                Q(filename__icontains=query)
+            )
+        
+        return queryset
     
     def delete_file(self):
         """Delete the physical file from storage."""

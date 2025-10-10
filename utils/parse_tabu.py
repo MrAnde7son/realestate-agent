@@ -40,6 +40,24 @@ import re
 import pdfplumber
 
 
+def _reverse_hebrew_text(text: str) -> str:
+    """Reverse Hebrew text that has been incorrectly extracted from PDF."""
+    # Split by spaces and reverse each word
+    words = text.split()
+    reversed_words = []
+    
+    for word in words:
+        # Check if word contains Hebrew characters
+        if any('\u0590' <= char <= '\u05FF' for char in word):
+            # Reverse Hebrew words
+            reversed_words.append(word[::-1])
+        else:
+            # Keep non-Hebrew words as is
+            reversed_words.append(word)
+    
+    return ' '.join(reversed_words)
+
+
 def _extract_number_near_field(line: str, keyword: str) -> str | None:
     """Extract a numeric value that appears adjacent to a Hebrew keyword.
 
@@ -203,6 +221,8 @@ class TabuParser:
                 text = page.extract_text() or ""
                 lines = [re.sub(r"\s+", " ", line.strip()) for line in text.splitlines() if line.strip()]
                 for line in lines:
+                    # Fix Hebrew text reversal before processing
+                    line = _reverse_hebrew_text(line)
                     self._process_line(line)
         return self.rows
 
@@ -245,7 +265,11 @@ class TabuParser:
             if has_date or has_action:
                 name, action, date = self._extract_owner_line(line)
                 if name:
-                    self._add_row('בעלים', name)
+                    # Check if this is a mortgage entry, not an ownership entry
+                    if 'משכנתה' in line:
+                        self._add_row('בעלי המשכנתה', name)
+                    else:
+                        self._add_row('בעלים', name)
                 if action:
                     self._add_row('מהות פעולה', action)
                 if date:

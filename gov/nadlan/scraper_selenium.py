@@ -65,6 +65,7 @@ class NadlanDealsScraper:
         self.use_cache = use_cache
         self.driver = None
         self.current_search_address = None  # Store the current search address for full address construction
+        self.error_modal_encountered = False  # Track if error modal was encountered during scraping
         
         # Initialize cache if enabled
         if self.use_cache:
@@ -80,7 +81,11 @@ class NadlanDealsScraper:
             service = Service(ChromeDriverManager().install())
             options = webdriver.ChromeOptions()
             if self.headless:
-                options.add_argument('--headless')
+                options.add_argument('--headless=new')  # Use new headless mode
+                options.add_argument('--disable-blink-features=AutomationControlled')
+                options.add_argument('--disable-extensions')
+                options.add_argument('--disable-plugins')
+                options.add_argument('--disable-images')  # Disable images for faster loading
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
@@ -98,55 +103,94 @@ class NadlanDealsScraper:
             self.driver = webdriver.Chrome(service=service, options=options)
             self.driver.set_page_load_timeout(self.timeout)
             
-            # Enable network logging
-            self.driver.execute_cdp_cmd('Network.enable', {})
-            self.driver.execute_cdp_cmd('Runtime.enable', {})
+            # Enable network logging - but only if not in headless mode or if it fails gracefully
+            try:
+                self.driver.execute_cdp_cmd('Network.enable', {})
+                self.driver.execute_cdp_cmd('Runtime.enable', {})
+                logger.info("Network monitoring enabled successfully")
+            except Exception as e:
+                logger.warning(f"Failed to enable network monitoring: {e}")
+                # Continue without network monitoring
     
     def _wait_for_deals_api_call(self, timeout: int = 30) -> bool:
         """Wait for the deals API call to complete by monitoring network requests."""
         import time
         start_time = time.time()
         
+        # In headless mode, network monitoring might not work reliably
+        # So we'll use a hybrid approach: try network monitoring first, then fall back to DOM-based detection
+        network_monitoring_available = True
+        
         while time.time() - start_time < timeout:
             try:
-                # Get network logs
-                logs = self.driver.get_log('performance')
-                
-                for log in logs:
-                    message = log.get('message', {})
-                    if isinstance(message, str):
-                        try:
-                            message = json.loads(message)
-                        except (json.JSONDecodeError, TypeError):
-                            continue
-                    
-                    method = message.get('method', '')
-                    
-                    # Check for completed API calls
-                    if method == 'Network.responseReceived':
-                        response = message.get('params', {}).get('response', {})
-                        url = response.get('url', '')
+                # Try network monitoring first
+                if network_monitoring_available:
+                    try:
+                        logs = self.driver.get_log('performance')
                         
-                        # Look for deals API endpoints
-                        if any(endpoint in url for endpoint in ['/api/deal', '/deal', 'deals']):
-                            status = response.get('status', 0)
-                            if status == 200:
-                                logger.info(f"Deals API call completed successfully: {url}")
+                        for log in logs:
+                            message = log.get('message', {})
+                            if isinstance(message, str):
+                                try:
+                                    message = json.loads(message)
+                                except (json.JSONDecodeError, TypeError):
+                                    continue
+                            
+                            method = message.get('method', '')
+                            
+                            # Check for completed API calls
+                            if method == 'Network.responseReceived':
+                                response = message.get('params', {}).get('response', {})
+                                url = response.get('url', '')
+                                
+                                # Look for deals API endpoints
+                                if any(endpoint in url for endpoint in ['/api/deal', '/deal', 'deals']):
+                                    status = response.get('status', 0)
+                                    if status == 200:
+                                        logger.info(f"Deals API call completed successfully: {url}")
+                                        return True
+                                    elif status >= 400:
+                                        logger.warning(f"Deals API call failed with status {status}: {url}")
+                                        return False
+                            
+                            # Check for failed requests
+                            elif method == 'Network.loadingFailed':
+                                error = message.get('params', {}).get('errorText', '')
+                                url = message.get('params', {}).get('requestId', '')
+                                logger.warning(f"Network request failed: {error}")
+                    except Exception as e:
+                        logger.debug(f"Network monitoring failed: {e}")
+                        network_monitoring_available = False
+                
+                # Fallback: Check DOM for deals data or loading indicators
+                if not network_monitoring_available or time.time() - start_time > timeout * 0.5:
+                    # Check if deals table has loaded with data
+                    try:
+                        table_rows = self.driver.find_elements(By.CSS_SELECTOR, 
+                            "tbody tr, .deal-row, [class*='deal'], [class*='transaction']")
+                        
+                        if len(table_rows) > 0:
+                            # Check if we have actual data rows (not just headers)
+                            data_rows = []
+                            for row in table_rows:
+                                cells = row.find_elements(By.CSS_SELECTOR, "td")
+                                if len(cells) >= 5:  # Should have at least 5 columns
+                                    cell_texts = [cell.text.strip() for cell in cells]
+                                    # Skip header rows
+                                    if not any(keyword in ' '.join(cell_texts).lower() for keyword in 
+                                               ['מספר סידורי', 'כתובת', 'header']):
+                                        data_rows.append(row)
+                            
+                            if len(data_rows) > 0:
+                                logger.info(f"Found {len(data_rows)} data rows in deals table")
                                 return True
-                            elif status >= 400:
-                                logger.warning(f"Deals API call failed with status {status}: {url}")
-                                return False
-                    
-                    # Check for failed requests
-                    elif method == 'Network.loadingFailed':
-                        error = message.get('params', {}).get('errorText', '')
-                        url = message.get('params', {}).get('requestId', '')
-                        logger.warning(f"Network request failed: {error}")
+                    except Exception as e:
+                        logger.debug(f"DOM-based detection failed: {e}")
                 
                 time.sleep(1)
                 
             except Exception as e:
-                logger.debug(f"Error monitoring network requests: {e}")
+                logger.debug(f"Error during API call monitoring: {e}")
                 time.sleep(1)
         
         logger.warning("Timeout waiting for deals API call")
@@ -598,13 +642,26 @@ class NadlanDealsScraper:
         
         # Store in cache if enabled
         if self.use_cache and self.cache:
-            self.cache.store_deals(address, deals)
+            # Check if error modal was encountered during scraping
+            error_modal_encountered = getattr(self, 'error_modal_encountered', False)
+            
+            # Cache results if we have them, or if we encountered an error modal (to prevent re-fetching)
+            # Mark error modal encounters in metadata to prevent using cached error results
+            should_cache = len(deals) > 0 or error_modal_encountered
+            
+            if should_cache:
+                self.cache.store_deals(address, deals, error_modal_encountered)
+            else:
+                logger.warning(f"Not caching empty results for {address}")
             
         return deals
     
     def _fetch_deals_by_address_selenium(self, address: str) -> List[Deal]:
         """Fetch deals by address using Selenium with search-based navigation."""
         try:
+            # Reset error flag at the beginning of each fetch
+            self.error_modal_encountered = False
+            
             # First, try to navigate to deals page using search
             if self._navigate_to_deals_via_search(address):
                 # Wait for page to load completely and check for errors
@@ -647,6 +704,9 @@ class NadlanDealsScraper:
                             continue
                     
                     if error_modal_found:
+                        # Set error flag to prevent caching
+                        self.error_modal_encountered = True
+                        
                         # Take a screenshot for debugging
                         try:
                             screenshot_path = f"error_modal_{address.replace(' ', '_')}_{int(time.time())}.png"
@@ -655,10 +715,44 @@ class NadlanDealsScraper:
                         except Exception as e:
                             logger.debug(f"Could not save screenshot: {e}")
                         
-                        # Try to close the error modal and continue
-                        if self._try_close_error_modal():
-                            logger.info("Error modal closed, continuing with data extraction...")
-                        else:
+                        # Error modal indicates API failure - refresh to reload deals
+                        logger.info("Error modal detected - API call failed, refreshing page to reload deals...")
+                        
+                        try:
+                            # Store current URL before refresh
+                            current_url = self.driver.current_url
+                            logger.info(f"Current URL before refresh: {current_url}")
+                            
+                            self.driver.refresh()
+                            logger.info("Page refreshed successfully")
+                            
+                            # Wait for page to load after refresh
+                            self._wait_for_page_load()
+                            
+                            # Check if we're still on the deals page or need to navigate back
+                            refreshed_url = self.driver.current_url
+                            logger.info(f"URL after refresh: {refreshed_url}")
+                            
+                            # If we're not on a deals page anymore, try to navigate back
+                            if "page=deals" not in refreshed_url and "view=address" in current_url:
+                                logger.info("Not on deals page after refresh, attempting to navigate back...")
+                                # Extract address ID from the original URL if possible
+                                if "id=" in current_url:
+                                    address_id = current_url.split("id=")[1].split("&")[0]
+                                    deals_url = f"https://www.nadlan.gov.il/?view=address&id={address_id}&page=deals"
+                                    logger.info(f"Navigating to deals URL: {deals_url}")
+                                    self.driver.get(deals_url)
+                                    self._wait_for_page_load()
+                            
+                            # Check if error modal is still present after refresh
+                            if self._check_for_error_modal():
+                                logger.warning("Error modal still present after refresh")
+                                raise NadlanAPIError("Website showed error modal even after refresh: שגיאה בטעינת הנתונים")
+                            else:
+                                logger.info("Error modal cleared after refresh, continuing with data extraction...")
+                                
+                        except Exception as refresh_error:
+                            logger.error(f"Failed to refresh page: {refresh_error}")
                             raise NadlanAPIError("Website showed error modal: שגיאה בטעינת הנתונים")
                             
                 except NadlanAPIError:
@@ -674,9 +768,6 @@ class NadlanDealsScraper:
                     logger.warning("Deals API call may have failed, continuing with data extraction...")
                 
                 # Wait for the deals table or data to load
-                max_wait_time = 30  # Maximum wait time in seconds
-                wait_interval = 1   # Check every 1 second
-                waited_time = 0
                 
                 deals = []
                 
@@ -782,16 +873,24 @@ class NadlanDealsScraper:
                 logger.info(f"Current URL after search: {current_url}")
                 
                 if 'address' in current_url:
-                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
-                    logger.info(f"Navigating to deals page: {deals_url}")
-                    self.driver.get(deals_url)
-                    time.sleep(3)
+                    # Only navigate to deals page if we're not already there
+                    if 'page=deals' not in current_url:
+                        deals_url = current_url + '&page=deals'
+                        logger.info(f"Navigating to deals page: {deals_url}")
+                        self.driver.get(deals_url)
+                        time.sleep(3)
+                    else:
+                        logger.info("Already on deals page, no need to navigate")
                     return True
                 elif 'neighborhood' in current_url:
-                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
-                    logger.info(f"Navigating to deals page: {deals_url}")
-                    self.driver.get(deals_url)
-                    time.sleep(3)
+                    # Only navigate to deals page if we're not already there
+                    if 'page=deals' not in current_url:
+                        deals_url = current_url + '&page=deals'
+                        logger.info(f"Navigating to deals page: {deals_url}")
+                        self.driver.get(deals_url)
+                        time.sleep(3)
+                    else:
+                        logger.info("Already on deals page, no need to navigate")
                     return True
                 else:
                     logger.warning(f"Search '{search_term}' did not lead to address or neighborhood page")
@@ -805,10 +904,14 @@ class NadlanDealsScraper:
                 # Check if we're on an address or neighborhood page
                 current_url = self.driver.current_url
                 if 'address' in current_url or 'neighborhood' in current_url:
-                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
-                    logger.info(f"Navigating to deals page: {deals_url}")
-                    self.driver.get(deals_url)
-                    time.sleep(3)
+                    # Only navigate to deals page if we're not already there
+                    if 'page=deals' not in current_url:
+                        deals_url = current_url + '&page=deals'
+                        logger.info(f"Navigating to deals page: {deals_url}")
+                        self.driver.get(deals_url)
+                        time.sleep(3)
+                    else:
+                        logger.info("Already on deals page, no need to navigate")
                     return True
                 else:
                     logger.warning("Search did not lead to address or neighborhood page")
@@ -947,6 +1050,12 @@ class NadlanDealsScraper:
             # Calculate cutoff date for early termination
             cutoff_date = datetime.now() - timedelta(days=self.max_age_days) if self.max_age_days > 0 else None
             
+            # If max_age_days is very restrictive (less than 1 year), be more aggressive about early termination
+            aggressive_early_termination = self.max_age_days > 0 and self.max_age_days < 365
+            
+            if aggressive_early_termination:
+                logger.info(f"Using aggressive early termination for max_age_days={self.max_age_days}")
+            
             # Navigate through remaining pages with early termination
             for page_num in range(current_page + 1, total_pages + 1):
                 logger.info(f"Extracting deals from page {page_num}/{total_pages}")
@@ -962,15 +1071,25 @@ class NadlanDealsScraper:
                         logger.info(f"Found {len(page_deals)} deals on page {page_num}")
                         
                         # Check if we should stop pagination due to old deals
-                        if cutoff_date and self._all_deals_older_than(page_deals, cutoff_date):
-                            logger.info(f"Stopping pagination at page {page_num} - all deals are older than {self.max_age_days} days")
-                            # Still add the deals from this page before stopping
-                            all_deals.extend(page_deals)
-                            break
+                        if cutoff_date:
+                            if self._all_deals_older_than(page_deals, cutoff_date):
+                                logger.info(f"Stopping pagination at page {page_num} - all deals are older than {self.max_age_days} days")
+                                # Still add the deals from this page before stopping
+                                all_deals.extend(page_deals)
+                                break
+                            elif aggressive_early_termination and self._most_deals_older_than(page_deals, cutoff_date, threshold=0.8):
+                                logger.info(f"Stopping pagination at page {page_num} - most deals (80%+) are older than {self.max_age_days} days")
+                                # Still add the deals from this page before stopping
+                                all_deals.extend(page_deals)
+                                break
                             
                         all_deals.extend(page_deals)
                     else:
                         logger.warning(f"No deals found on page {page_num}")
+                        # If we're using aggressive early termination and no deals found, stop
+                        if aggressive_early_termination:
+                            logger.info("No deals found on page, stopping pagination due to aggressive early termination")
+                            break
                 else:
                     logger.warning(f"Failed to navigate to page {page_num}")
                     break
@@ -980,6 +1099,27 @@ class NadlanDealsScraper:
         
         logger.info(f"Total deals collected from all pages: {len(all_deals)}")
         return all_deals
+    
+    def _most_deals_older_than(self, deals: List[Deal], cutoff_date: datetime, threshold: float = 0.8) -> bool:
+        """Check if most deals in the list are older than the cutoff date.
+        
+        Args:
+            deals: List of deals to check
+            cutoff_date: Cutoff date for comparison
+            threshold: Threshold for "most" (default 0.8 = 80%)
+            
+        Returns:
+            True if most deals are older than cutoff date
+        """
+        if not deals:
+            return False
+            
+        old_deals_count = 0
+        for deal in deals:
+            if not self._is_deal_recent(deal, cutoff_date):
+                old_deals_count += 1
+                
+        return (old_deals_count / len(deals)) >= threshold
     
     def _all_deals_older_than(self, deals: List[Deal], cutoff_date: datetime) -> bool:
         """Check if all deals in the list are older than the cutoff date.
@@ -1009,7 +1149,7 @@ class NadlanDealsScraper:
             
             logger.info(f"Found {len(pagination_elements)} pagination elements")
             
-            # Collect all pagination info and choose the one with most pages
+            # Collect all pagination info
             pagination_options = []
             
             for i, element in enumerate(pagination_elements):
@@ -1024,14 +1164,49 @@ class NadlanDealsScraper:
                         logger.info(f"Found pagination option: {current_page} / {total_pages}")
                         pagination_options.append({
                             'current_page': current_page,
-                            'total_pages': total_pages
+                            'total_pages': total_pages,
+                            'element': element
                         })
             
-            # Choose the pagination with the most pages (likely the neighborhood table)
+            # When searching by address, prioritize the address-specific pagination
+            # Look for pagination that's associated with the address deals table
             if pagination_options:
-                best_option = max(pagination_options, key=lambda x: x['total_pages'])
-                logger.info(f"Selected pagination with most pages: {best_option['current_page']} / {best_option['total_pages']}")
-                return best_option
+                # First, try to find pagination associated with address-specific deals
+                # Look for pagination that's near address-specific content
+                address_pagination = None
+                neighborhood_pagination = None
+                
+                for option in pagination_options:
+                    # Check if this pagination is associated with address-specific deals
+                    # by looking at the table summary text
+                    try:
+                        table_summary = option['element'].find_element(By.XPATH, "./ancestor::div[contains(@class, 'tableSummary')]")
+                        summary_text = table_summary.text.lower()
+                        
+                        # If the summary mentions the specific address or "עסקאות בכתובת", it's address-specific
+                        if any(keyword in summary_text for keyword in ['עסקאות בכתובת', 'בכתובת', 'address']):
+                            address_pagination = option
+                            logger.info(f"Found address-specific pagination: {option['current_page']} / {option['total_pages']}")
+                        # If it mentions neighborhood or "עסקאות נוספות בשכונה", it's neighborhood-specific
+                        elif any(keyword in summary_text for keyword in ['עסקאות נוספות בשכונה', 'בשכונה', 'neighborhood']):
+                            neighborhood_pagination = option
+                            logger.info(f"Found neighborhood-specific pagination: {option['current_page']} / {option['total_pages']}")
+                    except Exception as e:
+                        logger.debug(f"Could not determine pagination context: {e}")
+                        continue
+                
+                # Prefer address-specific pagination when available
+                if address_pagination:
+                    logger.info(f"Using address-specific pagination: {address_pagination['current_page']} / {address_pagination['total_pages']}")
+                    return address_pagination
+                elif neighborhood_pagination:
+                    logger.info(f"Using neighborhood-specific pagination: {neighborhood_pagination['current_page']} / {neighborhood_pagination['total_pages']}")
+                    return neighborhood_pagination
+                else:
+                    # Fallback: choose the pagination with the fewest pages (likely address-specific)
+                    best_option = min(pagination_options, key=lambda x: x['total_pages'])
+                    logger.info(f"Fallback: selected pagination with fewest pages: {best_option['current_page']} / {best_option['total_pages']}")
+                    return best_option
             
             # Alternative: look for next button to determine if pagination exists
             next_buttons = self.driver.find_elements(By.CSS_SELECTOR, "#next, .nextBtn")
@@ -1143,6 +1318,6 @@ class NadlanDealsScraper:
 
 if __name__ == "__main__":
     scraper = NadlanDealsScraper(headless=False)
-    deals = scraper.get_deals_by_address("רוזוב 14 תל אביב")
+    deals = scraper.get_deals_by_address("רוזוב 14 תל אביב", max_age_days=180)
     for deal in deals:
         print(f"{deal.address} - ₪{deal.deal_amount:,.0f}")

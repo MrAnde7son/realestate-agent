@@ -51,7 +51,7 @@ class DealCache:
             address: Address to get cached deals for
             
         Returns:
-            List of cached deals or None if not cached or expired
+            List of cached deals or None if not cached, expired, or from error state
         """
         cache_file = self._get_cache_file(address)
         metadata_file = self._get_metadata_file(address)
@@ -68,6 +68,12 @@ class DealCache:
             if datetime.now() - last_update > timedelta(hours=self.max_age_hours):
                 logger.info(f"Cache for {address} is expired (age: {datetime.now() - last_update})")
                 return None
+            
+            # Check if cached results were from an error modal encounter
+            error_modal_encountered = metadata.get('error_modal_encountered', False)
+            if error_modal_encountered:
+                logger.info(f"Not using cached deals for {address} due to previous error modal encounter")
+                return None
                 
             # Load cached deals
             with open(cache_file, 'r', encoding='utf-8') as f:
@@ -81,12 +87,13 @@ class DealCache:
             logger.warning(f"Error loading cached deals for {address}: {e}")
             return None
     
-    def store_deals(self, address: str, deals: List[Deal]) -> None:
+    def store_deals(self, address: str, deals: List[Deal], error_modal_encountered: bool = False) -> None:
         """Store deals in cache.
         
         Args:
             address: Address the deals belong to
             deals: List of deals to cache
+            error_modal_encountered: Whether an error modal was encountered during scraping
         """
         cache_file = self._get_cache_file(address)
         metadata_file = self._get_metadata_file(address)
@@ -101,7 +108,8 @@ class DealCache:
             metadata = {
                 'last_update': datetime.now().isoformat(),
                 'deal_count': len(deals),
-                'address': address
+                'address': address,
+                'error_modal_encountered': error_modal_encountered
             }
             with open(metadata_file, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, ensure_ascii=False, indent=2)
@@ -225,17 +233,27 @@ class IncrementalDealCollector:
         # Use force_refresh=True to bypass caching and prevent recursion
         fresh_deals = self.scraper.get_deals_by_address(address, max_age_days=max_age_days, force_refresh=True)
         
-        # Store in cache (store ALL deals, not just filtered ones)
-        # We need to fetch without date filtering to store complete data
-        if max_age_days is not None:
-            original_max_age = self.scraper.max_age_days
-            self.scraper.max_age_days = 0  # Disable date filtering for caching
-            # Use force_refresh=True to bypass caching and prevent recursion
-            all_deals = self.scraper.get_deals_by_address(address, force_refresh=True)
-            self.scraper.max_age_days = original_max_age
-            self.cache.store_deals(address, all_deals)
+        # Check if error modal was encountered during scraping
+        error_modal_encountered = getattr(self.scraper, 'error_modal_encountered', False)
+        
+        # Cache results if we have them, or if we encountered an error modal (to prevent re-fetching)
+        # Mark error modal encounters in metadata to prevent using cached error results
+        should_cache = len(fresh_deals) > 0 or error_modal_encountered
+        
+        if should_cache:
+            # Store in cache (store ALL deals, not just filtered ones)
+            # We need to fetch without date filtering to store complete data
+            if max_age_days is not None:
+                original_max_age = self.scraper.max_age_days
+                self.scraper.max_age_days = 0  # Disable date filtering for caching
+                # Use force_refresh=True to bypass caching and prevent recursion
+                all_deals = self.scraper.get_deals_by_address(address, force_refresh=True)
+                self.scraper.max_age_days = original_max_age
+                self.cache.store_deals(address, all_deals, error_modal_encountered)
+            else:
+                self.cache.store_deals(address, fresh_deals, error_modal_encountered)
         else:
-            self.cache.store_deals(address, fresh_deals)
+            logger.warning(f"Not caching empty results for {address}")
         
         return fresh_deals
     

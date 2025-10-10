@@ -13,9 +13,9 @@ from .serializers import DocumentSerializer, DocumentUploadSerializer, DocumentL
 from .storage import document_storage
 
 try:
-    from utils.tabu_parser import parse_tabu_pdf
+    from utils.parse_tabu import TabuParser
 except Exception:  # pragma: no cover - fallback when parser is unavailable
-    parse_tabu_pdf = None
+    TabuParser = None
 
 logger = logging.getLogger(__name__)
 
@@ -77,13 +77,18 @@ class DocumentUploadView(APIView):
             )
 
             # Parse Tabu documents and persist extracted rows
-            if document.document_type == 'tabu' and parse_tabu_pdf:
+            if document.document_type == 'tabu' and TabuParser:
                 try:
                     with default_storage.open(file_info['file_path'], 'rb') as stored_file:
-                        rows = parse_tabu_pdf(stored_file) or []
+                        parser = TabuParser(stored_file)
+                        rows = parser.parse() or []
                     if rows:
                         document.meta = {**(document.meta or {}), 'tabu_rows': rows}
                         document.save(update_fields=['meta'])
+                        
+                        # Update asset ownership fields from Tabu data
+                        _update_asset_from_tabu(asset, rows)
+                        
                 except Exception as parse_error:  # pragma: no cover - defensive logging
                     logger.error(
                         "Error parsing tabu document %s: %s", document.id, parse_error
@@ -170,32 +175,39 @@ class AssetRightsView(APIView):
                 'total_rows': 0
             }
 
-            # 1. Get Tabu data from uploaded documents
+            # 1. Get Tabu data from uploaded documents (use most recent document only to avoid duplicates)
             documents = asset.documents.filter(document_type='tabu').order_by('-uploaded_at')
-            for document in documents:
+            if documents.exists():
+                # Use only the most recent Tabu document to avoid duplicates
+                document = documents.first()
                 doc_rows = document.meta.get('tabu_rows') if document.meta else []
-                if not isinstance(doc_rows, list):
-                    continue
-
-                for idx, row in enumerate(doc_rows):
-                    field = str(row.get('field', '') or '')
-                    value = str(row.get('value', '') or '')
-                    
-                    row_data = {
-                        'id': f"tabu_{document.id}-{idx}",
-                        'document_id': document.id,
-                        'document_title': document.title,
-                        'document_url': document.file_url,
-                        'uploaded_at': document.uploaded_at.isoformat() if document.uploaded_at else None,
-                        'source': 'tabu_upload',
-                        'field': field,
-                        'value': value,
-                        'type': 'tabu'
-                    }
-                    
-                    # Filter by query if provided
-                    if not query or query in field.lower() or query in value.lower():
-                        rights_data['tabu_data'].append(row_data)
+                if isinstance(doc_rows, list):
+                    # Deduplicate rows by field+value combination
+                    seen_rows = set()
+                    for idx, row in enumerate(doc_rows):
+                        field = str(row.get('field', '') or '')
+                        value = str(row.get('value', '') or '')
+                        
+                        # Create a unique key for deduplication
+                        row_key = f"{field}:{value}"
+                        if row_key not in seen_rows:
+                            seen_rows.add(row_key)
+                            
+                            row_data = {
+                                'id': f"tabu_{document.id}-{idx}",
+                                'document_id': document.id,
+                                'document_title': document.title,
+                                'document_url': document.file_url,
+                                'uploaded_at': document.uploaded_at.isoformat() if document.uploaded_at else None,
+                                'source': 'tabu_upload',
+                                'field': field,
+                                'value': value,
+                                'type': 'tabu'
+                            }
+                            
+                            # Filter by query if provided
+                            if not query or query in field.lower() or query in value.lower():
+                                rights_data['tabu_data'].append(row_data)
 
             # 2. Get comprehensive GIS data from asset metadata (stored directly in meta)
             gis_data = asset.meta.get('gis_data', {}) if asset.meta else {}
@@ -284,43 +296,28 @@ class AssetRightsView(APIView):
             'parcel_info': {}
         }
         
-        current_owner = None
-        ownership_percentage = 0
+        # Debug: log the tabu data structure
+        logger.debug(f"Tabu data for parsing: {tabu_data}")
+        
+        # First pass: collect all ownership-related data
+        ownership_shares = []
+        owner_names = []
         
         for row in tabu_data:
             field = row.get('field', '').lower()
             value = row.get('value', '')
             
-            # Look for owner information
-            if 'בעלים' in field or 'owner' in field:
-                if current_owner and ownership_percentage > 0:
-                    ownership['owners'].append({
-                        'name': current_owner,
-                        'percentage': ownership_percentage
-                    })
-                current_owner = value
-                ownership_percentage = 0
+            # Collect ownership shares - only from the specific field
+            if 'החלק בנכס' in field:
+                ownership_shares.append(value)
+                logger.debug(f"Found ownership share: {field} = {value}")
             
-            # Look for ownership percentage - handle fractions like "1/2"
-            elif '%' in value or 'אחוז' in field or '/' in value:
-                try:
-                    import re
-                    # Handle fractions like "1/2" = 50%
-                    if '/' in value:
-                        fraction_match = re.search(r'(\d+)/(\d+)', value)
-                        if fraction_match:
-                            numerator = float(fraction_match.group(1))
-                            denominator = float(fraction_match.group(2))
-                            ownership_percentage = (numerator / denominator) * 100
-                    else:
-                        # Handle regular percentages
-                        percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
-                        if percentage_match:
-                            ownership_percentage = float(percentage_match.group(1))
-                except (ValueError, AttributeError, ZeroDivisionError):
-                    pass
+            # Collect owner names
+            elif 'בעלים' in field or 'owner' in field:
+                owner_names.append(value)
+                logger.debug(f"Found owner: {field} = {value}")
             
-            # Look for parcel information
+            # Collect parcel information
             elif 'גוש' in field:
                 ownership['parcel_info']['block'] = value
             elif 'חלקה' in field:
@@ -328,16 +325,53 @@ class AssetRightsView(APIView):
             elif 'תת חלקה' in field:
                 ownership['parcel_info']['subparcel'] = value
         
-        # Add the last owner if exists
-        if current_owner and ownership_percentage > 0:
-            ownership['owners'].append({
-                'name': current_owner,
-                'percentage': ownership_percentage
-            })
+        logger.debug(f"Collected ownership shares: {ownership_shares}")
+        logger.debug(f"Collected owner names: {owner_names}")
+        
+        # Second pass: match owners with their shares
+        for i, owner_name in enumerate(owner_names):
+            # Try to find corresponding ownership share
+            ownership_percentage = 0
+            
+            # If we have a corresponding share
+            if i < len(ownership_shares):
+                share_value = ownership_shares[i]
+                try:
+                    import re
+                    # Handle fractions like "1/2" = 50%
+                    if '/' in share_value:
+                        fraction_match = re.search(r'(\d+)/(\d+)', share_value)
+                        if fraction_match:
+                            numerator = float(fraction_match.group(1))
+                            denominator = float(fraction_match.group(2))
+                            ownership_percentage = (numerator / denominator) * 100
+                            logger.debug(f"Parsed fraction {share_value} as {ownership_percentage}%")
+                    # Handle "בשלמות" (full ownership) = 100%
+                    elif 'בשלמות' in share_value:
+                        ownership_percentage = 100.0
+                        logger.debug(f"Parsed full ownership as 100%")
+                    else:
+                        # Handle regular percentages
+                        percentage_match = re.search(r'(\d+(?:\.\d+)?)', share_value)
+                        if percentage_match:
+                            ownership_percentage = float(percentage_match.group(1))
+                            logger.debug(f"Parsed percentage {share_value} as {ownership_percentage}%")
+                except (ValueError, AttributeError, ZeroDivisionError):
+                    logger.debug(f"Failed to parse ownership share: {share_value}")
+                    pass
+            
+            # Add owner with their percentage
+            if ownership_percentage > 0:
+                ownership['owners'].append({
+                    'name': owner_name,
+                    'percentage': ownership_percentage
+                })
+                logger.debug(f"Added owner: {owner_name} with {ownership_percentage}%")
         
         # Calculate total ownership percentage
         ownership['total_ownership_percentage'] = sum(owner['percentage'] for owner in ownership['owners'])
         
+        logger.debug(f"Final ownership data: {ownership}")
         return ownership
 
     def _calculate_building_rights(self, asset):
@@ -1394,3 +1428,37 @@ def create_document_from_meta(request, asset_id):
             {'error': 'Failed to create documents'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+def _update_asset_from_tabu(asset, tabu_rows):
+    """Update asset ownership fields from parsed Tabu data."""
+    try:
+        ownership_data = AssetRightsView._parse_ownership_from_tabu(None, tabu_rows)
+        
+        # Update asset ownership fields if we found owner information
+        if ownership_data.get('owners'):
+            # Set the primary owner (first owner or owner with highest percentage)
+            primary_owner = max(ownership_data['owners'], key=lambda x: x.get('percentage', 0))
+            asset.owner_name = primary_owner['name']
+            asset.ownership_percentage = primary_owner['percentage']
+            
+            # Store full ownership data in meta
+            asset.meta = asset.meta or {}
+            asset.meta['tabu_ownership'] = ownership_data
+            
+            # Update parcel information if available
+            parcel_info = ownership_data.get('parcel_info', {})
+            if parcel_info.get('block'):
+                asset.block = parcel_info['block']
+            if parcel_info.get('parcel'):
+                asset.parcel = parcel_info['parcel']
+            if parcel_info.get('subparcel'):
+                asset.subparcel = parcel_info['subparcel']
+            
+            asset.save()
+            logger.info(f"Updated asset {asset.id} ownership from Tabu: {primary_owner['name']} ({primary_owner['percentage']}%)")
+            
+    except Exception as e:
+        logger.error(f"Error updating asset {asset.id} from Tabu data: {e}")
+
+

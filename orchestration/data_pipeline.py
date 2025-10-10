@@ -2215,6 +2215,24 @@ def _calculate_planning_legal_analysis(asset, gis_data: Dict[str, Any], gov_data
         logger.error('Failed to calculate planning and legal analysis for asset %s: %s', getattr(asset, 'id', '?'), e)
 
 
+def _parse_document_date(date_str):
+    """Parse a date string to a Python date object, handling various formats."""
+    if not date_str or not date_str.strip():
+        return None
+    
+    try:
+        from datetime import datetime
+        # Try to parse DD.MM.YYYY format
+        return datetime.strptime(date_str.strip(), "%d.%m.%Y").date()
+    except (ValueError, TypeError):
+        try:
+            # Try to parse YYYY-MM-DD format (already correct)
+            return datetime.strptime(date_str.strip(), "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            logger.warning(f"Could not parse document date: {date_str}")
+            return None
+
+
 def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
     """Create Document and Plan records from collected data."""
     try:
@@ -2235,6 +2253,9 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
         if gov_data and gov_data.get('decisive'):
             for appraisal in gov_data.get('decisive', []):
                 if appraisal.get('id'):
+                    # Convert date from DD.MM.YYYY to YYYY-MM-DD format
+                    parsed_date = _parse_document_date(appraisal.get('date'))
+                    
                     Document.objects.get_or_create(
                         asset=asset,
                         external_id=appraisal.get('id'),
@@ -2246,7 +2267,11 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                             'status': 'approved',
                             'external_url': appraisal.get('url', ''),
                             'source': 'gov',
-                            'document_date': appraisal.get('date'),
+                            'document_date': parsed_date,
+                            'file_size': 0,  # Set default file size for external documents
+                            'filename': f"appraisal_decisive_{appraisal.get('id')}.pdf",
+                            'file_path': '',  # Empty for external documents
+                            'mime_type': 'application/pdf',
                             'meta': appraisal
                         }
                     )
@@ -2256,6 +2281,7 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
             for plan in plans:
                 plan_number = plan.get('planNumber') or plan.get('plan_number', '')
                 if plan_number:
+                    # Create Plan record
                     Plan.objects.get_or_create(
                         asset=asset,
                         plan_number=plan_number,
@@ -2266,12 +2292,34 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                             'raw': plan
                         }
                     )
+                    
+                    # Also create Document record for the plan
+                    Document.objects.get_or_create(
+                        asset=asset,
+                        external_id=f"rami_{plan_number}",
+                        defaults={
+                            'user': system_user,
+                            'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                            'description': f"תכנית רמ״י מספר {plan_number}",
+                            'document_type': 'plan',
+                            'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
+                            'external_url': plan.get('url', ''),
+                            'source': 'RAMI',
+                            'document_date': _parse_document_date(plan.get('statusDate')),
+                            'file_size': 0,  # Set default file size for external documents
+                            'filename': f"rami_plan_{plan_number}.pdf",
+                            'file_path': '',  # Empty for external documents
+                            'mime_type': 'application/pdf',
+                            'meta': plan
+                        }
+                    )
         
         # Create Plan records from Mavat plans
         if mavat_plans:
             for plan in mavat_plans:
                 plan_id = plan.get('plan_id') or plan.get('id', '')
                 if plan_id:
+                    # Create Plan record
                     Plan.objects.get_or_create(
                         asset=asset,
                         plan_number=f"mavat_{plan_id}",
@@ -2282,9 +2330,28 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                             'raw': plan
                         }
                     )
+                    
+                    # Also create Document record for the plan
+                    Document.objects.get_or_create(
+                        asset=asset,
+                        external_id=f"mavat_{plan_id}",
+                        defaults={
+                            'user': system_user,
+                            'title': plan.get('title', f'תכנית מבת {plan_id}'),
+                            'description': f"תכנית מבת מספר {plan_id}",
+                            'document_type': 'plan_local',
+                            'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
+                            'external_url': plan.get('url', ''),
+                            'source': 'Mavat',
+                            'document_date': _parse_document_date(plan.get('statusDate')),
+                            'file_size': 0,  # Set default file size for external documents
+                            'filename': f"mavat_plan_{plan_id}.pdf",
+                            'file_path': '',  # Empty for external documents
+                            'mime_type': 'application/pdf',
+                            'meta': plan
+                        }
+                    )
         
-        # Process existing Tabu documents for asset field population
-        _process_existing_tabu_documents(asset)
         
         logger.info(f"Created documents and plans for asset {asset.id}")
         
@@ -2292,26 +2359,6 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
         logger.error(f"Failed to create documents and plans for asset {asset.id}: {e}")
 
 
-def _process_existing_tabu_documents(asset):
-    """Process existing Tabu documents to populate asset fields."""
-    try:
-        from core.models import Document
-        
-        # Find existing Tabu documents for this asset
-        tabu_docs = Document.objects.filter(
-            asset=asset,
-            document_type='tabu',
-            meta__isnull=False
-        )
-        
-        for doc in tabu_docs:
-            tabu_rows = doc.meta.get('tabu_rows', [])
-            if tabu_rows:
-                _populate_asset_fields_from_tabu(asset, tabu_rows)
-                logger.debug('[TABU_PROCESSING] Processed Tabu document %s for asset %s', doc.id, asset.id)
-                
-    except Exception as e:
-        logger.error('[TABU_PROCESSING] Failed to process Tabu documents for asset %s: %s', asset.id, e)
 
 
 def _create_documents_from_permits(asset, permits):
@@ -2392,10 +2439,18 @@ def _create_documents_from_appraisals(asset, appraisals):
     if not appraisals:
         return
     
-    # Initialize documents array if it doesn't exist
-    if 'documents' not in asset.meta:
-        asset.meta['documents'] = []
+    # Get a system user or create one for automated processes
+    User = get_user_model()
+    system_user, _ = User.objects.get_or_create(
+        username='system',
+        defaults={
+            'email': 'system@nadlaner.com',
+            'first_name': 'System',
+            'last_name': 'Pipeline'
+        }
+    )
     
+    created_count = 0
     # Create documents for each appraisal
     for appraisal in appraisals:
         if not appraisal:
@@ -2407,6 +2462,9 @@ def _create_documents_from_appraisals(asset, appraisals):
         appraisal_date = appraisal.get('appraisal_date', appraisal.get('date'))
         url = appraisal.get('url', '')
         
+        # Convert date from DD.MM.YYYY to YYYY-MM-DD format
+        parsed_date = _parse_document_date(appraisal_date)
+        
         # Validate and clean URL
         if url and not url.startswith(('http://', 'https://')):
             if url.startswith('/'):
@@ -2414,24 +2472,33 @@ def _create_documents_from_appraisals(asset, appraisals):
             else:
                 url = f"https://www.gov.il/{url}"
         
-        # Create document entry
-        document = {
-            'id': f"appraisal_{len(asset.meta['documents']) + 1}",
-            'type': 'appraisal',
-            'title': f"שומה מכריעה - {appraiser}",
-            'description': f"שומה מכריעה על ידי {appraiser}",
-            'status': 'מאושר',
-            'date': appraisal_date,
-            'url': url,
-            'source': 'מנהל התכנון',
-            'appraiser': appraiser,
-            'appraised_value': appraised_value,
-            'downloadable': bool(url and url.startswith(('http://', 'https://')))
-        }
-        
-        asset.meta['documents'].append(document)
+        # Create Document record
+        Document.objects.get_or_create(
+            asset=asset,
+            external_id=f"appraisal_{appraisal.get('id', len(appraisals))}",
+            defaults={
+                'user': system_user,
+                'title': f"שומה מכריעה - {appraiser}",
+                'description': f"שומה מכריעה על ידי {appraiser}",
+                'document_type': 'appraisal',
+                'status': 'approved',
+                'external_url': url,
+                'source': 'gov',
+                'document_date': parsed_date,
+                'file_size': 0,  # Set default file size for external documents
+                'filename': f"appraisal_{appraisal.get('id', 'unknown')}.pdf",
+                'file_path': '',  # Empty for external documents
+                'mime_type': 'application/pdf',
+                'meta': {
+                    'appraiser': appraiser,
+                    'appraised_value': appraised_value,
+                    'downloadable': bool(url and url.startswith(('http://', 'https://')))
+                }
+            }
+        )
+        created_count += 1
     
-    logger.info(f"Created {len(appraisals)} appraisal documents for asset {asset.id}")
+    logger.info(f"Created {created_count} appraisal documents for asset {asset.id}")
 
 
 def _create_documents_from_rami_plans(asset, plans):
@@ -2439,9 +2506,16 @@ def _create_documents_from_rami_plans(asset, plans):
     if not plans:
         return
 
-    # Initialize documents array if it doesn't exist
-    if 'documents' not in asset.meta:
-        asset.meta['documents'] = []
+    # Get a system user or create one for automated processes
+    User = get_user_model()
+    system_user, _ = User.objects.get_or_create(
+        username='system',
+        defaults={
+            'email': 'system@nadlaner.com',
+            'first_name': 'System',
+            'last_name': 'Pipeline'
+        }
+    )
 
     created = 0
     for plan in plans or []:
@@ -2483,21 +2557,33 @@ def _create_documents_from_rami_plans(asset, plans):
             else:
                 url = f"https://rami.gov.il/{url}"
 
-        document = {
-            'id': f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{len(asset.meta['documents']) + 1}",
-            'type': 'plan',
-            'title': f"תכנית רמ״י - {plan_name}" if plan_name else (f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י"),
-            'description': f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י",
-            'status': status,
-            'date': plan.get('statusDate', plan.get('date', '')),
-            'url': url,
-            'source': 'RAMI',
-            'plan_number': plan_number,
-            'plan_name': plan_name,
-            'downloadable': bool(url and url.startswith(('http://', 'https://')))
-        }
-
-        asset.meta['documents'].append(document)
+        # Create Document record
+        # Parse document date properly
+        parsed_date = _parse_document_date(plan.get('statusDate', plan.get('date', '')))
+        
+        Document.objects.get_or_create(
+            asset=asset,
+            external_id=f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{created + 1}",
+            defaults={
+                'user': system_user,
+                'title': f"תכנית רמ״י - {plan_name}" if plan_name else (f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י"),
+                'description': f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י",
+                'document_type': 'plan',
+                'status': 'approved' if status == 'מאושר' else 'pending',
+                'external_url': url,
+                'source': 'RAMI',
+                'document_date': parsed_date,
+                'file_size': 0,  # Set default file size for external documents
+                'filename': f"rami_plan_{plan_number}.pdf" if plan_number else f"rami_plan_{created + 1}.pdf",
+                'file_path': '',  # Empty for external documents
+                'mime_type': 'application/pdf',
+                'meta': {
+                    'plan_number': plan_number,
+                    'plan_name': plan_name,
+                    'downloadable': bool(url and url.startswith(('http://', 'https://')))
+                }
+            }
+        )
         created += 1
 
     logger.info("Created %d RAMI plan documents for asset %s", created, asset.id)

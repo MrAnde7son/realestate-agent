@@ -1099,6 +1099,24 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <span className="text-muted-foreground">מ״ר נטו:</span>
                     <span>{formatNumber(asset.area) ?? '—'}</span>
                   </div>
+                  {asset.total_area && (
+                    <div className="flex justify-between rtl:flex-row-reverse">
+                      <span className="text-muted-foreground">שטח חלקה כולל:</span>
+                      <span>{formatNumber(asset.total_area)} מ״ר</span>
+                    </div>
+                  )}
+                  {asset.subparcelArea && (
+                    <div className="flex justify-between rtl:flex-row-reverse">
+                      <span className="text-muted-foreground">שטח מגרש:</span>
+                      <span>{formatNumber(asset.subparcelArea)} מ״ר</span>
+                    </div>
+                  )}
+                  {asset.builtArea && (
+                    <div className="flex justify-between rtl:flex-row-reverse">
+                      <span className="text-muted-foreground">שטח בנוי:</span>
+                      <span>{formatNumber(asset.builtArea)} מ״ר</span>
+                    </div>
+                  )}
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">חדרים:</span>
                     <span>{asset.rooms ?? '—'}</span>

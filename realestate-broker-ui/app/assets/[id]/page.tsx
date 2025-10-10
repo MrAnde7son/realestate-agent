@@ -1207,19 +1207,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center rtl:flex-row-reverse">
-                  <CardTitle>תוכניות</CardTitle>
-                  <Input
-                    placeholder="חפש תוכניות..."
-                    value={plansSearch}
-                    onChange={(e) => setPlansSearch(e.target.value)}
-                    className="w-64"
-                  />
-                </div>
-              </CardHeader>
-            </Card>
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>

@@ -217,7 +217,7 @@ export default function TableToolbar({
   };
 
   return (
-    <div className="flex flex-col gap-3 p-3 sm:p-4 border-b border-border bg-muted/30">
+    <div className="flex flex-col gap-3 p-3 sm:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
       {/* Search - Full width */}
       <div className="relative w-full">
         <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -231,15 +231,15 @@ export default function TableToolbar({
       </div>
 
       {/* Single row - All toolbar actions */}
-      <div className="flex flex-wrap items-center gap-2 rtl:flex-row-reverse">
+      <div className="flex flex-wrap items-center gap-2 rtl:flex-row-reverse" dir="rtl">
         {/* Filter toggle */}
         <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm" className="min-h-[44px]">
-              <Filter className="h-4 w-4 me-2" />
+              <Filter className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               <span className="hidden sm:inline">סינון</span>
               {hasActiveFilters && (
-                <Badge variant="secondary" className="mr-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                <Badge variant="secondary" className="mr-2 rtl:ml-2 rtl:mr-0 h-5 w-5 p-0 flex items-center justify-center text-xs">
                   !
                 </Badge>
               )}
@@ -250,7 +250,7 @@ export default function TableToolbar({
                 <SheetTitle>סינון נכסים</SheetTitle>
               </SheetHeader>
               <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pr-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between rtl:flex-row-reverse">
                   {hasActiveFilters && (
                     <Button
                       variant="ghost"
@@ -266,7 +266,7 @@ export default function TableToolbar({
 
                 {/* My Assets Checkbox - Prominent at top */}
                 {additionalFilters.find(f => f.key === 'userAssets') && (
-                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border">
+                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border rtl:flex-row-reverse rtl:space-x-reverse">
                     <input
                       type="checkbox"
                       id="my-assets-checkbox"
@@ -443,7 +443,7 @@ export default function TableToolbar({
                           <SelectItem value="all">הכל</SelectItem>
                           {filter.options?.map(option => (
                             <SelectItem key={option.value} value={option.value}>
-                              <span className="flex justify-between gap-2">
+                              <span className="flex justify-between gap-2 rtl:flex-row-reverse">
                                 <span>{option.label}</span>
                                 {option.count !== undefined && (
                                   <span className="text-xs text-muted-foreground">{option.count}</span>
@@ -471,7 +471,7 @@ export default function TableToolbar({
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                             {option.count !== undefined && (
-                              <span className="mr-2 text-muted-foreground">({option.count})</span>
+                              <span className="mr-2 rtl:ml-2 rtl:mr-0 text-muted-foreground">({option.count})</span>
                             )}
                           </SelectItem>
                         ))}
@@ -515,12 +515,12 @@ export default function TableToolbar({
           </Sheet>
 
         {/* View mode toggle */}
-        <div className="flex items-center border rounded-md">
+        <div className="flex items-center border rounded-md rtl:flex-row-reverse" dir="rtl">
           <Button
             variant={viewMode === 'table' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('table')}
-            className="rounded-r-none min-h-[44px] min-w-[44px]"
+            className="rtl:rounded-l-none rtl:rounded-r-none min-h-[44px] min-w-[44px]"
             title="תצוגת טבלה"
           >
             <List className="h-4 w-4" />
@@ -538,7 +538,7 @@ export default function TableToolbar({
             variant={viewMode === 'map' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => onViewModeChange('map')}
-            className="rounded-l-none min-h-[44px] min-w-[44px]"
+            className="rtl:rounded-r-none rtl:rounded-l-none min-h-[44px] min-w-[44px]"
             title="תצוגת מפה"
           >
             <Map className="h-4 w-4" />
@@ -549,7 +549,7 @@ export default function TableToolbar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="min-h-[44px]">
-              <Settings className="h-4 w-4 me-2" />
+              <Settings className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               <span className="hidden sm:inline">עמודות</span>
             </Button>
           </DropdownMenuTrigger>
@@ -573,7 +573,7 @@ export default function TableToolbar({
             <div className="max-h-60 overflow-y-auto">
               {/* Quick actions */}
               <div className="p-2 border-b bg-muted/30">
-                <div className="flex gap-2">
+                <div className="flex gap-2 rtl:flex-row-reverse">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -644,7 +644,7 @@ export default function TableToolbar({
                   disabled={action.disabled}
                   className="bg-white text-foreground hover:bg-muted"
                 >
-                  {action.icon && <span className="mr-2">{action.icon}</span>}
+                  {action.icon && <span className="mr-2 rtl:ml-2 rtl:mr-0">{action.icon}</span>}
                   {action.label}
                 </DropdownMenuCheckboxItem>
               ))}
@@ -656,7 +656,7 @@ export default function TableToolbar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="min-h-[44px]">
-              <Download className="h-4 w-4 me-2" />
+              <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               <span className="hidden sm:inline">ייצוא</span>
             </Button>
           </DropdownMenuTrigger>
@@ -687,22 +687,22 @@ export default function TableToolbar({
           disabled={loading}
           className="min-h-[44px]"
         >
-          <RefreshCw className={`h-4 w-4 me-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 me-2 rtl:ms-2 rtl:me-0 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
         </Button>
 
         {/* Add new */}
         {onAddNew && (
           <Button onClick={onAddNew} size="sm" className="min-h-[44px]">
-            <Plus className="h-4 w-4 me-2" />
+            <Plus className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
             <span className="hidden sm:inline">הוסף חדש</span>
           </Button>
         )}
       </div>
 
       {/* Bottom row - Status and info */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-sm text-muted-foreground">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-sm text-muted-foreground rtl:sm:flex-row-reverse">
+        <div className="flex items-center gap-4 rtl:flex-row-reverse">
           <span>
             {isClient && selectedCount > 0 ? `${selectedCount} נבחרים מתוך ` : ''}
             {totalCount} נכסים

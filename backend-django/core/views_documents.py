@@ -1,6 +1,7 @@
 import logging
 from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -1511,7 +1512,11 @@ def _update_asset_areas_from_tabu(asset, tabu_rows):
                 # This represents the subparcel area (324 out of 653 total)
                 if not asset.meta:
                     asset.meta = {}
-                asset.meta['subparcel_area'] = area_value
+                asset.meta['subparcel_area'] = {
+                    'value': area_value,
+                    'source': 'tabu',
+                    'fetched_at': timezone.now().isoformat()
+                }
                 update_fields.add('meta')
                 logger.debug(f'Updated subparcel_area in meta from Tabu: {area_value}')
                 
@@ -1525,7 +1530,11 @@ def _update_asset_areas_from_tabu(asset, tabu_rows):
                 # Store built area in meta since there's no direct field
                 if not asset.meta:
                     asset.meta = {}
-                asset.meta['built_area'] = area_value
+                asset.meta['built_area'] = {
+                    'value': area_value,
+                    'source': 'tabu',
+                    'fetched_at': timezone.now().isoformat()
+                }
                 update_fields.add('meta')
                 logger.debug(f'Updated built_area in meta from Tabu: {area_value}')
                 

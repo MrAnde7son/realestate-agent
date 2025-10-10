@@ -99,7 +99,9 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
             {row.original.block ? ` · גוש ${row.original.block}` : ''}
             {row.original.parcel ? ` חלקה ${row.original.parcel}` : ''}
             {row.original.subparcel ? ` תת חלקה ${row.original.subparcel}` : ''}
-            · {row.original.type ?? '—'} · {row.original.area !== undefined && row.original.area !== null ? `${fmtNumber(row.original.area)} מ"ר נטו` : '—'}
+            · {row.original.type ?? '—'} · {row.original.area !== undefined && row.original.area !== null ? `${fmtNumber(row.original.area)} מ"ר` : '—'}
+            {row.original.subparcelArea && ` · ${fmtNumber(row.original.subparcelArea)} מ"ר מגרש`}
+            {row.original.builtArea && ` · ${fmtNumber(row.original.builtArea)} מ"ר בנוי`}
         </div>
       </div>
     )

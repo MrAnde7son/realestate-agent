@@ -84,6 +84,10 @@ class DocumentUploadView(APIView):
                     if rows:
                         document.meta = {**(document.meta or {}), 'tabu_rows': rows}
                         document.save(update_fields=['meta'])
+                        
+                        # Update asset ownership fields from Tabu data
+                        _update_asset_from_tabu(asset, rows)
+                        
                 except Exception as parse_error:  # pragma: no cover - defensive logging
                     logger.error(
                         "Error parsing tabu document %s: %s", document.id, parse_error
@@ -1394,3 +1398,96 @@ def create_document_from_meta(request, asset_id):
             {'error': 'Failed to create documents'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+def _update_asset_from_tabu(asset, tabu_rows):
+    """Update asset ownership fields from parsed Tabu data."""
+    try:
+        ownership_data = _parse_ownership_from_tabu(tabu_rows)
+        
+        # Update asset ownership fields if we found owner information
+        if ownership_data.get('owners'):
+            # Set the primary owner (first owner or owner with highest percentage)
+            primary_owner = max(ownership_data['owners'], key=lambda x: x.get('percentage', 0))
+            asset.owner_name = primary_owner['name']
+            asset.ownership_percentage = primary_owner['percentage']
+            
+            # Store full ownership data in meta
+            asset.meta = asset.meta or {}
+            asset.meta['tabu_ownership'] = ownership_data
+            
+            # Update parcel information if available
+            parcel_info = ownership_data.get('parcel_info', {})
+            if parcel_info.get('block'):
+                asset.block = parcel_info['block']
+            if parcel_info.get('parcel'):
+                asset.parcel = parcel_info['parcel']
+            if parcel_info.get('subparcel'):
+                asset.subparcel = parcel_info['subparcel']
+            
+            asset.save()
+            logger.info(f"Updated asset {asset.id} ownership from Tabu: {primary_owner['name']} ({primary_owner['percentage']}%)")
+            
+    except Exception as e:
+        logger.error(f"Error updating asset {asset.id} from Tabu data: {e}")
+
+
+def _parse_ownership_from_tabu(tabu_data):
+    """Parse ownership information from Tabu data."""
+    ownership = {
+        'owners': [],
+        'parcel_info': {}
+    }
+    
+    current_owner = None
+    ownership_percentage = 0
+    
+    for row in tabu_data:
+        field = row.get('field', '').lower()
+        value = row.get('value', '')
+        
+        # Look for owner information
+        if 'בעלים' in field or 'owner' in field:
+            if current_owner and ownership_percentage > 0:
+                ownership['owners'].append({
+                    'name': current_owner,
+                    'percentage': ownership_percentage
+                })
+            current_owner = value
+            ownership_percentage = 0
+        
+        # Look for ownership percentage - handle fractions like "1/2"
+        elif '%' in value or 'אחוז' in field or '/' in value:
+            try:
+                import re
+                # Handle fractions like "1/2" = 50%
+                if '/' in value:
+                    fraction_match = re.search(r'(\d+)/(\d+)', value)
+                    if fraction_match:
+                        numerator = float(fraction_match.group(1))
+                        denominator = float(fraction_match.group(2))
+                        ownership_percentage = (numerator / denominator) * 100
+                else:
+                    # Handle regular percentages
+                    percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
+                    if percentage_match:
+                        ownership_percentage = float(percentage_match.group(1))
+            except (ValueError, AttributeError, ZeroDivisionError):
+                pass
+        
+        # Look for parcel information
+        elif 'גוש' in field:
+            ownership['parcel_info']['block'] = value
+        elif 'חלקה' in field:
+            ownership['parcel_info']['parcel'] = value
+        elif 'תת חלקה' in field:
+            ownership['parcel_info']['subparcel'] = value
+    
+    # Add the last owner if exists
+    if current_owner and ownership_percentage > 0:
+        ownership['owners'].append({
+            'name': current_owner,
+            'percentage': ownership_percentage
+        })
+    
+    return ownership

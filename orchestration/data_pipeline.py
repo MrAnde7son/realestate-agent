@@ -2256,6 +2256,7 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
             for plan in plans:
                 plan_number = plan.get('planNumber') or plan.get('plan_number', '')
                 if plan_number:
+                    # Create Plan record
                     Plan.objects.get_or_create(
                         asset=asset,
                         plan_number=plan_number,
@@ -2266,12 +2267,30 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                             'raw': plan
                         }
                     )
+                    
+                    # Also create Document record for the plan
+                    Document.objects.get_or_create(
+                        asset=asset,
+                        external_id=f"rami_{plan_number}",
+                        defaults={
+                            'user': system_user,
+                            'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                            'description': f"תכנית רמ״י מספר {plan_number}",
+                            'document_type': 'plan',
+                            'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
+                            'external_url': plan.get('url', ''),
+                            'source': 'RAMI',
+                            'document_date': plan.get('statusDate'),
+                            'meta': plan
+                        }
+                    )
         
         # Create Plan records from Mavat plans
         if mavat_plans:
             for plan in mavat_plans:
                 plan_id = plan.get('plan_id') or plan.get('id', '')
                 if plan_id:
+                    # Create Plan record
                     Plan.objects.get_or_create(
                         asset=asset,
                         plan_number=f"mavat_{plan_id}",
@@ -2280,6 +2299,23 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                             'status': plan.get('status', ''),
                             'file_url': plan.get('url', ''),
                             'raw': plan
+                        }
+                    )
+                    
+                    # Also create Document record for the plan
+                    Document.objects.get_or_create(
+                        asset=asset,
+                        external_id=f"mavat_{plan_id}",
+                        defaults={
+                            'user': system_user,
+                            'title': plan.get('title', f'תכנית מבת {plan_id}'),
+                            'description': f"תכנית מבת מספר {plan_id}",
+                            'document_type': 'plan_local',
+                            'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
+                            'external_url': plan.get('url', ''),
+                            'source': 'Mavat',
+                            'document_date': plan.get('statusDate'),
+                            'meta': plan
                         }
                     )
         
@@ -2392,10 +2428,18 @@ def _create_documents_from_appraisals(asset, appraisals):
     if not appraisals:
         return
     
-    # Initialize documents array if it doesn't exist
-    if 'documents' not in asset.meta:
-        asset.meta['documents'] = []
+    # Get a system user or create one for automated processes
+    User = get_user_model()
+    system_user, _ = User.objects.get_or_create(
+        username='system',
+        defaults={
+            'email': 'system@nadlaner.com',
+            'first_name': 'System',
+            'last_name': 'Pipeline'
+        }
+    )
     
+    created_count = 0
     # Create documents for each appraisal
     for appraisal in appraisals:
         if not appraisal:
@@ -2414,24 +2458,29 @@ def _create_documents_from_appraisals(asset, appraisals):
             else:
                 url = f"https://www.gov.il/{url}"
         
-        # Create document entry
-        document = {
-            'id': f"appraisal_{len(asset.meta['documents']) + 1}",
-            'type': 'appraisal',
-            'title': f"שומה מכריעה - {appraiser}",
-            'description': f"שומה מכריעה על ידי {appraiser}",
-            'status': 'מאושר',
-            'date': appraisal_date,
-            'url': url,
-            'source': 'מנהל התכנון',
-            'appraiser': appraiser,
-            'appraised_value': appraised_value,
-            'downloadable': bool(url and url.startswith(('http://', 'https://')))
-        }
-        
-        asset.meta['documents'].append(document)
+        # Create Document record
+        Document.objects.get_or_create(
+            asset=asset,
+            external_id=f"appraisal_{appraisal.get('id', len(appraisals))}",
+            defaults={
+                'user': system_user,
+                'title': f"שומה מכריעה - {appraiser}",
+                'description': f"שומה מכריעה על ידי {appraiser}",
+                'document_type': 'appraisal',
+                'status': 'approved',
+                'external_url': url,
+                'source': 'gov',
+                'document_date': appraisal_date,
+                'meta': {
+                    'appraiser': appraiser,
+                    'appraised_value': appraised_value,
+                    'downloadable': bool(url and url.startswith(('http://', 'https://')))
+                }
+            }
+        )
+        created_count += 1
     
-    logger.info(f"Created {len(appraisals)} appraisal documents for asset {asset.id}")
+    logger.info(f"Created {created_count} appraisal documents for asset {asset.id}")
 
 
 def _create_documents_from_rami_plans(asset, plans):
@@ -2439,9 +2488,16 @@ def _create_documents_from_rami_plans(asset, plans):
     if not plans:
         return
 
-    # Initialize documents array if it doesn't exist
-    if 'documents' not in asset.meta:
-        asset.meta['documents'] = []
+    # Get a system user or create one for automated processes
+    User = get_user_model()
+    system_user, _ = User.objects.get_or_create(
+        username='system',
+        defaults={
+            'email': 'system@nadlaner.com',
+            'first_name': 'System',
+            'last_name': 'Pipeline'
+        }
+    )
 
     created = 0
     for plan in plans or []:
@@ -2483,21 +2539,26 @@ def _create_documents_from_rami_plans(asset, plans):
             else:
                 url = f"https://rami.gov.il/{url}"
 
-        document = {
-            'id': f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{len(asset.meta['documents']) + 1}",
-            'type': 'plan',
-            'title': f"תכנית רמ״י - {plan_name}" if plan_name else (f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י"),
-            'description': f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י",
-            'status': status,
-            'date': plan.get('statusDate', plan.get('date', '')),
-            'url': url,
-            'source': 'RAMI',
-            'plan_number': plan_number,
-            'plan_name': plan_name,
-            'downloadable': bool(url and url.startswith(('http://', 'https://')))
-        }
-
-        asset.meta['documents'].append(document)
+        # Create Document record
+        Document.objects.get_or_create(
+            asset=asset,
+            external_id=f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{created + 1}",
+            defaults={
+                'user': system_user,
+                'title': f"תכנית רמ״י - {plan_name}" if plan_name else (f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י"),
+                'description': f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י",
+                'document_type': 'plan',
+                'status': 'approved' if status == 'מאושר' else 'pending',
+                'external_url': url,
+                'source': 'RAMI',
+                'document_date': plan.get('statusDate', plan.get('date', '')),
+                'meta': {
+                    'plan_number': plan_number,
+                    'plan_name': plan_name,
+                    'downloadable': bool(url and url.startswith(('http://', 'https://')))
+                }
+            }
+        )
         created += 1
 
     logger.info("Created %d RAMI plan documents for asset %s", created, asset.id)

@@ -247,8 +247,8 @@ export default function TransactionsTable({
 
   // Additional filters for the toolbar
   const additionalFilters = useMemo(() => {
-    const sources = Array.from(new Set(data.map(t => t.source).filter(Boolean)))
-    const areas = Array.from(new Set(data.map(t => t.area).filter((area): area is number => typeof area === 'number'))).sort((a, b) => a - b)
+    const sources = Array.from(new Set(data.map(t => t.source).filter(Boolean))).filter((source): source is string => typeof source === 'string')
+    const areas = Array.from(new Set(data.map(t => t.area).filter((area): area is number => typeof area === 'number' && !isNaN(area)))).sort((a, b) => a - b)
     
     // Create area ranges
     const areaRanges = []
@@ -268,6 +268,7 @@ export default function TransactionsTable({
       {
         key: 'source',
         label: 'מקור',
+        value: 'all',
         options: [
           { value: 'all', label: 'הכל' },
           ...sources.map(source => ({
@@ -279,6 +280,7 @@ export default function TransactionsTable({
       {
         key: 'area',
         label: 'שטח',
+        value: 'all',
         options: [
           { value: 'all', label: 'הכל' },
           ...areaRanges.map(range => ({
@@ -302,6 +304,8 @@ export default function TransactionsTable({
     columns.map(column => ({
       id: column.id || '',
       header: typeof column.header === 'string' ? column.header : '',
+      visible: true,
+      toggle: () => {}, // No-op since we don't need column visibility toggle for transactions
     })), [columns]
   )
 

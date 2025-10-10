@@ -182,6 +182,107 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 {'error': 'Failed to get documents'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    @extend_schema(
+        summary="Get documents organized by Hebrew categories",
+        description="Retrieve documents organized by Hebrew categories (שומות, היתרים, תוכניות, נסחים, תשריטים)",
+        tags=["Documents"],
+        parameters=[
+            OpenApiParameter(
+                name="asset_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Asset ID to filter documents",
+                required=False,
+            ),
+        ],
+    )
+    @action(detail=False, methods=['get'])
+    def by_category(self, request):
+        """Get documents organized by Hebrew categories."""
+        asset_id = request.query_params.get('asset_id')
+        
+        try:
+            documents_by_category = Document.get_documents_by_category(asset_id)
+            
+            # Convert to serialized format
+            result = {}
+            for category, documents in documents_by_category.items():
+                if documents:  # Only include categories with documents
+                    serializer = self.get_serializer(documents, many=True)
+                    result[category] = serializer.data
+            
+            return Response(result)
+        except Exception as e:
+            logger.error(f"Error getting documents by category: {e}")
+            return Response(
+                {'error': 'Failed to get documents by category'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @extend_schema(
+        summary="Search documents",
+        description="Search documents by title, description, external_id, or filename",
+        tags=["Documents"],
+        parameters=[
+            OpenApiParameter(
+                name="q",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Search query",
+                required=True,
+            ),
+            OpenApiParameter(
+                name="asset_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Asset ID to filter documents",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="category",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Hebrew category to filter by",
+                required=False,
+            ),
+        ],
+    )
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        """Search documents with optional filtering."""
+        query = request.query_params.get('q', '')
+        asset_id = request.query_params.get('asset_id')
+        category = request.query_params.get('category')
+        
+        try:
+            # Start with base queryset
+            queryset = self.get_queryset()
+            
+            # Apply search
+            if query:
+                queryset = Document.search_documents(query, asset_id)
+            elif asset_id:
+                queryset = queryset.filter(asset_id=asset_id)
+            
+            # Apply category filter
+            if category and category in Document.DOCUMENT_CATEGORIES:
+                type_filter = Document.DOCUMENT_CATEGORIES[category]
+                queryset = queryset.filter(document_type__in=type_filter)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                'results': serializer.data,
+                'count': queryset.count(),
+                'query': query,
+                'category': category
+            })
+        except Exception as e:
+            logger.error(f"Error searching documents: {e}")
+            return Response(
+                {'error': 'Failed to search documents'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 # Cost estimation API endpoints
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])

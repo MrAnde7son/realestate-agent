@@ -27,6 +27,8 @@ import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
+import DocumentSearch from '@/components/DocumentSearch'
+import DocumentCategory from '@/components/DocumentCategory'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
 import OnboardingProgress from '@/components/OnboardingProgress'
@@ -100,12 +102,15 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [rightsRows, setRightsRows] = useState<any[]>([])
   const [rightsLoading, setRightsLoading] = useState(false)
   const [rightsError, setRightsError] = useState<string | null>(null)
+  const [documentsSearch, setDocumentsSearch] = useState('')
+  const [documentsByCategory, setDocumentsByCategory] = useState<any>({})
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [documentsError, setDocumentsError] = useState<string | null>(null)
   const [rightsSearch, setRightsSearch] = useState('')
   const [rightsDocFilter, setRightsDocFilter] = useState('all')
   const [calculatedRights, setCalculatedRights] = useState<any>(null)
   const [transactionsSearch, setTransactionsSearch] = useState('')
   const [appraisalsSearch, setAppraisalsSearch] = useState('')
-  const [documentsSearch, setDocumentsSearch] = useState('')
   const [plansSearch, setPlansSearch] = useState('')
   const [plansSourceFilter, setPlansSourceFilter] = useState('all')
   const [plansStatusFilter, setPlansStatusFilter] = useState('all')
@@ -341,6 +346,58 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       return field.includes(searchTerm) || value.includes(searchTerm)
     })
   }, [rightsRows, rightsDocFilter, rightsSearch])
+
+  // Load documents organized by category
+  const loadDocumentsByCategory = React.useCallback(async () => {
+    if (!id) return
+    
+    setDocumentsLoading(true)
+    setDocumentsError(null)
+    
+    try {
+      const response = await apiClient.get(`/api/documents/by_category/?asset_id=${id}`)
+      
+      if (response.ok) {
+        setDocumentsByCategory(response.data)
+      } else {
+        console.error('Failed to load documents by category:', response.error)
+        setDocumentsError('שגיאה בטעינת מסמכים')
+        setDocumentsByCategory({})
+      }
+    } catch (error) {
+      console.error('Error loading documents by category:', error)
+      setDocumentsError('שגיאה בטעינת מסמכים')
+      setDocumentsByCategory({})
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }, [id])
+
+  // Handle document search results
+  const handleDocumentResults = React.useCallback((results: any) => {
+    if (results.type === 'category') {
+      setDocumentsByCategory(results.data)
+    } else if (results.type === 'search') {
+      // Convert search results to category format for display
+      const searchResultsByCategory: any = {}
+      results.data.forEach((doc: any) => {
+        const category = doc.hebrew_category || 'אחר'
+        if (!searchResultsByCategory[category]) {
+          searchResultsByCategory[category] = []
+        }
+        searchResultsByCategory[category].push(doc)
+      })
+      setDocumentsByCategory(searchResultsByCategory)
+    } else if (results.type === 'error') {
+      setDocumentsError('שגיאה בחיפוש מסמכים')
+      setDocumentsByCategory({})
+    }
+  }, [])
+
+  // Load documents when component mounts
+  React.useEffect(() => {
+    loadDocumentsByCategory()
+  }, [loadDocumentsByCategory])
 
   useEffect(() => {
     setLoading(true)
@@ -2362,12 +2419,26 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               <CardHeader>
                 <div className="flex justify-between items-center rtl:flex-row-reverse">
                   <CardTitle>מסמכים</CardTitle>
-                  <Input
-                    placeholder="חפש מסמכים..."
-                    value={documentsSearch}
-                    onChange={(e) => setDocumentsSearch(e.target.value)}
-                    className="w-64"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadDocumentsByCategory}
+                      disabled={documentsLoading}
+                    >
+                      {documentsLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          טוען...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          רענן
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -2401,79 +2472,50 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </Button>
                 </form>
 
-                {/* Unified documents view grouped by category */}
-                {(() => {
-                  const allDocs = getAllDocuments()
-                  const docsByCategory = allDocs.reduce((acc: any, doc: any) => {
-                    const category = doc.category || 'אחר'
-                    if (!acc[category]) {
-                      acc[category] = []
-                    }
-                    acc[category].push(doc)
-                    return acc
-                  }, {})
+                {/* Document Search and Filter */}
+                <DocumentSearch
+                  assetId={parseInt(id)}
+                  onResultsChange={handleDocumentResults}
+                  onLoadingChange={setDocumentsLoading}
+                />
 
-                  return Object.entries(docsByCategory).map(([category, docs]: [string, any]) => {
-                    const filteredDocs = docs.filter((doc: any) => {
-                      if (!documentsSearch) return true
-                      const searchLower = documentsSearch.toLowerCase()
-                      return (
-                        doc.title?.toLowerCase().includes(searchLower) ||
-                        doc.name?.toLowerCase().includes(searchLower) ||
-                        doc.type?.toLowerCase().includes(searchLower) ||
-                        doc.source?.toLowerCase().includes(searchLower) ||
-                        doc.category?.toLowerCase().includes(searchLower)
-                      )
-                    })
-                    
-                    if (filteredDocs.length === 0 && documentsSearch) return null
-                    
-                    return (
-                      <div key={category}>
-                        <h3 className="font-medium mb-2">{category}</h3>
-                        {filteredDocs.length > 0 ? (
-                          <div className="space-y-2">
-                            {filteredDocs.map((doc: any, idx: number) => (
-                              <div
-                                key={`${category}_${idx}`}
-                                className="flex justify-between items-center p-2 border rounded rtl:flex-row-reverse"
-                              >
-                                <div className="flex flex-col rtl:items-end">
-                                  <span>{doc.title || doc.name || `מסמך ${doc.type}`}</span>
-                                  <div className="flex gap-2 text-xs text-muted-foreground">
-                                    {doc.type && <span>סוג: {doc.type}</span>}
-                                    {doc.source && <span>מקור: {doc.source}</span>}
-                                    {doc.date && <span>תאריך: {new Date(doc.date).toLocaleDateString('he-IL')}</span>}
-                                  </div>
-                                </div>
-                                <Button variant="outline" size="sm" asChild>
-                                  <a 
-                                    href={doc.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => handleDocumentClick(e, doc.url)}
-                                  >
-                                    {doc.url ? 'פתח' : 'לא זמין'}
-                                  </a>
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground">אין מסמכים בקטגוריה זו</div>
-                        )}
-                      </div>
-                    )
-                  })
-                })()}
+                {/* Error Display */}
+                {documentsError && (
+                  <div className="text-red-600 text-sm bg-red-50 p-3 rounded">
+                    {documentsError}
+                  </div>
+                )}
 
-
-
-
-
-                <div className="pt-4 text-center text-sm text-muted-foreground">
-                  סה״כ {getAllDocuments().length} מסמכים זמינים
-                </div>
+                {/* Documents by Category */}
+                {documentsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    טוען מסמכים...
+                  </div>
+                ) : Object.keys(documentsByCategory).length > 0 ? (
+                  <div className="space-y-6">
+                    {Object.entries(documentsByCategory).map(([category, documents]: [string, any]) => (
+                      <DocumentCategory
+                        key={category}
+                        category={category}
+                        documents={documents}
+                        onDocumentClick={(document) => {
+                          if (document.file_url) {
+                            window.open(document.file_url, '_blank')
+                          } else if (document.external_url) {
+                            window.open(document.external_url, '_blank')
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>אין מסמכים זמינים</p>
+                    <p className="text-sm">העלה מסמכים או רענן את הנתונים</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

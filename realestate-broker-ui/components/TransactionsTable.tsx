@@ -248,7 +248,7 @@ export default function TransactionsTable({
   // Additional filters for the toolbar
   const additionalFilters = useMemo(() => {
     const sources = Array.from(new Set(data.map(t => t.source).filter(Boolean)))
-    const areas = Array.from(new Set(data.map(t => t.area).filter(Boolean))).sort((a, b) => a - b)
+    const areas = Array.from(new Set(data.map(t => t.area).filter((area): area is number => typeof area === 'number'))).sort((a, b) => a - b)
     
     // Create area ranges
     const areaRanges = []

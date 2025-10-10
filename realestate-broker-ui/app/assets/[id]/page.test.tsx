@@ -100,7 +100,7 @@ describe('AssetDetailPage', () => {
       if (url === '/api/assets/1/plans') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ plans: { local: [], mavat: [] } })
+          json: async () => ({ plans: [] })
         })
       }
       if (url === '/api/analytics/track') {

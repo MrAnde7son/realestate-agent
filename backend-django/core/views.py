@@ -66,16 +66,9 @@ from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
 
 try:
-    from utils.tabu_parser import parse_tabu_pdf, search_rows
+    from utils.parse_tabu import TabuParser
 except ImportError:
-
-    def parse_tabu_pdf(file):
-        """Fallback function for parsing tabu PDFs when utils module is not available."""
-        return []
-
-    def search_rows(rows, query):
-        """Fallback function for searching rows when utils module is not available."""
-        return rows
+    TabuParser = None
 
 
 # Import tasks
@@ -1102,10 +1095,15 @@ def tabu(request):
 
     # Try to parse the PDF file
     try:
-        rows = parse_tabu_pdf(file)
+        if TabuParser:
+            parser = TabuParser(file)
+            rows = parser.parse()
+        else:
+            rows = []
         query = request.GET.get("q") or ""
         if query:
-            rows = search_rows(rows, query)
+            # Simple search implementation
+            rows = [row for row in rows if query.lower() in row.get('field', '').lower() or query.lower() in row.get('value', '').lower()]
             # Track search query
             track_search(
                 query=query,

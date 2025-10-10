@@ -1740,16 +1740,20 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                             .filter(row => row.field?.includes('בעלים') || row.field?.includes('owner'))
                             .map((row, index) => {
                               const ownerName = row.value
+                              
+                              // Find ownership percentage - look for the specific field
                               const ownershipRow = rightsRows.find(r => 
-                                r.field?.includes('החלק') || r.field?.includes('percentage') || 
-                                (r.field?.includes('בעלים') && r.value === ownerName)
+                                r.field === 'החלק בנכס'
                               )
+                              
+                              // Find ID number - look for the specific field
                               const idRow = rightsRows.find(r => 
-                                r.field?.includes('זיהוי') || r.field?.includes('ת.ז') || 
-                                (r.field?.includes('בעלים') && r.value === ownerName)
+                                r.field === 'מספר זיהוי' || r.field === 'ת.ז'
                               )
+                              
+                              // Find date - look for the specific field
                               const dateRow = rightsRows.find(r => 
-                                r.field?.includes('תאריך') || r.field?.includes('date')
+                                r.field === 'תאריך רכישה' || r.field === 'תאריך'
                               )
                               
                               return (

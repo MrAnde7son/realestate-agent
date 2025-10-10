@@ -101,6 +101,7 @@ export default function AppSidebar({
 
   if (user?.role === "admin") {
     navigation.push({ name: "מעקב", href: "/admin/analytics", icon: LineChart });
+    navigation.push({ name: "משתמשים", href: "/admin/users", icon: Users });
   }
 
   const handleLogout = async () => {

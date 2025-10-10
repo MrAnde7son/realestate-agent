@@ -2323,7 +2323,7 @@ def _create_documents_from_permits(asset, permits):
     system_user, _ = User.objects.get_or_create(
         username='system',
         defaults={
-            'email': 'system@realestate.com',
+            'email': 'system@nadlaner.com',
             'first_name': 'System',
             'last_name': 'Pipeline'
         }

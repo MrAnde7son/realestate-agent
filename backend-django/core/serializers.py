@@ -1,5 +1,8 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile, PlanType, UserPlan, Document
+
+User = get_user_model()
 
 
 class MetaSerializerMixin(serializers.ModelSerializer):
@@ -532,3 +535,180 @@ class DocumentListSerializer(serializers.ModelSerializer):
             'file_size', 'document_date', 'uploaded_at', 'file_url', 
             'is_downloadable', 'uploaded_by'
         ]
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Serializer for admin user management with full CRUD operations."""
+    
+    full_name = serializers.SerializerMethodField()
+    last_login_display = serializers.SerializerMethodField()
+    created_at_display = serializers.SerializerMethodField()
+    is_active_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
+            'phone', 'company', 'role', 'is_active', 'is_active_display',
+            'is_verified', 'is_demo', 'is_staff', 'is_superuser',
+            'created_at', 'created_at_display', 'updated_at', 'last_login', 'last_login_display',
+            'date_joined', 'language', 'timezone', 'currency', 'date_format',
+            'notify_email', 'notify_whatsapp', 'notify_urgent', 'notification_time'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'date_joined', 'last_login']
+    
+    def get_full_name(self, obj):
+        """Get user's full name."""
+        if obj.first_name and obj.last_name:
+            return f"{obj.first_name} {obj.last_name}"
+        return obj.username or obj.email
+    
+    def get_last_login_display(self, obj):
+        """Format last login date."""
+        if obj.last_login:
+            return obj.last_login.strftime('%Y-%m-%d %H:%M')
+        return 'מעולם לא'
+    
+    def get_created_at_display(self, obj):
+        """Format created date."""
+        return obj.created_at.strftime('%Y-%m-%d %H:%M')
+    
+    def get_is_active_display(self, obj):
+        """Get active status display."""
+        return 'פעיל' if obj.is_active else 'לא פעיל'
+    
+    def validate_email(self, value):
+        """Validate email uniqueness."""
+        if self.instance and self.instance.email == value:
+            return value
+        
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+    
+    def validate_username(self, value):
+        """Validate username uniqueness."""
+        if self.instance and self.instance.username == value:
+            return value
+        
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+    
+    def create(self, validated_data):
+        """Create a new user."""
+        # Set a default password for new users
+        password = validated_data.pop('password', 'defaultpassword123')
+        user = User.objects.create_user(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+    
+    def update(self, instance, validated_data):
+        """Update user instance."""
+        password = validated_data.pop('password', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        if password:
+            instance.set_password(password)
+        
+        instance.save()
+        return instance
+
+
+class AdminUserCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating new users by admin."""
+    
+    password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'username', 'email', 'first_name', 'last_name', 'phone', 'company',
+            'role', 'is_active', 'is_verified', 'is_demo', 'is_staff',
+            'password', 'confirm_password', 'language', 'timezone', 'currency',
+            'date_format', 'notify_email', 'notify_whatsapp', 'notify_urgent',
+            'notification_time'
+        ]
+    
+    def validate(self, data):
+        """Validate password confirmation."""
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError({
+                'confirm_password': "Passwords don't match."
+            })
+        return data
+    
+    def validate_email(self, value):
+        """Validate email uniqueness."""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+    
+    def validate_username(self, value):
+        """Validate username uniqueness."""
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+    
+    def create(self, validated_data):
+        """Create a new user."""
+        validated_data.pop('confirm_password')
+        password = validated_data.pop('password')
+        user = User.objects.create_user(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
+
+class AdminUserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating users by admin."""
+    
+    password = serializers.CharField(write_only=True, required=False, min_length=8)
+    
+    class Meta:
+        model = User
+        fields = [
+            'username', 'email', 'first_name', 'last_name', 'phone', 'company',
+            'role', 'is_active', 'is_verified', 'is_demo', 'is_staff',
+            'password', 'language', 'timezone', 'currency', 'date_format',
+            'notify_email', 'notify_whatsapp', 'notify_urgent', 'notification_time'
+        ]
+        extra_kwargs = {
+            'username': {'required': False},
+            'email': {'required': False}
+        }
+    
+    def validate_email(self, value):
+        """Validate email uniqueness."""
+        if self.instance and self.instance.email == value:
+            return value
+        
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+    
+    def validate_username(self, value):
+        """Validate username uniqueness."""
+        if self.instance and self.instance.username == value:
+            return value
+        
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+    
+    def update(self, instance, validated_data):
+        """Update user instance."""
+        password = validated_data.pop('password', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        if password:
+            instance.set_password(password)
+        
+        instance.save()
+        return instance

@@ -38,6 +38,11 @@ class AuthenticationService:
                     'status': status.HTTP_401_UNAUTHORIZED
                 }
             
+            # Update last_login field
+            from django.utils import timezone
+            user.last_login = timezone.now()
+            user.save(update_fields=['last_login'])
+            
             # Generate JWT tokens
             refresh = RefreshToken.for_user(user)
             
@@ -398,6 +403,11 @@ class AuthenticationService:
                     last_name=last_name,
                     is_verified=True  # Google users are verified
                 )
+            
+            # Update last_login field for OAuth users too
+            from django.utils import timezone
+            user.last_login = timezone.now()
+            user.save(update_fields=['last_login'])
             
             # Generate JWT tokens
             refresh = RefreshToken.for_user(user)

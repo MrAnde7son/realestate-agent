@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Optional, List
 
 from django.template.loader import render_to_string
-from weasyprint import HTML
 from PyPDF2 import PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -212,7 +211,12 @@ class HebrewPDFGenerator:
             html_string = render_to_string("report_asset.html", context)
             # Use the static files directory as base_url for WeasyPrint to resolve static assets
             static_dir = self.base_dir / "core" / "static"
-            HTML(string=html_string, base_url=str(static_dir)).write_pdf(file_path)
+            try:
+                from weasyprint import HTML
+                HTML(string=html_string, base_url=str(static_dir)).write_pdf(file_path)
+            except ImportError as e:
+                self.logger.error("WeasyPrint not available: %s", e)
+                raise Exception("PDF generation requires WeasyPrint to be properly installed")
 
             generation_time = time.time() - start_time
             pages = len(PdfReader(file_path).pages)

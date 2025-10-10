@@ -1258,33 +1258,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       {renderValue(<Badge variant="neutral">{asset.zoning ?? 'לא צוין'}</Badge>, 'zoning')}
                     </div>
                     <div className="flex justify-between rtl:flex-row-reverse">
-                      <span className="text-muted-foreground">יתרת זכויות:</span>
-                      {renderValue(
-                        <Badge variant={!!asset.remainingRightsSqm && asset.remainingRightsSqm > 0 ? 'success' : 'neutral'}>
-                          {!!asset.remainingRightsSqm ? `+${asset.remainingRightsSqm} מ״ר` : '—'}
-                        </Badge>,
-                        'remainingRightsSqm'
-                      )}
-                    </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
-                      <span className="text-muted-foreground">זכויות בנייה עיקריות:</span>
-                      {renderValue(asset.mainRightsSqm ? `${asset.mainRightsSqm} מ״ר` : 'לא זמין', 'mainRightsSqm')}
-                    </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
-                      <span className="text-muted-foreground">שטחי שירות:</span>
-                      {renderValue(asset.serviceRightsSqm ? `${asset.serviceRightsSqm} מ״ר` : 'לא זמין', 'serviceRightsSqm')}
-                    </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
-                      <span className="text-muted-foreground">זכויות משלימות:</span>
-                      {renderValue(asset.additionalPlanRights ?? 'אין', 'additionalPlanRights')}
-                    </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
-                      <span className="text-muted-foreground">מגבלות/חובות ציבוריות:</span>
-                      {renderValue(asset.publicObligations ?? 'אין', 'publicObligations')}
-                    </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תוכנית:</span>
                       {renderValue(asset.planStatus ?? 'לא ידוע', 'planStatus')}
+                    </div>
+                    <div className="flex justify-between rtl:flex-row-reverse">
+                      <span className="text-muted-foreground">מגבלות תכנוניות:</span>
+                      {renderValue(asset.publicObligations ?? 'אין', 'publicObligations')}
                     </div>
                   </div>
                   <div className="pt-2 border-t">
@@ -1613,19 +1592,72 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <div>
                       <h4 className="text-lg font-semibold mb-3">דרישות נוספות</h4>
                       <div className="space-y-2">
-                        {calculatedRights.building_privileges?.auxiliary_building_area_sqm > 0 && (
-                          <div className="flex justify-between items-center p-3 border rounded-lg">
-                            <span className="font-medium">בניין עזר</span>
-                            <span className="text-sm text-muted-foreground">{calculatedRights.building_privileges.auxiliary_building_area_sqm} מ״ר</span>
-                          </div>
-                        )}
-                        {calculatedRights.building_privileges?.parking_requirements && calculatedRights.building_privileges.parking_requirements.length > 0 && (
-                          <div className="flex justify-between items-center p-3 border rounded-lg">
-                            <span className="font-medium">חניה</span>
-                            <span className="text-sm text-muted-foreground">{calculatedRights.building_privileges.parking_requirements[0]?.area_sqm} מ״ר</span>
-                          </div>
-                        )}
+                        <div className="text-sm text-muted-foreground text-center py-4">
+                          דרישות נוספות יוצגו כאן כאשר יהיו זמינות
+                        </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Service and Auxiliary Areas */}
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3">שטחי שירות ועזר</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Auxiliary Building */}
+                      {calculatedRights.building_privileges?.auxiliary_building_area_sqm > 0 && (
+                        <div className="p-3 border rounded-lg">
+                          <div className="text-sm font-medium text-muted-foreground">בניין עזר</div>
+                          <div className="text-xl font-bold">{calculatedRights.building_privileges.auxiliary_building_area_sqm}</div>
+                          <div className="text-sm text-muted-foreground">מ״ר</div>
+                        </div>
+                      )}
+
+                      {/* Parking */}
+                      {calculatedRights.building_privileges?.parking_requirements && calculatedRights.building_privileges.parking_requirements.length > 0 && (
+                        <div className="p-3 border rounded-lg">
+                          <div className="text-sm font-medium text-muted-foreground">חניה</div>
+                          <div className="text-xl font-bold">{calculatedRights.building_privileges.parking_requirements[0]?.area_sqm || '—'}</div>
+                          <div className="text-sm text-muted-foreground">מ״ר</div>
+                        </div>
+                      )}
+
+                      {/* Roof Areas */}
+                      {calculatedRights.building_privileges?.roof_percentages && calculatedRights.building_privileges.roof_percentages.length > 0 && (
+                        <div className="p-3 border rounded-lg">
+                          <div className="text-sm font-medium text-muted-foreground">שטחי גג</div>
+                          <div className="text-xl font-bold">
+                            {calculatedRights.building_privileges.roof_percentages.reduce((sum: number, roof: any) => sum + (roof.area_sqm || 0), 0)}
+                          </div>
+                          <div className="text-sm text-muted-foreground">מ״ר</div>
+                        </div>
+                      )}
+
+                      {/* Basement Areas */}
+                      {calculatedRights.building_privileges?.basement_area_sqm > 0 && (
+                        <div className="p-3 border rounded-lg">
+                          <div className="text-sm font-medium text-muted-foreground">שטחי מרתף</div>
+                          <div className="text-xl font-bold">{calculatedRights.building_privileges.basement_area_sqm}</div>
+                          <div className="text-sm text-muted-foreground">מ״ר</div>
+                        </div>
+                      )}
+
+                      {/* Service Areas */}
+                      {calculatedRights.building_privileges?.service_area_sqm > 0 && (
+                        <div className="p-3 border rounded-lg">
+                          <div className="text-sm font-medium text-muted-foreground">שטחי שירות</div>
+                          <div className="text-xl font-bold">{calculatedRights.building_privileges.service_area_sqm}</div>
+                          <div className="text-sm text-muted-foreground">מ״ר</div>
+                        </div>
+                      )}
+
+                      {/* Storage Areas */}
+                      {calculatedRights.building_privileges?.storage_area_sqm > 0 && (
+                        <div className="p-3 border rounded-lg">
+                          <div className="text-sm font-medium text-muted-foreground">מחסנים</div>
+                          <div className="text-xl font-bold">{calculatedRights.building_privileges.storage_area_sqm}</div>
+                          <div className="text-sm text-muted-foreground">מ״ר</div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

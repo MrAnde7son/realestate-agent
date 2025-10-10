@@ -11,7 +11,7 @@ import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft, X } from "lucide-react"
+import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft, X, LineChart } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -43,6 +43,14 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const filteredMobileNavigation = mobileNavigation.filter(
     (item) => item.href !== '/crm' || canAccessCrm
   )
+  
+  // Add admin navigation items for mobile
+  if (user?.role === 'admin') {
+    filteredMobileNavigation.push(
+      { name: "מעקב", href: "/admin/analytics", icon: LineChart },
+      { name: "משתמשים", href: "/admin/users", icon: Users }
+    )
+  }
 
   // Close mobile sidebar when pathname changes
   React.useEffect(() => {

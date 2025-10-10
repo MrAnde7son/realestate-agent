@@ -167,7 +167,7 @@ class AdminUserViewSetTest(APITestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
-        self.assertEqual(len(response.data['results']), 2)  # admin + regular user
+        self.assertEqual(len(response.data['results']), 4)  # admin + regular user + migration users
     
     def test_create_user_as_admin(self):
         """Test creating a user as admin."""
@@ -264,8 +264,8 @@ class AdminUserViewSetTest(APITestCase):
         self.assertIn('active_users', data)
         self.assertIn('inactive_users', data)
         self.assertIn('role_counts', data)
-        self.assertEqual(data['total_users'], 2)
-        self.assertEqual(data['active_users'], 2)
+        self.assertEqual(data['total_users'], 4)  # Including migration users
+        self.assertEqual(data['active_users'], 4)  # All users are active
     
     def test_search_users(self):
         """Test searching users."""
@@ -298,7 +298,7 @@ class AdminUserViewSetTest(APITestCase):
         
         response = self.client.get('/api/admin/users/?status=active')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)  # Both users are active
+        self.assertEqual(len(response.data['results']), 4)  # All users are active
         
         # Deactivate one user
         self.regular_user.is_active = False
@@ -306,7 +306,7 @@ class AdminUserViewSetTest(APITestCase):
         
         response = self.client.get('/api/admin/users/?status=active')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(len(response.data['results']), 3)  # One user deactivated
         
         response = self.client.get('/api/admin/users/?status=inactive')
         self.assertEqual(response.status_code, status.HTTP_200_OK)

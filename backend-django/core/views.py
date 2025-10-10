@@ -1803,9 +1803,19 @@ def asset_plans(request, asset_id):
 
         plans = []
         
-        # Get plans from Plan model (created by data pipeline)
+        # Get all plans from Plan model (created by data pipeline)
+        # The data pipeline already processes RAMI and Mavat plans and stores them in the Plan model
         local_plans = Plan.objects.filter(asset_id=asset_id)
         for plan in local_plans:
+            # Determine source from plan_number prefix or raw data
+            source = "unknown"
+            if plan.plan_number.startswith("mavat_"):
+                source = "mavat"
+            elif plan.raw and plan.raw.get('planNumber'):
+                source = "rami"
+            elif plan.raw and plan.raw.get('plan_id'):
+                source = "mavat"
+            
             plans.append({
                 "id": plan.id,
                 "plan_number": plan.plan_number,
@@ -1813,41 +1823,9 @@ def asset_plans(request, asset_id):
                 "status": plan.status,
                 "effective_date": plan.effective_date.isoformat() if plan.effective_date else None,
                 "file_url": plan.file_url,
-                "source": "collected_data",
+                "source": source,
                 "raw": plan.raw
             })
-
-        # Get plans from asset metadata (RAMI and Mavat data)
-        if asset.meta:
-            # RAMI plans
-            rami_plans = asset.get_property_value('rami_plans', [])
-            if rami_plans:
-                for plan in rami_plans:
-                    plans.append({
-                        "id": f"rami_{plan.get('planNumber', plan.get('plan_number', ''))}",
-                        "plan_number": plan.get('planNumber', plan.get('plan_number', '')),
-                        "description": plan.get('title', f"תכנית רמ״י {plan.get('planNumber', '')}"),
-                        "status": plan.get('status', ''),
-                        "effective_date": None,
-                        "file_url": plan.get('url', ''),
-                        "source": "rami",
-                        "raw": plan
-                    })
-            
-            # Mavat plans
-            mavat_plans = asset.get_property_value('mavat_plans', [])
-            if mavat_plans:
-                for plan in mavat_plans:
-                    plans.append({
-                        "id": f"mavat_{plan.get('plan_id', plan.get('id', ''))}",
-                        "plan_number": plan.get('plan_id', plan.get('id', '')),
-                        "description": plan.get('title', f"תכנית מבת {plan.get('plan_id', '')}"),
-                        "status": plan.get('status', ''),
-                        "effective_date": None,
-                        "file_url": plan.get('url', ''),
-                        "source": "mavat",
-                        "raw": plan
-                    })
         
         return JsonResponse({"plans": plans})
 

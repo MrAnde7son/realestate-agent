@@ -32,6 +32,7 @@ import { apiClient } from '@/lib/api-client'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
+import PlansTable from '@/components/PlansTable'
 import { ListingsPanel } from '@/components/crm/listings-panel'
 import {
   Breadcrumb,
@@ -80,7 +81,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [comparableTransactions, setComparableTransactions] = useState<any[]>([])
   const [marketAnalysis, setMarketAnalysis] = useState<any>(null)
   const [permits, setPermits] = useState<any[]>([])
-  const [plans, setPlans] = useState<{local: any[], mavat: any[]}>({local: [], mavat: []})
+  const [plans, setPlans] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
@@ -105,6 +106,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [appraisalsSearch, setAppraisalsSearch] = useState('')
   const [documentsSearch, setDocumentsSearch] = useState('')
   const [plansSearch, setPlansSearch] = useState('')
+  const [plansSourceFilter, setPlansSourceFilter] = useState('all')
+  const [plansStatusFilter, setPlansStatusFilter] = useState('all')
   const [permitsSearch, setPermitsSearch] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -214,31 +217,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       })))
     }
     
-    // 3. Plans from RAMI
-    if (plans.local && plans.local.length > 0) {
-      allDocs.push(...plans.local.map((plan: any) => ({
-        id: `rami_${plan.planNumber}`,
-        title: plan.title || `תכנית רמ״י ${plan.planNumber}`,
+    // 3. Plans
+    if (plans && plans.length > 0) {
+      allDocs.push(...plans.map((plan: any) => ({
+        id: `plan_${plan.id}`,
+        title: plan.description || `תכנית ${plan.plan_number}`,
         type: translateDocumentType('plan'),
-        url: plan.url,
-        source: translateSource('RAMI'),
-        category: 'תכניות רמ״י',
+        url: plan.file_url,
+        source: translateSource(plan.source === 'rami' ? 'RAMI' : plan.source === 'mavat' ? 'Mavat' : 'Local'),
+        category: plan.source === 'rami' ? 'תכניות רמ״י' : plan.source === 'mavat' ? 'תכניות מנהל התיכנון' : 'תכניות מקומיות',
         status: plan.status,
-        external_id: plan.planNumber
-      })))
-    }
-    
-    // 4. Plans from Mavat
-    if (plans.mavat && plans.mavat.length > 0) {
-      allDocs.push(...plans.mavat.map((plan: any) => ({
-        id: `mavat_${plan.plan_id}`,
-        title: plan.title || `תכנית מבת ${plan.plan_id}`,
-        type: translateDocumentType('plan'),
-        url: plan.url,
-        source: translateSource('Mavat'),
-        category: 'תכניות מנהל התיכנון',
-        status: plan.status,
-        external_id: plan.plan_id
+        external_id: plan.plan_number
       })))
     }
     
@@ -413,18 +402,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         return res.json()
       })
       .then(data => {
-        // Organize plans by source
-        const organizedPlans: {local: any[], mavat: any[]} = {local: [], mavat: []}
-        if (data.plans && Array.isArray(data.plans)) {
-          data.plans.forEach((plan: any) => {
-            if (plan.source === 'mavat') {
-              organizedPlans.mavat.push(plan)
-            } else if (plan.source === 'collected_data' || plan.source === 'rami') {
-              organizedPlans.local.push(plan)
-            }
-          })
-        }
-        setPlans(organizedPlans)
+        setPlans(data.plans || [])
       })
       .catch(err => console.error('Error loading plans:', err))
   }, [id])
@@ -1065,7 +1043,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <span className="text-muted-foreground">חדרים:</span>
                     <span>{asset.rooms ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">ייעוד:</span>
                     <span>{asset.zoning ?? '—'}</span>
                   </div>
@@ -1304,164 +1282,48 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
             </div>
 
 
-            {/* Mavat Plans */}
-            {plans.mavat && plans.mavat.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>תוכניות ממינהל התכנון</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    תוכניות תכנון רלוונטיות מהמערכת הממשלתית
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {plans.mavat
-                      .filter((plan: any) => {
-                        if (!plansSearch) return true
-                        const searchLower = plansSearch.toLowerCase()
-                        return (
-                          plan.description?.toLowerCase().includes(searchLower) ||
-                          plan.plan_number?.toLowerCase().includes(searchLower) ||
-                          plan.status?.toLowerCase().includes(searchLower) ||
-                          plan.raw?.title?.toLowerCase().includes(searchLower) ||
-                          plan.raw?.authority?.toLowerCase().includes(searchLower) ||
-                          plan.raw?.jurisdiction?.toLowerCase().includes(searchLower)
-                        )
-                      })
-                      .map((plan: any, idx: number) => (
-                      <div key={idx} className="p-3 border rounded-lg">
-                        <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">{plan.description || plan.raw?.title || `תכנית מבת ${plan.plan_number}`}</h4>
-                            <p className="text-xs text-muted-foreground">
-                              תוכנית מס׳ {plan.plan_number}
-                            </p>
-                          </div>
-                          <Badge variant={plan.status === 'מאושר' ? 'success' : 'neutral'}>
-                            {plan.status || 'לא ידוע'}
-                          </Badge>
-                        </div>
-                        <div className="grid gap-2 text-xs text-muted-foreground">
-                          {plan.raw?.authority && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>רשות:</span>
-                              <span>{plan.raw.authority}</span>
-                            </div>
-                          )}
-                          {plan.raw?.jurisdiction && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>תחום שיפוט:</span>
-                              <span>{plan.raw.jurisdiction}</span>
-                            </div>
-                          )}
-                          {plan.raw?.approval_date && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>תאריך אישור:</span>
-                              <span>{new Date(plan.raw.approval_date).toLocaleDateString('he-IL')}</span>
-                            </div>
-                          )}
-                          {plan.raw?.status_date && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>תאריך סטטוס:</span>
-                              <span>{new Date(plan.raw.status_date).toLocaleDateString('he-IL')}</span>
-                            </div>
-                          )}
-                          {plan.file_url && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span>קובץ:</span>
-                              <a href={plan.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                צפה בקובץ
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="pt-2 border-t mt-4">
-                    <div className="text-sm text-muted-foreground text-center">
-                      מקור: מערכת mavat - מידע תכנוני ממשלתי
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader>
-                <CardTitle>תוכניות ממינהל התכנון</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    תוכניות תכנון רלוונטיות מהמערכת הממשלתית
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <div className="text-muted-foreground mb-2">
-                      לא נמצאו תוכניות ממינהל התיכנון עבור נכס זה
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Local Plans */}
-            {plans.local && plans.local.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>תוכניות מקומיות</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    תוכניות שמורות במערכת המקומית
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {plans.local
-                      .filter((plan: any) => {
-                        if (!plansSearch) return true
-                        const searchLower = plansSearch.toLowerCase()
-                        return (
-                          plan.description?.toLowerCase().includes(searchLower) ||
-                          plan.plan_number?.toLowerCase().includes(searchLower) ||
-                          plan.status?.toLowerCase().includes(searchLower) ||
-                          plan.effective_date?.toLowerCase().includes(searchLower)
-                        )
-                      })
-                      .map((plan: any, idx: number) => (
-                      <div key={idx} className="p-3 border rounded-lg">
-                        <div className="flex justify-between items-start rtl:flex-row-reverse mb-2">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">{plan.description || plan.plan_number}</h4>
-                            <p className="text-xs text-muted-foreground">
-                              תוכנית מס׳ {plan.plan_number}
-                            </p>
-                          </div>
-                          <Badge variant={plan.status === 'מאושר' ? 'success' : 'neutral'}>
-                            {plan.status}
-                          </Badge>
-                        </div>
-                        {plan.effective_date && (
-                          <div className="text-xs text-muted-foreground">
-                            <span>תאריך תוקף: </span>
-                            <span>{new Date(plan.effective_date).toLocaleDateString('he-IL')}</span>
-                          </div>
-                        )}
-                        {plan.file_url && (
-                          <div className="mt-2">
-                            <a
-                              href={plan.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 text-xs underline"
-                            >
-                              צפה במסמך
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Plans Table */}
+            <PlansTable
+              data={plans}
+              loading={false}
+              searchValue={plansSearch}
+              onSearchChange={setPlansSearch}
+              filters={{
+                source: {
+                  value: plansSourceFilter,
+                  onChange: setPlansSourceFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'rami', label: 'רמ״י' },
+                    { value: 'mavat', label: 'מנהל התיכנון' },
+                    { value: 'unknown', label: 'מקומי' }
+                  ]
+                },
+                status: {
+                  value: plansStatusFilter,
+                  onChange: setPlansStatusFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    ...Array.from(new Set(plans.map(p => p.status).filter(Boolean))).map(status => ({
+                      value: status,
+                      label: status
+                    }))
+                  ]
+                }
+              }}
+              onRefresh={() => {
+                // Refresh plans data
+                fetch(`/api/assets/${id}/plans`)
+                  .then(res => {
+                    if (!res.ok) throw new Error('Failed to load plans')
+                    return res.json()
+                  })
+                  .then(data => {
+                    setPlans(data.plans || [])
+                  })
+                  .catch(err => console.error('Error loading plans:', err))
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="rights" className="space-y-4">

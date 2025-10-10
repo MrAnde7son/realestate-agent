@@ -231,7 +231,7 @@ export default function TableToolbar({
       </div>
 
       {/* Single row - All toolbar actions */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 rtl:flex-row-reverse">
         {/* Filter toggle */}
         <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
           <SheetTrigger asChild>

@@ -265,7 +265,11 @@ class TabuParser:
             if has_date or has_action:
                 name, action, date = self._extract_owner_line(line)
                 if name:
-                    self._add_row('בעלים', name)
+                    # Check if this is a mortgage entry, not an ownership entry
+                    if 'משכנתה' in line:
+                        self._add_row('בעלי המשכנתה', name)
+                    else:
+                        self._add_row('בעלים', name)
                 if action:
                     self._add_row('מהות פעולה', action)
                 if date:

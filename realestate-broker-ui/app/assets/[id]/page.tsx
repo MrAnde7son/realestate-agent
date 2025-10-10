@@ -1737,7 +1737,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         </TableHeader>
                         <TableBody>
                           {rightsRows
-                            .filter(row => row.field?.includes('בעלים') || row.field?.includes('owner'))
+                            .filter(row => 
+                              (row.field?.includes('בעלים') || row.field?.includes('owner')) &&
+                              !row.field?.includes('משכנתה') && 
+                              !row.field?.includes('בעלי המשכנתה')
+                            )
                             .map((row, index) => {
                               const ownerName = row.value
                               
@@ -1745,6 +1749,44 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                               const ownershipRow = rightsRows.find(r => 
                                 r.field === 'החלק בנכס'
                               )
+                              
+                              // Convert fraction to percentage
+                              const convertToPercentage = (value: string) => {
+                                if (!value) return '—'
+                                
+                                // Handle "בשלמות" (full ownership) = 100%
+                                if (value.includes('בשלמות')) return '100%'
+                                
+                                // Handle fractions like "1/2" = 50%
+                                if (value.includes('/')) {
+                                  const parts = value.split('/')
+                                  if (parts.length === 2) {
+                                    const numerator = parseFloat(parts[0])
+                                    const denominator = parseFloat(parts[1])
+                                    if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+                                      const percentage = Math.round((numerator / denominator) * 100)
+                                      return `${percentage}%`
+                                    }
+                                  }
+                                }
+                                
+                                // Handle existing percentages
+                                if (value.includes('%')) return value
+                                
+                                // Handle decimal numbers
+                                const num = parseFloat(value)
+                                if (!isNaN(num)) {
+                                  if (num <= 1) {
+                                    // Assume it's a decimal (0.5 = 50%)
+                                    return `${Math.round(num * 100)}%`
+                                  } else {
+                                    // Assume it's already a percentage
+                                    return `${Math.round(num)}%`
+                                  }
+                                }
+                                
+                                return value
+                              }
                               
                               // Find ID number - look for the specific field
                               const idRow = rightsRows.find(r => 
@@ -1762,7 +1804,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                     {ownerName || '—'}
                                   </TableCell>
                                   <TableCell className="text-right">
-                                    {ownershipRow?.value || '—'}
+                                    {convertToPercentage(ownershipRow?.value || '')}
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {idRow?.value || '—'}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   const form = await req.formData()
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/support/bug`, {
+  const res = await fetch(`${process.env.BACKEND_URL}/api/support/bug`, {
     method: 'POST',
     headers: { cookie: req.headers.get('cookie') || '' },
     credentials: 'include',

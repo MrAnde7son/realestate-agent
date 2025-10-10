@@ -15,7 +15,7 @@ async function getMe() {
       return { authenticated: false };
     }
     
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"}/api/me`, {
+    const res = await fetch(`${process.env.BACKEND_URL || "http://127.0.0.1:8000"}/api/me`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'

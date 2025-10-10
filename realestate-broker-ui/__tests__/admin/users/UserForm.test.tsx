@@ -1,8 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { UserForm } from '../app/admin/users/UserForm';
+import { UserForm } from '../../../app/admin/users/UserForm';
+import { vi } from 'vitest';
 
 // Mock the form components
-jest.mock('react-hook-form', () => ({
+vi.mock('react-hook-form', () => ({
   useForm: () => ({
     control: {},
     handleSubmit: (fn: any) => fn,
@@ -10,12 +11,12 @@ jest.mock('react-hook-form', () => ({
   }),
 }));
 
-jest.mock('@hookform/resolvers/zod', () => ({
+vi.mock('@hookform/resolvers/zod', () => ({
   zodResolver: () => ({}),
 }));
 
 // Mock the UI components
-jest.mock('@/components/ui/button', () => ({
+vi.mock('@/components/ui/button', () => ({
   Button: ({ children, onClick, ...props }: any) => (
     <button onClick={onClick} {...props}>
       {children}
@@ -23,15 +24,15 @@ jest.mock('@/components/ui/button', () => ({
   ),
 }));
 
-jest.mock('@/components/ui/input', () => ({
+vi.mock('@/components/ui/input', () => ({
   Input: (props: any) => <input {...props} />,
 }));
 
-jest.mock('@/components/ui/label', () => ({
+vi.mock('@/components/ui/label', () => ({
   Label: ({ children, ...props }: any) => <label {...props}>{children}</label>,
 }));
 
-jest.mock('@/components/ui/checkbox', () => ({
+vi.mock('@/components/ui/checkbox', () => ({
   Checkbox: ({ checked, onCheckedChange, ...props }: any) => (
     <input
       type="checkbox"
@@ -42,7 +43,7 @@ jest.mock('@/components/ui/checkbox', () => ({
   ),
 }));
 
-jest.mock('@/components/ui/select', () => ({
+vi.mock('@/components/ui/select', () => ({
   Select: ({ children, onValueChange, defaultValue }: any) => (
     <select onChange={(e) => onValueChange(e.target.value)} defaultValue={defaultValue}>
       {children}
@@ -54,21 +55,21 @@ jest.mock('@/components/ui/select', () => ({
   SelectValue: ({ placeholder }: any) => <span>{placeholder}</span>,
 }));
 
-jest.mock('@/components/ui/form', () => ({
+vi.mock('@/components/ui/form', () => ({
   Form: ({ children }: any) => <form>{children}</form>,
   FormControl: ({ children }: any) => <div>{children}</div>,
-  FormField: ({ render }: any) => render({ field: { value: '', onChange: jest.fn() } }),
+  FormField: ({ render }: any) => render({ field: { value: '', onChange: vi.fn() } }),
   FormItem: ({ children }: any) => <div>{children}</div>,
   FormLabel: ({ children }: any) => <label>{children}</label>,
   FormMessage: () => <div />,
 }));
 
 describe('UserForm', () => {
-  const mockOnSubmit = jest.fn();
-  const mockOnCancel = jest.fn();
+  const mockOnSubmit = vi.fn();
+  const mockOnCancel = vi.fn();
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders create user form correctly', () => {
@@ -79,10 +80,10 @@ describe('UserForm', () => {
       />
     );
 
-    expect(screen.getByText('מידע בסיסי')).toBeInTheDocument();
-    expect(screen.getByText('תפקיד והרשאות')).toBeInTheDocument();
+    expect(screen.getByText('פרטי משתמש')).toBeInTheDocument();
+    expect(screen.getByText('סטטוס משתמש')).toBeInTheDocument();
     expect(screen.getByText('סיסמה')).toBeInTheDocument();
-    expect(screen.getByText('העדפות')).toBeInTheDocument();
+    expect(screen.getByText('הגדרות')).toBeInTheDocument();
     expect(screen.getByText('התראות')).toBeInTheDocument();
   });
 
@@ -118,7 +119,7 @@ describe('UserForm', () => {
       />
     );
 
-    expect(screen.getByText('ערוך משתמש')).toBeInTheDocument();
+    expect(screen.getByText('פרטי משתמש')).toBeInTheDocument();
   });
 
   it('calls onSubmit when form is submitted', async () => {
@@ -129,7 +130,18 @@ describe('UserForm', () => {
       />
     );
 
-    const submitButton = screen.getByText('צור');
+    // Fill in required fields
+    const usernameInput = screen.getByLabelText('שם משתמש *');
+    const emailInput = screen.getByLabelText('אימייל *');
+    const passwordInput = screen.getByLabelText('סיסמה *');
+    const confirmPasswordInput = screen.getByLabelText('אישור סיסמה *');
+
+    fireEvent.change(usernameInput, { target: { value: 'testuser' } });
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
+
+    const submitButton = screen.getByText('צור משתמש');
     fireEvent.click(submitButton);
 
     await waitFor(() => {
@@ -183,6 +195,6 @@ describe('UserForm', () => {
       />
     );
 
-    expect(screen.getByText('עדכן')).toBeInTheDocument();
+    expect(screen.getByText('עדכן משתמש')).toBeInTheDocument();
   });
 });

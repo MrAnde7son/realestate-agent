@@ -2352,8 +2352,6 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                         }
                     )
         
-        # Process existing Tabu documents for asset field population
-        _process_existing_tabu_documents(asset)
         
         logger.info(f"Created documents and plans for asset {asset.id}")
         
@@ -2361,26 +2359,6 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
         logger.error(f"Failed to create documents and plans for asset {asset.id}: {e}")
 
 
-def _process_existing_tabu_documents(asset):
-    """Process existing Tabu documents to populate asset fields."""
-    try:
-        from core.models import Document
-        
-        # Find existing Tabu documents for this asset
-        tabu_docs = Document.objects.filter(
-            asset=asset,
-            document_type='tabu',
-            meta__isnull=False
-        )
-        
-        for doc in tabu_docs:
-            tabu_rows = doc.meta.get('tabu_rows', [])
-            if tabu_rows:
-                _populate_asset_fields_from_tabu(asset, tabu_rows)
-                logger.debug('[TABU_PROCESSING] Processed Tabu document %s for asset %s', doc.id, asset.id)
-                
-    except Exception as e:
-        logger.error('[TABU_PROCESSING] Failed to process Tabu documents for asset %s: %s', asset.id, e)
 
 
 def _create_documents_from_permits(asset, permits):

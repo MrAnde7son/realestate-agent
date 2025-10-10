@@ -288,43 +288,23 @@ class AssetRightsView(APIView):
             'parcel_info': {}
         }
         
-        current_owner = None
-        ownership_percentage = 0
+        # First pass: collect all ownership-related data
+        ownership_shares = []
+        owner_names = []
         
         for row in tabu_data:
             field = row.get('field', '').lower()
             value = row.get('value', '')
             
-            # Look for owner information
-            if 'בעלים' in field or 'owner' in field:
-                if current_owner and ownership_percentage > 0:
-                    ownership['owners'].append({
-                        'name': current_owner,
-                        'percentage': ownership_percentage
-                    })
-                current_owner = value
-                ownership_percentage = 0
+            # Collect ownership shares
+            if 'החלק בנכס' in field:
+                ownership_shares.append(value)
             
-            # Look for ownership percentage - handle fractions like "1/2"
-            elif '%' in value or 'אחוז' in field or '/' in value:
-                try:
-                    import re
-                    # Handle fractions like "1/2" = 50%
-                    if '/' in value:
-                        fraction_match = re.search(r'(\d+)/(\d+)', value)
-                        if fraction_match:
-                            numerator = float(fraction_match.group(1))
-                            denominator = float(fraction_match.group(2))
-                            ownership_percentage = (numerator / denominator) * 100
-                    else:
-                        # Handle regular percentages
-                        percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
-                        if percentage_match:
-                            ownership_percentage = float(percentage_match.group(1))
-                except (ValueError, AttributeError, ZeroDivisionError):
-                    pass
+            # Collect owner names
+            elif 'בעלים' in field or 'owner' in field:
+                owner_names.append(value)
             
-            # Look for parcel information
+            # Collect parcel information
             elif 'גוש' in field:
                 ownership['parcel_info']['block'] = value
             elif 'חלקה' in field:
@@ -332,12 +312,40 @@ class AssetRightsView(APIView):
             elif 'תת חלקה' in field:
                 ownership['parcel_info']['subparcel'] = value
         
-        # Add the last owner if exists
-        if current_owner and ownership_percentage > 0:
-            ownership['owners'].append({
-                'name': current_owner,
-                'percentage': ownership_percentage
-            })
+        # Second pass: match owners with their shares
+        for i, owner_name in enumerate(owner_names):
+            # Try to find corresponding ownership share
+            ownership_percentage = 0
+            
+            # If we have a corresponding share
+            if i < len(ownership_shares):
+                share_value = ownership_shares[i]
+                try:
+                    import re
+                    # Handle fractions like "1/2" = 50%
+                    if '/' in share_value:
+                        fraction_match = re.search(r'(\d+)/(\d+)', share_value)
+                        if fraction_match:
+                            numerator = float(fraction_match.group(1))
+                            denominator = float(fraction_match.group(2))
+                            ownership_percentage = (numerator / denominator) * 100
+                    # Handle "בשלמות" (full ownership) = 100%
+                    elif 'בשלמות' in share_value:
+                        ownership_percentage = 100.0
+                    else:
+                        # Handle regular percentages
+                        percentage_match = re.search(r'(\d+(?:\.\d+)?)', share_value)
+                        if percentage_match:
+                            ownership_percentage = float(percentage_match.group(1))
+                except (ValueError, AttributeError, ZeroDivisionError):
+                    pass
+            
+            # Add owner with their percentage
+            if ownership_percentage > 0:
+                ownership['owners'].append({
+                    'name': owner_name,
+                    'percentage': ownership_percentage
+                })
         
         # Calculate total ownership percentage
         ownership['total_ownership_percentage'] = sum(owner['percentage'] for owner in ownership['owners'])
@@ -1403,7 +1411,7 @@ def create_document_from_meta(request, asset_id):
 def _update_asset_from_tabu(asset, tabu_rows):
     """Update asset ownership fields from parsed Tabu data."""
     try:
-        ownership_data = _parse_ownership_from_tabu(tabu_rows)
+        ownership_data = AssetRightsView._parse_ownership_from_tabu(None, tabu_rows)
         
         # Update asset ownership fields if we found owner information
         if ownership_data.get('owners'):
@@ -1432,62 +1440,3 @@ def _update_asset_from_tabu(asset, tabu_rows):
         logger.error(f"Error updating asset {asset.id} from Tabu data: {e}")
 
 
-def _parse_ownership_from_tabu(tabu_data):
-    """Parse ownership information from Tabu data."""
-    ownership = {
-        'owners': [],
-        'parcel_info': {}
-    }
-    
-    current_owner = None
-    ownership_percentage = 0
-    
-    for row in tabu_data:
-        field = row.get('field', '').lower()
-        value = row.get('value', '')
-        
-        # Look for owner information
-        if 'בעלים' in field or 'owner' in field:
-            if current_owner and ownership_percentage > 0:
-                ownership['owners'].append({
-                    'name': current_owner,
-                    'percentage': ownership_percentage
-                })
-            current_owner = value
-            ownership_percentage = 0
-        
-        # Look for ownership percentage - handle fractions like "1/2"
-        elif '%' in value or 'אחוז' in field or '/' in value:
-            try:
-                import re
-                # Handle fractions like "1/2" = 50%
-                if '/' in value:
-                    fraction_match = re.search(r'(\d+)/(\d+)', value)
-                    if fraction_match:
-                        numerator = float(fraction_match.group(1))
-                        denominator = float(fraction_match.group(2))
-                        ownership_percentage = (numerator / denominator) * 100
-                else:
-                    # Handle regular percentages
-                    percentage_match = re.search(r'(\d+(?:\.\d+)?)', value)
-                    if percentage_match:
-                        ownership_percentage = float(percentage_match.group(1))
-            except (ValueError, AttributeError, ZeroDivisionError):
-                pass
-        
-        # Look for parcel information
-        elif 'גוש' in field:
-            ownership['parcel_info']['block'] = value
-        elif 'חלקה' in field:
-            ownership['parcel_info']['parcel'] = value
-        elif 'תת חלקה' in field:
-            ownership['parcel_info']['subparcel'] = value
-    
-    # Add the last owner if exists
-    if current_owner and ownership_percentage > 0:
-        ownership['owners'].append({
-            'name': current_owner,
-            'percentage': ownership_percentage
-        })
-    
-    return ownership

@@ -65,6 +65,7 @@ class NadlanDealsScraper:
         self.use_cache = use_cache
         self.driver = None
         self.current_search_address = None  # Store the current search address for full address construction
+        self.error_modal_encountered = False  # Track if error modal was encountered during scraping
         
         # Initialize cache if enabled
         if self.use_cache:
@@ -598,13 +599,26 @@ class NadlanDealsScraper:
         
         # Store in cache if enabled
         if self.use_cache and self.cache:
-            self.cache.store_deals(address, deals)
+            # Check if error modal was encountered during scraping
+            error_modal_encountered = getattr(self, 'error_modal_encountered', False)
+            
+            # Cache results if we have them, or if we encountered an error modal (to prevent re-fetching)
+            # Mark error modal encounters in metadata to prevent using cached error results
+            should_cache = len(deals) > 0 or error_modal_encountered
+            
+            if should_cache:
+                self.cache.store_deals(address, deals, error_modal_encountered)
+            else:
+                logger.warning(f"Not caching empty results for {address}")
             
         return deals
     
     def _fetch_deals_by_address_selenium(self, address: str) -> List[Deal]:
         """Fetch deals by address using Selenium with search-based navigation."""
         try:
+            # Reset error flag at the beginning of each fetch
+            self.error_modal_encountered = False
+            
             # First, try to navigate to deals page using search
             if self._navigate_to_deals_via_search(address):
                 # Wait for page to load completely and check for errors
@@ -647,6 +661,9 @@ class NadlanDealsScraper:
                             continue
                     
                     if error_modal_found:
+                        # Set error flag to prevent caching
+                        self.error_modal_encountered = True
+                        
                         # Take a screenshot for debugging
                         try:
                             screenshot_path = f"error_modal_{address.replace(' ', '_')}_{int(time.time())}.png"

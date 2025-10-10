@@ -17,7 +17,7 @@ interface Listing {
   title: string
   price: number
   address: string
-  rooms: number
+  rooms: number | null
   size: number
   property_type: string
   source: string
@@ -126,7 +126,7 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
     const matchesPrice = (!priceRange.min || listing.price >= parseInt(priceRange.min)) &&
       (!priceRange.max || listing.price <= parseInt(priceRange.max))
     
-    const matchesRooms = !roomsFilter || roomsFilter === 'all' || listing.rooms.toString() === roomsFilter
+    const matchesRooms = !roomsFilter || roomsFilter === 'all' || (listing.rooms && listing.rooms.toString() === roomsFilter)
     
     const matchesPropertyType = !propertyTypeFilter || propertyTypeFilter === 'all' || listing.property_type === propertyTypeFilter
     
@@ -163,7 +163,7 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
     
     if (listings.length > 0) {
       // Rooms filter
-      const rooms = [...new Set(listings.map(listing => listing.rooms.toString()))]
+      const rooms = [...new Set(listings.map(listing => listing.rooms?.toString()).filter(Boolean))] as string[]
       if (rooms.length > 1) {
         filters.push({
           key: 'rooms',
@@ -327,7 +327,7 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
                           {formatPrice(listing.price)}
                         </TableCell>
                         <TableCell className="text-right rtl:text-right">
-                          {listing.rooms} חדרים
+                          {listing.rooms ? `${listing.rooms} חדרים` : 'לא צוין'}
                         </TableCell>
                         <TableCell className="text-right rtl:text-right">
                           {listing.size} מ&quot;ר

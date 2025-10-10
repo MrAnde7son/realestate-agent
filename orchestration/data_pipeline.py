@@ -2215,6 +2215,24 @@ def _calculate_planning_legal_analysis(asset, gis_data: Dict[str, Any], gov_data
         logger.error('Failed to calculate planning and legal analysis for asset %s: %s', getattr(asset, 'id', '?'), e)
 
 
+def _parse_document_date(date_str):
+    """Parse a date string to a Python date object, handling various formats."""
+    if not date_str or not date_str.strip():
+        return None
+    
+    try:
+        from datetime import datetime
+        # Try to parse DD.MM.YYYY format
+        return datetime.strptime(date_str.strip(), "%d.%m.%Y").date()
+    except (ValueError, TypeError):
+        try:
+            # Try to parse YYYY-MM-DD format (already correct)
+            return datetime.strptime(date_str.strip(), "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            logger.warning(f"Could not parse document date: {date_str}")
+            return None
+
+
 def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
     """Create Document and Plan records from collected data."""
     try:
@@ -2235,6 +2253,9 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
         if gov_data and gov_data.get('decisive'):
             for appraisal in gov_data.get('decisive', []):
                 if appraisal.get('id'):
+                    # Convert date from DD.MM.YYYY to YYYY-MM-DD format
+                    parsed_date = _parse_document_date(appraisal.get('date'))
+                    
                     Document.objects.get_or_create(
                         asset=asset,
                         external_id=appraisal.get('id'),
@@ -2246,7 +2267,11 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                             'status': 'approved',
                             'external_url': appraisal.get('url', ''),
                             'source': 'gov',
-                            'document_date': appraisal.get('date'),
+                            'document_date': parsed_date,
+                            'file_size': 0,  # Set default file size for external documents
+                            'filename': f"appraisal_decisive_{appraisal.get('id')}.pdf",
+                            'file_path': '',  # Empty for external documents
+                            'mime_type': 'application/pdf',
                             'meta': appraisal
                         }
                     )
@@ -2280,7 +2305,11 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                             'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
                             'external_url': plan.get('url', ''),
                             'source': 'RAMI',
-                            'document_date': plan.get('statusDate'),
+                            'document_date': _parse_document_date(plan.get('statusDate')),
+                            'file_size': 0,  # Set default file size for external documents
+                            'filename': f"rami_plan_{plan_number}.pdf",
+                            'file_path': '',  # Empty for external documents
+                            'mime_type': 'application/pdf',
                             'meta': plan
                         }
                     )
@@ -2314,7 +2343,11 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
                             'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
                             'external_url': plan.get('url', ''),
                             'source': 'Mavat',
-                            'document_date': plan.get('statusDate'),
+                            'document_date': _parse_document_date(plan.get('statusDate')),
+                            'file_size': 0,  # Set default file size for external documents
+                            'filename': f"mavat_plan_{plan_id}.pdf",
+                            'file_path': '',  # Empty for external documents
+                            'mime_type': 'application/pdf',
                             'meta': plan
                         }
                     )
@@ -2451,6 +2484,9 @@ def _create_documents_from_appraisals(asset, appraisals):
         appraisal_date = appraisal.get('appraisal_date', appraisal.get('date'))
         url = appraisal.get('url', '')
         
+        # Convert date from DD.MM.YYYY to YYYY-MM-DD format
+        parsed_date = _parse_document_date(appraisal_date)
+        
         # Validate and clean URL
         if url and not url.startswith(('http://', 'https://')):
             if url.startswith('/'):
@@ -2470,7 +2506,11 @@ def _create_documents_from_appraisals(asset, appraisals):
                 'status': 'approved',
                 'external_url': url,
                 'source': 'gov',
-                'document_date': appraisal_date,
+                'document_date': parsed_date,
+                'file_size': 0,  # Set default file size for external documents
+                'filename': f"appraisal_{appraisal.get('id', 'unknown')}.pdf",
+                'file_path': '',  # Empty for external documents
+                'mime_type': 'application/pdf',
                 'meta': {
                     'appraiser': appraiser,
                     'appraised_value': appraised_value,
@@ -2540,6 +2580,9 @@ def _create_documents_from_rami_plans(asset, plans):
                 url = f"https://rami.gov.il/{url}"
 
         # Create Document record
+        # Parse document date properly
+        parsed_date = _parse_document_date(plan.get('statusDate', plan.get('date', '')))
+        
         Document.objects.get_or_create(
             asset=asset,
             external_id=f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{created + 1}",
@@ -2551,7 +2594,11 @@ def _create_documents_from_rami_plans(asset, plans):
                 'status': 'approved' if status == 'מאושר' else 'pending',
                 'external_url': url,
                 'source': 'RAMI',
-                'document_date': plan.get('statusDate', plan.get('date', '')),
+                'document_date': parsed_date,
+                'file_size': 0,  # Set default file size for external documents
+                'filename': f"rami_plan_{plan_number}.pdf" if plan_number else f"rami_plan_{created + 1}.pdf",
+                'file_path': '',  # Empty for external documents
+                'mime_type': 'application/pdf',
                 'meta': {
                     'plan_number': plan_number,
                     'plan_name': plan_name,

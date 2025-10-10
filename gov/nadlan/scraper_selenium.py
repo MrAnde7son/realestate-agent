@@ -81,7 +81,11 @@ class NadlanDealsScraper:
             service = Service(ChromeDriverManager().install())
             options = webdriver.ChromeOptions()
             if self.headless:
-                options.add_argument('--headless')
+                options.add_argument('--headless=new')  # Use new headless mode
+                options.add_argument('--disable-blink-features=AutomationControlled')
+                options.add_argument('--disable-extensions')
+                options.add_argument('--disable-plugins')
+                options.add_argument('--disable-images')  # Disable images for faster loading
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
@@ -99,55 +103,94 @@ class NadlanDealsScraper:
             self.driver = webdriver.Chrome(service=service, options=options)
             self.driver.set_page_load_timeout(self.timeout)
             
-            # Enable network logging
-            self.driver.execute_cdp_cmd('Network.enable', {})
-            self.driver.execute_cdp_cmd('Runtime.enable', {})
+            # Enable network logging - but only if not in headless mode or if it fails gracefully
+            try:
+                self.driver.execute_cdp_cmd('Network.enable', {})
+                self.driver.execute_cdp_cmd('Runtime.enable', {})
+                logger.info("Network monitoring enabled successfully")
+            except Exception as e:
+                logger.warning(f"Failed to enable network monitoring: {e}")
+                # Continue without network monitoring
     
     def _wait_for_deals_api_call(self, timeout: int = 30) -> bool:
         """Wait for the deals API call to complete by monitoring network requests."""
         import time
         start_time = time.time()
         
+        # In headless mode, network monitoring might not work reliably
+        # So we'll use a hybrid approach: try network monitoring first, then fall back to DOM-based detection
+        network_monitoring_available = True
+        
         while time.time() - start_time < timeout:
             try:
-                # Get network logs
-                logs = self.driver.get_log('performance')
-                
-                for log in logs:
-                    message = log.get('message', {})
-                    if isinstance(message, str):
-                        try:
-                            message = json.loads(message)
-                        except (json.JSONDecodeError, TypeError):
-                            continue
-                    
-                    method = message.get('method', '')
-                    
-                    # Check for completed API calls
-                    if method == 'Network.responseReceived':
-                        response = message.get('params', {}).get('response', {})
-                        url = response.get('url', '')
+                # Try network monitoring first
+                if network_monitoring_available:
+                    try:
+                        logs = self.driver.get_log('performance')
                         
-                        # Look for deals API endpoints
-                        if any(endpoint in url for endpoint in ['/api/deal', '/deal', 'deals']):
-                            status = response.get('status', 0)
-                            if status == 200:
-                                logger.info(f"Deals API call completed successfully: {url}")
+                        for log in logs:
+                            message = log.get('message', {})
+                            if isinstance(message, str):
+                                try:
+                                    message = json.loads(message)
+                                except (json.JSONDecodeError, TypeError):
+                                    continue
+                            
+                            method = message.get('method', '')
+                            
+                            # Check for completed API calls
+                            if method == 'Network.responseReceived':
+                                response = message.get('params', {}).get('response', {})
+                                url = response.get('url', '')
+                                
+                                # Look for deals API endpoints
+                                if any(endpoint in url for endpoint in ['/api/deal', '/deal', 'deals']):
+                                    status = response.get('status', 0)
+                                    if status == 200:
+                                        logger.info(f"Deals API call completed successfully: {url}")
+                                        return True
+                                    elif status >= 400:
+                                        logger.warning(f"Deals API call failed with status {status}: {url}")
+                                        return False
+                            
+                            # Check for failed requests
+                            elif method == 'Network.loadingFailed':
+                                error = message.get('params', {}).get('errorText', '')
+                                url = message.get('params', {}).get('requestId', '')
+                                logger.warning(f"Network request failed: {error}")
+                    except Exception as e:
+                        logger.debug(f"Network monitoring failed: {e}")
+                        network_monitoring_available = False
+                
+                # Fallback: Check DOM for deals data or loading indicators
+                if not network_monitoring_available or time.time() - start_time > timeout * 0.5:
+                    # Check if deals table has loaded with data
+                    try:
+                        table_rows = self.driver.find_elements(By.CSS_SELECTOR, 
+                            "tbody tr, .deal-row, [class*='deal'], [class*='transaction']")
+                        
+                        if len(table_rows) > 0:
+                            # Check if we have actual data rows (not just headers)
+                            data_rows = []
+                            for row in table_rows:
+                                cells = row.find_elements(By.CSS_SELECTOR, "td")
+                                if len(cells) >= 5:  # Should have at least 5 columns
+                                    cell_texts = [cell.text.strip() for cell in cells]
+                                    # Skip header rows
+                                    if not any(keyword in ' '.join(cell_texts).lower() for keyword in 
+                                               ['מספר סידורי', 'כתובת', 'header']):
+                                        data_rows.append(row)
+                            
+                            if len(data_rows) > 0:
+                                logger.info(f"Found {len(data_rows)} data rows in deals table")
                                 return True
-                            elif status >= 400:
-                                logger.warning(f"Deals API call failed with status {status}: {url}")
-                                return False
-                    
-                    # Check for failed requests
-                    elif method == 'Network.loadingFailed':
-                        error = message.get('params', {}).get('errorText', '')
-                        url = message.get('params', {}).get('requestId', '')
-                        logger.warning(f"Network request failed: {error}")
+                    except Exception as e:
+                        logger.debug(f"DOM-based detection failed: {e}")
                 
                 time.sleep(1)
                 
             except Exception as e:
-                logger.debug(f"Error monitoring network requests: {e}")
+                logger.debug(f"Error during API call monitoring: {e}")
                 time.sleep(1)
         
         logger.warning("Timeout waiting for deals API call")
@@ -830,16 +873,24 @@ class NadlanDealsScraper:
                 logger.info(f"Current URL after search: {current_url}")
                 
                 if 'address' in current_url:
-                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
-                    logger.info(f"Navigating to deals page: {deals_url}")
-                    self.driver.get(deals_url)
-                    time.sleep(3)
+                    # Only navigate to deals page if we're not already there
+                    if 'page=deals' not in current_url:
+                        deals_url = current_url + '&page=deals'
+                        logger.info(f"Navigating to deals page: {deals_url}")
+                        self.driver.get(deals_url)
+                        time.sleep(3)
+                    else:
+                        logger.info("Already on deals page, no need to navigate")
                     return True
                 elif 'neighborhood' in current_url:
-                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
-                    logger.info(f"Navigating to deals page: {deals_url}")
-                    self.driver.get(deals_url)
-                    time.sleep(3)
+                    # Only navigate to deals page if we're not already there
+                    if 'page=deals' not in current_url:
+                        deals_url = current_url + '&page=deals'
+                        logger.info(f"Navigating to deals page: {deals_url}")
+                        self.driver.get(deals_url)
+                        time.sleep(3)
+                    else:
+                        logger.info("Already on deals page, no need to navigate")
                     return True
                 else:
                     logger.warning(f"Search '{search_term}' did not lead to address or neighborhood page")
@@ -853,10 +904,14 @@ class NadlanDealsScraper:
                 # Check if we're on an address or neighborhood page
                 current_url = self.driver.current_url
                 if 'address' in current_url or 'neighborhood' in current_url:
-                    deals_url = current_url.replace('&page=deals', '') + '&page=deals'
-                    logger.info(f"Navigating to deals page: {deals_url}")
-                    self.driver.get(deals_url)
-                    time.sleep(3)
+                    # Only navigate to deals page if we're not already there
+                    if 'page=deals' not in current_url:
+                        deals_url = current_url + '&page=deals'
+                        logger.info(f"Navigating to deals page: {deals_url}")
+                        self.driver.get(deals_url)
+                        time.sleep(3)
+                    else:
+                        logger.info("Already on deals page, no need to navigate")
                     return True
                 else:
                     logger.warning("Search did not lead to address or neighborhood page")

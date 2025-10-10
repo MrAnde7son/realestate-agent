@@ -33,6 +33,7 @@ import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
 import PlansTable from '@/components/PlansTable'
+import TransactionsTable from '@/components/TransactionsTable'
 import { ListingsPanel } from '@/components/crm/listings-panel'
 import {
   Breadcrumb,
@@ -108,6 +109,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [plansSearch, setPlansSearch] = useState('')
   const [plansSourceFilter, setPlansSourceFilter] = useState('all')
   const [plansStatusFilter, setPlansStatusFilter] = useState('all')
+  const [transactionsSourceFilter, setTransactionsSourceFilter] = useState('all')
+  const [transactionsAreaFilter, setTransactionsAreaFilter] = useState('all')
   const [permitsSearch, setPermitsSearch] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -2038,17 +2041,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="transactions" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center rtl:flex-row-reverse">
-                  <CardTitle>עיסקאות השוואה</CardTitle>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="חפש עסקאות..."
-                      value={transactionsSearch}
-                      onChange={(e) => setTransactionsSearch(e.target.value)}
-                      className="w-64"
-                    />
-                  </div>
-                </div>
+                <CardTitle>עיסקאות השוואה</CardTitle>
               </CardHeader>
               <CardBody className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-4">
@@ -2092,70 +2085,48 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 </CardBody>
               </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>עסקאות אחרונות ברדיוס 500 מטר</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {comparableTransactions.length > 0 ? (
-                    <div className="grid gap-3">
-                      {comparableTransactions
-                        .filter((comp: any) => {
-                          if (!transactionsSearch) return true
-                          const searchLower = transactionsSearch.toLowerCase()
-                          return (
-                            comp.address?.toLowerCase().includes(searchLower) ||
-                            comp.area?.toString().includes(searchLower) ||
-                            comp.rooms?.toString().includes(searchLower) ||
-                            comp.price?.toString().includes(searchLower) ||
-                            comp.price_per_sqm?.toString().includes(searchLower) ||
-                            comp.source?.toLowerCase().includes(searchLower)
-                          )
-                        })
-                        .map((comp: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center p-3 border rounded rtl:flex-row-reverse"
-                        >
-                          <div>
-                            <div className="font-medium">{comp.address}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {!!comp.area ? `${comp.area} מ״ר` : ''}
-                              {comp.rooms ? ` • ${comp.rooms} חדרים` : ''}
-                              {comp.date ? ` • ${new Date(comp.date).toLocaleDateString('he-IL')}` : ''}
-                            </div>
-                            {comp.source && (
-                              <div className="text-xs text-blue-600 mt-1">
-                                מקור: {comp.source === 'collected_government' ? 'נדלן' : 'מאגר פנימי'}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold">{formatCurrency(comp.price)}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {formatCurrency(comp.price_per_sqm)}/מ״ר
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <div className="text-lg font-medium mb-2">לא נמצאו עסקאות השוואה</div>
-                      <div className="text-sm">
-                        נסה לסנכרן נתונים כדי לקבל עסקאות עדכניות מהאזור
-                      </div>
-                    </div>
-                  )}
-                  <div className="pt-2 border-t text-center">
-                    <div className="text-sm text-muted-foreground">
-                      מקור: נתוני עסקאות מ-nadlan.gov.il
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Transactions Table */}
+            <TransactionsTable
+              data={comparableTransactions}
+              loading={false}
+              searchValue={transactionsSearch}
+              onSearchChange={setTransactionsSearch}
+              filters={{
+                source: {
+                  value: transactionsSourceFilter,
+                  onChange: setTransactionsSourceFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'collected_government', label: 'ממשלתי' },
+                    { value: 'internal', label: 'מאגר פנימי' }
+                  ]
+                },
+                area: {
+                  value: transactionsAreaFilter,
+                  onChange: setTransactionsAreaFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: '0-50', label: '0-50 מ״ר' },
+                    { value: '50-100', label: '50-100 מ״ר' },
+                    { value: '100-150', label: '100-150 מ״ר' },
+                    { value: '150-200', label: '150-200 מ״ר' },
+                    { value: '200+', label: '200+ מ״ר' }
+                  ]
+                }
+              }}
+              onRefresh={() => {
+                // Refresh transactions data
+                fetch(`/api/assets/${id}/transactions`)
+                  .then(res => {
+                    if (!res.ok) throw new Error('Failed to load transactions')
+                    return res.json()
+                  })
+                  .then(data => {
+                    setComparableTransactions(data.transactions || [])
+                  })
+                  .catch(err => console.error('Error loading transactions:', err))
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="appraisals" className="space-y-4">

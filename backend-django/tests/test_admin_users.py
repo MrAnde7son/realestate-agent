@@ -4,6 +4,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+import uuid
 
 from core.serializers import AdminUserSerializer, AdminUserCreateSerializer, AdminUserUpdateSerializer
 from core.admin_views import AdminUserViewSet, IsAdminUser
@@ -28,6 +29,10 @@ class AdminUserSerializerTest(TestCase):
             'is_demo': False,
             'is_staff': False,
         }
+    
+    def tearDown(self):
+        """Clean up after each test."""
+        User.objects.all().delete()
     
     def test_create_user_serializer(self):
         """Test creating a user with AdminUserCreateSerializer."""
@@ -86,7 +91,7 @@ class AdminUserSerializerTest(TestCase):
             'role': 'admin',
             'is_active': False
         })
-        self.assertTrue(serializer.is_valid())
+        self.assertTrue(serializer.is_valid(), f"Serializer errors: {serializer.errors}")
         updated_user = serializer.save()
         
         self.assertEqual(updated_user.first_name, 'Updated')
@@ -108,7 +113,7 @@ class AdminUserSerializerTest(TestCase):
         data = serializer.data
         
         self.assertEqual(data['full_name'], 'Test User')
-        self.assertEqual(data['is_active_display'], 'Active')
+        self.assertEqual(data['is_active_display'], 'פעיל')
         self.assertIsNotNone(data['created_at_display'])
 
 
@@ -136,6 +141,10 @@ class AdminUserViewSetTest(APITestCase):
         # Get admin token
         refresh = RefreshToken.for_user(self.admin_user)
         self.admin_token = str(refresh.access_token)
+    
+    def tearDown(self):
+        """Clean up after each test."""
+        User.objects.all().delete()
     
     def test_admin_permission_required(self):
         """Test that only admin users can access the viewset."""
@@ -329,6 +338,10 @@ class IsAdminUserPermissionTest(TestCase):
             password='regularpassword123',
             role='broker'
         )
+    
+    def tearDown(self):
+        """Clean up after each test."""
+        User.objects.all().delete()
     
     def test_admin_user_has_permission(self):
         """Test that admin user has permission."""

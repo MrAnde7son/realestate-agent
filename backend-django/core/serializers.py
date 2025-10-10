@@ -637,7 +637,9 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Validate password confirmation."""
         if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError("Passwords don't match.")
+            raise serializers.ValidationError({
+                'confirm_password': "Passwords don't match."
+            })
         return data
     
     def validate_email(self, value):
@@ -675,6 +677,10 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
             'password', 'language', 'timezone', 'currency', 'date_format',
             'notify_email', 'notify_whatsapp', 'notify_urgent', 'notification_time'
         ]
+        extra_kwargs = {
+            'username': {'required': False},
+            'email': {'required': False}
+        }
     
     def validate_email(self, value):
         """Validate email uniqueness."""

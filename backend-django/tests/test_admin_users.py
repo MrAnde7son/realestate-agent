@@ -123,8 +123,8 @@ class AdminUserViewSetTest(APITestCase):
     def setUp(self):
         # Create admin user
         self.admin_user = User.objects.create_user(
-            username='admin',
-            email='admin@example.com',
+            username='test_admin',
+            email='test_admin@example.com',
             password='adminpassword123',
             role='admin',
             is_staff=True
@@ -132,8 +132,8 @@ class AdminUserViewSetTest(APITestCase):
         
         # Create regular user
         self.regular_user = User.objects.create_user(
-            username='regular',
-            email='regular@example.com',
+            username='test_regular',
+            email='test_regular@example.com',
             password='regularpassword123',
             role='broker'
         )
@@ -272,16 +272,16 @@ class AdminUserViewSetTest(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
         # Search by username
-        response = self.client.get('/api/admin/users/?search=admin')
+        response = self.client.get('/api/admin/users/?search=test_admin')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-        self.assertEqual(response.data['results'][0]['username'], 'admin')
+        self.assertEqual(response.data['results'][0]['username'], 'test_admin')
         
         # Search by email
-        response = self.client.get('/api/admin/users/?search=regular@example.com')
+        response = self.client.get('/api/admin/users/?search=test_regular@example.com')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-        self.assertEqual(response.data['results'][0]['email'], 'regular@example.com')
+        self.assertEqual(response.data['results'][0]['email'], 'test_regular@example.com')
     
     def test_filter_by_role(self):
         """Test filtering users by role."""
@@ -326,15 +326,15 @@ class IsAdminUserPermissionTest(TestCase):
     
     def setUp(self):
         self.admin_user = User.objects.create_user(
-            username='admin',
-            email='admin@example.com',
+            username='test_admin_permission',
+            email='test_admin_permission@example.com',
             password='adminpassword123',
             role='admin'
         )
         
         self.regular_user = User.objects.create_user(
-            username='regular',
-            email='regular@example.com',
+            username='test_regular_permission',
+            email='test_regular_permission@example.com',
             password='regularpassword123',
             role='broker'
         )

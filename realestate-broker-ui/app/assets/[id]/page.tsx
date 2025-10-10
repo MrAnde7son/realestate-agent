@@ -1733,6 +1733,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                             <TableHead className="text-right">אחוז בעלות</TableHead>
                             <TableHead className="text-right">מספר זיהוי</TableHead>
                             <TableHead className="text-right">תאריך רכישה</TableHead>
+                            <TableHead className="text-right">הערות</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1798,6 +1799,35 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                 r.field === 'תאריך רכישה' || r.field === 'תאריך'
                               )
                               
+                              // Check for mortgages associated with this owner
+                              const hasMortgage = rightsRows.some(r => 
+                                r.field === 'בעלי המשכנתה' || 
+                                (r.field === 'מהות פעולה' && r.value?.includes('משכנתה'))
+                              )
+                              
+                              // Get mortgage details if available
+                              const mortgageHolder = rightsRows.find(r => 
+                                r.field === 'בעלי המשכנתה'
+                              )
+                              
+                              const mortgageAmount = rightsRows.find(r => 
+                                r.field === 'סכום'
+                              )
+                              
+                              const getMortgageNotes = () => {
+                                if (!hasMortgage) return '—'
+                                
+                                const notes = []
+                                if (mortgageHolder?.value) {
+                                  notes.push(`משכנתה: ${mortgageHolder.value}`)
+                                }
+                                if (mortgageAmount?.value) {
+                                  notes.push(`סכום: ${mortgageAmount.value}`)
+                                }
+                                
+                                return notes.length > 0 ? notes.join(', ') : 'יש משכנתה'
+                              }
+                              
                               return (
                                 <TableRow key={index} className="rtl:flex-row-reverse">
                                   <TableCell className="text-right font-medium">
@@ -1811,6 +1841,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {dateRow?.value || '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right text-sm">
+                                    {getMortgageNotes()}
                                   </TableCell>
                                 </TableRow>
                               )

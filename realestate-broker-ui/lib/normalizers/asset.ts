@@ -12,6 +12,8 @@ export type Asset = {
   bathrooms?: number | null;
   area?: number | null; // net sqm
   totalArea?: number | null; // total sqm
+  subparcelArea?: number | null; // subparcel area from Tabu
+  builtArea?: number | null; // built area from Tabu
   balconyArea?: number | null;
   parkingSpaces?: number | null;
   price?: number | null;
@@ -216,6 +218,8 @@ export function normalizeFromBackend(row: any): Asset {
     bathrooms: row.bathrooms ?? null,
     area: row.area ?? row.netSqm ?? null,
     totalArea: row.totalArea ?? row.totalSqm ?? null,
+    subparcelArea: row.subparcelArea ?? row.subparcel_area ?? null,
+    builtArea: row.builtArea ?? row.built_area ?? null,
     balconyArea: row.balconyArea ?? row.balcony_area ?? null,
     parkingSpaces: row.parkingSpaces ?? row.parking_spaces ?? null,
     price: row.price ?? null,

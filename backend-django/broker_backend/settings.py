@@ -174,13 +174,8 @@ MAX_DOCUMENT_SIZE = 10 * 1024 * 1024  # 10MB
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
-_cors_allowed_origins_default = (
-    'https://app.nadlaner.com,https://nadlaner.com,https://api.nadlaner.com'
-)
 CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in config('CORS_ALLOWED_ORIGINS', default=_cors_allowed_origins_default).split(',')
-    if origin.strip()
+   'https://app.nadlaner.com', 'https://nadlaner.com', 'https://api.nadlaner.com'
 ]
 
 CSRF_TRUSTED_ORIGINS = [

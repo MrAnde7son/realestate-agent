@@ -297,5 +297,6 @@ class TestDealCache:
             assert cached_deals[0].address == "רחוב הרצל 1"
 
 
+
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -672,10 +672,44 @@ class NadlanDealsScraper:
                         except Exception as e:
                             logger.debug(f"Could not save screenshot: {e}")
                         
-                        # Try to close the error modal and continue
-                        if self._try_close_error_modal():
-                            logger.info("Error modal closed, continuing with data extraction...")
-                        else:
+                        # Error modal indicates API failure - refresh to reload deals
+                        logger.info("Error modal detected - API call failed, refreshing page to reload deals...")
+                        
+                        try:
+                            # Store current URL before refresh
+                            current_url = self.driver.current_url
+                            logger.info(f"Current URL before refresh: {current_url}")
+                            
+                            self.driver.refresh()
+                            logger.info("Page refreshed successfully")
+                            
+                            # Wait for page to load after refresh
+                            self._wait_for_page_load()
+                            
+                            # Check if we're still on the deals page or need to navigate back
+                            refreshed_url = self.driver.current_url
+                            logger.info(f"URL after refresh: {refreshed_url}")
+                            
+                            # If we're not on a deals page anymore, try to navigate back
+                            if "page=deals" not in refreshed_url and "view=address" in current_url:
+                                logger.info("Not on deals page after refresh, attempting to navigate back...")
+                                # Extract address ID from the original URL if possible
+                                if "id=" in current_url:
+                                    address_id = current_url.split("id=")[1].split("&")[0]
+                                    deals_url = f"https://www.nadlan.gov.il/?view=address&id={address_id}&page=deals"
+                                    logger.info(f"Navigating to deals URL: {deals_url}")
+                                    self.driver.get(deals_url)
+                                    self._wait_for_page_load()
+                            
+                            # Check if error modal is still present after refresh
+                            if self._check_for_error_modal():
+                                logger.warning("Error modal still present after refresh")
+                                raise NadlanAPIError("Website showed error modal even after refresh: שגיאה בטעינת הנתונים")
+                            else:
+                                logger.info("Error modal cleared after refresh, continuing with data extraction...")
+                                
+                        except Exception as refresh_error:
+                            logger.error(f"Failed to refresh page: {refresh_error}")
                             raise NadlanAPIError("Website showed error modal: שגיאה בטעינת הנתונים")
                             
                 except NadlanAPIError:
@@ -691,9 +725,6 @@ class NadlanDealsScraper:
                     logger.warning("Deals API call may have failed, continuing with data extraction...")
                 
                 # Wait for the deals table or data to load
-                max_wait_time = 30  # Maximum wait time in seconds
-                wait_interval = 1   # Check every 1 second
-                waited_time = 0
                 
                 deals = []
                 
@@ -964,6 +995,12 @@ class NadlanDealsScraper:
             # Calculate cutoff date for early termination
             cutoff_date = datetime.now() - timedelta(days=self.max_age_days) if self.max_age_days > 0 else None
             
+            # If max_age_days is very restrictive (less than 1 year), be more aggressive about early termination
+            aggressive_early_termination = self.max_age_days > 0 and self.max_age_days < 365
+            
+            if aggressive_early_termination:
+                logger.info(f"Using aggressive early termination for max_age_days={self.max_age_days}")
+            
             # Navigate through remaining pages with early termination
             for page_num in range(current_page + 1, total_pages + 1):
                 logger.info(f"Extracting deals from page {page_num}/{total_pages}")
@@ -979,15 +1016,25 @@ class NadlanDealsScraper:
                         logger.info(f"Found {len(page_deals)} deals on page {page_num}")
                         
                         # Check if we should stop pagination due to old deals
-                        if cutoff_date and self._all_deals_older_than(page_deals, cutoff_date):
-                            logger.info(f"Stopping pagination at page {page_num} - all deals are older than {self.max_age_days} days")
-                            # Still add the deals from this page before stopping
-                            all_deals.extend(page_deals)
-                            break
+                        if cutoff_date:
+                            if self._all_deals_older_than(page_deals, cutoff_date):
+                                logger.info(f"Stopping pagination at page {page_num} - all deals are older than {self.max_age_days} days")
+                                # Still add the deals from this page before stopping
+                                all_deals.extend(page_deals)
+                                break
+                            elif aggressive_early_termination and self._most_deals_older_than(page_deals, cutoff_date, threshold=0.8):
+                                logger.info(f"Stopping pagination at page {page_num} - most deals (80%+) are older than {self.max_age_days} days")
+                                # Still add the deals from this page before stopping
+                                all_deals.extend(page_deals)
+                                break
                             
                         all_deals.extend(page_deals)
                     else:
                         logger.warning(f"No deals found on page {page_num}")
+                        # If we're using aggressive early termination and no deals found, stop
+                        if aggressive_early_termination:
+                            logger.info("No deals found on page, stopping pagination due to aggressive early termination")
+                            break
                 else:
                     logger.warning(f"Failed to navigate to page {page_num}")
                     break
@@ -997,6 +1044,27 @@ class NadlanDealsScraper:
         
         logger.info(f"Total deals collected from all pages: {len(all_deals)}")
         return all_deals
+    
+    def _most_deals_older_than(self, deals: List[Deal], cutoff_date: datetime, threshold: float = 0.8) -> bool:
+        """Check if most deals in the list are older than the cutoff date.
+        
+        Args:
+            deals: List of deals to check
+            cutoff_date: Cutoff date for comparison
+            threshold: Threshold for "most" (default 0.8 = 80%)
+            
+        Returns:
+            True if most deals are older than cutoff date
+        """
+        if not deals:
+            return False
+            
+        old_deals_count = 0
+        for deal in deals:
+            if not self._is_deal_recent(deal, cutoff_date):
+                old_deals_count += 1
+                
+        return (old_deals_count / len(deals)) >= threshold
     
     def _all_deals_older_than(self, deals: List[Deal], cutoff_date: datetime) -> bool:
         """Check if all deals in the list are older than the cutoff date.
@@ -1026,7 +1094,7 @@ class NadlanDealsScraper:
             
             logger.info(f"Found {len(pagination_elements)} pagination elements")
             
-            # Collect all pagination info and choose the one with most pages
+            # Collect all pagination info
             pagination_options = []
             
             for i, element in enumerate(pagination_elements):
@@ -1041,14 +1109,49 @@ class NadlanDealsScraper:
                         logger.info(f"Found pagination option: {current_page} / {total_pages}")
                         pagination_options.append({
                             'current_page': current_page,
-                            'total_pages': total_pages
+                            'total_pages': total_pages,
+                            'element': element
                         })
             
-            # Choose the pagination with the most pages (likely the neighborhood table)
+            # When searching by address, prioritize the address-specific pagination
+            # Look for pagination that's associated with the address deals table
             if pagination_options:
-                best_option = max(pagination_options, key=lambda x: x['total_pages'])
-                logger.info(f"Selected pagination with most pages: {best_option['current_page']} / {best_option['total_pages']}")
-                return best_option
+                # First, try to find pagination associated with address-specific deals
+                # Look for pagination that's near address-specific content
+                address_pagination = None
+                neighborhood_pagination = None
+                
+                for option in pagination_options:
+                    # Check if this pagination is associated with address-specific deals
+                    # by looking at the table summary text
+                    try:
+                        table_summary = option['element'].find_element(By.XPATH, "./ancestor::div[contains(@class, 'tableSummary')]")
+                        summary_text = table_summary.text.lower()
+                        
+                        # If the summary mentions the specific address or "עסקאות בכתובת", it's address-specific
+                        if any(keyword in summary_text for keyword in ['עסקאות בכתובת', 'בכתובת', 'address']):
+                            address_pagination = option
+                            logger.info(f"Found address-specific pagination: {option['current_page']} / {option['total_pages']}")
+                        # If it mentions neighborhood or "עסקאות נוספות בשכונה", it's neighborhood-specific
+                        elif any(keyword in summary_text for keyword in ['עסקאות נוספות בשכונה', 'בשכונה', 'neighborhood']):
+                            neighborhood_pagination = option
+                            logger.info(f"Found neighborhood-specific pagination: {option['current_page']} / {option['total_pages']}")
+                    except Exception as e:
+                        logger.debug(f"Could not determine pagination context: {e}")
+                        continue
+                
+                # Prefer address-specific pagination when available
+                if address_pagination:
+                    logger.info(f"Using address-specific pagination: {address_pagination['current_page']} / {address_pagination['total_pages']}")
+                    return address_pagination
+                elif neighborhood_pagination:
+                    logger.info(f"Using neighborhood-specific pagination: {neighborhood_pagination['current_page']} / {neighborhood_pagination['total_pages']}")
+                    return neighborhood_pagination
+                else:
+                    # Fallback: choose the pagination with the fewest pages (likely address-specific)
+                    best_option = min(pagination_options, key=lambda x: x['total_pages'])
+                    logger.info(f"Fallback: selected pagination with fewest pages: {best_option['current_page']} / {best_option['total_pages']}")
+                    return best_option
             
             # Alternative: look for next button to determine if pagination exists
             next_buttons = self.driver.find_elements(By.CSS_SELECTOR, "#next, .nextBtn")
@@ -1160,6 +1263,6 @@ class NadlanDealsScraper:
 
 if __name__ == "__main__":
     scraper = NadlanDealsScraper(headless=False)
-    deals = scraper.get_deals_by_address("רוזוב 14 תל אביב")
+    deals = scraper.get_deals_by_address("רוזוב 14 תל אביב", max_age_days=180)
     for deal in deals:
         print(f"{deal.address} - ₪{deal.deal_amount:,.0f}")

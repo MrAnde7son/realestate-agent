@@ -270,11 +270,11 @@ export default function LeadsList({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-2xl font-bold">לידים</h2>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rtl:flex-row-reverse">
+        <h2 className="text-2xl font-bold rtl:text-right">לידים</h2>
         <Link href="/assets">
           <Button>
-            <Plus className="h-4 w-4 ml-2" />
+            <Plus className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
             צור ליד חדש
           </Button>
         </Link>
@@ -316,12 +316,12 @@ export default function LeadsList({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8 whitespace-nowrap"></TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[150px]">לקוח</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[150px]">נכס</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[100px]">משימות</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[100px]">סטטוס</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[120px]">פעילות אחרונה</TableHead>
-                  <TableHead className="text-left whitespace-nowrap min-w-[120px]">פעולות</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-right">לקוח</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-right">נכס</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-right">משימות</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-right">סטטוס</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[120px] rtl:text-right">פעילות אחרונה</TableHead>
+                  <TableHead className="rtl:text-right whitespace-nowrap min-w-[120px]">פעולות</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -343,7 +343,7 @@ export default function LeadsList({
                         </Button>
                       </TableCell>
                       <TableCell>
-                        <div>
+                        <div className="rtl:text-right">
                           <div className="font-medium">{lead.contact.name}</div>
                           {lead.contact.email && (
                             <div className="text-sm text-muted-foreground">{lead.contact.email}</div>
@@ -354,8 +354,8 @@ export default function LeadsList({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div>
+                        <div className="flex items-center gap-2 rtl:flex-row-reverse">
+                          <div className="rtl:text-right">
                             <div className="font-medium">{lead.asset_address}</div>
                             <Button
                               variant="link"
@@ -363,20 +363,24 @@ export default function LeadsList({
                               className="p-0 h-auto min-h-[44px]"
                               onClick={() => window.open(`/assets/${lead.asset_id_read}`, '_blank')}
                             >
-                              <ExternalLink className="h-3 w-3 mr-1" />
+                              <ExternalLink className="h-3 w-3 ml-1 rtl:mr-1 rtl:ml-0" />
                               צפה בנכס
                             </Button>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <LeadTaskSummary lead={lead} compact={true} />
+                        <div className="rtl:text-right">
+                          <LeadTaskSummary lead={lead} compact={true} />
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <LeadStatusBadge status={lead.status} />
+                        <div className="rtl:text-right">
+                          <LeadStatusBadge status={lead.status} />
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">{formatDate(lead.last_activity_at)}</div>
+                        <div className="text-sm rtl:text-right">{formatDate(lead.last_activity_at)}</div>
                       </TableCell>
                       <TableCell>
                         <LeadRowActions

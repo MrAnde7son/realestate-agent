@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PageLoader } from '@/components/ui/page-loader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/Badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import LeadsList from '@/components/crm/LeadsList';
 import ContactsList from '@/components/crm/ContactsList';
 import { useAuth } from '@/lib/auth-context';
@@ -210,8 +211,8 @@ export default function CrmUnifiedPage() {
     <DashboardLayout>
       <div className="container mx-auto p-3 sm:p-6 space-y-6">
         <div className="mb-2 sm:mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">ניהול לקוחות ולידים</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 rtl:text-right">ניהול לקוחות ולידים</h1>
+          <p className="text-muted-foreground text-sm sm:text-base rtl:text-right">
             ניהול לקוחות, מעקב לידים ושליחת דוחות ממותגים
           </p>
         </div>
@@ -262,37 +263,20 @@ export default function CrmUnifiedPage() {
           </Card>
         </div>
 
-        <div className="flex items-center">
-          <div
-            role="tablist"
-            aria-label="CRM Tabs"
-            className="inline-flex w-full rounded-lg border p-1 bg-white"
-          >
-            {(['leads', 'clients'] as const).map((value) => (
-              <button
-                key={value}
-                role="tab"
-                aria-selected={tab === value}
-                onClick={() => setTab(value)}
-                className={`flex-1 px-3 py-2 text-sm rounded-md transition rtl:text-center ${
-                  tab === value
-                    ? 'bg-gray-900 text-white'
-                    : 'hover:bg-gray-100 text-muted-foreground'
-                }`}
-              >
-                {value === 'leads' ? 'לידים' : 'לקוחות'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          {tab === 'leads' ? (
+        <Tabs value={tab} onValueChange={(value) => setTab(value as 'leads' | 'clients')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="leads">לידים</TabsTrigger>
+            <TabsTrigger value="clients">לקוחות</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="leads" className="space-y-6">
             <LeadsList onConvertedToClient={() => setTab('clients')} />
-          ) : (
+          </TabsContent>
+          
+          <TabsContent value="clients" className="space-y-6">
             <ContactsList />
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <Card>

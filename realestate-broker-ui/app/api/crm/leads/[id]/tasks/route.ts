@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || 'http://127.0.0.1:8000';
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -17,7 +15,8 @@ export async function GET(
     }
 
     const { id } = params;
-    const url = new URL(`/api/crm/leads/${id}/tasks/`, DJANGO_BASE_URL);
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+    const url = new URL(`/api/crm/leads/${id}/tasks/`, backendUrl);
     
     // Forward query parameters
     const searchParams = request.nextUrl.searchParams;

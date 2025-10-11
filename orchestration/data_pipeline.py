@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional, Dict, Tuple
+from typing import Any, Iterable, List, Optional, Dict, Tuple, Set
 import os
 import time
 import logging
@@ -18,6 +18,7 @@ from yad2.scrapers.yad2_scraper import RealEstateListing
 # collector imports
 from orchestration.collectors.yad2_collector import Yad2Collector
 from orchestration.collectors.gis_collector import GISCollector
+from orchestration.collectors.handasa_collector import HandasaCollector
 from orchestration.collectors.gov_collector import GovCollector
 from orchestration.collectors.govmap_collector import GovMapCollector
 from orchestration.collectors.rami_collector import RamiCollector
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 def _convert_unix_timestamp_to_date(timestamp_ms: int) -> Optional[date]:
     """Convert Unix timestamp in milliseconds to a date object.
-    
+
     Args:
         timestamp_ms: Unix timestamp in milliseconds
         
@@ -68,6 +69,39 @@ def _convert_unix_timestamp_to_date(timestamp_ms: int) -> Optional[date]:
     except (ValueError, OSError) as e:
         logger.warning(f"Failed to convert timestamp {timestamp_ms} to date: {e}")
         return None
+
+
+def _merge_permits(
+    primary: Optional[List[Dict[str, Any]]],
+    fallback: Optional[List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    """Merge permits from Handasa into the primary GIS list without duplicates."""
+
+    def _permit_identifier(permit: Dict[str, Any]) -> Optional[str]:
+        for key in ("permission_num", "request_num", "handasa_document_guid"):
+            value = permit.get(key)
+            if value not in (None, ""):
+                return str(value).strip()
+        return None
+
+    merged: List[Dict[str, Any]] = []
+    seen: Set[str] = set()
+
+    for permit in primary or []:
+        merged.append(dict(permit))
+        identifier = _permit_identifier(permit)
+        if identifier:
+            seen.add(identifier)
+
+    for permit in fallback or []:
+        identifier = _permit_identifier(permit)
+        if identifier and identifier in seen:
+            continue
+        merged.append(dict(permit))
+        if identifier:
+            seen.add(identifier)
+
+    return merged
 
 
 """High level data collection pipeline for real-estate assets.
@@ -254,6 +288,7 @@ class DataPipeline:
     TIMEOUTS = {
         "yad2": float(os.getenv("YAD2_TIMEOUT", "30")),
         "gis": float(os.getenv("GIS_TIMEOUT", "60")),
+        "handasa": float(os.getenv("HANDASA_TIMEOUT", "60")),
         "gov": float(os.getenv("GOV_TIMEOUT", "60")),
         "govmap": float(os.getenv("GOVMAP_TIMEOUT", "60")),
         "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
@@ -262,6 +297,7 @@ class DataPipeline:
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),
         "gis": int(os.getenv("GIS_RETRIES", "0")),
+        "handasa": int(os.getenv("HANDASA_RETRIES", "0")),
         "gov": int(os.getenv("GOV_RETRIES", "0")),
         "govmap": int(os.getenv("GOVMAP_RETRIES", "0")),
         "gov_rami": int(os.getenv("GOV_RAMI_RETRIES", "0")),
@@ -279,6 +315,7 @@ class DataPipeline:
         govmap: Optional[GovMapCollector] = None,
         rami: Optional[RamiCollector] = None,
         mavat: Optional[MavatCollector] = None,
+        handasa: Optional[HandasaCollector] = None,
     ) -> None:
         """Create a new :class:`DataPipeline` instance.
 
@@ -306,6 +343,7 @@ class DataPipeline:
         self.govmap = govmap or GovMapCollector()
         self.rami = rami or RamiCollector()
         self.mavat = mavat or MavatCollector()
+        self.handasa = handasa or HandasaCollector()
         
         # Note: GovMap client is now accessed through the collector
 
@@ -628,6 +666,45 @@ class DataPipeline:
                 gis_data = {}
                 track("collector_fail", source="gis", error_code=str(e))
                 logger.warning(f"⚠️ GIS collection failed: {e}")
+
+            handasa_permits: List[Dict[str, Any]] = []
+            if block and parcel:
+                try:
+                    logger.info("🏗️ Collecting Handasa permits...")
+                    handasa_permits = self._collect_with_observability(
+                        "handasa",
+                        self.handasa.collect,
+                        block=str(block),
+                        parcel=str(parcel),
+                        timeout=self.TIMEOUTS.get("handasa"),
+                        retries=self.RETRIES.get("handasa", 0),
+                        asset_id=asset_id,
+                    )
+                    track("collector_success", source="handasa")
+                except Exception as e:
+                    handasa_permits = []
+                    track("collector_fail", source="handasa", error_code=str(e))
+                    logger.warning(f"⚠️ Handasa collection failed: {e}")
+
+            if handasa_permits:
+                logger.info(
+                    "Merging Handasa permits with GIS permits",
+                    extra={
+                        "asset_id": asset_id,
+                        "handasa_permits": len(handasa_permits),
+                        "existing_gis_permits": len(gis_data.get('permits', [])) if isinstance(gis_data, dict) else 0,
+                    },
+                )
+                existing_permits = []
+                if isinstance(gis_data, dict):
+                    existing_permits = list(gis_data.get("permits", []))
+                    gis_data["permits"] = _merge_permits(existing_permits, handasa_permits)
+                    if handasa_permits and not existing_permits:
+                        gis_data["permits_source"] = "handasa"
+                    elif handasa_permits:
+                        gis_data["permits_source"] = "gis+handasa"
+                else:
+                    gis_data = {"permits": _merge_permits([], handasa_permits), "permits_source": "handasa"}
 
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}

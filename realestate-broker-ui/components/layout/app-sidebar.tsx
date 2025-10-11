@@ -50,7 +50,7 @@ const baseNavigation = [
     icon: Building,
   },
   {
-    name: "לקוחות",
+    name: "לקוחות ולידים",
     href: "/crm",
     icon: Users,
   },

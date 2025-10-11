@@ -1,0 +1,167 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import CrmUnifiedPage from '@/app/crm/page';
+
+const mockReplace = vi.fn();
+let mockSearchParams = new URLSearchParams();
+const trackEventMock = vi.fn();
+const mockGetContacts = vi.fn();
+const mockGetLeads = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+  useSearchParams: () => mockSearchParams,
+}));
+
+vi.mock('@/hooks/useAnalytics', () => ({
+  useAnalytics: () => ({
+    trackEvent: trackEventMock,
+    trackPageView: vi.fn(),
+    trackSearch: vi.fn(),
+    trackFeatureUsage: vi.fn(),
+    trackPerformance: vi.fn(),
+    trackCalculatorUsage: vi.fn(),
+    trackCalculatorCalculation: vi.fn(),
+    trackCalculatorExport: vi.fn(),
+  }),
+}));
+
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => ({ user: { role: 'broker' }, isLoading: false }),
+}));
+
+vi.mock('@/hooks/use-toast', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}));
+
+vi.mock('@/components/layout/dashboard-layout', () => ({
+  default: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="dashboard-layout">{children}</div>
+  ),
+}));
+
+vi.mock('@/components/crm/LeadsList', () => ({
+  __esModule: true,
+  default: ({ onConvertedToClient }: { onConvertedToClient?: (id: number) => void }) => (
+    <div data-testid="leads-list">
+      <button onClick={() => onConvertedToClient?.(123)}>convert</button>
+    </div>
+  ),
+}));
+
+vi.mock('@/components/crm/ContactsList', () => ({
+  __esModule: true,
+  default: () => <div data-testid="contacts-list" />,
+}));
+
+vi.mock('@/lib/api/crm', () => ({
+  CrmApi: {
+    getContacts: () => mockGetContacts(),
+    getLeads: () => mockGetLeads(),
+  },
+}));
+
+describe('CrmUnifiedPage', () => {
+  beforeEach(() => {
+    mockReplace.mockReset();
+    trackEventMock.mockReset();
+    mockGetContacts.mockReset();
+    mockGetLeads.mockReset();
+    mockSearchParams = new URLSearchParams();
+    mockGetContacts.mockResolvedValue([]);
+    mockGetLeads.mockResolvedValue([]);
+  });
+
+  it('renders leads tab by default and tracks CRM open', async () => {
+    render(<CrmUnifiedPage />);
+
+    await waitFor(() => {
+      expect(mockGetContacts).toHaveBeenCalled();
+      expect(mockGetLeads).toHaveBeenCalled();
+    });
+
+    expect(screen.getByTestId('leads-list')).toBeInTheDocument();
+    expect(trackEventMock).toHaveBeenCalledWith({
+      event: 'crm_opened',
+      meta: { tab: 'leads' },
+    });
+  });
+
+  it('shows contacts tab when tab query is clients', async () => {
+    mockSearchParams = new URLSearchParams('tab=clients');
+    render(<CrmUnifiedPage />);
+
+    await waitFor(() => {
+      expect(mockGetContacts).toHaveBeenCalled();
+      expect(mockGetLeads).toHaveBeenCalled();
+    });
+
+    expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
+  });
+
+  it('updates the URL and analytics when switching tabs', async () => {
+    render(<CrmUnifiedPage />);
+
+    await waitFor(() => {
+      expect(mockGetContacts).toHaveBeenCalled();
+      expect(mockGetLeads).toHaveBeenCalled();
+    });
+
+    trackEventMock.mockClear();
+    const clientTabButton = screen.getByRole('tab', { name: 'לקוחות' });
+    fireEvent.click(clientTabButton);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/crm?tab=clients');
+    });
+
+    expect(trackEventMock).toHaveBeenCalledWith({
+      event: 'crm_tab_changed',
+      meta: { tab: 'clients' },
+    });
+  });
+
+  it('tracks analytics when KPI card is clicked', async () => {
+    render(<CrmUnifiedPage />);
+
+    await waitFor(() => {
+      expect(mockGetContacts).toHaveBeenCalled();
+      expect(mockGetLeads).toHaveBeenCalled();
+    });
+
+    trackEventMock.mockClear();
+    fireEvent.click(screen.getByText('לקוחות רשומים'));
+
+    expect(trackEventMock).toHaveBeenCalledWith({
+      event: 'crm_card_clicked',
+      meta: { target: 'clients' },
+    });
+    expect(trackEventMock).toHaveBeenCalledWith({
+      event: 'crm_tab_changed',
+      meta: { tab: 'clients' },
+    });
+  });
+
+  it('navigates to clients when lead is converted', async () => {
+    render(<CrmUnifiedPage />);
+
+    await waitFor(() => {
+      expect(mockGetContacts).toHaveBeenCalled();
+      expect(mockGetLeads).toHaveBeenCalled();
+    });
+
+    trackEventMock.mockClear();
+    const convertButton = screen.getByText('convert');
+    fireEvent.click(convertButton);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/crm?tab=clients');
+    });
+
+    expect(trackEventMock).toHaveBeenCalledWith({
+      event: 'crm_tab_changed',
+      meta: { tab: 'clients' },
+    });
+  });
+});

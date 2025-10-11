@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || 'http://127.0.0.1:8000';
-
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization');
@@ -13,7 +11,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const url = new URL('/api/crm/tasks/', DJANGO_BASE_URL);
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+    const url = new URL('/api/crm/tasks/', backendUrl);
     
     // Forward query parameters
     const searchParams = request.nextUrl.searchParams;
@@ -57,8 +56,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${DJANGO_BASE_URL}/api/crm/tasks/`, {
+    const response = await fetch(`${backendUrl}/api/crm/tasks/`, {
       method: 'POST',
       headers: {
         'Authorization': token,

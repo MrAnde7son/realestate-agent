@@ -2,12 +2,11 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CrmUnifiedPage from '@/app/crm/page';
+import { CrmApi } from '@/lib/api/crm';
 
 const mockReplace = vi.fn();
 let mockSearchParams = new URLSearchParams();
 const trackEventMock = vi.fn();
-const mockGetContacts = vi.fn();
-const mockGetLeads = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -57,8 +56,8 @@ vi.mock('@/components/crm/ContactsList', () => ({
 
 vi.mock('@/lib/api/crm', () => ({
   CrmApi: {
-    getContacts: () => mockGetContacts(),
-    getLeads: () => mockGetLeads(),
+    getContacts: vi.fn(),
+    getLeads: vi.fn(),
   },
 }));
 
@@ -66,19 +65,17 @@ describe('CrmUnifiedPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
     trackEventMock.mockReset();
-    mockGetContacts.mockReset();
-    mockGetLeads.mockReset();
     mockSearchParams = new URLSearchParams();
-    mockGetContacts.mockResolvedValue([]);
-    mockGetLeads.mockResolvedValue([]);
+    vi.mocked(CrmApi.getContacts).mockResolvedValue([]);
+    vi.mocked(CrmApi.getLeads).mockResolvedValue([]);
   });
 
   it('renders leads tab by default and tracks CRM open', async () => {
     render(<CrmUnifiedPage />);
 
     await waitFor(() => {
-      expect(mockGetContacts).toHaveBeenCalled();
-      expect(mockGetLeads).toHaveBeenCalled();
+      expect(CrmApi.getContacts).toHaveBeenCalled();
+      expect(CrmApi.getLeads).toHaveBeenCalled();
     });
 
     expect(screen.getByTestId('leads-list')).toBeInTheDocument();
@@ -93,8 +90,8 @@ describe('CrmUnifiedPage', () => {
     render(<CrmUnifiedPage />);
 
     await waitFor(() => {
-      expect(mockGetContacts).toHaveBeenCalled();
-      expect(mockGetLeads).toHaveBeenCalled();
+      expect(CrmApi.getContacts).toHaveBeenCalled();
+      expect(CrmApi.getLeads).toHaveBeenCalled();
     });
 
     expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
@@ -104,13 +101,19 @@ describe('CrmUnifiedPage', () => {
     render(<CrmUnifiedPage />);
 
     await waitFor(() => {
-      expect(mockGetContacts).toHaveBeenCalled();
-      expect(mockGetLeads).toHaveBeenCalled();
-    });
+      expect(CrmApi.getContacts).toHaveBeenCalled();
+      expect(CrmApi.getLeads).toHaveBeenCalled();
+    }, { timeout: 5000 });
+
+    // Wait for the component to finish loading
+    await waitFor(() => {
+      expect(screen.getByTestId('leads-list')).toBeInTheDocument();
+    }, { timeout: 5000 });
 
     trackEventMock.mockClear();
     const clientTabButton = screen.getByRole('tab', { name: 'לקוחות' });
-    fireEvent.click(clientTabButton);
+    
+    fireEvent.mouseDown(clientTabButton);
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/crm?tab=clients');
@@ -126,9 +129,14 @@ describe('CrmUnifiedPage', () => {
     render(<CrmUnifiedPage />);
 
     await waitFor(() => {
-      expect(mockGetContacts).toHaveBeenCalled();
-      expect(mockGetLeads).toHaveBeenCalled();
-    });
+      expect(CrmApi.getContacts).toHaveBeenCalled();
+      expect(CrmApi.getLeads).toHaveBeenCalled();
+    }, { timeout: 5000 });
+
+    // Wait for the component to finish loading
+    await waitFor(() => {
+      expect(screen.getByTestId('leads-list')).toBeInTheDocument();
+    }, { timeout: 5000 });
 
     trackEventMock.mockClear();
     fireEvent.click(screen.getByText('לקוחות רשומים'));
@@ -147,8 +155,8 @@ describe('CrmUnifiedPage', () => {
     render(<CrmUnifiedPage />);
 
     await waitFor(() => {
-      expect(mockGetContacts).toHaveBeenCalled();
-      expect(mockGetLeads).toHaveBeenCalled();
+      expect(CrmApi.getContacts).toHaveBeenCalled();
+      expect(CrmApi.getLeads).toHaveBeenCalled();
     });
 
     trackEventMock.mockClear();

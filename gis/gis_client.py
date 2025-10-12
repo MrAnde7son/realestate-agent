@@ -24,10 +24,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
 from utils.retry import request_with_retry
-from bs4 import BeautifulSoup
 from pyproj import Transformer
 
-from .parse_zchuyot import parse_html_privilege_page, parse_zchuyot
+from gis.parse_zchuyot import parse_html_privilege_page, parse_zchuyot
 
 
 class ArcGISError(RuntimeError):
@@ -373,10 +372,13 @@ class TelAvivGS:
                 main_content_type = main_response.headers.get("Content-Type", "").lower()
                 if "pdf" in main_content_type or main_response.content.startswith(b'%PDF'):
                     self._logger.info("Main page returns PDF directly - single privilege document")
-                    
+                    result["content_type"] = "pdf"
+
                     # Save the PDF
                     filename = f"privilege_block_{block}_parcel_{parcel}.pdf"
                     dest_path = os.path.join(save_dir, filename)
+                    result["file_path"] = dest_path
+
                     
                     with open(dest_path, "wb") as fh:
                         fh.write(main_response.content)
@@ -389,8 +391,6 @@ class TelAvivGS:
                             "data": parsed_pdf,
                             "option": 1
                         })
-                        result["file_path"] = dest_path
-                        result["content_type"] = "pdf"
                         result["message"] += " - downloaded 1 privilege page (main page PDF)"
                         self._logger.info("Successfully downloaded and parsed main page PDF")
                     except Exception as e:
@@ -400,9 +400,10 @@ class TelAvivGS:
                 elif "html" in main_content_type or "text" in main_content_type:
                     # Main page is HTML - check for multiple options
                     html_content = main_response.content.decode('utf-8', errors='ignore')
+                    result["content_type"] = "html"
+
                     
                     # Look for JavaScript variables that might contain option data
-                    import re
                     opts_match = re.search(r"is_opts\s*=\s*'([^']+)'", html_content)
                     if opts_match:
                         # Found options in JavaScript - parse them
@@ -435,7 +436,8 @@ class TelAvivGS:
                                     if "pdf" in opt_content_type or opt_response.content.startswith(b'%PDF'):
                                         filename = f"privilege_block_{block}_parcel_{parcel}_opt_{i}.pdf"
                                         dest_path = os.path.join(save_dir, filename)
-                                        
+                                        result["file_path"] = dest_path
+
                                         with open(dest_path, "wb") as fh:
                                             fh.write(opt_response.content)
                                         
@@ -483,7 +485,6 @@ class TelAvivGS:
 
     def _try_individual_privilege_options(self, block: int, parcel: int, save_dir: str, result: Dict[str, Any]) -> None:
         """Try downloading individual privilege page options (opt=1, opt=2, etc.)"""
-        import os
         self._logger.info("Trying individual privilege page options", extra={"block": block, "parcel": parcel})
         
         # Try up to 5 options

@@ -113,7 +113,7 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:  # parcels layer
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
@@ -159,7 +159,7 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?block=1234&parcel=56" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=1234&helka=56" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = html_content

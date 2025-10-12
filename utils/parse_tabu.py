@@ -275,7 +275,40 @@ class TabuParser:
                 if date:
                     self._add_row('תאריך', date)
 
-        # 6. Generic key/value pairs separated by a single colon
+        # 6. Area information extraction
+        # Look for area-related fields in Hebrew
+        area_keywords = ['שטח', 'מ״ר', 'מטר', 'שטח כולל', 'שטח נטו', 'שטח בנוי']
+        for keyword in area_keywords:
+            if keyword in line:
+                # Extract numeric value near the keyword
+                value = self._extract_number_near_field(line, keyword)
+                if value:
+                    if 'כולל' in keyword or 'כולל' in line:
+                        self._add_row('שטח כולל', value)
+                    elif 'נטו' in keyword or 'נטו' in line:
+                        self._add_row('שטח נטו', value)
+                    elif 'בנוי' in keyword or 'בנוי' in line:
+                        self._add_row('שטח בנוי', value)
+                    else:
+                        self._add_row('שטח', value)
+
+        # 7. Specific area patterns from Tabu documents (after Hebrew reversal)
+        # Pattern: "ירימ 653.00 ופי- ביבא לת תייריע" → "מירי 653.00 -יפו אביב תל עיריית" (Total area)
+        total_area_match = re.search(r'מירי\s+(\d+(?:\.\d+)?)', line)
+        if total_area_match:
+            self._add_row('שטח כולל', total_area_match.group(1))
+        
+        # Pattern: "324.00 עקרק ב" → "324.00 קרקע ב" (Subparcel area)
+        subparcel_area_match = re.search(r'(\d+(?:\.\d+)?)\s+קרקע\s+ב', line)
+        if subparcel_area_match:
+            self._add_row('שטח נטו', subparcel_area_match.group(1))
+        
+        # Pattern: "1/2 95.40 - הריד" → "1/2 95.40 - דירה" (Built area)
+        built_area_match = re.search(r'(\d+(?:\.\d+)?)\s*-\s*דירה', line)
+        if built_area_match:
+            self._add_row('שטח בנוי', built_area_match.group(1))
+
+        # 8. Generic key/value pairs separated by a single colon
         if ':' in line and line.count(':') == 1:
             key, value = [part.strip() for part in line.split(':', 1)]
             if key and value and not any(k in key for k in ['גוש', 'חלקה', 'תת חלקה']):

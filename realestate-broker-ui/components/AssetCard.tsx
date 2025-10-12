@@ -92,11 +92,13 @@ export default function AssetCard({ asset }: AssetCardProps) {
         </div>
         <div className="flex items-center gap-1">
           <Ruler className="h-3 w-3 sm:h-4 sm:w-4" />
-          {asset.area != null ? fmtNumber(asset.area) : '—'} מ&quot;ר
+          {asset.area != null ? fmtNumber(asset.area) : '—'} מ״ר
+          {asset.subparcelArea && ` (${fmtNumber(asset.subparcelArea)} מגרש)`}
+          {asset.builtArea && ` (${fmtNumber(asset.builtArea)} בנוי)`}
         </div>
       </div>
       <div className="text-xs sm:text-sm text-sub">
-        {asset.pricePerSqm != null ? `${fmtNumber(asset.pricePerSqm)} ₪/מ&quot;ר` : '—'}
+        {asset.pricePerSqm != null ? `${fmtNumber(asset.pricePerSqm)} ₪/מ״ר` : '—'}
       </div>
       <div className="flex gap-2 pt-2">
         <Link href={`/assets/${asset.id}`}> 

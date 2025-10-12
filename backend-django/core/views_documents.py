@@ -1,6 +1,7 @@
 import logging
 from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -324,6 +325,17 @@ class AssetRightsView(APIView):
                 ownership['parcel_info']['parcel'] = value
             elif 'תת חלקה' in field:
                 ownership['parcel_info']['subparcel'] = value
+            
+            # Collect area information with clearer naming
+            elif 'שטח כולל' in field or 'total area' in field:
+                ownership['parcel_info']['total_area'] = value
+            elif 'שטח נטו' in field or 'net area' in field:
+                ownership['parcel_info']['subparcel_area'] = value  # Clearer than 'net_area'
+            elif 'שטח בנוי' in field or 'built area' in field:
+                ownership['parcel_info']['built_area'] = value
+            elif 'שטח' in field and 'כולל' not in field and 'נטו' not in field and 'בנוי' not in field:
+                # Generic area field
+                ownership['parcel_info']['area'] = value
         
         logger.debug(f"Collected ownership shares: {ownership_shares}")
         logger.debug(f"Collected owner names: {owner_names}")
@@ -1454,11 +1466,89 @@ def _update_asset_from_tabu(asset, tabu_rows):
                 asset.parcel = parcel_info['parcel']
             if parcel_info.get('subparcel'):
                 asset.subparcel = parcel_info['subparcel']
-            
-            asset.save()
+        
+        # Update area fields from Tabu data
+        _update_asset_areas_from_tabu(asset, tabu_rows)
+        
+        asset.save()
+        
+        # Log ownership update if owners were found
+        if ownership_data.get('owners'):
+            primary_owner = max(ownership_data['owners'], key=lambda x: x.get('percentage', 0))
             logger.info(f"Updated asset {asset.id} ownership from Tabu: {primary_owner['name']} ({primary_owner['percentage']}%)")
+        else:
+            logger.info(f"Updated asset {asset.id} from Tabu data (no ownership info found)")
             
     except Exception as e:
         logger.error(f"Error updating asset {asset.id} from Tabu data: {e}")
+
+
+def _update_asset_areas_from_tabu(asset, tabu_rows):
+    """Update asset area fields from Tabu data."""
+    try:
+        update_fields = set()
+        
+        # Look for area information in Tabu data
+        for row in tabu_rows:
+            field = row.get('field', '').lower()
+            value = row.get('value', '')
+            
+            # Extract numeric value from the field
+            import re
+            numbers = re.findall(r'\d+(?:\.\d+)?', value)
+            if not numbers:
+                continue
+                
+            area_value = float(numbers[0])
+            
+            # Map Tabu fields to asset fields with clearer naming
+            if 'שטח כולל' in field or 'total area' in field:
+                if not asset.total_area or asset.total_area != area_value:
+                    asset.total_area = area_value
+                    update_fields.add('total_area')
+                    logger.debug(f'Updated total_area from Tabu: {area_value}')
+                    
+            elif 'שטח נטו' in field or 'net area' in field:
+                # This represents the subparcel area (324 out of 653 total)
+                if not asset.meta:
+                    asset.meta = {}
+                asset.meta['subparcel_area'] = {
+                    'value': area_value,
+                    'source': 'tabu',
+                    'fetched_at': timezone.now().isoformat()
+                }
+                update_fields.add('meta')
+                logger.debug(f'Updated subparcel_area in meta from Tabu: {area_value}')
+                
+                # Also update the generic area field for backward compatibility
+                if not asset.area:
+                    asset.area = area_value
+                    update_fields.add('area')
+                    logger.debug(f'Updated area field from Tabu subparcel: {area_value}')
+                    
+            elif 'שטח בנוי' in field or 'built area' in field:
+                # Store built area in meta since there's no direct field
+                if not asset.meta:
+                    asset.meta = {}
+                asset.meta['built_area'] = {
+                    'value': area_value,
+                    'source': 'tabu',
+                    'fetched_at': timezone.now().isoformat()
+                }
+                update_fields.add('meta')
+                logger.debug(f'Updated built_area in meta from Tabu: {area_value}')
+                
+            elif 'שטח' in field and 'כולל' not in field and 'נטו' not in field and 'בנוי' not in field:
+                # Generic area field - use for total_area if not already set
+                if not asset.total_area:
+                    asset.total_area = area_value
+                    update_fields.add('total_area')
+                    logger.debug(f'Updated total_area from generic area field: {area_value}')
+        
+        if update_fields:
+            logger.info(f"Updated asset {asset.id} area fields from Tabu: {list(update_fields)}")
+            
+    except Exception as e:
+        logger.error(f"Error updating asset {asset.id} area fields from Tabu: {e}")
 
 

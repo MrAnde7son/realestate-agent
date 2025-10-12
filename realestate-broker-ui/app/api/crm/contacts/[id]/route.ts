@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || 'http://127.0.0.1:8000';
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -16,7 +14,9 @@ export async function GET(
       );
     }
 
-    const response = await fetch(`${DJANGO_BASE_URL}/api/crm/contacts/${params.id}/`, {
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+
+    const response = await fetch(`${backendUrl}/api/crm/contacts/${params.id}/`, {
       method: 'GET',
       headers: {
         'Authorization': token,
@@ -55,8 +55,9 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${DJANGO_BASE_URL}/api/crm/contacts/${params.id}/`, {
+    const response = await fetch(`${backendUrl}/api/crm/contacts/${params.id}/`, {
       method: 'PATCH',
       headers: {
         'Authorization': token,
@@ -95,7 +96,9 @@ export async function DELETE(
       );
     }
 
-    const response = await fetch(`${DJANGO_BASE_URL}/api/crm/contacts/${params.id}/`, {
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+
+    const response = await fetch(`${backendUrl}/api/crm/contacts/${params.id}/`, {
       method: 'DELETE',
       headers: {
         'Authorization': token,

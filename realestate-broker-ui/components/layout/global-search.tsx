@@ -52,13 +52,13 @@ const searchItems = [
     description: "דוחות שוק וניתוחים"
   },
   {
-    title: "מחשבון הוצאות",
+    title: "הוצאות",
     href: "/deal-expenses",
     icon: "🧾",
     description: "חישוב הוצאות עסקה"
   },
   {
-    title: "מחשבון משכנתא",
+    title: "משכנתא",
     href: "/mortgage/analyze",
     icon: "💰",
     description: "חישוב משכנתא וניתוח"

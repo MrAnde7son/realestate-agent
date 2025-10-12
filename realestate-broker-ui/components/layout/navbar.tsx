@@ -12,7 +12,7 @@ export function Navbar() {
     { href: "/assets", label: "נכסים" },
     { href: "/alerts", label: "התראות" },
     { href: "/mortgage/analyze", label: "משכנתא" },
-    { href: "/deal-expenses", label: "מחשבון הוצאות" },
+    { href: "/deal-expenses", label: "הוצאות" },
   ]
 
   return (

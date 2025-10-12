@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const DJANGO_BASE_URL = process.env.DJANGO_BASE_URL || 'http://127.0.0.1:8000';
-
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -17,8 +15,9 @@ export async function POST(
     }
 
     const body = await request.json();
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${DJANGO_BASE_URL}/api/crm/leads/${params.id}/add_note/`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads/${params.id}/add_note/`, {
       method: 'POST',
       headers: {
         'Authorization': token,

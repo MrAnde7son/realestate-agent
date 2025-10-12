@@ -65,12 +65,12 @@ const baseNavigation = [
     icon: BarChart3,
   },
   {
-    name: "מחשבון הוצאות",
+    name: "הוצאות",
     href: "/deal-expenses",
     icon: Receipt,
   },
   {
-    name: "מחשבון משכנתא",
+    name: "משכנתא",
     href: "/mortgage/analyze",
     icon: Banknote,
   },

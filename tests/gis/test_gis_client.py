@@ -113,7 +113,7 @@ def test_get_building_privilege_page_success(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:  # parcels layer
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
@@ -152,18 +152,42 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
     with open(sample_pdf_path, "rb") as f:
         pdf_bytes = f.read()
     pdf_url = "https://example.com/rights.pdf"
-    html_content = f"<html><body><a href=\"{pdf_url}\">PDF</a></body></html>".encode()
+    html_content = f"""<html><body><a href=\"{pdf_url}\">PDF</a></body><script language="javascript">
+window.resizeTo(800,700);
+window.moveTo(100,30);
+window.focus();
+
+var is_gush, is_helka, is_street, is_sta, is_opts, is_iriamode;
+var is_opt, is_house;
+
+is_gush       = '6133';
+is_helka      = '665';
+is_migrash    = '';
+is_option     = '';
+is_status     = '0';
+is_gushstatus = 'מוסדר';
+is_opts       = '<SELECT SIZE=10 onChange=f_option(this) DIR=rtl>  <OPTION VALUE=1>על קומת עמודים  <OPTION VALUE=2>ללא קומת עמודים </SELECT> ';
+is_street     = '';
+is_iriamode   = 'internet';
+is_house      = '';
+</script></html>""".encode()
     
     def fake_get(url, params=None, headers=None, timeout=30, allow_redirects=True):
         if "MapServer/525/query" in url:
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?block=1234&parcel=56" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=1234&helka=56" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = html_content
             r.headers["Content-Type"] = "text/html"
+            return r
+        elif "medamukdam/fr_asp/fr_meda_single.asp?gush=1234&helka=56" in url:
+            r = requests.Response()
+            r.status_code = 200
+            r._content = pdf_bytes
+            r.headers["Content-Type"] = "application/pdf"
             return r
         elif url == pdf_url:
             r = requests.Response()
@@ -179,7 +203,7 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
         assert result is not None
         assert isinstance(result, dict), "Result should be a dictionary"
         assert result["file_path"] is not None
-        assert "privilege_block_1234_parcel_56.html" in result["file_path"]
+        assert "privilege_block_1234_parcel_56_opt_2.pdf" in result["file_path"]
         assert result["content_type"] == "html"
         assert result["block"] == "1234"
         assert result["parcel"] == "56"
@@ -187,15 +211,10 @@ def test_get_building_privilege_page_html_response(monkeypatch, tmp_path):
 
         # Ensure linked PDF was downloaded and parsed
         assert isinstance(result["pdf_data"], list)
-        assert len(result["pdf_data"]) == 1
+        assert len(result["pdf_data"]) == 2
         linked_pdf = result["pdf_data"][0]
         assert os.path.exists(linked_pdf["file_path"])
         assert isinstance(linked_pdf["data"], dict)
-        
-        # Check HTML file was created
-        html_path = save_dir / "privilege_block_1234_parcel_56.html"
-        assert html_path.exists()
-        assert html_path.read_bytes() == html_content
 
 
 def test_get_building_privilege_page_no_blocks(monkeypatch, tmp_path):
@@ -318,7 +337,7 @@ def test_get_building_privilege_page_custom_save_dir(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
@@ -352,7 +371,7 @@ def test_get_building_privilege_page_no_save_dir(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content
@@ -391,7 +410,7 @@ def test_get_building_privilege_page_with_real_pdf_data(monkeypatch, tmp_path):
             return _make_response(json_payload=blocks_payload)
         elif "MapServer/524/query" in url:  # parcels layer
             return _make_response(json_payload=parcels_payload)
-        elif "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
+        elif "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = real_pdf_content

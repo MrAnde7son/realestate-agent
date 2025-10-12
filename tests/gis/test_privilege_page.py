@@ -30,7 +30,7 @@ def test_privilege_page(tmp_path):
             return _make_response(json_payload=blocks_payload)
         if "MapServer/524/query" in url:
             return _make_response(json_payload=parcels_payload)
-        if "medamukdam/fr_asp/fr_meda_main.asp?block=6638&parcel=572" in url:
+        if "medamukdam/fr_asp/fr_meda_main.asp?gush=6638&helka=572" in url:
             r = requests.Response()
             r.status_code = 200
             r._content = privilege_content

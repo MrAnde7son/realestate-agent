@@ -2,7 +2,6 @@
 
 from .base_collector import BaseCollector
 from .gis_collector import GISCollector
-from .handasa_collector import HandasaCollector
 from .gov_collector import GovCollector
 from .govmap_collector import GovMapCollector
 from .mavat_collector import MavatCollector
@@ -13,7 +12,6 @@ __all__ = [
     'BaseCollector',
     'Yad2Collector', 
     'GISCollector',
-    'HandasaCollector',
     'GovCollector',
     'GovMapCollector',
     'MavatCollector',

@@ -363,119 +363,101 @@ class TelAvivGS:
             # First, try the main page to see if it returns a PDF directly or HTML with options
             main_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_main.asp?gush={block}&helka={parcel}&iriaMode=internet"
             
-            try:
-                self._logger.info("Checking main privilege page", extra={"url": main_url})
-                main_response = requests.get(main_url, headers=self.HDRS, timeout=30, allow_redirects=True)
-                main_response.raise_for_status()
-                
-                # Check if this is a PDF (single privilege document)
-                main_content_type = main_response.headers.get("Content-Type", "").lower()
-                if "pdf" in main_content_type or main_response.content.startswith(b'%PDF'):
-                    self._logger.info("Main page returns PDF directly - single privilege document")
-                    result["content_type"] = "pdf"
+            self._logger.info("Checking main privilege page", extra={"url": main_url})
+            main_response = requests.get(main_url, headers=self.HDRS, timeout=30, allow_redirects=True)
+            main_response.raise_for_status()
 
-                    # Save the PDF
-                    filename = f"privilege_block_{block}_parcel_{parcel}.pdf"
-                    dest_path = os.path.join(save_dir, filename)
-                    result["file_path"] = dest_path
+            # Check if this is a PDF (single privilege document)
+            main_content_type = main_response.headers.get("Content-Type", "").lower()
+            if "pdf" in main_content_type or main_response.content.startswith(b'%PDF'):
+                self._logger.info("Main page returns PDF directly - single privilege document")
+                result["content_type"] = "pdf"
 
-                    
-                    with open(dest_path, "wb") as fh:
-                        fh.write(main_response.content)
-                    
-                    # Parse the PDF
+                # Save the PDF
+                filename = f"privilege_block_{block}_parcel_{parcel}.pdf"
+                dest_path = os.path.join(save_dir, filename)
+                result["file_path"] = dest_path
+
+
+                with open(dest_path, "wb") as fh:
+                    fh.write(main_response.content)
+
+                # Parse the PDF
+                try:
+                    parsed_pdf = parse_zchuyot(dest_path)
+                    result["pdf_data"].append({
+                        "file_path": dest_path,
+                        "data": parsed_pdf,
+                        "option": 1
+                    })
+                    result["message"] += " - downloaded 1 privilege page (main page PDF)"
+                    self._logger.info("Successfully downloaded and parsed main page PDF")
+                except Exception as e:
+                    self._logger.warning(f"Failed to parse main page PDF: {e}")
+                    result["message"] += " - downloaded 1 privilege page (parsing failed)"
+
+            elif "html" in main_content_type or "text" in main_content_type:
+                # Main page is HTML - check for multiple options
+                html_content = main_response.content.decode('utf-8', errors='ignore')
+                result["content_type"] = "html"
+
+
+                # Look for JavaScript variables that might contain option data
+                pattern = re.compile(r'OPTION\s+VALUE\s*=\s*["\']?(\d+)["\']?', re.IGNORECASE)
+                matches = pattern.findall(html_content)
+                if matches:
+                    ints = [int(m) for m in matches]
                     try:
-                        parsed_pdf = parse_zchuyot(dest_path)
-                        result["pdf_data"].append({
-                            "file_path": dest_path, 
-                            "data": parsed_pdf,
-                            "option": 1
-                        })
-                        result["message"] += " - downloaded 1 privilege page (main page PDF)"
-                        self._logger.info("Successfully downloaded and parsed main page PDF")
+
+                        # Download each privilege page
+                        for i in ints:
+                            opt_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_single.asp?gush={block}&helka={parcel}&opt={i}&status=0&street=0&house=0&"
+                            self._logger.info(f"Downloading privilege page {i}", extra={"url": opt_url})
+
+                            try:
+                                opt_response = requests.get(opt_url, headers=self.HDRS, timeout=30, allow_redirects=True)
+                                opt_response.raise_for_status()
+
+                                # Check if it's a PDF
+                                opt_content_type = opt_response.headers.get("Content-Type", "").lower()
+                                if "pdf" in opt_content_type or opt_response.content.startswith(b'%PDF'):
+                                    filename = f"privilege_block_{block}_parcel_{parcel}_opt_{i}.pdf"
+                                    dest_path = os.path.join(save_dir, filename)
+                                    result["file_path"] = dest_path
+
+                                    with open(dest_path, "wb") as fh:
+                                        fh.write(opt_response.content)
+
+                                    # Parse the PDF
+                                    try:
+                                        parsed_pdf = parse_zchuyot(dest_path)
+                                        result["pdf_data"].append({
+                                            "file_path": dest_path,
+                                            "data": parsed_pdf,
+                                            "option": i
+                                        })
+                                        self._logger.info(f"Successfully parsed privilege page {i}")
+                                    except Exception as e:
+                                        self._logger.warning(f"Failed to parse PDF privilege page {i}: {e}")
+                                else:
+                                    self._logger.warning(f"Privilege page {i} is not a PDF")
+
+                            except Exception as e:
+                                self._logger.warning(f"Failed to download privilege page {i}: {e}")
+
+                        result["message"] += f" - found {len(ints)} options, downloaded {len(result['pdf_data'])} PDFs"
+
                     except Exception as e:
-                        self._logger.warning(f"Failed to parse main page PDF: {e}")
-                        result["message"] += " - downloaded 1 privilege page (parsing failed)"
-                        
-                elif "html" in main_content_type or "text" in main_content_type:
-                    # Main page is HTML - check for multiple options
-                    html_content = main_response.content.decode('utf-8', errors='ignore')
-                    result["content_type"] = "html"
-
-                    
-                    # Look for JavaScript variables that might contain option data
-                    opts_match = re.search(r"is_opts\s*=\s*'([^']+)'", html_content)
-                    if opts_match:
-                        # Found options in JavaScript - parse them
-                        try:
-                            parsed_parcels = parse_html_privilege_page(html_content)
-                            result["parcels"] = parsed_parcels
-                            self._logger.info(f"Found {len(parsed_parcels)} parcel options in main page")
-                            
-                            # If parsing failed but we have OPTION tags, try manual parsing
-                            if len(parsed_parcels) == 0:
-                                opts_content = opts_match.group(1)
-                                option_matches = re.findall(r'<OPTION VALUE=(\d+)>', opts_content)
-                                if option_matches:
-                                    self._logger.info(f"Manual parsing found {len(option_matches)} options: {option_matches}")
-                                    # Create dummy parcel info for each option
-                                    parsed_parcels = [{"option": int(opt)} for opt in option_matches]
-                                    result["parcels"] = parsed_parcels
-                            
-                            # Download each privilege page
-                            for i, parcel_info in enumerate(parsed_parcels, 1):
-                                opt_url = f"https://gisn.tel-aviv.gov.il/medamukdam/fr_asp/fr_meda_single.asp?gush={block}&helka={parcel}&opt={i}&status=0&street=0&house=0&"
-                                self._logger.info(f"Downloading privilege page {i}", extra={"url": opt_url})
-                                
-                                try:
-                                    opt_response = requests.get(opt_url, headers=self.HDRS, timeout=30, allow_redirects=True)
-                                    opt_response.raise_for_status()
-                                    
-                                    # Check if it's a PDF
-                                    opt_content_type = opt_response.headers.get("Content-Type", "").lower()
-                                    if "pdf" in opt_content_type or opt_response.content.startswith(b'%PDF'):
-                                        filename = f"privilege_block_{block}_parcel_{parcel}_opt_{i}.pdf"
-                                        dest_path = os.path.join(save_dir, filename)
-                                        result["file_path"] = dest_path
-
-                                        with open(dest_path, "wb") as fh:
-                                            fh.write(opt_response.content)
-                                        
-                                        # Parse the PDF
-                                        try:
-                                            parsed_pdf = parse_zchuyot(dest_path)
-                                            result["pdf_data"].append({
-                                                "file_path": dest_path, 
-                                                "data": parsed_pdf,
-                                                "option": i,
-                                                "parcel_info": parcel_info
-                                            })
-                                            self._logger.info(f"Successfully parsed privilege page {i}")
-                                        except Exception as e:
-                                            self._logger.warning(f"Failed to parse PDF privilege page {i}: {e}")
-                                    else:
-                                        self._logger.warning(f"Privilege page {i} is not a PDF")
-                                        
-                                except Exception as e:
-                                    self._logger.warning(f"Failed to download privilege page {i}: {e}")
-                            
-                            result["message"] += f" - found {len(parsed_parcels)} options, downloaded {len(result['pdf_data'])} PDFs"
-                            
-                        except Exception as e:
-                            self._logger.warning(f"Failed to parse HTML privilege page options: {e}")
-                            # Fall back to trying individual options
-                            self._try_individual_privilege_options(block, parcel, save_dir, result)
-                    else:
-                        # No options found, try individual options
+                        self._logger.warning(f"Failed to parse HTML privilege page options: {e}")
+                        # Fall back to trying individual options
                         self._try_individual_privilege_options(block, parcel, save_dir, result)
                 else:
-                    # Main page is not HTML or PDF, try individual options
+                    # No options found, try individual options
                     self._try_individual_privilege_options(block, parcel, save_dir, result)
-                    
-            except Exception as e:
-                self._logger.warning(f"Failed to check main privilege page: {e}")
-                # Fall back to trying individual options
+            else:
+                # Main page is not HTML or PDF, try individual options
                 self._try_individual_privilege_options(block, parcel, save_dir, result)
+
 
             return result
             

@@ -48,7 +48,15 @@ from .models import (
     UserProfile,
     Snapshot,
     Document,
-    Plan
+    Plan,
+    RealEstateTransactionGlobal,
+    MavatPlanGlobal,
+    RamiParcelGlobal,
+    DecisiveRecordGlobal,
+    Yad2ListingGlobal,
+    GisDataGlobal,
+    GovMapDataGlobal,
+    GovDataGlobal
 )
 
 from .listing_builder import build_listing
@@ -60,7 +68,16 @@ from .serializers import (
     UserProfileSerializer,
     PlanTypeSerializer,
     UserPlanSerializer,
-    UserPlanInfoSerializer, DocumentSerializer,
+    UserPlanInfoSerializer, 
+    DocumentSerializer,
+    RealEstateTransactionGlobalSerializer,
+    MavatPlanGlobalSerializer,
+    RamiParcelGlobalSerializer,
+    DecisiveRecordGlobalSerializer,
+    Yad2ListingGlobalSerializer,
+    GisDataGlobalSerializer,
+    GovMapDataGlobalSerializer,
+    GovDataGlobalSerializer
 )
 from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
@@ -2533,3 +2550,332 @@ def dashboard_market_data(request):
     except Exception as e:
         logger.error(f"Error fetching dashboard market data: {e}")
         return Response({"error": "Failed to fetch market data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Global Source Query Views
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def global_transactions(request):
+    """Query global real estate transactions by cadastral identifiers."""
+    try:
+        # Extract query parameters
+        city = request.GET.get('city')
+        street = request.GET.get('street')
+        number = request.GET.get('number')
+        block = request.GET.get('block')
+        parcel = request.GET.get('parcel')
+        subparcel = request.GET.get('subparcel')
+        
+        # Build query
+        queryset = RealEstateTransactionGlobal.objects.all()
+        
+        if city:
+            queryset = queryset.filter(key_json__city__icontains=city)
+        if street:
+            queryset = queryset.filter(key_json__street__icontains=street)
+        if number:
+            queryset = queryset.filter(key_json__number=number)
+        if block:
+            queryset = queryset.filter(key_json__block=block)
+        if parcel:
+            queryset = queryset.filter(key_json__parcel=parcel)
+        if subparcel:
+            queryset = queryset.filter(key_json__subparcel=subparcel)
+        
+        # Limit results
+        limit = int(request.GET.get('limit', 50))
+        queryset = queryset[:limit]
+        
+        serializer = RealEstateTransactionGlobalSerializer(queryset, many=True)
+        return Response({"transactions": serializer.data})
+        
+    except Exception as e:
+        logger.error(f"Error querying global transactions: {e}")
+        return Response({"error": "Failed to query transactions"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def global_mavat_plans(request):
+    """Query global MAVAT plans by cadastral identifiers."""
+    try:
+        # Extract query parameters
+        city = request.GET.get('city')
+        street = request.GET.get('street')
+        number = request.GET.get('number')
+        block = request.GET.get('block')
+        parcel = request.GET.get('parcel')
+        subparcel = request.GET.get('subparcel')
+        
+        # Build query
+        queryset = MavatPlanGlobal.objects.all()
+        
+        if city:
+            queryset = queryset.filter(key_json__city__icontains=city)
+        if street:
+            queryset = queryset.filter(key_json__street__icontains=street)
+        if number:
+            queryset = queryset.filter(key_json__number=number)
+        if block:
+            queryset = queryset.filter(key_json__block=block)
+        if parcel:
+            queryset = queryset.filter(key_json__parcel=parcel)
+        if subparcel:
+            queryset = queryset.filter(key_json__subparcel=subparcel)
+        
+        # Limit results
+        limit = int(request.GET.get('limit', 50))
+        queryset = queryset[:limit]
+        
+        serializer = MavatPlanGlobalSerializer(queryset, many=True)
+        return Response({"plans": serializer.data})
+        
+    except Exception as e:
+        logger.error(f"Error querying global MAVAT plans: {e}")
+        return Response({"error": "Failed to query MAVAT plans"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def global_rami_parcels(request):
+    """Query global RAMI parcels by cadastral identifiers."""
+    try:
+        # Extract query parameters
+        city = request.GET.get('city')
+        street = request.GET.get('street')
+        number = request.GET.get('number')
+        block = request.GET.get('block')
+        parcel = request.GET.get('parcel')
+        subparcel = request.GET.get('subparcel')
+        
+        # Build query
+        queryset = RamiParcelGlobal.objects.all()
+        
+        if city:
+            queryset = queryset.filter(key_json__city__icontains=city)
+        if street:
+            queryset = queryset.filter(key_json__street__icontains=street)
+        if number:
+            queryset = queryset.filter(key_json__number=number)
+        if block:
+            queryset = queryset.filter(key_json__block=block)
+        if parcel:
+            queryset = queryset.filter(key_json__parcel=parcel)
+        if subparcel:
+            queryset = queryset.filter(key_json__subparcel=subparcel)
+        
+        # Limit results
+        limit = int(request.GET.get('limit', 50))
+        queryset = queryset[:limit]
+        
+        serializer = RamiParcelGlobalSerializer(queryset, many=True)
+        return Response({"parcels": serializer.data})
+        
+    except Exception as e:
+        logger.error(f"Error querying global RAMI parcels: {e}")
+        return Response({"error": "Failed to query RAMI parcels"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def global_decisive_records(request):
+    """Query global decisive appraisal records by cadastral identifiers."""
+    try:
+        # Extract query parameters
+        city = request.GET.get('city')
+        street = request.GET.get('street')
+        number = request.GET.get('number')
+        block = request.GET.get('block')
+        parcel = request.GET.get('parcel')
+        subparcel = request.GET.get('subparcel')
+        
+        # Build query
+        queryset = DecisiveRecordGlobal.objects.all()
+        
+        if city:
+            queryset = queryset.filter(key_json__city__icontains=city)
+        if street:
+            queryset = queryset.filter(key_json__street__icontains=street)
+        if number:
+            queryset = queryset.filter(key_json__number=number)
+        if block:
+            queryset = queryset.filter(key_json__block=block)
+        if parcel:
+            queryset = queryset.filter(key_json__parcel=parcel)
+        if subparcel:
+            queryset = queryset.filter(key_json__subparcel=subparcel)
+        
+        # Limit results
+        limit = int(request.GET.get('limit', 50))
+        queryset = queryset[:limit]
+        
+        serializer = DecisiveRecordGlobalSerializer(queryset, many=True)
+        return Response({"records": serializer.data})
+        
+    except Exception as e:
+        logger.error(f"Error querying global decisive records: {e}")
+        return Response({"error": "Failed to query decisive records"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def global_yad2_listings(request):
+    """Query global Yad2 listings by cadastral identifiers."""
+    try:
+        # Extract query parameters
+        city = request.GET.get('city')
+        street = request.GET.get('street')
+        number = request.GET.get('number')
+        block = request.GET.get('block')
+        parcel = request.GET.get('parcel')
+        subparcel = request.GET.get('subparcel')
+        
+        # Build query
+        queryset = Yad2ListingGlobal.objects.all()
+        
+        if city:
+            queryset = queryset.filter(key_json__city__icontains=city)
+        if street:
+            queryset = queryset.filter(key_json__street__icontains=street)
+        if number:
+            queryset = queryset.filter(key_json__number=number)
+        if block:
+            queryset = queryset.filter(key_json__block=block)
+        if parcel:
+            queryset = queryset.filter(key_json__parcel=parcel)
+        if subparcel:
+            queryset = queryset.filter(key_json__subparcel=subparcel)
+        
+        # Limit results
+        limit = int(request.GET.get('limit', 50))
+        queryset = queryset[:limit]
+        
+        serializer = Yad2ListingGlobalSerializer(queryset, many=True)
+        return Response({"listings": serializer.data})
+        
+    except Exception as e:
+        logger.error(f"Error querying global Yad2 listings: {e}")
+        return Response({"error": "Failed to query Yad2 listings"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def global_gis_data(request):
+    """Query global GIS data by cadastral identifiers."""
+    try:
+        # Extract query parameters
+        city = request.GET.get('city')
+        street = request.GET.get('street')
+        number = request.GET.get('number')
+        block = request.GET.get('block')
+        parcel = request.GET.get('parcel')
+        subparcel = request.GET.get('subparcel')
+        
+        # Build query
+        queryset = GisDataGlobal.objects.all()
+        
+        if city:
+            queryset = queryset.filter(key_json__city__icontains=city)
+        if street:
+            queryset = queryset.filter(key_json__street__icontains=street)
+        if number:
+            queryset = queryset.filter(key_json__number=number)
+        if block:
+            queryset = queryset.filter(key_json__block=block)
+        if parcel:
+            queryset = queryset.filter(key_json__parcel=parcel)
+        if subparcel:
+            queryset = queryset.filter(key_json__subparcel=subparcel)
+        
+        # Limit results
+        limit = int(request.GET.get('limit', 50))
+        queryset = queryset[:limit]
+        
+        serializer = GisDataGlobalSerializer(queryset, many=True)
+        return Response({"gis_data": serializer.data})
+        
+    except Exception as e:
+        logger.error(f"Error querying global GIS data: {e}")
+        return Response({"error": "Failed to query GIS data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def global_govmap_data(request):
+    """Query global GovMap data by cadastral identifiers."""
+    try:
+        # Extract query parameters
+        city = request.GET.get('city')
+        street = request.GET.get('street')
+        number = request.GET.get('number')
+        block = request.GET.get('block')
+        parcel = request.GET.get('parcel')
+        subparcel = request.GET.get('subparcel')
+        
+        # Build query
+        queryset = GovMapDataGlobal.objects.all()
+        
+        if city:
+            queryset = queryset.filter(key_json__city__icontains=city)
+        if street:
+            queryset = queryset.filter(key_json__street__icontains=street)
+        if number:
+            queryset = queryset.filter(key_json__number=number)
+        if block:
+            queryset = queryset.filter(key_json__block=block)
+        if parcel:
+            queryset = queryset.filter(key_json__parcel=parcel)
+        if subparcel:
+            queryset = queryset.filter(key_json__subparcel=subparcel)
+        
+        # Limit results
+        limit = int(request.GET.get('limit', 50))
+        queryset = queryset[:limit]
+        
+        serializer = GovMapDataGlobalSerializer(queryset, many=True)
+        return Response({"govmap_data": serializer.data})
+        
+    except Exception as e:
+        logger.error(f"Error querying global GovMap data: {e}")
+        return Response({"error": "Failed to query GovMap data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def global_gov_data(request):
+    """Query global Gov data by cadastral identifiers."""
+    try:
+        # Extract query parameters
+        city = request.GET.get('city')
+        street = request.GET.get('street')
+        number = request.GET.get('number')
+        block = request.GET.get('block')
+        parcel = request.GET.get('parcel')
+        subparcel = request.GET.get('subparcel')
+        
+        # Build query
+        queryset = GovDataGlobal.objects.all()
+        
+        if city:
+            queryset = queryset.filter(key_json__city__icontains=city)
+        if street:
+            queryset = queryset.filter(key_json__street__icontains=street)
+        if number:
+            queryset = queryset.filter(key_json__number=number)
+        if block:
+            queryset = queryset.filter(key_json__block=block)
+        if parcel:
+            queryset = queryset.filter(key_json__parcel=parcel)
+        if subparcel:
+            queryset = queryset.filter(key_json__subparcel=subparcel)
+        
+        # Limit results
+        limit = int(request.GET.get('limit', 50))
+        queryset = queryset[:limit]
+        
+        serializer = GovDataGlobalSerializer(queryset, many=True)
+        return Response({"gov_data": serializer.data})
+        
+    except Exception as e:
+        logger.error(f"Error querying global Gov data: {e}")
+        return Response({"error": "Failed to query Gov data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

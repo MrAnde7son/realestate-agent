@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 
 from db.database import SQLAlchemyDatabase
 from db.models import Listing, SourceRecord, Transaction
+from orchestration.global_storage import (
+    build_key_dict, store_transaction_global, store_mavat_plan_global,
+    store_rami_parcel_global, store_decisive_record_global, store_yad2_listing_global,
+    store_gis_data_global, store_govmap_data_global, store_gov_data_global
+)
 from utils.helpers import _first_nonempty, _safe_get
 from yad2.scrapers.yad2_scraper import RealEstateListing
 
@@ -412,8 +417,48 @@ class DataPipeline:
         session.flush()  # populate id
         return obj
 
+    def _add_source_record_global(self, session, asset_id: int, source: str, data: Any,
+                                  city: str, street: str, number: int, 
+                                  block: str, parcel: str, external_id: str = None) -> None:
+        """Store source records in global tables and create links."""
+        key_dict = build_key_dict(city, street, number, block, parcel)
+        
+        try:
+            if source == 'mavat':
+                store_mavat_plan_global(session, asset_id, data, key_dict, external_id)
+            elif source in ['rami_plan', 'gov_rami']:
+                store_rami_parcel_global(session, asset_id, data, key_dict, external_id)
+            elif source in ['decisive', 'appraisal_decisive']:
+                store_decisive_record_global(session, asset_id, data, key_dict, external_id)
+            elif source == 'yad2':
+                store_yad2_listing_global(session, asset_id, data, key_dict, external_id)
+            elif source == 'gis':
+                store_gis_data_global(session, asset_id, data, key_dict, external_id)
+            elif source == 'govmap':
+                store_govmap_data_global(session, asset_id, data, key_dict, external_id)
+            elif source == 'gov':
+                store_gov_data_global(session, asset_id, data, key_dict, external_id)
+            else:
+                # Fallback to old method for unknown sources
+                logger.warning(f"Unknown source type for global storage: {source}")
+        except Exception as e:
+            logger.warning(f"Failed to store {source} globally: {e}")
+
     def _add_source_record(self, session, listing_id: int, source: str, data: Any) -> None:
         session.add(SourceRecord(listing_id=listing_id, source=source, data=data))
+
+    def _add_transactions_global(self, session, asset_id: int, deals: Iterable[Any], 
+                                 city: str, street: str, number: int, 
+                                 block: str, parcel: str) -> None:
+        """Store transactions in global table and create links."""
+        key_dict = build_key_dict(city, street, number, block, parcel)
+        
+        for d in deals:
+            raw = d.to_dict() if hasattr(d, "to_dict") else dict(d)
+            try:
+                store_transaction_global(session, asset_id, raw, key_dict)
+            except Exception as e:
+                logger.warning(f"Failed to store transaction globally: {e}")
 
     def _add_transactions(self, session, listing_id: int, deals: Iterable[Any]) -> None:
         def _to_number(v):
@@ -739,44 +784,107 @@ class DataPipeline:
                     # ---------------- GovMap Autocomplete (already collected above) ----------------
                     if govmap_data.get("api_data", {}).get("autocomplete"):
                         autocomplete_data = govmap_data["api_data"]["autocomplete"]
-                        self._add_source_record(session, db_listing.id, "govmap_autocomplete", autocomplete_data)
+                        if asset_id:
+                            # Store in global tables for asset
+                            self._add_source_record_global(
+                                session, asset_id, "govmap_autocomplete", autocomplete_data,
+                                city, street, house_number, block, parcel
+                            )
+                        else:
+                            # Store in legacy per-listing tables
+                            self._add_source_record(session, db_listing.id, "govmap_autocomplete", autocomplete_data)
                         results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
 
                     # ---------------- GovMap Parcel Data (already collected above) ----------------
                     if govmap_data:
-                        self._add_source_record(session, db_listing.id, "govmap", govmap_data)
+                        if asset_id:
+                            # Store in global tables for asset
+                            self._add_source_record_global(
+                                session, asset_id, "govmap", govmap_data,
+                                city, street, house_number, block, parcel
+                            )
+                        else:
+                            # Store in legacy per-listing tables
+                            self._add_source_record(session, db_listing.id, "govmap", govmap_data)
                         results.append({"source": "govmap", "data": govmap_data})
 
                     # ---------------- GIS (supplementary data) ----------------
                     if gis_data:
-                        self._add_source_record(session, db_listing.id, "gis", gis_data)
+                        if asset_id:
+                            # Store in global tables for asset
+                            self._add_source_record_global(
+                                session, asset_id, "gis", gis_data,
+                                city, street, house_number, block, parcel
+                            )
+                        else:
+                            # Store in legacy per-listing tables
+                            self._add_source_record(session, db_listing.id, "gis", gis_data)
                         results.append({"source": "gis", "data": gis_data})
 
                     # ---------------- Gov data (collected once above) ----------------
-                    self._add_source_record(session, db_listing.id, "gov", gov_data)
+                    if asset_id:
+                        # Store in global tables for asset
+                        self._add_source_record_global(
+                            session, asset_id, "gov", gov_data,
+                            city, street, house_number, block, parcel
+                        )
+                    else:
+                        # Store in legacy per-listing tables
+                        self._add_source_record(session, db_listing.id, "gov", gov_data)
                     
                     decisives = gov_data.get("decisive") or []
                     if decisives:
-                        self._add_source_record(
-                            session, db_listing.id, "decisive", decisives
-                        )
+                        if asset_id:
+                            # Store in global tables for asset
+                            self._add_source_record_global(
+                                session, asset_id, "decisive", decisives,
+                                city, street, house_number, block, parcel
+                            )
+                        else:
+                            # Store in legacy per-listing tables
+                            self._add_source_record(
+                                session, db_listing.id, "decisive", decisives
+                            )
                         results.append({"source": "decisive", "data": decisives})
 
                     deals = gov_data.get("transactions") or []
-                    self._add_transactions(session, db_listing.id, deals)
+                    if asset_id:
+                        # Store in global tables for asset
+                        self._add_transactions_global(
+                            session, asset_id, deals, city, street, house_number, block, parcel
+                        )
+                    else:
+                        # Store in legacy per-listing tables
+                        self._add_transactions(session, db_listing.id, deals)
                     if deals:
                         results.append({"source": "transactions", "data": deals})
 
                     # ---------------- RAMI plans (collected once above) ----------------
                     if plans:
-                        self._add_source_record(session, db_listing.id, "gov_rami", plans)
+                        if asset_id:
+                            # Store in global tables for asset
+                            self._add_source_record_global(
+                                session, asset_id, "gov_rami", plans,
+                                city, street, house_number, block, parcel
+                            )
+                        else:
+                            # Store in legacy per-listing tables
+                            self._add_source_record(session, db_listing.id, "gov_rami", plans)
                         results.append({"source": "gov_rami", "data": plans})
 
                     # ---------------- Mavat plans (collected once above) ----------------
                     if mavat_plans:
-                        self._add_source_record(
-                            session, db_listing.id, "mavat", mavat_plans
-                        )
+                        if asset_id:
+                            # Store in global tables for asset
+                            self._add_source_record_global(
+                                session, asset_id, "mavat", mavat_plans,
+                                city, street, house_number, block, parcel
+                            )
+                        else:
+                            # Store in legacy per-listing tables
+                            self._add_source_record(
+                                session, db_listing.id, "mavat", mavat_plans
+                            )
                         results.append({"source": "mavat", "data": mavat_plans})
 
                     # ---------------- Alerts ----------------
@@ -784,34 +892,87 @@ class DataPipeline:
                         if notifier.matches(listing_snapshot):
                             pending_notifications.append((notifier, listing_snapshot))
                 
-                # If no listings, still add collected data to results
+                # If no listings, still add collected data to results and store globally if asset_id provided
                 if not listings:
                     logger.info("📊 No Yad2 listings found, but adding collected data to results")
                     
-                    # Add GovMap autocomplete data to results
+                    # Store data in global tables if asset_id is provided
+                    if asset_id:
+                        # Store GovMap autocomplete data globally
+                        if govmap_data.get("api_data", {}).get("autocomplete"):
+                            autocomplete_data = govmap_data["api_data"]["autocomplete"]
+                            self._add_source_record_global(
+                                session, asset_id, "govmap_autocomplete", autocomplete_data,
+                                city, street, house_number, block, parcel
+                            )
+
+                        # Store GovMap parcel data globally
+                        if govmap_data:
+                            self._add_source_record_global(
+                                session, asset_id, "govmap", govmap_data,
+                                city, street, house_number, block, parcel
+                            )
+                        
+                        # Store GIS data globally
+                        if gis_data:
+                            self._add_source_record_global(
+                                session, asset_id, "gis", gis_data,
+                                city, street, house_number, block, parcel
+                            )
+                        
+                        # Store government data globally
+                        self._add_source_record_global(
+                            session, asset_id, "gov", gov_data,
+                            city, street, house_number, block, parcel
+                        )
+                        
+                        # Store decisive records globally
+                        if gov_data.get("decisive"):
+                            self._add_source_record_global(
+                                session, asset_id, "decisive", gov_data["decisive"],
+                                city, street, house_number, block, parcel
+                            )
+                        
+                        # Store transactions globally
+                        if gov_data.get("transactions"):
+                            self._add_transactions_global(
+                                session, asset_id, gov_data["transactions"],
+                                city, street, house_number, block, parcel
+                            )
+                        
+                        # Store RAMI plans globally
+                        if plans:
+                            self._add_source_record_global(
+                                session, asset_id, "gov_rami", plans,
+                                city, street, house_number, block, parcel
+                            )
+                        
+                        # Store Mavat plans globally
+                        if mavat_plans:
+                            self._add_source_record_global(
+                                session, asset_id, "mavat", mavat_plans,
+                                city, street, house_number, block, parcel
+                            )
+                    
+                    # Add data to results for return
                     if govmap_data.get("api_data", {}).get("autocomplete"):
                         autocomplete_data = govmap_data["api_data"]["autocomplete"]
                         results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
 
-                    # Add GovMap parcel data to results
                     if govmap_data:
                         results.append({"source": "govmap", "data": govmap_data})
                     
-                    # Add GIS data to results (supplementary)
                     if gis_data:
                         results.append({"source": "gis", "data": gis_data})
                     
-                    # Add government data to results
                     if gov_data.get("decisive"):
                         results.append({"source": "decisive", "data": gov_data["decisive"]})
                     if gov_data.get("transactions"):
                         results.append({"source": "transactions", "data": gov_data["transactions"]})
                     
-                    # Add RAMI plans to results
                     if plans:
                         results.append({"source": "gov_rami", "data": plans})
                     
-                    # Add Mavat plans to results
                     if mavat_plans:
                         results.append({"source": "mavat", "data": mavat_plans})
 

@@ -912,6 +912,421 @@ class RealEstateTransaction(models.Model):
         return f"Transaction({self.deal_id}, {self.price})"
 
 
+# Global Source Tables
+class RealEstateTransactionGlobal(models.Model):
+    """Global real estate transaction table for deduplication."""
+    
+    deal_id = models.CharField(max_length=100, unique=True, db_index=True)
+    key_fp = models.CharField(max_length=64, db_index=True, help_text="Stable fingerprint from cadastral identifiers")
+    key_json = models.JSONField(default=dict, help_text="Cadastral identifiers for debugging")
+    
+    date = models.DateTimeField(blank=True, null=True)
+    price = models.IntegerField(blank=True, null=True)
+    rooms = models.IntegerField(blank=True, null=True)
+    area = models.FloatField(blank=True, null=True)
+    floor = models.IntegerField(blank=True, null=True)
+    address = models.CharField(max_length=200, blank=True, null=True)
+    raw = models.JSONField(default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    ttl_expires_at = models.DateTimeField(null=True, blank=True, help_text="TTL expiration for data refresh")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["deal_id"]),
+            models.Index(fields=["key_fp"]),
+            models.Index(fields=["ttl_expires_at"]),
+        ]
+    
+    def __str__(self):
+        return f"TransactionGlobal({self.deal_id}, {self.price})"
+
+
+class MavatPlanGlobal(models.Model):
+    """Global MAVAT plan table for deduplication."""
+    
+    plan_id = models.CharField(max_length=100, unique=True, db_index=True)
+    key_fp = models.CharField(max_length=64, db_index=True, help_text="Stable fingerprint from cadastral identifiers")
+    key_json = models.JSONField(default=dict, help_text="Cadastral identifiers for debugging")
+    
+    plan_number = models.CharField(max_length=100, blank=True, null=True)
+    plan_title = models.CharField(max_length=500, blank=True, null=True)
+    status = models.CharField(max_length=100, blank=True, null=True)
+    effective_date = models.DateField(blank=True, null=True)
+    plan_type = models.CharField(max_length=100, blank=True, null=True)
+    raw = models.JSONField(default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    ttl_expires_at = models.DateTimeField(null=True, blank=True, help_text="TTL expiration for data refresh")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["plan_id"]),
+            models.Index(fields=["key_fp"]),
+            models.Index(fields=["ttl_expires_at"]),
+        ]
+    
+    def __str__(self):
+        return f"MavatPlanGlobal({self.plan_id}, {self.plan_title})"
+
+
+class RamiParcelGlobal(models.Model):
+    """Global RAMI parcel table for deduplication."""
+    
+    rami_id = models.CharField(max_length=100, unique=True, db_index=True)
+    key_fp = models.CharField(max_length=64, db_index=True, help_text="Stable fingerprint from cadastral identifiers")
+    key_json = models.JSONField(default=dict, help_text="Cadastral identifiers for debugging")
+    
+    plan_number = models.CharField(max_length=100, blank=True, null=True)
+    plan_name = models.CharField(max_length=500, blank=True, null=True)
+    status = models.CharField(max_length=100, blank=True, null=True)
+    status_date = models.DateField(blank=True, null=True)
+    market_value = models.IntegerField(blank=True, null=True)
+    building_rights = models.CharField(max_length=200, blank=True, null=True)
+    raw = models.JSONField(default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    ttl_expires_at = models.DateTimeField(null=True, blank=True, help_text="TTL expiration for data refresh")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["rami_id"]),
+            models.Index(fields=["key_fp"]),
+            models.Index(fields=["ttl_expires_at"]),
+        ]
+    
+    def __str__(self):
+        return f"RamiParcelGlobal({self.rami_id}, {self.plan_name})"
+
+
+class DecisiveRecordGlobal(models.Model):
+    """Global decisive appraisal record table for deduplication."""
+    
+    decisive_id = models.CharField(max_length=100, unique=True, db_index=True)
+    key_fp = models.CharField(max_length=64, db_index=True, help_text="Stable fingerprint from cadastral identifiers")
+    key_json = models.JSONField(default=dict, help_text="Cadastral identifiers for debugging")
+    
+    appraiser = models.CharField(max_length=200, blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+    appraised_value = models.IntegerField(blank=True, null=True)
+    url = models.URLField(max_length=500, blank=True, null=True)
+    raw = models.JSONField(default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    ttl_expires_at = models.DateTimeField(null=True, blank=True, help_text="TTL expiration for data refresh")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["decisive_id"]),
+            models.Index(fields=["key_fp"]),
+            models.Index(fields=["ttl_expires_at"]),
+        ]
+    
+    def __str__(self):
+        return f"DecisiveRecordGlobal({self.decisive_id}, {self.appraised_value})"
+
+
+class Yad2ListingGlobal(models.Model):
+    """Global Yad2 listing table for deduplication."""
+    
+    external_id = models.CharField(max_length=100, unique=True, db_index=True)
+    key_fp = models.CharField(max_length=64, db_index=True, help_text="Stable fingerprint from cadastral identifiers")
+    key_json = models.JSONField(default=dict, help_text="Cadastral identifiers for debugging")
+    
+    title = models.CharField(max_length=500, blank=True, null=True)
+    price = models.IntegerField(blank=True, null=True)
+    address = models.CharField(max_length=200, blank=True, null=True)
+    rooms = models.IntegerField(blank=True, null=True)
+    area = models.FloatField(blank=True, null=True)
+    property_type = models.CharField(max_length=100, blank=True, null=True)
+    url = models.URLField(max_length=500, blank=True, null=True)
+    raw = models.JSONField(default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    ttl_expires_at = models.DateTimeField(null=True, blank=True, help_text="TTL expiration for data refresh")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["external_id"]),
+            models.Index(fields=["key_fp"]),
+            models.Index(fields=["ttl_expires_at"]),
+        ]
+    
+    def __str__(self):
+        return f"Yad2ListingGlobal({self.external_id}, {self.title})"
+
+
+class GisDataGlobal(models.Model):
+    """Global GIS data table for deduplication."""
+    
+    gis_id = models.CharField(max_length=100, unique=True, db_index=True)
+    key_fp = models.CharField(max_length=64, db_index=True, help_text="Stable fingerprint from cadastral identifiers")
+    key_json = models.JSONField(default=dict, help_text="Cadastral identifiers for debugging")
+    
+    # Core GIS data fields
+    x = models.FloatField(blank=True, null=True, help_text="ITM X coordinate")
+    y = models.FloatField(blank=True, null=True, help_text="ITM Y coordinate")
+    block = models.CharField(max_length=50, blank=True, null=True)
+    parcel = models.CharField(max_length=50, blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
+    
+    # GIS data components
+    blocks_data = models.JSONField(default=list, help_text="Block information")
+    parcels_data = models.JSONField(default=list, help_text="Parcel information")
+    permits_data = models.JSONField(default=list, help_text="Building permits")
+    rights_data = models.JSONField(default=list, help_text="Land use rights")
+    shelters_data = models.JSONField(default=list, help_text="Shelter information")
+    green_areas_data = models.JSONField(default=list, help_text="Green areas")
+    noise_levels_data = models.JSONField(default=list, help_text="Noise levels")
+    antennas_data = models.JSONField(default=list, help_text="Cell antennas")
+    land_use_detailed_data = models.JSONField(default=list, help_text="Detailed land use")
+    preservation_data = models.JSONField(default=list, help_text="Preservation data")
+    dangerous_buildings_data = models.JSONField(default=list, help_text="Dangerous buildings")
+    local_plans_data = models.JSONField(default=list, help_text="Local plans")
+    city_plans_data = models.JSONField(default=list, help_text="City-wide plans")
+    addresses_data = models.JSONField(default=list, help_text="Address information")
+    
+    raw = models.JSONField(default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    ttl_expires_at = models.DateTimeField(null=True, blank=True, help_text="TTL expiration for data refresh")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["gis_id"]),
+            models.Index(fields=["key_fp"]),
+            models.Index(fields=["ttl_expires_at"]),
+            models.Index(fields=["block", "parcel"]),
+        ]
+    
+    def __str__(self):
+        return f"GisDataGlobal({self.gis_id}, {self.block}/{self.parcel})"
+
+
+class GovMapDataGlobal(models.Model):
+    """Global GovMap data table for deduplication."""
+    
+    govmap_id = models.CharField(max_length=100, unique=True, db_index=True)
+    key_fp = models.CharField(max_length=64, db_index=True, help_text="Stable fingerprint from cadastral identifiers")
+    key_json = models.JSONField(default=dict, help_text="Cadastral identifiers for debugging")
+    
+    # Core GovMap data fields
+    address = models.CharField(max_length=200, blank=True, null=True)
+    x = models.FloatField(blank=True, null=True, help_text="ITM X coordinate")
+    y = models.FloatField(blank=True, null=True, help_text="ITM Y coordinate")
+    block = models.CharField(max_length=50, blank=True, null=True)
+    parcel = models.CharField(max_length=50, blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
+    
+    # GovMap API data
+    autocomplete_data = models.JSONField(default=dict, help_text="Autocomplete results")
+    parcel_data = models.JSONField(default=dict, help_text="Parcel API data")
+    layers_catalog_data = models.JSONField(default=dict, help_text="Layers catalog")
+    search_types_data = models.JSONField(default=dict, help_text="Search types")
+    
+    raw = models.JSONField(default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    ttl_expires_at = models.DateTimeField(null=True, blank=True, help_text="TTL expiration for data refresh")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["govmap_id"]),
+            models.Index(fields=["key_fp"]),
+            models.Index(fields=["ttl_expires_at"]),
+            models.Index(fields=["block", "parcel"]),
+        ]
+    
+    def __str__(self):
+        return f"GovMapDataGlobal({self.govmap_id}, {self.address})"
+
+
+class GovDataGlobal(models.Model):
+    """Global Gov data table for deduplication."""
+    
+    gov_id = models.CharField(max_length=100, unique=True, db_index=True)
+    key_fp = models.CharField(max_length=64, db_index=True, help_text="Stable fingerprint from cadastral identifiers")
+    key_json = models.JSONField(default=dict, help_text="Cadastral identifiers for debugging")
+    
+    # Core Gov data fields
+    block = models.CharField(max_length=50, blank=True, null=True)
+    parcel = models.CharField(max_length=50, blank=True, null=True)
+    
+    # Gov data components
+    transactions_data = models.JSONField(default=list, help_text="Transaction history")
+    decisive_data = models.JSONField(default=list, help_text="Decisive appraisals")
+    rami_plans_data = models.JSONField(default=list, help_text="RAMI plans")
+    
+    raw = models.JSONField(default=dict)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    ttl_expires_at = models.DateTimeField(null=True, blank=True, help_text="TTL expiration for data refresh")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["gov_id"]),
+            models.Index(fields=["key_fp"]),
+            models.Index(fields=["ttl_expires_at"]),
+            models.Index(fields=["block", "parcel"]),
+        ]
+    
+    def __str__(self):
+        return f"GovDataGlobal({self.gov_id}, {self.block}/{self.parcel})"
+
+
+# Link Tables
+class AssetToDeal(models.Model):
+    """Link table connecting assets to global real estate transactions."""
+    
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="deal_links")
+    transaction = models.ForeignKey(RealEstateTransactionGlobal, on_delete=models.CASCADE, related_name="asset_links")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ["asset", "transaction"]
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["transaction"]),
+        ]
+    
+    def __str__(self):
+        return f"AssetToDeal({self.asset_id}, {self.transaction.deal_id})"
+
+
+class AssetToMavatPlan(models.Model):
+    """Link table connecting assets to global MAVAT plans."""
+    
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="mavat_links")
+    plan = models.ForeignKey(MavatPlanGlobal, on_delete=models.CASCADE, related_name="asset_links")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ["asset", "plan"]
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["plan"]),
+        ]
+    
+    def __str__(self):
+        return f"AssetToMavatPlan({self.asset_id}, {self.plan.plan_id})"
+
+
+class AssetToRamiParcel(models.Model):
+    """Link table connecting assets to global RAMI parcels."""
+    
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="rami_links")
+    parcel = models.ForeignKey(RamiParcelGlobal, on_delete=models.CASCADE, related_name="asset_links")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ["asset", "parcel"]
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["parcel"]),
+        ]
+    
+    def __str__(self):
+        return f"AssetToRamiParcel({self.asset_id}, {self.parcel.rami_id})"
+
+
+class AssetToDecisiveRecord(models.Model):
+    """Link table connecting assets to global decisive records."""
+    
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="decisive_links")
+    record = models.ForeignKey(DecisiveRecordGlobal, on_delete=models.CASCADE, related_name="asset_links")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ["asset", "record"]
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["record"]),
+        ]
+    
+    def __str__(self):
+        return f"AssetToDecisiveRecord({self.asset_id}, {self.record.decisive_id})"
+
+
+class AssetToYad2Listing(models.Model):
+    """Link table connecting assets to global Yad2 listings."""
+    
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="yad2_links")
+    listing = models.ForeignKey(Yad2ListingGlobal, on_delete=models.CASCADE, related_name="asset_links")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ["asset", "listing"]
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["listing"]),
+        ]
+    
+    def __str__(self):
+        return f"AssetToYad2Listing({self.asset_id}, {self.listing.external_id})"
+
+
+class AssetToGisData(models.Model):
+    """Link table connecting assets to global GIS data."""
+    
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="gis_links")
+    gis_data = models.ForeignKey(GisDataGlobal, on_delete=models.CASCADE, related_name="asset_links")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ["asset", "gis_data"]
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["gis_data"]),
+        ]
+    
+    def __str__(self):
+        return f"AssetToGisData({self.asset_id}, {self.gis_data.gis_id})"
+
+
+class AssetToGovMapData(models.Model):
+    """Link table connecting assets to global GovMap data."""
+    
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="govmap_links")
+    govmap_data = models.ForeignKey(GovMapDataGlobal, on_delete=models.CASCADE, related_name="asset_links")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ["asset", "govmap_data"]
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["govmap_data"]),
+        ]
+    
+    def __str__(self):
+        return f"AssetToGovMapData({self.asset_id}, {self.govmap_data.govmap_id})"
+
+
+class AssetToGovData(models.Model):
+    """Link table connecting assets to global Gov data."""
+    
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="gov_links")
+    gov_data = models.ForeignKey(GovDataGlobal, on_delete=models.CASCADE, related_name="asset_links")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ["asset", "gov_data"]
+        indexes = [
+            models.Index(fields=["asset"]),
+            models.Index(fields=["gov_data"]),
+        ]
+    
+    def __str__(self):
+        return f"AssetToGovData({self.asset_id}, {self.gov_data.gov_id})"
+
+
 class Report(models.Model):
     """Report model for storing generated report metadata."""
 

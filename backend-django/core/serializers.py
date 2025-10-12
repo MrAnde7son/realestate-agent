@@ -1,6 +1,13 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile, PlanType, UserPlan, Document
+from .models import (
+    Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, 
+    Snapshot, AssetContribution, UserProfile, PlanType, UserPlan, Document,
+    RealEstateTransactionGlobal, MavatPlanGlobal, RamiParcelGlobal, 
+    DecisiveRecordGlobal, Yad2ListingGlobal, GisDataGlobal, GovMapDataGlobal, GovDataGlobal,
+    AssetToDeal, AssetToMavatPlan, AssetToRamiParcel, 
+    AssetToDecisiveRecord, AssetToYad2Listing, AssetToGisData, AssetToGovMapData, AssetToGovData
+)
 
 User = get_user_model()
 
@@ -47,10 +54,190 @@ class MetaSerializerMixin(serializers.ModelSerializer):
         return data
 
 
+# Global Source Serializers
+class RealEstateTransactionGlobalSerializer(serializers.ModelSerializer):
+    """Serializer for global real estate transactions."""
+    
+    class Meta:
+        model = RealEstateTransactionGlobal
+        fields = [
+            'id', 'deal_id', 'key_fp', 'key_json', 'date', 'price', 'rooms', 
+            'area', 'floor', 'address', 'raw', 'created_at', 'updated_at', 'ttl_expires_at'
+        ]
+
+
+class MavatPlanGlobalSerializer(serializers.ModelSerializer):
+    """Serializer for global MAVAT plans."""
+    
+    class Meta:
+        model = MavatPlanGlobal
+        fields = [
+            'id', 'plan_id', 'key_fp', 'key_json', 'plan_number', 'plan_title', 
+            'status', 'effective_date', 'plan_type', 'raw', 'created_at', 'updated_at', 'ttl_expires_at'
+        ]
+
+
+class RamiParcelGlobalSerializer(serializers.ModelSerializer):
+    """Serializer for global RAMI parcels."""
+    
+    class Meta:
+        model = RamiParcelGlobal
+        fields = [
+            'id', 'rami_id', 'key_fp', 'key_json', 'plan_number', 'plan_name', 
+            'status', 'status_date', 'market_value', 'building_rights', 'raw', 
+            'created_at', 'updated_at', 'ttl_expires_at'
+        ]
+
+
+class DecisiveRecordGlobalSerializer(serializers.ModelSerializer):
+    """Serializer for global decisive appraisal records."""
+    
+    class Meta:
+        model = DecisiveRecordGlobal
+        fields = [
+            'id', 'decisive_id', 'key_fp', 'key_json', 'appraiser', 'date', 
+            'appraised_value', 'url', 'raw', 'created_at', 'updated_at', 'ttl_expires_at'
+        ]
+
+
+class Yad2ListingGlobalSerializer(serializers.ModelSerializer):
+    """Serializer for global Yad2 listings."""
+    
+    class Meta:
+        model = Yad2ListingGlobal
+        fields = [
+            'id', 'external_id', 'key_fp', 'key_json', 'title', 'price', 
+            'address', 'rooms', 'area', 'property_type', 'url', 'raw', 
+            'created_at', 'updated_at', 'ttl_expires_at'
+        ]
+
+
+class GisDataGlobalSerializer(serializers.ModelSerializer):
+    """Serializer for global GIS data."""
+    
+    class Meta:
+        model = GisDataGlobal
+        fields = [
+            'id', 'gis_id', 'key_fp', 'key_json', 'x', 'y', 'block', 'parcel', 'city',
+            'blocks_data', 'parcels_data', 'permits_data', 'rights_data', 'shelters_data',
+            'green_areas_data', 'noise_levels_data', 'antennas_data', 'land_use_detailed_data',
+            'preservation_data', 'dangerous_buildings_data', 'local_plans_data', 'city_plans_data',
+            'addresses_data', 'raw', 'created_at', 'updated_at', 'ttl_expires_at'
+        ]
+
+
+class GovMapDataGlobalSerializer(serializers.ModelSerializer):
+    """Serializer for global GovMap data."""
+    
+    class Meta:
+        model = GovMapDataGlobal
+        fields = [
+            'id', 'govmap_id', 'key_fp', 'key_json', 'address', 'x', 'y', 'block', 'parcel', 'city',
+            'autocomplete_data', 'parcel_data', 'layers_catalog_data', 'search_types_data',
+            'raw', 'created_at', 'updated_at', 'ttl_expires_at'
+        ]
+
+
+class GovDataGlobalSerializer(serializers.ModelSerializer):
+    """Serializer for global Gov data."""
+    
+    class Meta:
+        model = GovDataGlobal
+        fields = [
+            'id', 'gov_id', 'key_fp', 'key_json', 'block', 'parcel',
+            'transactions_data', 'decisive_data', 'rami_plans_data',
+            'raw', 'created_at', 'updated_at', 'ttl_expires_at'
+        ]
+
+
+# Link Serializers
+class AssetToDealSerializer(serializers.ModelSerializer):
+    """Serializer for asset-to-deal links."""
+    transaction = RealEstateTransactionGlobalSerializer(read_only=True)
+    
+    class Meta:
+        model = AssetToDeal
+        fields = ['id', 'asset', 'transaction', 'created_at']
+
+
+class AssetToMavatPlanSerializer(serializers.ModelSerializer):
+    """Serializer for asset-to-MAVAT plan links."""
+    plan = MavatPlanGlobalSerializer(read_only=True)
+    
+    class Meta:
+        model = AssetToMavatPlan
+        fields = ['id', 'asset', 'plan', 'created_at']
+
+
+class AssetToRamiParcelSerializer(serializers.ModelSerializer):
+    """Serializer for asset-to-RAMI parcel links."""
+    parcel = RamiParcelGlobalSerializer(read_only=True)
+    
+    class Meta:
+        model = AssetToRamiParcel
+        fields = ['id', 'asset', 'parcel', 'created_at']
+
+
+class AssetToDecisiveRecordSerializer(serializers.ModelSerializer):
+    """Serializer for asset-to-decisive record links."""
+    record = DecisiveRecordGlobalSerializer(read_only=True)
+    
+    class Meta:
+        model = AssetToDecisiveRecord
+        fields = ['id', 'asset', 'record', 'created_at']
+
+
+class AssetToYad2ListingSerializer(serializers.ModelSerializer):
+    """Serializer for asset-to-Yad2 listing links."""
+    listing = Yad2ListingGlobalSerializer(read_only=True)
+    
+    class Meta:
+        model = AssetToYad2Listing
+        fields = ['id', 'asset', 'listing', 'created_at']
+
+
+class AssetToGisDataSerializer(serializers.ModelSerializer):
+    """Serializer for asset-to-GIS data links."""
+    gis_data = GisDataGlobalSerializer(read_only=True)
+    
+    class Meta:
+        model = AssetToGisData
+        fields = ['id', 'asset', 'gis_data', 'created_at']
+
+
+class AssetToGovMapDataSerializer(serializers.ModelSerializer):
+    """Serializer for asset-to-GovMap data links."""
+    govmap_data = GovMapDataGlobalSerializer(read_only=True)
+    
+    class Meta:
+        model = AssetToGovMapData
+        fields = ['id', 'asset', 'govmap_data', 'created_at']
+
+
+class AssetToGovDataSerializer(serializers.ModelSerializer):
+    """Serializer for asset-to-Gov data links."""
+    gov_data = GovDataGlobalSerializer(read_only=True)
+    
+    class Meta:
+        model = AssetToGovData
+        fields = ['id', 'asset', 'gov_data', 'created_at']
+
+
 class AssetSerializer(MetaSerializerMixin):
     address = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
     type = serializers.SerializerMethodField()
+    
+    # Global source links
+    deal_links = AssetToDealSerializer(many=True, read_only=True)
+    mavat_links = AssetToMavatPlanSerializer(many=True, read_only=True)
+    rami_links = AssetToRamiParcelSerializer(many=True, read_only=True)
+    decisive_links = AssetToDecisiveRecordSerializer(many=True, read_only=True)
+    yad2_links = AssetToYad2ListingSerializer(many=True, read_only=True)
+    gis_links = AssetToGisDataSerializer(many=True, read_only=True)
+    govmap_links = AssetToGovMapDataSerializer(many=True, read_only=True)
+    gov_links = AssetToGovDataSerializer(many=True, read_only=True)
+    
     # Expose market metric fields (snake_case) directly
     price_gap_pct = serializers.FloatField(read_only=True)
     expected_price_range = serializers.CharField(read_only=True)
@@ -176,6 +363,9 @@ class AssetSerializer(MetaSerializerMixin):
             'buildingCoveragePct','heightAnalysis','setbackAnalysis',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'last_enriched_at', 'created_at', 'meta', 'documents',
+            # Global source links
+            'deal_links', 'mavat_links', 'rami_links', 'decisive_links', 'yad2_links',
+            'gis_links', 'govmap_links', 'gov_links',
             # GIS Collector Data Fields
             'parcel_area', 'parcel_registered_area', 'parcel_status', 'parcel_accuracy',
             'block_area', 'block_registered_area', 'block_total_parcels', 'block_status', 'block_last_update',

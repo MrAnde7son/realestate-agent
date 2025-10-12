@@ -172,7 +172,17 @@ DOCUMENT_STORAGE_PATH = 'documents'
 MAX_DOCUMENT_SIZE = 10 * 1024 * 1024  # 10MB
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+CORS_ALLOWED_ORIGINS = [
+   'https://app.nadlaner.com', 'https://nadlaner.com', 'https://api.nadlaner.com'
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://app.nadlaner.com',
+    'https://nadlaner.com',
+    'https://api.nadlaner.com',
+]
 
 # REST Framework settings
 REST_FRAMEWORK = {

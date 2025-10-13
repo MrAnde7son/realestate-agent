@@ -1,0 +1,144 @@
+import base64
+import json
+
+import pytest
+
+from handasa.client import (
+    FILES_API_URL,
+    PROCESS_QUERY_URL,
+    SEARCH_RESULTS_URL,
+    HandasaClient,
+)
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.status_code = payload.get('status', 200)
+        self._text = payload.get('text', '')
+        self._content = payload.get('content', self._text.encode('utf-8'))
+        self._json = payload.get('json_data')
+
+    @property
+    def text(self):
+        return self._text
+
+    @property
+    def content(self):
+        return self._content
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+    def json(self):
+        if self._json is not None:
+            return self._json
+        return json.loads(self._content.decode('utf-8'))
+
+
+class FakeSession:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.headers = {}
+
+    def _next(self):
+        if not self.responses:
+            raise AssertionError("No more fake responses configured")
+        return self.responses.pop(0)
+
+    def get(self, url, **kwargs):
+        payload = self._next()
+        assert payload['method'] == 'GET'
+        assert payload['url'] == url
+        expected_params = payload.get('params')
+        if expected_params is not None:
+            assert kwargs.get('params') == expected_params
+        return FakeResponse(payload)
+
+    def post(self, url, data=None, json=None, **kwargs):
+        payload = self._next()
+        assert payload['method'] == 'POST'
+        assert payload['url'] == url
+        if 'content' not in payload:
+            if isinstance(data, bytes):
+                payload['content'] = data
+            elif isinstance(data, str):
+                payload['content'] = data.encode('utf-8')
+            else:
+                payload['content'] = b''
+        return FakeResponse(payload)
+
+
+@pytest.fixture
+def process_query_payload():
+    return [
+        {
+            'ResultTableCollection': {
+                'ResultTables': [
+                    {
+                        'ResultRows': [
+                            {
+                                'UniqueID': '{HANDASA-123}',
+                                'Title': 'Permit Title',
+                                'TlvMPEngDocumentType': 'היתר בנייה',
+                                'TlvMPEngPermitNum': 'H-123',
+                                'TlvMPEngOnlineReqNum': 'REQ-123',
+                                'TlvMPEngIssueDate': '/Date(1704067200000)/',
+                                'Path': 'https://handasa.tel-aviv.gov.il/documents/123',
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+
+
+def test_get_permits_normalizes_handasa_rows(process_query_payload):
+    session = FakeSession([
+        {
+            'method': 'GET',
+            'url': SEARCH_RESULTS_URL,
+            'text': '<input id="__REQUESTDIGEST" value="digest-token" />',
+        },
+        {
+            'method': 'POST',
+            'url': PROCESS_QUERY_URL,
+            'content': json.dumps(process_query_payload).encode('utf-8'),
+        },
+    ])
+
+    client = HandasaClient(session=session)
+    permits = client.get_permits('6952', '127')
+
+    assert len(permits) == 1
+    permit = permits[0]
+    assert permit['external_id'] == 'HANDASA-123'
+    assert permit['permission_num'] == 'H-123'
+    assert permit['request_num'] == 'REQ-123'
+    assert permit['document_date'] == '2024-01-01'
+    assert permit['external_url'].endswith('HANDASA-123')
+    assert permit['source'] == 'Handasa'
+
+
+def test_download_document_decodes_buffer():
+    encoded = base64.b64encode(b'pdf-bytes').decode('ascii')
+    session = FakeSession([
+        {
+            'method': 'GET',
+            'url': FILES_API_URL,
+            'params': {'id': 'HANDASA-123'},
+            'json_data': {
+                'fileName': 'permit.pdf',
+                'buffer': encoded,
+                'contentType': 'application/pdf',
+            },
+        }
+    ])
+
+    client = HandasaClient(session=session)
+    result = client.download_document('HANDASA-123')
+
+    assert result['file_name'] == 'permit.pdf'
+    assert result['content'] == b'pdf-bytes'
+    assert result['content_type'] == 'application/pdf'

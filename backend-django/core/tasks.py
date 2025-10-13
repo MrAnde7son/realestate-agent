@@ -31,7 +31,7 @@ def send_notification_email(
 
 
 @shared_task
-def run_data_pipeline(asset_id: int, max_pages: int = 1):
+def run_data_pipeline(asset_id: int, max_pages: int = 1, force_refresh: bool = False):
     """Run the high-level data pipeline for a newly added asset.
 
     Looks up the asset's address information and feeds it into
@@ -68,7 +68,16 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     parcel = asset.parcel or ""
     logger.info("Starting data pipeline for asset %s", asset_id)
     try:
-        result = pipeline.run(city, street, house_number, max_pages=max_pages, asset_id=asset_id, block=block, parcel=parcel)
+        result = pipeline.run(
+            city,
+            street,
+            house_number,
+            max_pages=max_pages,
+            asset_id=asset_id,
+            block=block,
+            parcel=parcel,
+            force_refresh=force_refresh,
+        )
         track('asset_sync', asset_id=asset_id)
         asset.status = "done"
         asset.last_enriched_at = timezone.now()

@@ -374,12 +374,43 @@ class DocumentSerializerTest(TestCase):
         
         serializer = DocumentSerializer(document)
         data = serializer.data
-        
+
         self.assertEqual(data['title'], 'Test Document')
         self.assertEqual(data['filename'], 'test.pdf')
         self.assertEqual(data['file_size'], 1024)
         self.assertIn('file_url', data)
         self.assertIn('is_downloadable', data)
+        self.assertIn(self.asset.id, data['asset_ids'])
+        self.assertTrue(any(asset['id'] == self.asset.id for asset in data['assets']))
+
+    def test_document_serializer_updates_asset_ids(self):
+        from core.serializers import DocumentSerializer
+
+        other_asset = Asset.objects.create(
+            scope_type='address',
+            city='Haifa',
+            street='Main',
+            number=5,
+            created_by=self.user
+        )
+
+        document = Document.objects.create(
+            asset=self.asset,
+            user=self.user,
+            title='Test Document',
+            filename='test.pdf',
+            file_path='documents/test.pdf',
+            file_size=1024,
+            mime_type='application/pdf'
+        )
+
+        serializer = DocumentSerializer(document, data={'asset_ids': [other_asset.id]}, partial=True)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        document.refresh_from_db()
+        self.assertEqual(list(document.assets.values_list('id', flat=True)), [other_asset.id])
+        self.assertEqual(sorted(a.id for a in document.all_assets()), sorted([self.asset.id, other_asset.id]))
     
     def test_document_upload_serializer_validation(self):
         """Test DocumentUploadSerializer validation."""

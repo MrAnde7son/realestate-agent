@@ -16,6 +16,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.db.models import Q
 from asgiref.sync import async_to_sync
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -74,6 +75,13 @@ except ImportError:
 # Import tasks
 from .tasks import run_data_pipeline
 from .analytics import track, track_search, track_feature_usage
+from .services.asset_links import (
+    asset_documents_all,
+    asset_transactions_all,
+    asset_permits_all,
+    asset_plans_all,
+    asset_listings_all,
+)
 
 # Import services
 from .auth_service import AuthenticationService
@@ -1381,7 +1389,20 @@ def asset_detail(request, asset_id):
     try:
         # Get asset using Django ORM with attribution data and documents
         try:
-            asset = Asset.objects.select_related('created_by', 'last_updated_by').prefetch_related('documents').get(id=asset_id)
+            asset = (
+                Asset.objects.select_related('created_by', 'last_updated_by')
+                .prefetch_related(
+                    'documents',
+                    'documents_m2m',
+                    'transactions',
+                    'transactions_m2m',
+                    'permits',
+                    'permits_m2m',
+                    'plans',
+                    'plans_m2m',
+                )
+                .get(id=asset_id)
+            )
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
@@ -1406,7 +1427,7 @@ def asset_detail(request, asset_id):
             )
 
         # Get transactions
-        transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
+        transactions = asset_transactions_all(asset)
         transaction_list = []
         for trans in transactions:
             transaction_list.append(
@@ -1488,7 +1509,8 @@ def asset_detail(request, asset_id):
         asset_data = serializer.data
         
         # Debug: Log documents count
-        logger.info(f"Asset {asset_id} has {asset.documents.count()} documents")
+        total_documents_qs = asset_documents_all(asset)
+        logger.info(f"Asset {asset_id} has {total_documents_qs.count()} documents")
         logger.info(f"Asset {asset_id} documents in serializer: {len(asset_data.get('documents', []))}")
         
         # Get CRM data for this asset
@@ -1689,12 +1711,14 @@ def asset_transactions(request, asset_id):
         # First try to get transactions from the same neighborhood
         if asset.neighborhood:
             transactions = RealEstateTransaction.objects.filter(
-                asset__neighborhood=asset.neighborhood,
-                asset__city=asset.city
+                Q(asset__neighborhood=asset.neighborhood, asset__city=asset.city)
+                | Q(assets__neighborhood=asset.neighborhood, assets__city=asset.city)
             ).distinct()
         else:
             # Fallback to asset-specific transactions if no neighborhood
-            transactions = RealEstateTransaction.objects.filter(asset_id=asset_id)
+            transactions = RealEstateTransaction.objects.filter(
+                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+            ).distinct()
         
         # Build transaction data
         transaction_data = {
@@ -1769,9 +1793,9 @@ def asset_permits(request, asset_id):
 
         # Get permits from Document model (single source of truth)
         permit_documents = Document.objects.filter(
-            asset_id=asset_id,
+            Q(asset_id=asset_id) | Q(assets__id=asset_id),
             document_type='permit'
-        ).order_by('-document_date', '-uploaded_at')
+        ).distinct().order_by('-document_date', '-uploaded_at')
 
         for doc in permit_documents:
             serializer = DocumentSerializer(doc)
@@ -1803,7 +1827,9 @@ def asset_plans(request, asset_id):
         
         # Get all plans from Plan model (created by data pipeline)
         # The data pipeline already processes RAMI and Mavat plans and stores them in the Plan model
-        local_plans = Plan.objects.filter(asset_id=asset_id)
+        local_plans = Plan.objects.filter(
+            Q(asset_id=asset_id) | Q(assets__id=asset_id)
+        ).distinct()
         for plan in local_plans:
             # Determine source from plan_number prefix or raw data
             source = "unknown"

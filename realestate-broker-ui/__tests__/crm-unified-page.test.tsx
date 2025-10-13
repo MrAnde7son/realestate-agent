@@ -70,23 +70,7 @@ describe('CrmUnifiedPage', () => {
     vi.mocked(CrmApi.getLeads).mockResolvedValue([]);
   });
 
-  it('renders leads tab by default and tracks CRM open', async () => {
-    render(<CrmUnifiedPage />);
-
-    await waitFor(() => {
-      expect(CrmApi.getContacts).toHaveBeenCalled();
-      expect(CrmApi.getLeads).toHaveBeenCalled();
-    });
-
-    expect(screen.getByTestId('leads-list')).toBeInTheDocument();
-    expect(trackEventMock).toHaveBeenCalledWith({
-      event: 'crm_opened',
-      meta: { tab: 'leads' },
-    });
-  });
-
-  it('shows contacts tab when tab query is clients', async () => {
-    mockSearchParams = new URLSearchParams('tab=clients');
+  it('renders clients tab by default and tracks CRM open', async () => {
     render(<CrmUnifiedPage />);
 
     await waitFor(() => {
@@ -95,6 +79,22 @@ describe('CrmUnifiedPage', () => {
     });
 
     expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
+    expect(trackEventMock).toHaveBeenCalledWith({
+      event: 'crm_opened',
+      meta: { tab: 'clients' },
+    });
+  });
+
+  it('shows leads tab when tab query is leads', async () => {
+    mockSearchParams = new URLSearchParams('tab=leads');
+    render(<CrmUnifiedPage />);
+
+    await waitFor(() => {
+      expect(CrmApi.getContacts).toHaveBeenCalled();
+      expect(CrmApi.getLeads).toHaveBeenCalled();
+    });
+
+    expect(screen.getByTestId('leads-list')).toBeInTheDocument();
   });
 
   it('updates the URL and analytics when switching tabs', async () => {
@@ -107,21 +107,21 @@ describe('CrmUnifiedPage', () => {
 
     // Wait for the component to finish loading
     await waitFor(() => {
-      expect(screen.getByTestId('leads-list')).toBeInTheDocument();
+      expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
     }, { timeout: 5000 });
 
     trackEventMock.mockClear();
-    const clientTabButton = screen.getByRole('tab', { name: 'לקוחות' });
-    
-    fireEvent.mouseDown(clientTabButton);
+    const leadsTabButton = screen.getByRole('tab', { name: 'לידים' });
+
+    fireEvent.mouseDown(leadsTabButton);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/crm?tab=clients');
+      expect(mockReplace).toHaveBeenCalledWith('/crm?tab=leads');
     });
 
     expect(trackEventMock).toHaveBeenCalledWith({
       event: 'crm_tab_changed',
-      meta: { tab: 'clients' },
+      meta: { tab: 'leads' },
     });
   });
 
@@ -135,23 +135,25 @@ describe('CrmUnifiedPage', () => {
 
     // Wait for the component to finish loading
     await waitFor(() => {
-      expect(screen.getByTestId('leads-list')).toBeInTheDocument();
+      expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
     }, { timeout: 5000 });
 
     trackEventMock.mockClear();
-    fireEvent.click(screen.getByText('לקוחות רשומים'));
+    const leadsCardHeading = screen.getByRole('heading', { name: 'לידים' });
+    fireEvent.click(leadsCardHeading);
 
     expect(trackEventMock).toHaveBeenCalledWith({
       event: 'crm_card_clicked',
-      meta: { target: 'clients' },
+      meta: { target: 'leads' },
     });
     expect(trackEventMock).toHaveBeenCalledWith({
       event: 'crm_tab_changed',
-      meta: { tab: 'clients' },
+      meta: { tab: 'leads' },
     });
   });
 
   it('navigates to clients when lead is converted', async () => {
+    mockSearchParams = new URLSearchParams('tab=leads');
     render(<CrmUnifiedPage />);
 
     await waitFor(() => {

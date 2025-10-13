@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from .models import Asset, Permit, Plan, Document
+from django.db.models import Q
+
 from .serializers import PermitSerializer, PlanSerializer, DocumentSerializer
 from .services.cost_service import CostService
 
@@ -146,7 +148,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
         """Filter documents by user permissions."""
         if self.request.user.is_staff:
             return Document.objects.all()
-        return Document.objects.filter(asset__created_by=self.request.user)
+        return Document.objects.filter(
+            Q(asset__created_by=self.request.user) | Q(assets__created_by=self.request.user)
+        ).distinct()
     
     @extend_schema(
         summary="Get documents by asset",
@@ -173,7 +177,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            documents = self.get_queryset().filter(asset_id=asset_id)
+            documents = self.get_queryset().filter(
+                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+            ).distinct()
             serializer = self.get_serializer(documents, many=True)
             return Response(serializer.data)
         except Exception as e:

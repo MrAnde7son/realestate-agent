@@ -2,6 +2,7 @@ import logging
 from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
 from django.utils import timezone
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -12,6 +13,7 @@ from rest_framework.views import APIView
 from .models import Asset, Document
 from .serializers import DocumentSerializer, DocumentUploadSerializer, DocumentListSerializer
 from .storage import document_storage
+from .services.asset_links import asset_documents_all
 
 try:
     from utils.parse_tabu import TabuParser
@@ -143,7 +145,7 @@ class DocumentListView(APIView):
                 )
             
             # Get documents
-            documents = asset.documents.all()
+            documents = asset_documents_all(asset)
             serializer = DocumentListSerializer(documents, many=True)
             
             return Response(serializer.data)
@@ -177,7 +179,10 @@ class AssetRightsView(APIView):
             }
 
             # 1. Get Tabu data from uploaded documents (use most recent document only to avoid duplicates)
-            documents = asset.documents.filter(document_type='tabu').order_by('-uploaded_at')
+            documents = Document.objects.filter(
+                (Q(asset=asset) | Q(assets=asset)),
+                document_type='tabu'
+            ).distinct().order_by('-uploaded_at')
             if documents.exists():
                 # Use only the most recent Tabu document to avoid duplicates
                 document = documents.first()
@@ -1253,12 +1258,21 @@ class DocumentDetailView(APIView):
         """Get document details."""
         try:
             # Get document
-            document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
-            
-            # Check permissions
-            if not (document.asset.created_by == request.user or request.user.is_staff):
+            document = get_object_or_404(
+                Document,
+                Q(id=document_id),
+                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+            )
+
+            linked_assets = list(document.all_assets())
+            if not (
+                request.user.is_staff
+                or any(
+                    getattr(asset, 'created_by', None) == request.user for asset in linked_assets if asset
+                )
+            ):
                 return Response(
-                    {'error': 'Permission denied'}, 
+                    {'error': 'Permission denied'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             
@@ -1276,12 +1290,21 @@ class DocumentDetailView(APIView):
         """Update document metadata."""
         try:
             # Get document
-            document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
-            
-            # Check permissions
-            if not (document.asset.created_by == request.user or request.user.is_staff):
+            document = get_object_or_404(
+                Document,
+                Q(id=document_id),
+                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+            )
+
+            linked_assets = list(document.all_assets())
+            if not (
+                request.user.is_staff
+                or any(
+                    getattr(asset, 'created_by', None) == request.user for asset in linked_assets if asset
+                )
+            ):
                 return Response(
-                    {'error': 'Permission denied'}, 
+                    {'error': 'Permission denied'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             
@@ -1304,12 +1327,21 @@ class DocumentDetailView(APIView):
         """Delete document."""
         try:
             # Get document
-            document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
-            
-            # Check permissions
-            if not (document.asset.created_by == request.user or request.user.is_staff):
+            document = get_object_or_404(
+                Document,
+                Q(id=document_id),
+                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+            )
+
+            linked_assets = list(document.all_assets())
+            if not (
+                request.user.is_staff
+                or any(
+                    getattr(asset, 'created_by', None) == request.user for asset in linked_assets if asset
+                )
+            ):
                 return Response(
-                    {'error': 'Permission denied'}, 
+                    {'error': 'Permission denied'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             
@@ -1337,10 +1369,19 @@ class DocumentDownloadView(APIView):
         """Download a document file."""
         try:
             # Get document
-            document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
-            
-            # Check permissions
-            if not (document.asset.created_by == request.user or request.user.is_staff):
+            document = get_object_or_404(
+                Document,
+                Q(id=document_id),
+                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+            )
+
+            linked_assets = list(document.all_assets())
+            if not (
+                request.user.is_staff
+                or any(
+                    getattr(asset, 'created_by', None) == request.user for asset in linked_assets if asset
+                )
+            ):
                 return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
             
             # Check if file exists
@@ -1404,7 +1445,7 @@ def create_document_from_meta(request, asset_id):
         for doc_data in documents:
             # Skip if already exists as Document record
             if Document.objects.filter(
-                asset=asset, 
+                (Q(asset=asset) | Q(assets=asset)),
                 external_id=doc_data.get('id')
             ).exists():
                 continue

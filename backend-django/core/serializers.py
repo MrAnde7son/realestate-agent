@@ -1,6 +1,34 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Asset, Permit, Plan, SupportTicket, ConsultationRequest, AlertRule, AlertEvent, Snapshot, AssetContribution, UserProfile, PlanType, UserPlan, Document
+from .models import (
+    Asset,
+    Permit,
+    Plan,
+    SupportTicket,
+    ConsultationRequest,
+    AlertRule,
+    AlertEvent,
+    Snapshot,
+    AssetContribution,
+    UserProfile,
+    PlanType,
+    UserPlan,
+    Document,
+    RealEstateTransaction,
+    Listing,
+    AssetDocument,
+    AssetTransaction,
+    AssetPermit,
+    AssetPlan,
+    AssetListing,
+)
+from .services.asset_links import (
+    asset_documents_all,
+    asset_transactions_all,
+    asset_permits_all,
+    asset_plans_all,
+    asset_listings_all,
+)
 
 User = get_user_model()
 
@@ -130,8 +158,8 @@ class AssetSerializer(MetaSerializerMixin):
         """Get documents from both Document model and meta field."""
         documents = []
         
-        # Get documents from Document model
-        for doc in obj.documents.all():
+        # Get documents from Document model (legacy + M2M)
+        for doc in asset_documents_all(obj):
             documents.append({
                 'id': doc.id,
                 'title': doc.title,
@@ -193,11 +221,15 @@ class PermitSerializer(MetaSerializerMixin):
     is_tama_38 = serializers.ReadOnlyField()
     has_construction_allowances = serializers.ReadOnlyField()
     display_title = serializers.ReadOnlyField()
+    asset_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, write_only=True
+    )
+    assets = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Permit
         fields = [
-            'id', 'asset', 'permit_number', 'request_num', 'description', 'status',
+            'id', 'asset', 'asset_ids', 'assets', 'permit_number', 'request_num', 'description', 'status',
             # Dates
             'issued_date', 'permission_date', 'expiry_date', 'tr_hathalat_bniya', 'date_import',
             # GIS details
@@ -221,15 +253,92 @@ class PermitSerializer(MetaSerializerMixin):
             # Metadata
             'source', 'raw', 'display_title', 'created_at', 'updated_at'
         ]
+        read_only_fields = ['asset']
+
+    def get_assets(self, instance):
+        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
+        return [{'id': asset.id} for asset in assets_qs]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
+        data['asset_ids'] = [asset.id for asset in assets_qs]
+        return data
+
+    def _sync_assets(self, instance, asset_ids):
+        current_ids = set(instance.assets.values_list('id', flat=True))
+        desired_ids = set(asset_ids)
+        add_ids = desired_ids - current_ids
+        remove_ids = current_ids - desired_ids
+
+        for asset_id in add_ids:
+            AssetPermit.objects.get_or_create(permit=instance, asset_id=asset_id)
+        if remove_ids:
+            AssetPermit.objects.filter(permit=instance, asset_id__in=remove_ids).delete()
+
+    def create(self, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().create(validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
+
+    def update(self, instance, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().update(instance, validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
 
 
 class PlanSerializer(MetaSerializerMixin):
+    asset_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, write_only=True
+    )
+    assets = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Plan
         fields = [
-            'id', 'asset', 'plan_number', 'description', 'status',
+            'id', 'asset', 'asset_ids', 'assets', 'plan_number', 'description', 'status',
             'effective_date', 'file_url'
         ]
+        read_only_fields = ['asset']
+
+    def get_assets(self, instance):
+        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
+        return [{'id': asset.id} for asset in assets_qs]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
+        data['asset_ids'] = [asset.id for asset in assets_qs]
+        return data
+
+    def _sync_assets(self, instance, asset_ids):
+        current_ids = set(instance.assets.values_list('id', flat=True))
+        desired_ids = set(asset_ids)
+        add_ids = desired_ids - current_ids
+        remove_ids = current_ids - desired_ids
+
+        for asset_id in add_ids:
+            AssetPlan.objects.get_or_create(plan=instance, asset_id=asset_id)
+        if remove_ids:
+            AssetPlan.objects.filter(plan=instance, asset_id__in=remove_ids).delete()
+
+    def create(self, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().create(validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
+
+    def update(self, instance, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().update(instance, validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
 
 
 class SupportTicketSerializer(serializers.ModelSerializer):
@@ -476,19 +585,66 @@ class UserPlanInfoSerializer(serializers.Serializer):
 
 class DocumentSerializer(serializers.ModelSerializer):
     """Serializer for Document model."""
+
     file_url = serializers.ReadOnlyField()
     is_downloadable = serializers.ReadOnlyField()
     uploaded_by = serializers.StringRelatedField(source='user', read_only=True)
-    
+    asset_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, write_only=True
+    )
+    assets = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Document
         fields = [
-            'id', 'asset', 'user', 'title', 'description', 'document_type', 
-            'status', 'filename', 'file_size', 'mime_type', 'external_id', 
-            'external_url', 'source', 'document_date', 'uploaded_at', 
+            'id', 'asset', 'asset_ids', 'assets', 'user', 'title', 'description', 'document_type',
+            'status', 'filename', 'file_size', 'mime_type', 'external_id',
+            'external_url', 'source', 'document_date', 'uploaded_at',
             'updated_at', 'file_url', 'is_downloadable', 'uploaded_by', 'meta'
         ]
-        read_only_fields = ['id', 'user', 'uploaded_at', 'updated_at', 'file_url', 'is_downloadable']
+        read_only_fields = ['id', 'asset', 'user', 'uploaded_at', 'updated_at', 'file_url', 'is_downloadable']
+
+    def get_assets(self, instance):
+        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
+        return [
+            {
+                'id': asset.id,
+                'address': getattr(asset, 'address', None),
+                'city': getattr(asset, 'city', None),
+            }
+            for asset in assets_qs
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
+        data['asset_ids'] = [asset.id for asset in assets_qs]
+        return data
+
+    def _sync_assets(self, instance, asset_ids):
+        current_ids = set(instance.assets.values_list('id', flat=True))
+        desired_ids = set(asset_ids)
+        add_ids = desired_ids - current_ids
+        remove_ids = current_ids - desired_ids
+
+        for asset_id in add_ids:
+            AssetDocument.objects.get_or_create(document=instance, asset_id=asset_id)
+        if remove_ids:
+            AssetDocument.objects.filter(document=instance, asset_id__in=remove_ids).delete()
+
+    def create(self, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().create(validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
+
+    def update(self, instance, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().update(instance, validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
 
 
 class DocumentUploadSerializer(serializers.Serializer):
@@ -535,6 +691,104 @@ class DocumentListSerializer(serializers.ModelSerializer):
             'file_size', 'document_date', 'uploaded_at', 'file_url', 
             'is_downloadable', 'uploaded_by'
         ]
+
+
+class RealEstateTransactionSerializer(serializers.ModelSerializer):
+    asset_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, write_only=True
+    )
+    assets = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = RealEstateTransaction
+        fields = [
+            'id', 'asset', 'asset_ids', 'assets', 'deal_id', 'date', 'price', 'rooms',
+            'area', 'floor', 'address', 'raw', 'fetched_at'
+        ]
+        read_only_fields = ['asset']
+
+    def get_assets(self, instance):
+        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
+        return [{'id': asset.id} for asset in assets_qs]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
+        data['asset_ids'] = [asset.id for asset in assets_qs]
+        return data
+
+    def _sync_assets(self, instance, asset_ids):
+        current_ids = set(instance.assets.values_list('id', flat=True))
+        desired_ids = set(asset_ids)
+        add_ids = desired_ids - current_ids
+        remove_ids = current_ids - desired_ids
+
+        for asset_id in add_ids:
+            AssetTransaction.objects.get_or_create(transaction=instance, asset_id=asset_id)
+        if remove_ids:
+            AssetTransaction.objects.filter(transaction=instance, asset_id__in=remove_ids).delete()
+
+    def create(self, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().create(validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
+
+    def update(self, instance, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().update(instance, validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
+
+
+class ListingSerializer(serializers.ModelSerializer):
+    asset_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, write_only=True
+    )
+    assets = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Listing
+        fields = [
+            'id', 'source', 'external_id', 'title', 'url', 'raw', 'status', 'price',
+            'rooms', 'area', 'address', 'fetched_at', 'asset_ids', 'assets'
+        ]
+
+    def get_assets(self, instance):
+        assets_qs = instance.assets.all()
+        return [{'id': asset.id} for asset in assets_qs]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['asset_ids'] = list(instance.assets.values_list('id', flat=True))
+        return data
+
+    def _sync_assets(self, instance, asset_ids):
+        current_ids = set(instance.assets.values_list('id', flat=True))
+        desired_ids = set(asset_ids)
+        add_ids = desired_ids - current_ids
+        remove_ids = current_ids - desired_ids
+
+        for asset_id in add_ids:
+            AssetListing.objects.get_or_create(listing=instance, asset_id=asset_id)
+        if remove_ids:
+            AssetListing.objects.filter(listing=instance, asset_id__in=remove_ids).delete()
+
+    def create(self, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().create(validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
+
+    def update(self, instance, validated_data):
+        asset_ids = validated_data.pop('asset_ids', None)
+        instance = super().update(instance, validated_data)
+        if asset_ids is not None:
+            self._sync_assets(instance, asset_ids)
+        return instance
 
 
 class AdminUserSerializer(serializers.ModelSerializer):

@@ -196,10 +196,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     }
     
     // 1. User-uploaded documents from asset.documents
-    console.log('🔍 getAllDocuments - asset:', asset)
-    console.log('🔍 getAllDocuments - asset.documents:', asset?.documents)
     if (asset?.documents) {
-      console.log('📄 Processing', asset.documents.length, 'user-uploaded documents')
       allDocs.push(...asset.documents.map((doc: any) => ({
         ...doc,
         type: translateDocumentType(doc.type || doc.document_type),
@@ -207,7 +204,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         category: 'מסמכים שהועלו ידנית'
       })))
     } else {
-      console.log('❌ No asset.documents found')
+      console.log('No asset.documents found')
     }
     
     // 2. Permits from GIS
@@ -405,9 +402,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .then(response => {
         if (!response.ok) throw new Error(response.error || 'Failed to load asset')
         const assetData = response.data?.asset || response.data
-        console.log('🔍 Asset data received:', assetData)
-        console.log('📄 Documents in asset:', assetData.documents)
-        console.log('📄 Documents count:', assetData.documents?.length || 0)
         setAsset(assetData)
       })
       .catch(err => {

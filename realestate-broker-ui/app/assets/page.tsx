@@ -127,6 +127,7 @@ export default function AssetsPage() {
   const [parcelFilter, setParcelFilter] = useState<string>(() => searchParams.get("parcel") ?? "all");
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
   const { user, isAuthenticated, refreshUser } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
   const router = useRouter();
   const pathname = usePathname();
@@ -443,6 +444,15 @@ export default function AssetsPage() {
       return;
     }
 
+    if (!isAdmin) {
+      toast({
+        title: "אין הרשאות", 
+        description: "רק מנהל מערכת יכול למחוק נכסים", 
+        variant: "destructive",
+      });
+      return;
+    }
+
     const confirmed = await confirm({
       title: "מחיקת נכס",
       description: "האם אתה בטוח שברצונך למחוק נכס זה? פעולה זו לא ניתנת לביטול.",
@@ -492,6 +502,15 @@ export default function AssetsPage() {
   const handleBulkDelete = async () => {
     if (!isAuthenticated) {
       router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+      return;
+    }
+
+    if (!isAdmin) {
+      toast({
+        title: "אין הרשאות",
+        description: "רק מנהל מערכת יכול למחוק נכסים",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -1281,10 +1300,10 @@ export default function AssetsPage() {
                 onBackToTable={() => setViewMode('table')}
               />
             ) : (
-              <AssetsTable 
-                data={filteredAssets} 
-                loading={loading} 
-                onDelete={handleDeleteAsset}
+              <AssetsTable
+                data={filteredAssets}
+                loading={loading}
+                onDelete={isAdmin ? handleDeleteAsset : undefined}
                 searchValue={search}
                 onSearchChange={setSearch}
                 filters={{
@@ -1410,11 +1429,15 @@ export default function AssetsPage() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 bulkActions={[
-                  {
-                    label: "מחק נבחרים",
-                    action: handleBulkDelete,
-                    icon: <Trash2 className="h-4 w-4" />,
-                  },
+                  ...(isAdmin
+                    ? [
+                        {
+                          label: "מחק נבחרים",
+                          action: handleBulkDelete,
+                          icon: <Trash2 className="h-4 w-4" />,
+                        },
+                      ]
+                    : []),
                   {
                     label: "ייצא נבחרים",
                     action: handleBulkExport,

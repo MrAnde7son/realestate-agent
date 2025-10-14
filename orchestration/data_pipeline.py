@@ -831,8 +831,8 @@ class DataPipeline:
                     if gis_data:
                         results.append({"source": "gis", "data": gis_data})
 
-                    if handasa_permits:
-                        results.append({"source": "handasa", "data": handasa_permits})
+                    if handasa_archive:
+                        results.append({"source": "handasa", "data": handasa_archive})
                     
                     # Add government data to results
                     if gov_data.get("decisive"):
@@ -866,7 +866,7 @@ class DataPipeline:
                         gov_data,
                         plans,
                         mavat_plans,
-                        handasa_permits,
+                        handasa_archive,
                         listing_payloads,
                         x_itm,
                         y_itm,
@@ -895,7 +895,7 @@ class DataPipeline:
             return results
 
 
-def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_permits: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
+def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
     """Update the Asset with collected enrichment data.
 
     Improvements:
@@ -910,7 +910,7 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
     gov_data = gov_data or {}
     plans = plans or []
     mavat_plans = mavat_plans or []
-    handasa_permits = handasa_permits or []
+    handasa_archive = handasa_archive or []
     listings = listings or []
 
     # Lazy Django setup (kept inside function so unit tests without Django still work)
@@ -1013,10 +1013,10 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 'parcels': gis_data.get('parcels', []),
                 'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
             }
-            if handasa_permits:
-                asset.meta['handasa_permits'] = handasa_permits
-        elif handasa_permits:
-            asset.meta['handasa_permits'] = handasa_permits
+            if handasa_archive:
+                asset.meta['handasa_archive'] = handasa_archive
+        elif handasa_archive:
+            asset.meta['handasa_archive'] = handasa_archive
             # Privilege page attempt + parse
             try:
                 from gis.gis_client import TelAvivGS  # type: ignore
@@ -1153,7 +1153,7 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
 
     # Documents & plans ---------------------------------------------------------------
     with asset_update_phase("create_documents_and_plans", asset_id):
-        _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, handasa_permits)
+        _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, handasa_archive)
 
     # Market metrics ------------------------------------------------------------------
     with asset_update_phase("calculate_market_metrics", asset_id):
@@ -1476,9 +1476,6 @@ def _process_gis_data(asset, gis_data):
         green_areas = gis_data.get('green', [])
         asset.set_property('greenWithin300m', len(green_areas) > 0, source='GIS', url='https://www.govmap.gov.il/')
 
-    if handasa_permits:
-        _create_documents_from_permits(asset, handasa_permits, source='Handasa')
-    
     # Shelters
     if gis_data.get('shelters'):
         shelters = gis_data.get('shelters', [])
@@ -2275,7 +2272,7 @@ def _parse_document_date(date_str):
             return None
 
 
-def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, handasa_permits):
+def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, handasa_archive):
     """Create Document and Plan records from collected data."""
     try:
         User = get_user_model()
@@ -2294,8 +2291,8 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
         if gis_data and gis_data.get('permits'):
             _create_documents_from_permits(asset, gis_data.get('permits', []), source='GIS')
 
-        if handasa_permits:
-            _create_documents_from_permits(asset, handasa_permits, source='Handasa')
+        if handasa_archive:
+            _create_documents_from_permits(asset, handasa_archive, source='Handasa')
 
         # Create Document records from government appraisals
         if gov_data and gov_data.get('decisive'):

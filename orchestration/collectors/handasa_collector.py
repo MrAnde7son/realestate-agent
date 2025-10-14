@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from handasa.client import HandasaClient
 
-from .base_collector import BaseCollector
+from orchestration.collectors.base_collector import BaseCollector
 
 logger = logging.getLogger(__name__)
 
@@ -32,3 +32,9 @@ class HandasaCollector(BaseCollector):
 
 
 __all__ = ["HandasaCollector"]
+
+
+if __name__ == "__main__":
+    collector = HandasaCollector()
+    result = collector.collect("6952", "127")
+    print(result)

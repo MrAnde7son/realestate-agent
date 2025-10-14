@@ -142,3 +142,27 @@ def test_download_document_decodes_buffer():
     assert result['file_name'] == 'permit.pdf'
     assert result['content'] == b'pdf-bytes'
     assert result['content_type'] == 'application/pdf'
+
+
+def test_download_document_can_save_file(tmp_path):
+    encoded = base64.b64encode(b'some-contents').decode('ascii')
+    session = FakeSession([
+        {
+            'method': 'GET',
+            'url': FILES_API_URL,
+            'params': {'id': 'HANDASA-456'},
+            'json_data': {
+                'fileName': 'another.pdf',
+                'buffer': encoded,
+                'contentType': 'application/pdf',
+            },
+        }
+    ])
+
+    client = HandasaClient(session=session)
+    output_dir = tmp_path / 'documents'
+    result = client.download_document('HANDASA-456', save_to=output_dir)
+
+    expected_path = output_dir / 'another.pdf'
+    assert expected_path.read_bytes() == b'some-contents'
+    assert result['file_path'] == expected_path

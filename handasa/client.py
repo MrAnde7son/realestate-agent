@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timezone
 from json import loads
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import requests
 
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 SEARCH_RESULTS_URL = "https://handasa.tel-aviv.gov.il/Pages/SearchResultsAnonPageNew.aspx"
 PROCESS_QUERY_URL = "https://handasa.tel-aviv.gov.il/_vti_bin/client.svc/ProcessQuery"
 FILES_API_URL = "https://handasa.tel-aviv.gov.il/api/files"
+CONTEXT_INFO_URL = "https://handasa.tel-aviv.gov.il/_api/contextinfo"
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 
 # Large CSOM payload used by the public Handasa search form.  Keeping it in a
@@ -105,8 +106,19 @@ class HandasaClient:
         rows = self._extract_rows(data)
         return [self._normalize_row(row) for row in rows if row]
 
-    def download_document(self, unique_id: str) -> Dict[str, Any]:
-        """Download a permit document by its unique SharePoint ID."""
+    def download_document(
+        self,
+        unique_id: str,
+        save_to: Optional[Union[str, Path]] = "permits",
+        overwrite: bool = False,
+    ) -> Dict[str, Any]:
+        """Download a permit document by its unique SharePoint ID.
+
+        Args:
+            unique_id: SharePoint unique identifier (GUID with or without braces).
+            save_to: Optional destination path or directory for the decoded file.
+            overwrite: When saving, control whether to overwrite an existing file.
+        """
 
         unique_id = _normalize_unique_id(unique_id) or ""
         response = self.session.get(
@@ -126,13 +138,29 @@ class HandasaClient:
             logger.warning("Failed to decode permit %s buffer", unique_id)
             content = b""
 
-        return {
+        result = {
             "file_name": payload.get("fileName"),
             "content_type": payload.get("contentType", "application/octet-stream"),
             "content": content,
             "size": len(content),
             "raw": payload,
         }
+
+        if save_to and content:
+            target_path = Path(save_to)
+
+            file_name = result["file_name"] or f"{unique_id}.pdf"
+            target_path = target_path / file_name
+
+            if target_path.exists() and not overwrite:
+                raise FileExistsError(f"File already exists: {target_path}")
+
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            with target_path.open("wb") as handle:
+                handle.write(content)
+            result["file_path"] = target_path
+
+        return result
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -147,16 +175,64 @@ class HandasaClient:
         return block_str
 
     def _get_request_digest(self, block_param: str) -> str:
+        digest = None
+        try:
+            digest = self._fetch_request_digest_from_page(block_param)
+        except requests.RequestException as exc:
+            logger.warning("Handasa digest fetch via search page failed: %s", exc)
+
+        if not digest:
+            digest = self._fetch_request_digest_from_contextinfo()
+
+        if not digest:
+            raise RuntimeError("Failed to obtain request digest from Handasa portal")
+
+        return digest
+
+    def _fetch_request_digest_from_page(self, block_param: str) -> Optional[str]:
         response = self.session.get(
             SEARCH_RESULTS_URL,
             params={"block": block_param},
+            headers={
+                "Accept": (
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                    "image/avif,image/webp,image/apng,*/*;q=0.8"
+                ),
+                "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+            },
             timeout=self.timeout,
         )
         response.raise_for_status()
         match = _DIGEST_PATTERN.search(response.text)
-        if not match:
-            raise RuntimeError("Failed to extract request digest from Handasa portal")
-        return match.group(1)
+        if match:
+            return match.group(1)
+        logger.debug("Handasa digest not found in search page response")
+        return None
+
+    def _fetch_request_digest_from_contextinfo(self) -> Optional[str]:
+        try:
+            response = self.session.post(
+                CONTEXT_INFO_URL,
+                headers={
+                    "Accept": "application/json;odata=verbose",
+                    "Content-Type": "application/json;odata=verbose",
+                },
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            logger.debug("Handasa contextinfo request failed: %s", exc)
+            return None
+
+        digest = (
+            payload.get("d", {})
+            .get("GetContextWebInformation", {})
+            .get("FormDigestValue")
+        )
+        if not digest:
+            logger.debug("Handasa contextinfo response missing digest")
+        return digest
 
     def _build_payload(self, block_param: str) -> str:
         if _BLOCK_PLACEHOLDER not in PROCESS_QUERY_TEMPLATE:
@@ -223,3 +299,11 @@ class HandasaClient:
 
 
 __all__ = ["HandasaClient"]
+
+if __name__ == "__main__":
+    client = HandasaClient()
+    permits = client.get_permits("6952", "127")
+    for permit in permits:
+        print(permit)
+        result = client.download_document(permit["external_id"], overwrite=True)
+        print(result)

@@ -119,6 +119,50 @@ def test_get_archive_normalizes_handasa_rows(process_query_payload):
     assert permit['document_date'] == '2024-01-01'
     assert permit['external_url'].endswith('HANDASA-123')
     assert permit['source'] == 'Handasa'
+    assert permit['document_type'] == 'permit'
+    assert permit['document_category'] == 'permit'
+
+
+def test_get_archive_marks_non_permit_documents():
+    payload = [
+        {
+            'ResultTableCollection': {
+                'ResultTables': [
+                    {
+                        'ResultRows': [
+                            {
+                                'UniqueID': '{HANDASA-456}',
+                                'Title': 'Form Document',
+                                'TlvMPEngDocumentType': 'טופס 4',
+                                'TlvMPEngOnlineReqNum': 'REQ-999',
+                                'Path': 'https://handasa.tel-aviv.gov.il/documents/456',
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+    session = FakeSession([
+        {
+            'method': 'GET',
+            'url': SEARCH_RESULTS_URL,
+            'text': '<input id="__REQUESTDIGEST" value="digest-token" />',
+        },
+        {
+            'method': 'POST',
+            'url': PROCESS_QUERY_URL,
+            'content': json.dumps(payload).encode('utf-8'),
+        },
+    ])
+
+    client = HandasaClient(session=session)
+    archive = client.get_archive('6952', '127')
+
+    assert len(archive) == 1
+    doc = archive[0]
+    assert doc['external_id'] == 'HANDASA-456'
+    assert doc['document_type'] == 'other'
 
 
 def test_download_document_decodes_buffer():

@@ -2292,7 +2292,11 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
             _create_documents_from_permits(asset, gis_data.get('permits', []), source='GIS')
 
         if handasa_archive:
-            _create_documents_from_permits(asset, handasa_archive, source='Handasa')
+            handasa_permits = [
+                doc for doc in handasa_archive if (doc.get('document_type') or '').startswith('permit')
+            ]
+            if handasa_permits:
+                _create_documents_from_permits(asset, handasa_permits, source='Handasa')
 
         # Create Document records from government appraisals
         if gov_data and gov_data.get('decisive'):
@@ -2433,17 +2437,18 @@ def _create_documents_from_permits(asset, permits, source: str = 'GIS'):
         if not normalized:
             continue
 
+        doc_type = normalized.pop('document_type', 'permit')
         external_id = normalized.pop('external_id')
         defaults = {
             'asset': asset,
             'user': system_user,
-            'document_type': 'permit',
+            'document_type': doc_type,
             **normalized,
         }
 
         existing_doc = Document.objects.filter(
             asset=asset,
-            document_type='permit',
+            document_type=doc_type,
             external_id=external_id,
         ).first()
 
@@ -2452,7 +2457,8 @@ def _create_documents_from_permits(asset, permits, source: str = 'GIS'):
             existing_doc.user = system_user
             for field, value in normalized.items():
                 setattr(existing_doc, field, value)
-            existing_doc.save(update_fields=list(normalized.keys()) + ['asset', 'user'])
+            existing_doc.document_type = doc_type
+            existing_doc.save(update_fields=list(normalized.keys()) + ['asset', 'user', 'document_type'])
             logger.debug(
                 "Updated %s permit document %s for asset %s",
                 safe_source,
@@ -2515,6 +2521,13 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         status = permit.get('status', '')
         external_url = permit.get('external_url') or meta.get('Path', '')
 
+        document_type = permit.get('document_type') or 'permit'
+        document_category = permit.get('document_category')
+        meta = dict(meta or {})
+        meta['handasa_document_type'] = document_type
+        if document_category is not None:
+            meta['handasa_document_category'] = document_category
+
         return {
             'external_id': external_id,
             'title': title,
@@ -2528,6 +2541,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
             'source': 'Handasa',
             'document_date': parsed_date,
             'meta': meta,
+            'document_type': document_type,
         }
 
     # Default: GIS permits structure
@@ -2548,6 +2562,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         'source': 'GIS',
         'document_date': _convert_unix_timestamp_to_date(permit.get('permission_date', 0)),
         'meta': permit,
+        'document_type': 'permit',
     }
 
 

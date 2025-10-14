@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timezone
 from json import loads
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 
@@ -24,6 +24,69 @@ PROCESS_QUERY_TEMPLATE = Path(__file__).with_name("payload_template.xml").read_t
 
 _DIGEST_PATTERN = re.compile(r'"formDigestValue"\s*:\s*"([^"]+)"')
 _BLOCK_PLACEHOLDER = "__BLOCK_PARAM__"
+
+
+def _normalize_label(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    text = str(value).replace("\xa0", " ").replace("\u200f", "").strip()
+    text = re.sub(r"[()\[\],/]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+_HANDASA_EXACT_TYPE_MAP = {
+    _normalize_label("היתר מילולי חתום"): "permit",
+    _normalize_label("היתר-תכנית חתומה"): "permit",
+    _normalize_label("היתר תכנית חתומה"): "permit",
+    _normalize_label("היתר מילולי"): "permit",
+    _normalize_label("תשריט בית משותף"): "condo_plan",
+    _normalize_label("מפת מדידה להיתר"): "technical_drawing",
+    _normalize_label("תשריט בית משותף (עדכני)"): "condo_plan",
+}
+
+_HANDASA_KEYWORD_RULES: List[Tuple[Tuple[str, ...], str]] = [
+    (("היתר", "חת"), "permit"),
+    (("היתר", "מילול"), "permit"),
+    (("תשריט",), "condo_plan"),
+    (("מפת", "מדידה"), "technical_drawing"),
+    (("תכנית", "אדריכ"), "architectural_drawing"),
+    (("תכנית", "סניטרית"), "technical_drawing"),
+    (("תכנית", "חשמל"), "technical_drawing"),
+    (("תכנית", "חניה"), "architectural_drawing"),
+]
+
+_PERMIT_DOCUMENT_TYPES = {"permit", "permit_construction", "permit_renovation"}
+
+
+def _classify_handasa_document(row: Dict[str, Any]) -> Tuple[str, str]:
+    descriptor_candidates = [
+        row.get("TlvMPEngDocumentType"),
+        row.get("TlvMPEngDocumentName"),
+        row.get("ContentType"),
+        row.get("Title"),
+    ]
+    descriptor = next(
+        (value for value in descriptor_candidates if isinstance(value, str) and value.strip()),
+        "",
+    )
+    normalized = _normalize_label(descriptor)
+    if normalized in _HANDASA_EXACT_TYPE_MAP:
+        doc_type = _HANDASA_EXACT_TYPE_MAP[normalized]
+    else:
+        doc_type = "other"
+        for keywords, candidate_type in _HANDASA_KEYWORD_RULES:
+            if all(keyword in normalized for keyword in keywords):
+                doc_type = candidate_type
+                break
+
+    category = "permit" if doc_type in _PERMIT_DOCUMENT_TYPES else "document"
+    if doc_type == "plan":
+        category = "plan"
+    elif doc_type in {"condo_plan", "architectural_drawing", "technical_drawing", "blueprint"}:
+        category = "drawing"
+
+    return doc_type, category
 
 
 def _normalize_unique_id(unique_id: Optional[str]) -> Optional[str]:
@@ -109,14 +172,14 @@ class HandasaClient:
     def download_document(
         self,
         unique_id: str,
-        save_to: Optional[Union[str, Path]] = "permits",
-        overwrite: bool = True,
+        save_to: Optional[Union[str, Path]] = None,
+        overwrite: bool = False,
     ) -> Dict[str, Any]:
         """Download a permit document by its unique SharePoint ID.
 
         Args:
             unique_id: SharePoint unique identifier (GUID with or without braces).
-            save_to: Optional destination directory for the decoded file.
+            save_to: Optional destination path or directory for the decoded file.
             overwrite: When saving, control whether to overwrite an existing file.
         """
 
@@ -148,9 +211,15 @@ class HandasaClient:
 
         if save_to and content:
             target_path = Path(save_to)
+            save_to_str = str(save_to)
+            if target_path.exists() and target_path.is_dir():
+                is_directory = True
+            else:
+                is_directory = save_to_str.endswith(("/", "\\")) or target_path.suffix == ""
 
-            file_name = result["file_name"] or f"{unique_id}.pdf"
-            target_path = target_path / file_name
+            if is_directory:
+                file_name = result["file_name"] or f"{unique_id or 'document'}.bin"
+                target_path = target_path / file_name
 
             if target_path.exists() and not overwrite:
                 raise FileExistsError(f"File already exists: {target_path}")
@@ -261,6 +330,10 @@ class HandasaClient:
         ):
             if key in row:
                 normalized[key] = row.get(key)
+
+        document_type, document_category = _classify_handasa_document(row)
+        normalized["document_type"] = document_type
+        normalized["document_category"] = document_category
 
         return normalized
 

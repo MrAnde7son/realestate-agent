@@ -237,7 +237,7 @@ class HandasaClient:
         status = row.get("TlvMPEngProcessStage") or row.get("TlvMPEngDocumentStatus") or ""
         external_id = unique_id or permission_num or request_num or row.get("Path")
         external_url = row.get('DocumentLink') or self._build_external_url(unique_id, row)
-        preview_url = row.get("TlvMPEngWebsioPreview")
+        preview_url = "https://handasa.tel-aviv.gov.il" + row.get("TlvMPEngWebsioPreview") if row.get("TlvMPEngWebsioPreview") else None
 
         normalized = {
             "title": row.get('TlvMPEngDocumentType'),

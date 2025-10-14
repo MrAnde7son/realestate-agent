@@ -85,6 +85,17 @@ describe('CrmUnifiedPage', () => {
     });
   });
 
+  it('does not render the quick actions card', async () => {
+    render(<CrmUnifiedPage />);
+
+    await waitFor(() => {
+      expect(CrmApi.getContacts).toHaveBeenCalled();
+      expect(CrmApi.getLeads).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByText('פעולות מהירות')).not.toBeInTheDocument();
+  });
+
   it('shows leads tab when tab query is leads', async () => {
     mockSearchParams = new URLSearchParams('tab=leads');
     render(<CrmUnifiedPage />);

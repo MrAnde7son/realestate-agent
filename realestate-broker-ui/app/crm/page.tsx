@@ -281,32 +281,6 @@ export default function CrmUnifiedPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <Card>
             <CardHeader className="rtl:text-right">
-              <CardTitle className="text-base sm:text-lg">פעולות מהירות</CardTitle>
-              <CardDescription className="text-sm">גישה מהירה לפעולות נפוצות</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-2 rtl:flex-row-reverse">
-                <Link href="/crm/contacts" className="flex-1">
-                  <Button className="w-full" size="sm">
-                    <Users className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
-                    ניהול לקוחות
-                  </Button>
-                </Link>
-                <Link href="/crm/leads" className="flex-1">
-                  <Button variant="outline" className="w-full" size="sm">
-                    <TrendingUp className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
-                    ניהול לידים
-                  </Button>
-                </Link>
-              </div>
-              <div className="text-xs sm:text-sm text-muted-foreground rtl:text-right">
-                כדי ליצור ליד חדש, עבור לעמוד נכסים ולחץ על &quot;שייך לקוח&quot;
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="rtl:text-right">
               <CardTitle className="text-base sm:text-lg">לידים אחרונים</CardTitle>
               <CardDescription className="text-sm">פעילות אחרונה במערכת</CardDescription>
             </CardHeader>

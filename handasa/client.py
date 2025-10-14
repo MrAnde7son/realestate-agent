@@ -289,7 +289,7 @@ class HandasaClient:
                         tables = value.get("ResultTables", [])
                         for table in tables:
                             result_rows = table.get("ResultRows")
-                            if isinstance(result_rows, list):
+                            if isinstance(result_rows, list) and table.get("TableType") == 'RelevantResults':
                                 rows.extend(result_rows)
         return rows
 
@@ -348,6 +348,4 @@ __all__ = ["HandasaClient"]
 if __name__ == "__main__":
     client = HandasaClient()
     archive = client.get_archive("6952", "127")
-    for doc in archive:
-        if doc['external_url'].endswith('pdf'):
-            print(doc)
+    print(archive)

@@ -22,7 +22,7 @@ DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 # separate template file keeps this module readable.
 PROCESS_QUERY_TEMPLATE = Path(__file__).with_name("payload_template.xml").read_text(encoding="utf-8")
 
-_DIGEST_PATTERN = re.compile(r'id="__REQUESTDIGEST" value="([^"]+)"')
+_DIGEST_PATTERN = re.compile(r'"formDigestValue"\s*:\s*"([^"]+)"')
 _BLOCK_PLACEHOLDER = "__BLOCK_PARAM__"
 
 
@@ -110,13 +110,13 @@ class HandasaClient:
         self,
         unique_id: str,
         save_to: Optional[Union[str, Path]] = "permits",
-        overwrite: bool = False,
+        overwrite: bool = True,
     ) -> Dict[str, Any]:
         """Download a permit document by its unique SharePoint ID.
 
         Args:
             unique_id: SharePoint unique identifier (GUID with or without braces).
-            save_to: Optional destination path or directory for the decoded file.
+            save_to: Optional destination directory for the decoded file.
             overwrite: When saving, control whether to overwrite an existing file.
         """
 
@@ -182,9 +182,6 @@ class HandasaClient:
             logger.warning("Handasa digest fetch via search page failed: %s", exc)
 
         if not digest:
-            digest = self._fetch_request_digest_from_contextinfo()
-
-        if not digest:
             raise RuntimeError("Failed to obtain request digest from Handasa portal")
 
         return digest
@@ -208,31 +205,6 @@ class HandasaClient:
             return match.group(1)
         logger.debug("Handasa digest not found in search page response")
         return None
-
-    def _fetch_request_digest_from_contextinfo(self) -> Optional[str]:
-        try:
-            response = self.session.post(
-                CONTEXT_INFO_URL,
-                headers={
-                    "Accept": "application/json;odata=verbose",
-                    "Content-Type": "application/json;odata=verbose",
-                },
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            payload = response.json()
-        except requests.RequestException as exc:
-            logger.debug("Handasa contextinfo request failed: %s", exc)
-            return None
-
-        digest = (
-            payload.get("d", {})
-            .get("GetContextWebInformation", {})
-            .get("FormDigestValue")
-        )
-        if not digest:
-            logger.debug("Handasa contextinfo response missing digest")
-        return digest
 
     def _build_payload(self, block_param: str) -> str:
         if _BLOCK_PLACEHOLDER not in PROCESS_QUERY_TEMPLATE:
@@ -305,5 +277,5 @@ if __name__ == "__main__":
     permits = client.get_permits("6952", "127")
     for permit in permits:
         print(permit)
-        result = client.download_document(permit["external_id"], overwrite=True)
+        result = client.download_document(permit["external_id"])
         print(result)

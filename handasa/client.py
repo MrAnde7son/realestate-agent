@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import base64
+import json
 import logging
+import random
 import re
+import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from json import loads
 from pathlib import Path
@@ -17,13 +21,668 @@ PROCESS_QUERY_URL = "https://handasa.tel-aviv.gov.il/_vti_bin/client.svc/Process
 FILES_API_URL = "https://handasa.tel-aviv.gov.il/api/files"
 CONTEXT_INFO_URL = "https://handasa.tel-aviv.gov.il/_api/contextinfo"
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-
-# Large CSOM payload used by the public Handasa search form.  Keeping it in a
-# separate template file keeps this module readable.
-PROCESS_QUERY_TEMPLATE = Path(__file__).with_name("payload_template.xml").read_text(encoding="utf-8")
-
 _DIGEST_PATTERN = re.compile(r'"formDigestValue"\s*:\s*"([^"]+)"')
-_BLOCK_PLACEHOLDER = "__BLOCK_PARAM__"
+
+
+
+DEFAULT_DOCUMENT_TYPE_EXCLUSIONS = [
+    "תיק פקוח",
+    "פיקוח-אחר",
+    "מכתבים/תכתובות-שימור",
+    "תביעות,צווים מינהליים",
+    "דואר נכנס ויוצא פיקוח על הבניה",
+]
+
+BASE_SELECT_PROPERTIES = [
+    "Title",
+    "Path",
+    "SPWebUrl",
+    "UniqueID",
+    "FileExtension",
+    "ListItemID",
+    "ListID",
+    "ContentTypeId",
+    "TlvMPEngDocumentType",
+    "TlvMPEngDocDate",
+]
+
+COMMON_PROPS = [
+    "Title",
+    "Path",
+    "Author",
+    "Size",
+    "Write",
+    "HitHighlightedSummary",
+    "SPWebUrl",
+    "UniqueID",
+    "FileExtension",
+    "ListItemID",
+    "ListID",
+    "ContentTypeId",
+    "TlvMPEngWebsioPreview",
+    "TlvMPEngFolderId",
+    "TlvMPEngFolderStreetCodes",
+    "TlvMPEngFolderStreetCodeHouseNum",
+    "TlvMPEngFolderStreetCodeHouseNumEntrance",
+    "TlvMPEngFolderBlocks",
+    "TlvMPEngFolderBlocksParcels",
+    "DocumentLink",
+    "TlvMPEngDocumentType",
+    "TlvMPEngDocDate",
+    "TlvMPEngRequestNum",
+    "TlvMPEngOnlineReqNum",
+    "TlvMPEngPermitNum",
+]
+
+CSOM_ALL_PROPERTIES_ALLOWLIST = list(dict.fromkeys(BASE_SELECT_PROPERTIES + COMMON_PROPS))
+
+
+@dataclass
+class HandasaSearchConfig:
+    base_url: str
+    culture_lcid: int = 1037
+    timezone_id: int = 27
+    list_id: Optional[str] = None
+    list_item_id: Optional[int] = None
+    client_type: str = ""
+    results_url_template: str = (
+        "https://handasa.tel-aviv.gov.il/Pages/SearchResultsAnonPageNew.aspx?block=__BLOCK_PARAM__"
+    )
+    use_rest: bool = True
+    timeout_sec: float = 30
+    retries: int = 3
+    retry_backoff_sec: float = 0.5
+
+
+@dataclass
+class HandasaSearchFilters:
+    folder_id: Optional[str] = None
+    request_num: Optional[str] = None
+    address: Optional[str] = None
+    partial_address: Optional[str] = None
+    blocks_parcels: Optional[str] = None
+    permit_num: Optional[str] = None
+    online_req_num: Optional[str] = None
+    building_id: Optional[str] = None
+    document_type_in: Optional[List[str]] = None
+    document_type_not_in: Optional[List[str]] = None
+    doc_date_from: Optional[str] = None
+    doc_date_to: Optional[str] = None
+    file_extension_in: Optional[List[str]] = None
+    publishable: Optional[bool] = None
+    is_connected_doc: Optional[bool] = None
+    sensitive_by_folder: Optional[bool] = None
+    refinement_filters: Optional[List[str]] = None
+    sort: Optional[List[Tuple[str, str]]] = None
+    list_id: Optional[str] = None
+    list_item_id: Optional[int] = None
+
+
+class HandasaSearchClient:
+    """Search client for the Handasa SharePoint search endpoint.
+
+    The client can speak both the REST ``/_api/search/postquery`` interface and the
+    CSOM ``ProcessQuery`` interface used by the public website.  The logic is
+    intentionally contained in small helpers that can easily be unit tested and
+    mocked.  ``search`` is the public entry point.
+    """
+
+    REST_ENDPOINT = "/_api/search/postquery"
+    CSOM_ENDPOINT = "/_vti_bin/client.svc/ProcessQuery"
+
+    def __init__(self, cfg: HandasaSearchConfig, session: Optional[requests.Session] = None):
+        self.cfg = cfg
+        self.session = session or requests.Session()
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    def search(
+        self,
+        filters: HandasaSearchFilters,
+        row_limit: int = 100,
+        start_row: int = 0,
+        all_pages: bool = True,
+        select_properties: Optional[List[str]] = None,
+        select_all_properties: bool = False,
+        refiners: Optional[List[str]] = None,
+        request_digest: Optional[str] = None,
+        querytext_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        row_limit = max(1, min(row_limit, 500))
+        querytext = querytext_override or self._build_kql(filters)
+        refinement_filters = filters.refinement_filters or []
+        select_props_rest = self._merge_select_properties(select_properties, select_all_properties, backend="rest")
+        select_props_csom = self._merge_select_properties(select_properties, select_all_properties, backend="csom")
+        effective_list_id = filters.list_id if filters.list_id is not None else self.cfg.list_id
+        effective_list_item_id = (
+            filters.list_item_id if filters.list_item_id is not None else self.cfg.list_item_id
+        )
+
+        total_rows: Optional[int] = None
+        collected_items: List[Dict[str, Any]] = []
+        refiners_payload: Optional[Any] = None
+
+        current_start = max(0, start_row)
+        while True:
+            if self.cfg.use_rest:
+                page = self._execute_rest_request(
+                    querytext=querytext,
+                    row_limit=row_limit,
+                    start_row=current_start,
+                    select_properties=select_props_rest,
+                    refinement_filters=refinement_filters,
+                    refiners=refiners,
+                    sort=filters.sort,
+                    list_id=effective_list_id,
+                    list_item_id=effective_list_item_id,
+                )
+            else:
+                page = self._execute_csom_request(
+                    querytext=querytext,
+                    row_limit=row_limit,
+                    start_row=current_start,
+                    select_properties=select_props_csom,
+                    refinement_filters=refinement_filters,
+                    refiners=refiners,
+                    sort=filters.sort,
+                    list_id=effective_list_id,
+                    list_item_id=effective_list_item_id,
+                    request_digest=request_digest,
+                )
+
+            total_rows = page.get("total_rows", total_rows)
+            refiners_payload = page.get("refiners") or refiners_payload
+            items = page.get("items", [])
+            collected_items.extend(items)
+
+            if not all_pages:
+                break
+            if len(items) < row_limit:
+                break
+            if total_rows is not None and current_start + row_limit >= total_rows:
+                break
+
+            current_start += row_limit
+            self._sleep()
+
+        result: Dict[str, Any] = {"total_rows": total_rows or len(collected_items), "items": collected_items}
+        if refiners_payload is not None:
+            result["refiners"] = refiners_payload
+        return result
+
+    # ------------------------------------------------------------------
+    # Helpers: query construction
+    # ------------------------------------------------------------------
+    def _build_kql(self, filters: HandasaSearchFilters) -> str:
+        clauses: List[str] = []
+
+        def add_clause(expression: str) -> None:
+            if expression:
+                clauses.append(expression)
+
+        if filters.folder_id:
+            add_clause(self._kql_equals("TlvMPEngFolderId", filters.folder_id))
+        if filters.request_num:
+            add_clause(self._kql_equals("TlvMPEngRequestNum", filters.request_num))
+        if filters.address:
+            add_clause(self._kql_equals("TlvMPEngFolderStreetCodeHouseNumEntrance", filters.address))
+        if filters.partial_address:
+            add_clause(self._kql_equals("TlvMPEngFolderStreetCodeHouseNum", filters.partial_address))
+        if filters.blocks_parcels:
+            add_clause(self._kql_equals("TlvMPEngFolderBlocksParcels", filters.blocks_parcels))
+        if filters.permit_num:
+            add_clause(self._kql_equals("TlvMPEngPermitNum", filters.permit_num))
+        if filters.online_req_num:
+            add_clause(self._kql_equals("TlvMPEngOnlineReqNum", filters.online_req_num))
+        if filters.building_id:
+            add_clause(self._kql_equals("TlvMPEngBuildingID", filters.building_id))
+
+        if filters.document_type_in:
+            add_clause(self._kql_in("TlvMPEngDocumentType", filters.document_type_in))
+
+        exclusions = filters.document_type_not_in
+        if exclusions is None:
+            exclusions = DEFAULT_DOCUMENT_TYPE_EXCLUSIONS
+        if exclusions:
+            add_clause(self._kql_not_in("TlvMPEngDocumentType", exclusions))
+
+        if filters.doc_date_from or filters.doc_date_to:
+            add_clause(self._kql_date_range("TlvMPEngDocDate", filters.doc_date_from, filters.doc_date_to))
+
+        if filters.file_extension_in:
+            add_clause(self._kql_in("FileExtension", filters.file_extension_in))
+
+        publishable = filters.publishable
+        if publishable is not None:
+            add_clause(self._kql_bool("TlvMPEngPublishable", publishable))
+
+        connected = filters.is_connected_doc
+        if connected is None:
+            connected = False
+        add_clause(self._kql_bool("TlvMPEngIsConnectedDoc", connected))
+
+        sensitive = filters.sensitive_by_folder
+        if sensitive is None:
+            sensitive = False
+        add_clause(self._kql_bool("TlvMPEngSensitiveByFolderId", sensitive))
+
+        return " ".join(filter(None, clauses)) or "*"
+
+    @staticmethod
+    def _kql_escape(value: str) -> str:
+        return value.replace("\"", "\\\"")
+
+    def _kql_equals(self, field: str, value: str) -> str:
+        return f'{field}:"{self._kql_escape(value)}"'
+
+    def _kql_bool(self, field: str, value: bool) -> str:
+        return f"{field}:{str(value).lower()}"
+
+    def _kql_in(self, field: str, values: Iterable[str]) -> str:
+        sanitized = [self._kql_equals(field, str(v)) for v in values if v]
+        if not sanitized:
+            return ""
+        if len(sanitized) == 1:
+            return sanitized[0]
+        return "(" + " OR ".join(sanitized) + ")"
+
+    def _kql_not_in(self, field: str, values: Iterable[str]) -> str:
+        sanitized = [f'-{field}:"{self._kql_escape(str(v))}"' for v in values if v]
+        if not sanitized:
+            return ""
+        if len(sanitized) == 1:
+            return sanitized[0]
+        return "(" + " ".join(sanitized) + ")"
+
+    def _kql_date_range(self, field: str, start: Optional[str], end: Optional[str]) -> str:
+        clauses: List[str] = []
+        if start:
+            clauses.append(f"{field}>={start}T00:00:00Z")
+        if end:
+            clauses.append(f"{field}<={end}T23:59:59Z")
+        return " ".join(clauses)
+
+    # ------------------------------------------------------------------
+    # Helpers: select properties
+    # ------------------------------------------------------------------
+    def _merge_select_properties(
+        self,
+        select_properties: Optional[List[str]],
+        select_all: bool,
+        *,
+        backend: str,
+    ) -> List[str]:
+        ordered: List[str] = []
+
+        def extend(values: Iterable[str]) -> None:
+            for value in values:
+                if value and value not in ordered:
+                    ordered.append(value)
+
+        if backend == "rest" and select_all:
+            extend(["*"])
+
+        extend(BASE_SELECT_PROPERTIES)
+
+        if select_all:
+            if backend == "csom":
+                extend(CSOM_ALL_PROPERTIES_ALLOWLIST)
+
+        if select_properties:
+            extend(select_properties)
+
+        return ordered
+
+    # ------------------------------------------------------------------
+    # Helpers: REST backend
+    # ------------------------------------------------------------------
+    def _execute_rest_request(
+        self,
+        *,
+        querytext: str,
+        row_limit: int,
+        start_row: int,
+        select_properties: List[str],
+        refinement_filters: List[str],
+        refiners: Optional[List[str]],
+        sort: Optional[List[Tuple[str, str]]],
+        list_id: Optional[str],
+        list_item_id: Optional[int],
+    ) -> Dict[str, Any]:
+        payload = self._build_rest_payload(
+            querytext=querytext,
+            row_limit=row_limit,
+            start_row=start_row,
+            select_properties=select_properties,
+            refinement_filters=refinement_filters,
+            refiners=refiners,
+            sort=sort,
+            list_id=list_id,
+            list_item_id=list_item_id,
+        )
+        url = self._build_url(self.REST_ENDPOINT)
+        response = self._request_with_retries("post", url, json=payload, headers={"Accept": "application/json;odata=verbose"})
+        data = response.json()
+        return self._parse_rest_response(data)
+
+    def _build_rest_payload(
+        self,
+        *,
+        querytext: str,
+        row_limit: int,
+        start_row: int,
+        select_properties: List[str],
+        refinement_filters: List[str],
+        refiners: Optional[List[str]],
+        sort: Optional[List[Tuple[str, str]]],
+        list_id: Optional[str],
+        list_item_id: Optional[int],
+    ) -> Dict[str, Any]:
+        properties: List[Dict[str, Any]] = []
+        if list_id:
+            properties.append(
+                {
+                    "Key": "ListId",
+                    "Value": {"StrVal": list_id, "Type": "String"},
+                }
+            )
+        if list_item_id is not None:
+            properties.append(
+                {
+                    "Key": "ListItemId",
+                    "Value": {"IntVal": list_item_id, "Type": "Int32"},
+                }
+            )
+        if self.cfg.client_type:
+            properties.append(
+                {
+                    "Key": "ClientType",
+                    "Value": {"StrVal": self.cfg.client_type, "Type": "String"},
+                }
+            )
+
+        body: Dict[str, Any] = {
+            "request": {
+                "__metadata": {"type": "Microsoft.Office.Server.Search.REST.SearchRequest"},
+                "Querytext": querytext,
+                "RowLimit": row_limit,
+                "StartRow": start_row,
+                "SelectProperties": {"results": select_properties},
+                "TrimDuplicates": False,
+                "QueryTemplatePropertiesData": {
+                    "QueryTemplatePropertiesResults": {
+                        "results": [
+                            {"Key": "Culture", "Value": {"IntVal": self.cfg.culture_lcid, "Type": "Int32"}},
+                            {"Key": "TimeZoneId", "Value": {"IntVal": self.cfg.timezone_id, "Type": "Int32"}},
+                        ]
+                    }
+                },
+            }
+        }
+
+        if properties:
+            body["request"]["Properties"] = {"results": properties}
+
+        if refinement_filters:
+            body["request"]["RefinementFilters"] = {"results": list(refinement_filters)}
+        if refiners:
+            body["request"]["Refiners"] = ",".join(refiners)
+        if sort:
+            body["request"]["SortList"] = {
+                "results": [
+                    {
+                        "Property": field,
+                        "Direction": 1 if direction.lower() == "desc" else 0,
+                    }
+                    for field, direction in sort
+                ]
+            }
+
+        return body
+
+    def _parse_rest_response(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        primary = payload.get("PrimaryQueryResult", {})
+        relevant = primary.get("RelevantResults", {})
+        table = relevant.get("Table", {})
+        rows = table.get("Rows", [])
+
+        items: List[Dict[str, Any]] = []
+        for row in rows:
+            cells = row.get("Cells", [])
+            mapped = {cell.get("Key"): cell.get("Value") for cell in cells if cell.get("Key")}
+            if mapped:
+                items.append(mapped)
+
+        refiners = None
+        refinement_results = primary.get("RefinementResults")
+        if isinstance(refinement_results, dict):
+            refiners = refinement_results.get("Refiners")
+
+        total_rows = relevant.get("TotalRows")
+        return {"items": items, "total_rows": total_rows, "refiners": refiners}
+
+    # ------------------------------------------------------------------
+    # Helpers: CSOM backend
+    # ------------------------------------------------------------------
+    def _execute_csom_request(
+        self,
+        *,
+        querytext: str,
+        row_limit: int,
+        start_row: int,
+        select_properties: List[str],
+        refinement_filters: List[str],
+        refiners: Optional[List[str]],
+        sort: Optional[List[Tuple[str, str]]],
+        list_id: Optional[str],
+        list_item_id: Optional[int],
+        request_digest: Optional[str],
+    ) -> Dict[str, Any]:
+        payload = self._build_csom_payload(
+            querytext=querytext,
+            row_limit=row_limit,
+            start_row=start_row,
+            select_properties=select_properties,
+            refinement_filters=refinement_filters,
+            refiners=refiners,
+            sort=sort,
+            list_id=list_id,
+            list_item_id=list_item_id,
+        )
+        url = self._build_url(self.CSOM_ENDPOINT)
+        headers = {
+            "Content-Type": "text/xml",
+            "Accept": "application/json;odata=verbose",
+            "X-Requested-With": "XMLHttpRequest",
+        }
+        if request_digest:
+            headers["X-RequestDigest"] = request_digest
+        response = self._request_with_retries("post", url, data=payload.encode("utf-8"), headers=headers)
+        text = response.text
+        return self._parse_csom_response(text)
+
+    def _build_csom_payload(
+        self,
+        *,
+        querytext: str,
+        row_limit: int,
+        start_row: int,
+        select_properties: List[str],
+        refinement_filters: List[str],
+        refiners: Optional[List[str]],
+        sort: Optional[List[Tuple[str, str]]],
+        list_id: Optional[str],
+        list_item_id: Optional[int],
+    ) -> str:
+        select_xml = "".join(
+            f"<Object Type=\"String\">{self._kql_escape(prop)}</Object>" for prop in select_properties
+        )
+        refinement_filters_xml = "".join(
+            f"<Object Type=\"String\">{self._kql_escape(ref)}</Object>" for ref in refinement_filters
+        )
+        refiners_xml = "".join(f"<Object Type=\"String\">{self._kql_escape(r)}</Object>" for r in refiners or [])
+
+        sort_xml = "".join(
+            """
+            <Object Type="Microsoft.Office.Server.Search.REST.Sort" Id="{idx}">
+                <Property Name="Direction" Type="Int32">{direction}</Property>
+                <Property Name="Property" Type="String">{field}</Property>
+            </Object>
+            """.format(
+                idx=idx,
+                direction=1 if direction.lower() == "desc" else 0,
+                field=self._kql_escape(field),
+            )
+            for idx, (field, direction) in enumerate(sort or [])
+        )
+
+        properties_xml_parts: List[str] = []
+        if list_id:
+            properties_xml_parts.append(
+                """
+                <Object Type="KeyValue">
+                    <Property Name="Key" Type="String">ListId</Property>
+                    <Property Name="Value" Type="String">{list_id}</Property>
+                    <Property Name="ValueType" Type="String">Edm.String</Property>
+                </Object>
+                """.format(list_id=self._kql_escape(list_id))
+            )
+        if list_item_id is not None:
+            properties_xml_parts.append(
+                """
+                <Object Type="KeyValue">
+                    <Property Name="Key" Type="String">ListItemId</Property>
+                    <Property Name="Value" Type="Int32">{list_item_id}</Property>
+                    <Property Name="ValueType" Type="String">Edm.Int32</Property>
+                </Object>
+                """.format(list_item_id=list_item_id)
+            )
+        properties_xml = "".join(properties_xml_parts)
+
+        payload = (
+            f"<Request xmlns=\"http://schemas.microsoft.com/sharepoint/clientquery/2009\" "
+            f"SchemaVersion=\"15.0.0.0\" LibraryVersion=\"16.0.0.0\" ApplicationName=\"HandasaSearchClient\">\n"
+            f"  <Actions>\n"
+            f"    <ObjectPath Id=\"1\" ObjectPathId=\"0\" />\n"
+            f"    <SetProperty Id=\"2\" ObjectPathId=\"0\" Name=\"TimeZoneId\">"
+            f"<Parameter Type=\"Number\">{self.cfg.timezone_id}</Parameter></SetProperty>\n"
+            f"    <SetProperty Id=\"3\" ObjectPathId=\"0\" Name=\"QueryText\">"
+            f"<Parameter Type=\"String\">{self._kql_escape(querytext)}</Parameter></SetProperty>\n"
+            f"    <SetProperty Id=\"4\" ObjectPathId=\"0\" Name=\"RowLimit\">"
+            f"<Parameter Type=\"Number\">{row_limit}</Parameter></SetProperty>\n"
+            f"    <SetProperty Id=\"5\" ObjectPathId=\"0\" Name=\"StartRow\">"
+            f"<Parameter Type=\"Number\">{start_row}</Parameter></SetProperty>\n"
+            f"    <SetProperty Id=\"6\" ObjectPathId=\"0\" Name=\"Culture\">"
+            f"<Parameter Type=\"Number\">{self.cfg.culture_lcid}</Parameter></SetProperty>\n"
+            f"    <SetProperty Id=\"7\" ObjectPathId=\"0\" Name=\"SelectProperties\">\n"
+            f"      <Parameter Type=\"Array\">{select_xml}</Parameter>\n"
+            f"    </SetProperty>\n"
+            f"    <SetProperty Id=\"8\" ObjectPathId=\"0\" Name=\"RefinementFilters\">\n"
+            f"      <Parameter Type=\"Array\">{refinement_filters_xml}</Parameter>\n"
+            f"    </SetProperty>\n"
+            f"    <SetProperty Id=\"9\" ObjectPathId=\"0\" Name=\"Refiners\">\n"
+            f"      <Parameter Type=\"Array\">{refiners_xml}</Parameter>\n"
+            f"    </SetProperty>\n"
+            f"    <SetProperty Id=\"10\" ObjectPathId=\"0\" Name=\"SortList\">\n"
+            f"      <Parameter Type=\"Array\">{sort_xml}</Parameter>\n"
+            f"    </SetProperty>\n"
+            f"    <SetProperty Id=\"11\" ObjectPathId=\"0\" Name=\"Properties\">\n"
+            f"      <Parameter Type=\"Array\">{properties_xml}</Parameter>\n"
+            f"    </SetProperty>\n"
+            f"  </Actions>\n"
+            f"  <ObjectPaths>\n"
+            f"    <Constructor Id=\"0\" TypeId=\"{{d36b0f7b-8df2-47eb-a4fb-4ef2c5c2fefe}}\" />\n"
+            f"  </ObjectPaths>\n"
+            f"</Request>"
+        )
+        return payload
+
+    def _parse_csom_response(self, payload: str) -> Dict[str, Any]:
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            return {"items": [], "total_rows": 0, "refiners": None}
+
+        primary: Optional[Dict[str, Any]] = None
+        for entry in data:
+            if isinstance(entry, dict) and "PrimaryQueryResult" in entry:
+                primary = entry.get("PrimaryQueryResult")
+                break
+
+        if not primary:
+            return {"items": [], "total_rows": 0, "refiners": None}
+
+        relevant = primary.get("RelevantResults", {})
+        table = relevant.get("Table", {})
+        rows = table.get("Rows", [])
+
+        items: List[Dict[str, Any]] = []
+        for row in rows:
+            cells = row.get("Cells", [])
+            mapped = {cell.get("Key"): cell.get("Value") for cell in cells if cell.get("Key")}
+            if mapped:
+                items.append(mapped)
+
+        refiners = None
+        refinement_results = primary.get("RefinementResults")
+        if isinstance(refinement_results, dict):
+            refiners = refinement_results.get("Refiners")
+
+        total_rows = relevant.get("TotalRows")
+        return {"items": items, "total_rows": total_rows, "refiners": refiners}
+
+    # ------------------------------------------------------------------
+    # Helpers: stock KQL snippets
+    # ------------------------------------------------------------------
+    def build_archive_kql(self, block_param: str) -> str:
+        block_clause = self._kql_equals("TlvMPEngFolderBlocksParcels", block_param)
+        defaults = [
+            block_clause,
+            self._kql_bool("TlvMPEngIsConnectedDoc", False),
+            self._kql_bool("TlvMPEngSensitiveByFolderId", False),
+            self._kql_not_in("TlvMPEngDocumentType", DEFAULT_DOCUMENT_TYPE_EXCLUSIONS),
+        ]
+        publishable = [
+            block_clause,
+            self._kql_bool("TlvMPEngIsConnectedDoc", False),
+            self._kql_bool("TlvMPEngPublishable", True),
+        ]
+        defaults_clause = " ".join(filter(None, defaults))
+        publishable_clause = " ".join(filter(None, publishable))
+        return f"({defaults_clause}) OR ({publishable_clause})"
+
+    # ------------------------------------------------------------------
+    # Helpers: transport
+    # ------------------------------------------------------------------
+    def _request_with_retries(self, method: str, url: str, **kwargs: Any) -> requests.Response:
+        attempts = self.cfg.retries + 1
+        delay = self.cfg.retry_backoff_sec
+        last_exc: Optional[Exception] = None
+        for attempt in range(1, attempts + 1):
+            try:
+                response = self.session.request(method, url, timeout=self.cfg.timeout_sec, **kwargs)
+                response.raise_for_status()
+                return response
+            except requests.RequestException as exc:  # pragma: no cover - network failures are hard to simulate deterministically
+                last_exc = exc
+                if attempt >= attempts:
+                    raise
+                sleep_for = delay * (2 ** (attempt - 1))
+                jitter = random.uniform(0, delay)
+                self._sleep(sleep_for + jitter)
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Unexpected retry handling state")
+
+    def _build_url(self, path: str) -> str:
+        base = self.cfg.base_url.rstrip("/")
+        return f"{base}{path}"
+
+    def _sleep(self, duration: Optional[float] = None) -> None:
+        if duration is None:
+            duration = random.uniform(0.2, 0.4)
+        time.sleep(duration)
 
 
 def _normalize_label(value: Optional[str]) -> str:
@@ -144,6 +803,15 @@ class HandasaClient:
         self.timeout = timeout
         # Ensure we have a reasonable default user-agent to avoid being blocked
         self.session.headers.setdefault("User-Agent", user_agent)
+        base_url = SEARCH_RESULTS_URL.split("/Pages", 1)[0]
+        cfg = HandasaSearchConfig(
+            base_url=base_url,
+            use_rest=False,
+            timeout_sec=timeout,
+            retries=3,
+            retry_backoff_sec=0.5,
+        )
+        self.search_client = HandasaSearchClient(cfg, session=self.session)
 
     # ------------------------------------------------------------------
     # Public API
@@ -153,21 +821,47 @@ class HandasaClient:
 
         block_param = self._format_block_parcel(block, parcel)
         digest = self._get_request_digest(block_param)
-        payload = self._build_payload(block_param)
-        response = self.session.post(
-            PROCESS_QUERY_URL,
-            data=payload.encode("utf-8"),
-            headers={
-                "Content-Type": "text/xml",
-                "X-Requested-With": "XMLHttpRequest",
-                "X-RequestDigest": digest,
-            },
-            timeout=self.timeout,
+        querytext = self.search_client.build_archive_kql(block_param)
+        search_result = self.search_client.search(
+            HandasaSearchFilters(),
+            row_limit=50,
+            all_pages=True,
+            request_digest=digest,
+            querytext_override=querytext,
         )
-        response.raise_for_status()
-        data = loads(response.content.decode("utf-8"))
-        rows = self._extract_rows(data)
-        return [self._normalize_row(row) for row in rows if row]
+        items = search_result.get("items", [])
+        return [self._normalize_row(row) for row in items if row]
+
+    def search_documents(
+        self,
+        filters: HandasaSearchFilters,
+        *,
+        row_limit: int = 100,
+        start_row: int = 0,
+        all_pages: bool = True,
+        select_properties: Optional[List[str]] = None,
+        select_all_properties: bool = False,
+        refiners: Optional[List[str]] = None,
+        request_digest: Optional[str] = None,
+        querytext_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Execute a Handasa SharePoint search with the dynamic payload builder."""
+
+        digest = request_digest or self._get_context_request_digest()
+        if not digest:
+            raise RuntimeError("Failed to obtain request digest for Handasa search")
+
+        return self.search_client.search(
+            filters,
+            row_limit=row_limit,
+            start_row=start_row,
+            all_pages=all_pages,
+            select_properties=select_properties,
+            select_all_properties=select_all_properties,
+            refiners=refiners,
+            request_digest=digest,
+            querytext_override=querytext_override,
+        )
 
     def download_document(
         self,
@@ -244,16 +938,41 @@ class HandasaClient:
         return block_str
 
     def _get_request_digest(self, block_param: str) -> str:
-        digest = None
-        try:
-            digest = self._fetch_request_digest_from_page(block_param)
-        except requests.RequestException as exc:
-            logger.warning("Handasa digest fetch via search page failed: %s", exc)
+        digest = self._get_context_request_digest()
+        if not digest:
+            try:
+                digest = self._fetch_request_digest_from_page(block_param)
+            except requests.RequestException as exc:
+                logger.warning("Handasa digest fetch via search page failed: %s", exc)
 
         if not digest:
             raise RuntimeError("Failed to obtain request digest from Handasa portal")
 
         return digest
+
+    def _get_context_request_digest(self) -> Optional[str]:
+        try:
+            response = self.session.post(
+                CONTEXT_INFO_URL,
+                headers={"Accept": "application/json;odata=verbose"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            if isinstance(data, str):
+                data = loads(data)
+            digest = (
+                data.get("d", {})
+                .get("GetContextWebInformation", {})
+                .get("FormDigestValue")
+            )
+            if isinstance(digest, str) and digest.strip():
+                return digest
+        except requests.RequestException as exc:
+            logger.debug("Handasa contextinfo digest fetch failed: %s", exc)
+        except ValueError:
+            logger.debug("Handasa contextinfo digest JSON parse failed")
+        return None
 
     def _fetch_request_digest_from_page(self, block_param: str) -> Optional[str]:
         response = self.session.get(
@@ -274,24 +993,6 @@ class HandasaClient:
             return match.group(1)
         logger.debug("Handasa digest not found in search page response")
         return None
-
-    def _build_payload(self, block_param: str) -> str:
-        if _BLOCK_PLACEHOLDER not in PROCESS_QUERY_TEMPLATE:
-            logger.debug("Handasa payload template missing placeholder; refreshing cache")
-        return PROCESS_QUERY_TEMPLATE.replace(_BLOCK_PLACEHOLDER, block_param)
-
-    def _extract_rows(self, payload: Iterable[Any]) -> List[Dict[str, Any]]:
-        rows = []
-        for entry in payload:
-            if isinstance(entry, dict):
-                for value in entry.values():
-                    if isinstance(value, dict) and value.get("ResultTables"):
-                        tables = value.get("ResultTables", [])
-                        for table in tables:
-                            result_rows = table.get("ResultRows")
-                            if isinstance(result_rows, list) and table.get("TableType") == 'RelevantResults':
-                                rows.extend(result_rows)
-        return rows
 
     def _normalize_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         unique_id = _normalize_unique_id(row.get("UniqueID"))
@@ -343,7 +1044,14 @@ class HandasaClient:
         return row.get("Path", "")
 
 
-__all__ = ["HandasaClient"]
+__all__ = [
+    "HandasaClient",
+    "HandasaSearchClient",
+    "HandasaSearchConfig",
+    "HandasaSearchFilters",
+    "BASE_SELECT_PROPERTIES",
+    "CSOM_ALL_PROPERTIES_ALLOWLIST",
+]
 
 if __name__ == "__main__":
     client = HandasaClient()

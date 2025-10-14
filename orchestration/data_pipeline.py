@@ -634,12 +634,12 @@ class DataPipeline:
                 track("collector_fail", source="gis", error_code=str(e))
                 logger.warning(f"⚠️ GIS collection failed: {e}")
 
-            # Collect Handasa permits (requires block)
-            handasa_permits: List[Dict[str, Any]] = []
+            # Collect Handasa archive
+            handasa_archive: List[Dict[str, Any]] = []
             if block:
                 try:
                     logger.info("🏗️ Collecting Handasa permits...")
-                    handasa_permits = self._collect_with_observability(
+                    handasa_archive = self._collect_with_observability(
                         "handasa",
                         self.handasa.collect,
                         block=block,
@@ -649,9 +649,9 @@ class DataPipeline:
                         asset_id=asset_id,
                     )
                     track("collector_success", source="handasa")
-                    logger.info("🏗️ Handasa permits collected: %d", len(handasa_permits))
+                    logger.info("🏗️ Handasa documents collected: %d", len(handasa_archive))
                 except Exception as e:
-                    handasa_permits = []
+                    handasa_archive = []
                     track("collector_fail", source="handasa", error_code=str(e))
                     logger.warning(f"⚠️ Handasa collection failed: {e}")
 
@@ -778,9 +778,9 @@ class DataPipeline:
                         self._add_source_record(session, db_listing.id, "gis", gis_data)
                         results.append({"source": "gis", "data": gis_data})
 
-                    if handasa_permits:
-                        self._add_source_record(session, db_listing.id, "handasa", handasa_permits)
-                        results.append({"source": "handasa", "data": handasa_permits})
+                    if handasa_archive:
+                        self._add_source_record(session, db_listing.id, "handasa", handasa_archive)
+                        results.append({"source": "handasa", "data": handasa_archive})
 
                     # ---------------- Gov data (collected once above) ----------------
                     self._add_source_record(session, db_listing.id, "gov", gov_data)

@@ -154,12 +154,12 @@ class FakeHandasaCollector(HandasaCollector):
         return [
             {
                 "title": "Handasa Permit",
-                "description": "Issued permit",
                 "status": "approved",
                 "permission_num": "H-123",
                 "request_num": "REQ-123",
                 "external_id": "HANDASA-123",
                 "external_url": "https://handasa.tel-aviv.gov.il/api/files?id=HANDASA-123",
+                "preview_url": "https://handasa.tel-aviv.gov.il/api/files?id=HANDASA-123",
                 "document_date": "2024-01-01",
                 "source": "Handasa",
                 "meta": {"UniqueID": "{HANDASA-123}"},

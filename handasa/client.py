@@ -85,8 +85,8 @@ class HandasaClient:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def get_permits(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Fetch all permits for a given block/parcel combination."""
+    def get_archive(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch all building archive for a given block/parcel combination."""
 
         block_param = self._format_block_parcel(block, parcel)
         digest = self._get_request_digest(block_param)
@@ -212,16 +212,17 @@ class HandasaClient:
         return PROCESS_QUERY_TEMPLATE.replace(_BLOCK_PLACEHOLDER, block_param)
 
     def _extract_rows(self, payload: Iterable[Any]) -> List[Dict[str, Any]]:
+        rows = []
         for entry in payload:
             if isinstance(entry, dict):
                 for value in entry.values():
                     if isinstance(value, dict) and value.get("ResultTables"):
                         tables = value.get("ResultTables", [])
                         for table in tables:
-                            rows = table.get("ResultRows")
-                            if isinstance(rows, list):
-                                return rows
-        return []
+                            result_rows = table.get("ResultRows")
+                            if isinstance(result_rows, list):
+                                rows.extend(result_rows)
+        return rows
 
     def _normalize_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         unique_id = _normalize_unique_id(row.get("UniqueID"))
@@ -231,23 +232,22 @@ class HandasaClient:
             _parse_sharepoint_date(row.get("TlvMPEngIssueDate"))
             or _parse_sharepoint_date(row.get("IssueDate"))
             or _parse_sharepoint_date(row.get("Write"))
+            or _parse_sharepoint_date(row.get("TlvMPEngDocDate"))
         )
         status = row.get("TlvMPEngProcessStage") or row.get("TlvMPEngDocumentStatus") or ""
-        title = row.get("Title") or row.get("TlvMPEngDocumentName") or ""
-        description = row.get("TlvMPEngDocumentType") or row.get("ContentType") or ""
-
         external_id = unique_id or permission_num or request_num or row.get("Path")
-        external_url = self._build_external_url(unique_id, row)
+        external_url = row.get('DocumentLink') or self._build_external_url(unique_id, row)
+        preview_url = row.get("TlvMPEngWebsioPreview")
 
         normalized = {
-            "title": title,
-            "description": description,
+            "title": row.get('TlvMPEngDocumentType'),
             "status": status,
             "permission_num": permission_num,
             "request_num": request_num,
             "external_id": external_id,
             "external_url": external_url,
             "document_date": document_date,
+            "preview_url": preview_url,
             "source": "Handasa",
             "meta": row,
         }
@@ -274,8 +274,7 @@ __all__ = ["HandasaClient"]
 
 if __name__ == "__main__":
     client = HandasaClient()
-    permits = client.get_permits("6952", "127")
-    for permit in permits:
-        print(permit)
-        result = client.download_document(permit["external_id"])
-        print(result)
+    archive = client.get_archive("6952", "127")
+    for doc in archive:
+        if doc['external_url'].endswith('pdf'):
+            print(doc)

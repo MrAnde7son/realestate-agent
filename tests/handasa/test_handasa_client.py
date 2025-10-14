@@ -94,12 +94,12 @@ def process_query_payload():
     ]
 
 
-def test_get_permits_normalizes_handasa_rows(process_query_payload):
+def test_get_archive_normalizes_handasa_rows(process_query_payload):
     session = FakeSession([
         {
             'method': 'GET',
             'url': SEARCH_RESULTS_URL,
-            'text': '<input id="__REQUESTDIGEST" value="digest-token" />',
+            'text': 'formDigestValue"*: "0xF8A85579F71BE2BE68D6CE5419F40509D62AD5143479658A3936237B6678F1D8EE4513BF5FD9D7AF037BB0505839C281C7B0F486E212F6B98C5FA3077FE68D53,14 Oct 2025 10:11:06 -0000"',
         },
         {
             'method': 'POST',
@@ -109,7 +109,7 @@ def test_get_permits_normalizes_handasa_rows(process_query_payload):
     ])
 
     client = HandasaClient(session=session)
-    permits = client.get_permits('6952', '127')
+    permits = client.get_archive('6952', '127')
 
     assert len(permits) == 1
     permit = permits[0]

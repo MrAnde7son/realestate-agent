@@ -21,9 +21,9 @@ class HandasaCollector(BaseCollector):
             raise ValueError("HandasaCollector requires a block number")
 
         try:
-            return self.client.get_permits(block, parcel)
+            return self.client.get_archive(block, parcel)
         except Exception:
-            logger.exception("Failed to fetch Handasa permits for block %s parcel %s", block, parcel)
+            logger.exception("Failed to fetch Handasa archive for block %s parcel %s", block, parcel)
             raise
 
     def validate_parameters(self, **kwargs) -> bool:

@@ -9,6 +9,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from core.models import Asset, Document
 from core.storage import document_storage
+from orchestration.data_pipeline import _create_documents_from_permits
 
 User = get_user_model()
 
@@ -79,6 +80,74 @@ class DocumentModelTest(TestCase):
         
         expected_url = f"/api/assets/{self.asset.id}/documents/{document.id}/download/"
         self.assertEqual(document.file_url, expected_url)
+
+
+class PermitDocumentCreationTest(TestCase):
+    """Ensure permit document helper handles different sources."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='permit-tester',
+            email='permit@example.com',
+            password='secret123',
+        )
+        self.asset = Asset.objects.create(
+            scope_type='address',
+            city='Tel Aviv',
+            street='HaYarkon',
+            number=10,
+            created_by=self.user,
+        )
+
+    def test_create_documents_from_handasa_permits(self):
+        permits = [
+            {
+                'title': 'Handasa Permit',
+                'description': 'Issued permit',
+                'status': 'approved',
+                'permission_num': 'H-123',
+                'external_id': 'HANDASA-123',
+                'external_url': 'https://handasa.tel-aviv.gov.il/api/files?id=HANDASA-123',
+                'document_date': '2024-01-01',
+                'source': 'Handasa',
+                'meta': {'UniqueID': '{HANDASA-123}'},
+            }
+        ]
+
+        _create_documents_from_permits(self.asset, permits, source='Handasa')
+
+        document = Document.objects.get(asset=self.asset, external_id='HANDASA-123')
+        self.assertEqual(document.title, 'Handasa Permit')
+        self.assertEqual(document.source, 'Handasa')
+        self.assertEqual(document.document_type, 'permit')
+        self.assertEqual(document.document_date.isoformat(), '2024-01-01')
+        self.assertEqual(document.external_url, permits[0]['external_url'])
+
+    def test_handasa_document_updates_existing(self):
+        base_permit = {
+            'title': 'Handasa Permit',
+            'description': 'Issued permit',
+            'status': 'approved',
+            'permission_num': 'H-123',
+            'external_id': 'HANDASA-123',
+            'external_url': 'https://handasa.tel-aviv.gov.il/api/files?id=HANDASA-123',
+            'document_date': '2024-01-01',
+            'source': 'Handasa',
+            'meta': {'UniqueID': '{HANDASA-123}'},
+        }
+
+        _create_documents_from_permits(self.asset, [base_permit], source='Handasa')
+
+        updated = dict(base_permit)
+        updated['status'] = 'issued'
+        updated['description'] = 'Updated description'
+        updated['document_date'] = '2024-02-15'
+        _create_documents_from_permits(self.asset, [updated], source='Handasa')
+
+        document = Document.objects.get(asset=self.asset, external_id='HANDASA-123')
+        self.assertEqual(document.status, 'issued')
+        self.assertEqual(document.description, 'Updated description')
+        self.assertEqual(document.document_date.isoformat(), '2024-02-15')
 
 
 class DocumentStorageTest(TestCase):

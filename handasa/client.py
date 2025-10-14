@@ -1,40 +1,309 @@
-import re
-import requests
-from json import loads
+from __future__ import annotations
+
 import base64
-session = requests.Session()
-url_results = "https://handasa.tel-aviv.gov.il/Pages/SearchResultsAnonPageNew.aspx?block=6952_127"
+import logging
+import re
+from datetime import datetime, timezone
+from json import loads
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Union
 
-# 1. Load the search results page to get cookies and the request digest
-r = session.get(url_results, headers={"User-Agent": "Mozilla/5.0"})
-r.raise_for_status()
+import requests
 
-digest = re.search(r'id="__REQUESTDIGEST" value="([^"]+)"', r.text).group(1)
+logger = logging.getLogger(__name__)
 
-# 2. Build the CSOM ProcessQuery payload
-payload = """<Request xmlns="http://schemas.microsoft.com/sharepoint/clientquery/2009" SchemaVersion="15.0.0.0" LibraryVersion="16.0.0.0" ApplicationName="Javascript Library"><Actions><ObjectPath Id="1" ObjectPathId="0" /><SetProperty Id="2" ObjectPathId="0" Name="TimeZoneId"><Parameter Type="Number">27</Parameter></SetProperty><SetProperty Id="3" ObjectPathId="0" Name="QueryTemplate"><Parameter Type="String">({?TlvMPEngFolderId:{QueryString.folderId}} {?TlvMPEngRequestNum:{QueryString.request}} {?TlvMPEngFolderStreetCodeHouseNumEntrance:{QueryString.address}} {?TlvMPEngFolderStreetCodeHouseNum:{QueryString.partialAddress}} &#10; {?TlvMPEngFolderBlocksParcels:{QueryString.block}} {?TlvMPEngPermitNum:{QueryString.permit}} {?TlvMPEngOnlineReqNum:{QueryString.numRequest}} {?TlvMPEngBuildingID:{QueryString.buildingId}} TlvMPEngIsConnectedDoc:false  TlvMPEngSensitiveByFolderId:false (TlvMPEngDocumentType&lt;&gt;"תיק פקוח" AND -TlvMPEngDocumentType:"פיקוח-אחר"  AND -TlvMPEngDocumentType:"מכתבים/תכתובות-שימור"  AND  TlvMPEngDocumentType&lt;&gt;"תביעות,צווים מינהליים"  AND TlvMPEngDocumentType&lt;&gt;"דואר נכנס ויוצא פיקוח על הבניה")) OR ({?TlvMPEngFolderId:{QueryString.folderId}} {?TlvMPEngRequestNum:{QueryString.request}} {?TlvMPEngFolderStreetCodeHouseNumEntrance:{QueryString.address}} {?TlvMPEngFolderStreetCodeHouseNum:{QueryString.partialAddress}} {?TlvMPEngFolderBlocksParcels:{QueryString.block}} {?TlvMPEngPermitNum:{QueryString.permit}} {?TlvMPEngOnlineReqNum:{QueryString.numRequest}} {?TlvMPEngBuildingID:{QueryString.buildingId}} TlvMPEngIsConnectedDoc:false TlvMPEngPublishable:true)&#10;</Parameter></SetProperty><ObjectPath Id="5" ObjectPathId="4" /><Method Name="Add" Id="6" ObjectPathId="4"><Parameters><Parameter Type="String">TlvMPEngDocDate</Parameter><Parameter Type="Number">1</Parameter></Parameters></Method><SetProperty Id="7" ObjectPathId="0" Name="Culture"><Parameter Type="Number">1037</Parameter></SetProperty><SetProperty Id="8" ObjectPathId="0" Name="RowsPerPage"><Parameter Type="Number">50</Parameter></SetProperty><SetProperty Id="9" ObjectPathId="0" Name="RowLimit"><Parameter Type="Number">50</Parameter></SetProperty><SetProperty Id="10" ObjectPathId="0" Name="TotalRowsExactMinimum"><Parameter Type="Number">51</Parameter></SetProperty><SetProperty Id="11" ObjectPathId="0" Name="SourceId"><Parameter Type="Guid">{8413cd39-2156-4e00-b54d-11efd9abdb89}</Parameter></SetProperty><ObjectPath Id="13" ObjectPathId="12" /><Method Name="SetQueryPropertyValue" Id="14" ObjectPathId="12"><Parameters><Parameter Type="String">SourceName</Parameter><Parameter TypeId="{b25ba502-71d7-4ae4-a701-4ca2fb1223be}"><Property Name="BoolVal" Type="Boolean">false</Property><Property Name="IntVal" Type="Number">0</Property><Property Name="QueryPropertyValueTypeIndex" Type="Number">1</Property><Property Name="StrArray" Type="Null" /><Property Name="StrVal" Type="String">Local SharePoint Results</Property></Parameter></Parameters></Method><Method Name="SetQueryPropertyValue" Id="15" ObjectPathId="12"><Parameters><Parameter Type="String">SourceLevel</Parameter><Parameter TypeId="{b25ba502-71d7-4ae4-a701-4ca2fb1223be}"><Property Name="BoolVal" Type="Boolean">false</Property><Property Name="IntVal" Type="Number">0</Property><Property Name="QueryPropertyValueTypeIndex" Type="Number">1</Property><Property Name="StrArray" Type="Null" /><Property Name="StrVal" Type="String">Ssa</Property></Parameter></Parameters></Method><SetProperty Id="16" ObjectPathId="0" Name="Refiners"><Parameter Type="String">TlvMPEngFolderId(deephits=100000,sort=name/ascending,filter=350/0/*),TlvMPEngDocumentType(deephits=100000,filter=150/0/*),TlvMPEngPermitNum(deephits=100000,filter=15/0/*),TlvMPEngOnlineReqNum(deephits=100000,filter=15/0/*),TlvMPEngRequestNum(deephits=100000,filter=15/0/*)</Parameter></SetProperty><ObjectPath Id="18" ObjectPathId="17" /><Method Name="Add" Id="19" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngWebsioPreview</Parameter></Parameters></Method><Method Name="Add" Id="20" ObjectPathId="17"><Parameters><Parameter Type="String">SPWebUrl</Parameter></Parameters></Method><Method Name="Add" Id="21" ObjectPathId="17"><Parameters><Parameter Type="String">UniqueID</Parameter></Parameters></Method><Method Name="Add" Id="22" ObjectPathId="17"><Parameters><Parameter Type="String">FileExtension</Parameter></Parameters></Method><Method Name="Add" Id="23" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngFolderId</Parameter></Parameters></Method><Method Name="Add" Id="24" ObjectPathId="17"><Parameters><Parameter Type="String"> TlvMPEngFolderStreetCodes</Parameter></Parameters></Method><Method Name="Add" Id="25" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngFolderStreetCodeHouseNum</Parameter></Parameters></Method><Method Name="Add" Id="26" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngFolderStreetCodeHouseNumEntrance</Parameter></Parameters></Method><Method Name="Add" Id="27" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngFolderBlocks</Parameter></Parameters></Method><Method Name="Add" Id="28" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngFolderBlocksParcels</Parameter></Parameters></Method><Method Name="Add" Id="29" ObjectPathId="17"><Parameters><Parameter Type="String">ListID</Parameter></Parameters></Method><Method Name="Add" Id="30" ObjectPathId="17"><Parameters><Parameter Type="String">ListItemID</Parameter></Parameters></Method><Method Name="Add" Id="31" ObjectPathId="17"><Parameters><Parameter Type="String">ContentTypeId</Parameter></Parameters></Method><Method Name="Add" Id="32" ObjectPathId="17"><Parameters><Parameter Type="String">Path</Parameter></Parameters></Method><Method Name="Add" Id="33" ObjectPathId="17"><Parameters><Parameter Type="String">DocumentLink</Parameter></Parameters></Method><Method Name="Add" Id="34" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngDocumentType</Parameter></Parameters></Method><Method Name="Add" Id="35" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngDocDate</Parameter></Parameters></Method><Method Name="Add" Id="36" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngRequestNum</Parameter></Parameters></Method><Method Name="Add" Id="37" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngOnlineReqNum</Parameter></Parameters></Method><Method Name="Add" Id="38" ObjectPathId="17"><Parameters><Parameter Type="String">TlvMPEngPermitNum</Parameter></Parameters></Method><ObjectPath Id="40" ObjectPathId="39" /><Method Name="Add" Id="41" ObjectPathId="39"><Parameters><Parameter Type="String">Title</Parameter></Parameters></Method><Method Name="Add" Id="42" ObjectPathId="39"><Parameters><Parameter Type="String">Path</Parameter></Parameters></Method><Method Name="Add" Id="43" ObjectPathId="39"><Parameters><Parameter Type="String">Author</Parameter></Parameters></Method><Method Name="Add" Id="44" ObjectPathId="39"><Parameters><Parameter Type="String">SectionNames</Parameter></Parameters></Method><Method Name="Add" Id="45" ObjectPathId="39"><Parameters><Parameter Type="String">SiteDescription</Parameter></Parameters></Method><SetProperty Id="46" ObjectPathId="0" Name="TrimDuplicates"><Parameter Type="Boolean">false</Parameter></SetProperty><Method Name="SetQueryPropertyValue" Id="47" ObjectPathId="12"><Parameters><Parameter Type="String">EnableMultiGeoSearch</Parameter><Parameter TypeId="{b25ba502-71d7-4ae4-a701-4ca2fb1223be}"><Property Name="BoolVal" Type="Boolean">false</Property><Property Name="IntVal" Type="Number">0</Property><Property Name="QueryPropertyValueTypeIndex" Type="Number">1</Property><Property Name="StrArray" Type="Null" /><Property Name="StrVal" Type="String">false</Property></Parameter></Parameters></Method><Method Name="SetQueryPropertyValue" Id="48" ObjectPathId="12"><Parameters><Parameter Type="String">ListId</Parameter><Parameter TypeId="{b25ba502-71d7-4ae4-a701-4ca2fb1223be}"><Property Name="BoolVal" Type="Boolean">false</Property><Property Name="IntVal" Type="Number">0</Property><Property Name="QueryPropertyValueTypeIndex" Type="Number">1</Property><Property Name="StrArray" Type="Null" /><Property Name="StrVal" Type="String">187a7237-b2d4-479f-a3ac-0fa0159a617c</Property></Parameter></Parameters></Method><Method Name="SetQueryPropertyValue" Id="49" ObjectPathId="12"><Parameters><Parameter Type="String">ListItemId</Parameter><Parameter TypeId="{b25ba502-71d7-4ae4-a701-4ca2fb1223be}"><Property Name="BoolVal" Type="Boolean">false</Property><Property Name="IntVal" Type="Number">26</Property><Property Name="QueryPropertyValueTypeIndex" Type="Number">2</Property><Property Name="StrArray" Type="Null" /><Property Name="StrVal" Type="Null" /></Parameter></Parameters></Method><SetProperty Id="50" ObjectPathId="0" Name="ResultsUrl"><Parameter Type="String">https://handasa.tel-aviv.gov.il/Pages/SearchResultsAnonPageNew.aspx?block=6952_127</Parameter></SetProperty><SetProperty Id="51" ObjectPathId="0" Name="BypassResultTypes"><Parameter Type="Boolean">true</Parameter></SetProperty><SetProperty Id="52" ObjectPathId="0" Name="ClientType"><Parameter Type="String"></Parameter></SetProperty><Method Name="SetQueryPropertyValue" Id="53" ObjectPathId="12"><Parameters><Parameter Type="String">QuerySession</Parameter><Parameter TypeId="{b25ba502-71d7-4ae4-a701-4ca2fb1223be}"><Property Name="BoolVal" Type="Boolean">false</Property><Property Name="IntVal" Type="Number">0</Property><Property Name="QueryPropertyValueTypeIndex" Type="Number">1</Property><Property Name="StrArray" Type="Null" /><Property Name="StrVal" Type="String">3fe8b573-53df-421b-95cb-d37e5f4317fd</Property></Parameter></Parameters></Method><SetProperty Id="54" ObjectPathId="0" Name="SafeQueryPropertiesTemplateUrl"><Parameter Type="String">querygroup://webroot/Pages/SearchResultsAnonPageNew.aspx?groupname=Default</Parameter></SetProperty><SetProperty Id="55" ObjectPathId="0" Name="IgnoreSafeQueryPropertiesTemplateUrl"><Parameter Type="Boolean">false</Parameter></SetProperty><Method Name="SetQueryPropertyValue" Id="56" ObjectPathId="12"><Parameters><Parameter Type="String">QueryDateTimeCulture</Parameter><Parameter TypeId="{b25ba502-71d7-4ae4-a701-4ca2fb1223be}"><Property Name="BoolVal" Type="Boolean">false</Property><Property Name="IntVal" Type="Number">1037</Property><Property Name="QueryPropertyValueTypeIndex" Type="Number">2</Property><Property Name="StrArray" Type="Null" /><Property Name="StrVal" Type="Null" /></Parameter></Parameters></Method><ObjectPath Id="58" ObjectPathId="57" /><ExceptionHandlingScope Id="59"><TryScope Id="61"><Method Name="ExecuteQueries" Id="63" ObjectPathId="57"><Parameters><Parameter Type="Array"><Object Type="String">b8d5d9b2-6fc2-4c34-9a5f-e17bebec7fedDefault</Object></Parameter><Parameter Type="Array"><Object ObjectPathId="0" /></Parameter><Parameter Type="Boolean">true</Parameter></Parameters></Method></TryScope><CatchScope Id="65" /></ExceptionHandlingScope></Actions><ObjectPaths><Constructor Id="0" TypeId="{80173281-fffd-47b6-9a49-312e06ff8428}" /><Property Id="4" ParentId="0" Name="SortList" /><Property Id="12" ParentId="0" Name="Properties" /><Property Id="17" ParentId="0" Name="SelectProperties" /><Property Id="39" ParentId="0" Name="HitHighlightedProperties" /><Constructor Id="57" TypeId="{8d2ac302-db2f-46fe-9015-872b35f15098}" /></ObjectPaths></Request>""".replace("{QueryString.block}", "6952_127")
+SEARCH_RESULTS_URL = "https://handasa.tel-aviv.gov.il/Pages/SearchResultsAnonPageNew.aspx"
+PROCESS_QUERY_URL = "https://handasa.tel-aviv.gov.il/_vti_bin/client.svc/ProcessQuery"
+FILES_API_URL = "https://handasa.tel-aviv.gov.il/api/files"
+CONTEXT_INFO_URL = "https://handasa.tel-aviv.gov.il/_api/contextinfo"
+DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 
-# 3. POST the query
-headers = {
-    "User-Agent": "Mozilla/5.0",
-    "X-RequestDigest": digest,
-    "Content-Type": "text/xml"
-}
-resp = session.post(
-    "https://handasa.tel-aviv.gov.il/_vti_bin/client.svc/ProcessQuery",
-    data=payload.encode("utf-8"),
-    headers=headers,
-)
-resp.raise_for_status()
-data = loads(resp.content.decode("utf-8"))
-for i in list(data[14].values())[0]['ResultTables'][0]['ResultRows']:
-    unique_id = i['UniqueID'].strip('{}')
-    print(i['TlvMPEngDocumentType'], unique_id)
-    result = session.get(f"https://handasa.tel-aviv.gov.il/api/files?id={unique_id}")
-    result.raise_for_status()
-    json_data = loads(result.json())
-    file_bytes = base64.b64decode(json_data['buffer'])
-    with open(json_data['fileName'], "wb") as f:
-        f.write(file_bytes)
-    print(f"Saved {json_data['fileName']}")
+# Large CSOM payload used by the public Handasa search form.  Keeping it in a
+# separate template file keeps this module readable.
+PROCESS_QUERY_TEMPLATE = Path(__file__).with_name("payload_template.xml").read_text(encoding="utf-8")
 
+_DIGEST_PATTERN = re.compile(r'id="__REQUESTDIGEST" value="([^"]+)"')
+_BLOCK_PLACEHOLDER = "__BLOCK_PARAM__"
+
+
+def _normalize_unique_id(unique_id: Optional[str]) -> Optional[str]:
+    if not unique_id:
+        return None
+    unique_id = unique_id.strip()
+    if unique_id.startswith("{") and unique_id.endswith("}"):
+        return unique_id[1:-1]
+    return unique_id
+
+
+def _parse_sharepoint_date(value: Any) -> Optional[str]:
+    """Convert SharePoint style date values to ISO formatted strings."""
+
+    if not value:
+        return None
+
+    # /Date(1698451200000)/ format (milliseconds from epoch)
+    if isinstance(value, str) and value.startswith("/Date(") and value.endswith(")/"):
+        try:
+            timestamp_ms = int(value[6:-2])
+            dt = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+            return dt.date().isoformat()
+        except ValueError:
+            return None
+
+    # ISO formatted string
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return dt.date().isoformat()
+        except ValueError:
+            return None
+
+    # Raw unix timestamp (seconds or milliseconds)
+    if isinstance(value, (int, float)):
+        timestamp = value / 1000 if value > 1e12 else value
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.date().isoformat()
+
+    return None
+
+
+class HandasaClient:
+    """Client for the Tel-Aviv Handasa (engineering) portal."""
+
+    def __init__(
+        self,
+        session: Optional[requests.Session] = None,
+        *,
+        timeout: float = 60.0,
+        user_agent: str = DEFAULT_USER_AGENT,
+    ) -> None:
+        self.session = session or requests.Session()
+        self.timeout = timeout
+        # Ensure we have a reasonable default user-agent to avoid being blocked
+        self.session.headers.setdefault("User-Agent", user_agent)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    def get_permits(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch all permits for a given block/parcel combination."""
+
+        block_param = self._format_block_parcel(block, parcel)
+        digest = self._get_request_digest(block_param)
+        payload = self._build_payload(block_param)
+        response = self.session.post(
+            PROCESS_QUERY_URL,
+            data=payload.encode("utf-8"),
+            headers={
+                "Content-Type": "text/xml",
+                "X-Requested-With": "XMLHttpRequest",
+                "X-RequestDigest": digest,
+            },
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        data = loads(response.content.decode("utf-8"))
+        rows = self._extract_rows(data)
+        return [self._normalize_row(row) for row in rows if row]
+
+    def download_document(
+        self,
+        unique_id: str,
+        save_to: Optional[Union[str, Path]] = "permits",
+        overwrite: bool = False,
+    ) -> Dict[str, Any]:
+        """Download a permit document by its unique SharePoint ID.
+
+        Args:
+            unique_id: SharePoint unique identifier (GUID with or without braces).
+            save_to: Optional destination path or directory for the decoded file.
+            overwrite: When saving, control whether to overwrite an existing file.
+        """
+
+        unique_id = _normalize_unique_id(unique_id) or ""
+        response = self.session.get(
+            FILES_API_URL,
+            params={"id": unique_id},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if isinstance(payload, str):  # Some endpoints double-encode JSON
+            payload = loads(payload)
+
+        buffer = payload.get("buffer", "")
+        try:
+            content = base64.b64decode(buffer) if buffer else b""
+        except Exception:  # pragma: no cover - invalid base64 shouldn't fail client
+            logger.warning("Failed to decode permit %s buffer", unique_id)
+            content = b""
+
+        result = {
+            "file_name": payload.get("fileName"),
+            "content_type": payload.get("contentType", "application/octet-stream"),
+            "content": content,
+            "size": len(content),
+            "raw": payload,
+        }
+
+        if save_to and content:
+            target_path = Path(save_to)
+
+            file_name = result["file_name"] or f"{unique_id}.pdf"
+            target_path = target_path / file_name
+
+            if target_path.exists() and not overwrite:
+                raise FileExistsError(f"File already exists: {target_path}")
+
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            with target_path.open("wb") as handle:
+                handle.write(content)
+            result["file_path"] = target_path
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _format_block_parcel(self, block: str, parcel: Optional[str]) -> str:
+        block_str = str(block or "").strip()
+        parcel_str = str(parcel or "").strip()
+        if not block_str:
+            raise ValueError("HandasaClient requires a block number")
+        if parcel_str:
+            return f"{block_str}_{parcel_str}"
+        return block_str
+
+    def _get_request_digest(self, block_param: str) -> str:
+        digest = None
+        try:
+            digest = self._fetch_request_digest_from_page(block_param)
+        except requests.RequestException as exc:
+            logger.warning("Handasa digest fetch via search page failed: %s", exc)
+
+        if not digest:
+            digest = self._fetch_request_digest_from_contextinfo()
+
+        if not digest:
+            raise RuntimeError("Failed to obtain request digest from Handasa portal")
+
+        return digest
+
+    def _fetch_request_digest_from_page(self, block_param: str) -> Optional[str]:
+        response = self.session.get(
+            SEARCH_RESULTS_URL,
+            params={"block": block_param},
+            headers={
+                "Accept": (
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                    "image/avif,image/webp,image/apng,*/*;q=0.8"
+                ),
+                "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+            },
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        match = _DIGEST_PATTERN.search(response.text)
+        if match:
+            return match.group(1)
+        logger.debug("Handasa digest not found in search page response")
+        return None
+
+    def _fetch_request_digest_from_contextinfo(self) -> Optional[str]:
+        try:
+            response = self.session.post(
+                CONTEXT_INFO_URL,
+                headers={
+                    "Accept": "application/json;odata=verbose",
+                    "Content-Type": "application/json;odata=verbose",
+                },
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            logger.debug("Handasa contextinfo request failed: %s", exc)
+            return None
+
+        digest = (
+            payload.get("d", {})
+            .get("GetContextWebInformation", {})
+            .get("FormDigestValue")
+        )
+        if not digest:
+            logger.debug("Handasa contextinfo response missing digest")
+        return digest
+
+    def _build_payload(self, block_param: str) -> str:
+        if _BLOCK_PLACEHOLDER not in PROCESS_QUERY_TEMPLATE:
+            logger.debug("Handasa payload template missing placeholder; refreshing cache")
+        return PROCESS_QUERY_TEMPLATE.replace(_BLOCK_PLACEHOLDER, block_param)
+
+    def _extract_rows(self, payload: Iterable[Any]) -> List[Dict[str, Any]]:
+        for entry in payload:
+            if isinstance(entry, dict):
+                for value in entry.values():
+                    if isinstance(value, dict) and value.get("ResultTables"):
+                        tables = value.get("ResultTables", [])
+                        for table in tables:
+                            rows = table.get("ResultRows")
+                            if isinstance(rows, list):
+                                return rows
+        return []
+
+    def _normalize_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        unique_id = _normalize_unique_id(row.get("UniqueID"))
+        permission_num = row.get("TlvMPEngPermitNum") or row.get("PermitNumber")
+        request_num = row.get("TlvMPEngOnlineReqNum") or row.get("TlvMPEngRequestNum")
+        document_date = (
+            _parse_sharepoint_date(row.get("TlvMPEngIssueDate"))
+            or _parse_sharepoint_date(row.get("IssueDate"))
+            or _parse_sharepoint_date(row.get("Write"))
+        )
+        status = row.get("TlvMPEngProcessStage") or row.get("TlvMPEngDocumentStatus") or ""
+        title = row.get("Title") or row.get("TlvMPEngDocumentName") or ""
+        description = row.get("TlvMPEngDocumentType") or row.get("ContentType") or ""
+
+        external_id = unique_id or permission_num or request_num or row.get("Path")
+        external_url = self._build_external_url(unique_id, row)
+
+        normalized = {
+            "title": title,
+            "description": description,
+            "status": status,
+            "permission_num": permission_num,
+            "request_num": request_num,
+            "external_id": external_id,
+            "external_url": external_url,
+            "document_date": document_date,
+            "source": "Handasa",
+            "meta": row,
+        }
+
+        # Carry additional numeric metrics if provided by the API
+        for key in (
+            "TlvMPEngHousingUnits",
+            "TlvMPEngCommercialArea",
+            "TlvMPEngResidentialArea",
+            "TlvMPEngResidentialUnits",
+        ):
+            if key in row:
+                normalized[key] = row.get(key)
+
+        return normalized
+
+    def _build_external_url(self, unique_id: Optional[str], row: Dict[str, Any]) -> str:
+        if unique_id:
+            return f"{FILES_API_URL}?id={unique_id}"
+        return row.get("Path", "")
+
+
+__all__ = ["HandasaClient"]
+
+if __name__ == "__main__":
+    client = HandasaClient()
+    permits = client.get_permits("6952", "127")
+    for permit in permits:
+        print(permit)
+        result = client.download_document(permit["external_id"], overwrite=True)
+        print(result)

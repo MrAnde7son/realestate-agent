@@ -1,5 +1,6 @@
 import base64
 import json
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -59,6 +60,12 @@ class FakeSession:
         payload = self._next()
         assert payload['method'] == 'POST'
         assert payload['url'] == url
+        if isinstance(data, bytes):
+            payload['request_data'] = data
+        elif isinstance(data, str):
+            payload['request_data'] = data.encode('utf-8')
+        else:
+            payload['request_data'] = b''
         if 'content' not in payload:
             if isinstance(data, bytes):
                 payload['content'] = data
@@ -76,11 +83,12 @@ def process_query_payload():
             'ResultTableCollection': {
                 'ResultTables': [
                     {
+                        'TableType': 'RelevantResults',
                         'ResultRows': [
                             {
                                 'UniqueID': '{HANDASA-123}',
                                 'Title': 'Permit Title',
-                                'TlvMPEngDocumentType': 'היתר בנייה',
+                                'TlvMPEngDocumentType': 'היתר מילולי חתום',
                                 'TlvMPEngPermitNum': 'H-123',
                                 'TlvMPEngOnlineReqNum': 'REQ-123',
                                 'TlvMPEngIssueDate': '/Date(1704067200000)/',
@@ -129,6 +137,7 @@ def test_get_archive_marks_non_permit_documents():
             'ResultTableCollection': {
                 'ResultTables': [
                     {
+                        'TableType': 'RelevantResults',
                         'ResultRows': [
                             {
                                 'UniqueID': '{HANDASA-456}',
@@ -163,6 +172,134 @@ def test_get_archive_marks_non_permit_documents():
     doc = archive[0]
     assert doc['external_id'] == 'HANDASA-456'
     assert doc['document_type'] == 'other'
+
+
+def test_get_archive_allows_custom_payload_customizations(process_query_payload):
+    post_payload = {
+        'method': 'POST',
+        'url': PROCESS_QUERY_URL,
+        'content': json.dumps(process_query_payload).encode('utf-8'),
+    }
+    session = FakeSession([
+        {
+            'method': 'GET',
+            'url': SEARCH_RESULTS_URL,
+            'text': '<input id="__REQUESTDIGEST" value="digest-token" />',
+        },
+        post_payload,
+    ])
+
+    select_properties = ['UniqueID', 'Title']
+    document_types = ['היתר מילולי חתום', 'תשריט בית משותף']
+
+    client = HandasaClient(session=session)
+    client.get_archive(
+        '6952',
+        '127',
+        select_properties=select_properties,
+        document_types=document_types,
+        page_size=25,
+    )
+
+    request_xml = post_payload.get('request_data', b'').decode('utf-8')
+    assert request_xml, 'expected request payload to be captured'
+
+    ns = {'sp': 'http://schemas.microsoft.com/sharepoint/clientquery/2009'}
+    root = ET.fromstring(request_xml)
+    captured_properties = [
+        param.text
+        for method in root.findall("sp:Actions/sp:Method[@ObjectPathId='17']", ns)
+        for param in method.findall('sp:Parameters/sp:Parameter', ns)
+    ]
+    assert captured_properties == select_properties
+
+    query_template_param = root.find(
+        "sp:Actions/sp:SetProperty[@Name='QueryTemplate']/sp:Parameter",
+        ns,
+    )
+    assert query_template_param is not None
+    template_text = query_template_param.text or ''
+    for doc_type in document_types:
+        assert f'TlvMPEngDocumentType:"{doc_type}"' in template_text
+
+
+def test_get_archive_fetches_multiple_pages():
+    def make_payload(unique_ids):
+        return [
+            {
+                'ResultTableCollection': {
+                    'ResultTables': [
+                        {
+                            'TableType': 'RelevantResults',
+                            'ResultRows': [
+                                {
+                                    'UniqueID': f'{{HANDASA-{uid}}}',
+                                    'TlvMPEngDocumentType': 'היתר בנייה',
+                                    'TlvMPEngPermitNum': f'H-{uid}',
+                                    'TlvMPEngIssueDate': '/Date(1704067200000)/',
+                                    'Path': f'https://handasa.tel-aviv.gov.il/documents/{uid}',
+                                }
+                                for uid in unique_ids
+                            ],
+                        }
+                    ]
+                }
+            }
+        ]
+
+    first_page_payload = make_payload(['123', '124'])
+    second_page_payload = make_payload(['125'])
+
+    post_page_one = {
+        'method': 'POST',
+        'url': PROCESS_QUERY_URL,
+        'content': json.dumps(first_page_payload).encode('utf-8'),
+    }
+    post_page_two = {
+        'method': 'POST',
+        'url': PROCESS_QUERY_URL,
+        'content': json.dumps(second_page_payload).encode('utf-8'),
+    }
+
+    session = FakeSession([
+        {
+            'method': 'GET',
+            'url': SEARCH_RESULTS_URL,
+            'text': '<input id="__REQUESTDIGEST" value="digest-token" />',
+        },
+        post_page_one,
+        post_page_two,
+    ])
+
+    client = HandasaClient(session=session)
+    results = client.get_archive('6952', '127', page_size=2)
+
+    assert len(results) == 3
+    external_ids = {doc['external_id'] for doc in results}
+    assert external_ids == {'HANDASA-123', 'HANDASA-124', 'HANDASA-125'}
+
+    # Ensure the pagination metadata was applied to the first request
+    request_xml = post_page_one.get('request_data', b'').decode('utf-8')
+    root = ET.fromstring(request_xml)
+    ns = {'sp': 'http://schemas.microsoft.com/sharepoint/clientquery/2009'}
+    row_limit_param = root.find("sp:Actions/sp:SetProperty[@Name='RowLimit']/sp:Parameter", ns)
+    assert row_limit_param is not None
+    assert row_limit_param.text == '2'
+
+    second_request_xml = post_page_two.get('request_data', b'').decode('utf-8')
+    second_root = ET.fromstring(second_request_xml)
+    start_row_param = None
+    for method in second_root.findall("sp:Actions/sp:Method", ns):
+        parameters = method.findall('sp:Parameters/sp:Parameter', ns)
+        if parameters and parameters[0].text == 'StartRow':
+            start_row_param = parameters[1]
+            break
+    assert start_row_param is not None
+    values = {
+        prop.attrib['Name']: (prop.text or '')
+        for prop in start_row_param.findall('sp:Property', ns)
+    }
+    assert values['IntVal'] == '2'
 
 
 def test_download_document_decodes_buffer():

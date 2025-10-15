@@ -8,6 +8,8 @@ from json import loads
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
+import xml.etree.ElementTree as ET
+
 import requests
 
 logger = logging.getLogger(__name__)
@@ -22,8 +24,195 @@ DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 # separate template file keeps this module readable.
 PROCESS_QUERY_TEMPLATE = Path(__file__).with_name("payload_template.xml").read_text(encoding="utf-8")
 
+_SP_NAMESPACE = "http://schemas.microsoft.com/sharepoint/clientquery/2009"
+_SP = f"{{{_SP_NAMESPACE}}}"
+ET.register_namespace("", _SP_NAMESPACE)
+
 _DIGEST_PATTERN = re.compile(r'"formDigestValue"\s*:\s*"([^"]+)"')
+_INPUT_DIGEST_PATTERN = re.compile(r'id="__REQUESTDIGEST"[^>]*value="([^"]+)"')
 _BLOCK_PLACEHOLDER = "__BLOCK_PARAM__"
+
+
+def _extract_default_select_properties() -> Tuple[str, ...]:
+    template = PROCESS_QUERY_TEMPLATE.replace(_BLOCK_PLACEHOLDER, "0")
+    root = ET.fromstring(template)
+    ns = {"sp": _SP_NAMESPACE}
+    values: List[str] = []
+    for method in root.findall("sp:Actions/sp:Method[@ObjectPathId='17']", ns):
+        for param in method.findall("sp:Parameters/sp:Parameter", ns):
+            if param.text:
+                values.append(param.text.strip())
+    return tuple(values)
+
+
+_DEFAULT_SELECT_PROPERTIES = _extract_default_select_properties()
+_QUERY_TEMPLATE_MARKER = "TlvMPEngPublishable:true"
+
+
+def _next_action_id(actions: ET.Element) -> int:
+    max_id = 0
+    for element in actions:
+        identifier = element.attrib.get("Id")
+        if identifier and identifier.isdigit():
+            max_id = max(max_id, int(identifier))
+    return max_id + 1
+
+
+def _set_number_property(root: ET.Element, name: str, value: int) -> None:
+    ns = {"sp": _SP_NAMESPACE}
+    parameter = root.find(f"sp:Actions/sp:SetProperty[@Name='{name}']/sp:Parameter", ns)
+    if parameter is not None:
+        parameter.text = str(int(value))
+
+
+def _create_query_property_method(actions: ET.Element, name: str) -> ET.Element:
+    method = ET.SubElement(
+        actions,
+        f"{_SP}Method",
+        {"Name": "SetQueryPropertyValue", "Id": str(_next_action_id(actions)), "ObjectPathId": "12"},
+    )
+    params = ET.SubElement(method, f"{_SP}Parameters")
+    param_name = ET.SubElement(params, f"{_SP}Parameter", {"Type": "String"})
+    param_name.text = name
+    value_param = ET.SubElement(
+        params,
+        f"{_SP}Parameter",
+        {"TypeId": "{b25ba502-71d7-4ae4-a701-4ca2fb1223be}"},
+    )
+
+    defaults = (
+        ("BoolVal", "Boolean", "false"),
+        ("IntVal", "Number", "0"),
+        ("QueryPropertyValueTypeIndex", "Number", "1"),
+        ("StrArray", "Null", None),
+        ("StrVal", "Null", None),
+    )
+    for prop_name, prop_type, text in defaults:
+        prop = ET.SubElement(value_param, f"{_SP}Property", {"Name": prop_name, "Type": prop_type})
+        if text is not None:
+            prop.text = text
+
+    return method
+
+
+def _set_query_property_value(
+    root: ET.Element,
+    name: str,
+    *,
+    int_value: Optional[int] = None,
+    str_value: Optional[str] = None,
+) -> None:
+    actions = root.find(f"{_SP}Actions")
+    if actions is None:
+        return
+
+    ns = {"sp": _SP_NAMESPACE}
+    target: Optional[ET.Element] = None
+    for method in actions.findall("sp:Method", ns):
+        if method.attrib.get("Name") != "SetQueryPropertyValue":
+            continue
+        params = method.findall("sp:Parameters/sp:Parameter", ns)
+        if params and params[0].text == name:
+            target = method
+            break
+
+    if target is None:
+        target = _create_query_property_method(actions, name)
+
+    params = target.findall(f"{_SP}Parameters/{_SP}Parameter")
+    if len(params) < 2:
+        return
+
+    value_param = params[1]
+    properties = {prop.attrib.get("Name"): prop for prop in value_param.findall(f"{_SP}Property")}
+
+    bool_prop = properties.get("BoolVal")
+    if bool_prop is not None:
+        bool_prop.text = "false"
+
+    str_array_prop = properties.get("StrArray")
+    if str_array_prop is not None:
+        str_array_prop.attrib["Type"] = "Null"
+        str_array_prop.text = None
+
+    if int_value is not None:
+        int_prop = properties.get("IntVal")
+        if int_prop is not None:
+            int_prop.attrib["Type"] = "Number"
+            int_prop.text = str(int(int_value))
+        qpvt = properties.get("QueryPropertyValueTypeIndex")
+        if qpvt is not None:
+            qpvt.text = "2"
+        str_prop = properties.get("StrVal")
+        if str_prop is not None:
+            str_prop.attrib["Type"] = "Null"
+            str_prop.text = None
+
+    if str_value is not None:
+        str_prop = properties.get("StrVal")
+        if str_prop is not None:
+            str_prop.attrib["Type"] = "String"
+            str_prop.text = str(str_value)
+        qpvt = properties.get("QueryPropertyValueTypeIndex")
+        if qpvt is not None:
+            qpvt.text = "1"
+        int_prop = properties.get("IntVal")
+        if int_prop is not None:
+            int_prop.attrib["Type"] = "Number"
+            int_prop.text = "0"
+
+
+def _set_select_properties(root: ET.Element, properties: Iterable[str]) -> None:
+    actions = root.find(f"{_SP}Actions")
+    if actions is None:
+        return
+
+    ns = {"sp": _SP_NAMESPACE}
+    for method in list(actions.findall("sp:Method[@ObjectPathId='17']", ns)):
+        actions.remove(method)
+
+    next_id = _next_action_id(actions)
+    for value in properties:
+        value_str = str(value).strip()
+        if not value_str:
+            continue
+        method = ET.SubElement(
+            actions,
+            f"{_SP}Method",
+            {"Name": "Add", "Id": str(next_id), "ObjectPathId": "17"},
+        )
+        next_id += 1
+        params = ET.SubElement(method, f"{_SP}Parameters")
+        param = ET.SubElement(params, f"{_SP}Parameter", {"Type": "String"})
+        param.text = value_str
+
+
+def _apply_document_type_filters(root: ET.Element, document_types: Optional[Iterable[str]]) -> None:
+    if not document_types:
+        return
+
+    types: List[str] = []
+    for doc in document_types:
+        if doc is None:
+            continue
+        doc_str = str(doc).strip()
+        if doc_str:
+            types.append(doc_str)
+    if not types:
+        return
+
+    ns = {"sp": _SP_NAMESPACE}
+    parameter = root.find("sp:Actions/sp:SetProperty[@Name='QueryTemplate']/sp:Parameter", ns)
+    if parameter is None or parameter.text is None:
+        return
+
+    clause = " AND (" + " OR ".join(f'TlvMPEngDocumentType:"{doc}"' for doc in types) + ")"
+    text = parameter.text
+    if _QUERY_TEMPLATE_MARKER in text:
+        text = text.replace(_QUERY_TEMPLATE_MARKER, _QUERY_TEMPLATE_MARKER + clause, 1)
+    else:
+        text = f"{text}{clause}"
+    parameter.text = text
 
 
 def _normalize_label(value: Optional[str]) -> str:
@@ -148,25 +337,77 @@ class HandasaClient:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def get_archive(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Fetch all building archive for a given block/parcel combination."""
+    def get_archive(
+        self,
+        block: str,
+        parcel: Optional[str] = None,
+        *,
+        select_properties: Optional[Iterable[str]] = None,
+        document_types: Optional[Iterable[str]] = None,
+        page_size: int = 50,
+        start_row: int = 0,
+        max_pages: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Fetch building archive results for a given block/parcel combination.
+
+        Args:
+            block: Block ("gush") identifier.
+            parcel: Optional parcel ("helka") identifier.
+            select_properties: Optional iterable of SharePoint managed property
+                names to include in the search response.
+            document_types: Optional iterable of document type names to filter.
+            page_size: Number of results to request per page.
+            start_row: Initial search result offset.
+            max_pages: Optional cap on the number of result pages to fetch.
+        """
+
+        if page_size <= 0:
+            raise ValueError("HandasaClient page_size must be a positive integer")
+        if start_row < 0:
+            raise ValueError("HandasaClient start_row must not be negative")
 
         block_param = self._format_block_parcel(block, parcel)
         digest = self._get_request_digest(block_param)
-        payload = self._build_payload(block_param)
-        response = self.session.post(
-            PROCESS_QUERY_URL,
-            data=payload.encode("utf-8"),
-            headers={
-                "Content-Type": "text/xml",
-                "X-Requested-With": "XMLHttpRequest",
-                "X-RequestDigest": digest,
-            },
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
-        data = loads(response.content.decode("utf-8"))
-        rows = self._extract_rows(data)
+
+        rows: List[Dict[str, Any]] = []
+        current_start = start_row
+        pages_fetched = 0
+
+        while True:
+            payload = self._build_payload(
+                block_param,
+                select_properties=select_properties,
+                document_types=document_types,
+                row_limit=page_size,
+                start_row=current_start,
+            )
+            response = self.session.post(
+                PROCESS_QUERY_URL,
+                data=payload.encode("utf-8"),
+                headers={
+                    "Content-Type": "text/xml",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-RequestDigest": digest,
+                },
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = loads(response.content.decode("utf-8"))
+            page_rows = self._extract_rows(data)
+            if not page_rows:
+                break
+
+            rows.extend(page_rows)
+            pages_fetched += 1
+
+            if len(page_rows) < page_size:
+                break
+
+            current_start += len(page_rows)
+
+            if max_pages is not None and pages_fetched >= max_pages:
+                break
+
         return [self._normalize_row(row) for row in rows if row]
 
     def download_document(
@@ -272,13 +513,41 @@ class HandasaClient:
         match = _DIGEST_PATTERN.search(response.text)
         if match:
             return match.group(1)
+
+        match = _INPUT_DIGEST_PATTERN.search(response.text)
+        if match:
+            return match.group(1)
+
         logger.debug("Handasa digest not found in search page response")
         return None
 
-    def _build_payload(self, block_param: str) -> str:
+    def _build_payload(
+        self,
+        block_param: str,
+        *,
+        select_properties: Optional[Iterable[str]] = None,
+        document_types: Optional[Iterable[str]] = None,
+        start_row: int = 0,
+        row_limit: int = 50,
+    ) -> str:
         if _BLOCK_PLACEHOLDER not in PROCESS_QUERY_TEMPLATE:
             logger.debug("Handasa payload template missing placeholder; refreshing cache")
-        return PROCESS_QUERY_TEMPLATE.replace(_BLOCK_PLACEHOLDER, block_param)
+
+        template = PROCESS_QUERY_TEMPLATE.replace(_BLOCK_PLACEHOLDER, block_param)
+        root = ET.fromstring(template)
+
+        _set_number_property(root, "RowsPerPage", row_limit)
+        _set_number_property(root, "RowLimit", row_limit)
+        _set_query_property_value(root, "StartRow", int_value=start_row)
+
+        properties = tuple(prop for prop in (select_properties or _DEFAULT_SELECT_PROPERTIES) if prop)
+        if not properties:
+            properties = _DEFAULT_SELECT_PROPERTIES
+        _set_select_properties(root, properties)
+
+        _apply_document_type_filters(root, document_types)
+
+        return ET.tostring(root, encoding="utf-8").decode("utf-8")
 
     def _extract_rows(self, payload: Iterable[Any]) -> List[Dict[str, Any]]:
         rows = []

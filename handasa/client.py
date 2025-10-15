@@ -372,16 +372,6 @@ class HandasaClient:
             "meta": row,
         }
 
-        # Carry additional numeric metrics if provided by the API
-        for key in (
-            "TlvMPEngHousingUnits",
-            "TlvMPEngCommercialArea",
-            "TlvMPEngResidentialArea",
-            "TlvMPEngResidentialUnits",
-        ):
-            if key in row:
-                normalized[key] = row.get(key)
-
         document_type, document_category = _classify_handasa_document(row)
         normalized["document_type"] = document_type
         normalized["document_category"] = document_category

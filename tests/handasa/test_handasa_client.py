@@ -36,27 +36,47 @@ class FakeResponse:
         return json.loads(self._content.decode('utf-8'))
 
 
+# python
 class FakeSession:
     def __init__(self, responses):
         self.responses = list(responses)
         self.headers = {}
 
-    def _next(self):
-        if not self.responses:
-            raise AssertionError("No more fake responses configured")
-        return self.responses.pop(0)
+    def _find_index(self, method, url, params=None):
+        for i, payload in enumerate(self.responses):
+            if payload.get('method') != method:
+                continue
+            if payload.get('url') != url:
+                continue
+            expected_params = payload.get('params')
+            if expected_params is not None and expected_params != params:
+                continue
+            return i
+        return None
+
+    def _next(self, method=None, url=None, params=None):
+        if method is None and url is None:
+            if not self.responses:
+                raise AssertionError("No more fake responses configured")
+            return self.responses.pop(0)
+
+        idx = self._find_index(method, url, params=params)
+        if idx is None:
+            raise AssertionError(f"No fake response configured for {method} {url} (remaining: {self.responses})")
+        return self.responses.pop(idx)
 
     def get(self, url, **kwargs):
-        payload = self._next()
+        params = kwargs.get('params')
+        payload = self._next('GET', url, params=params)
         assert payload['method'] == 'GET'
         assert payload['url'] == url
         expected_params = payload.get('params')
         if expected_params is not None:
-            assert kwargs.get('params') == expected_params
+            assert params == expected_params
         return FakeResponse(payload)
 
     def post(self, url, data=None, json=None, **kwargs):
-        payload = self._next()
+        payload = self._next('POST', url)
         assert payload['method'] == 'POST'
         assert payload['url'] == url
         if 'content' not in payload:
@@ -76,11 +96,13 @@ def process_query_payload():
             'ResultTableCollection': {
                 'ResultTables': [
                     {
+                        "TableType": "RelevantResults",
+                        "TotalRows": 1,
                         'ResultRows': [
                             {
                                 'UniqueID': '{HANDASA-123}',
                                 'Title': 'Permit Title',
-                                'TlvMPEngDocumentType': 'היתר בנייה',
+                                'TlvMPEngDocumentType': 'היתר מילולי חתום',
                                 'TlvMPEngPermitNum': 'H-123',
                                 'TlvMPEngOnlineReqNum': 'REQ-123',
                                 'TlvMPEngIssueDate': '/Date(1704067200000)/',
@@ -129,6 +151,8 @@ def test_get_archive_marks_non_permit_documents():
             'ResultTableCollection': {
                 'ResultTables': [
                     {
+                        "TableType": "RelevantResults",
+                        "TotalRows": 1,
                         'ResultRows': [
                             {
                                 'UniqueID': '{HANDASA-456}',
@@ -147,7 +171,7 @@ def test_get_archive_marks_non_permit_documents():
         {
             'method': 'GET',
             'url': SEARCH_RESULTS_URL,
-            'text': '<input id="__REQUESTDIGEST" value="digest-token" />',
+            'text': '{ "formDigestValue": "0xF8A85579F71BE2BE68D6CE5419F40509D62AD5143479658A3936237B6678F1D8EE4513BF5FD9D7AF037BB0505839C281C7B0F486E212F6B98C5FA3077FE68D53,14 Oct 2025 10:11:06 -0000", }',
         },
         {
             'method': 'POST',

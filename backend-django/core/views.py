@@ -83,6 +83,8 @@ from .services.asset_links import (
     asset_listings_all,
 )
 
+User = get_user_model()
+
 # Import services
 from .auth_service import AuthenticationService
 from .report_service import ReportService
@@ -1171,6 +1173,19 @@ def assets(request):
         return _get_assets_list()
 
     if request.method == "DELETE":
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return Response({"error": "Authentication required"}, status=status.HTTP_403_FORBIDDEN)
+
+        if not (
+            getattr(user, "role", None) == User.Role.ADMIN
+            or getattr(user, "is_superuser", False)
+        ):
+            return Response(
+                {"error": "Admin privileges required to delete assets"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         data = parse_json(request)
         if not data or not data.get("assetId"):
             return Response({"error": "assetId required"}, status=400)

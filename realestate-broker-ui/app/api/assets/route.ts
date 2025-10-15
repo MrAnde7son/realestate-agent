@@ -83,7 +83,6 @@ export async function DELETE(req: Request) {
     // Validate token
     const tokenValidation = validateToken(token)
     if (!tokenValidation.isValid) {
-      console.log('❌ Asset deletion - Token validation failed:', tokenValidation.error)
       const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
       response.cookies.delete('access_token')
       response.cookies.delete('refresh_token')
@@ -111,9 +110,14 @@ export async function DELETE(req: Request) {
     }
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
       const res = await fetch(`${BACKEND_URL}/api/assets/`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ assetId }),
       })
 
@@ -140,12 +144,10 @@ export async function POST(req: Request) {
     
     // Get authentication token
     const token = cookies().get('access_token')?.value
-    console.log('🔐 Asset creation - Token found:', !!token, token ? 'Yes' : 'No')
     
     // Validate token
     const tokenValidation = validateToken(token)
     if (!tokenValidation.isValid) {
-      console.log('❌ Asset creation - Token validation failed:', tokenValidation.error)
       const response = NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
       response.cookies.delete('access_token')
       response.cookies.delete('refresh_token')

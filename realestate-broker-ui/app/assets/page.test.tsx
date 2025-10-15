@@ -16,41 +16,50 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
 }))
-vi.mock('@/components/AssetsTable', () => ({
-  default: ({ data, loading, onAddNew, searchValue, onSearchChange }: { 
-    data: any[], 
-    loading: boolean, 
-    onDelete?: any,
-    onAddNew?: () => void,
-    searchValue?: string,
-    onSearchChange?: (value: string) => void
-  }) => (
-    <div data-testid="assets-table">
-      {/* Mock TableToolbar */}
-      <div className="p-3 border-b">
-        <div className="flex gap-2 items-center">
-          <input
-            placeholder="חיפוש בכתובת או עיר..."
-            value={searchValue || ''}
-            onChange={(e) => onSearchChange?.(e.target.value)}
-            className="px-3 py-1 border rounded"
-          />
-          <button onClick={onAddNew} className="px-3 py-1 bg-blue-500 text-white rounded">
-            הוסף חדש
-          </button>
-          <button className="px-3 py-1 border rounded">
-            רענן
-          </button>
-          <button className="px-3 py-1 border rounded">
-            סינון
-          </button>
-        </div>
-      </div>
-      <div>
-        {loading ? 'Loading...' : `${data?.length || 0} assets`}
+const mockAssetsTable = vi.fn(({
+  data,
+  loading,
+  onAddNew,
+  searchValue,
+  onSearchChange,
+  onDelete
+}: {
+  data: any[],
+  loading: boolean,
+  onDelete?: any,
+  onAddNew?: () => void,
+  searchValue?: string,
+  onSearchChange?: (value: string) => void
+}) => (
+  <div data-testid="assets-table" data-has-delete={onDelete ? 'true' : 'false'}>
+    {/* Mock TableToolbar */}
+    <div className="p-3 border-b">
+      <div className="flex gap-2 items-center">
+        <input
+          placeholder="חיפוש בכתובת או עיר..."
+          value={searchValue || ''}
+          onChange={(e) => onSearchChange?.(e.target.value)}
+          className="px-3 py-1 border rounded"
+        />
+        <button onClick={onAddNew} className="px-3 py-1 bg-blue-500 text-white rounded">
+          הוסף חדש
+        </button>
+        <button className="px-3 py-1 border rounded">
+          רענן
+        </button>
+        <button className="px-3 py-1 border rounded">
+          סינון
+        </button>
       </div>
     </div>
-  )
+    <div>
+      {loading ? 'Loading...' : `${data?.length || 0} assets`}
+    </div>
+  </div>
+))
+
+vi.mock('@/components/AssetsTable', () => ({
+  default: (props: any) => mockAssetsTable(props)
 }))
 
 // Mock fetch globally
@@ -89,7 +98,9 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 describe('AssetsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAssetsTable.mockClear()
     mockUseAuth.isAuthenticated = true
+    mockUseAuth.user = { id: '1', name: 'Test User', role: 'broker' } as any
     ;(useRouter as any).mockReturnValue(mockUseRouter)
     ;(useSearchParams as any).mockReturnValue(mockUseSearchParams)
     ;(usePathname as any).mockReturnValue('/assets')
@@ -188,6 +199,36 @@ describe('AssetsPage', () => {
 
     // The mock doesn't actually call the refresh function, so we just verify the button exists
     expect(refreshButton).toBeInTheDocument()
+  })
+
+  it('provides delete handler to assets table for admin users', async () => {
+    mockUseAuth.user = { id: '1', name: 'Admin User', role: 'admin' } as any
+
+    await act(async () => {
+      render(<AssetsPage />, { wrapper: TestWrapper })
+    })
+
+    await waitFor(() => {
+      expect(mockAssetsTable).toHaveBeenCalled()
+    })
+
+    const lastCall = mockAssetsTable.mock.calls[mockAssetsTable.mock.calls.length - 1]
+    expect(lastCall[0].onDelete).toBeTypeOf('function')
+  })
+
+  it('omits delete handler for non-admin users', async () => {
+    mockUseAuth.user = { id: '2', name: 'Broker User', role: 'broker' } as any
+
+    await act(async () => {
+      render(<AssetsPage />, { wrapper: TestWrapper })
+    })
+
+    await waitFor(() => {
+      expect(mockAssetsTable).toHaveBeenCalled()
+    })
+
+    const lastCall = mockAssetsTable.mock.calls[mockAssetsTable.mock.calls.length - 1]
+    expect(lastCall[0].onDelete).toBeUndefined()
   })
 
   it('opens new asset form when add button is clicked', async () => {

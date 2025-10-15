@@ -2,7 +2,8 @@ import json
 
 from core import views
 from core.models import Asset
-from django.test import RequestFactory
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIRequestFactory, force_authenticate
 import pytest
 
 
@@ -22,7 +23,7 @@ class DummyTask:
 
 
 def test_assets_post_triggers_pipeline(monkeypatch):
-    factory = RequestFactory()
+    factory = APIRequestFactory()
     payload = {
         "scope": {"type": "address", "city": "City"},
         "city": "City",
@@ -55,12 +56,42 @@ def test_assets_post_triggers_pipeline(monkeypatch):
 
 
 @pytest.mark.django_db
-def test_assets_delete_removes_asset():
-    factory = RequestFactory()
+def test_assets_delete_requires_admin_user():
+    factory = APIRequestFactory()
     asset = Asset.objects.create(scope_type="address", city="City")
+    user = get_user_model().objects.create_user(
+        email="user@example.com",
+        username="user",
+        password="password",
+        role="broker",
+    )
     request = factory.delete(
         "/api/assets/", data=json.dumps({"assetId": asset.id}), content_type="application/json"
     )
+    force_authenticate(request, user=user)
+
+    response = views.assets(request)
+
+    assert response.status_code == 403
+    assert Asset.objects.filter(id=asset.id).exists()
+
+
+@pytest.mark.django_db
+def test_assets_delete_removes_asset_for_admin():
+    factory = APIRequestFactory()
+    asset = Asset.objects.create(scope_type="address", city="City")
+    admin_user = get_user_model().objects.create_user(
+        email="admin-delete@example.com",
+        username="admin-delete",
+        password="password",
+        role="admin",
+        is_superuser=True,
+        is_staff=True,
+    )
+    request = factory.delete(
+        "/api/assets/", data=json.dumps({"assetId": asset.id}), content_type="application/json"
+    )
+    force_authenticate(request, user=admin_user)
 
     response = views.assets(request)
 

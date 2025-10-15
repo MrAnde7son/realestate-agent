@@ -36,7 +36,7 @@ export default function CrmUnifiedPage() {
   const hasTrackedOpen = useRef(false);
 
   const tabParam = searchParams?.get('tab');
-  const tab: 'leads' | 'clients' = tabParam === 'clients' ? 'clients' : 'leads';
+  const tab: 'leads' | 'clients' = tabParam === 'leads' ? 'leads' : 'clients';
 
   const setTab = useCallback(
     (nextTab: 'leads' | 'clients') => {

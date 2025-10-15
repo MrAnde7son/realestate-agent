@@ -24,6 +24,7 @@ PROCESS_QUERY_TEMPLATE = Path(__file__).with_name("payload_template.xml").read_t
 
 _DIGEST_PATTERN = re.compile(r'"formDigestValue"\s*:\s*"([^"]+)"')
 _BLOCK_PLACEHOLDER = "__BLOCK_PARAM__"
+_START_ROW_PLACEHOLDER = "__START_ROW__"
 
 
 def _normalize_label(value: Optional[str]) -> str:
@@ -148,26 +149,58 @@ class HandasaClient:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def get_archive(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Fetch all building archive for a given block/parcel combination."""
-
+    def get_archive(
+            self,
+            block: str,
+            parcel: Optional[str] = None,
+            page_size: int = 50,
+    ) -> List[Dict[str, Any]]:
         block_param = self._format_block_parcel(block, parcel)
         digest = self._get_request_digest(block_param)
-        payload = self._build_payload(block_param)
-        response = self.session.post(
-            PROCESS_QUERY_URL,
-            data=payload.encode("utf-8"),
-            headers={
-                "Content-Type": "text/xml",
-                "X-Requested-With": "XMLHttpRequest",
-                "X-RequestDigest": digest,
-            },
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
-        data = loads(response.content.decode("utf-8"))
-        rows = self._extract_rows(data)
-        return [self._normalize_row(row) for row in rows if row]
+
+        start_row = 0
+        all_rows: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        while True:
+            payload = self._build_payload(block_param, start_row=start_row)
+            resp = self.session.post(
+                PROCESS_QUERY_URL,
+                data=payload.encode("utf-8"),
+                headers={
+                    "Content-Type": "text/xml",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-RequestDigest": digest,
+                },
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = loads(resp.content.decode("utf-8"))
+
+            # Extract rows + page meta
+            batch_rows, total_rows = self._extract_rows_and_total(data)
+
+            # Normalize + de-dupe
+            normalized_batch: List[Dict[str, Any]] = []
+            for r in batch_rows:
+                n = self._normalize_row(r)
+                ext_id = n.get("external_id") or n.get("preview_url") or n.get("external_url")
+                if ext_id and ext_id in seen_ids:
+                    continue
+                if ext_id:
+                    seen_ids.add(ext_id)
+                normalized_batch.append(n)
+
+            all_rows.extend(normalized_batch)
+
+            # Stop when we’ve reached or exceeded total, or when the batch is short/empty
+            if not batch_rows:
+                break
+            start_row += page_size
+            if total_rows is not None and start_row >= total_rows:
+                break
+
+        return all_rows
 
     def download_document(
         self,
@@ -234,7 +267,8 @@ class HandasaClient:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-    def _format_block_parcel(self, block: str, parcel: Optional[str]) -> str:
+    @staticmethod
+    def _format_block_parcel(block: str, parcel: Optional[str]) -> str:
         block_str = str(block or "").strip()
         parcel_str = str(parcel or "").strip()
         if not block_str:
@@ -277,23 +311,36 @@ class HandasaClient:
         logger.debug("Handasa digest not found in search page response")
         return None
 
-    def _build_payload(self, block_param: str) -> str:
-        if _BLOCK_PLACEHOLDER not in PROCESS_QUERY_TEMPLATE:
-            logger.debug("Handasa payload template missing placeholder; refreshing cache")
-        return PROCESS_QUERY_TEMPLATE.replace(_BLOCK_PLACEHOLDER, block_param)
+    @staticmethod
+    def _build_payload(block_param: str, start_row: int = 0) -> str:
+        tmpl = PROCESS_QUERY_TEMPLATE
+        if _BLOCK_PLACEHOLDER not in tmpl:
+            logger.debug("Handasa payload template missing block placeholder")
+        if _START_ROW_PLACEHOLDER not in tmpl:
+            logger.debug("Handasa payload template missing start-row placeholder")
+        return (
+            tmpl
+            .replace(_BLOCK_PLACEHOLDER, block_param)
+            .replace(_START_ROW_PLACEHOLDER, str(start_row))
+        )
 
-    def _extract_rows(self, payload: Iterable[Any]) -> List[Dict[str, Any]]:
-        rows = []
+    @staticmethod
+    def _extract_rows_and_total(payload: Iterable[Any]) -> tuple[List[Dict[str, Any]], Optional[int]]:
+        rows: List[Dict[str, Any]] = []
+        total: Optional[int] = None
         for entry in payload:
             if isinstance(entry, dict):
                 for value in entry.values():
                     if isinstance(value, dict) and value.get("ResultTables"):
-                        tables = value.get("ResultTables", [])
-                        for table in tables:
-                            result_rows = table.get("ResultRows")
-                            if isinstance(result_rows, list) and table.get("TableType") == 'RelevantResults':
-                                rows.extend(result_rows)
-        return rows
+                        for table in value.get("ResultTables", []):
+                            if table.get("TableType") == "RelevantResults":
+                                if isinstance(table.get("ResultRows"), list):
+                                    rows.extend(table["ResultRows"])
+                                # SharePoint Search returns TotalRows (and TotalRowsIncludingDuplicates)
+                                if "TotalRows" in table and isinstance(table["TotalRows"], int):
+                                    total = table["TotalRows"]
+        return rows, total
+
 
     def _normalize_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         unique_id = _normalize_unique_id(row.get("UniqueID"))
@@ -339,7 +386,8 @@ class HandasaClient:
 
         return normalized
 
-    def _build_external_url(self, unique_id: Optional[str], row: Dict[str, Any]) -> str:
+    @staticmethod
+    def _build_external_url(unique_id: Optional[str], row: Dict[str, Any]) -> str:
         if unique_id:
             return f"{FILES_API_URL}?id={unique_id}"
         return row.get("Path", "")

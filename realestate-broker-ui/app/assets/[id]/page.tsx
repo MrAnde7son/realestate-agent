@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAnalytics } from '@/hooks/useAnalytics'
@@ -129,6 +129,129 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       <DataBadge source={asset?._meta?.[key]?.source} fetchedAt={asset?._meta?.[key]?.fetched_at} url={asset?._meta?.[key]?.url} />
     </span>
   )
+
+  const toSafeString = (value: unknown): string => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'bigint') return String(value)
+    return ''
+  }
+
+  const firstNonEmpty = (...values: unknown[]): string => {
+    for (const value of values) {
+      const str = toSafeString(value).trim()
+      if (str) return str
+    }
+    return ''
+  }
+
+  const parseDateValue = (value: unknown): Date | null => {
+    if (value === null || value === undefined || value === '') return null
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+    if (typeof value === 'number' || typeof value === 'bigint') {
+      const numeric = Number(value)
+      if (Number.isNaN(numeric)) return null
+      return new Date(numeric > 1e12 ? numeric : numeric * 1000)
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (!trimmed) return null
+      const match = trimmed.match(/Date\((\d+)\)/)
+      if (match) {
+        const millis = Number(match[1])
+        return Number.isNaN(millis) ? null : new Date(millis)
+      }
+      if (/^\d+$/.test(trimmed)) {
+        const numeric = Number(trimmed)
+        if (!Number.isNaN(numeric)) {
+          return new Date(numeric > 1e12 ? numeric : numeric * 1000)
+        }
+      }
+      const parsed = new Date(trimmed)
+      return Number.isNaN(parsed.getTime()) ? null : parsed
+    }
+    return null
+  }
+
+  const formatDateValue = (value: unknown): string | null => {
+    const parsed = parseDateValue(value)
+    return parsed ? parsed.toLocaleDateString('he-IL') : null
+  }
+
+  const normalizedPermits = useMemo<any[]>(() => {
+    return permits.map((p: any) => {
+      const meta = p?.meta || {}
+      const permitNumber = firstNonEmpty(
+        meta.permit_number,
+        meta.permission_num,
+        meta.TlvMPEngPermitNum
+      )
+      const requestNumber = firstNonEmpty(
+        meta.request_num,
+        meta.TlvMPEngRequestNum,
+        meta.TlvMPEngOnlineReqNum
+      )
+      const addresses = firstNonEmpty(
+        meta.addresses,
+        p?.assets?.[0]?.address
+      )
+      const description = firstNonEmpty(
+        meta.tochen_bakasha,
+        p?.description,
+        p?.title
+      )
+      const buildingStage = firstNonEmpty(
+        meta.building_stage,
+        p?.status
+      )
+      const approvalDate = formatDateValue(
+        meta.permission_date ??
+        meta.document_date ??
+        p?.document_date ??
+        meta.TlvMPEngDocDate
+      )
+      const expiryDate = formatDateValue(
+        meta.expiry_date ??
+        meta.expiration_date ??
+        meta.license_exp_date ??
+        meta.valid_until ??
+        meta.valid_till
+      )
+      const issueDate = formatDateValue(
+        meta.open_request ??
+        meta.issue_date ??
+        meta.license_issue_date
+      )
+      const handasaLink = meta.url_hadmaya || meta.Path || meta.DocumentLink || p?.preview_url
+
+      const searchValues = [
+        p?.title,
+        p?.status,
+        permitNumber,
+        description,
+        requestNumber,
+        addresses,
+        buildingStage,
+        meta.handasa_document_type,
+        meta.TlvMPEngDocumentType,
+      ]
+
+      return {
+        original: p,
+        meta,
+        permitNumber,
+        requestNumber,
+        addresses,
+        description,
+        buildingStage,
+        approvalDate,
+        expiryDate,
+        issueDate,
+        handasaLink,
+        searchValues,
+      }
+    })
+  }, [permits])
 
   const formatNumber = (value?: number, options?: Intl.NumberFormatOptions) =>
     value !== undefined && value !== null
@@ -571,9 +694,9 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           </div>
           <PageLoader message="טוען נתוני נכס..." showLogo={false} />
         </div>
-      </DashboardLayout>
-    )
-  }
+    </DashboardLayout>
+  )
+}
 
   if (error || !asset) {
     return (
@@ -2051,98 +2174,94 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </CardHeader>
               <CardContent className="space-y-3 text-right" dir="rtl">
                 <div className="text-center py-4">
-                  <div className="text-2xl font-bold">{permits.length}</div>
+                  <div className="text-2xl font-bold">{normalizedPermits.length}</div>
                   <div className="text-muted-foreground">בקשות היתר פעילות</div>
                 </div>
-                {permits.length > 0 && (
+                {normalizedPermits.length > 0 && (
                   <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2 text-right">
-                    {permits
-                      .filter((p: any) => {
+                    {normalizedPermits
+                      .filter((entry: any) => {
                         if (!permitsSearch) return true
                         const searchLower = permitsSearch.toLowerCase()
-                        return (
-                          p.title?.toLowerCase().includes(searchLower) ||
-                          p.status?.toLowerCase().includes(searchLower) ||
-                          p.meta?.permit_number?.toLowerCase().includes(searchLower) ||
-                          p.meta?.tochen_bakasha?.toLowerCase().includes(searchLower) ||
-                          p.meta?.request_num?.toLowerCase().includes(searchLower) ||
-                          p.meta?.addresses?.toLowerCase().includes(searchLower) ||
-                          p.meta?.building_stage?.toLowerCase().includes(searchLower)
+                        return entry.searchValues.some((value: unknown) =>
+                          toSafeString(value).toLowerCase().includes(searchLower)
                         )
                       })
-                      .map((p: any) => (
-                      <div key={p.external_id || p.meta.request_num} className="p-4 border rounded-lg text-right space-y-3">
+                      .map((entry: any) => {
+                        const {
+                          original: p,
+                          meta,
+                          permitNumber,
+                          requestNumber,
+                          addresses,
+                          description,
+                          buildingStage,
+                          approvalDate,
+                          expiryDate,
+                          issueDate,
+                          handasaLink,
+                        } = entry
+                        return (
+                      <div key={p.external_id || meta.request_num} className="p-4 border rounded-lg text-right space-y-3">
                         {/* Header with permit type/description */}
                         <div className="flex justify-between items-start rtl:flex-row-reverse">
                           <div className="flex-1">
                             <h4 className="font-medium text-sm">
-                              {p.title || 'היתר בנייה'}
+                              {p.title || description || 'היתר בנייה'}
                             </h4>
-                            {p.meta.addresses && (
+                            {addresses && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                {p.meta.addresses}
+                                {addresses}
                               </p>
                             )}
                           </div>
-                          {p.status && (
+                          {buildingStage && (
                             <Badge variant={
-                              p.status.includes('בניה') ? 'success' :
-                              p.status.includes('הריסה') ? 'warning' :
+                              buildingStage.includes('בניה') ? 'success' :
+                              buildingStage.includes('הריסה') ? 'warning' :
                               'neutral'
                             }>
-                              {p.status}
+                              {buildingStage}
                             </Badge>
                           )}
                         </div>
 
                         {/* Permit details grid */}
                         <div className="grid gap-2 text-xs">
-                          {p.meta.permit_number && (
+                          {permitNumber && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span className="text-muted-foreground">מספר היתר:</span>
-                              <span className="font-medium">{p.meta.permit_number}</span>
+                              <span className="font-medium">{permitNumber}</span>
                             </div>
                           )}
-                          {p.meta.tochen_bakasha && (
+                          {description && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span className="text-muted-foreground">תיאור:</span>
-                              <span className="font-medium">{p.meta.tochen_bakasha}</span>
+                              <span className="font-medium">{description}</span>
                             </div>
                           )}
-                          {p.meta.request_num && (
+                          {requestNumber && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span className="text-muted-foreground">מספר בקשה:</span>
-                              <span className="font-medium">{p.meta.request_num}</span>
+                              <span className="font-medium">{requestNumber}</span>
                             </div>
                           )}
-                          {p.meta.permission_date && (
+                          {approvalDate && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span className="text-muted-foreground">תאריך אישור:</span>
-                              <span>
-                                {new Date(p.meta.permission_date).toLocaleDateString('he-IL')}
-                              </span>
+                              <span>{approvalDate}</span>
                             </div>
                           )}
-                          {p.meta.expiry_date && (
+                          {expiryDate && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span className="text-muted-foreground">תוקף:</span>
-                              <span>
-                                {new Date(p.meta.expiry_date).toLocaleDateString('he-IL')}
-                              </span>
+                              <span>{expiryDate}</span>
                             </div>
                           )}
-                          {p.meta.open_request && (
+                          {issueDate && (
                             <div className="flex justify-between rtl:flex-row-reverse">
                               <span className="text-muted-foreground">תאריך הנפקה:</span>
-                              <span>
-                                {new Date(p.meta.open_request).toLocaleDateString('he-IL')}
-                              </span>
-                            </div>
-                          )}
-                          {p.meta.building_stage && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span className="text-muted-foreground">סטטוס:</span>
-                              <span>{p.meta.building_stage}</span>
+                              <span>{issueDate}</span>
                             </div>
                           )}
                         </div>
@@ -2150,7 +2269,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                         {/* Actions/Links */}
                         <div className="pt-2 border-t">
                           <div className="flex gap-2 justify-end">
-                            {p.meta.url_hadmaya && (
+                            {handasaLink && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -2158,7 +2277,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                 className="text-xs"
                               >
                                 <a
-                                  href={p.meta.url_hadmaya}
+                                  href={handasaLink}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
@@ -2166,15 +2285,21 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                                 </a>
                               </Button>
                             )}
+                            {p.external_url && (
+                              <Button size="sm" onClick={() => window.open(p.external_url, '_blank')}>
+                                הורדה
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
-                    ))}
+                        )
+                      })}
                   </div>
                 )}
 
                 {/* No permits state */}
-                {permits.length === 0 && (
+                {normalizedPermits.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <div className="text-sm">לא נמצאו היתרים פעילים ברדיוס {permitRadius} מטר</div>
                     <div className="text-xs mt-1">
@@ -2747,4 +2872,3 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     </DashboardLayout>
   )
 }
-

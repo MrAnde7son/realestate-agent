@@ -1651,6 +1651,33 @@ def asset_appraisal(request, asset_id):
                         "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
                     })
         
+        # Fallback to Documents when source records are not yet available
+        document_qs = Document.objects.filter(
+            Q(asset_id=asset_id) | Q(assets__id=asset_id),
+            document_type__in=['appraisal_decisive', 'appraisal', 'appraisal_rmi']
+        ).distinct()
+
+        for doc in document_qs:
+            meta = doc.meta or {}
+            appraisal_entry = {
+                "id": f"doc_{doc.id}",
+                "appraiser": meta.get('appraiser') or doc.title,
+                "date": (doc.document_date.isoformat() if doc.document_date else meta.get('date')), 
+                "appraisedValue": meta.get('appraised_value') or meta.get('value'),
+                "marketValue": meta.get('marketValue') or meta.get('value'),
+                "url": doc.external_url or doc.file_url,
+                "fetched_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+                "source": doc.source or meta.get('source'),
+                "plan_number": meta.get('planNumber') or meta.get('plan_number') or doc.external_id,
+                "status": meta.get('status'),
+            }
+
+            doc_type = doc.document_type
+            if doc_type == 'appraisal_decisive' or (doc_type == 'appraisal' and (doc.source and 'decisive' in doc.source.lower())):
+                appraisal_data["decisive_appraisals"].append(appraisal_entry)
+            elif doc_type in ['appraisal_rmi'] or (doc.source and 'ram' in doc.source.lower()):
+                appraisal_data["rami_appraisals"].append(appraisal_entry)
+
         # Get additional data from asset metadata (collected by data pipeline)
         if asset.meta:
             # Get decisive appraisals from government data
@@ -1847,6 +1874,7 @@ def asset_plans(request, asset_id):
         local_plans = Plan.objects.filter(
             Q(asset_id=asset_id) | Q(assets__id=asset_id)
         ).distinct()
+        seen_plan_numbers = set()
         for plan in local_plans:
             # Determine source from plan_number prefix or raw data
             source = "unknown"
@@ -1857,6 +1885,7 @@ def asset_plans(request, asset_id):
             elif plan.raw and plan.raw.get('plan_id'):
                 source = "mavat"
             
+            seen_plan_numbers.add(plan.plan_number)
             plans.append({
                 "id": plan.id,
                 "plan_number": plan.plan_number,
@@ -1866,6 +1895,39 @@ def asset_plans(request, asset_id):
                 "file_url": plan.file_url,
                 "source": source,
                 "raw": plan.raw
+            })
+
+        # Fallback: include plan documents even if Plan entries were not created yet
+        plan_documents = Document.objects.filter(
+            Q(asset_id=asset_id) | Q(assets__id=asset_id),
+            document_type__in=['plan', 'plan_local', 'plan_citywide', 'plan_detailed']
+        ).distinct()
+
+        for doc in plan_documents:
+            plan_number = doc.external_id or (doc.meta or {}).get('planNumber') or (doc.meta or {}).get('plan_number') or f"document_{doc.id}"
+            if plan_number in seen_plan_numbers:
+                continue
+            seen_plan_numbers.add(plan_number)
+
+            meta = doc.meta or {}
+            source = 'unknown'
+            raw_source = (doc.source or '').lower()
+            if 'rami' in raw_source:
+                source = 'rami'
+            elif 'mavat' in raw_source or meta.get('source') == 'Mavat':
+                source = 'mavat'
+            elif plan_number.startswith('mavat_'):
+                source = 'mavat'
+
+            plans.append({
+                "id": doc.id,
+                "plan_number": plan_number,
+                "description": doc.description or doc.title,
+                "status": doc.status,
+                "effective_date": doc.document_date.isoformat() if doc.document_date else None,
+                "file_url": doc.external_url or doc.file_url,
+                "source": source,
+                "raw": meta,
             })
         
         return JsonResponse({"plans": plans})
@@ -2434,9 +2496,13 @@ def asset_listings(request, asset_id):
         # Get Yad2 listings from asset metadata
         yad2_listings = asset.get_property_value('yad2_listings', [])
         if yad2_listings:
-            for listing in yad2_listings:
+            for idx, listing in enumerate(yad2_listings):
+                listing_id = listing.get('listing_id')
+                if not listing_id:
+                    # fallback to a deterministic id from source + idx
+                    listing_id = f"yad2_{idx}_{listing.get('url') or listing.get('title') or 'listing'}"
                 listings.append({
-                    'id': listing.get('listing_id', ''),
+                    'id': listing_id,
                     'title': listing.get('title', ''),
                     'price': listing.get('price'),
                     'address': listing.get('address', ''),

@@ -315,8 +315,8 @@ export function ListingsPanel({ assetId, assetAddress }: ListingsPanelProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredListings.map((listing) => (
-                      <TableRow key={listing.id} className="hover:bg-muted/50">
+                    {filteredListings.map((listing, index) => (
+                      <TableRow key={listing.id || `${listing.source || 'listing'}-${index}`} className="hover:bg-muted/50">
                         <TableCell className="text-right rtl:text-right">
                           <div>
                             <p className="font-medium">{listing.title}</p>

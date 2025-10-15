@@ -341,10 +341,9 @@ class HandasaClient:
         self,
         block: str,
         parcel: Optional[str] = None,
-        *,
         select_properties: Optional[Iterable[str]] = None,
         document_types: Optional[Iterable[str]] = None,
-        page_size: int = 50,
+        page_size: int = 200,
         start_row: int = 0,
         max_pages: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
@@ -514,17 +513,12 @@ class HandasaClient:
         if match:
             return match.group(1)
 
-        match = _INPUT_DIGEST_PATTERN.search(response.text)
-        if match:
-            return match.group(1)
-
         logger.debug("Handasa digest not found in search page response")
         return None
 
     def _build_payload(
         self,
         block_param: str,
-        *,
         select_properties: Optional[Iterable[str]] = None,
         document_types: Optional[Iterable[str]] = None,
         start_row: int = 0,
@@ -549,7 +543,8 @@ class HandasaClient:
 
         return ET.tostring(root, encoding="utf-8").decode("utf-8")
 
-    def _extract_rows(self, payload: Iterable[Any]) -> List[Dict[str, Any]]:
+    @staticmethod
+    def _extract_rows(payload: Iterable[Any]) -> List[Dict[str, Any]]:
         rows = []
         for entry in payload:
             if isinstance(entry, dict):
@@ -589,24 +584,14 @@ class HandasaClient:
             "source": "Handasa",
             "meta": row,
         }
-
-        # Carry additional numeric metrics if provided by the API
-        for key in (
-            "TlvMPEngHousingUnits",
-            "TlvMPEngCommercialArea",
-            "TlvMPEngResidentialArea",
-            "TlvMPEngResidentialUnits",
-        ):
-            if key in row:
-                normalized[key] = row.get(key)
-
         document_type, document_category = _classify_handasa_document(row)
         normalized["document_type"] = document_type
         normalized["document_category"] = document_category
 
         return normalized
 
-    def _build_external_url(self, unique_id: Optional[str], row: Dict[str, Any]) -> str:
+    @staticmethod
+    def _build_external_url(unique_id: Optional[str], row: Dict[str, Any]) -> str:
         if unique_id:
             return f"{FILES_API_URL}?id={unique_id}"
         return row.get("Path", "")

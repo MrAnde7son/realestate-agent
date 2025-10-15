@@ -330,6 +330,8 @@ class HandasaClient:
         total: Optional[int] = None
         for entry in payload:
             if isinstance(entry, dict):
+                if entry.get("HasException"):
+                    raise RuntimeError(f"Handasa API error: {entry.get("ErrorInfo", {}).get('ErrorMessage')}")
                 for value in entry.values():
                     if isinstance(value, dict) and value.get("ResultTables"):
                         for table in value.get("ResultTables", []):

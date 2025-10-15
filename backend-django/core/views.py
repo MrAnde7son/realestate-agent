@@ -85,6 +85,8 @@ from .services.asset_links import (
 
 User = get_user_model()
 
+User = get_user_model()
+
 # Import services
 from .auth_service import AuthenticationService
 from .report_service import ReportService

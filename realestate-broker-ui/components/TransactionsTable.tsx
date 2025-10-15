@@ -153,6 +153,7 @@ function createColumns(): ColumnDef<Transaction>[] {
         const getSourceDisplay = (source: string) => {
           switch (source) {
             case 'collected_government': return 'ממשלתי'
+            case 'government': return 'ממשלתי'
             case 'internal': return 'מאגר פנימי'
             default: return source || 'לא ידוע'
           }
@@ -160,6 +161,7 @@ function createColumns(): ColumnDef<Transaction>[] {
         const getSourceVariant = (source: string) => {
           switch (source) {
             case 'collected_government': return 'default'
+            case 'government': return 'default'
             case 'internal': return 'secondary'
             default: return 'outline'
           }

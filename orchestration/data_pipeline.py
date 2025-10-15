@@ -71,6 +71,17 @@ def _convert_unix_timestamp_to_date(timestamp_ms: int) -> Optional[date]:
         return None
 
 
+def _normalize_identifier(value: Any) -> str:
+    """Normalize identifier values into consistent string tokens."""
+    if value is None:
+        return ""
+    if isinstance(value, (int, float)):
+        if isinstance(value, float) and value.is_integer():
+            value = int(value)
+        return str(value)
+    return str(value).strip()
+
+
 """High level data collection pipeline for real-estate assets.
 
 This module defines a small object oriented framework that orchestrates
@@ -2418,6 +2429,91 @@ def _parse_document_date(date_str):
             return None
 
 
+def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallback_index: int) -> Optional[Dict[str, Any]]:
+    """Normalize permit payloads from different collectors for Document creation."""
+
+    if not isinstance(permit, dict):
+        return None
+
+    source_key = (source or "").lower()
+    if source_key == 'handasa':
+        meta_raw = permit.get('meta')
+        meta = meta_raw if isinstance(meta_raw, dict) else dict(permit)
+
+        external_id_raw = (
+            permit.get('external_id')
+            or permit.get('permission_num')
+            or permit.get('request_num')
+            or meta.get('UniqueID')
+        )
+        if external_id_raw:
+            external_id = str(_normalize_identifier(external_id_raw))
+        else:
+            external_id = f"handasa_{fallback_index}"
+
+        document_date = permit.get('document_date')
+        if isinstance(document_date, str):
+            parsed_date = _parse_document_date(document_date)
+            if not parsed_date:
+                try:
+                    parsed_date = datetime.fromisoformat(document_date.replace('Z', '+00:00')).date()
+                except Exception:  # pragma: no cover - defensive parsing
+                    parsed_date = None
+        else:
+            parsed_date = document_date
+
+        title = permit.get('title') or (f"היתר {external_id}" if external_id else "היתר בנייה")
+        description = permit.get('description') or ''
+        status = permit.get('status') or ''
+        external_url = permit.get('external_url') or meta.get('Path', '')
+
+        document_type = permit.get('document_type') or 'permit'
+        document_category = permit.get('document_category')
+        meta = dict(meta or {})
+        meta['handasa_document_type'] = document_type
+        if document_category is not None:
+            meta['handasa_document_category'] = document_category
+
+        return {
+            'external_id': external_id,
+            'title': title,
+            'description': description,
+            'status': status,
+            'filename': f"{external_id}.pdf",
+            'file_path': '',
+            'file_size': 0,
+            'mime_type': 'application/pdf',
+            'external_url': external_url,
+            'source': 'Handasa',
+            'document_date': parsed_date,
+            'meta': meta,
+            'document_type': document_type,
+        }
+
+    # Default: GIS permits structure
+    permission_num = permit.get('permission_num')
+    request_num = permit.get('request_num')
+    external_id = str(_normalize_identifier(permission_num or request_num or f"gis_{fallback_index}"))
+
+    filename_base = permission_num or external_id
+
+    return {
+        'external_id': external_id,
+        'title': permit.get('koteret', ''),
+        'description': permit.get('sug_bakasha', ''),
+        'status': permit.get('building_stage', ''),
+        'filename': f"{filename_base}.pdf",
+        'file_path': './permits/',
+        'file_size': 0,
+        'mime_type': 'application/pdf',
+        'external_url': permit.get('url_hadmaya', ''),
+        'source': 'GIS',
+        'document_date': _convert_unix_timestamp_to_date(permit.get('permission_date', 0)),
+        'meta': permit,
+        'document_type': permit.get('document_type') or 'permit',
+    }
+
+
 def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, handasa_archive):
     """Create Document and Plan records from collected data."""
     try:
@@ -2662,57 +2758,28 @@ def _create_documents_from_permits(asset, permits, source: str = 'GIS'):
         if not normalized:
             continue
 
-        doc_type = normalized.pop('document_type', 'permit')
-        external_id = normalized.pop('external_id')
+        normalized_fields = {**normalized}
+        doc_type = normalized_fields.pop('document_type', 'permit')
+        external_id = normalized_fields.pop('external_id', '') or f"{safe_source.lower()}_{index}"
+
         defaults = {
             'asset': asset,
             'user': system_user,
             'document_type': doc_type,
-            **normalized,
+            **normalized_fields,
         }
 
-        existing_doc = Document.objects.filter(
-            document_type='permit',
-            external_id=permit.get('permission_num')
-        ).first()
+        document, created = Document.objects.update_or_create(
+            external_id=external_id,
+            document_type=doc_type,
+            defaults=defaults,
+        )
 
-        document = existing_doc
-        if document:
-            document.user = system_user
-            document.title = permit.get('koteret', '')
-            document.description = permit.get('sug_bakasha', '')
-            document.status = permit.get('building_stage', '')
-            document.filename = f"{permit.get('permission_num')}.pdf"
-            document.file_path = './permits/'
-            document.file_size = 0
-            document.mime_type = 'application/pdf'
-            document.external_url = permit.get('url_hadmaya', '')
-            document.source = 'GIS'
-            document.document_date = _convert_unix_timestamp_to_date(permit.get('permission_date', 0))
-            if permit and permit != (document.meta or {}):
-                document.meta = permit
-            document.save()
-            logger.debug(f"Updated existing permit document {document.id} for asset {asset.id}")
-        else:
-            document = Document.objects.create(
-                asset=asset,
-                user=system_user,
-                title=permit.get('koteret', ''),
-                description=permit.get('sug_bakasha', ''),
-                document_type='permit',
-                status=permit.get('building_stage', ''),
-                filename=f"{permit.get('permission_num')}.pdf",
-                file_path='./permits/',
-                file_size=0,
-                mime_type='application/pdf',
-                external_id=permit.get('permission_num'),
-                external_url=permit.get('url_hadmaya', ''),
-                source='GIS',
-                document_date=_convert_unix_timestamp_to_date(permit.get('permission_date', 0)),
-                meta=permit
-            )
+        if created:
             created_count += 1
-            logger.debug(f"Created permit document {document.id} for asset {asset.id}")
+            logger.debug("Created %s permit document %s for asset %s", safe_source, document.id, asset.id)
+        else:
+            logger.debug("Updated %s permit document %s for asset %s", safe_source, document.id, asset.id)
 
         _link_document_to_asset(document, asset)
 

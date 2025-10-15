@@ -245,11 +245,13 @@ class HandasaClient:
 
     def _get_request_digest(self, block_param: str) -> str:
         digest = None
-        try:
-            digest = self._fetch_request_digest_from_page(block_param)
-        except requests.RequestException as exc:
-            logger.warning("Handasa digest fetch via search page failed: %s", exc)
-
+        for i in range(3):
+            try:
+                digest = self._fetch_request_digest_from_page(block_param)
+            except requests.RequestException as exc:
+                logger.warning("Handasa digest fetch via search page failed: %s", exc)
+            if digest:
+                break
         if not digest:
             raise RuntimeError("Failed to obtain request digest from Handasa portal")
 

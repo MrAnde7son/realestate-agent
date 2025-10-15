@@ -137,7 +137,6 @@ class HandasaClient:
     def __init__(
         self,
         session: Optional[requests.Session] = None,
-        *,
         timeout: float = 60.0,
         user_agent: str = DEFAULT_USER_AGENT,
     ) -> None:

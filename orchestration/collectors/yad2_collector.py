@@ -1,4 +1,5 @@
 """Yad2 data collector implementation."""
+import logging
 
 from typing import Dict, List, Optional
 
@@ -7,6 +8,8 @@ from yad2.scrapers.yad2_scraper import RealEstateListing, Yad2Scraper
 from orchestration.location import LocationQuery, ensure_location_query
 
 from .base_collector import BaseCollector
+
+logger = logging.getLogger(__name__)
 
 
 class Yad2Collector(BaseCollector):
@@ -157,18 +160,23 @@ class Yad2Collector(BaseCollector):
 
     def _fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
         """Fetch Yad2 listings for a given address."""
+        listings = []
         try:
             location = self.client.fetch_location_autocomplete(address)
             if location:
                 search_params = self._prepare_location_parameters(location)
+                print(search_params)
                 if search_params:
                     self.client.set_search_parameters(**search_params)
-            return self.client.scrape_all_pages(max_pages=max_pages, delay=0)
+
+            listings.extend(self.client.scrape_all_pages(max_pages=max_pages, delay=0))
+
+            listings.extend(self.client.fetch_latest_deals())
+
         except Exception as e:
-            # Handle captcha or other blocking issues gracefully
-            print(f"Yad2 scraping failed (likely captcha protection): {e}")
-            # Return empty list instead of failing
-            return []
+            logger.error(f"Yad2 scraping failed: {e}")
+
+        return listings
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for Yad2 collection."""

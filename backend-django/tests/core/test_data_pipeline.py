@@ -7,6 +7,7 @@ from orchestration.collectors import (
     GISCollector,
     GovCollector,
     GovMapCollector,
+    HandasaCollector,
     MavatCollector,
     RamiCollector,
     Yad2Collector,
@@ -145,6 +146,27 @@ class FakeMavatCollector(MavatCollector):
         return [{"plan_id": "333", "title": "Test Mavat Plan", "status": "approved"}]
 
 
+class FakeHandasaCollector(HandasaCollector):
+    def __init__(self):
+        pass
+
+    def collect(self, block: str, parcel: Optional[str] = None):
+        return [
+            {
+                "title": "Handasa Permit",
+                "status": "approved",
+                "permission_num": "H-123",
+                "request_num": "REQ-123",
+                "external_id": "HANDASA-123",
+                "external_url": "https://handasa.tel-aviv.gov.il/api/files?id=HANDASA-123",
+                "preview_url": "https://handasa.tel-aviv.gov.il/api/files?id=HANDASA-123",
+                "document_date": "2024-01-01",
+                "source": "Handasa",
+                "meta": {"UniqueID": "{HANDASA-123}"},
+            }
+        ]
+
+
 class DummyAsset:
     def __init__(self):
         self.meta = {}
@@ -169,6 +191,7 @@ def test_data_pipeline_integration():
         govmap=FakeGovMapCollector(),
         rami=FakeRamiCollector(),
         mavat=FakeMavatCollector(),
+        handasa=FakeHandasaCollector(),
         db_session=db.get_session()
     )
 
@@ -189,6 +212,8 @@ def test_data_pipeline_integration():
     
     # Should have results from multiple sources
     assert len(sources) >= 2, f"Expected results from multiple sources, got: {sources}"
+
+    assert 'handasa' in sources, "Handasa permits should be included in pipeline results"
     
     # Verify specific source data
     gis_found = any('gis' in str(result) for result in results)

@@ -22,6 +22,7 @@ from orchestration.collectors.gov_collector import GovCollector
 from orchestration.collectors.govmap_collector import GovMapCollector
 from orchestration.collectors.rami_collector import RamiCollector
 from orchestration.collectors.mavat_collector import MavatCollector
+from orchestration.collectors.handasa_collector import HandasaCollector
 from orchestration.planning_legal_analyzer import calculate_planning_legal_analysis, apply_planning_legal_analysis_to_asset
 from orchestration.location import LocationQuery
 from govmap.api_client import itm_to_wgs84
@@ -258,6 +259,7 @@ class DataPipeline:
         "govmap": float(os.getenv("GOVMAP_TIMEOUT", "60")),
         "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
         "mavat": float(os.getenv("MAVAT_TIMEOUT", "60")),
+        "handasa": float(os.getenv("HANDASA_TIMEOUT", "90")),
     }
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),
@@ -266,6 +268,7 @@ class DataPipeline:
         "govmap": int(os.getenv("GOVMAP_RETRIES", "0")),
         "gov_rami": int(os.getenv("GOV_RAMI_RETRIES", "0")),
         "mavat": int(os.getenv("MAVAT_RETRIES", "0")),
+        "handasa": int(os.getenv("HANDASA_RETRIES", "0")),
     }
 
     def __init__(
@@ -279,6 +282,7 @@ class DataPipeline:
         govmap: Optional[GovMapCollector] = None,
         rami: Optional[RamiCollector] = None,
         mavat: Optional[MavatCollector] = None,
+        handasa: Optional[HandasaCollector] = None,
     ) -> None:
         """Create a new :class:`DataPipeline` instance.
 
@@ -306,6 +310,7 @@ class DataPipeline:
         self.govmap = govmap or GovMapCollector()
         self.rami = rami or RamiCollector()
         self.mavat = mavat or MavatCollector()
+        self.handasa = handasa or HandasaCollector()
         
         # Note: GovMap client is now accessed through the collector
 
@@ -629,6 +634,27 @@ class DataPipeline:
                 track("collector_fail", source="gis", error_code=str(e))
                 logger.warning(f"⚠️ GIS collection failed: {e}")
 
+            # Collect Handasa archive
+            handasa_archive: List[Dict[str, Any]] = []
+            if block:
+                try:
+                    logger.info("🏗️ Collecting Handasa permits...")
+                    handasa_archive = self._collect_with_observability(
+                        "handasa",
+                        self.handasa.collect,
+                        block=block,
+                        parcel=parcel,
+                        timeout=self.TIMEOUTS.get("handasa"),
+                        retries=self.RETRIES.get("handasa", 0),
+                        asset_id=asset_id,
+                    )
+                    track("collector_success", source="handasa")
+                    logger.info("🏗️ Handasa documents collected: %d", len(handasa_archive))
+                except Exception as e:
+                    handasa_archive = []
+                    track("collector_fail", source="handasa", error_code=str(e))
+                    logger.warning(f"⚠️ Handasa collection failed: {e}")
+
             # Get government data once for the address
             gov_data = {"decisive": [], "transactions": []}
             if block and parcel:
@@ -752,6 +778,10 @@ class DataPipeline:
                         self._add_source_record(session, db_listing.id, "gis", gis_data)
                         results.append({"source": "gis", "data": gis_data})
 
+                    if handasa_archive:
+                        self._add_source_record(session, db_listing.id, "handasa", handasa_archive)
+                        results.append({"source": "handasa", "data": handasa_archive})
+
                     # ---------------- Gov data (collected once above) ----------------
                     self._add_source_record(session, db_listing.id, "gov", gov_data)
                     
@@ -800,6 +830,9 @@ class DataPipeline:
                     # Add GIS data to results (supplementary)
                     if gis_data:
                         results.append({"source": "gis", "data": gis_data})
+
+                    if handasa_archive:
+                        results.append({"source": "handasa", "data": handasa_archive})
                     
                     # Add government data to results
                     if gov_data.get("decisive"):
@@ -833,6 +866,7 @@ class DataPipeline:
                         gov_data,
                         plans,
                         mavat_plans,
+                        handasa_archive,
                         listing_payloads,
                         x_itm,
                         y_itm,
@@ -861,7 +895,7 @@ class DataPipeline:
             return results
 
 
-def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
+def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
     """Update the Asset with collected enrichment data.
 
     Improvements:
@@ -876,6 +910,7 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
     gov_data = gov_data or {}
     plans = plans or []
     mavat_plans = mavat_plans or []
+    handasa_archive = handasa_archive or []
     listings = listings or []
 
     # Lazy Django setup (kept inside function so unit tests without Django still work)
@@ -978,6 +1013,10 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 'parcels': gis_data.get('parcels', []),
                 'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
             }
+            if handasa_archive:
+                asset.meta['handasa_archive'] = handasa_archive
+        elif handasa_archive:
+            asset.meta['handasa_archive'] = handasa_archive
             # Privilege page attempt + parse
             try:
                 from gis.gis_client import TelAvivGS  # type: ignore
@@ -1114,7 +1153,7 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
 
     # Documents & plans ---------------------------------------------------------------
     with asset_update_phase("create_documents_and_plans", asset_id):
-        _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans)
+        _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, handasa_archive)
 
     # Market metrics ------------------------------------------------------------------
     with asset_update_phase("calculate_market_metrics", asset_id):
@@ -1431,12 +1470,12 @@ def _process_gis_data(asset, gis_data):
             
             # Create documents from permits
             _create_documents_from_permits(asset, permits)
-    
+
     # Green areas
     if gis_data.get('green'):
         green_areas = gis_data.get('green', [])
         asset.set_property('greenWithin300m', len(green_areas) > 0, source='GIS', url='https://www.govmap.gov.il/')
-    
+
     # Shelters
     if gis_data.get('shelters'):
         shelters = gis_data.get('shelters', [])
@@ -2233,7 +2272,7 @@ def _parse_document_date(date_str):
             return None
 
 
-def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
+def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, handasa_archive):
     """Create Document and Plan records from collected data."""
     try:
         User = get_user_model()
@@ -2249,6 +2288,16 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
         )
         
         
+        if gis_data and gis_data.get('permits'):
+            _create_documents_from_permits(asset, gis_data.get('permits', []), source='GIS')
+
+        if handasa_archive:
+            handasa_permits = [
+                doc for doc in handasa_archive if (doc.get('document_type') or '').startswith('permit')
+            ]
+            if handasa_permits:
+                _create_documents_from_permits(asset, handasa_permits, source='Handasa')
+
         # Create Document records from government appraisals
         if gov_data and gov_data.get('decisive'):
             for appraisal in gov_data.get('decisive', []):
@@ -2361,11 +2410,12 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans):
 
 
 
-def _create_documents_from_permits(asset, permits):
-    """Create documents from GIS permits data."""
+def _create_documents_from_permits(asset, permits, source: str = 'GIS'):
+    """Create documents from permit datasets (GIS or Handasa)."""
+
     if not permits:
         return
-    # Get a system user or create one for automated processes
+
     User = get_user_model()
     system_user, _ = User.objects.get_or_create(
         username='system',
@@ -2376,62 +2426,155 @@ def _create_documents_from_permits(asset, permits):
         }
     )
 
-    # Create documents for each permit
     created_count = 0
-    for permit in permits:
+    safe_source = source or 'GIS'
+
+    for index, permit in enumerate(permits, start=1):
         if not permit:
             continue
-            
-        # Extract permit information with comprehensive field mapping
-        # Check if document already exists to avoid duplicates
+
+        normalized = _normalize_permit_document_fields(permit, safe_source, index)
+        if not normalized:
+            continue
+
+        doc_type = normalized.pop('document_type', 'permit')
+        external_id = normalized.pop('external_id')
+        defaults = {
+            'asset': asset,
+            'user': system_user,
+            'document_type': doc_type,
+            **normalized,
+        }
+
         existing_doc = Document.objects.filter(
             asset=asset,
-            document_type='permit',
-            external_id=permit.get('permission_num')
+            document_type=doc_type,
+            external_id=external_id,
         ).first()
 
         if existing_doc:
-            # Update existing document with all permit fields
             existing_doc.asset = asset
             existing_doc.user = system_user
-            existing_doc.title = permit.get('koteret', '')
-            existing_doc.description = permit.get('sug_bakasha', '')
-            existing_doc.document_type = 'permit'
-            existing_doc.status = permit.get('building_stage', '')
-            existing_doc.filename = f"{permit.get('permission_num')}.pdf"
-            existing_doc.file_path = './permits/'
-            existing_doc.file_size = 0
-            existing_doc.mime_type = 'application/pdf'
-            existing_doc.external_id = permit.get('permission_num')
-            existing_doc.external_url = permit.get('url_hadmaya', '')
-            existing_doc.source = 'GIS'
-            existing_doc.document_date = _convert_unix_timestamp_to_date(permit.get('permission_date', 0))
-            existing_doc.meta = permit
-            existing_doc.save()
-            logger.debug(f"Updated existing permit document {existing_doc.id} for asset {asset.id}")
-        else:
-            # Create new document with all permit fields
-            document = Document.objects.create(
-                asset=asset,
-                user=system_user,
-                title=permit.get('koteret', ''),
-                description=permit.get('sug_bakasha', ''),
-                document_type='permit',
-                status=permit.get('building_stage', ''),
-                filename=f"{permit.get('permission_num')}.pdf",
-                file_path='./permits/',
-                file_size=0,
-                mime_type='application/pdf',
-                external_id=permit.get('permission_num'),
-                external_url=permit.get('url_hadmaya', ''),
-                source='GIS',
-                document_date=_convert_unix_timestamp_to_date(permit.get('permission_date', 0)),
-                meta=permit
+            for field, value in normalized.items():
+                setattr(existing_doc, field, value)
+            existing_doc.document_type = doc_type
+            existing_doc.save(update_fields=list(normalized.keys()) + ['asset', 'user', 'document_type'])
+            logger.debug(
+                "Updated %s permit document %s for asset %s",
+                safe_source,
+                existing_doc.id,
+                asset.id,
             )
+        else:
+            Document.objects.create(external_id=external_id, **defaults)
             created_count += 1
-            logger.debug(f"Created permit document {document.id} for asset {asset.id}")
+            logger.debug(
+                "Created %s permit document for asset %s (external_id=%s)",
+                safe_source,
+                asset.id,
+                external_id,
+            )
 
-    logger.info(f"Processed {len(permits)} permits for asset {asset.id} ({created_count} new, {len(permits) - created_count} updated)")
+    logger.info(
+        "Processed %d %s permits for asset %s (%d new, %d updated)",
+        len(permits),
+        safe_source,
+        asset.id,
+        created_count,
+        len(permits) - created_count,
+    )
+
+
+def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallback_index: int) -> Optional[Dict[str, Any]]:
+    """Normalize permit payloads from different collectors for Document creation."""
+
+    if not isinstance(permit, dict):
+        return None
+
+    source_key = source.lower()
+    if source_key == 'handasa':
+        meta = permit.get('meta') if isinstance(permit.get('meta'), dict) else dict(permit)
+        external_id = (
+            permit.get('external_id')
+            or permit.get('permission_num')
+            or permit.get('request_num')
+            or meta.get('UniqueID')
+        )
+        if external_id:
+            external_id = str(_normalize_identifier(external_id))
+        else:
+            external_id = f"handasa_{fallback_index}"
+
+        document_date = permit.get('document_date')
+        if isinstance(document_date, str):
+            parsed_date = _parse_document_date(document_date)
+            if not parsed_date:
+                try:
+                    parsed_date = datetime.fromisoformat(document_date.replace('Z', '+00:00')).date()
+                except Exception:  # pragma: no cover - defensive parsing
+                    parsed_date = None
+        else:
+            parsed_date = document_date
+
+        title = permit.get('title') or f"היתר {external_id}" if external_id else "היתר בנייה"
+        description = permit.get('description', '')
+        status = permit.get('status', '')
+        external_url = permit.get('external_url') or meta.get('Path', '')
+
+        document_type = permit.get('document_type') or 'permit'
+        document_category = permit.get('document_category')
+        meta = dict(meta or {})
+        meta['handasa_document_type'] = document_type
+        if document_category is not None:
+            meta['handasa_document_category'] = document_category
+
+        return {
+            'external_id': external_id,
+            'title': title,
+            'description': description,
+            'status': status,
+            'filename': f"{external_id}.pdf",
+            'file_path': '',
+            'file_size': 0,
+            'mime_type': 'application/pdf',
+            'external_url': external_url,
+            'source': 'Handasa',
+            'document_date': parsed_date,
+            'meta': meta,
+            'document_type': document_type,
+        }
+
+    # Default: GIS permits structure
+    permission_num = permit.get('permission_num')
+    request_num = permit.get('request_num')
+    external_id = str(_normalize_identifier(permission_num or request_num or f"gis_{fallback_index}"))
+
+    return {
+        'external_id': external_id,
+        'title': permit.get('koteret', ''),
+        'description': permit.get('sug_bakasha', ''),
+        'status': permit.get('building_stage', ''),
+        'filename': f"{permission_num or external_id}.pdf",
+        'file_path': './permits/',
+        'file_size': 0,
+        'mime_type': 'application/pdf',
+        'external_url': permit.get('url_hadmaya', ''),
+        'source': 'GIS',
+        'document_date': _convert_unix_timestamp_to_date(permit.get('permission_date', 0)),
+        'meta': permit,
+        'document_type': 'permit',
+    }
+
+
+def _normalize_identifier(value: Any) -> str:
+    """Normalize identifiers by removing braces and casting to string."""
+
+    if value is None:
+        return ''
+    text = str(value).strip()
+    if text.startswith('{') and text.endswith('}'):
+        return text[1:-1]
+    return text
 
 
 def _create_documents_from_appraisals(asset, appraisals):

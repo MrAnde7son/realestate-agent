@@ -112,11 +112,11 @@ const documentTypeDisplay = (type?: string) => {
 const sourceDisplay = (source?: string) => {
   if (!source) return '—';
   const translations: Record<string, string> = {
-    gis_permit: 'GIS',
+    gis: 'עירייה',
     user_upload: 'העלאה ידנית',
     handasa: 'תיק בניין',
   };
-  return translations[source] || source;
+  return source && translations[source.toLowerCase()] || source;
 };
 
 const sourceVariant = (source?: string) => {

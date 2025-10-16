@@ -1022,7 +1022,7 @@ const loadTransactions = React.useCallback(async () => {
     setMarketAnalysis(data.market_analysis || null)
   } catch (err) {
     console.error('Error loading transactions:', err)
-    setTransactionsData({ items: [], total: 0, filters: { source: [], area: [] } })
+    setTransactionsData({ items: [], total: 0, filters: { source: [] } })
     setMarketAnalysis(null)
   } finally {
     setTransactionsLoading(false)

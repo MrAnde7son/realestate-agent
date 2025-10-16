@@ -297,12 +297,14 @@ export default function TransactionsTable({
       filtered = filtered.filter((transaction) => typeof transaction.price_per_sqm === 'number' && transaction.price_per_sqm <= pricePerSqmMax)
     }
 
-    if (areaRange?.min !== undefined) {
-      filtered = filtered.filter((transaction) => typeof transaction.area === 'number' && transaction.area >= areaRange.min)
+    const areaMin = areaRange?.min
+    if (areaMin !== undefined) {
+      filtered = filtered.filter((transaction) => typeof transaction.area === 'number' && transaction.area >= areaMin)
     }
 
-    if (areaRange?.max !== undefined) {
-      filtered = filtered.filter((transaction) => typeof transaction.area === 'number' && transaction.area <= areaRange.max)
+    const areaMax = areaRange?.max
+    if (areaMax !== undefined) {
+      filtered = filtered.filter((transaction) => typeof transaction.area === 'number' && transaction.area <= areaMax)
     }
 
     if (addressFilter?.value) {

@@ -16,7 +16,19 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db.models import Q
+from django.db.models import (
+    Q,
+    Avg,
+    Min,
+    Max,
+    Case,
+    When,
+    Value,
+    FloatField,
+    ExpressionWrapper,
+    F,
+)
+from datetime import datetime
 from asgiref.sync import async_to_sync
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -1569,6 +1581,90 @@ def asset_detail(request, asset_id):
         )
 
 
+
+
+def _filter_sort_paginate_appraisals(entries, *, search=None, source_filter=None,
+                                     status_filter=None, ordering='-date', limit=25,
+                                     offset=0, allow_status=False):
+    try:
+        limit = max(1, min(int(limit), 100))
+    except (TypeError, ValueError):
+        limit = 25
+
+    try:
+        offset = max(0, int(offset))
+    except (TypeError, ValueError):
+        offset = 0
+
+    search_lower = search.lower() if search else None
+    filtered = []
+
+    for entry in entries:
+        source_value = (entry.get('source') or '').lower()
+        if source_filter and source_filter != 'all' and source_value != source_filter.lower():
+            continue
+
+        if allow_status:
+            status_value = (entry.get('status') or '').lower()
+            if status_filter and status_filter != 'all' and status_value != status_filter.lower():
+                continue
+
+        if search_lower:
+            values = [
+                str(entry.get('appraiser') or ''),
+                str(entry.get('date') or ''),
+                str(entry.get('appraisedValue') or entry.get('marketValue') or entry.get('value') or ''),
+                str(entry.get('source') or ''),
+                str(entry.get('plan_number') or ''),
+                str(entry.get('status') or ''),
+            ]
+            if not any(search_lower in value.lower() for value in values):
+                continue
+
+        filtered.append(entry)
+
+    total_count = len(filtered)
+
+    ordering_field = ordering or '-date'
+    reverse = False
+    if ordering_field.startswith('-'):
+        reverse = True
+        ordering_field = ordering_field[1:]
+
+    def sort_key(item):
+        if ordering_field == 'date':
+            return _parse_date_value(item.get('date')) or datetime.min
+        if ordering_field == 'appraiser':
+            return (item.get('appraiser') or '').lower()
+        if ordering_field == 'value':
+            value = item.get('appraisedValue') or item.get('marketValue') or item.get('value')
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
+        if ordering_field == 'source':
+            return (item.get('source') or '').lower()
+        if ordering_field == 'plan_number':
+            return (item.get('plan_number') or '').lower()
+        if ordering_field == 'status':
+            return (item.get('status') or '').lower()
+        return _parse_date_value(item.get('date')) or datetime.min
+
+    filtered.sort(key=sort_key, reverse=reverse)
+
+    paginated = filtered[offset: offset + limit]
+
+    filters_metadata = {
+        'source': sorted({entry.get('source') for entry in entries if entry.get('source')})
+    }
+    if allow_status:
+        filters_metadata['status'] = sorted({entry.get('status') for entry in entries if entry.get('status')})
+
+    ordering_value = ordering if ordering else '-date'
+
+    return paginated, total_count, filters_metadata, limit, offset, ordering_value
+
+
 @csrf_exempt
 def asset_appraisal(request, asset_id):
     """Get appraisal data for an asset including decisive appraisals and RAMI data."""
@@ -1576,19 +1672,16 @@ def asset_appraisal(request, asset_id):
         return JsonResponse({"error": "GET method required"}, status=405)
 
     try:
-        # Get asset
         try:
             asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
-        # Get source records for appraisal data
         appraisal_records = SourceRecord.objects.filter(
             asset_id=asset_id,
             source__in=['appraisal_decisive', 'appraisal_rmi', 'decisive', 'rami']
         )
-        
-        # Build appraisal data
+
         appraisal_data = {
             "appraisal": None,
             "decisive_appraisals": [],
@@ -1602,56 +1695,56 @@ def asset_appraisal(request, asset_id):
                 "plot": asset.parcel
             }
         }
-        
-        # Process decisive appraisals
+
+        decisive_entries = []
+        rami_entries = []
+
         decisive_records = appraisal_records.filter(source__in=['appraisal_decisive', 'decisive'])
         for record in decisive_records:
+            entry = {
+                "id": record.id,
+                "appraiser": None,
+                "date": record.fetched_at.isoformat() if record.fetched_at else None,
+                "appraisedValue": None,
+                "url": record.url,
+                "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None,
+                "source": (record.source or 'decisive').lower(),
+            }
             if record.raw:
                 try:
                     raw_data = json.loads(record.raw) if isinstance(record.raw, str) else record.raw
-                    appraisal_data["decisive_appraisals"].append({
-                        "id": record.id,
-                        "appraiser": raw_data.get("appraiser", "לא זמין"),
-                        "date": raw_data.get("date", record.fetched_at.isoformat() if record.fetched_at else None),
-                        "appraisedValue": raw_data.get("appraisedValue", raw_data.get("value")),
-                        "url": record.url,
-                        "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
-                    })
                 except (json.JSONDecodeError, TypeError):
-                    # Fallback for non-JSON data
-                    appraisal_data["decisive_appraisals"].append({
-                        "id": record.id,
-                        "appraiser": "לא זמין",
-                        "date": record.fetched_at.isoformat() if record.fetched_at else None,
-                        "appraisedValue": None,
-                        "url": record.url,
-                        "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
-                    })
-        
-        # Process RAMI appraisals
+                    raw_data = {}
+            else:
+                raw_data = {}
+
+            entry["appraiser"] = raw_data.get("appraiser", entry["appraiser"] or "לא זמין")
+            entry["date"] = raw_data.get("date", entry["date"])
+            entry["appraisedValue"] = raw_data.get("appraisedValue", raw_data.get("value", entry["appraisedValue"]))
+            decisive_entries.append(entry)
+
         rami_records = appraisal_records.filter(source__in=['appraisal_rmi', 'rami'])
         for record in rami_records:
+            entry = {
+                "id": record.id,
+                "date": record.fetched_at.isoformat() if record.fetched_at else None,
+                "marketValue": None,
+                "url": record.url,
+                "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None,
+                "source": (record.source or 'rami').lower(),
+            }
             if record.raw:
                 try:
                     raw_data = json.loads(record.raw) if isinstance(record.raw, str) else record.raw
-                    appraisal_data["rami_appraisals"].append({
-                        "id": record.id,
-                        "date": raw_data.get("date", record.fetched_at.isoformat() if record.fetched_at else None),
-                        "marketValue": raw_data.get("marketValue", raw_data.get("value")),
-                        "url": record.url,
-                        "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
-                    })
                 except (json.JSONDecodeError, TypeError):
-                    # Fallback for non-JSON data
-                    appraisal_data["rami_appraisals"].append({
-                        "id": record.id,
-                        "date": record.fetched_at.isoformat() if record.fetched_at else None,
-                        "marketValue": None,
-                        "url": record.url,
-                        "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None
-                    })
-        
-        # Fallback to Documents when source records are not yet available
+                    raw_data = {}
+            else:
+                raw_data = {}
+
+            entry["date"] = raw_data.get("date", entry["date"])
+            entry["marketValue"] = raw_data.get("marketValue", raw_data.get("value", entry["marketValue"]))
+            rami_entries.append(entry)
+
         document_qs = Document.objects.filter(
             Q(asset_id=asset_id) | Q(assets__id=asset_id),
             document_type__in=['appraisal_decisive', 'appraisal', 'appraisal_rmi']
@@ -1659,76 +1752,105 @@ def asset_appraisal(request, asset_id):
 
         for doc in document_qs:
             meta = doc.meta or {}
-            appraisal_entry = {
+            base_entry = {
                 "id": f"doc_{doc.id}",
                 "appraiser": meta.get('appraiser') or doc.title,
-                "date": (doc.document_date.isoformat() if doc.document_date else meta.get('date')), 
+                "date": doc.document_date.isoformat() if doc.document_date else meta.get('date'),
                 "appraisedValue": meta.get('appraised_value') or meta.get('value'),
                 "marketValue": meta.get('marketValue') or meta.get('value'),
                 "url": doc.external_url or doc.file_url,
                 "fetched_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
-                "source": doc.source or meta.get('source'),
+                "source": (doc.source or meta.get('source') or 'unknown').lower(),
                 "plan_number": meta.get('planNumber') or meta.get('plan_number') or doc.external_id,
                 "status": meta.get('status'),
             }
 
             doc_type = doc.document_type
             if doc_type == 'appraisal_decisive' or (doc_type == 'appraisal' and (doc.source and 'decisive' in doc.source.lower())):
-                appraisal_data["decisive_appraisals"].append(appraisal_entry)
+                decisive_entries.append(base_entry.copy())
             elif doc_type in ['appraisal_rmi'] or (doc.source and 'ram' in doc.source.lower()):
-                appraisal_data["rami_appraisals"].append(appraisal_entry)
+                rami_entries.append(base_entry.copy())
 
-        # Get additional data from asset metadata (collected by data pipeline)
         if asset.meta:
-            # Get decisive appraisals from government data
             decisive_appraisals = asset.get_property_value('government_data.decisive_appraisals', [])
             if decisive_appraisals:
                 for appraisal in decisive_appraisals:
-                    appraisal_data["decisive_appraisals"].append({
+                    decisive_entries.append({
                         "id": f"collected_{appraisal.get('id', '')}",
                         "appraiser": appraisal.get('appraiser', 'לא זמין'),
                         "date": appraisal.get('date', ''),
-                        "appraisedValue": appraisal.get('value', None),
-                        "url": appraisal.get('url', ''),
-                        "fetched_at": asset.get_property_value('last_enrichment'),
-                        "source": "collected_government"
+                        "appraisedValue": appraisal.get('value'),
+                        "url": appraisal.get('url'),
+                        "fetched_at": appraisal.get('fetched_at'),
+                        "source": (appraisal.get('source') or 'decisive').lower(),
                     })
-            
-            # Get RAMI appraisals from collected data
-            rami_plans = asset.get_property_value('rami_plans', [])
+
+            rami_plans = asset.get_property_value('government_data.rami_plans', [])
             if rami_plans:
                 for plan in rami_plans:
                     if plan.get('marketValue') or plan.get('value'):
-                        appraisal_data["rami_appraisals"].append({
+                        rami_entries.append({
                             "id": f"collected_rami_{plan.get('planNumber', plan.get('plan_number', ''))}",
                             "date": plan.get('status_date', plan.get('date', '')),
                             "marketValue": plan.get('marketValue', plan.get('value', None)),
                             "url": plan.get('url', ''),
                             "fetched_at": asset.get_property_value('last_enrichment'),
-                            "source": "collected_rami",
+                            "source": 'rami',
                             "plan_number": plan.get('planNumber', plan.get('plan_number', '')),
-                            "status": plan.get('status', '')
+                            "status": plan.get('status', ''),
                         })
-            
-            # Get market metrics if available
-            market_metrics = asset.get_property_value('market_metrics', {})
-            if market_metrics:
-                appraisal_data["market_analysis"].update({
-                    "model_price": market_metrics.get('modelPrice'),
-                    "price_gap_pct": market_metrics.get('priceGapPct'),
-                    "confidence_pct": market_metrics.get('confidencePct'),
-                    "expected_price_range": market_metrics.get('expectedPriceRange'),
-                    "competition_level": market_metrics.get('competition1km'),
-                    "risk_flags": market_metrics.get('riskFlags', [])
-                })
-        
-        # Set primary appraisal (most recent decisive or RAMI)
-        all_appraisals = appraisal_data["decisive_appraisals"] + appraisal_data["rami_appraisals"]
+
+        market_metrics = asset.get_property_value('market_metrics', {})
+        if market_metrics:
+            appraisal_data["market_analysis"].update({
+                "model_price": market_metrics.get('modelPrice'),
+                "price_gap_pct": market_metrics.get('priceGapPct'),
+                "confidence_pct": market_metrics.get('confidencePct'),
+                "expected_price_range": market_metrics.get('expectedPriceRange'),
+                "competition_level": market_metrics.get('competition1km'),
+                "risk_flags": market_metrics.get('riskFlags', [])
+            })
+
+        all_appraisals = decisive_entries + rami_entries
         if all_appraisals:
-            # Sort by date and take the most recent
             sorted_appraisals = sorted(all_appraisals, key=lambda x: x.get("date", ""), reverse=True)
             appraisal_data["appraisal"] = sorted_appraisals[0]
-        
+
+        decisive_paged, decisive_total, decisive_filters, decisive_limit, decisive_offset, decisive_ordering = _filter_sort_paginate_appraisals(
+            decisive_entries,
+            search=request.GET.get('decisive_search'),
+            source_filter=request.GET.get('decisive_source'),
+            ordering=request.GET.get('decisive_ordering', '-date'),
+            limit=request.GET.get('decisive_limit', 25),
+            offset=request.GET.get('decisive_offset', 0),
+            allow_status=False,
+        )
+
+        rami_paged, rami_total, rami_filters, rami_limit, rami_offset, rami_ordering = _filter_sort_paginate_appraisals(
+            rami_entries,
+            search=request.GET.get('rami_search'),
+            source_filter=request.GET.get('rami_source'),
+            status_filter=request.GET.get('rami_status'),
+            ordering=request.GET.get('rami_ordering', '-date'),
+            limit=request.GET.get('rami_limit', 25),
+            offset=request.GET.get('rami_offset', 0),
+            allow_status=True,
+        )
+
+        appraisal_data["decisive_appraisals"] = decisive_paged
+        appraisal_data["decisive_count"] = decisive_total
+        appraisal_data["decisive_filters"] = decisive_filters
+        appraisal_data["decisive_limit"] = decisive_limit
+        appraisal_data["decisive_offset"] = decisive_offset
+        appraisal_data["decisive_ordering"] = decisive_ordering
+
+        appraisal_data["rami_appraisals"] = rami_paged
+        appraisal_data["rami_count"] = rami_total
+        appraisal_data["rami_filters"] = rami_filters
+        appraisal_data["rami_limit"] = rami_limit
+        appraisal_data["rami_offset"] = rami_offset
+        appraisal_data["rami_ordering"] = rami_ordering
+
         return JsonResponse(appraisal_data)
 
     except Exception as e:
@@ -1736,8 +1858,6 @@ def asset_appraisal(request, asset_id):
         return JsonResponse(
             {"error": "Failed to retrieve appraisal data", "details": str(e)}, status=500
         )
-
-
 @csrf_exempt
 def asset_transactions(request, asset_id):
     """Get comparable transactions for an asset."""
@@ -1820,6 +1940,172 @@ def asset_transactions(request, asset_id):
         )
 
 
+def _first_non_empty(*values):
+    """Return the first non-empty string representation from the provided values."""
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped:
+                return stripped
+        else:
+            stringified = str(value).strip()
+            if stringified:
+                return stringified
+    return ""
+
+
+def _parse_date_value(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        if isinstance(value, int) or (isinstance(value, str) and value.isdigit()):
+            numeric = int(value)
+            if numeric > 1e12:
+                numeric = numeric / 1000
+            return datetime.fromtimestamp(numeric)
+        if isinstance(value, str):
+            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except Exception:
+        return None
+    return None
+
+
+def _format_date_value(value):
+    parsed = _parse_date_value(value)
+    if not parsed:
+        return None
+    return parsed.strftime('%Y-%m-%d')
+
+
+def _normalize_permit(serializer_data):
+    meta = serializer_data.get('meta') or {}
+
+    permit_number = _first_non_empty(
+        meta.get('permit_number'),
+        meta.get('permission_num'),
+        meta.get('TlvMPEngPermitNum'),
+        serializer_data.get('external_id'),
+    )
+
+    request_number = _first_non_empty(
+        meta.get('request_num'),
+        meta.get('TlvMPEngRequestNum'),
+        meta.get('TlvMPEngOnlineReqNum'),
+    )
+
+    addresses = _first_non_empty(
+        meta.get('addresses'),
+        meta.get('address'),
+    )
+
+    description = _first_non_empty(
+        meta.get('tochen_bakasha'),
+        meta.get('description'),
+        serializer_data.get('description'),
+        serializer_data.get('title'),
+    )
+
+    building_stage = _first_non_empty(
+        meta.get('building_stage'),
+        meta.get('stage'),
+        serializer_data.get('status'),
+    )
+
+    approval_date = _format_date_value(
+        meta.get('permission_date')
+        or meta.get('document_date')
+        or serializer_data.get('document_date')
+        or meta.get('TlvMPEngDocDate')
+    )
+
+    expiry_date = _format_date_value(
+        meta.get('expiry_date')
+        or meta.get('expiration_date')
+        or meta.get('license_exp_date')
+        or meta.get('valid_until')
+        or meta.get('valid_till')
+    )
+
+    issue_date = _format_date_value(
+        meta.get('open_request')
+        or meta.get('issue_date')
+        or meta.get('license_issue_date')
+    )
+
+    handasa_link = _first_non_empty(
+        meta.get('url_hadmaya'),
+        meta.get('Path'),
+        meta.get('DocumentLink'),
+        serializer_data.get('external_url'),
+    )
+
+    document_type = _first_non_empty(
+        meta.get('handasa_document_type'),
+        meta.get('TlvMPEngDocumentType'),
+        meta.get('document_type'),
+        serializer_data.get('document_type'),
+    )
+
+    request_type = _first_non_empty(
+        meta.get('sug_bakasha'),
+        meta.get('request_type'),
+    )
+
+    source = _first_non_empty(serializer_data.get('source'), meta.get('source'))
+
+    title = _first_non_empty(
+        serializer_data.get('title'),
+        description,
+        document_type,
+        permit_number,
+        request_number,
+    )
+
+    search_values = list(
+        filter(
+            None,
+            [
+                title,
+                description,
+                addresses,
+                permit_number,
+                request_number,
+                building_stage,
+                document_type,
+                request_type,
+                source,
+                approval_date,
+                expiry_date,
+                issue_date,
+            ],
+        )
+    )
+
+    return {
+        'id': serializer_data.get('id'),
+        'title': title,
+        'description': description,
+        'addresses': addresses,
+        'permitNumber': permit_number,
+        'requestNumber': request_number,
+        'stage': building_stage,
+        'documentType': document_type,
+        'requestType': request_type,
+        'approvalDate': approval_date,
+        'issueDate': issue_date,
+        'expiryDate': expiry_date,
+        'handasaLink': handasa_link,
+        'externalUrl': serializer_data.get('external_url'),
+        'source': source,
+        'meta': meta,
+        'searchValues': search_values,
+        'raw': serializer_data,
+    }
+
 @csrf_exempt
 def asset_permits(request, asset_id):
     """Get building permits for an asset from Document model."""
@@ -1833,25 +2119,161 @@ def asset_permits(request, asset_id):
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
-        permits = []
+        try:
+            limit = max(1, min(int(request.GET.get('limit', 25)), 100))
+        except ValueError:
+            limit = 25
+
+        try:
+            offset = max(0, int(request.GET.get('offset', 0)))
+        except ValueError:
+            offset = 0
+
+        search_query = request.GET.get('search')
+        stage_filter = request.GET.get('stage')
+        document_type_filter = request.GET.get('document_type')
+        source_filter = request.GET.get('source')
+        ordering_param = request.GET.get('ordering', '-approval_date')
 
         # Get permits from Document model (single source of truth)
-        permit_documents = Document.objects.filter(
-            Q(asset_id=asset_id) | Q(assets__id=asset_id),
-            document_type='permit'
-        ).distinct().order_by('-document_date', '-uploaded_at')
+        permit_documents = (
+            Document.objects.filter(
+                Q(asset_id=asset_id) | Q(assets__id=asset_id),
+                document_type='permit'
+            )
+            .select_related('asset')
+            .prefetch_related('assets')
+            .distinct()
+            .order_by('-document_date', '-uploaded_at')
+        )
 
+        normalized_permits = []
         for doc in permit_documents:
             serializer = DocumentSerializer(doc)
-            permits.append(serializer.data)
+            normalized = _normalize_permit(serializer.data)
 
-        return JsonResponse({"permits": permits, "count": len(permits)})
+            if stage_filter and stage_filter != 'all':
+                if (normalized.get('stage') or '').lower() != stage_filter.lower():
+                    continue
+
+            if document_type_filter and document_type_filter != 'all':
+                if (normalized.get('documentType') or '').lower() != document_type_filter.lower():
+                    continue
+
+            if source_filter and source_filter != 'all':
+                if (normalized.get('source') or '').lower() != source_filter.lower():
+                    continue
+
+            if search_query:
+                search_lower = search_query.lower()
+                if not any(value.lower().find(search_lower) != -1 for value in normalized.get('searchValues', [])):
+                    continue
+
+            normalized_permits.append(normalized)
+
+        total_count = len(normalized_permits)
+
+        # Sorting
+        ordering_field = ordering_param
+        reverse = False
+        if ordering_field.startswith('-'):
+            reverse = True
+            ordering_field = ordering_field[1:]
+
+        def sort_key(item):
+            if ordering_field == 'approval_date':
+                return _parse_date_value(item.get('approvalDate')) or datetime.min
+            if ordering_field == 'issue_date':
+                return _parse_date_value(item.get('issueDate')) or datetime.min
+            if ordering_field == 'expiry_date':
+                return _parse_date_value(item.get('expiryDate')) or datetime.min
+            if ordering_field == 'permit_number':
+                return item.get('permitNumber') or ''
+            if ordering_field == 'request_number':
+                return item.get('requestNumber') or ''
+            if ordering_field == 'stage':
+                return item.get('stage') or ''
+            if ordering_field == 'document_type':
+                return item.get('documentType') or ''
+            if ordering_field == 'source':
+                return item.get('source') or ''
+            if ordering_field == 'title':
+                return item.get('title') or ''
+            return _parse_date_value(item.get('approvalDate')) or datetime.min
+
+        normalized_permits.sort(key=sort_key, reverse=reverse)
+
+        paginated_permits = normalized_permits[offset: offset + limit]
+
+        filters_metadata = {
+            'stage': sorted({item.get('stage') for item in normalized_permits if item.get('stage')}),
+            'document_type': sorted({item.get('documentType') for item in normalized_permits if item.get('documentType')}),
+            'source': sorted({item.get('source') for item in normalized_permits if item.get('source')}),
+        }
+
+        return JsonResponse({
+            "permits": paginated_permits,
+            "count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "ordering": ordering_param,
+            "filters": filters_metadata,
+        })
 
     except Exception as e:
         logger.error("Error retrieving permits for asset %s: %s", asset_id, e)
         return JsonResponse(
             {"error": "Failed to retrieve permits", "details": str(e)}, status=500
         )
+
+
+def _normalize_plan_entry(entry):
+    plan_number = _first_non_empty(
+        entry.get("plan_number"),
+        entry.get("planNumber"),
+        entry.get("plan_id"),
+    )
+
+    description = _first_non_empty(
+        entry.get("description"),
+        entry.get("title"),
+        entry.get("name"),
+    )
+
+    status = _first_non_empty(entry.get("status"))
+    effective_date = _format_date_value(
+        entry.get("effective_date")
+        or entry.get("status_date")
+        or entry.get("date")
+        or entry.get("published_at")
+    )
+
+    source = (entry.get("source") or "unknown").lower()
+
+    search_values = list(
+        filter(
+            None,
+            [
+                plan_number,
+                description,
+                status,
+                source,
+                effective_date,
+            ],
+        )
+    )
+
+    return {
+        "id": entry.get("id"),
+        "plan_number": plan_number,
+        "description": description,
+        "status": status,
+        "effective_date": effective_date,
+        "file_url": entry.get("file_url"),
+        "source": source,
+        "raw": entry.get("raw") or entry,
+        "search_values": search_values,
+    }
 
 
 @csrf_exempt
@@ -1867,26 +2289,39 @@ def asset_plans(request, asset_id):
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
-        plans = []
-        
-        # Get all plans from Plan model (created by data pipeline)
-        # The data pipeline already processes RAMI and Mavat plans and stores them in the Plan model
+        try:
+            limit = max(1, min(int(request.GET.get('limit', 25)), 100))
+        except ValueError:
+            limit = 25
+
+        try:
+            offset = max(0, int(request.GET.get('offset', 0)))
+        except ValueError:
+            offset = 0
+
+        search_query = request.GET.get('search')
+        source_filter = request.GET.get('source')
+        status_filter = request.GET.get('status')
+        ordering_param = request.GET.get('ordering', '-effective_date')
+
+        plan_entries = []
+
         local_plans = Plan.objects.filter(
             Q(asset_id=asset_id) | Q(assets__id=asset_id)
         ).distinct()
         seen_plan_numbers = set()
         for plan in local_plans:
-            # Determine source from plan_number prefix or raw data
             source = "unknown"
-            if plan.plan_number.startswith("mavat_"):
-                source = "mavat"
-            elif plan.raw and plan.raw.get('planNumber'):
-                source = "rami"
-            elif plan.raw and plan.raw.get('plan_id'):
-                source = "mavat"
-            
+            raw_source = ((plan.raw or {}).get('source') or '').lower()
+            if (plan.raw or {}).get('planNumber'):
+                source = 'rami'
+            if raw_source == 'mavat' or (plan.raw or {}).get('plan_id'):
+                source = 'mavat'
+            if plan.raw and 'source' in plan.raw and plan.raw['source']:
+                source = str(plan.raw['source']).lower()
+
             seen_plan_numbers.add(plan.plan_number)
-            plans.append({
+            plan_entries.append(_normalize_plan_entry({
                 "id": plan.id,
                 "plan_number": plan.plan_number,
                 "description": plan.description,
@@ -1894,32 +2329,29 @@ def asset_plans(request, asset_id):
                 "effective_date": plan.effective_date.isoformat() if plan.effective_date else None,
                 "file_url": plan.file_url,
                 "source": source,
-                "raw": plan.raw
-            })
+                "raw": plan.raw,
+            }))
 
-        # Fallback: include plan documents even if Plan entries were not created yet
         plan_documents = Document.objects.filter(
             Q(asset_id=asset_id) | Q(assets__id=asset_id),
             document_type__in=['plan', 'plan_local', 'plan_citywide', 'plan_detailed']
         ).distinct()
 
         for doc in plan_documents:
-            plan_number = doc.external_id or (doc.meta or {}).get('planNumber') or (doc.meta or {}).get('plan_number') or f"document_{doc.id}"
+            meta = doc.meta or {}
+            plan_number = doc.external_id or meta.get('planNumber') or meta.get('plan_number') or f"document_{doc.id}"
             if plan_number in seen_plan_numbers:
                 continue
             seen_plan_numbers.add(plan_number)
 
-            meta = doc.meta or {}
             source = 'unknown'
             raw_source = (doc.source or '').lower()
             if 'rami' in raw_source:
                 source = 'rami'
-            elif 'mavat' in raw_source or meta.get('source') == 'Mavat':
-                source = 'mavat'
-            elif plan_number.startswith('mavat_'):
+            elif 'mavat' in raw_source or meta.get('source') == 'Mavat' or plan_number.startswith('mavat_'):
                 source = 'mavat'
 
-            plans.append({
+            plan_entries.append(_normalize_plan_entry({
                 "id": doc.id,
                 "plan_number": plan_number,
                 "description": doc.description or doc.title,
@@ -1928,9 +2360,65 @@ def asset_plans(request, asset_id):
                 "file_url": doc.external_url or doc.file_url,
                 "source": source,
                 "raw": meta,
-            })
-        
-        return JsonResponse({"plans": plans})
+            }))
+
+        # Allow filtering/searching
+        filtered_plans = []
+        search_lower = search_query.lower() if search_query else None
+        for entry in plan_entries:
+            if source_filter and source_filter != 'all':
+                if (entry.get('source') or '').lower() != source_filter.lower():
+                    continue
+
+            if status_filter and status_filter != 'all':
+                if (entry.get('status') or '').lower() != status_filter.lower():
+                    continue
+
+            if search_lower:
+                values = entry.get('search_values', [])
+                if not any((v or '').lower().find(search_lower) != -1 for v in values):
+                    continue
+
+            filtered_plans.append(entry)
+
+        total_count = len(filtered_plans)
+
+        ordering_field = ordering_param
+        reverse = False
+        if ordering_field.startswith('-'):
+            reverse = True
+            ordering_field = ordering_field[1:]
+
+        def plan_sort_key(item):
+            if ordering_field == 'effective_date':
+                return _parse_date_value(item.get('effective_date')) or datetime.min
+            if ordering_field == 'plan_number':
+                return item.get('plan_number') or ''
+            if ordering_field == 'status':
+                return item.get('status') or ''
+            if ordering_field == 'source':
+                return item.get('source') or ''
+            if ordering_field == 'description':
+                return item.get('description') or ''
+            return _parse_date_value(item.get('effective_date')) or datetime.min
+
+        filtered_plans.sort(key=plan_sort_key, reverse=reverse)
+
+        paginated_plans = filtered_plans[offset: offset + limit]
+
+        filters_metadata = {
+            'source': sorted({item.get('source') for item in plan_entries if item.get('source')}),
+            'status': sorted({item.get('status') for item in plan_entries if item.get('status')}),
+        }
+
+        return JsonResponse({
+            "plans": paginated_plans,
+            "count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "ordering": ordering_param,
+            "filters": filters_metadata,
+        })
 
     except Exception as e:
         logger.error("Error retrieving plans for asset %s: %s", asset_id, e)
@@ -2484,50 +2972,273 @@ def sync_asset(request, asset_id):
 def asset_listings(request, asset_id):
     """Fetch similar listings for an asset from Yad2 and other sources."""
     try:
-        # Get the asset
         try:
             asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
             return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Get real listings from asset metadata
-        listings = []
-        
-        # Get Yad2 listings from asset metadata
-        yad2_listings = asset.get_property_value('yad2_listings', [])
-        if yad2_listings:
-            for idx, listing in enumerate(yad2_listings):
-                listing_id = listing.get('listing_id')
-                if not listing_id:
-                    # fallback to a deterministic id from source + idx
-                    listing_id = f"yad2_{idx}_{listing.get('url') or listing.get('title') or 'listing'}"
-                listings.append({
-                    'id': listing_id,
-                    'title': listing.get('title', ''),
-                    'price': listing.get('price'),
-                    'address': listing.get('address', ''),
-                    'rooms': listing.get('rooms'),
-                    'size': listing.get('area'),
-                    'property_type': listing.get('property_type', ''),
-                    'source': 'yad2',
-                    'url': listing.get('url', ''),
-                    'date_posted': listing.get('date_posted', ''),
-                    'images': listing.get('images', []),
-                    'description': listing.get('description', ''),
-                    'floor': listing.get('floor'),
-                    'features': listing.get('features', [])
-                })
-        
-        # If no real listings found, return empty array instead of mock data
-        if not listings:
-            listings = []
-        
-        return Response({
-            'listings': listings,
-            'total': len(listings),
-            'asset_id': asset_id
-        })
-        
+
+        def parse_int(value, default=None, *, minimum=None, maximum=None):
+            if value in (None, ''):
+                return default
+            try:
+                parsed = int(value)
+            except (TypeError, ValueError):
+                return default
+            if minimum is not None:
+                parsed = max(minimum, parsed)
+            if maximum is not None:
+                parsed = min(maximum, parsed)
+            return parsed
+
+        def parse_float(value):
+            if value in (None, ""):
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                try:
+                    return float(str(value).replace(",", "."))
+                except (TypeError, ValueError):
+                    return None
+
+        def format_rooms_value(value):
+            numeric = parse_float(value)
+            if numeric is None:
+                return None
+            if numeric.is_integer():
+                return str(int(numeric))
+            formatted = f"{numeric:.2f}".rstrip("0").rstrip(".")
+            return formatted
+
+        def parse_date_value(value):
+            if not value:
+                return None
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                cleaned = value.strip()
+                if not cleaned:
+                    return None
+                try:
+                    if cleaned.endswith("Z"):
+                        cleaned = cleaned.replace("Z", "+00:00")
+                    return datetime.fromisoformat(cleaned)
+                except (ValueError, TypeError):
+                    return None
+            return None
+
+        def normalize_listing_from_model(listing_obj):
+            raw = listing_obj.raw or {}
+            price = listing_obj.price if listing_obj.price is not None else raw.get("price")
+            area = listing_obj.area if listing_obj.area is not None else raw.get("area") or raw.get("size")
+            rooms_value = listing_obj.rooms if listing_obj.rooms is not None else raw.get("rooms")
+            date_posted = raw.get("date_posted") or raw.get("scraped_at")
+            if not date_posted and listing_obj.fetched_at:
+                date_posted = listing_obj.fetched_at.isoformat()
+
+            return {
+                "id": f"{listing_obj.source}:{listing_obj.external_id}",
+                "source": listing_obj.source or raw.get("source") or "external",
+                "external_id": listing_obj.external_id,
+                "title": listing_obj.title or raw.get("title") or "",
+                "price": parse_int(price, None),
+                "address": listing_obj.address or raw.get("address") or "",
+                "rooms": parse_float(rooms_value),
+                "rooms_display": format_rooms_value(rooms_value),
+                "size": parse_float(area),
+                "property_type": raw.get("property_type") or listing_obj.raw.get("propertyType"),
+                "url": listing_obj.url or raw.get("url"),
+                "date_posted": date_posted,
+                "images": raw.get("images", []),
+                "description": raw.get("description") or "",
+                "floor": raw.get("floor"),
+                "features": raw.get("features", []),
+            }
+
+        def normalize_listing_from_meta(meta_listing, idx):
+            source = meta_listing.get("source") or "yad2"
+            listing_id = meta_listing.get("listing_id") or meta_listing.get("id")
+            if not listing_id:
+                listing_id = f"{source}_{idx}_{meta_listing.get('url') or meta_listing.get('title') or 'listing'}"
+
+            rooms_value = meta_listing.get("rooms")
+            area = meta_listing.get("area") or meta_listing.get("size")
+
+            return {
+                "id": str(listing_id),
+                "source": source,
+                "external_id": meta_listing.get("external_id"),
+                "title": meta_listing.get("title") or "",
+                "price": parse_int(meta_listing.get("price"), None),
+                "address": meta_listing.get("address") or "",
+                "rooms": parse_float(rooms_value),
+                "rooms_display": format_rooms_value(rooms_value),
+                "size": parse_float(area),
+                "property_type": meta_listing.get("property_type"),
+                "url": meta_listing.get("url"),
+                "date_posted": meta_listing.get("date_posted") or meta_listing.get("scraped_at"),
+                "images": meta_listing.get("images", []),
+                "description": meta_listing.get("description") or "",
+                "floor": meta_listing.get("floor"),
+                "features": meta_listing.get("features", []),
+            }
+
+        limit = parse_int(request.GET.get("limit"), 10, minimum=1, maximum=100)
+        offset = parse_int(request.GET.get("offset"), 0, minimum=0) or 0
+        search = (request.GET.get("search") or "").strip()
+        source_filter = (request.GET.get("source") or "all").strip().lower()
+        property_type_filter = (request.GET.get("property_type") or "all").strip().lower()
+        rooms_filter = (request.GET.get("rooms") or request.GET.get("rooms_filter") or "all").strip()
+        min_price = parse_int(request.GET.get("min_price") or request.GET.get("price_min"), None, minimum=0)
+        max_price = parse_int(request.GET.get("max_price") or request.GET.get("price_max"), None, minimum=0)
+        ordering = (request.GET.get("ordering") or "-date_posted").strip() or "-date_posted"
+
+        listings_all = []
+        seen_keys = set()
+
+        # Include listings linked through the new Listing model
+        for listing_obj in asset_listings_all(asset):
+            normalized = normalize_listing_from_model(listing_obj)
+            key = normalized["id"] or f"{normalized.get('source', 'external')}:{normalized.get('external_id') or listing_obj.id}"
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            listings_all.append(normalized)
+
+        # Include legacy metadata listings (e.g., scraped Yad2 entries)
+        yad2_listings = asset.get_property_value("yad2_listings", []) or []
+        for idx, meta_listing in enumerate(yad2_listings):
+            normalized = normalize_listing_from_meta(meta_listing or {}, idx)
+            key = normalized["id"] or f"{normalized.get('source', 'yad2')}:{idx}"
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            listings_all.append(normalized)
+
+        total_available = len(listings_all)
+
+        # Build filter metadata from the full list
+        sources_available = sorted(
+            {listing.get("source") for listing in listings_all if listing.get("source")}
+        )
+        property_types_available = sorted(
+            {listing.get("property_type") for listing in listings_all if listing.get("property_type")}
+        )
+        rooms_available = sorted(
+            {
+                format_rooms_value(listing.get("rooms"))
+                for listing in listings_all
+                if format_rooms_value(listing.get("rooms"))
+            },
+            key=lambda x: float(x.replace(",", ".")) if x else 0.0,
+        )
+        price_values = [
+            listing.get("price") for listing in listings_all if isinstance(listing.get("price"), int)
+        ]
+        price_meta = {
+            "min": min(price_values) if price_values else None,
+            "max": max(price_values) if price_values else None,
+        }
+
+        search_lower = search.lower() if search else None
+        rooms_filter_normalized = format_rooms_value(rooms_filter) if rooms_filter not in ("", "all") else None
+
+        filtered_listings = []
+        for listing in listings_all:
+            listing_source = (listing.get("source") or "").lower()
+            if source_filter not in ("", "all") and listing_source != source_filter:
+                continue
+
+            listing_property_type = (listing.get("property_type") or "").lower()
+            if property_type_filter not in ("", "all") and listing_property_type != property_type_filter:
+                continue
+
+            if min_price is not None:
+                listing_price = listing.get("price")
+                if listing_price is None or listing_price < min_price:
+                    continue
+
+            if max_price is not None:
+                listing_price = listing.get("price")
+                if listing_price is None or listing_price > max_price:
+                    continue
+
+            if rooms_filter_normalized:
+                listing_rooms_display = listing.get("rooms_display") or format_rooms_value(listing.get("rooms"))
+                if not listing_rooms_display or listing_rooms_display != rooms_filter_normalized:
+                    continue
+
+            if search_lower:
+                searchable_values = [
+                    listing.get("title") or "",
+                    listing.get("address") or "",
+                    listing.get("description") or "",
+                ]
+                if not any(search_lower in (value or "").lower() for value in searchable_values):
+                    continue
+
+            filtered_listings.append(listing)
+
+        total_filtered = len(filtered_listings)
+
+        ordering_field = ordering
+        reverse = False
+        if ordering_field.startswith("-"):
+            reverse = True
+            ordering_field = ordering_field[1:]
+
+        allowed_fields = {"price", "date_posted", "rooms", "size", "source", "title"}
+        if ordering_field not in allowed_fields:
+            ordering_field = "date_posted"
+
+        def sort_key(item):
+            if ordering_field == "price":
+                value = item.get("price")
+                if value is None:
+                    return float("-inf") if reverse else float("inf")
+                return value
+            if ordering_field == "rooms":
+                value = parse_float(item.get("rooms"))
+                if value is None:
+                    return float("-inf") if reverse else float("inf")
+                return value
+            if ordering_field == "size":
+                value = parse_float(item.get("size"))
+                if value is None:
+                    return float("-inf") if reverse else float("inf")
+                return value
+            if ordering_field == "source":
+                return (item.get("source") or "").lower()
+            if ordering_field == "title":
+                return (item.get("title") or "").lower()
+
+            # Default: date_posted
+            parsed_date = parse_date_value(item.get("date_posted"))
+            if parsed_date is None:
+                return datetime.min
+            return parsed_date
+
+        filtered_listings.sort(key=sort_key, reverse=reverse)
+
+        paginated = filtered_listings[offset: offset + limit]
+
+        response_data = {
+            "results": paginated,
+            "count": total_filtered,
+            "total_all": total_available,
+            "limit": limit,
+            "offset": offset,
+            "ordering": f"{'-' if reverse else ''}{ordering_field}",
+            "filters": {
+                "source": sources_available,
+                "property_type": property_types_available,
+                "rooms": rooms_available,
+                "price": price_meta,
+            },
+        }
+
+        return Response(response_data)
+
     except Exception as e:
         logger.error(f"Error fetching listings for asset {asset_id}: {e}")
         return Response({"error": "Failed to fetch listings"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

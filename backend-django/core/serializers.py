@@ -604,21 +604,50 @@ class DocumentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'asset', 'user', 'uploaded_at', 'updated_at', 'file_url', 'is_downloadable']
 
+    def _collect_assets(self, instance):
+        """Collect related assets without incurring N+1 queries."""
+        assets = []
+        seen_ids = set()
+
+        # Primary (legacy) FK
+        if getattr(instance, "asset_id", None):
+            primary_asset = getattr(instance, "asset", None)
+            if primary_asset is None:
+                try:
+                    primary_asset = Asset.objects.get(id=instance.asset_id)
+                except Asset.DoesNotExist:
+                    primary_asset = None
+            if primary_asset is not None:
+                assets.append(primary_asset)
+                seen_ids.add(primary_asset.id)
+
+        # Many-to-many assets (prefetched when possible)
+        if hasattr(instance, "_prefetched_objects_cache") and "assets" in instance._prefetched_objects_cache:
+            related_assets = instance._prefetched_objects_cache["assets"]
+        else:
+            related_assets = instance.assets.all()
+
+        for asset in related_assets:
+            if asset.id in seen_ids:
+                continue
+            assets.append(asset)
+            seen_ids.add(asset.id)
+
+        return assets
+
     def get_assets(self, instance):
-        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
         return [
             {
                 'id': asset.id,
                 'address': getattr(asset, 'address', None),
                 'city': getattr(asset, 'city', None),
             }
-            for asset in assets_qs
+            for asset in self._collect_assets(instance)
         ]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        assets_qs = instance.all_assets() if hasattr(instance, 'all_assets') else instance.assets.all()
-        data['asset_ids'] = [asset.id for asset in assets_qs]
+        data['asset_ids'] = [asset.id for asset in self._collect_assets(instance)]
         return data
 
     def _sync_assets(self, instance, asset_ids):

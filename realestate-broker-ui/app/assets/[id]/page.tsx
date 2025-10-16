@@ -27,8 +27,6 @@ import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
 import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
-import DocumentSearch from '@/components/DocumentSearch'
-import DocumentCategory from '@/components/DocumentCategory'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
 import OnboardingProgress from '@/components/OnboardingProgress'
@@ -37,6 +35,12 @@ import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
 import PlansTable from '@/components/PlansTable'
 import TransactionsTable from '@/components/TransactionsTable'
 import { ListingsPanel } from '@/components/crm/listings-panel'
+import DecisiveAppraisalsTable, { DecisiveAppraisalRow } from '@/components/DecisiveAppraisalsTable'
+import RamiAppraisalsTable, { RamiAppraisalRow } from '@/components/RamiAppraisalsTable'
+import DocumentsTable, { DocumentRow } from '@/components/DocumentsTable'
+import DocumentSearch from '@/components/DocumentSearch'
+import PermitsTable, { PermitRow } from '@/components/PermitsTable'
+import type { SortingState } from '@tanstack/react-table'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -47,6 +51,20 @@ import {
 } from '@/components/ui/breadcrumb'
 
 const ALL_SECTIONS = ['summary','permits','plans','environment','comparables','mortgage','appendix']
+
+const mapFilterValues = (values?: Array<string | { value?: string; key?: string; id?: string }>) => {
+  if (!values) return []
+  return values
+    .map((entry) => {
+      if (typeof entry === 'string') return entry
+      if (!entry || typeof entry !== 'object') return ''
+      if ('value' in entry && entry.value) return entry.value
+      if ('key' in entry && entry.key) return entry.key
+      if ('id' in entry && entry.id) return entry.id
+      return ''
+    })
+    .filter((value): value is string => Boolean(value))
+}
 
 // Helper functions for Hebrew translations
 const getContributionTypeDisplay = (type: string): string => {
@@ -83,8 +101,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [ramiAppraisals, setRamiAppraisals] = useState<any[]>([])
   const [comparableTransactions, setComparableTransactions] = useState<any[]>([])
   const [marketAnalysis, setMarketAnalysis] = useState<any>(null)
-  const [permits, setPermits] = useState<any[]>([])
-  const [plans, setPlans] = useState<any[]>([])
+  const [permitsData, setPermitsData] = useState<{ items: PermitRow[]; total: number; filters: { stage: string[]; document_type: string[]; source: string[] } }>({ items: [], total: 0, filters: { stage: [], document_type: [], source: [] } })
+  const [plansData, setPlansData] = useState<{ items: any[]; total: number; filters: { source: string[]; status: string[] } }>({ items: [], total: 0, filters: { source: [], status: [] } })
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
@@ -102,21 +120,64 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [rightsRows, setRightsRows] = useState<any[]>([])
   const [rightsLoading, setRightsLoading] = useState(false)
   const [rightsError, setRightsError] = useState<string | null>(null)
-  const [documentsSearch, setDocumentsSearch] = useState('')
-  const [documentsByCategory, setDocumentsByCategory] = useState<any>({})
+  const [documentsData, setDocumentsData] = useState<{ items: any[]; total: number; filters: { category: string[]; type: string[]; source: string[]; status: string[] } }>({ items: [], total: 0, filters: { category: [], type: [], source: [], status: [] } })
   const [documentsLoading, setDocumentsLoading] = useState(false)
   const [documentsError, setDocumentsError] = useState<string | null>(null)
   const [rightsSearch, setRightsSearch] = useState('')
   const [rightsDocFilter, setRightsDocFilter] = useState('all')
   const [calculatedRights, setCalculatedRights] = useState<any>(null)
   const [transactionsSearch, setTransactionsSearch] = useState('')
-  const [appraisalsSearch, setAppraisalsSearch] = useState('')
   const [plansSearch, setPlansSearch] = useState('')
   const [plansSourceFilter, setPlansSourceFilter] = useState('all')
   const [plansStatusFilter, setPlansStatusFilter] = useState('all')
+  const [plansSorting, setPlansSorting] = useState<SortingState>([{ id: 'effective_date', desc: true }])
+  const [plansPagination, setPlansPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [plansLoading, setPlansLoading] = useState(false)
   const [transactionsSourceFilter, setTransactionsSourceFilter] = useState('all')
   const [transactionsAreaFilter, setTransactionsAreaFilter] = useState('all')
   const [permitsSearch, setPermitsSearch] = useState('')
+  const [permitsStageFilter, setPermitsStageFilter] = useState('all')
+  const [permitsTypeFilter, setPermitsTypeFilter] = useState('all')
+  const [permitsSourceFilter, setPermitsSourceFilter] = useState('all')
+  const [permitsSorting, setPermitsSorting] = useState<SortingState>([{ id: 'approvalDate', desc: true }])
+  const [permitsPagination, setPermitsPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [permitsLoading, setPermitsLoading] = useState(false)
+  const [decisiveSourceFilter, setDecisiveSourceFilter] = useState('all')
+  const [ramiSourceFilter, setRamiSourceFilter] = useState('all')
+  const [ramiStatusFilter, setRamiStatusFilter] = useState('all')
+  const [documentsTableSearch, setDocumentsTableSearch] = useState('')
+  const [documentsCategoryFilter, setDocumentsCategoryFilter] = useState('all')
+  const [documentsTypeFilter, setDocumentsTypeFilter] = useState('all')
+  const [documentsSourceFilter, setDocumentsSourceFilter] = useState('all')
+  const [documentsStatusFilter, setDocumentsStatusFilter] = useState('all')
+  const [documentsSorting, setDocumentsSorting] = useState<SortingState>([{ id: 'documentDate', desc: true }])
+  const [documentsPagination, setDocumentsPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [decisiveSearch, setDecisiveSearch] = useState('')
+  const [ramiSearch, setRamiSearch] = useState('')
+
+React.useEffect(() => {
+  setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
+}, [permitsSearch, permitsStageFilter, permitsTypeFilter, permitsSourceFilter])
+
+React.useEffect(() => {
+  setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
+}, [permitsSorting])
+
+React.useEffect(() => {
+  setPlansPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
+}, [plansSearch, plansSourceFilter, plansStatusFilter])
+
+React.useEffect(() => {
+  setPlansPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
+}, [plansSorting])
+
+React.useEffect(() => {
+  setDocumentsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
+}, [documentsTableSearch, documentsCategoryFilter, documentsTypeFilter, documentsSourceFilter, documentsStatusFilter])
+
+React.useEffect(() => {
+  setDocumentsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
+}, [documentsSorting])
   const router = useRouter()
   const searchParams = useSearchParams()
   const { id } = params
@@ -178,80 +239,160 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
     return parsed ? parsed.toLocaleDateString('he-IL') : null
   }
 
-  const normalizedPermits = useMemo<any[]>(() => {
-    return permits.map((p: any) => {
-      const meta = p?.meta || {}
-      const permitNumber = firstNonEmpty(
-        meta.permit_number,
-        meta.permission_num,
-        meta.TlvMPEngPermitNum
-      )
-      const requestNumber = firstNonEmpty(
-        meta.request_num,
-        meta.TlvMPEngRequestNum,
-        meta.TlvMPEngOnlineReqNum
-      )
-      const addresses = firstNonEmpty(
-        meta.addresses,
-        p?.assets?.[0]?.address
-      )
-      const description = firstNonEmpty(
-        meta.tochen_bakasha,
-        p?.description,
-        p?.title
-      )
-      const buildingStage = firstNonEmpty(
-        meta.building_stage,
-        p?.status
-      )
-      const approvalDate = formatDateValue(
-        meta.permission_date ??
-        meta.document_date ??
-        p?.document_date ??
-        meta.TlvMPEngDocDate
-      )
-      const expiryDate = formatDateValue(
-        meta.expiry_date ??
-        meta.expiration_date ??
-        meta.license_exp_date ??
-        meta.valid_until ??
-        meta.valid_till
-      )
-      const issueDate = formatDateValue(
-        meta.open_request ??
-        meta.issue_date ??
-        meta.license_issue_date
-      )
-      const handasaLink = meta.url_hadmaya || meta.Path || meta.DocumentLink || p?.preview_url
+  const normalizedPermits = permitsData.items
+
+  const normalizedDecisiveAppraisals = useMemo<DecisiveAppraisalRow[]>(() => {
+    return decisiveAppraisals.map((app: any, index: number) => {
+      const id = toSafeString(app?.id) || `decisive-${index}`
+      const appraiser = toSafeString(app?.appraiser || app?.title)
+      const date = toSafeString(app?.date || app?.document_date)
+      const fetchedAt = toSafeString(app?.fetched_at)
+      const source = toSafeString(app?.source)
+      const url = toSafeString(app?.url)
+      let value: number | string | undefined = app?.appraisedValue ?? app?.value ?? app?.marketValue
+      if (typeof value === 'string') {
+        const numeric = Number(value.replace(/[^0-9.-]+/g, ''))
+        value = Number.isNaN(numeric) ? value : numeric
+      }
 
       const searchValues = [
-        p?.title,
-        p?.status,
-        permitNumber,
-        description,
-        requestNumber,
-        addresses,
-        buildingStage,
-        meta.handasa_document_type,
-        meta.TlvMPEngDocumentType,
-      ]
+        appraiser,
+        date,
+        fetchedAt,
+        source,
+        toSafeString(app?.external_id),
+        typeof value === 'number' ? value.toString() : toSafeString(value),
+      ].filter(Boolean) as string[]
 
       return {
-        original: p,
-        meta,
-        permitNumber,
-        requestNumber,
-        addresses,
-        description,
-        buildingStage,
-        approvalDate,
-        expiryDate,
-        issueDate,
-        handasaLink,
+        id,
+        appraiser,
+        date,
+        value,
+        source,
+        fetchedAt,
+        url,
         searchValues,
       }
     })
-  }, [permits])
+  }, [decisiveAppraisals])
+
+  const normalizedRamiAppraisals = useMemo<RamiAppraisalRow[]>(() => {
+    return ramiAppraisals.map((app: any, index: number) => {
+      const id = toSafeString(app?.id) || `rami-${index}`
+      const planNumber = toSafeString(app?.plan_number || app?.planNumber)
+      const date = toSafeString(app?.date || app?.document_date)
+      const fetchedAt = toSafeString(app?.fetched_at)
+      const source = toSafeString(app?.source)
+      const status = toSafeString(app?.status)
+      const url = toSafeString(app?.url)
+      let value: number | string | undefined = app?.marketValue ?? app?.appraisedValue ?? app?.value
+      if (typeof value === 'string') {
+        const numeric = Number(value.replace(/[^0-9.-]+/g, ''))
+        value = Number.isNaN(numeric) ? value : numeric
+      }
+
+      const searchValues = [
+        planNumber,
+        date,
+        status,
+        fetchedAt,
+        source,
+        typeof value === 'number' ? value.toString() : toSafeString(value),
+      ].filter(Boolean) as string[]
+
+      return {
+        id,
+        planNumber,
+        date,
+        value,
+        status,
+        source,
+        fetchedAt,
+        url,
+        searchValues,
+      }
+    })
+  }, [ramiAppraisals])
+
+  const documentsTableData = useMemo<DocumentRow[]>(() => {
+    return (documentsData.items || []).map((doc: any, index: number) => {
+      const category = toSafeString(
+        doc?.category ??
+          doc?.category_display ??
+          doc?.categoryName ??
+          doc?.category_label
+      )
+      const type = toSafeString(
+        doc?.document_type ??
+          doc?.documentType ??
+          doc?.type
+      )
+      const status = toSafeString(doc?.status)
+      const source = toSafeString(doc?.source)
+      const documentDate = toSafeString(doc?.document_date ?? doc?.documentDate)
+      const uploadedAt = toSafeString(doc?.uploaded_at ?? doc?.uploadedAt)
+      const uploadedBy = toSafeString(doc?.uploaded_by ?? doc?.uploadedBy)
+      const fileUrl = toSafeString(doc?.file_url ?? doc?.fileUrl)
+      const externalUrl = toSafeString(doc?.external_url ?? doc?.externalUrl)
+      const externalId = toSafeString(doc?.external_id ?? doc?.externalId)
+      const description = toSafeString(doc?.description)
+
+      const id =
+        toSafeString(doc?.id) ||
+        `${category || type || 'document'}-${index}`
+      const title = toSafeString(
+        doc?.title ??
+          doc?.filename ??
+          doc?.name ??
+          'מסמך ללא שם'
+      )
+      const isDownloadable =
+        typeof doc?.is_downloadable === 'boolean'
+          ? doc.is_downloadable && Boolean(fileUrl)
+          : Boolean(fileUrl)
+
+      const searchValues = [
+        title,
+        description,
+        category,
+        type,
+        status,
+        source,
+        documentDate,
+        uploadedAt,
+        uploadedBy,
+        externalId,
+      ].filter(Boolean) as string[]
+
+      return {
+        id,
+        title,
+        description,
+        category,
+        type,
+        status,
+        source,
+        documentDate,
+        uploadedAt,
+        uploadedBy,
+        fileUrl,
+        externalUrl,
+        isDownloadable,
+        externalId,
+        searchValues,
+      }
+    })
+  }, [documentsData.items])
+
+  const availableDocumentFilters = useMemo(() => ({
+    category: mapFilterValues(documentsData.filters?.category),
+    type: mapFilterValues(documentsData.filters?.type),
+    source: mapFilterValues(documentsData.filters?.source),
+    status: mapFilterValues(documentsData.filters?.status),
+  }), [documentsData.filters])
+
+  const availableDocumentCategories = useMemo(() => new Set(availableDocumentFilters.category), [availableDocumentFilters.category])
 
   const formatNumber = (value?: number, options?: Intl.NumberFormatOptions) =>
     value !== undefined && value !== null
@@ -276,6 +417,30 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       window.open(fullUrl, '_blank')
     }
   }
+
+  const handleDocumentResults = React.useCallback(
+    (result: { type: 'params' | 'reset'; query: string; category: string }) => {
+      const normalizedQuery = result.query?.trim() ?? ''
+      setDocumentsTableSearch(normalizedQuery)
+
+      if (result.type === 'reset') {
+        setDocumentsCategoryFilter('all')
+        setDocumentsTypeFilter('all')
+        setDocumentsSourceFilter('all')
+        setDocumentsStatusFilter('all')
+      } else {
+        const category = result.category ?? 'all'
+        if (category === 'all' || !category) {
+          setDocumentsCategoryFilter('all')
+        } else if (availableDocumentCategories.has(category)) {
+          setDocumentsCategoryFilter(category)
+        }
+      }
+
+      setDocumentsPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    },
+    [availableDocumentCategories, setDocumentsPagination]
+  )
 
   // Combine all document sources into a unified list
   const getAllDocuments = () => {
@@ -313,7 +478,8 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         'yad2': 'יד2',
         'nadlan': 'נדלן',
         'pipeline': 'צינור נתונים',
-        'external': 'מקור חיצוני'
+        'external': 'מקור חיצוני',
+        'unknown': 'מקומי',
       }
       return translations[source] || source
     }
@@ -330,24 +496,24 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       console.log('No asset.documents found')
     }
     
-    // 2. Permits from GIS
-    if (permits && permits.length > 0) {
-      allDocs.push(...permits.map((permit: any) => ({
-        id: `permit_${permit.permission_num}`,
-        title: permit.koteret || `היתר בנייה ${permit.permission_num}`,
+    // 2. Permits (normalized)
+    if (permitsData.items && permitsData.items.length > 0) {
+      allDocs.push(...permitsData.items.map((permit) => ({
+        id: `permit_${permit.permitNumber || permit.id}`,
+        title: permit.title || `היתר בנייה ${permit.permitNumber || permit.id}`,
         type: translateDocumentType('permit'),
-        url: permit.url_hadmaya,
-        source: translateSource('GIS'),
+        url: permit.handasaLink || permit.externalUrl,
+        source: translateSource(permit.source || 'GIS'),
         category: 'היתרי בנייה',
-        date: permit.permission_date,
-        description: permit.sug_bakasha,
-        external_id: permit.permission_num
+        date: permit.approvalDate,
+        description: permit.description || permit.requestType,
+        external_id: permit.permitNumber || permit.id
       })))
     }
     
     // 3. Plans
-    if (plans && plans.length > 0) {
-      allDocs.push(...plans.map((plan: any) => ({
+    if (plansData.items && plansData.items.length > 0) {
+      allDocs.push(...plansData.items.map((plan: any) => ({
         id: `plan_${plan.id}`,
         title: plan.description || `תכנית ${plan.plan_number}`,
         type: translateDocumentType('plan'),
@@ -468,56 +634,86 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   }, [rightsRows, rightsDocFilter, rightsSearch])
 
   // Load documents organized by category
-  const loadDocumentsByCategory = React.useCallback(async () => {
+  const loadDocumentsTable = React.useCallback(async () => {
     if (!id) return
-    
+
     setDocumentsLoading(true)
     setDocumentsError(null)
-    
+
     try {
-      const response = await apiClient.get(`/api/documents/by_category/?asset_id=${id}`)
-      
-      if (response.ok) {
-        setDocumentsByCategory(response.data)
-      } else {
-        console.error('Failed to load documents by category:', response.error)
-        setDocumentsError('שגיאה בטעינת מסמכים')
-        setDocumentsByCategory({})
+      const params = new URLSearchParams()
+      params.set('limit', String(documentsPagination.pageSize))
+      params.set('offset', String(documentsPagination.pageIndex * documentsPagination.pageSize))
+      params.set('asset_id', String(id))
+
+      if (documentsTableSearch.trim()) {
+        params.set('search', documentsTableSearch.trim())
       }
+      if (documentsCategoryFilter !== 'all') {
+        params.set('category', documentsCategoryFilter)
+      }
+      if (documentsTypeFilter !== 'all') {
+        params.set('type', documentsTypeFilter)
+      }
+      if (documentsSourceFilter !== 'all') {
+        params.set('source', documentsSourceFilter)
+      }
+      if (documentsStatusFilter !== 'all') {
+        params.set('status', documentsStatusFilter)
+      }
+
+      const sortMapping: Record<string, string> = {
+        title: 'title',
+        category: 'category',
+        type: 'document_type',
+        status: 'status',
+        source: 'source',
+        documentDate: 'document_date',
+        uploadedAt: 'uploaded_at',
+        uploadedBy: 'uploaded_by',
+      }
+
+      const primarySort = documentsSorting[0]
+      const orderingField = primarySort ? sortMapping[primarySort.id] || 'document_date' : 'document_date'
+      const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-document_date'
+      params.set('ordering', orderingValue)
+
+      const response = await fetch(`/api/documents/table?${params.toString()}`)
+      if (!response.ok) {
+        throw new Error('Failed to load documents')
+      }
+      const data = await response.json()
+      setDocumentsData({
+        items: data.results || [],
+        total: data.count || 0,
+        filters: {
+          category: data.filters?.category || [],
+          type: data.filters?.type || [],
+          source: data.filters?.source || [],
+          status: data.filters?.status || [],
+        },
+      })
     } catch (error) {
-      console.error('Error loading documents by category:', error)
+      console.error('Error loading documents:', error)
       setDocumentsError('שגיאה בטעינת מסמכים')
-      setDocumentsByCategory({})
+      setDocumentsData({ items: [], total: 0, filters: { category: [], type: [], source: [], status: [] } })
     } finally {
       setDocumentsLoading(false)
     }
-  }, [id])
+  }, [
+    id,
+    documentsPagination,
+    documentsSorting,
+    documentsTableSearch,
+    documentsCategoryFilter,
+    documentsTypeFilter,
+    documentsSourceFilter,
+    documentsStatusFilter,
+  ])
 
-  // Handle document search results
-  const handleDocumentResults = React.useCallback((results: any) => {
-    if (results.type === 'category') {
-      setDocumentsByCategory(results.data)
-    } else if (results.type === 'search') {
-      // Convert search results to category format for display
-      const searchResultsByCategory: any = {}
-      results.data.forEach((doc: any) => {
-        const category = doc.hebrew_category || 'אחר'
-        if (!searchResultsByCategory[category]) {
-          searchResultsByCategory[category] = []
-        }
-        searchResultsByCategory[category].push(doc)
-      })
-      setDocumentsByCategory(searchResultsByCategory)
-    } else if (results.type === 'error') {
-      setDocumentsError('שגיאה בחיפוש מסמכים')
-      setDocumentsByCategory({})
-    }
-  }, [])
-
-  // Load documents when component mounts
   React.useEffect(() => {
-    loadDocumentsByCategory()
-  }, [loadDocumentsByCategory])
+    loadDocumentsTable()
+  }, [loadDocumentsTable])
 
   useEffect(() => {
     setLoading(true)
@@ -562,31 +758,129 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .catch(err => console.error('Error loading transactions:', err))
   }, [id])
 
-  useEffect(() => {
-    fetch(`/api/assets/${id}/permits`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load permits')
-        return res.json()
-      })
-      .then(data => setPermits(data.permits || []))
-      .catch(err => console.error('Error loading permits:', err))
-  }, [id])
+const loadPermits = React.useCallback(async () => {
+  if (!id) return
+  setPermitsLoading(true)
+  try {
+    const params = new URLSearchParams()
+    params.set('limit', String(permitsPagination.pageSize))
+    params.set('offset', String(permitsPagination.pageIndex * permitsPagination.pageSize))
 
-  useEffect(() => {
-    fetch(`/api/assets/${id}/plans`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load plans')
-        return res.json()
-      })
-      .then(data => {
-        setPlans(data.plans || [])
-      })
-      .catch(err => console.error('Error loading plans:', err))
-  }, [id])
+    if (permitsSearch.trim()) {
+      params.set('search', permitsSearch.trim())
+    }
+    if (permitsStageFilter !== 'all') {
+      params.set('stage', permitsStageFilter)
+    }
+    if (permitsTypeFilter !== 'all') {
+      params.set('document_type', permitsTypeFilter)
+    }
+    if (permitsSourceFilter !== 'all') {
+      params.set('source', permitsSourceFilter)
+    }
 
-  useEffect(() => {
-    loadRightsData()
-  }, [loadRightsData])
+    const sortMapping: Record<string, string> = {
+      approvalDate: 'approval_date',
+      issueDate: 'issue_date',
+      expiryDate: 'expiry_date',
+      permitNumber: 'permit_number',
+      requestNumber: 'request_number',
+      stage: 'stage',
+      documentType: 'document_type',
+      source: 'source',
+      title: 'title',
+    }
+
+    const primarySort = permitsSorting[0]
+    const orderingField = primarySort ? sortMapping[primarySort.id] || 'approval_date' : 'approval_date'
+    const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-approval_date'
+    params.set('ordering', orderingValue)
+
+    const response = await fetch(`/api/assets/${id}/permits?${params.toString()}`)
+    if (!response.ok) {
+      throw new Error('Failed to load permits')
+    }
+    const data = await response.json()
+    setPermitsData({
+      items: data.permits || [],
+      total: data.count || 0,
+      filters: {
+        stage: data.filters?.stage || [],
+        document_type: data.filters?.document_type || [],
+        source: data.filters?.source || [],
+      },
+    })
+  } catch (err) {
+    console.error('Error loading permits:', err)
+    setPermitsData({ items: [], total: 0, filters: { stage: [], document_type: [], source: [] } })
+  } finally {
+    setPermitsLoading(false)
+  }
+}, [id, permitsPagination, permitsSorting, permitsSearch, permitsStageFilter, permitsTypeFilter, permitsSourceFilter])
+
+useEffect(() => {
+  loadPermits()
+}, [loadPermits])
+
+const loadPlans = React.useCallback(async () => {
+  if (!id) return
+  setPlansLoading(true)
+  try {
+    const params = new URLSearchParams()
+    params.set('limit', String(plansPagination.pageSize))
+    params.set('offset', String(plansPagination.pageIndex * plansPagination.pageSize))
+
+    if (plansSearch.trim()) {
+      params.set('search', plansSearch.trim())
+    }
+    if (plansSourceFilter !== 'all') {
+      params.set('source', plansSourceFilter)
+    }
+    if (plansStatusFilter !== 'all') {
+      params.set('status', plansStatusFilter)
+    }
+
+    const sortMapping: Record<string, string> = {
+      plan_number: 'plan_number',
+      description: 'description',
+      status: 'status',
+      source: 'source',
+      effective_date: 'effective_date',
+    }
+
+    const primarySort = plansSorting[0]
+    const orderingField = primarySort ? sortMapping[primarySort.id] || 'effective_date' : 'effective_date'
+    const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-effective_date'
+    params.set('ordering', orderingValue)
+
+    const response = await fetch(`/api/assets/${id}/plans?${params.toString()}`)
+    if (!response.ok) {
+      throw new Error('Failed to load plans')
+    }
+    const data = await response.json()
+    setPlansData({
+      items: data.plans || [],
+      total: data.count || 0,
+      filters: {
+        source: data.filters?.source || [],
+        status: data.filters?.status || [],
+      },
+    })
+  } catch (err) {
+    console.error('Error loading plans:', err)
+    setPlansData({ items: [], total: 0, filters: { source: [], status: [] } })
+  } finally {
+    setPlansLoading(false)
+  }
+}, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter])
+
+useEffect(() => {
+  loadPlans()
+}, [loadPlans])
+
+useEffect(() => {
+  loadRightsData()
+}, [loadRightsData])
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
@@ -847,6 +1141,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
         if (normalizedDoc.type === 'tabu') {
           await loadRightsData()
         }
+        await loadDocumentsTable()
         // Safe form reset - check if form element still exists
         if (e.currentTarget) {
           e.currentTarget.reset()
@@ -1238,7 +1533,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <span className="text-muted-foreground">חדרים:</span>
                     <span>{asset.rooms ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">ייעוד:</span>
                     <span>{asset.zoning ?? '—'}</span>
                   </div>
@@ -1466,45 +1761,35 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
             {/* Plans Table */}
             <PlansTable
-              data={plans}
-              loading={false}
+              data={plansData.items}
+              loading={plansLoading}
               searchValue={plansSearch}
               onSearchChange={setPlansSearch}
               filters={{
                 source: {
                   value: plansSourceFilter,
                   onChange: setPlansSourceFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    { value: 'rami', label: 'רמ״י' },
-                    { value: 'mavat', label: 'מנהל התיכנון' },
-                    { value: 'unknown', label: 'מקומי' }
-                  ]
+                  options: [],
                 },
                 status: {
                   value: plansStatusFilter,
                   onChange: setPlansStatusFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    ...Array.from(new Set((plans || []).map(p => p.status).filter(Boolean))).map(status => ({
-                      value: status,
-                      label: status
-                    }))
-                  ]
-                }
+                  options: [],
+                },
               }}
-              onRefresh={() => {
-                // Refresh plans data
-                fetch(`/api/assets/${id}/plans`)
-                  .then(res => {
-                    if (!res.ok) throw new Error('Failed to load plans')
-                    return res.json()
-                  })
-                  .then(data => {
-                    setPlans(data.plans || [])
-                  })
-                  .catch(err => console.error('Error loading plans:', err))
+              manualPagination
+              manualSorting
+              pageCount={Math.max(1, Math.ceil((plansData.total || 0) / plansPagination.pageSize))}
+              paginationState={plansPagination}
+              onPaginationChange={setPlansPagination}
+              sortingState={plansSorting}
+              onSortingChange={setPlansSorting}
+              totalCount={plansData.total}
+              filterOptions={{
+                source: plansData.filters.source,
+                status: plansData.filters.status,
               }}
+              onRefresh={loadPlans}
             />
           </TabsContent>
 
@@ -2054,14 +2339,17 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
           <TabsContent value="permits" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center rtl:flex-row-reverse">
-                  <CardTitle>היתרים</CardTitle>
-                  <Input
-                    placeholder="חפש היתרים..."
-                    value={permitsSearch}
-                    onChange={(e) => setPermitsSearch(e.target.value)}
-                    className="w-64"
-                  />
+                <div className="flex justify-between items-start rtl:flex-row-reverse">
+                  <div>
+                    <CardTitle>היתרים</CardTitle>
+                    <CardDescription>נתונים מעודכנים ממערכת ההיתרים של העירייה</CardDescription>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">{permitsData.total}</div>
+                    <div className="text-sm text-muted-foreground">
+                      בקשות פעילות ברדיוס {permitRadius} מטר
+                    </div>
+                  </div>
                 </div>
               </CardHeader>
             </Card>
@@ -2168,147 +2456,44 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-right"> היתרים פעילים ברדיוס {permitRadius} מטר </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-right" dir="rtl">
-                <div className="text-center py-4">
-                  <div className="text-2xl font-bold">{normalizedPermits.length}</div>
-                  <div className="text-muted-foreground">בקשות היתר פעילות</div>
-                </div>
-                {normalizedPermits.length > 0 && (
-                  <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2 text-right">
-                    {normalizedPermits
-                      .filter((entry: any) => {
-                        if (!permitsSearch) return true
-                        const searchLower = permitsSearch.toLowerCase()
-                        return entry.searchValues.some((value: unknown) =>
-                          toSafeString(value).toLowerCase().includes(searchLower)
-                        )
-                      })
-                      .map((entry: any) => {
-                        const {
-                          original: p,
-                          meta,
-                          permitNumber,
-                          requestNumber,
-                          addresses,
-                          description,
-                          buildingStage,
-                          approvalDate,
-                          expiryDate,
-                          issueDate,
-                          handasaLink,
-                        } = entry
-                        return (
-                      <div key={p.external_id || meta.request_num} className="p-4 border rounded-lg text-right space-y-3">
-                        {/* Header with permit type/description */}
-                        <div className="flex justify-between items-start rtl:flex-row-reverse">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">
-                              {p.title || description || 'היתר בנייה'}
-                            </h4>
-                            {addresses && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {addresses}
-                              </p>
-                            )}
-                          </div>
-                          {buildingStage && (
-                            <Badge variant={
-                              buildingStage.includes('בניה') ? 'success' :
-                              buildingStage.includes('הריסה') ? 'warning' :
-                              'neutral'
-                            }>
-                              {buildingStage}
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Permit details grid */}
-                        <div className="grid gap-2 text-xs">
-                          {permitNumber && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span className="text-muted-foreground">מספר היתר:</span>
-                              <span className="font-medium">{permitNumber}</span>
-                            </div>
-                          )}
-                          {description && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span className="text-muted-foreground">תיאור:</span>
-                              <span className="font-medium">{description}</span>
-                            </div>
-                          )}
-                          {requestNumber && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span className="text-muted-foreground">מספר בקשה:</span>
-                              <span className="font-medium">{requestNumber}</span>
-                            </div>
-                          )}
-                          {approvalDate && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span className="text-muted-foreground">תאריך אישור:</span>
-                              <span>{approvalDate}</span>
-                            </div>
-                          )}
-                          {expiryDate && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span className="text-muted-foreground">תוקף:</span>
-                              <span>{expiryDate}</span>
-                            </div>
-                          )}
-                          {issueDate && (
-                            <div className="flex justify-between rtl:flex-row-reverse">
-                              <span className="text-muted-foreground">תאריך הנפקה:</span>
-                              <span>{issueDate}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Actions/Links */}
-                        <div className="pt-2 border-t">
-                          <div className="flex gap-2 justify-end">
-                            {handasaLink && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                className="text-xs"
-                              >
-                                <a
-                                  href={handasaLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                חפש באתר העירייה
-                                </a>
-                              </Button>
-                            )}
-                            {p.external_url && (
-                              <Button size="sm" onClick={() => window.open(p.external_url, '_blank')}>
-                                הורדה
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                        )
-                      })}
-                  </div>
-                )}
-
-                {/* No permits state */}
-                {normalizedPermits.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <div className="text-sm">לא נמצאו היתרים פעילים ברדיוס {permitRadius} מטר</div>
-                    <div className="text-xs mt-1">
-                      ייתכן שיש היתרים ברדיוס רחב יותר או שהמידע טרם עודכן
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <PermitsTable
+              data={normalizedPermits}
+              loading={permitsLoading}
+              searchValue={permitsSearch}
+              onSearchChange={setPermitsSearch}
+              filters={{
+                stage: {
+                  value: permitsStageFilter,
+                  onChange: setPermitsStageFilter,
+                  options: [],
+                },
+                documentType: {
+                  value: permitsTypeFilter,
+                  onChange: setPermitsTypeFilter,
+                  options: [],
+                },
+                source: {
+                  value: permitsSourceFilter,
+                  onChange: setPermitsSourceFilter,
+                  options: [],
+                },
+              }}
+              manualPagination
+              manualSorting
+              pageCount={Math.max(1, Math.ceil((permitsData.total || 0) / permitsPagination.pageSize))}
+              paginationState={permitsPagination}
+              onPaginationChange={setPermitsPagination}
+              sortingState={permitsSorting}
+              onSortingChange={setPermitsSorting}
+              totalCount={permitsData.total}
+              filterOptions={{
+                stage: permitsData.filters.stage,
+                documentType: permitsData.filters.document_type,
+                source: permitsData.filters.source,
+              }}
+              onRefresh={loadPermits}
+              radius={permitRadius}
+            />
           </TabsContent>
 
           <TabsContent value="transactions" className="space-y-4">
@@ -2412,39 +2597,29 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                       מידע מעודכן מרמ״י, שומות מכריעות ועסקאות השוואה באזור
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="חפש שומות..."
-                      value={appraisalsSearch}
-                      onChange={(e) => setAppraisalsSearch(e.target.value)}
-                      className="w-64"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // Refresh appraisal data
-                        fetch(`/api/assets/${id}/appraisal`)
-                          .then(res => res.json())
-                          .then(data => {
-                            setAppraisal(data.appraisal || null)
-                            setDecisiveAppraisals(data.decisive_appraisals || [])
-                            setRamiAppraisals(data.rami_appraisals || [])
-                          })
-                          .catch(err => console.error('Error refreshing appraisal:', err))
-                        
-                        // Refresh transaction data
-                        fetch(`/api/assets/${id}/transactions`)
-                          .then(res => res.json())
-                          .then(data => {
-                            setComparableTransactions(data.transactions || [])
-                          })
-                          .catch(err => console.error('Error refreshing transactions:', err))
-                      }}
-                    >
-                      🔄 רענן מידע
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      fetch(`/api/assets/${id}/appraisal`)
+                        .then(res => res.json())
+                        .then(data => {
+                          setAppraisal(data.appraisal || null)
+                          setDecisiveAppraisals(data.decisive_appraisals || [])
+                          setRamiAppraisals(data.rami_appraisals || [])
+                        })
+                        .catch(err => console.error('Error refreshing appraisal:', err))
+                      
+                      fetch(`/api/assets/${id}/transactions`)
+                        .then(res => res.json())
+                        .then(data => {
+                          setComparableTransactions(data.transactions || [])
+                        })
+                        .catch(err => console.error('Error refreshing transactions:', err))
+                    }}
+                  >
+                    🔄 רענן מידע
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2535,96 +2710,63 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                 )}
 
-                {/* Additional Appraisals Section */}
-                {(decisiveAppraisals.length > 0 || ramiAppraisals.length > 0) && (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {decisiveAppraisals.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>כל השומות המכריעות</CardTitle>
-                          <CardDescription>
-                            {decisiveAppraisals.length} שומות נמצאו
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {decisiveAppraisals
-                              .filter((app: any) => {
-                                if (!appraisalsSearch) return true
-                                const searchLower = appraisalsSearch.toLowerCase()
-                                return (
-                                  app.appraiser?.toLowerCase().includes(searchLower) ||
-                                  app.appraisedValue?.toString().includes(searchLower) ||
-                                  app.date?.toLowerCase().includes(searchLower) ||
-                                  app.source?.toLowerCase().includes(searchLower)
-                                )
-                              })
-                              .map((app, idx) => (
-                              <div key={idx} className="p-3 border rounded rtl:text-right">
-                                <div className="font-medium">{app.appraiser}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {app.date && new Date(app.date).toLocaleDateString('he-IL')}
-                                </div>
-                                <div className="text-sm font-bold">{formatCurrency(app.appraisedValue)}</div>
-                                {app.source && (
-                                  <div className="text-xs text-blue-600 mt-1">
-                                    מקור: {app.source === 'external_decisive' ? 'שומות מכריעות' : 'מאגר פנימי'}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
+                <div className="space-y-4">
+                  {normalizedDecisiveAppraisals.length > 0 && (
+                    <DecisiveAppraisalsTable
+                      data={normalizedDecisiveAppraisals}
+                      searchValue={decisiveSearch}
+                      onSearchChange={setDecisiveSearch}
+                      filters={{
+                        source: {
+                          value: decisiveSourceFilter,
+                          onChange: setDecisiveSourceFilter,
+                        },
+                      }}
+                      onRefresh={() => {
+                        fetch(`/api/assets/${id}/appraisal`)
+                          .then(res => res.json())
+                          .then(data => {
+                            setDecisiveAppraisals(data.decisive_appraisals || [])
+                            setRamiAppraisals(data.rami_appraisals || [])
+                          })
+                          .catch(err => console.error('Error refreshing appraisal tables:', err))
+                      }}
+                    />
+                  )}
 
-                    {ramiAppraisals.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>תכניות רמ״י</CardTitle>
-                          <CardDescription>
-                            {ramiAppraisals.length} תכניות נמצאו
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {ramiAppraisals
-                              .filter((app: any) => {
-                                if (!appraisalsSearch) return true
-                                const searchLower = appraisalsSearch.toLowerCase()
-                                return (
-                                  app.plan_number?.toLowerCase().includes(searchLower) ||
-                                  app.marketValue?.toString().includes(searchLower) ||
-                                  app.date?.toLowerCase().includes(searchLower) ||
-                                  app.status?.toLowerCase().includes(searchLower) ||
-                                  app.source?.toLowerCase().includes(searchLower)
-                                )
-                              })
-                              .map((app, idx) => (
-                              <div key={idx} className="p-3 border rounded rtl:text-right">
-                                <div className="font-medium">
-                                  {app.plan_number ? `תכנית ${app.plan_number}` : 'תכנית רמ״י'}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  {app.date && new Date(app.date).toLocaleDateString('he-IL')}
-                                </div>
-                                <div className="text-sm font-bold">{formatCurrency(app.marketValue)}</div>
-                                {app.status && (
-                                  <div className="text-xs text-muted-foreground">סטטוס: {app.status}</div>
-                                )}
-                                {app.source && (
-                                  <div className="text-xs text-blue-600 mt-1">
-                                    מקור: {app.source === 'external_rami' ? 'רמ״י' : 'מאגר פנימי'}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                )}
+                  {normalizedRamiAppraisals.length > 0 && (
+                    <RamiAppraisalsTable
+                      data={normalizedRamiAppraisals}
+                      searchValue={ramiSearch}
+                      onSearchChange={setRamiSearch}
+                      filters={{
+                        source: {
+                          value: ramiSourceFilter,
+                          onChange: setRamiSourceFilter,
+                        },
+                        status: {
+                          value: ramiStatusFilter,
+                          onChange: setRamiStatusFilter,
+                        },
+                      }}
+                      onRefresh={() => {
+                        fetch(`/api/assets/${id}/appraisal`)
+                          .then(res => res.json())
+                          .then(data => {
+                            setDecisiveAppraisals(data.decisive_appraisals || [])
+                            setRamiAppraisals(data.rami_appraisals || [])
+                          })
+                          .catch(err => console.error('Error refreshing appraisal tables:', err))
+                      }}
+                    />
+                  )}
+
+                  {normalizedDecisiveAppraisals.length === 0 && normalizedRamiAppraisals.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
+                      לא נמצאו שומות מכריעות או שומות רמ״י לנכס זה.
+                    </div>
+                  )}
+                </div>
 
               </CardContent>
             </Card>
@@ -2639,7 +2781,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={loadDocumentsByCategory}
+                      onClick={loadDocumentsTable}
                       disabled={documentsLoading}
                     >
                       {documentsLoading ? (
@@ -2692,7 +2834,6 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                 <DocumentSearch
                   assetId={parseInt(id)}
                   onResultsChange={handleDocumentResults}
-                  onLoadingChange={setDocumentsLoading}
                 />
 
                 {/* Error Display */}
@@ -2702,36 +2843,38 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
                   </div>
                 )}
 
-                {/* Documents by Category */}
-                {documentsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    טוען מסמכים...
-                  </div>
-                ) : Object.keys(documentsByCategory).length > 0 ? (
-                  <div className="space-y-6">
-                    {Object.entries(documentsByCategory).map(([category, documents]: [string, any]) => (
-                      <DocumentCategory
-                        key={category}
-                        category={category}
-                        documents={documents}
-                        onDocumentClick={(document) => {
-                          if (document.file_url) {
-                            window.open(document.file_url, '_blank')
-                          } else if (document.external_url) {
-                            window.open(document.external_url, '_blank')
-                          }
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>אין מסמכים זמינים</p>
-                    <p className="text-sm">העלה מסמכים או רענן את הנתונים</p>
-                  </div>
-                )}
+                <DocumentsTable
+                  data={documentsTableData}
+                  loading={documentsLoading}
+                  searchValue={documentsTableSearch}
+                  onSearchChange={setDocumentsTableSearch}
+                  filters={{
+                    category: {
+                      value: documentsCategoryFilter,
+                      onChange: setDocumentsCategoryFilter,
+                    },
+                    type: {
+                      value: documentsTypeFilter,
+                      onChange: setDocumentsTypeFilter,
+                    },
+                    source: {
+                      value: documentsSourceFilter,
+                      onChange: setDocumentsSourceFilter,
+                    },
+                    status: {
+                      value: documentsStatusFilter,
+                      onChange: setDocumentsStatusFilter,
+                    },
+                  }}
+                  onRefresh={loadDocumentsTable}
+                  totalCount={documentsData.total}
+                  paginationState={documentsPagination}
+                  onPaginationChange={setDocumentsPagination}
+                  sortingState={documentsSorting}
+                  onSortingChange={setDocumentsSorting}
+                  disableInternalFiltering
+                  availableFilters={availableDocumentFilters}
+                />
               </CardContent>
             </Card>
           </TabsContent>

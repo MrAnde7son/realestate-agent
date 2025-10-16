@@ -2671,9 +2671,9 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
             for plan in mavat_plans:
                 plan_id = plan.get('plan_id') or plan.get('id', '')
                 if plan_id:
-                    plan_key = f"mavat_{plan_id}"
+                    plan_key = f"{plan_id}"
                     plan_payload = {
-                        'description': plan.get('title', f'תכנית מבת {plan_id}'),
+                        'description': plan.get('title', f'תכנית מנהל התיכנון {plan_id}'),
                         'status': plan.get('status', ''),
                         'file_url': plan.get('url', ''),
                         'raw': plan,
@@ -2693,14 +2693,14 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
                         'source': 'Mavat',
                         'document_date': _parse_document_date(plan.get('statusDate')),
                         'file_size': 0,
-                        'filename': f"mavat_plan_{plan_id}.pdf",
+                        'filename': f"{plan_id}.pdf",
                         'file_path': '',
                         'mime_type': 'application/pdf',
                         'meta': plan,
                     }
                     document, doc_created = _upsert_document(
                         'plan_local',
-                        f"mavat_{plan_id}",
+                        f"{plan_id}",
                         document_payload,
                         asset=asset,
                         user=system_user,

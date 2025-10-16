@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core.files.storage import default_storage, FileSystemStorage
 
 logger = logging.getLogger(__name__)
 
@@ -1212,9 +1213,17 @@ class Document(models.Model):
         if not self.file_path:
             return False
         
-        # Use Django's default_storage to check if file exists
-        from django.core.files.storage import default_storage
-        return default_storage.exists(self.file_path)
+        # Avoid expensive existence checks on remote storage backends.
+        # For local file-system storage we can check existence cheaply.
+        if isinstance(default_storage, FileSystemStorage):
+            try:
+                return default_storage.exists(self.file_path)
+            except Exception as exc:  # pragma: no cover - safeguard
+                logger.warning("Failed checking file %s: %s", self.file_path, exc)
+                return False
+
+        # For remote storage (e.g. S3) assume the file exists to avoid a HEAD call per document.
+        return True
     
     @property
     def hebrew_category(self):
@@ -1227,7 +1236,7 @@ class Document(models.Model):
     @classmethod
     def get_documents_by_category(cls, asset_id=None):
         """Get documents organized by Hebrew categories."""
-        queryset = cls.objects.all()
+        queryset = cls.objects.select_related('asset', 'user').prefetch_related('assets')
         if asset_id:
             queryset = queryset.filter(
                 Q(asset_id=asset_id) | Q(assets__id=asset_id)

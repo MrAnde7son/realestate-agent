@@ -11,6 +11,8 @@ import {
   ColumnFiltersState,
   SortingState,
   VisibilityState,
+  getPaginationRowModel,
+  PaginationState,
 } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
@@ -23,9 +25,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Calendar, MapPin, Home, Building } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Calendar, Home, Building } from 'lucide-react'
 import TableToolbar from '@/components/TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import TablePagination from '@/components/TablePagination'
 
 interface Transaction {
   id?: string
@@ -189,6 +192,7 @@ export default function TransactionsTable({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
 
   const columns = useMemo(() => createColumns(), [])
 
@@ -229,6 +233,10 @@ export default function TransactionsTable({
     return filtered
   }, [data, searchValue, filters])
 
+  React.useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+  }, [filteredData.length])
+
   const table = useReactTable({
     data: filteredData,
     columns,
@@ -244,7 +252,10 @@ export default function TransactionsTable({
       columnFilters,
       columnVisibility,
       rowSelection,
+      pagination,
     },
+    onPaginationChange: setPagination,
+    getPaginationRowModel: getPaginationRowModel(),
   })
 
   // Additional filters for the toolbar
@@ -351,16 +362,37 @@ export default function TransactionsTable({
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="text-right rtl:text-right">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const sorted = header.column.getIsSorted()
+                  return (
+                    <TableHead key={header.id} className="text-right rtl:text-right">
+                      {header.isPlaceholder ? null : (
+                        <button
+                          type="button"
+                          onClick={header.column.getToggleSortingHandler()}
+                          disabled={!header.column.getCanSort()}
+                          className="flex w-full items-center justify-end gap-1 text-xs font-medium rtl:flex-row-reverse disabled:cursor-default"
+                        >
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                          {header.column.getCanSort() && (
+                            <span className="text-muted-foreground">
+                              {sorted === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : sorted === 'desc' ? (
+                                <ArrowDown className="h-3 w-3" />
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3" />
+                              )}
+                            </span>
+                          )}
+                        </button>
+                      )}
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -388,6 +420,7 @@ export default function TransactionsTable({
           </TableBody>
         </Table>
       </div>
+      <TablePagination table={table} />
     </div>
   )
 }

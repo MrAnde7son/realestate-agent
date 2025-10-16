@@ -616,6 +616,24 @@ React.useEffect(() => {
   }, [transactionsData.filters.area])
 
   const permitRadius = asset?._meta?.radius ?? 50
+  
+  const remainingRightsDisplayValue = useMemo(() => {
+    const fromCalculated =
+      calculatedRights?.summary?.remaining_rights_sqm ??
+      calculatedRights?.remaining_rights?.remaining_area_sqm
+    if (fromCalculated !== undefined && fromCalculated !== null) {
+      return fromCalculated
+    }
+    if (asset?.remainingRightsSqm !== undefined && asset?.remainingRightsSqm !== null) {
+      return asset.remainingRightsSqm
+    }
+    // Legacy snake_case support if returned directly from backend
+    const legacy = (asset as any)?.remaining_rights_sqm
+    if (legacy !== undefined && legacy !== null) {
+      return legacy
+    }
+    return null
+  }, [asset, calculatedRights])
 
   const loadRightsData = React.useCallback(async () => {
     if (!id) return
@@ -628,7 +646,19 @@ React.useEffect(() => {
       }
       const data = response.data
       // Store calculated rights for the new UI
-      setCalculatedRights(() => data.calculated_rights || null)
+      const calculated = data.calculated_rights || null
+      setCalculatedRights(calculated)
+      
+      const remainingRightsFromCalc =
+        calculated?.summary?.remaining_rights_sqm ??
+        calculated?.remaining_rights?.remaining_area_sqm
+      if (remainingRightsFromCalc !== undefined && remainingRightsFromCalc !== null) {
+        setAsset(prev => prev ? { ...prev, remainingRightsSqm: remainingRightsFromCalc } : prev)
+      }
+      const parcelAreaFromCalc = calculated?.summary?.parcel_area_sqm
+      if (parcelAreaFromCalc !== undefined && parcelAreaFromCalc !== null) {
+        setAsset(prev => prev ? { ...prev, parcelArea: parcelAreaFromCalc } : prev)
+      }
       
       // Combine tabu_data, gis_rights, and detailed_rights into a single array for display
       const allRightsRows = [
@@ -974,6 +1004,11 @@ useDedupedEffect(() => {
   if (activeTab !== 'plans') return
   loadPlans()
 }, [activeTab, loadPlans])
+
+useDedupedEffect(() => {
+  if (!id) return
+  loadRightsData()
+}, [id, loadRightsData])
 
 useDedupedEffect(() => {
   if (activeTab !== 'rights') return
@@ -1525,8 +1560,8 @@ useDedupedEffect(() => {
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">יתרת זכויות</div>
               <div className="text-2xl font-bold">
-                {asset.remainingRightsSqm !== undefined && asset.remainingRightsSqm !== null
-                  ? `+${formatNumber(asset.remainingRightsSqm)} מ״ר`
+                {remainingRightsDisplayValue !== null
+                  ? `+${formatNumber(remainingRightsDisplayValue)} מ״ר`
                   : '—'}
               </div>
             </CardContent>

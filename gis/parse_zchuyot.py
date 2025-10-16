@@ -215,8 +215,8 @@ class SectionSplitter:
         ("plans_city",   r"\n(?:תכניות|תוכניות)?\s*כלל\s*עירוניות\s*בתוקף"),
         ("plans_natreg", r"\n(?:תכניות|תוכניות)\s*מתאר\s*ארציות\s*ומחוזיות\s*בתוקף"),
         ("plans_arch",   r"\n(?:תכניות|תוכניות)\s*בינוי\s*ועיצוב\s*ארכיטקטוני"),
-        ("in_planning_city", r"\n(?:תכניות|תוכניות)\s*כלל\s*עירוניות\s*בתכנון"),
-        ("in_planning_natreg", r"\n(?:תכניות|תוכניות)\s*מתאר\s*ארציות\s*ומחוזיות\s*בתכנון"),
+        ("in_planning_city", r"\n(?:תכניות|תוכניות)\s*(?:כלל\s*עירוניות|כללעירוניות)?\s*בתכנון"),
+        ("in_planning_natreg", r"\n(?:תכניות|תוכניות)\s*מתאר\s*(?:ארציות\s*ומחוזיות|ארציותומחוזיות)\s*בתכנון"),
         ("policy",       r"\nמדיניות\s*תכנונית\b"),
         ("land_use",     r"\nיעוד\s*קרקע\b"),
         ("rights",       r"\nפירוט\s*זכויות\b"),
@@ -332,6 +332,7 @@ class PlansParser:
         current_plan: Optional[Dict[str, Any]] = None
         current_trailing: List[str] = []
         plan_line_regex = re.compile(r"^\d{3,6}\b")
+        date_leading_regex = re.compile(r"^(?:\d{1,2}/){2}\d{4}")
 
         def finalize_trailing() -> None:
             nonlocal current_plan, current_trailing
@@ -344,23 +345,35 @@ class PlansParser:
             if not line or self._is_header_line(line):
                 continue
 
-            if plan_line_regex.match(line):
+            if plan_line_regex.match(line) or date_leading_regex.match(line):
                 finalize_trailing()
                 tokens = line.split()
-                if len(tokens) < 2:
+                if len(tokens) < 1:
                     continue
 
                 yalkut_number = tokens[0]
-                deposit = DateParser.try_parse_date(tokens[1]) if len(tokens) > 1 else None
-                effective = DateParser.try_parse_date(tokens[2]) if len(tokens) > 2 else None
-                plan_number = tokens[-1]
-                middle_tokens = tokens[3:-1] if len(tokens) > 4 else []
+                date_strings = re.findall(self.DATE_PATTERN, line)
+                if not date_strings:
+                    pending_lead.append(line)
+                    current_plan = None
+                    current_trailing = []
+                    continue
+                deposit = DateParser.try_parse_date(date_strings[0]) if date_strings else None
+                effective = DateParser.try_parse_date(date_strings[1]) if len(date_strings) > 1 else deposit
 
-                name_parts = pending_lead + middle_tokens
+                plan_number_token = tokens[-1] if len(tokens) > 1 else ""
+
+                body_tokens = tokens[1:-1] if len(tokens) > 2 else tokens[1:]
+                body_tokens = [
+                    token for token in body_tokens
+                    if not re.fullmatch(self.DATE_PATTERN, token)
+                ]
+
+                name_parts = pending_lead + body_tokens
                 pending_lead = []
 
                 plan_data: Dict[str, Any] = {
-                    "plan_number": self._normalize_plan_number(plan_number),
+                    "plan_number": self._normalize_plan_number(plan_number_token),
                     "name": self._merge_name_parts(None, name_parts),
                     "deposit_date": deposit,
                     "effective_date": effective,
@@ -384,6 +397,7 @@ class PlansParser:
         header_keywords = {
             "מס`ילקוט", "מס` תוכנית", "מס`", "שםתוכנית", "שם תוכנית",
             "תאריךמתן", "תאריך מתן", "תאריךהפקדה", "תאריך הפקדה",
+            "תאריךאישור", "תאריך אישור",
             "פירסומים", "פרסומים", "מספרמקוון", "מספר מקוון",
             "תכניותמקומיותבתוקף", "תכניות מקומיות בתוקף",
             "תכניותכללעירוניותבתוקף", "תכניות כלל עירוניות בתוקף",

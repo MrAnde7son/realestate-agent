@@ -1460,11 +1460,7 @@ def _update_asset_from_tabu(asset, tabu_rows):
             asset.meta = asset.meta or {}
             asset.meta['tabu_ownership'] = ownership_data
 
-        # Update parcel information if available
-        if parcel_info.get('block'):
-            asset.block = parcel_info['block']
-        if parcel_info.get('parcel'):
-            asset.parcel = parcel_info['parcel']
+        # Update subparcel information if available
         if parcel_info.get('subparcel'):
             asset.subparcel = parcel_info['subparcel']
 

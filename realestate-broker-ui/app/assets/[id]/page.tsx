@@ -100,7 +100,10 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [appraisal, setAppraisal] = useState<any | null>(null)
   const [decisiveAppraisals, setDecisiveAppraisals] = useState<any[]>([])
   const [ramiAppraisals, setRamiAppraisals] = useState<any[]>([])
-  const [comparableTransactions, setComparableTransactions] = useState<any[]>([])
+  const [transactionsData, setTransactionsData] = useState<{ items: any[]; total: number; filters: { source: string[]; area: string[] } }>({ items: [], total: 0, filters: { source: [], area: [] } })
+  const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [transactionsSorting, setTransactionsSorting] = useState<SortingState>([{ id: 'date', desc: true }])
+  const [transactionsPagination, setTransactionsPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [marketAnalysis, setMarketAnalysis] = useState<any>(null)
   const [permitsData, setPermitsData] = useState<{ items: PermitRow[]; total: number; filters: { stage: string[]; document_type: string[]; source: string[] } }>({ items: [], total: 0, filters: { stage: [], document_type: [], source: [] } })
   const [plansData, setPlansData] = useState<{ items: any[]; total: number; filters: { source: string[]; status: string[] } }>({ items: [], total: 0, filters: { source: [], status: [] } })
@@ -163,6 +166,14 @@ React.useEffect(() => {
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
 }, [permitsSorting])
+
+React.useEffect(() => {
+  setTransactionsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
+}, [transactionsSearch, transactionsSourceFilter, transactionsAreaFilter])
+
+React.useEffect(() => {
+  setTransactionsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
+}, [transactionsSorting])
 
 React.useEffect(() => {
   setPlansPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
@@ -562,14 +573,47 @@ React.useEffect(() => {
       ? `${value.toFixed(digits)}%`
       : null
 
-  const avgCompPricePerSqm = comparableTransactions.length
-    ? Math.round(
-        comparableTransactions.reduce(
-          (sum, c) => sum + (c.price_per_sqm || 0),
-          0
-        ) / comparableTransactions.length
-      )
-    : null
+  const transactionSourceOptions = useMemo(() => {
+    const mapLabel = (value: string) => {
+      switch (value) {
+        case 'collected_government':
+        case 'government':
+          return 'ממשלתי'
+        case 'internal':
+          return 'מאגר פנימי'
+        default:
+          return value || 'לא ידוע'
+      }
+    }
+    const available = transactionsData.filters.source || []
+    return [
+      { value: 'all', label: 'הכל' },
+      ...available
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .map((value) => ({ value, label: mapLabel(value) })),
+    ]
+  }, [transactionsData.filters.source])
+
+  const transactionAreaOptions = useMemo(() => {
+    const mapLabel = (value: string) => {
+      if (!value) return '—'
+      if (value.endsWith('+')) {
+        return `${value.replace('+', '+')} מ״ר`
+      }
+      const [start, end] = value.split('-')
+      if (!start || !end) {
+        return value
+      }
+      return `${start}-${end} מ״ר`
+    }
+    const available = transactionsData.filters.area || []
+    return [
+      { value: 'all', label: 'הכל' },
+      ...available
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .map((value) => ({ value, label: mapLabel(value) })),
+    ]
+  }, [transactionsData.filters.area])
 
   const permitRadius = asset?._meta?.radius ?? 50
 
@@ -712,9 +756,10 @@ React.useEffect(() => {
     documentsStatusFilter,
   ])
 
-  useDedupedEffect(() => {
-    loadDocumentsTable()
-  }, [loadDocumentsTable])
+useDedupedEffect(() => {
+  if (activeTab !== 'documents') return
+  loadDocumentsTable()
+}, [activeTab, loadDocumentsTable])
 
   useDedupedEffect(() => {
     setLoading(true)
@@ -731,33 +776,21 @@ React.useEffect(() => {
       .finally(() => setLoading(false))
   }, [id])
 
-  useDedupedEffect(() => {
-    fetch(`/api/assets/${id}/appraisal`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load appraisal')
-        return res.json()
-      })
-      .then(data => {
-        setComparables(data.comps || [])
-        setAppraisal(data.appraisal || null)
-        setDecisiveAppraisals(data.decisive_appraisals || [])
-        setRamiAppraisals(data.rami_appraisals || [])
-      })
-      .catch(err => console.error('Error loading appraisal:', err))
-  }, [id])
-
-  useDedupedEffect(() => {
-    fetch(`/api/assets/${id}/transactions`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load transactions')
-        return res.json()
-      })
-      .then(data => {
-        setComparableTransactions(data.transactions || [])
-        setMarketAnalysis(data.market_analysis || null)
-      })
-      .catch(err => console.error('Error loading transactions:', err))
-  }, [id])
+useDedupedEffect(() => {
+  if (activeTab !== 'appraisals') return
+  fetch(`/api/assets/${id}/appraisal`)
+    .then(res => {
+      if (!res.ok) throw new Error('Failed to load appraisal')
+      return res.json()
+    })
+    .then(data => {
+      setComparables(data.comps || [])
+      setAppraisal(data.appraisal || null)
+      setDecisiveAppraisals(data.decisive_appraisals || [])
+      setRamiAppraisals(data.rami_appraisals || [])
+    })
+    .catch(err => console.error('Error loading appraisal:', err))
+}, [activeTab, id])
 
 const loadPermits = React.useCallback(async () => {
   if (!id) return
@@ -820,8 +853,70 @@ const loadPermits = React.useCallback(async () => {
 }, [id, permitsPagination, permitsSorting, permitsSearch, permitsStageFilter, permitsTypeFilter, permitsSourceFilter])
 
 useDedupedEffect(() => {
+  if (activeTab !== 'permits') return
   loadPermits()
-}, [loadPermits])
+}, [activeTab, loadPermits])
+
+const loadTransactions = React.useCallback(async () => {
+  if (!id) return
+  setTransactionsLoading(true)
+  try {
+    const params = new URLSearchParams()
+    params.set('limit', String(transactionsPagination.pageSize))
+    params.set('offset', String(transactionsPagination.pageIndex * transactionsPagination.pageSize))
+
+    if (transactionsSearch.trim()) {
+      params.set('search', transactionsSearch.trim())
+    }
+    if (transactionsSourceFilter !== 'all') {
+      params.set('source', transactionsSourceFilter)
+    }
+    if (transactionsAreaFilter !== 'all') {
+      params.set('area', transactionsAreaFilter)
+    }
+
+    const sortMapping: Record<string, string> = {
+      date: 'date',
+      price: 'price',
+      price_per_sqm: 'price_per_sqm',
+      area: 'area',
+      rooms: 'rooms',
+      address: 'address',
+      source: 'source',
+    }
+
+    const primarySort = transactionsSorting[0]
+    const orderingField = primarySort ? sortMapping[primarySort.id as keyof typeof sortMapping] || 'date' : 'date'
+    const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-date'
+    params.set('ordering', orderingValue)
+
+    const response = await fetch(`/api/assets/${id}/transactions?${params.toString()}`)
+    if (!response.ok) {
+      throw new Error('Failed to load transactions')
+    }
+    const data = await response.json()
+    setTransactionsData({
+      items: data.transactions || [],
+      total: data.count || 0,
+      filters: {
+        source: data.filters?.source || [],
+        area: data.filters?.area || [],
+      },
+    })
+    setMarketAnalysis(data.market_analysis || null)
+  } catch (err) {
+    console.error('Error loading transactions:', err)
+    setTransactionsData({ items: [], total: 0, filters: { source: [], area: [] } })
+    setMarketAnalysis(null)
+  } finally {
+    setTransactionsLoading(false)
+  }
+}, [id, transactionsPagination, transactionsSorting, transactionsSearch, transactionsSourceFilter, transactionsAreaFilter])
+
+useDedupedEffect(() => {
+  if (activeTab !== 'transactions') return
+  loadTransactions()
+}, [activeTab, loadTransactions])
 
 const loadPlans = React.useCallback(async () => {
   if (!id) return
@@ -876,12 +971,14 @@ const loadPlans = React.useCallback(async () => {
 }, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter])
 
 useDedupedEffect(() => {
+  if (activeTab !== 'plans') return
   loadPlans()
-}, [loadPlans])
+}, [activeTab, loadPlans])
 
 useDedupedEffect(() => {
+  if (activeTab !== 'rights') return
   loadRightsData()
-}, [loadRightsData])
+}, [activeTab, loadRightsData])
 
   useDedupedEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
@@ -2546,44 +2643,42 @@ useDedupedEffect(() => {
 
             {/* Transactions Table */}
             <TransactionsTable
-              data={comparableTransactions}
-              loading={false}
+              data={transactionsData.items}
+              loading={transactionsLoading}
               searchValue={transactionsSearch}
               onSearchChange={setTransactionsSearch}
               filters={{
                 source: {
                   value: transactionsSourceFilter,
                   onChange: setTransactionsSourceFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    { value: 'collected_government', label: 'ממשלתי' },
-                    { value: 'internal', label: 'מאגר פנימי' }
-                  ]
+                  options: transactionSourceOptions,
                 },
                 area: {
                   value: transactionsAreaFilter,
                   onChange: setTransactionsAreaFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    { value: '0-50', label: '0-50 מ״ר' },
-                    { value: '50-100', label: '50-100 מ״ר' },
-                    { value: '100-150', label: '100-150 מ״ר' },
-                    { value: '150-200', label: '150-200 מ״ר' },
-                    { value: '200+', label: '200+ מ״ר' }
-                  ]
-                }
+                  options: transactionAreaOptions,
+                },
               }}
-              onRefresh={() => {
-                // Refresh transactions data
-                fetch(`/api/assets/${id}/transactions`)
-                  .then(res => {
-                    if (!res.ok) throw new Error('Failed to load transactions')
-                    return res.json()
-                  })
-                  .then(data => {
-                    setComparableTransactions(data.transactions || [])
-                  })
-                  .catch(err => console.error('Error loading transactions:', err))
+              onRefresh={loadTransactions}
+              manualPagination
+              manualSorting
+              pageCount={Math.max(1, Math.ceil((transactionsData.total || 0) / transactionsPagination.pageSize))}
+              paginationState={transactionsPagination}
+              onPaginationChange={(updater) => {
+                setTransactionsPagination((prev) =>
+                  typeof updater === 'function' ? updater(prev) : updater
+                )
+              }}
+              sortingState={transactionsSorting}
+              onSortingChange={(updater) => {
+                setTransactionsSorting((prev) =>
+                  typeof updater === 'function' ? updater(prev) : updater
+                )
+              }}
+              totalCount={transactionsData.total}
+              filterOptions={{
+                source: transactionsData.filters.source,
+                area: transactionsData.filters.area,
               }}
             />
           </TabsContent>
@@ -2611,12 +2706,7 @@ useDedupedEffect(() => {
                         })
                         .catch(err => console.error('Error refreshing appraisal:', err))
                       
-                      fetch(`/api/assets/${id}/transactions`)
-                        .then(res => res.json())
-                        .then(data => {
-                          setComparableTransactions(data.transactions || [])
-                        })
-                        .catch(err => console.error('Error refreshing transactions:', err))
+                      loadTransactions()
                     }}
                   >
                     🔄 רענן מידע

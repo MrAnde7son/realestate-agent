@@ -469,8 +469,16 @@ export default function TransactionsTable({
       return
     }
 
-    if (key === 'areaRange' && areaRange && typeof value !== 'string') {
-      areaRange.onChange({ min: value.min, max: value.max })
+    if (
+      key === 'areaRange' &&
+      areaRange &&
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      ('min' in value || 'max' in value)
+    ) {
+      const nextValue = value as { min?: number; max?: number }
+      areaRange.onChange({ min: nextValue.min, max: nextValue.max })
     }
   }
 

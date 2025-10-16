@@ -375,13 +375,7 @@ export default function PlansTable({
     }
 
     return filtersList;
-  }, [
-    data,
-    filters,
-    filterOptions,
-    advancedFilters?.planNumber?.value,
-    advancedFilters?.description?.value,
-  ]);
+  }, [advancedFilters, data, filters, filterOptions]);
 
   const handleAdditionalFilterChange = (key: string, value: AdditionalFilterValue) => {
     if (typeof value === 'string') {

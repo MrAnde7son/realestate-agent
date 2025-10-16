@@ -347,7 +347,9 @@ export default function RamiAppraisalsTable({
     return filtersList;
   }, [
     data,
+    filters?.source,
     filters?.source?.value,
+    filters?.status,
     filters?.status?.value,
     planNumberFilter,
     dateRange.from,

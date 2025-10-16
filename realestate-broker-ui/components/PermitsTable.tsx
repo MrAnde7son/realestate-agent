@@ -526,21 +526,7 @@ export default function PermitsTable({
     }
 
     return filtered;
-  }, [
-    advancedFilters?.approvalDate?.from,
-    advancedFilters?.approvalDate?.to,
-    advancedFilters?.description?.value,
-    advancedFilters?.expiryDate?.from,
-    advancedFilters?.expiryDate?.to,
-    advancedFilters?.permitNumber?.value,
-    advancedFilters?.requestNumber?.value,
-    advancedFilters?.requestType?.value,
-    data,
-    filters,
-    searchValue,
-    useClientFiltering,
-    advancedFilters,
-  ]);
+  }, [advancedFilters, data, filters, searchValue, useClientFiltering]);
 
   const tableData = useClientFiltering ? filteredData : data;
 
@@ -740,22 +726,7 @@ export default function PermitsTable({
     }
 
     return filtersList;
-  }, [
-    advancedFilters?.approvalDate?.from,
-    advancedFilters?.approvalDate?.to,
-    advancedFilters?.description?.value,
-    advancedFilters?.permitNumber?.value,
-    advancedFilters?.requestNumber?.value,
-    advancedFilters?.requestType?.value,
-    advancedFilters?.expiryDate?.from,
-    advancedFilters?.expiryDate?.to,
-    data,
-    filters?.documentType?.value,
-    filters?.source?.value,
-    filters?.stage?.value,
-    filterOptions,
-    advancedFilters,
-  ]);
+  }, [advancedFilters, data, filterOptions, filters]);
 
   const handleAdditionalFilterChange = (key: string, value: AdditionalFilterValue) => {
     if (typeof value === 'string') {

@@ -10,6 +10,7 @@ import { ExternalLink, RefreshCw, Loader2, ArrowDown, ArrowUp, ArrowUpDown } fro
 import { api } from '@/lib/api-client'
 import TableToolbar from '@/components/TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { useDedupedEffect } from '@/hooks/use-deduped-effect'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
@@ -303,7 +304,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     ordering,
   ])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetchListings()
   }, [fetchListings])
 

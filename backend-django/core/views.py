@@ -27,6 +27,7 @@ from django.db.models import (
     FloatField,
     ExpressionWrapper,
     F,
+    CharField,
 )
 from datetime import datetime
 from asgiref.sync import async_to_sync
@@ -1871,6 +1872,21 @@ def asset_transactions(request, asset_id):
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
+        try:
+            limit = max(1, min(int(request.GET.get("limit", 25)), 100))
+        except (TypeError, ValueError):
+            limit = 25
+
+        try:
+            offset = max(0, int(request.GET.get("offset", 0)))
+        except (TypeError, ValueError):
+            offset = 0
+
+        search_query = (request.GET.get("search") or "").strip()
+        source_filter = (request.GET.get("source") or "").strip()
+        area_filter = (request.GET.get("area") or "").strip()
+        ordering_param = request.GET.get("ordering", "-date")
+
         # Get transactions for comparable analysis - use neighborhood-based approach
         # First try to get transactions from the same neighborhood
         if asset.neighborhood:
@@ -1883,54 +1899,206 @@ def asset_transactions(request, asset_id):
             transactions = RealEstateTransaction.objects.filter(
                 Q(asset_id=asset_id) | Q(assets__id=asset_id)
             ).distinct()
-        
-        # Build transaction data
+
+        transactions = transactions.annotate(
+            price_per_sqm=Case(
+                When(
+                    price__isnull=False,
+                    area__isnull=False,
+                    area__gt=0,
+                    then=ExpressionWrapper(
+                        F("price") * 1.0 / F("area"),
+                        output_field=FloatField(),
+                    ),
+                ),
+                default=Value(None),
+                output_field=FloatField(),
+            ),
+            source_value=Case(
+                When(raw__source__isnull=False, then=F("raw__source")),
+                When(raw__sourceType__isnull=False, then=F("raw__sourceType")),
+                When(raw__source_type__isnull=False, then=F("raw__source_type")),
+                When(raw__data_source__isnull=False, then=F("raw__data_source")),
+                default=Value("government"),
+                output_field=CharField(),
+            ),
+        )
+
+        if source_filter and source_filter.lower() != "all":
+            transactions = transactions.filter(source_value=source_filter)
+
+        if search_query:
+            transactions = transactions.filter(
+                Q(address__icontains=search_query)
+                | Q(deal_id__icontains=search_query)
+                | Q(raw__parcel_block__icontains=search_query)
+                | Q(raw__parcel_parcel__icontains=search_query)
+                | Q(raw__parcel_sub_parcel__icontains=search_query)
+            )
+
+        if area_filter and area_filter.lower() != "all":
+            if area_filter.endswith("+"):
+                try:
+                    min_area = float(area_filter[:-1])
+                    transactions = transactions.filter(area__gte=min_area)
+                except ValueError:
+                    pass
+            else:
+                min_max = area_filter.split("-")
+                if len(min_max) == 2:
+                    try:
+                        min_area = float(min_max[0])
+                        max_area = float(min_max[1])
+                        transactions = transactions.filter(
+                            area__gte=min_area,
+                            area__lte=max_area,
+                        )
+                    except ValueError:
+                        pass
+
+        ordering_field = ordering_param.lstrip("-")
+        ordering_map = {
+            "date": "date",
+            "price": "price",
+            "price_per_sqm": "price_per_sqm",
+            "area": "area",
+            "rooms": "rooms",
+            "address": "address",
+            "source": "source_value",
+        }
+        resolved_field = ordering_map.get(ordering_field, "date")
+        ordering_prefix = "-" if ordering_param.startswith("-") else ""
+        resolved_ordering = f"{ordering_prefix}{resolved_field}"
+        transactions = transactions.order_by(resolved_ordering, "-id")
+
+        total_count = transactions.count()
+        paginated_transactions = list(transactions[offset : offset + limit])
+
+        # Build market analysis from the filtered result set (before pagination)
+        market_analysis = {}
+        if total_count:
+            price_stats = transactions.aggregate(
+                avg_price=Avg("price"),
+                min_price=Min("price"),
+                max_price=Max("price"),
+                avg_ppsqm=Avg("price_per_sqm"),
+                min_ppsqm=Min("price_per_sqm"),
+                max_ppsqm=Max("price_per_sqm"),
+            )
+
+            prices = list(
+                transactions.filter(price__isnull=False)
+                .order_by("price")
+                .values_list("price", flat=True)
+            )
+
+            if prices:
+                mid = len(prices) // 2
+                if len(prices) % 2:
+                    median_price = prices[mid]
+                else:
+                    median_price = (prices[mid - 1] + prices[mid]) / 2
+            else:
+                median_price = None
+
+            def _coerce(value):
+                if value is None:
+                    return None
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return None
+
+            market_analysis = {
+                "avg_price": _coerce(price_stats.get("avg_price")),
+                "min_price": _coerce(price_stats.get("min_price")),
+                "max_price": _coerce(price_stats.get("max_price")),
+                "median_price": _coerce(median_price),
+                "transaction_count": len(prices),
+            }
+
+            market_analysis.update(
+                {
+                    "avg_price_per_sqm": _coerce(price_stats.get("avg_ppsqm")),
+                    "min_price_per_sqm": _coerce(price_stats.get("min_ppsqm")),
+                    "max_price_per_sqm": _coerce(price_stats.get("max_ppsqm")),
+                }
+            )
+
+        transactions_list = []
+        for trans in paginated_transactions:
+            price_per_sqm = trans.price_per_sqm
+            if price_per_sqm is not None:
+                try:
+                    price_per_sqm = round(float(price_per_sqm))
+                except (TypeError, ValueError):
+                    price_per_sqm = None
+
+            transactions_list.append(
+                {
+                    "id": trans.id,
+                    "date": trans.date.isoformat() if trans.date else None,
+                    "price": trans.price,
+                    "rooms": trans.rooms,
+                    "area": trans.area,
+                    "floor": trans.floor,
+                    "address": trans.address,
+                    "price_per_sqm": price_per_sqm,
+                    "deal_id": trans.deal_id,
+                    "source": trans.source_value or "government",
+                }
+            )
+
+        available_sources = (
+            transactions.values_list("source_value", flat=True)
+            .order_by("source_value")
+            .distinct()
+        )
+
+        area_stats = transactions.aggregate(
+            min_area=Min("area"),
+            max_area=Max("area"),
+        )
+
+        min_area = area_stats.get("min_area")
+        max_area = area_stats.get("max_area")
+
+        area_filters = []
+        if min_area is not None and max_area is not None:
+            predefined_ranges = [
+                ("0", "50"),
+                ("50", "100"),
+                ("100", "150"),
+                ("150", "200"),
+            ]
+            for start, end in predefined_ranges:
+                start_val = float(start)
+                end_val = float(end)
+                if max_area < start_val or min_area > end_val:
+                    continue
+                area_filters.append(f"{start}-{end}")
+            if max_area > 200:
+                area_filters.append("200+")
+
         transaction_data = {
-            "transactions": [],
-            "market_analysis": {},
+            "transactions": transactions_list,
+            "market_analysis": market_analysis,
             "asset_info": {
                 "address": asset.address,
                 "city": asset.city,
                 "area": asset.area,
                 "block": asset.block,
-                "plot": asset.parcel
-            }
+                "plot": asset.parcel,
+            },
+            "count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "ordering": resolved_ordering,
+            "filters": {
+                "source": [value for value in available_sources if value],
+                "area": area_filters,
+            },
         }
-        
-        # Process RealEstateTransaction records
-        for trans in transactions:
-            transaction_data["transactions"].append({
-                "id": trans.id,
-                "date": trans.date.isoformat() if trans.date else None,
-                "price": trans.price,
-                "rooms": trans.rooms,
-                "area": trans.area,
-                "floor": trans.floor,
-                "address": trans.address,
-                "price_per_sqm": trans.price / trans.area if trans.price and trans.area else None,
-                "deal_id": trans.deal_id,
-                "source": "government"  # Mark as government source
-            })
-        
-        # Calculate market analysis
-        if transaction_data["transactions"]:
-            prices = [t["price"] for t in transaction_data["transactions"] if t["price"]]
-            ppsqm_values = [t["price_per_sqm"] for t in transaction_data["transactions"] if t["price_per_sqm"]]
-            
-            if prices:
-                transaction_data["market_analysis"] = {
-                    "avg_price": sum(prices) / len(prices),
-                    "min_price": min(prices),
-                    "max_price": max(prices),
-                    "median_price": sorted(prices)[len(prices) // 2],
-                    "transaction_count": len(prices)
-                }
-            
-            if ppsqm_values:
-                transaction_data["market_analysis"]["avg_price_per_sqm"] = sum(ppsqm_values) / len(ppsqm_values)
-                transaction_data["market_analysis"]["min_price_per_sqm"] = min(ppsqm_values)
-                transaction_data["market_analysis"]["max_price_per_sqm"] = max(ppsqm_values)
-        
         return JsonResponse(transaction_data)
 
     except Exception as e:

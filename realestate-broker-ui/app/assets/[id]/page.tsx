@@ -712,7 +712,7 @@ React.useEffect(() => {
     documentsStatusFilter,
   ])
 
-  React.useEffect(() => {
+  useDedupedEffect(() => {
     loadDocumentsTable()
   }, [loadDocumentsTable])
 
@@ -819,7 +819,7 @@ const loadPermits = React.useCallback(async () => {
   }
 }, [id, permitsPagination, permitsSorting, permitsSearch, permitsStageFilter, permitsTypeFilter, permitsSourceFilter])
 
-useEffect(() => {
+useDedupedEffect(() => {
   loadPermits()
 }, [loadPermits])
 
@@ -875,11 +875,11 @@ const loadPlans = React.useCallback(async () => {
   }
 }, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter])
 
-useEffect(() => {
+useDedupedEffect(() => {
   loadPlans()
 }, [loadPlans])
 
-useEffect(() => {
+useDedupedEffect(() => {
   loadRightsData()
 }, [loadRightsData])
 

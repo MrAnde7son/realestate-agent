@@ -6,7 +6,9 @@ export async function GET(
 ) {
   const { id } = params
   const numericId = Number(id)
-  const backendUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/transactions/`
+  const baseUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/transactions/`
+  const searchParams = request.nextUrl.searchParams.toString()
+  const backendUrl = searchParams ? `${baseUrl}?${searchParams}` : baseUrl
 
   try {
     // Fetch from backend with cache-busting to ensure fresh data

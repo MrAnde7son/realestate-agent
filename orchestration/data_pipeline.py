@@ -3089,6 +3089,7 @@ def _create_documents_from_rami_plans(asset, plans):
         plan_name = _first_nonempty(
             plan.get('title'),
             plan.get('plan_name'),
+            plan.get('planName'),
             plan.get('name'),
         )
         status = plan.get('status', '')

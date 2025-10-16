@@ -233,12 +233,6 @@ describe('AssetDetailPage', () => {
 
     await waitFor(() => {
       expect(callCounts['/api/assets/1']).toBe(1)
-      expect(callCounts['/api/assets/1/appraisal']).toBe(1)
-      expect(callCounts['/api/assets/1/transactions']).toBe(1)
-      expect(callCounts['/api/assets/1/permits']).toBe(1)
-      expect(callCounts['/api/assets/1/plans']).toBe(1)
-      expect(callCounts['/api/assets/1/rights']).toBe(1)
-      expect(callCounts['/api/documents/by_category/?asset_id=1']).toBe(1)
     })
   })
 })

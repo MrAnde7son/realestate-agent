@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   ColumnDef,
   flexRender,
@@ -108,6 +109,93 @@ const documentTypeDisplay = (type?: string) => {
   return translations[type] || translations[normalized] || type;
 };
 
+const sourceDisplay = (source?: string) => {
+  if (!source) return '—';
+  const translations: Record<string, string> = {
+    gis_permit: 'GIS',
+    user_upload: 'העלאה ידנית',
+    handasa: 'תיק בניין',
+  };
+  return translations[source] || source;
+};
+
+const sourceVariant = (source?: string) => {
+  if (!source) return 'neutral';
+  if (source === 'gis_permit') return 'secondary';
+  if (source === 'user_upload') return 'outline';
+  return 'neutral';
+};
+
+const RequestTypeCell = ({ value }: { value?: string }) => {
+  if (!value) {
+    return <span className="text-muted-foreground text-sm">—</span>;
+  }
+
+  const preview = value.replace(/\s+/g, ' ').trim();
+
+  return (
+    <Tooltip.Provider delayDuration={0}>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <div
+            tabIndex={0}
+            dir="rtl"
+            className="max-w-[220px] cursor-help overflow-hidden rounded-md border border-border/40 bg-muted/40 px-2 py-0.5 text-xs font-medium leading-4 text-right text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background max-h-10"
+          >
+            <span className="block truncate">{preview}</span>
+          </div>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            side="bottom"
+            align="end"
+            sideOffset={4}
+            dir="rtl"
+            className="max-w-[360px] whitespace-pre-wrap rounded bg-gray-900 px-3 py-2 text-xs leading-5 text-white shadow-md"
+          >
+            {value}
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
+  );
+};
+
+const DescriptionCell = ({ value }: { value?: string }) => {
+  if (!value) {
+    return <span className="text-muted-foreground text-sm">—</span>;
+  }
+
+  const preview = value.replace(/\s+/g, ' ').trim();
+
+  return (
+    <Tooltip.Provider delayDuration={0}>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <div
+            tabIndex={0}
+            dir="rtl"
+            className="max-w-[400px] cursor-help overflow-hidden rounded-lg bg-muted/30 px-3 py-1 text-sm text-right leading-[1.35rem] text-muted-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background max-h-16"
+          >
+            <span className="block leading-[1.35rem] line-clamp-2">{preview}</span>
+          </div>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            side="bottom"
+            align="end"
+            sideOffset={4}
+            dir="rtl"
+            className="max-w-[420px] whitespace-pre-wrap rounded bg-gray-900 px-3 py-2 text-sm leading-6 text-white shadow-md"
+          >
+            {value}
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
+  );
+};
+
 function createColumns(): ColumnDef<PermitRow>[] {
   return [
     {
@@ -165,18 +253,14 @@ function createColumns(): ColumnDef<PermitRow>[] {
       accessorKey: 'requestType',
       header: 'סוג בקשה',
       cell: ({ row }) => (
-        <div className="text-sm text-right">
-          {row.original.requestType || '—'}
-        </div>
+        <RequestTypeCell value={row.original.requestType} />
       ),
     },
     {
       accessorKey: 'description',
       header: 'תוכן הבקשה',
       cell: ({ row }) => (
-        <div className="text-sm text-right leading-5">
-          {row.original.description || '—'}
-        </div>
+        <DescriptionCell value={row.original.description} />
       ),
     },
     {
@@ -187,8 +271,8 @@ function createColumns(): ColumnDef<PermitRow>[] {
         if (!source) {
           return <span className="text-muted-foreground text-sm">—</span>;
         }
-        const display = source === 'gis_permit' ? 'GIS' : source === 'user_upload' ? 'העלאה ידנית' : source;
-        const variant = source === 'gis_permit' ? 'secondary' : source === 'user_upload' ? 'outline' : 'neutral';
+        const display = sourceDisplay(source);
+        const variant = sourceVariant(source);
         return (
           <Badge variant={variant as any}>
             {display}
@@ -465,7 +549,7 @@ export default function PermitsTable({
           { value: 'all', label: 'כל המקורות' },
           ...sources.map((source) => ({
             value: source,
-            label: source === 'gis_permit' ? 'GIS' : source === 'user_upload' ? 'העלאה ידנית' : source,
+            label: sourceDisplay(source),
           })),
         ],
       });

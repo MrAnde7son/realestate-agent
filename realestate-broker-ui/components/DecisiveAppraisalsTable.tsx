@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import TableToolbar, { AdditionalFilterValue } from '@/components/TableToolbar';
+import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from '@/components/TableToolbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink } from 'lucide-react';

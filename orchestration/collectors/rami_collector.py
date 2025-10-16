@@ -28,7 +28,7 @@ class RamiCollector(BaseCollector):
                     "planNumber": plan.get("planNumber", ""),
                     "planId": plan.get("planId", ""),
                     "status": plan.get("status", ""),
-                    "planName": plan.get("mahut", ""),
+                    "title": plan.get("mahut", ""),
                     "documents": documents,
                     "raw": plan
                 })

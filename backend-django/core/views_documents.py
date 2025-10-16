@@ -321,10 +321,10 @@ class AssetRightsView(APIView):
             # Collect parcel information
             elif 'גוש' in field:
                 ownership['parcel_info']['block'] = value
-            elif 'חלקה' in field:
-                ownership['parcel_info']['parcel'] = value
             elif 'תת חלקה' in field:
                 ownership['parcel_info']['subparcel'] = value
+            elif 'חלקה' in field:
+                ownership['parcel_info']['parcel'] = value
             
             # Collect area information with clearer naming
             elif 'שטח כולל' in field or 'total area' in field:
@@ -1447,26 +1447,23 @@ def _update_asset_from_tabu(asset, tabu_rows):
     try:
         ownership_data = AssetRightsView._parse_ownership_from_tabu(None, tabu_rows)
         
+        parcel_info = ownership_data.get('parcel_info', {})
+
         # Update asset ownership fields if we found owner information
         if ownership_data.get('owners'):
             # Set the primary owner (first owner or owner with highest percentage)
             primary_owner = max(ownership_data['owners'], key=lambda x: x.get('percentage', 0))
             asset.owner_name = primary_owner['name']
             asset.ownership_percentage = primary_owner['percentage']
-            
+
             # Store full ownership data in meta
             asset.meta = asset.meta or {}
             asset.meta['tabu_ownership'] = ownership_data
-            
-            # Update parcel information if available
-            parcel_info = ownership_data.get('parcel_info', {})
-            if parcel_info.get('block'):
-                asset.block = parcel_info['block']
-            if parcel_info.get('parcel'):
-                asset.parcel = parcel_info['parcel']
-            if parcel_info.get('subparcel'):
-                asset.subparcel = parcel_info['subparcel']
-        
+
+        # Update subparcel information if available
+        if parcel_info.get('subparcel'):
+            asset.subparcel = parcel_info['subparcel']
+
         # Update area fields from Tabu data
         _update_asset_areas_from_tabu(asset, tabu_rows)
         

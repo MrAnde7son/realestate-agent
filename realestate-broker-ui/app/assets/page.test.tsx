@@ -526,4 +526,31 @@ describe('AssetsPage', () => {
       expect(screen.getByText('2 נכסים עם נתוני שמאות ותכנון מלאים')).toBeInTheDocument()
     })
   })
+
+  it('deduplicates the initial assets fetch in StrictMode', async () => {
+    const callCounts: Record<string, number> = {}
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      callCounts[url] = (callCounts[url] ?? 0) + 1
+      if (url === '/api/assets') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ rows: [] })
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    await act(async () => {
+      render(
+        <React.StrictMode>
+          <AssetsPage />
+        </React.StrictMode>,
+        { wrapper: TestWrapper }
+      )
+    })
+
+    await waitFor(() => {
+      expect(callCounts['/api/assets']).toBe(1)
+    })
+  })
 })

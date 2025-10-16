@@ -51,7 +51,7 @@ describe('AssetDetailPage', () => {
     // Stub alert for tests
     // @ts-ignore
     global.alert = vi.fn()
-    global.fetch = vi.fn((url: string, options?: any) => {
+    global.fetch = vi.fn((url: string) => {
       if (url === '/api/assets/1') {
         return Promise.resolve({
           ok: true,
@@ -71,6 +71,23 @@ describe('AssetDetailPage', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ id: '2', address: 'Empty', documents: [] })
+        })
+      }
+      if (url === '/api/assets/1/rights') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            calculated_rights: null,
+            tabu_data: [],
+            gis_rights: [],
+            detailed_rights: []
+          })
+        })
+      }
+      if (url === '/api/documents/by_category/?asset_id=1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({})
         })
       }
       if (url === '/api/settings') {
@@ -101,6 +118,12 @@ describe('AssetDetailPage', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ plans: [] })
+        })
+      }
+      if (url === '/api/assets/1/transactions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ transactions: [], market_analysis: null })
         })
       }
       if (url === '/api/analytics/track') {
@@ -148,5 +171,74 @@ describe('AssetDetailPage', () => {
 
     expect(document.body.textContent).not.toContain('undefined')
     expect(document.body.textContent).not.toContain('NaN')
+  })
+
+  it('avoids duplicate backend fetches when rendered in StrictMode', async () => {
+    const callCounts: Record<string, number> = {}
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      callCounts[url] = (callCounts[url] ?? 0) + 1
+
+      if (url === '/api/assets/1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: '1', address: 'Test Street 1', documents: [] })
+        })
+      }
+      if (url === '/api/assets/1/appraisal') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ comps: [], appraisal: null, decisive_appraisals: [], rami_appraisals: [] })
+        })
+      }
+      if (url === '/api/assets/1/transactions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ transactions: [], market_analysis: null })
+        })
+      }
+      if (url === '/api/assets/1/permits') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ permits: [] })
+        })
+      }
+      if (url === '/api/assets/1/plans') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ plans: [] })
+        })
+      }
+      if (url === '/api/assets/1/rights') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ calculated_rights: null, tabu_data: [], gis_rights: [], detailed_rights: [] })
+        })
+      }
+      if (url === '/api/documents/by_category/?asset_id=1') {
+        return Promise.resolve({ ok: true, json: async () => ({}) })
+      }
+      if (url === '/api/settings') {
+        return Promise.resolve({ ok: true, json: async () => ({ report_sections: [] }) })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    await act(async () => {
+      render(
+        <React.StrictMode>
+          <AssetDetailPage params={{ id: '1' }} />
+        </React.StrictMode>
+      )
+    })
+
+    await waitFor(() => {
+      expect(callCounts['/api/assets/1']).toBe(1)
+      expect(callCounts['/api/assets/1/appraisal']).toBe(1)
+      expect(callCounts['/api/assets/1/transactions']).toBe(1)
+      expect(callCounts['/api/assets/1/permits']).toBe(1)
+      expect(callCounts['/api/assets/1/plans']).toBe(1)
+      expect(callCounts['/api/assets/1/rights']).toBe(1)
+      expect(callCounts['/api/documents/by_category/?asset_id=1']).toBe(1)
+    })
   })
 })

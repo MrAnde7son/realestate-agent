@@ -2183,6 +2183,12 @@ def _normalize_permit(serializer_data):
         serializer_data.get('status'),
     )
 
+    status = _first_non_empty(
+        serializer_data.get('status'),
+        meta.get('status'),
+        building_stage,
+    )
+
     approval_date = _format_date_value(
         meta.get('permission_date')
         or meta.get('document_date')
@@ -2223,6 +2229,13 @@ def _normalize_permit(serializer_data):
         meta.get('request_type'),
     )
 
+    external_id = _first_non_empty(
+        serializer_data.get('external_id'),
+        meta.get('external_id'),
+        meta.get('id'),
+        serializer_data.get('id'),
+    )
+
     source = _first_non_empty(serializer_data.get('source'), meta.get('source'))
 
     title = _first_non_empty(
@@ -2249,18 +2262,22 @@ def _normalize_permit(serializer_data):
                 approval_date,
                 expiry_date,
                 issue_date,
+                status,
+                external_id,
             ],
         )
     )
 
     return {
         'id': serializer_data.get('id'),
+        'external_id': external_id,
         'title': title,
         'description': description,
         'addresses': addresses,
         'permitNumber': permit_number,
         'requestNumber': request_number,
         'stage': building_stage,
+        'status': status,
         'documentType': document_type,
         'requestType': request_type,
         'approvalDate': approval_date,
@@ -3181,19 +3198,29 @@ def asset_listings(request, asset_id):
         def parse_date_value(value):
             if not value:
                 return None
+            dt = None
             if isinstance(value, datetime):
-                return value
-            if isinstance(value, str):
+                dt = value
+            elif isinstance(value, str):
                 cleaned = value.strip()
                 if not cleaned:
                     return None
                 try:
                     if cleaned.endswith("Z"):
                         cleaned = cleaned.replace("Z", "+00:00")
-                    return datetime.fromisoformat(cleaned)
+                    dt = datetime.fromisoformat(cleaned)
                 except (ValueError, TypeError):
                     return None
-            return None
+            if dt is None:
+                return None
+            if timezone.is_naive(dt):
+                try:
+                    dt = timezone.make_aware(dt, timezone.utc)
+                except Exception:
+                    dt = dt.replace(tzinfo=timezone.utc)
+            else:
+                dt = dt.astimezone(timezone.utc)
+            return dt
 
         def normalize_listing_from_model(listing_obj):
             raw = listing_obj.raw or {}
@@ -3383,7 +3410,7 @@ def asset_listings(request, asset_id):
             # Default: date_posted
             parsed_date = parse_date_value(item.get("date_posted"))
             if parsed_date is None:
-                return datetime.min
+                return datetime.min.replace(tzinfo=timezone.utc)
             return parsed_date
 
         filtered_listings.sort(key=sort_key, reverse=reverse)

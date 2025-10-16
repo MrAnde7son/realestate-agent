@@ -135,6 +135,7 @@ const sourceLabel = (source?: string) => {
     rami_plan: 'רמ״י',
     mavat: 'מנהל התיכנון',
     gov: 'ממשלתי',
+    collected_government: 'ממשלתי',
     tabu: 'טאבו',
     tabu_upload: 'טאבו',
     meta_migration: 'העברה מנתונים קיימים',

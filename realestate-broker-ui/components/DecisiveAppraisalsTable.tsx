@@ -73,6 +73,18 @@ const formatDate = (value?: string) => {
 const sourceBadge = (source?: string) => {
   if (!source) return null;
   const normalized = source.toLowerCase();
+  const configuredSources: Record<string, { label: string; variant: React.ComponentProps<typeof Badge>['variant'] }> = {
+    collected_government: { label: 'ממשלתי', variant: 'neutral' },
+    government: { label: 'ממשלתי', variant: 'neutral' },
+    gov: { label: 'ממשלתי', variant: 'neutral' },
+    internal: { label: 'מאגר פנימי', variant: 'outline' },
+  };
+
+  const configured = configuredSources[normalized];
+  if (configured) {
+    return <Badge variant={configured.variant}>{configured.label}</Badge>;
+  }
+
   if (normalized.includes('decisive')) {
     return <Badge variant="secondary">שומות מכריעות</Badge>;
   }

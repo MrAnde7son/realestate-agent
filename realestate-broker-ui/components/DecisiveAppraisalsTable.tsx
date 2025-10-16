@@ -344,13 +344,15 @@ export default function DecisiveAppraisalsTable({
       trackFeatureUsage('filter', undefined, { filter_type: 'decisive_appraiser', value });
       return;
     }
-    if (key === 'date' && typeof value !== 'string') {
-      setDateRange({ from: value.from, to: value.to });
+    if (key === 'date' && typeof value === 'object' && value !== null && !Array.isArray(value) && 'from' in value) {
+      const nextValue = value as { from?: string; to?: string };
+      setDateRange({ from: nextValue.from, to: nextValue.to });
       trackFeatureUsage('filter', undefined, { filter_type: 'decisive_date', value });
       return;
     }
-    if (key === 'value' && typeof value !== 'string') {
-      setValueRange({ min: value.min, max: value.max });
+    if (key === 'value' && typeof value === 'object' && value !== null && !Array.isArray(value) && 'min' in value) {
+      const nextValue = value as { min?: number; max?: number };
+      setValueRange({ min: nextValue.min, max: nextValue.max });
       trackFeatureUsage('filter', undefined, { filter_type: 'decisive_value', value });
     }
   }, [filters?.source, trackFeatureUsage]);

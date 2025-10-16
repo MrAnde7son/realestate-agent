@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import TableToolbar, { AdditionalFilterValue } from '@/components/TableToolbar';
+import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from '@/components/TableToolbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink } from 'lucide-react';
@@ -372,13 +372,15 @@ export default function RamiAppraisalsTable({
       trackFeatureUsage('filter', undefined, { filter_type: 'rami_plan_number', value });
       return;
     }
-    if (key === 'date' && typeof value !== 'string') {
-      setDateRange({ from: value.from, to: value.to });
+    if (key === 'date' && typeof value === 'object' && value !== null && !Array.isArray(value) && 'from' in value) {
+      const nextValue = value as { from?: string; to?: string };
+      setDateRange({ from: nextValue.from, to: nextValue.to });
       trackFeatureUsage('filter', undefined, { filter_type: 'rami_date', value });
       return;
     }
-    if (key === 'value' && typeof value !== 'string') {
-      setValueRange({ min: value.min, max: value.max });
+    if (key === 'value' && typeof value === 'object' && value !== null && !Array.isArray(value) && 'min' in value) {
+      const nextValue = value as { min?: number; max?: number };
+      setValueRange({ min: nextValue.min, max: nextValue.max });
       trackFeatureUsage('filter', undefined, { filter_type: 'rami_value', value });
     }
   }, [filters?.source, filters?.status, trackFeatureUsage]);

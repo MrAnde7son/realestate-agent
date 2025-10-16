@@ -67,5 +67,5 @@ class MavatCollector(BaseCollector):
 
 if __name__ == '__main__':
     collector = MavatCollector()
-    result = collector.collect(block=6336, city="תמא")
+    result = collector.collect(block=6336)
     print(result)

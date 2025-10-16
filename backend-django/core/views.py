@@ -2535,7 +2535,7 @@ def asset_plans(request, asset_id):
             raw_source = (doc.source or '').lower()
             if 'rami' in raw_source:
                 source = 'rami'
-            elif 'mavat' in raw_source or meta.get('source') == 'Mavat' or plan_number.startswith('mavat_'):
+            elif 'mavat' in raw_source or meta.get('source', '').lower() == 'mavat':
                 source = 'mavat'
 
             plan_entries.append(_normalize_plan_entry({

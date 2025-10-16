@@ -289,6 +289,9 @@ export default function RamiAppraisalsTable({
       toggle: (value: boolean) => column.toggleVisibility(value),
     }));
 
+  const sourceFilterValue = filters?.source?.value ?? 'all';
+  const statusFilterValue = filters?.status?.value ?? 'all';
+
   const additionalFilters = React.useMemo<AdditionalFilterConfig[]>(() => {
     const filtersList: AdditionalFilterConfig[] = [];
 
@@ -298,7 +301,7 @@ export default function RamiAppraisalsTable({
         key: 'source',
         label: 'מקור',
         type: 'select',
-        value: filters?.source?.value ?? 'all',
+        value: sourceFilterValue,
         options: [
           { value: 'all', label: 'כל המקורות' },
           ...sources.map((source) => ({ value: source, label: source })),
@@ -312,7 +315,7 @@ export default function RamiAppraisalsTable({
         key: 'status',
         label: 'סטטוס',
         type: 'select',
-        value: filters.status.value ?? 'all',
+        value: statusFilterValue,
         options: [
           { value: 'all', label: 'כל הסטטוסים' },
           ...statuses.map((status) => ({ value: status, label: status })),
@@ -347,15 +350,14 @@ export default function RamiAppraisalsTable({
     return filtersList;
   }, [
     data,
-    filters?.source,
-    filters?.source?.value,
     filters?.status,
-    filters?.status?.value,
     planNumberFilter,
     dateRange.from,
     dateRange.to,
     valueRange.min,
     valueRange.max,
+    sourceFilterValue,
+    statusFilterValue,
   ]);
 
   const handleAdditionalFilterChange = React.useCallback((key: string, value: AdditionalFilterValue) => {

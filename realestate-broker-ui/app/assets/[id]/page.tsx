@@ -681,11 +681,11 @@ React.useEffect(() => {
         calculated?.summary?.remaining_rights_sqm ??
         calculated?.remaining_rights?.remaining_area_sqm
       if (remainingRightsFromCalc !== undefined && remainingRightsFromCalc !== null) {
-        setAsset(prev => prev ? { ...prev, remainingRightsSqm: remainingRightsFromCalc } : prev)
+        setAsset((prev: any) => (prev ? { ...prev, remainingRightsSqm: remainingRightsFromCalc } : prev))
       }
       const parcelAreaFromCalc = calculated?.summary?.parcel_area_sqm
       if (parcelAreaFromCalc !== undefined && parcelAreaFromCalc !== null) {
-        setAsset(prev => prev ? { ...prev, parcelArea: parcelAreaFromCalc } : prev)
+        setAsset((prev: any) => (prev ? { ...prev, parcelArea: parcelAreaFromCalc } : prev))
       }
       
       // Combine tabu_data, gis_rights, and detailed_rights into a single array for display

@@ -31,6 +31,7 @@ import DocumentSearch from '@/components/DocumentSearch'
 import DocumentCategory from '@/components/DocumentCategory'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
+import { useDedupedEffect } from '@/hooks/use-deduped-effect'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
@@ -515,11 +516,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   }, [])
 
   // Load documents when component mounts
-  React.useEffect(() => {
+  useDedupedEffect(() => {
     loadDocumentsByCategory()
   }, [loadDocumentsByCategory])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     setLoading(true)
     apiClient.get(`/api/assets/${id}`)
       .then(response => {
@@ -534,7 +535,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .finally(() => setLoading(false))
   }, [id])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetch(`/api/assets/${id}/appraisal`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load appraisal')
@@ -549,7 +550,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .catch(err => console.error('Error loading appraisal:', err))
   }, [id])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetch(`/api/assets/${id}/transactions`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load transactions')
@@ -562,7 +563,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .catch(err => console.error('Error loading transactions:', err))
   }, [id])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetch(`/api/assets/${id}/permits`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load permits')
@@ -572,7 +573,7 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .catch(err => console.error('Error loading permits:', err))
   }, [id])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetch(`/api/assets/${id}/plans`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load plans')
@@ -584,11 +585,11 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
       .catch(err => console.error('Error loading plans:', err))
   }, [id])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     loadRightsData()
   }, [loadRightsData])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
     if (stored) {
       try { setSections(JSON.parse(stored)) } catch {}

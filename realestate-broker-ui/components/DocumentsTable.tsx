@@ -128,22 +128,22 @@ const sourceLabel = (source?: string) => {
   if (!source) return '—';
   const translations: Record<string, string> = {
     user_upload: 'העלאה ידנית',
-    GIS: 'מערכת מידע גיאוגרפית',
+    gis: 'מערכת מידע גיאוגרפית',
     gis_permit: 'מערכת מידע גיאוגרפית',
     gis_rights: 'מערכת מידע גיאוגרפית',
-    RAMI: 'רמ״י',
+    rami: 'רמ״י',
     rami_plan: 'רמ״י',
-    Mavat: 'מבת',
-    Gov: 'ממשלתי',
+    mavat: 'מנהל התיכנון',
+    gov: 'ממשלתי',
     tabu: 'טאבו',
     tabu_upload: 'טאבו',
     meta_migration: 'העברה מנתונים קיימים',
     yad2: 'יד2',
-    nadlan: 'נדלן',
+    nadlan: 'מידע נדלן',
     pipeline: 'צינור נתונים',
     external: 'מקור חיצוני',
   };
-  return translations[source] || source;
+  return source && translations[source.toLowerCase()] || source;
 };
 
 const formatDate = (value?: string) => {

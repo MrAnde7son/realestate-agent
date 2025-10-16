@@ -97,6 +97,7 @@ function createColumns(): ColumnDef<Plan>[] {
           switch (source) {
             case 'rami': return 'רמ״י';
             case 'mavat': return 'מנהל התיכנון';
+            case 'collected_government': return 'מנהל התיכנון';
             default: return 'מקומי';
           }
         };
@@ -104,6 +105,7 @@ function createColumns(): ColumnDef<Plan>[] {
           switch (source) {
             case 'rami': return 'default';
             case 'mavat': return 'secondary';
+            case 'collected_government': return 'secondary';
             default: return 'outline';
           }
         };

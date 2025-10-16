@@ -13,6 +13,7 @@ import {
   VisibilityState,
   getPaginationRowModel,
   PaginationState,
+  Updater,
 } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
@@ -59,6 +60,18 @@ interface TransactionsTableProps {
     }
   }
   onRefresh?: () => void
+  manualPagination?: boolean
+  manualSorting?: boolean
+  pageCount?: number
+  paginationState?: PaginationState
+  onPaginationChange?: (updater: Updater<PaginationState>) => void
+  sortingState?: SortingState
+  onSortingChange?: (updater: Updater<SortingState>) => void
+  totalCount?: number
+  filterOptions?: {
+    source?: string[]
+    area?: string[]
+  }
 }
 
 function createColumns(): ColumnDef<Transaction>[] {
@@ -186,18 +199,46 @@ export default function TransactionsTable({
   onSearchChange,
   filters,
   onRefresh,
+  manualPagination = false,
+  manualSorting = false,
+  pageCount,
+  paginationState,
+  onPaginationChange,
+  sortingState,
+  onSortingChange,
+  totalCount,
+  filterOptions,
 }: TransactionsTableProps) {
   const { trackFeatureUsage } = useAnalytics()
-  const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
+  const [internalSorting, setInternalSorting] = useState<SortingState>(sortingState ?? [])
+  const [internalPagination, setInternalPagination] = useState<PaginationState>(
+    paginationState ?? { pageIndex: 0, pageSize: 10 }
+  )
+
+  React.useEffect(() => {
+    if (sortingState) {
+      setInternalSorting(sortingState)
+    }
+  }, [sortingState])
+
+  React.useEffect(() => {
+    if (paginationState) {
+      setInternalPagination(paginationState)
+    }
+  }, [paginationState])
 
   const columns = useMemo(() => createColumns(), [])
 
-  // Filter data based on search and filters
+  const useClientFiltering = !(manualPagination || manualSorting)
+
   const filteredData = useMemo(() => {
+    if (!useClientFiltering) {
+      return data
+    }
+
     let filtered = data
 
     // Apply search filter
@@ -231,79 +272,132 @@ export default function TransactionsTable({
     }
 
     return filtered
-  }, [data, searchValue, filters])
+  }, [data, searchValue, filters, useClientFiltering])
 
   React.useEffect(() => {
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-  }, [filteredData.length])
+    if (!manualPagination && useClientFiltering) {
+      setInternalPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    }
+  }, [filteredData.length, manualPagination, useClientFiltering])
+
+  const tableData = useClientFiltering ? filteredData : data
+  const resolvedSorting = sortingState ?? internalSorting
+  const resolvedPagination = paginationState ?? internalPagination
+
+  const handleSortingChange = (updater: Updater<SortingState>) => {
+    const next = typeof updater === 'function' ? updater(resolvedSorting) : updater
+    if (onSortingChange) {
+      onSortingChange(next)
+    } else {
+      setInternalSorting(next)
+    }
+  }
+
+  const handlePaginationChange = (updater: Updater<PaginationState>) => {
+    const next = typeof updater === 'function' ? updater(resolvedPagination) : updater
+    if (onPaginationChange) {
+      onPaginationChange(next)
+    } else {
+      setInternalPagination(next)
+    }
+  }
 
   const table = useReactTable({
-    data: filteredData,
+    data: tableData,
     columns,
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     state: {
-      sorting,
+      sorting: resolvedSorting,
       columnFilters,
       columnVisibility,
       rowSelection,
-      pagination,
+      pagination: resolvedPagination,
     },
-    onPaginationChange: setPagination,
-    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination,
+    manualSorting,
+    pageCount: manualPagination ? pageCount : undefined,
+    onPaginationChange: handlePaginationChange,
+    ...(!manualSorting ? { getSortedRowModel: getSortedRowModel() } : {}),
+    ...(!manualPagination ? { getPaginationRowModel: getPaginationRowModel() } : {}),
+    ...(!manualSorting || !manualPagination ? { getFilteredRowModel: getFilteredRowModel() } : {}),
   })
+
+  const resolvedTotalCount = totalCount ?? filteredData.length
 
   // Additional filters for the toolbar
   const additionalFilters = useMemo(() => {
-    const sources = Array.from(new Set(data.map(t => t.source).filter(Boolean))).filter((source): source is string => typeof source === 'string')
-    const areas = Array.from(new Set(data.map(t => t.area).filter((area): area is number => typeof area === 'number' && !isNaN(area)))).sort((a, b) => a - b)
-    
-    // Create area ranges
-    const areaRanges = []
-    if (areas.length > 0) {
-      const minArea = Math.min(...areas)
-      const maxArea = Math.max(...areas)
-      const step = Math.ceil((maxArea - minArea) / 5)
-      
-      for (let i = 0; i < 5; i++) {
-        const start = minArea + (i * step)
-        const end = i === 4 ? maxArea : start + step - 1
-        areaRanges.push(`${start}-${end}`)
+    const getSourceLabel = (source: string) => {
+      switch (source) {
+        case 'collected_government':
+        case 'government':
+          return 'ממשלתי'
+        case 'internal':
+          return 'מאגר פנימי'
+        default:
+          return source || 'לא ידוע'
       }
     }
+
+    const getAreaLabel = (range: string) => {
+      if (range.endsWith('+')) {
+        return `${range.replace('+', '+')} מ״ר`
+      }
+      const [start, end] = range.split('-')
+      if (!start || !end) {
+        return range
+      }
+      return `${start}-${end} מ״ר`
+    }
+
+    const sourceOptions =
+      filterOptions?.source && filterOptions.source.length > 0
+        ? filterOptions.source
+        : Array.from(
+            new Set(
+              data
+                .map((transaction) => transaction.source)
+                .filter((value): value is string => typeof value === 'string' && value.length > 0)
+            )
+          )
+
+    const areaOptions =
+      filterOptions?.area && filterOptions.area.length > 0
+        ? filterOptions.area
+        : []
 
     return [
       {
         key: 'source',
         label: 'מקור',
-        value: 'all',
+        value: filters?.source?.value ?? 'all',
         options: [
           { value: 'all', label: 'הכל' },
-          ...sources.map(source => ({
-            value: source,
-            label: source === 'collected_government' ? 'ממשלתי' : 'מאגר פנימי'
-          }))
-        ]
+          ...sourceOptions.map((value) => ({
+            value,
+            label: getSourceLabel(value),
+          })),
+        ],
       },
       {
         key: 'area',
         label: 'שטח',
-        value: 'all',
+        value: filters?.area?.value ?? 'all',
         options: [
           { value: 'all', label: 'הכל' },
-          ...areaRanges.map(range => ({
-            value: range,
-            label: `${range} מ״ר`
-          }))
-        ]
-      }
+          ...(areaOptions.length > 0
+            ? areaOptions.map((value) => ({
+                value,
+                label: getAreaLabel(value),
+              }))
+            : []),
+        ],
+      },
     ]
-  }, [data])
+  }, [filterOptions, data, filters])
 
   const handleAdditionalFilterChange = (key: string, value: string) => {
     if (key === 'source' && filters?.source?.onChange) {
@@ -347,7 +441,7 @@ export default function TransactionsTable({
         onAdditionalFilterChange={handleAdditionalFilterChange}
         columns={toolbarColumns}
         selectedCount={table.getSelectedRowModel().rows.length}
-        totalCount={filteredData.length}
+        totalCount={resolvedTotalCount}
         onExportSelected={() => {}}
         onExportAll={() => {}}
         viewMode="table"

@@ -642,10 +642,10 @@ if __name__ == "__main__":
 
 
     gs = TelAvivGS()
-    x, y = gs.get_address_coordinates("באכר", 10)
-    print("2039 coords:", x, y)
-    print(gs.get_land_use_main(x, y))
-    
+    x, y = gs.get_address_coordinates("רוזוב", 18)
+    a = gs.get_plans_local(x, y)
+    print(a)
+    # print(gs.get_plans_citywide(x, y))
     # Download building privilege page
-    privilege_path = gs.get_building_privilege_page(x, y)
-    print(f"{privilege_path}")
+    # privilege_path = gs.get_building_privilege_page(x, y)
+    # print(f"{privilege_path}")

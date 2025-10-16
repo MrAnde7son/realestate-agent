@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Dict, List, Optional
 from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
 from django.utils import timezone
@@ -419,10 +420,22 @@ class AssetRightsView(APIView):
         # Get privilege page data for detailed calculations
         privilege_data_list = meta.get('privilege_page_data')
         logger.debug(f"Privilege data type: {type(privilege_data_list)}")
-        if privilege_data_list:
-            # Use the privilege page data directly
+
+        privilege_data = None
+        if isinstance(privilege_data_list, dict):
             privilege_data = privilege_data_list
-            logger.debug(f"Privilege data keys: {list(privilege_data.keys()) if isinstance(privilege_data, dict) else 'Not a dict'}")
+        elif isinstance(privilege_data_list, list):
+            privilege_data = next(
+                (
+                    item
+                    for item in privilege_data_list
+                    if isinstance(item, dict) and (item.get('rights') or item.get('rights_details'))
+                ),
+                None,
+            )
+
+        if privilege_data:
+            logger.debug(f"Privilege data keys: {list(privilege_data.keys())}")
             
             if isinstance(privilege_data, dict) and ('rights' in privilege_data or 'rights_details' in privilege_data):
                 rights = privilege_data.get('rights') or privilege_data.get('rights_details', {})
@@ -437,10 +450,44 @@ class AssetRightsView(APIView):
                 parking_req = rights.get('parking_requirements', [])
                 
                 # Calculate total building privilege (use maximum values as they represent allowed building)
-                total_building_privilege = 0
-                if max_values:
-                    # Sum up all maximum values for total building rights
-                    total_building_privilege = sum([float(mv.get('value', 0)) for mv in max_values if mv.get('value')])
+                def _is_area_entry(entry: Dict[str, Any]) -> bool:
+                    entry_type = str(entry.get('type', '')).lower()
+                    raw_text = entry.get('raw_text') or ''
+                    unit = str(entry.get('unit', '')).lower()
+
+                    if entry_type in ('percentage', 'floors', 'dwelling_units', 'parking'):
+                        return False
+                    if entry_type in ('building_area', 'auxiliary_building_area'):
+                        return True
+                    raw_text_lower = raw_text.lower() if isinstance(raw_text, str) else ''
+                    non_area_markers = ['תיסופיט', 'הינש', 'תומוקרפסמ', 'יחידות', 'דירות']
+                    if any(marker in raw_text for marker in non_area_markers) or any(marker in raw_text_lower for marker in non_area_markers):
+                        return False
+                    area_keywords = ["מ\"ר", "מ״ר", "ר\"מ", "ר״מ", "שטח", "חטש", "בנייה", "בניה"]
+                    unit_area_markers = ["מ\"ר", "מ״ר", "sqm", "m2", "sq m"]
+                    return any(kw in raw_text for kw in area_keywords) or any(kw in unit for kw in unit_area_markers)
+
+                area_values = []
+                for mv in max_values or []:
+                    if not mv or mv.get('value') is None:
+                        continue
+                    if not _is_area_entry(mv):
+                        continue
+                    try:
+                        area_values.append(float(mv.get('value')))
+                    except (TypeError, ValueError):
+                        continue
+
+                total_building_privilege = sum(area_values)
+                if not total_building_privilege:
+                    main_rights = meta.get('mainRightsSqm')
+                    if isinstance(main_rights, dict):
+                        try:
+                            total_building_privilege = float(main_rights.get('value') or 0)
+                        except (TypeError, ValueError):
+                            total_building_privilege = 0
+                    elif isinstance(main_rights, (int, float)):
+                        total_building_privilege = float(main_rights)
                 
                 # Calculate floor-specific privileges
                 floor_privileges = {}
@@ -1591,5 +1638,3 @@ def _update_asset_areas_from_tabu(asset, tabu_rows):
             
     except Exception as e:
         logger.error(f"Error updating asset {asset.id} area fields from Tabu: {e}")
-
-

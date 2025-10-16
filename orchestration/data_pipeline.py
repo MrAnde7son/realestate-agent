@@ -1244,40 +1244,47 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 'parcels': gis_data.get('parcels', []),
                 'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
             }
-            if handasa_archive:
-                asset.meta['handasa_archive'] = handasa_archive
-        elif handasa_archive:
+        else:
+            logger.info(f"Asset {asset_id}: No GIS data available for processing")
+        if handasa_archive:
             asset.meta['handasa_archive'] = handasa_archive
-            # Privilege page attempt + parse
+        if not asset.meta.get('privilege_page_data'):
             try:
                 from gis.gis_client import TelAvivGS  # type: ignore
-                x = gis_data.get('x')
-                y = gis_data.get('y')
-                if x and y:
+
+                def _extract_coord(data, key):
+                    if isinstance(data, dict):
+                        if data.get(key) is not None:
+                            return data.get(key)
+                        coords = data.get('coordinates')
+                        if isinstance(coords, dict):
+                            return coords.get(key)
+                    return None
+
+                x = (
+                    _extract_coord(gis_data, 'x')
+                    or _extract_coord(asset.meta.get('gis_data'), 'x')
+                    or _extract_coord(govmap_data, 'x')
+                )
+                y = (
+                    _extract_coord(gis_data, 'y')
+                    or _extract_coord(asset.meta.get('gis_data'), 'y')
+                    or _extract_coord(govmap_data, 'y')
+                )
+
+                if x is not None and y is not None:
                     gis_client = TelAvivGS()
                     privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
                     if privilege_data and isinstance(privilege_data, dict):
-                        # Initialize privilege_page_data as a list if it doesn't exist
-                        if 'privilege_page_data' not in asset.meta:
-                            asset.meta['privilege_page_data'] = []
-                        
-                        # Use already parsed data from get_building_privilege_page
-                        if privilege_data.get('content_type') == 'pdf' and privilege_data.get('pdf_data'):
-                            # For direct PDF content, add all parsed data to the list
-                            pdf_data = privilege_data['pdf_data']
-                            for pdf_item in pdf_data:
-                                if pdf_item.get('data'):
-                                    asset.meta['privilege_page_data'].append(pdf_item['data'])
-                        elif privilege_data.get('content_type') == 'html' and privilege_data.get('pdf_data'):
-                            # For HTML content with linked PDFs, add all parsed PDFs to the list
-                            pdf_data = privilege_data['pdf_data']
-                            for pdf_item in pdf_data:
-                                if pdf_item.get('data'):
-                                    asset.meta['privilege_page_data'].append(pdf_item['data'])
+                        parsed_items = []
+                        pdf_entries = privilege_data.get('pdf_data') or []
+                        for pdf_item in pdf_entries:
+                            if isinstance(pdf_item, dict) and pdf_item.get('data'):
+                                parsed_items.append(pdf_item['data'])
+                        if parsed_items:
+                            asset.meta['privilege_page_data'] = parsed_items
             except Exception:
                 logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
-        else:
-            logger.info(f"Asset {asset_id}: No GIS data available for processing")
         
         # Always process GIS data (even if empty) to store gis_collector_data
         _process_gis_data(asset, gis_data)

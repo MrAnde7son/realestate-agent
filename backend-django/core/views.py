@@ -2237,6 +2237,7 @@ def _normalize_permit(serializer_data):
     )
 
     source = _first_non_empty(serializer_data.get('source'), meta.get('source'))
+    external_url = serializer_data.get('external_url')
 
     title = _first_non_empty(
         serializer_data.get('title'),
@@ -2284,7 +2285,8 @@ def _normalize_permit(serializer_data):
         'issueDate': issue_date,
         'expiryDate': expiry_date,
         'handasaLink': handasa_link,
-        'externalUrl': serializer_data.get('external_url'),
+        'externalUrl': external_url,
+        'external_url': external_url,
         'source': source,
         'meta': meta,
         'searchValues': search_values,

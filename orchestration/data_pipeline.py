@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Iterable, List, Optional, Dict, Tuple
 import os
 import time
+import re
 import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from types import SimpleNamespace
@@ -11,7 +12,7 @@ from contextlib import contextmanager  # added import
 from sqlalchemy.orm import Session
 
 from db.database import SQLAlchemyDatabase
-from db.models import Listing, SourceRecord, Transaction
+from db.models import Listing as DBListing, SourceRecord, Transaction
 from utils.helpers import _first_nonempty, _safe_get
 from yad2.scrapers.yad2_scraper import RealEstateListing
 
@@ -94,12 +95,26 @@ try:  # pragma: no cover - best effort import
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "broker_backend.settings")
         django.setup()
 
-    from core.models import AlertRule, Document, Plan  # type: ignore
+    from core.models import (  # type: ignore
+        AlertRule,
+        AssetDocument,
+        AssetListing,
+        AssetPermit,
+        AssetPlan,
+        AssetTransaction,
+        Document,
+        Listing as DjangoListing,
+        Plan,
+        Permit,
+    )
 except ImportError as e:  # pragma: no cover - best effort
     logging.getLogger(__name__).warning(f"Failed to import Django models: {e}")
 
     class AlertRule:  # type: ignore
         objects = []
+
+    AssetDocument = AssetListing = AssetPermit = AssetPlan = AssetTransaction = None  # type: ignore
+    Document = DjangoListing = Plan = Permit = None  # type: ignore
 
 
 def _load_user_notifiers() -> List[Notifier]:
@@ -140,7 +155,7 @@ def _object_to_payload(obj: Any) -> Dict[str, Any]:
     return data
 
 
-def _build_listing_snapshot(raw_listing: Any, db_listing: Listing) -> SimpleNamespace:
+def _build_listing_snapshot(raw_listing: Any, db_listing: DBListing) -> SimpleNamespace:
     """Create an immutable snapshot of the listing for async notifications."""
 
     payload: Dict[str, Any] = {}
@@ -239,6 +254,224 @@ def _dispatch_notifications(pending: List[Tuple[Notifier, Any]]) -> None:
             future.result()
 
 
+def _collect_field_updates(instance: Any, updates: Dict[str, Any]) -> List[str]:
+    """Apply field updates to a Django model instance without saving.
+
+    Returns a list of fields that were changed so callers can persist once.
+    """
+    changed: List[str] = []
+    for field, value in updates.items():
+        if not hasattr(instance, field):
+            continue
+        current = getattr(instance, field)
+        if current != value:
+            setattr(instance, field, value)
+            changed.append(field)
+    return changed
+
+
+def _ensure_document_link(document: Any, asset: Any) -> None:
+    """Ensure the AssetDocument through link exists."""
+    if not document or not asset or AssetDocument is None:
+        return
+    AssetDocument.objects.get_or_create(document=document, asset=asset)
+
+
+def _ensure_plan_link(plan: Any, asset: Any) -> None:
+    """Ensure the AssetPlan through link exists."""
+    if not plan or not asset or AssetPlan is None:
+        return
+    AssetPlan.objects.get_or_create(plan=plan, asset=asset)
+
+
+def _ensure_transaction_link(transaction: Any, asset: Any) -> None:
+    """Ensure the AssetTransaction through link exists."""
+    if not transaction or not asset or AssetTransaction is None:
+        return
+    AssetTransaction.objects.get_or_create(transaction=transaction, asset=asset)
+
+
+def _ensure_listing_link(listing: Any, asset: Any) -> None:
+    """Ensure the AssetListing through link exists."""
+    if not listing or not asset or AssetListing is None:
+        return
+    AssetListing.objects.get_or_create(listing=listing, asset=asset)
+
+
+def _ensure_permit_link(permit: Any, asset: Any) -> None:
+    """Ensure the AssetPermit through link exists."""
+    if not permit or not asset or AssetPermit is None:
+        return
+    AssetPermit.objects.get_or_create(permit=permit, asset=asset)
+
+
+def _upsert_document(
+    document_type: str,
+    external_id: str,
+    payload: Dict[str, Any],
+    asset: Any = None,
+    user: Any = None,
+) -> Tuple[Optional[Any], bool]:
+    """Fetch or create a Document by (document_type, external_id) and update fields.
+
+    Returns the Document instance (or ``None`` if unavailable) and a boolean indicating creation.
+    """
+    if Document is None or not external_id:
+        return None, False
+
+    normalized_id = str(external_id)
+    document = (
+        Document.objects.filter(document_type=document_type, external_id=normalized_id)
+        .order_by("id")
+        .first()
+    )
+    created = False
+
+    update_payload = dict(payload)
+
+    if document is None:
+        create_kwargs = dict(update_payload)
+        if asset is not None:
+            create_kwargs.setdefault("asset", asset)
+        if user is not None:
+            create_kwargs.setdefault("user", user)
+        document = Document.objects.create(
+            document_type=document_type,
+            external_id=normalized_id,
+            **create_kwargs,
+        )
+        created = True
+    else:
+        updates = _collect_field_updates(document, update_payload)
+        extra_updates: List[str] = []
+        if asset is not None and getattr(document, "asset_id", None) is None:
+            document.asset = asset
+            extra_updates.append("asset")
+        if user is not None and getattr(document, "user_id", None) is None:
+            document.user = user
+            extra_updates.append("user")
+        total_updates = list(dict.fromkeys(updates + extra_updates))
+        if total_updates:
+            document.save(update_fields=total_updates)
+
+    if asset is not None and document is not None:
+        _ensure_document_link(document, asset)
+
+    return document, created
+
+
+def _upsert_plan(
+    plan_number: str,
+    payload: Dict[str, Any],
+    asset: Any = None,
+) -> Tuple[Optional[Any], bool]:
+    """Fetch or create a Plan by plan_number and update its fields."""
+    if Plan is None or not plan_number:
+        return None, False
+
+    normalized_number = str(plan_number)
+    plan_obj = (
+        Plan.objects.filter(plan_number=normalized_number)
+        .order_by("id")
+        .first()
+    )
+    created = False
+    update_payload = dict(payload)
+
+    if plan_obj is None:
+        create_kwargs = dict(update_payload)
+        if asset is not None:
+            create_kwargs.setdefault("asset", asset)
+        plan_obj = Plan.objects.create(
+            plan_number=normalized_number,
+            **create_kwargs,
+        )
+        created = True
+    else:
+        updates = _collect_field_updates(plan_obj, update_payload)
+        if asset is not None and getattr(plan_obj, "asset_id", None) is None:
+            plan_obj.asset = asset
+            updates.append("asset")
+        if updates:
+            plan_obj.save(update_fields=list(dict.fromkeys(updates)))
+
+    if asset is not None and plan_obj is not None:
+        _ensure_plan_link(plan_obj, asset)
+
+    return plan_obj, created
+
+
+def _extract_permit_date(value: Any) -> Optional[date]:
+    """Best-effort extraction of a permit date field."""
+    if value in (None, '', 0):
+        return None
+    if isinstance(value, (int, float)):
+        return _convert_unix_timestamp_to_date(int(value))
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        parsed = _parse_document_date(value)
+        if parsed:
+            return parsed
+        if value.startswith(('/Date', 'Date')):
+            try:
+                millis = int(''.join(ch for ch in value if ch.isdigit()))
+                return _convert_unix_timestamp_to_date(millis)
+            except Exception:  # pragma: no cover - defensive parse
+                pass
+        try:
+            return datetime.fromisoformat(value.replace('Z', '+00:00')).date()
+        except Exception:  # pragma: no cover - defensive parse
+            return None
+    return None
+
+
+def _upsert_permit(
+    permit_number: str,
+    payload: Dict[str, Any],
+    asset: Any = None,
+    raw: Optional[Dict[str, Any]] = None,
+) -> Tuple[Optional[Any], bool]:
+    """Fetch or create a Permit by permit_number and update its fields."""
+    if Permit is None or not permit_number:
+        return None, False
+
+    normalized_number = str(permit_number)
+    permit_obj = (
+        Permit.objects.filter(permit_number=normalized_number)
+        .order_by("id")
+        .first()
+    )
+    created = False
+    update_payload = dict(payload)
+
+    if permit_obj is None:
+        create_kwargs = dict(update_payload)
+        if asset is not None:
+            create_kwargs.setdefault("asset", asset)
+        create_kwargs.setdefault("raw", raw or {})
+        permit_obj = Permit.objects.create(
+            permit_number=normalized_number,
+            **create_kwargs,
+        )
+        created = True
+    else:
+        updates = _collect_field_updates(permit_obj, update_payload)
+        if raw and getattr(permit_obj, "raw", None) != raw:
+            permit_obj.raw = raw
+            updates.append("raw")
+        if asset is not None and getattr(permit_obj, "asset_id", None) is None:
+            permit_obj.asset = asset
+            updates.append("asset")
+        if updates:
+            permit_obj.save(update_fields=list(dict.fromkeys(updates)))
+
+    if asset is not None and permit_obj is not None:
+        _ensure_permit_link(permit_obj, asset)
+
+    return permit_obj, created
+
+
 
 
 
@@ -274,7 +507,6 @@ class DataPipeline:
     def __init__(
         self,
         db: Optional[SQLAlchemyDatabase] = None,
-        *,
         db_session: Optional["Session"] = None,
         yad2: Optional[Yad2Collector] = None,
         gis: Optional[GISCollector] = None,
@@ -394,8 +626,8 @@ class DataPipeline:
             return 0
 
     # ------------------------------------------------------------------
-    def _store_listing(self, session, listing: RealEstateListing) -> Listing:
-        obj = Listing(
+    def _store_listing(self, session, listing: RealEstateListing) -> DBListing:
+        obj = DBListing(
             title=listing.title,
             price=listing.price,
             address=listing.address,
@@ -572,7 +804,6 @@ class DataPipeline:
                 # Parse the corrected address to update the location object
                 try:
                     # Try to extract street, house number, and city from the corrected address
-                    import re
                     # Pattern to match Hebrew addresses like "רחוב שם 123, עיר"
                     address_pattern = r'^(.+?)\s+(\d+)(?:\s*,\s*(.+))?$'
                     match = re.match(address_pattern, corrected_address.strip())
@@ -664,8 +895,8 @@ class DataPipeline:
                         "gov",
                         self.gov.collect,
                         block,
-                        parcel,
-                        location,
+                        parcel=parcel,
+                        location=location,
                         timeout=self.TIMEOUTS.get("gov"),
                         retries=self.RETRIES.get("gov", 0),
                         asset_id=asset_id,
@@ -1013,40 +1244,47 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
                 'parcels': gis_data.get('parcels', []),
                 'coordinates': {'x': gis_data.get('x'), 'y': gis_data.get('y')},
             }
-            if handasa_archive:
-                asset.meta['handasa_archive'] = handasa_archive
-        elif handasa_archive:
+        else:
+            logger.info(f"Asset {asset_id}: No GIS data available for processing")
+        if handasa_archive:
             asset.meta['handasa_archive'] = handasa_archive
-            # Privilege page attempt + parse
+        if not asset.meta.get('privilege_page_data'):
             try:
                 from gis.gis_client import TelAvivGS  # type: ignore
-                x = gis_data.get('x')
-                y = gis_data.get('y')
-                if x and y:
+
+                def _extract_coord(data, key):
+                    if isinstance(data, dict):
+                        if data.get(key) is not None:
+                            return data.get(key)
+                        coords = data.get('coordinates')
+                        if isinstance(coords, dict):
+                            return coords.get(key)
+                    return None
+
+                x = (
+                    _extract_coord(gis_data, 'x')
+                    or _extract_coord(asset.meta.get('gis_data'), 'x')
+                    or _extract_coord(govmap_data, 'x')
+                )
+                y = (
+                    _extract_coord(gis_data, 'y')
+                    or _extract_coord(asset.meta.get('gis_data'), 'y')
+                    or _extract_coord(govmap_data, 'y')
+                )
+
+                if x is not None and y is not None:
                     gis_client = TelAvivGS()
                     privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
                     if privilege_data and isinstance(privilege_data, dict):
-                        # Initialize privilege_page_data as a list if it doesn't exist
-                        if 'privilege_page_data' not in asset.meta:
-                            asset.meta['privilege_page_data'] = []
-                        
-                        # Use already parsed data from get_building_privilege_page
-                        if privilege_data.get('content_type') == 'pdf' and privilege_data.get('pdf_data'):
-                            # For direct PDF content, add all parsed data to the list
-                            pdf_data = privilege_data['pdf_data']
-                            for pdf_item in pdf_data:
-                                if pdf_item.get('data'):
-                                    asset.meta['privilege_page_data'].append(pdf_item['data'])
-                        elif privilege_data.get('content_type') == 'html' and privilege_data.get('pdf_data'):
-                            # For HTML content with linked PDFs, add all parsed PDFs to the list
-                            pdf_data = privilege_data['pdf_data']
-                            for pdf_item in pdf_data:
-                                if pdf_item.get('data'):
-                                    asset.meta['privilege_page_data'].append(pdf_item['data'])
+                        parsed_items = []
+                        pdf_entries = privilege_data.get('pdf_data') or []
+                        for pdf_item in pdf_entries:
+                            if isinstance(pdf_item, dict) and pdf_item.get('data'):
+                                parsed_items.append(pdf_item['data'])
+                        if parsed_items:
+                            asset.meta['privilege_page_data'] = parsed_items
             except Exception:
                 logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
-        else:
-            logger.info(f"Asset {asset_id}: No GIS data available for processing")
         
         # Always process GIS data (even if empty) to store gis_collector_data
         _process_gis_data(asset, gis_data)
@@ -1674,7 +1912,7 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
     Handles potential IntegrityError when UNIQUE(source, external_id) already exists for another asset by
     safely retrieving the existing record and skipping creation instead of failing the whole enrichment.
     """
-    from core.models import SourceRecord, RealEstateTransaction
+    from core.models import RealEstateTransaction, SourceRecord
     from django.db import IntegrityError
 
     def _safe_source_record_create(source: str, external_id: str, defaults: dict):
@@ -1721,16 +1959,47 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
 
     if normalized_listings:
         for listing in normalized_listings:
-            if listing.get('listing_id'):
+            listing_id = listing.get('listing_id')
+            if listing_id:
                 _safe_source_record_create(
                     source='yad2',
-                    external_id=str(listing.get('listing_id')),
+                    external_id=str(listing_id),
                     defaults={
                         'title': listing.get('title', ''),
                         'url': listing.get('url', ''),
                         'raw': listing,
                     },
                 )
+
+                if DjangoListing is not None:
+                    listing_defaults = {
+                        'title': listing.get('title'),
+                        'url': listing.get('url'),
+                        'raw': listing,
+                        'status': listing.get('status') or (listing.get('meta') or {}).get('status') or 'active',
+                        'price': listing.get('price'),
+                        'rooms': listing.get('rooms'),
+                        'area': listing.get('area'),
+                        'address': listing.get('address'),
+                    }
+                    try:
+                        listing_obj, created_listing = DjangoListing.objects.get_or_create(
+                            source='yad2',
+                            external_id=str(listing_id),
+                            defaults=listing_defaults,
+                        )
+                        if not created_listing:
+                            updates = _collect_field_updates(listing_obj, listing_defaults)
+                            if updates:
+                                listing_obj.save(update_fields=list(dict.fromkeys(updates)))
+                        _ensure_listing_link(listing_obj, asset)
+                    except Exception as exc:  # pragma: no cover - best effort logging
+                        logger.warning(
+                            "Failed to synchronize listing %s for asset %s: %s",
+                            listing_id,
+                            getattr(asset, 'id', None),
+                            exc,
+                        )
 
     # Create SourceRecord for RAMI plans
     if plans:
@@ -1744,6 +2013,20 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                         'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
                         'url': plan.get('url', ''),
                         'raw': plan,
+                    },
+                )
+
+    # Create SourceRecord for decisive appraisals
+    if gov_data and gov_data.get('decisive'):
+        for appraisal in gov_data.get('decisive', []):
+            appraisal_id = appraisal.get('id')
+            if appraisal_id:
+                _safe_source_record_create(
+                    source='appraisal_decisive',
+                    external_id=str(appraisal_id),
+                    defaults={
+                        'title': appraisal.get('title') or f"שומה החלטית {appraisal_id}",
+                        'raw': appraisal,
                     },
                 )
 
@@ -1810,7 +2093,6 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
             if rooms:
                 try:
                     # Extract number from rooms string (e.g., "3" from "3 חדרים")
-                    import re
                     rooms_match = re.search(r'\d+', str(rooms))
                     rooms = int(rooms_match.group()) if rooms_match else None
                 except (ValueError, AttributeError):
@@ -1825,29 +2107,47 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                     if floor in floor_map:
                         floor = floor_map[floor]
                     else:
-                        import re
                         floor_match = re.search(r'\d+', str(floor))
                         floor = int(floor_match.group()) if floor_match else None
                 except (ValueError, AttributeError):
                     floor = None
             
+            transaction_defaults = {
+                'asset': asset,
+                'date': parsed_date,
+                'price': transaction.get('deal_amount'),
+                'rooms': rooms,
+                'area': transaction.get('area'),
+                'floor': floor,
+                'address': transaction.get('address'),
+                'raw': transaction,
+            }
+
+            transaction_obj = None
+            created_transaction = False
             try:
-                RealEstateTransaction.objects.get_or_create(
+                transaction_obj, created_transaction = RealEstateTransaction.objects.get_or_create(
                     deal_id=str(deal_id),
-                    defaults={
-                        'asset': asset,
-                        'date': parsed_date,
-                        'price': transaction.get('deal_amount'),
-                        'rooms': rooms,
-                        'area': transaction.get('area'),
-                        'floor': floor,
-                        'address': transaction.get('address'),
-                        'raw': transaction,
-                    },
+                    defaults=transaction_defaults,
                 )
             except IntegrityError:
-                # If exists, we do not re-link to a different asset
-                pass
+                transaction_obj = RealEstateTransaction.objects.filter(deal_id=str(deal_id)).first()
+
+            if transaction_obj:
+                updates = []
+                if not created_transaction:
+                    updates.extend(
+                        _collect_field_updates(
+                            transaction_obj,
+                            {k: v for k, v in transaction_defaults.items() if k != 'asset'},
+                        )
+                    )
+                    if getattr(transaction_obj, 'asset_id', None) is None:
+                        transaction_obj.asset = asset
+                        updates.append('asset')
+                    if updates:
+                        transaction_obj.save(update_fields=list(dict.fromkeys(updates)))
+                _ensure_transaction_link(transaction_obj, asset)
 
 def _populate_asset_fields_from_listings(asset, normalized_listings):
     """Populate asset fields from Yad2 listings data.
@@ -1945,7 +2245,6 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                 asset.floor = -1
             else:
                 # Try to extract number from string
-                import re
                 numbers = re.findall(r'\d+', floor_str)
                 if numbers:
                     asset.floor = int(numbers[0])
@@ -1993,7 +2292,6 @@ def _populate_asset_fields_from_tabu(asset, tabu_data):
         if any(keyword in field for keyword in ['שטח', 'area', 'מ״ר', 'מטר']):
             try:
                 # Extract numeric value from the field
-                import re
                 numbers = re.findall(r'\d+(?:\.\d+)?', value)
                 if numbers:
                     area_value = float(numbers[0])
@@ -2286,6 +2584,13 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
                 'is_active': False
             }
         )
+
+        if Document is None or Plan is None:
+            logger.warning(
+                "Django models unavailable; skipping document/plan creation for asset %s",
+                getattr(asset, 'id', None),
+            )
+            return
         
         
         if gis_data and gis_data.get('permits'):
@@ -2301,29 +2606,32 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
         # Create Document records from government appraisals
         if gov_data and gov_data.get('decisive'):
             for appraisal in gov_data.get('decisive', []):
-                if appraisal.get('id'):
-                    # Convert date from DD.MM.YYYY to YYYY-MM-DD format
-                    parsed_date = _parse_document_date(appraisal.get('date'))
-                    
-                    Document.objects.get_or_create(
-                        asset=asset,
-                        external_id=appraisal.get('id'),
-                        defaults={
-                            'user': system_user,
-                            'title': f"שומה החלטית {appraisal.get('id')}",
-                            'description': f"שומה החלטית מספר {appraisal.get('id')}",
-                            'document_type': 'appraisal_decisive',
-                            'status': 'approved',
-                            'external_url': appraisal.get('url', ''),
-                            'source': 'gov',
-                            'document_date': parsed_date,
-                            'file_size': 0,  # Set default file size for external documents
-                            'filename': f"appraisal_decisive_{appraisal.get('id')}.pdf",
-                            'file_path': '',  # Empty for external documents
-                            'mime_type': 'application/pdf',
-                            'meta': appraisal
-                        }
-                    )
+                appraisal_id = appraisal.get('id')
+                if not appraisal_id:
+                    continue
+
+                parsed_date = _parse_document_date(appraisal.get('date'))
+                document_payload = {
+                    'title': f"שומה החלטית {appraisal_id}",
+                    'description': f"שומה החלטית מספר {appraisal_id}",
+                    'status': 'approved',
+                    'external_url': appraisal.get('url', ''),
+                    'source': 'gov',
+                    'document_date': parsed_date,
+                    'file_size': 0,
+                    'filename': f"appraisal_decisive_{appraisal_id}.pdf",
+                    'file_path': '',
+                    'mime_type': 'application/pdf',
+                    'meta': appraisal,
+                }
+
+                document, created_doc = _upsert_document(
+                    'appraisal_decisive',
+                    appraisal_id,
+                    document_payload,
+                    asset=asset,
+                    user=system_user,
+                )
         
         # Create Plan records from RAMI plans
         if plans:
@@ -2331,36 +2639,38 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
                 plan_number = plan.get('planNumber') or plan.get('plan_number', '')
                 if plan_number:
                     # Create Plan record
-                    Plan.objects.get_or_create(
+                    plan_payload = {
+                        'description': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                        'status': plan.get('status', ''),
+                        'file_url': plan.get('url', ''),
+                        'raw': plan,
+                    }
+                    plan_obj, _ = _upsert_plan(
+                        plan_number,
+                        plan_payload,
                         asset=asset,
-                        plan_number=plan_number,
-                        defaults={
-                            'description': plan.get('title', f'תכנית רמ״י {plan_number}'),
-                            'status': plan.get('status', ''),
-                            'file_url': plan.get('url', ''),
-                            'raw': plan
-                        }
                     )
                     
                     # Also create Document record for the plan
-                    Document.objects.get_or_create(
+                    document_payload = {
+                        'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                        'description': f"תכנית רמ״י מספר {plan_number}",
+                        'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
+                        'external_url': plan.get('url', ''),
+                        'source': 'RAMI',
+                        'document_date': _parse_document_date(plan.get('statusDate')),
+                        'file_size': 0,
+                        'filename': f"rami_plan_{plan_number}.pdf",
+                        'file_path': '',
+                        'mime_type': 'application/pdf',
+                        'meta': plan,
+                    }
+                    document, doc_created = _upsert_document(
+                        'plan',
+                        f"rami_{plan_number}",
+                        document_payload,
                         asset=asset,
-                        external_id=f"rami_{plan_number}",
-                        defaults={
-                            'user': system_user,
-                            'title': plan.get('title', f'תכנית רמ״י {plan_number}'),
-                            'description': f"תכנית רמ״י מספר {plan_number}",
-                            'document_type': 'plan',
-                            'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
-                            'external_url': plan.get('url', ''),
-                            'source': 'RAMI',
-                            'document_date': _parse_document_date(plan.get('statusDate')),
-                            'file_size': 0,  # Set default file size for external documents
-                            'filename': f"rami_plan_{plan_number}.pdf",
-                            'file_path': '',  # Empty for external documents
-                            'mime_type': 'application/pdf',
-                            'meta': plan
-                        }
+                        user=system_user,
                     )
         
         # Create Plan records from Mavat plans
@@ -2368,37 +2678,39 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
             for plan in mavat_plans:
                 plan_id = plan.get('plan_id') or plan.get('id', '')
                 if plan_id:
-                    # Create Plan record
-                    Plan.objects.get_or_create(
+                    plan_key = f"{plan_id}"
+                    plan_payload = {
+                        'description': plan.get('title', f'תכנית מנהל התיכנון {plan_id}'),
+                        'status': plan.get('status', ''),
+                        'file_url': plan.get('url', ''),
+                        'raw': plan,
+                    }
+                    plan_obj, _ = _upsert_plan(
+                        plan_key,
+                        plan_payload,
                         asset=asset,
-                        plan_number=f"mavat_{plan_id}",
-                        defaults={
-                            'description': plan.get('title', f'תכנית מבת {plan_id}'),
-                            'status': plan.get('status', ''),
-                            'file_url': plan.get('url', ''),
-                            'raw': plan
-                        }
                     )
                     
                     # Also create Document record for the plan
-                    Document.objects.get_or_create(
+                    document_payload = {
+                        'title': plan.get('title', f'תכנית מבת {plan_id}'),
+                        'description': f"תכנית מבת מספר {plan_id}",
+                        'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
+                        'external_url': plan.get('url', ''),
+                        'source': 'Mavat',
+                        'document_date': _parse_document_date(plan.get('statusDate')),
+                        'file_size': 0,
+                        'filename': f"{plan_id}.pdf",
+                        'file_path': '',
+                        'mime_type': 'application/pdf',
+                        'meta': plan,
+                    }
+                    document, doc_created = _upsert_document(
+                        'plan_local',
+                        f"{plan_id}",
+                        document_payload,
                         asset=asset,
-                        external_id=f"mavat_{plan_id}",
-                        defaults={
-                            'user': system_user,
-                            'title': plan.get('title', f'תכנית מבת {plan_id}'),
-                            'description': f"תכנית מבת מספר {plan_id}",
-                            'document_type': 'plan_local',
-                            'status': 'approved' if plan.get('status') == 'מאושר' else 'pending',
-                            'external_url': plan.get('url', ''),
-                            'source': 'Mavat',
-                            'document_date': _parse_document_date(plan.get('statusDate')),
-                            'file_size': 0,  # Set default file size for external documents
-                            'filename': f"mavat_plan_{plan_id}.pdf",
-                            'file_path': '',  # Empty for external documents
-                            'mime_type': 'application/pdf',
-                            'meta': plan
-                        }
+                        user=system_user,
                     )
         
         
@@ -2429,50 +2741,95 @@ def _create_documents_from_permits(asset, permits, source: str = 'GIS'):
     created_count = 0
     safe_source = source or 'GIS'
 
+    if Document is None:
+        logger.warning(
+            "Document model unavailable; skipping %s permit documents for asset %s",
+            safe_source,
+            getattr(asset, 'id', None),
+        )
+        return
+
     for index, permit in enumerate(permits, start=1):
         if not permit:
             continue
 
-        normalized = _normalize_permit_document_fields(permit, safe_source, index)
-        if not normalized:
+        normalized_doc = _normalize_permit_document_fields(permit, safe_source, index)
+        if not normalized_doc:
             continue
 
-        doc_type = normalized.pop('document_type', 'permit')
-        external_id = normalized.pop('external_id')
-        defaults = {
-            'asset': asset,
-            'user': system_user,
-            'document_type': doc_type,
-            **normalized,
+        doc_type = normalized_doc.get('document_type', 'permit')
+        external_id = normalized_doc.get('external_id')
+        if not external_id:
+            continue
+
+        document_payload = {
+            key: value
+            for key, value in normalized_doc.items()
+            if key not in ('document_type', 'external_id')
         }
-
-        existing_doc = Document.objects.filter(
+        document, doc_created = _upsert_document(
+            doc_type,
+            external_id,
+            document_payload,
             asset=asset,
-            document_type=doc_type,
-            external_id=external_id,
-        ).first()
+            user=system_user,
+        )
 
-        if existing_doc:
-            existing_doc.asset = asset
-            existing_doc.user = system_user
-            for field, value in normalized.items():
-                setattr(existing_doc, field, value)
-            existing_doc.document_type = doc_type
-            existing_doc.save(update_fields=list(normalized.keys()) + ['asset', 'user', 'document_type'])
-            logger.debug(
-                "Updated %s permit document %s for asset %s",
-                safe_source,
-                existing_doc.id,
-                asset.id,
-            )
-        else:
-            Document.objects.create(external_id=external_id, **defaults)
+        permit_raw = permit if isinstance(permit, dict) else {}
+        if not permit_raw and isinstance(document_payload.get('meta'), dict):
+            permit_raw = document_payload.get('meta', {})
+
+        issued_date = document_payload.get('document_date') or _extract_permit_date(
+            permit_raw.get('permission_date')
+            or permit_raw.get('issue_date')
+            or permit_raw.get('issued_at')
+            or permit_raw.get('license_issue_date')
+        )
+        expiry_date = None
+        for candidate_key in (
+            'expiry_date',
+            'expiration_date',
+            'license_exp_date',
+            'license_expiration_date',
+            'valid_until',
+            'valid_till',
+            'permit_expiration_date',
+            'exp_date',
+        ):
+            candidate_value = permit_raw.get(candidate_key)
+            parsed = _extract_permit_date(candidate_value)
+            if parsed:
+                expiry_date = parsed
+                break
+
+        permit_payload = {
+            'description': document_payload.get('description') or document_payload.get('title', ''),
+            'status': document_payload.get('status', ''),
+            'issued_date': issued_date,
+            'expiry_date': expiry_date,
+            'file_url': document_payload.get('external_url', ''),
+        }
+        _upsert_permit(
+            external_id,
+            permit_payload,
+            asset=asset,
+            raw=permit_raw or {},
+        )
+
+        if doc_created:
             created_count += 1
             logger.debug(
                 "Created %s permit document for asset %s (external_id=%s)",
                 safe_source,
-                asset.id,
+                getattr(asset, 'id', None),
                 external_id,
+            )
+        else:
+            logger.debug(
+                "Updated %s permit document %s for asset %s",
+                safe_source,
+                getattr(document, 'id', None),
+                getattr(asset, 'id', None),
             )
 
     logger.info(
@@ -2516,8 +2873,13 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         else:
             parsed_date = document_date
 
+        if not parsed_date:
+            handasa_doc_date = meta.get('TlvMPEngDocDate')
+            if handasa_doc_date:
+                parsed_date = _extract_permit_date(handasa_doc_date)
+
         title = permit.get('title') or f"היתר {external_id}" if external_id else "היתר בנייה"
-        description = permit.get('description', '')
+        description = permit.get('description') or meta.get('TlvMPEngDocumentType', '')
         status = permit.get('status', '')
         external_url = permit.get('external_url') or meta.get('Path', '')
 
@@ -2527,6 +2889,39 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         meta['handasa_document_type'] = document_type
         if document_category is not None:
             meta['handasa_document_category'] = document_category
+
+        permit_number = (
+            permit.get('permission_num')
+            or meta.get('TlvMPEngPermitNum')
+            or meta.get('permit_number')
+        )
+        if permit_number:
+            meta['permit_number'] = str(_normalize_identifier(permit_number))
+
+        request_num = (
+            permit.get('request_num')
+            or meta.get('TlvMPEngRequestNum')
+            or meta.get('TlvMPEngOnlineReqNum')
+        )
+        if request_num:
+            meta['request_num'] = str(_normalize_identifier(request_num))
+
+        addresses = (
+            permit.get('addresses')
+            or permit.get('assets', [{}])[0].get('address')
+            or meta.get('addresses')
+        )
+        if isinstance(addresses, str) and addresses:
+            meta['addresses'] = addresses.replace('_', ' ').strip()
+
+        building_stage = (
+            permit.get('building_stage')
+            or meta.get('building_stage')
+        )
+        if building_stage:
+            meta['building_stage'] = building_stage
+
+        meta.setdefault('tochen_bakasha', description or title)
 
         return {
             'external_id': external_id,
@@ -2581,6 +2976,12 @@ def _create_documents_from_appraisals(asset, appraisals):
     """Create documents from government appraisals data."""
     if not appraisals:
         return
+    if Document is None:
+        logger.warning(
+            "Document model unavailable; skipping appraisal documents for asset %s",
+            getattr(asset, 'id', None),
+        )
+        return
     
     # Get a system user or create one for automated processes
     User = get_user_model()
@@ -2615,31 +3016,33 @@ def _create_documents_from_appraisals(asset, appraisals):
             else:
                 url = f"https://www.gov.il/{url}"
         
-        # Create Document record
-        Document.objects.get_or_create(
+        external_id = f"appraisal_{appraisal.get('id', len(appraisals))}"
+        document_payload = {
+            'title': f"שומה מכריעה - {appraiser}",
+            'description': f"שומה מכריעה על ידי {appraiser}",
+            'status': 'approved',
+            'external_url': url,
+            'source': 'gov',
+            'document_date': parsed_date,
+            'file_size': 0,
+            'filename': f"appraisal_{appraisal.get('id', 'unknown')}.pdf",
+            'file_path': '',
+            'mime_type': 'application/pdf',
+            'meta': {
+                'appraiser': appraiser,
+                'appraised_value': appraised_value,
+                'downloadable': bool(url and url.startswith(('http://', 'https://'))),
+            },
+        }
+        document, doc_created = _upsert_document(
+            'appraisal',
+            external_id,
+            document_payload,
             asset=asset,
-            external_id=f"appraisal_{appraisal.get('id', len(appraisals))}",
-            defaults={
-                'user': system_user,
-                'title': f"שומה מכריעה - {appraiser}",
-                'description': f"שומה מכריעה על ידי {appraiser}",
-                'document_type': 'appraisal',
-                'status': 'approved',
-                'external_url': url,
-                'source': 'gov',
-                'document_date': parsed_date,
-                'file_size': 0,  # Set default file size for external documents
-                'filename': f"appraisal_{appraisal.get('id', 'unknown')}.pdf",
-                'file_path': '',  # Empty for external documents
-                'mime_type': 'application/pdf',
-                'meta': {
-                    'appraiser': appraiser,
-                    'appraised_value': appraised_value,
-                    'downloadable': bool(url and url.startswith(('http://', 'https://')))
-                }
-            }
+            user=system_user,
         )
-        created_count += 1
+        if doc_created:
+            created_count += 1
     
     logger.info(f"Created {created_count} appraisal documents for asset {asset.id}")
 
@@ -2647,6 +3050,12 @@ def _create_documents_from_appraisals(asset, appraisals):
 def _create_documents_from_rami_plans(asset, plans):
     """Create documents from RAMI plans data (robust to missing/None sub-keys)."""
     if not plans:
+        return
+    if Document is None:
+        logger.warning(
+            "Document model unavailable; skipping RAMI documents for asset %s",
+            getattr(asset, 'id', None),
+        )
         return
 
     # Get a system user or create one for automated processes
@@ -2659,6 +3068,13 @@ def _create_documents_from_rami_plans(asset, plans):
             'last_name': 'Pipeline'
         }
     )
+
+    if Document is None:
+        logger.warning(
+            "Document model unavailable; skipping RAMI plan documents for asset %s",
+            getattr(asset, 'id', None),
+        )
+        return
 
     created = 0
     for plan in plans or []:
@@ -2704,30 +3120,33 @@ def _create_documents_from_rami_plans(asset, plans):
         # Parse document date properly
         parsed_date = _parse_document_date(plan.get('statusDate', plan.get('date', '')))
         
-        Document.objects.get_or_create(
+        external_id = f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{created + 1}"
+        document_payload = {
+            'title': f"תכנית רמ״י - {plan_name}" if plan_name else (f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י"),
+            'description': f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י",
+            'status': 'approved' if status == 'מאושר' else 'pending',
+            'external_url': url,
+            'source': 'RAMI',
+            'document_date': parsed_date,
+            'file_size': 0,
+            'filename': f"rami_plan_{plan_number}.pdf" if plan_number else f"rami_plan_{created + 1}.pdf",
+            'file_path': '',
+            'mime_type': 'application/pdf',
+            'meta': {
+                'plan_number': plan_number,
+                'plan_name': plan_name,
+                'downloadable': bool(url and url.startswith(('http://', 'https://'))),
+            },
+        }
+        document, doc_created = _upsert_document(
+            'plan',
+            external_id,
+            document_payload,
             asset=asset,
-            external_id=f"rami_plan_{plan_number}" if plan_number else f"rami_plan_{created + 1}",
-            defaults={
-                'user': system_user,
-                'title': f"תכנית רמ״י - {plan_name}" if plan_name else (f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י"),
-                'description': f"תכנית רמ״י {plan_number}" if plan_number else "תכנית רמ״י",
-                'document_type': 'plan',
-                'status': 'approved' if status == 'מאושר' else 'pending',
-                'external_url': url,
-                'source': 'RAMI',
-                'document_date': parsed_date,
-                'file_size': 0,  # Set default file size for external documents
-                'filename': f"rami_plan_{plan_number}.pdf" if plan_number else f"rami_plan_{created + 1}.pdf",
-                'file_path': '',  # Empty for external documents
-                'mime_type': 'application/pdf',
-                'meta': {
-                    'plan_number': plan_number,
-                    'plan_name': plan_name,
-                    'downloadable': bool(url and url.startswith(('http://', 'https://')))
-                }
-            }
+            user=system_user,
         )
-        created += 1
+        if doc_created:
+            created += 1
 
     logger.info("Created %d RAMI plan documents for asset %s", created, asset.id)
 

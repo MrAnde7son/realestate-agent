@@ -16,7 +16,7 @@ try:
 except ImportError:
     from urlparse import urljoin
 
-from ..core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
+from yad2.core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +115,150 @@ class Yad2Scraper:
         except Exception as e:
             logger.error(f"Error fetching location data: {e}")
             return None
+    
+    def fetch_latest_deals(
+        self,
+        limit: int = 8,
+        page: int = 1,
+        sort_by: str = "saleDate",
+        order: str = "desc",
+        city: int = None,
+        neighborhood: int = None,
+        coords="10.0,10.0",
+        max_pages: int = 1
+    ):
+        """
+        Fetch completed deal records from Yad2's latest-deals endpoint.
+
+        Example request (Tel Aviv, Bavli)::
+
+            https://gw.yad2.co.il/latest-deals-completed/?limit=8&page=1&sortBy=distance&order=asc&topArea=2&area=1&city=5000&neighborhood=484&coords=32.082830000000,34.791321000000
+
+        Args:
+            limit: Number of results per page.
+            page: Result page to request (starting page when ``max_pages`` > 1).
+            sort_by: Sorting field supported by the API (e.g. ``distance``).
+            order: Sort order (``asc`` or ``desc``).
+            top_area: Optional top area identifier.
+            area: Optional area identifier.
+            city: Optional city identifier.
+            neighborhood: Optional neighborhood identifier.
+            coords: Latitude/longitude pair as string ``"lat,long"`` or tuple.
+            max_pages: Number of pages to fetch. Set to ``None`` to exhaust all pages.
+
+        Returns:
+            List of :class:`RealEstateListing` objects.
+        """
+        try:
+            url = f"{self.api_base_url}/latest-deals-completed/"
+            params = {
+                "limit": limit,
+                "sortBy": sort_by,
+                "order": order,
+                "coords": coords,
+            }
+
+            active = self.search_params.get_active_parameters()
+
+            def _choose(value, fallback_key):
+                return value if value is not None else active.get(fallback_key)
+
+            city_val = _choose(city, "city")
+            hood_val = _choose(neighborhood, "neighborhood")
+
+            if city_val is not None:
+                params["city"] = city_val
+            if hood_val is not None:
+                params["neighborhood"] = hood_val
+
+            coords_val = coords if coords is not None else active.get("coords")
+            if isinstance(coords_val, (list, tuple)) and len(coords_val) == 2:
+                coords_val = "{:.6f},{:.6f}".format(float(coords_val[0]), float(coords_val[1]))
+            if coords_val:
+                params["coords"] = coords_val
+
+            collected_results = []
+            pagination_info = {}
+            page_to_fetch = max(page, 1)
+            pages_fetched = 0
+
+            while True:
+                params["page"] = page_to_fetch
+                logger.info(f"Fetching latest deals (page {page_to_fetch}): {params}")
+                response = self.session.get(url, params=params, timeout=30)
+                if response.status_code != 200:
+                    logger.warning("Failed to fetch latest deals (page {}): {}".format(
+                        page_to_fetch, response.status_code))
+                    break
+
+                data = response.json()
+                data = data.get("data", [])
+                page_results = data.get("results", [])
+                pagination_info = data.get("pagination", {}) or {}
+
+                if not page_results:
+                    break
+
+                converted = [self._convert_latest_deal_to_listing(entry) for entry in page_results]
+                collected_results.extend(converted)
+
+                pages_fetched += 1
+
+                total_pages = pagination_info.get("totalPages")
+                current_page = pagination_info.get("page", page_to_fetch)
+
+                if max_pages is not None and pages_fetched >= max_pages:
+                    break
+                if total_pages is not None and current_page >= total_pages:
+                    break
+
+                page_to_fetch = current_page + 1
+
+            return collected_results
+        except Exception as e:
+            logger.error("Error fetching latest deals: {}".format(e))
+            return []
+    
+    def _convert_latest_deal_to_listing(self, deal_entry):
+        """Convert a latest-deal payload entry into a RealEstateListing."""
+        listing = RealEstateListing()
+        
+        address = deal_entry.get("address") or {}
+        street = (address.get("street") or {}).get("text") or (address.get("street") or {}).get("name")
+        house_number = address.get("houseNumber")
+        neighborhood = (address.get("neighborhood") or {}).get("text")
+        city = (address.get("city") or {}).get("text")
+
+        street_line_parts = [part for part in [street, str(house_number) if house_number else None] if part]
+        street_line = " ".join(street_line_parts) if street_line_parts else None
+
+        address_parts = [part for part in [street_line, neighborhood, city] if part]
+        listing.address = ", ".join(address_parts) if address_parts else None
+
+        listing.property_type = deal_entry.get("propertyType")
+        listing.title = listing.property_type or listing.address
+        if listing.title and listing.address and listing.title != listing.address:
+            listing.title = "{} - {}".format(listing.title, listing.address)
+        elif listing.address:
+            listing.title = listing.address
+
+        listing.price = deal_entry.get("price")
+        listing.rooms = deal_entry.get("rooms")
+        listing.floor = deal_entry.get("floor")
+        listing.size = deal_entry.get("buildingMR")
+        listing.date_posted = deal_entry.get("saleDate")
+
+        # Preserve supporting data for downstream consumers.
+        listing.meta.update({
+            "source": "yad2_latest_deals",
+            "sale_date": deal_entry.get("saleDate"),
+            "number_of_floors": deal_entry.get("numberOfFloors"),
+            "build_year": deal_entry.get("buildYear"),
+            "address_master_id": address.get("addressMasterId"),
+            "raw": deal_entry,
+        })
+
+        return listing
     
     def set_search_parameters(self, **kwargs):
         """Set or update search parameters."""
@@ -429,12 +573,7 @@ class Yad2Scraper:
 
 
 if __name__ == "__main__":
-    search_params = {
-            "property": "1",        # Apartment
-            "maxPrice": 5000000,    # 5M NIS
-            "city": "5000",         # Tel Aviv
-            "max_pages": 2
-        }
+    search_params =  { 'coords': '50.0,50.0', 'city': 5000, 'neighborhood': 1512}
     scraper = Yad2Scraper(search_params)
-    scraper.scrape_all_pages(max_pages=10)
-    scraper.save_to_json()
+    deals = scraper.fetch_latest_deals()
+    print(deals)

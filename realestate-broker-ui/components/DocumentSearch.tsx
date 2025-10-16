@@ -12,12 +12,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, Filter, X } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
 
 interface DocumentSearchProps {
   assetId?: number;
-  onResultsChange: (results: any) => void;
-  onLoadingChange: (loading: boolean) => void;
+  onResultsChange: (results: {
+    type: "params" | "reset";
+    query: string;
+    category: string;
+    assetId?: number;
+  }) => void;
   className?: string;
 }
 
@@ -34,12 +37,10 @@ const DOCUMENT_CATEGORIES = [
 export default function DocumentSearch({
   assetId,
   onResultsChange,
-  onLoadingChange,
   className = "",
 }: DocumentSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [isSearching, setIsSearching] = useState(false);
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   // Check if there are active filters
@@ -48,84 +49,23 @@ export default function DocumentSearch({
   }, [searchQuery, selectedCategory]);
 
   const handleSearch = async () => {
-    if (!searchQuery.trim() && selectedCategory === "all") {
-      // If no filters, get all documents by category
-      await fetchDocumentsByCategory();
-      return;
-    }
-
-    setIsSearching(true);
-    onLoadingChange(true);
-
-    try {
-      const params = new URLSearchParams();
-      if (searchQuery.trim()) {
-        params.append("q", searchQuery.trim());
-      }
-      if (selectedCategory && selectedCategory !== "all") {
-        params.append("category", selectedCategory);
-      }
-      if (assetId) {
-        params.append("asset_id", assetId.toString());
-      }
-
-      const response = await apiClient.get(`/api/documents/search/?${params.toString()}`);
-      
-      if (response.ok) {
-        onResultsChange({
-          type: "search",
-          data: response.data.results,
-          count: response.data.count,
-          query: searchQuery,
-          category: selectedCategory,
-        });
-      } else {
-        console.error("Search failed:", response.error);
-        onResultsChange({ type: "error", data: [] });
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-      onResultsChange({ type: "error", data: [] });
-    } finally {
-      setIsSearching(false);
-      onLoadingChange(false);
-    }
-  };
-
-  const fetchDocumentsByCategory = async () => {
-    setIsSearching(true);
-    onLoadingChange(true);
-
-    try {
-      const params = new URLSearchParams();
-      if (assetId) {
-        params.append("asset_id", assetId.toString());
-      }
-
-      const response = await apiClient.get(`/api/documents/by_category/?${params.toString()}`);
-      
-      if (response.ok) {
-        onResultsChange({
-          type: "category",
-          data: response.data,
-        });
-      } else {
-        console.error("Failed to fetch documents by category:", response.error);
-        onResultsChange({ type: "error", data: [] });
-      }
-    } catch (error) {
-      console.error("Category fetch error:", error);
-      onResultsChange({ type: "error", data: [] });
-    } finally {
-      setIsSearching(false);
-      onLoadingChange(false);
-    }
+    onResultsChange({
+      type: "params",
+      query: searchQuery.trim(),
+      category: selectedCategory,
+      assetId,
+    });
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setSelectedCategory("all");
-    fetchDocumentsByCategory();
+    onResultsChange({
+      type: "reset",
+      query: "",
+      category: "all",
+      assetId,
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -169,10 +109,9 @@ export default function DocumentSearch({
         {/* Search Button */}
         <Button 
           onClick={handleSearch} 
-          disabled={isSearching}
           className="w-full sm:w-auto"
         >
-          {isSearching ? "מחפש..." : "חיפוש"}
+          חיפוש
         </Button>
       </div>
 

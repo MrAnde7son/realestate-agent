@@ -49,6 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import PlanLimitDialog from "@/components/PlanLimitDialog";
 import { apiClient } from "@/lib/api-client";
+import { useDedupedEffect } from "@/hooks/use-deduped-effect";
 
 const DEFAULT_RADIUS_METERS = 100;
 
@@ -671,7 +672,7 @@ export default function AssetsPage() {
     }
   };
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetchAssets();
   }, []);
 
@@ -1038,9 +1039,6 @@ export default function AssetsPage() {
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
-        {/* Skip link for accessibility */}
-        <a href="#main-content" className="skip-link">דלג לתוכן הראשי</a>
-        
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>

@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core.files.storage import default_storage, FileSystemStorage
 
 logger = logging.getLogger(__name__)
 
@@ -737,6 +738,40 @@ class SourceRecord(models.Model):
             promote_raw_to_asset(self.asset, self.raw or {})
 
 
+class Listing(models.Model):
+    SOURCE_CHOICES = [('yad2', 'Yad2'), ('madlan', 'Madlan'), ('winwin', 'WinWin')]
+
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, db_index=True)
+    external_id = models.CharField(max_length=100, db_index=True)
+    title = models.CharField(max_length=500, blank=True, null=True)
+    url = models.URLField(max_length=500, blank=True, null=True)
+    raw = models.JSONField(default=dict)
+    status = models.CharField(max_length=30, default='active', db_index=True)
+    price = models.IntegerField(blank=True, null=True)
+    rooms = models.FloatField(blank=True, null=True)
+    area = models.FloatField(blank=True, null=True)
+    address = models.CharField(max_length=300, blank=True, null=True)
+    fetched_at = models.DateTimeField(auto_now_add=True)
+    assets = models.ManyToManyField(
+        'Asset',
+        through='AssetListing',
+        related_name='listings_m2m'
+    )
+
+    class Meta:
+        unique_together = [('source', 'external_id')]
+        indexes = [
+            models.Index(fields=['source', 'external_id']),
+            models.Index(fields=['status']),
+            models.Index(fields=['price']),
+            models.Index(fields=['rooms']),
+            models.Index(fields=['area']),
+        ]
+
+    def __str__(self):
+        return f"Listing({self.source}:{self.external_id})"
+
+
 def promote_raw_to_asset(asset: Asset, raw: dict):
     def set_if_empty(obj, field, value):
         if value in (None, "", [], {}):
@@ -890,7 +925,17 @@ class RealEstateTransaction(models.Model):
     """Real estate transaction model for storing deal data."""
 
     asset = models.ForeignKey(
-        Asset, on_delete=models.CASCADE, related_name="transactions"
+        Asset,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+        null=True,
+        blank=True,
+        help_text="(legacy) primary asset link",
+    )
+    assets = models.ManyToManyField(
+        'Asset',
+        through='AssetTransaction',
+        related_name='transactions_m2m'
     )
     deal_id = models.CharField(max_length=100, blank=True, null=True)
     date = models.DateTimeField(blank=True, null=True)
@@ -910,6 +955,13 @@ class RealEstateTransaction(models.Model):
 
     def __str__(self):
         return f"Transaction({self.deal_id}, {self.price})"
+
+    def all_assets(self):
+        if getattr(self, "asset_id", None):
+            return Asset.objects.filter(
+                Q(pk=self.asset_id) | Q(transaction_links__transaction=self)
+            ).distinct()
+        return Asset.objects.filter(transaction_links__transaction=self).distinct()
 
 
 class Report(models.Model):
@@ -1062,10 +1114,17 @@ class Document(models.Model):
     
     # Core fields
     asset = models.ForeignKey(
-        Asset, 
-        on_delete=models.CASCADE, 
+        Asset,
+        on_delete=models.CASCADE,
         related_name="documents",
-        help_text="Asset this document belongs to"
+        help_text="(legacy) primary asset link",
+        null=True,
+        blank=True,
+    )
+    assets = models.ManyToManyField(
+        'Asset',
+        through='AssetDocument',
+        related_name='documents_m2m'
     )
     user = models.ForeignKey(
         get_user_model(),
@@ -1143,7 +1202,10 @@ class Document(models.Model):
     @property
     def file_url(self):
         """Return the API URL to download the document."""
-        return f"/api/assets/{self.asset_id}/documents/{self.id}/download/"
+        asset_id = self.asset_id or self.assets.values_list("id", flat=True).first()
+        if asset_id:
+            return f"/api/assets/{asset_id}/documents/{self.id}/download/"
+        return f"/api/documents/{self.id}/download/"
     
     @property
     def is_downloadable(self):
@@ -1151,9 +1213,17 @@ class Document(models.Model):
         if not self.file_path:
             return False
         
-        # Use Django's default_storage to check if file exists
-        from django.core.files.storage import default_storage
-        return default_storage.exists(self.file_path)
+        # Avoid expensive existence checks on remote storage backends.
+        # For local file-system storage we can check existence cheaply.
+        if isinstance(default_storage, FileSystemStorage):
+            try:
+                return default_storage.exists(self.file_path)
+            except Exception as exc:  # pragma: no cover - safeguard
+                logger.warning("Failed checking file %s: %s", self.file_path, exc)
+                return False
+
+        # For remote storage (e.g. S3) assume the file exists to avoid a HEAD call per document.
+        return True
     
     @property
     def hebrew_category(self):
@@ -1166,9 +1236,11 @@ class Document(models.Model):
     @classmethod
     def get_documents_by_category(cls, asset_id=None):
         """Get documents organized by Hebrew categories."""
-        queryset = cls.objects.all()
+        queryset = cls.objects.select_related('asset', 'user').prefetch_related('assets')
         if asset_id:
-            queryset = queryset.filter(asset_id=asset_id)
+            queryset = queryset.filter(
+                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+            ).distinct()
         
         documents_by_category = {}
         for category in cls.DOCUMENT_CATEGORIES.keys():
@@ -1185,7 +1257,9 @@ class Document(models.Model):
         """Search documents by title, description, or external_id."""
         queryset = cls.objects.all()
         if asset_id:
-            queryset = queryset.filter(asset_id=asset_id)
+            queryset = queryset.filter(
+                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+            ).distinct()
         
         if query:
             queryset = queryset.filter(
@@ -1196,6 +1270,13 @@ class Document(models.Model):
             )
         
         return queryset
+
+    def all_assets(self):
+        if getattr(self, "asset_id", None):
+            return Asset.objects.filter(
+                Q(pk=self.asset_id) | Q(document_links__document=self)
+            ).distinct()
+        return Asset.objects.filter(document_links__document=self).distinct()
     
     def delete_file(self):
         """Delete the physical file from storage."""
@@ -1227,7 +1308,19 @@ class Document(models.Model):
 class Permit(models.Model):
     """Building permit associated with an asset."""
 
-    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="permits")
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name="permits",
+        null=True,
+        blank=True,
+        help_text="(legacy) primary asset link",
+    )
+    assets = models.ManyToManyField(
+        'Asset',
+        through='AssetPermit',
+        related_name='permits_m2m'
+    )
     permit_number = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=50, blank=True)
@@ -1246,11 +1339,30 @@ class Permit(models.Model):
     def __str__(self):
         return f"Permit({self.permit_number})"
 
+    def all_assets(self):
+        if getattr(self, "asset_id", None):
+            return Asset.objects.filter(
+                Q(pk=self.asset_id) | Q(permit_links__permit=self)
+            ).distinct()
+        return Asset.objects.filter(permit_links__permit=self).distinct()
+
 
 class Plan(models.Model):
     """Planning document associated with an asset."""
 
-    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="plans")
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name="plans",
+        null=True,
+        blank=True,
+        help_text="(legacy) primary asset link",
+    )
+    assets = models.ManyToManyField(
+        'Asset',
+        through='AssetPlan',
+        related_name='plans_m2m'
+    )
     plan_number = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=50, blank=True)
@@ -1267,6 +1379,13 @@ class Plan(models.Model):
 
     def __str__(self):
         return f"Plan({self.plan_number})"
+
+    def all_assets(self):
+        if getattr(self, "asset_id", None):
+            return Asset.objects.filter(
+                Q(pk=self.asset_id) | Q(plan_links__plan=self)
+            ).distinct()
+        return Asset.objects.filter(plan_links__plan=self).distinct()
 
 
 class ShareToken(models.Model):
@@ -1457,3 +1576,63 @@ class ConsultationRequest(models.Model):
 
     def __str__(self):
         return f"ConsultationRequest({self.id}, {self.email})"
+
+
+class AssetDocument(models.Model):
+    document = models.ForeignKey('Document', on_delete=models.CASCADE, related_name='asset_links')
+    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='document_links')
+    role = models.CharField(max_length=50, blank=True, null=True)
+    match_score = models.FloatField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('document', 'asset')]
+        indexes = [models.Index(fields=['asset']), models.Index(fields=['document'])]
+
+
+class AssetTransaction(models.Model):
+    transaction = models.ForeignKey('RealEstateTransaction', on_delete=models.CASCADE, related_name='asset_links')
+    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='transaction_links')
+    role = models.CharField(max_length=50, blank=True, null=True)
+    match_score = models.FloatField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('transaction', 'asset')]
+        indexes = [models.Index(fields=['asset']), models.Index(fields=['transaction'])]
+
+
+class AssetListing(models.Model):
+    listing = models.ForeignKey('Listing', on_delete=models.CASCADE, related_name='asset_links')
+    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='listing_links')
+    role = models.CharField(max_length=50, blank=True, null=True)
+    match_score = models.FloatField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('listing', 'asset')]
+        indexes = [models.Index(fields=['asset']), models.Index(fields=['listing'])]
+
+
+class AssetPermit(models.Model):
+    permit = models.ForeignKey('Permit', on_delete=models.CASCADE, related_name='asset_links')
+    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='permit_links')
+    role = models.CharField(max_length=50, blank=True, null=True)
+    match_score = models.FloatField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('permit', 'asset')]
+        indexes = [models.Index(fields=['asset']), models.Index(fields=['permit'])]
+
+
+class AssetPlan(models.Model):
+    plan = models.ForeignKey('Plan', on_delete=models.CASCADE, related_name='asset_links')
+    asset = models.ForeignKey('Asset', on_delete=models.CASCADE, related_name='plan_links')
+    role = models.CharField(max_length=50, blank=True, null=True)
+    match_score = models.FloatField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('plan', 'asset')]
+        indexes = [models.Index(fields=['asset']), models.Index(fields=['plan'])]

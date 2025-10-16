@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
-import TableToolbar from './TableToolbar'
+import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from './TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import ImageGallery from './ImageGallery'
 
@@ -553,14 +553,15 @@ export default function AssetsTable({
 
   const additionalFilters = React.useMemo(() => {
     if (!filters) return []
-    const items: Array<{ key: string; label: string; value: string; options?: Array<{ value: string; label: string; count?: number }> }> = []
+    const items: AdditionalFilterConfig[] = []
 
     if (filters.neighborhood) {
       items.push({
         key: 'neighborhood',
         label: 'שכונה',
+        type: 'select',
         value: filters.neighborhood.value,
-        options: filters.neighborhood.options.map(option => ({ value: option, label: option }))
+        options: (filters.neighborhood.options || []).map(option => ({ value: option, label: option }))
       })
     }
 
@@ -568,8 +569,9 @@ export default function AssetsTable({
       items.push({
         key: 'zoning',
         label: 'ייעוד',
+        type: 'select',
         value: filters.zoning.value,
-        options: filters.zoning.options.map(option => ({ value: option, label: option }))
+        options: (filters.zoning.options || []).map(option => ({ value: option, label: option }))
       })
     }
 
@@ -577,8 +579,9 @@ export default function AssetsTable({
       items.push({
         key: 'risk',
         label: 'סיכון',
+        type: 'select',
         value: filters.risk.value,
-        options: filters.risk.options.map(option => ({ value: option.value, label: option.label }))
+        options: (filters.risk.options || []).map(option => ({ value: option.value, label: option.label }))
       })
     }
 
@@ -586,8 +589,9 @@ export default function AssetsTable({
       items.push({
         key: 'documents',
         label: 'מסמכים',
+        type: 'select',
         value: filters.documents.value,
-        options: filters.documents.options.map(option => ({ value: option.value, label: option.label }))
+        options: (filters.documents.options || []).map(option => ({ value: option.value, label: option.label }))
       })
     }
 
@@ -595,8 +599,9 @@ export default function AssetsTable({
       items.push({
         key: 'rentalSale',
         label: 'השכרה/מכירה',
+        type: 'select',
         value: filters.rentalSale.value,
-        options: filters.rentalSale.options.map(option => ({ value: option.value, label: option.label }))
+        options: (filters.rentalSale.options || []).map(option => ({ value: option.value, label: option.label }))
       })
     }
 
@@ -604,8 +609,9 @@ export default function AssetsTable({
       items.push({
         key: 'userAssets',
         label: 'נכסים שלי',
+        type: 'select',
         value: filters.userAssets.value,
-        options: filters.userAssets.options.map(option => ({ value: option.value, label: option.label }))
+        options: (filters.userAssets.options || []).map(option => ({ value: option.value, label: option.label }))
       })
     }
 
@@ -613,8 +619,9 @@ export default function AssetsTable({
       items.push({
         key: 'buildingType',
         label: 'סוג בניין',
+        type: 'select',
         value: filters.buildingType.value,
-        options: filters.buildingType.options.map(option => ({ value: option, label: option }))
+        options: (filters.buildingType.options || []).map(option => ({ value: option, label: option }))
       })
     }
 
@@ -622,8 +629,9 @@ export default function AssetsTable({
       items.push({
         key: 'rooms',
         label: 'חדרים',
+        type: 'select',
         value: filters.rooms.value,
-        options: filters.rooms.options.map(option => ({ value: option.value, label: option.label }))
+        options: (filters.rooms.options || []).map(option => ({ value: option.value, label: option.label }))
       })
     }
 
@@ -631,8 +639,9 @@ export default function AssetsTable({
       items.push({
         key: 'features',
         label: 'תכונות',
+        type: 'select',
         value: filters.features.value,
-        options: filters.features.options.map(option => ({ value: option.value, label: option.label }))
+        options: (filters.features.options || []).map(option => ({ value: option.value, label: option.label }))
       })
     }
 
@@ -640,8 +649,9 @@ export default function AssetsTable({
       items.push({
         key: 'block',
         label: 'גוש',
+        type: 'select',
         value: filters.block.value,
-        options: filters.block.options.map(option => ({ value: option, label: option }))
+        options: (filters.block.options || []).map(option => ({ value: option, label: option }))
       })
     }
 
@@ -649,15 +659,19 @@ export default function AssetsTable({
       items.push({
         key: 'parcel',
         label: 'חלקה',
+        type: 'select',
         value: filters.parcel.value,
-        options: filters.parcel.options.map(option => ({ value: option, label: option }))
+        options: (filters.parcel.options || []).map(option => ({ value: option, label: option }))
       })
     }
 
     return items
   }, [filters])
 
-  const handleAdditionalFilterChange = React.useCallback((key: string, value: string) => {
+  const handleAdditionalFilterChange = React.useCallback((key: string, value: AdditionalFilterValue) => {
+    if (typeof value !== 'string') {
+      return
+    }
     if (!filters) return
     const track = (filterType: string, filterValue: string) => {
       trackFeatureUsage('filter', undefined, { filter_type: filterType, value: filterValue })

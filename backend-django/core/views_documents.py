@@ -1,7 +1,9 @@
 import logging
+from typing import Any, Dict, List, Optional
 from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
 from django.utils import timezone
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -12,6 +14,7 @@ from rest_framework.views import APIView
 from .models import Asset, Document
 from .serializers import DocumentSerializer, DocumentUploadSerializer, DocumentListSerializer
 from .storage import document_storage
+from .services.asset_links import asset_documents_all
 
 try:
     from utils.parse_tabu import TabuParser
@@ -143,7 +146,7 @@ class DocumentListView(APIView):
                 )
             
             # Get documents
-            documents = asset.documents.all()
+            documents = asset_documents_all(asset)
             serializer = DocumentListSerializer(documents, many=True)
             
             return Response(serializer.data)
@@ -177,7 +180,10 @@ class AssetRightsView(APIView):
             }
 
             # 1. Get Tabu data from uploaded documents (use most recent document only to avoid duplicates)
-            documents = asset.documents.filter(document_type='tabu').order_by('-uploaded_at')
+            documents = Document.objects.filter(
+                (Q(asset=asset) | Q(assets=asset)),
+                document_type='tabu'
+            ).distinct().order_by('-uploaded_at')
             if documents.exists():
                 # Use only the most recent Tabu document to avoid duplicates
                 document = documents.first()
@@ -414,10 +420,22 @@ class AssetRightsView(APIView):
         # Get privilege page data for detailed calculations
         privilege_data_list = meta.get('privilege_page_data')
         logger.debug(f"Privilege data type: {type(privilege_data_list)}")
-        if privilege_data_list:
-            # Use the privilege page data directly
+
+        privilege_data = None
+        if isinstance(privilege_data_list, dict):
             privilege_data = privilege_data_list
-            logger.debug(f"Privilege data keys: {list(privilege_data.keys()) if isinstance(privilege_data, dict) else 'Not a dict'}")
+        elif isinstance(privilege_data_list, list):
+            privilege_data = next(
+                (
+                    item
+                    for item in privilege_data_list
+                    if isinstance(item, dict) and (item.get('rights') or item.get('rights_details'))
+                ),
+                None,
+            )
+
+        if privilege_data:
+            logger.debug(f"Privilege data keys: {list(privilege_data.keys())}")
             
             if isinstance(privilege_data, dict) and ('rights' in privilege_data or 'rights_details' in privilege_data):
                 rights = privilege_data.get('rights') or privilege_data.get('rights_details', {})
@@ -432,10 +450,44 @@ class AssetRightsView(APIView):
                 parking_req = rights.get('parking_requirements', [])
                 
                 # Calculate total building privilege (use maximum values as they represent allowed building)
-                total_building_privilege = 0
-                if max_values:
-                    # Sum up all maximum values for total building rights
-                    total_building_privilege = sum([float(mv.get('value', 0)) for mv in max_values if mv.get('value')])
+                def _is_area_entry(entry: Dict[str, Any]) -> bool:
+                    entry_type = str(entry.get('type', '')).lower()
+                    raw_text = entry.get('raw_text') or ''
+                    unit = str(entry.get('unit', '')).lower()
+
+                    if entry_type in ('percentage', 'floors', 'dwelling_units', 'parking'):
+                        return False
+                    if entry_type in ('building_area', 'auxiliary_building_area'):
+                        return True
+                    raw_text_lower = raw_text.lower() if isinstance(raw_text, str) else ''
+                    non_area_markers = ['תיסופיט', 'הינש', 'תומוקרפסמ', 'יחידות', 'דירות']
+                    if any(marker in raw_text for marker in non_area_markers) or any(marker in raw_text_lower for marker in non_area_markers):
+                        return False
+                    area_keywords = ["מ\"ר", "מ״ר", "ר\"מ", "ר״מ", "שטח", "חטש", "בנייה", "בניה"]
+                    unit_area_markers = ["מ\"ר", "מ״ר", "sqm", "m2", "sq m"]
+                    return any(kw in raw_text for kw in area_keywords) or any(kw in unit for kw in unit_area_markers)
+
+                area_values = []
+                for mv in max_values or []:
+                    if not mv or mv.get('value') is None:
+                        continue
+                    if not _is_area_entry(mv):
+                        continue
+                    try:
+                        area_values.append(float(mv.get('value')))
+                    except (TypeError, ValueError):
+                        continue
+
+                total_building_privilege = sum(area_values)
+                if not total_building_privilege:
+                    main_rights = meta.get('mainRightsSqm')
+                    if isinstance(main_rights, dict):
+                        try:
+                            total_building_privilege = float(main_rights.get('value') or 0)
+                        except (TypeError, ValueError):
+                            total_building_privilege = 0
+                    elif isinstance(main_rights, (int, float)):
+                        total_building_privilege = float(main_rights)
                 
                 # Calculate floor-specific privileges
                 floor_privileges = {}
@@ -1253,12 +1305,22 @@ class DocumentDetailView(APIView):
         """Get document details."""
         try:
             # Get document
-            document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
-            
-            # Check permissions
-            if not (document.asset.created_by == request.user or request.user.is_staff):
+            document = get_object_or_404(
+                Document.objects.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct(),
+                id=document_id,
+            )
+
+            linked_assets = list(document.all_assets())
+            if not (
+                request.user.is_staff
+                or any(
+                    getattr(asset, 'created_by', None) == request.user for asset in linked_assets if asset
+                )
+            ):
                 return Response(
-                    {'error': 'Permission denied'}, 
+                    {'error': 'Permission denied'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             
@@ -1276,12 +1338,22 @@ class DocumentDetailView(APIView):
         """Update document metadata."""
         try:
             # Get document
-            document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
-            
-            # Check permissions
-            if not (document.asset.created_by == request.user or request.user.is_staff):
+            document = get_object_or_404(
+                Document.objects.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct(),
+                id=document_id,
+            )
+
+            linked_assets = list(document.all_assets())
+            if not (
+                request.user.is_staff
+                or any(
+                    getattr(asset, 'created_by', None) == request.user for asset in linked_assets if asset
+                )
+            ):
                 return Response(
-                    {'error': 'Permission denied'}, 
+                    {'error': 'Permission denied'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             
@@ -1304,12 +1376,22 @@ class DocumentDetailView(APIView):
         """Delete document."""
         try:
             # Get document
-            document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
-            
-            # Check permissions
-            if not (document.asset.created_by == request.user or request.user.is_staff):
+            document = get_object_or_404(
+                Document.objects.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct(),
+                id=document_id,
+            )
+
+            linked_assets = list(document.all_assets())
+            if not (
+                request.user.is_staff
+                or any(
+                    getattr(asset, 'created_by', None) == request.user for asset in linked_assets if asset
+                )
+            ):
                 return Response(
-                    {'error': 'Permission denied'}, 
+                    {'error': 'Permission denied'},
                     status=status.HTTP_403_FORBIDDEN
                 )
             
@@ -1337,10 +1419,20 @@ class DocumentDownloadView(APIView):
         """Download a document file."""
         try:
             # Get document
-            document = get_object_or_404(Document, id=document_id, asset_id=asset_id)
-            
-            # Check permissions
-            if not (document.asset.created_by == request.user or request.user.is_staff):
+            document = get_object_or_404(
+                Document.objects.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct(),
+                id=document_id,
+            )
+
+            linked_assets = list(document.all_assets())
+            if not (
+                request.user.is_staff
+                or any(
+                    getattr(asset, 'created_by', None) == request.user for asset in linked_assets if asset
+                )
+            ):
                 return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
             
             # Check if file exists
@@ -1404,7 +1496,7 @@ def create_document_from_meta(request, asset_id):
         for doc_data in documents:
             # Skip if already exists as Document record
             if Document.objects.filter(
-                asset=asset, 
+                (Q(asset=asset) | Q(assets=asset)),
                 external_id=doc_data.get('id')
             ).exists():
                 continue
@@ -1547,5 +1639,3 @@ def _update_asset_areas_from_tabu(asset, tabu_rows):
             
     except Exception as e:
         logger.error(f"Error updating asset {asset.id} area fields from Tabu: {e}")
-
-

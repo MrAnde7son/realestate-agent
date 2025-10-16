@@ -10,7 +10,14 @@ export async function GET(
 ) {
   try {
     const assetId = params.id
-    const token = cookies().get('access_token')?.value
+    let token = cookies().get('access_token')?.value
+
+    if (!token) {
+      const authHeader = request.headers.get('authorization')
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7)
+      }
+    }
     
     console.log('🔍 Listings API - Request received:', {
       assetId,
@@ -25,11 +32,15 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized - Token expired or invalid' }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const queryString = searchParams.toString()
+
     // Make request to Django backend
-    const backendUrl = `${BACKEND_URL}/api/assets/${assetId}/listings/`
+    const backendUrl = `${BACKEND_URL}/api/assets/${assetId}/listings/${queryString ? `?${queryString}` : ''}`
     
     console.log('🔍 Listings API - Backend request:', {
       backendUrl,
+      query: queryString,
       assetId,
       hasToken: !!token
     })

@@ -25,21 +25,21 @@ const badgeSizes = {
   lg: 'px-4 py-2 text-base',
 }
 
-export function Badge({ 
-  className, 
-  variant = 'default', 
-  size = 'md',
-  ...props 
-}: BadgeProps) {
-  return (
-    <div
-      className={cn(
-        'inline-flex items-center rounded-full font-medium',
-        badgeVariants[variant],
-        badgeSizes[size],
-        className
-      )}
-      {...props}
-    />
-  )
-}
+export const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
+  ({ className, variant = 'default', size = 'md', ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          'inline-flex items-center rounded-full font-medium',
+          badgeVariants[variant],
+          badgeSizes[size],
+          className
+        )}
+        {...props}
+      />
+    )
+  }
+)
+
+Badge.displayName = 'Badge'

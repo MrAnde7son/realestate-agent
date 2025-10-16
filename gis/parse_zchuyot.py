@@ -41,6 +41,18 @@ class TextNormalizer:
     """Utility class for text normalization operations."""
     WS = re.compile(r"[ \t\u200e\u200f]+")
     MULTI_NL = re.compile(r"\n{2,}")
+    HEBREW_KEYWORDS = [
+        "התראות",
+        "תכניות",
+        "תוכנית",
+        "תאריך",
+        "כתובת",
+        "שטח",
+        "חלקה",
+        "גוש",
+        "זכויות",
+    ]
+    HEBREW_PUNCTUATION = {"'", '"', "`", "״", "׳", "’", "‘", "־", "-", "–", "—"}
 
     @classmethod
     def normalize(cls, text: str) -> str:
@@ -55,6 +67,59 @@ class TextNormalizer:
     def normalize_multiline(cls, text: str) -> str:
         """Normalize multiline text by reducing multiple newlines."""
         return cls.MULTI_NL.sub("\n", text)
+
+    @classmethod
+    def reverse_hebrew_segments(cls, text: str) -> str:
+        """Reverse contiguous Hebrew letter segments to correct bidi extraction issues."""
+        if not text:
+            return text
+
+        def is_hebrew_char(ch: str) -> bool:
+            return "\u0590" <= ch <= "\u05ff"
+
+        result: List[str] = []
+        buffer: List[str] = []
+
+        def flush() -> None:
+            if buffer:
+                result.append("".join(reversed(buffer)))
+                buffer.clear()
+
+        for ch in text:
+            if is_hebrew_char(ch) or ch in cls.HEBREW_PUNCTUATION:
+                buffer.append(ch)
+            else:
+                flush()
+                result.append(ch)
+        flush()
+        return "".join(result)
+
+    @classmethod
+    def needs_bidi_fix(cls, text: str) -> bool:
+        """Heuristic to detect if extracted text has reversed Hebrew segments."""
+        if not text:
+            return False
+
+        # If any canonical keyword is present in normal order, assume OK.
+        if any(keyword in text for keyword in cls.HEBREW_KEYWORDS):
+            return False
+
+        # Check if reversed variants of the keywords appear instead.
+        for keyword in cls.HEBREW_KEYWORDS:
+            reversed_kw = cls.reverse_hebrew_segments(keyword)
+            if reversed_kw and reversed_kw in text:
+                return True
+        return False
+
+    @classmethod
+    def fix_bidi_text(cls, text: str) -> str:
+        """Fix reversed Hebrew segments across multiline text."""
+        if not text:
+            return text
+        fixed_lines = []
+        for line in text.splitlines():
+            fixed_lines.append(cls.reverse_hebrew_segments(line))
+        return "\n".join(fixed_lines)
 
 
 class DateParser:
@@ -146,16 +211,16 @@ class SectionSplitter:
     """Handles splitting of document into sections."""
     SECTION_MARKERS = [
         ("alerts",       r"\nהתראות\b"),
-        ("plans_local",  r"\nבתוקף\s+מקומיות\s+תכניות\b"),
-        ("plans_city",   r"\nבתוקף\s+עירוניות\s+כלל\b"),
-        ("plans_natreg", r"\nבתוקף\s+ומחוזיות\s+ארציות\s+מתאר\s+תכניות\b"),
-        ("plans_arch",   r"\nארכיטקטוני\s+ועיצוב\s+בינוי\s+תוכניות\b"),
-        ("in_planning_city", r"\nבתכנון\s+עירוניות\s+כלל\b"),
-        ("in_planning_natreg", r"\nבתכנון\s+ומחוזיות\s+ארציות\s+מתאר\s+תכניות\b"),
-        ("policy",       r"\nמדיניות\s+תכנונית\b"),
-        ("land_use",     r"\nקרקע\s+יעוד\b"),
-        ("rights",       r"\nפירוט\s+זכויות\b"),
-        ("permit_terms", r"\nבניה\s+היתר\s+למתן\s+תנאי\b"),
+        ("plans_local",  r"\n(?:תכניות|תוכניות)\s*מקומיות\s*בתוקף"),
+        ("plans_city",   r"\n(?:תכניות|תוכניות)?\s*כלל\s*עירוניות\s*בתוקף"),
+        ("plans_natreg", r"\n(?:תכניות|תוכניות)\s*מתאר\s*ארציות\s*ומחוזיות\s*בתוקף"),
+        ("plans_arch",   r"\n(?:תכניות|תוכניות)\s*בינוי\s*ועיצוב\s*ארכיטקטוני"),
+        ("in_planning_city", r"\n(?:תכניות|תוכניות)\s*(?:כלל\s*עירוניות|כללעירוניות)?\s*בתכנון"),
+        ("in_planning_natreg", r"\n(?:תכניות|תוכניות)\s*מתאר\s*(?:ארציות\s*ומחוזיות|ארציותומחוזיות)\s*בתכנון"),
+        ("policy",       r"\nמדיניות\s*תכנונית\b"),
+        ("land_use",     r"\nיעוד\s*קרקע\b"),
+        ("rights",       r"\nפירוט\s*זכויות\b"),
+        ("permit_terms", r"\nתנאי\s*למתן\s*היתר\s*בניה\b"),
         ("links",        r"\nhttps?://"),
     ]
 
@@ -203,15 +268,27 @@ class HeaderParser:
         header["address"] = addr or None
 
         # גוש/חלקה
-        block = PatternMatcher.find_first([r"גוש\s*[:\-]?\s*(\d{1,6})"], text)
-        parcel = PatternMatcher.find_first([r"חלקה\s*[:\-]?\s*(\d{1,6})"], text)
+        block = PatternMatcher.find_first(
+            [
+                r"(\d{1,6})\s*[:\-]?\s*גוש",
+                r"גוש\s*[:\-]?\s*(\d{1,6})",
+            ],
+            text,
+        )
+        parcel = PatternMatcher.find_first(
+            [
+                r"חלקה\s*[:\-]?\s*(\d{1,6})",
+                r"(\d{1,6})\s*[:\-]?\s*חלקה",
+            ],
+            text,
+        )
         header["block"] = PatternMatcher.safe_int(block)
         header["parcel"] = PatternMatcher.safe_int(parcel)
 
         # שטח חלקה/מגרש (try a couple of variants)
         area = PatternMatcher.find_first(
             [
-                r"(?:שטח\s*(?:מגרש|חלקה|לחישוב|מר')\s*[:\- ]*)([\d,\.]+)",
+                r"(?:שטח\s*(?:לחישוב|מר')\s*[:\- ]*)([\d,\.]+)",
                 r"שטח\s*(?:מגרש|חלקה)\s*[:\- ]*([\d,\.]+)\s*(?:מ[\"״']?ר)?",
             ],
             text,
@@ -250,34 +327,107 @@ class PlansParser:
 
     def parse_plans_block(self, text: str) -> List[Dict[str, Any]]:
         lines = [TextNormalizer.normalize(line) for line in text.splitlines() if TextNormalizer.normalize(line)]
-        plans = []
-        for line in lines:
-            p = self._parse_plan_line(line)
-            if p:
-                plans.append(p)
+        plans: List[Dict[str, Any]] = []
+        pending_lead: List[str] = []
+        current_plan: Optional[Dict[str, Any]] = None
+        current_trailing: List[str] = []
+        plan_line_regex = re.compile(r"^\d{3,6}\b")
+        date_leading_regex = re.compile(r"^(?:\d{1,2}/){2}\d{4}")
+
+        def finalize_trailing() -> None:
+            nonlocal current_plan, current_trailing
+            if current_plan and current_trailing:
+                current_plan["name"] = self._merge_name_parts(current_plan.get("name"), current_trailing)
+                current_trailing = []
+
+        for raw_line in lines:
+            line = raw_line.strip()
+            if not line or self._is_header_line(line):
+                continue
+
+            if plan_line_regex.match(line) or date_leading_regex.match(line):
+                finalize_trailing()
+                tokens = line.split()
+                if len(tokens) < 1:
+                    continue
+
+                yalkut_number = tokens[0]
+                date_strings = re.findall(self.DATE_PATTERN, line)
+                if not date_strings:
+                    pending_lead.append(line)
+                    current_plan = None
+                    current_trailing = []
+                    continue
+                deposit = DateParser.try_parse_date(date_strings[0]) if date_strings else None
+                effective = DateParser.try_parse_date(date_strings[1]) if len(date_strings) > 1 else deposit
+
+                plan_number_token = tokens[-1] if len(tokens) > 1 else ""
+
+                body_tokens = tokens[1:-1] if len(tokens) > 2 else tokens[1:]
+                body_tokens = [
+                    token for token in body_tokens
+                    if not re.fullmatch(self.DATE_PATTERN, token)
+                ]
+
+                name_parts = pending_lead + body_tokens
+                pending_lead = []
+
+                plan_data: Dict[str, Any] = {
+                    "plan_number": self._normalize_plan_number(plan_number_token),
+                    "name": self._merge_name_parts(None, name_parts),
+                    "deposit_date": deposit,
+                    "effective_date": effective,
+                }
+                if not plan_data.get("name"):
+                    plan_data["name"] = plan_data.get("plan_number") or ""
+
+                plans.append(plan_data)
+                current_plan = plan_data
+                current_trailing = []
+            else:
+                if current_plan:
+                    current_trailing.append(line)
+                else:
+                    pending_lead.append(line)
+
+        finalize_trailing()
         return self._dedupe_plans(plans)
 
-    def _parse_plan_line(self, line: str) -> Optional[Dict[str, Any]]:
-        mnum = re.search(r"((?:\d{3,6}(?:/\d+)*)(?:/[א-ת]\d*)?(?:/\d+)*)", line)
-        if not mnum:
-            return None
-        plan_number = mnum.group(1)
-
-        dates = re.findall(self.DATE_PATTERN, line)
-        deposit = DateParser.try_parse_date(dates[0]) if dates else None
-        effective = DateParser.try_parse_date(dates[1]) if len(dates) > 1 else None
-
-        name = line.replace(plan_number, "").strip()
-        for d in dates:
-            name = name.replace(d, "").strip()
-        name = re.sub(r"(?:תוכנית|שם|הפקדה|מתן|תוקף|ילקוט`?מס|פרסומים|מס`?)", "", name).strip(" -:;,")
-
-        return {
-            "plan_number": plan_number or None,
-            "name": name or None,
-            "deposit_date": deposit,
-            "effective_date": effective,
+    def _is_header_line(self, line: str) -> bool:
+        header_keywords = {
+            "מס`ילקוט", "מס` תוכנית", "מס`", "שםתוכנית", "שם תוכנית",
+            "תאריךמתן", "תאריך מתן", "תאריךהפקדה", "תאריך הפקדה",
+            "תאריךאישור", "תאריך אישור",
+            "פירסומים", "פרסומים", "מספרמקוון", "מספר מקוון",
+            "תכניותמקומיותבתוקף", "תכניות מקומיות בתוקף",
+            "תכניותכללעירוניותבתוקף", "תכניות כלל עירוניות בתוקף",
+            "כללעירוניותבתוקף", "כלל עירוניות בתוקף",
+            "תכניותמתארארציותומחוזיותבתוקף", "תכניות מתאר ארציות ומחוזיות בתוקף",
+            "תכניותכללעירוניותבתכנון", "תכניות כלל עירוניות בתכנון",
+            "תכניותמתארארציותומחוזיותבתכנון", "תכניות מתאר ארציות ומחוזיות בתכנון"
         }
+        return any(keyword in line for keyword in header_keywords)
+
+    def _normalize_plan_number(self, value: str) -> Optional[str]:
+        if not value:
+            return None
+        value = value.strip()
+        m = re.match(r"^(\d+)([א-ת])$", value)
+        if m:
+            return f"{m.group(2)}{m.group(1)}"
+        return value
+
+    def _merge_name_parts(self, base: Optional[str], parts: List[str]) -> Optional[str]:
+        segments: List[str] = []
+        if base:
+            segments.append(base.strip())
+        for part in parts:
+            clean = part.strip(" -:,;")
+            if clean:
+                segments.append(clean)
+        if not segments:
+            return None
+        return " ".join(segments)
 
     def _dedupe_plans(self, plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         seen = set()
@@ -449,15 +599,21 @@ class RightsParser:
             r"(\d+)\s*(םומינימ|םומיסקמ)",
             r"(\d+)\s*(םינימום|םקסימום)",
         ]
+        if any(k in line for k in ["/", "תיסופיט", "הינש"]):
+            return
         for pat in pats:
             m = re.search(pat, line)
             if m:
                 value = int(m.group(1))
                 kind = m.group(2)
+                entry: Dict[str, Any] = {"value": value, "raw_text": line}
+                entry_type = self._classify_minmax_entry(line)
+                if entry_type:
+                    entry["type"] = entry_type
                 if kind in ["מינימום", "םומינימ", "םינימום"]:
-                    rights.setdefault("minimum_values", []).append({"value": value, "raw_text": line})
+                    rights.setdefault("minimum_values", []).append(entry)
                 elif kind in ["מקסימום", "םומיסקמ", "םקסימום"]:
-                    rights.setdefault("maximum_values", []).append({"value": value, "raw_text": line})
+                    rights.setdefault("maximum_values", []).append(entry)
                 break
 
     def _parse_dwelling_units(self, line: str, rights: Dict[str, Any]) -> None:
@@ -513,9 +669,50 @@ class RightsParser:
                 break
 
     def _parse_auxiliary_building(self, line: str, rights: Dict[str, Any]) -> None:
+        if "/" in line:
+            return
         m = re.search(r"(\d+)\s*רזעהנבמ", line)
         if m:
             rights["auxiliary_building_area"] = int(m.group(1))
+
+    def _classify_minmax_entry(self, line: str) -> Optional[str]:
+        """Classify min/max entries to help downstream aggregation."""
+        if not line:
+            return None
+        text = line.replace(" ", "")
+        lower = line.lower()
+
+        floors_keywords = ["מספרקומות", "תומוקרפסמ", "קומות", "קומה", "תיספקומ"]
+        for kw in floors_keywords:
+            if kw in text:
+                return "floors"
+
+        dwelling_keywords = ["יחידותדיור", "דיור", "דירות", "יחידות"]
+        for kw in dwelling_keywords:
+            if kw in text:
+                return "dwelling_units"
+
+        parking_keywords = ["חניה", "הינח", "חני", "חניות"]
+        for kw in parking_keywords:
+            if kw in line:
+                return "parking"
+
+        auxiliary_keywords = ["מבנהעזר", "רזעהנבמ"]
+        for kw in auxiliary_keywords:
+            if kw in text:
+                return "auxiliary_building_area"
+
+        percent_keywords = ["%", "אחוז", "זחוא", "percent"]
+        for kw in percent_keywords:
+            if kw in line or kw in lower:
+                return "percentage"
+
+        area_keywords = ["מ\"ר", "מ״ר", "ר\"מ", "ר״מ", "שטח", "חטש", "בנייה", "בניה"]
+        for kw in area_keywords:
+            if kw in line or kw in text or kw in lower:
+                return "building_area"
+
+        return None
 
 
 # ---------- HTML dropdown parser ----------
@@ -613,6 +810,10 @@ class ZchuyotParser:
     def parse(self, pdf_path: str) -> Dict[str, Any]:
         text = self.text_extractor.extract_text(pdf_path)
         text = TextNormalizer.normalize(text)
+        if TextNormalizer.needs_bidi_fix(text):
+            text = TextNormalizer.fix_bidi_text(text)
+            text = TextNormalizer.normalize_multiline(text)
+            text = TextNormalizer.normalize(text)
 
         # basic header
         basic_info = self.header_parser.parse(text)

@@ -41,6 +41,11 @@ import {
 } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
+export type AdditionalFilterValue =
+  | string
+  | { min?: number; max?: number }
+  | { from?: string; to?: string };
+
 interface FilterOptionOption {
   value: string;
   label: string;
@@ -54,50 +59,91 @@ interface FilterOption {
   options?: FilterOptionOption[];
 }
 
+interface BaseAdditionalFilter {
+  key: string;
+  label: string;
+  analyticsKey?: string;
+}
+
+interface SelectAdditionalFilter extends BaseAdditionalFilter {
+  type?: 'select';
+  value: string;
+  options: FilterOptionOption[];
+  defaultValue?: string;
+  placeholder?: string;
+  showAllOption?: boolean;
+}
+
+interface TextAdditionalFilter extends BaseAdditionalFilter {
+  type: 'text';
+  value: string;
+  placeholder?: string;
+  defaultValue?: string;
+}
+
+interface NumberRangeAdditionalFilter extends BaseAdditionalFilter {
+  type: 'number-range';
+  value: { min?: number; max?: number };
+  defaultValue?: { min?: number; max?: number };
+  minPlaceholder?: string;
+  maxPlaceholder?: string;
+  step?: number;
+}
+
+interface DateRangeAdditionalFilter extends BaseAdditionalFilter {
+  type: 'date-range';
+  value: { from?: string; to?: string };
+  defaultValue?: { from?: string; to?: string };
+  fromPlaceholder?: string;
+  toPlaceholder?: string;
+}
+
+export type AdditionalFilterConfig =
+  | SelectAdditionalFilter
+  | TextAdditionalFilter
+  | NumberRangeAdditionalFilter
+  | DateRangeAdditionalFilter;
+
+interface SelectFilterConfig {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  label?: string;
+  placeholder?: string;
+  allLabel?: string;
+  showAllOption?: boolean;
+  alwaysVisible?: boolean;
+  analyticsKey?: string;
+}
+
+interface NumericFilterConfig {
+  value: number | undefined;
+  onChange: (value: number | undefined) => void;
+  label?: string;
+  placeholder?: string;
+  analyticsKey?: string;
+}
+
+interface TableToolbarFilters {
+  city?: SelectFilterConfig;
+  type?: SelectFilterConfig;
+  priceMin?: NumericFilterConfig;
+  priceMax?: NumericFilterConfig;
+  pricePerSqmMin?: NumericFilterConfig;
+  pricePerSqmMax?: NumericFilterConfig;
+  remainingRightsMin?: NumericFilterConfig;
+  remainingRightsMax?: NumericFilterConfig;
+}
+
 interface TableToolbarProps {
   // Search
   searchValue: string;
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
-  
+
   // Filters
-  filters: {
-    city: {
-      value: string;
-      onChange: (value: string) => void;
-      options: string[];
-    };
-    type: {
-      value: string;
-      onChange: (value: string) => void;
-      options: string[];
-    };
-    priceMin: {
-      value: number | undefined;
-      onChange: (value: number | undefined) => void;
-    };
-    priceMax: {
-      value: number | undefined;
-      onChange: (value: number | undefined) => void;
-    };
-    pricePerSqmMin?: {
-      value: number | undefined;
-      onChange: (value: number | undefined) => void;
-    };
-    pricePerSqmMax?: {
-      value: number | undefined;
-      onChange: (value: number | undefined) => void;
-    };
-    remainingRightsMin?: {
-      value: number | undefined;
-      onChange: (value: number | undefined) => void;
-    };
-    remainingRightsMax?: {
-      value: number | undefined;
-      onChange: (value: number | undefined) => void;
-    };
-  };
-  
+  filters?: TableToolbarFilters;
+
   // Column visibility
   columns: Array<{
     id: string;
@@ -105,26 +151,26 @@ interface TableToolbarProps {
     visible: boolean;
     toggle: (value: boolean) => void;
   }>;
-  
+
   // Export
   onExportSelected: () => void;
   onExportAll: () => void;
   selectedCount: number;
   totalCount: number;
-  
+
   // View mode
   viewMode: 'table' | 'cards' | 'map';
   onViewModeChange: (mode: 'table' | 'cards' | 'map') => void;
-  
+
   // Actions
   onRefresh: () => void;
   onAddNew?: () => void;
   loading?: boolean;
-  
+
   // Additional filters
-  additionalFilters?: FilterOption[];
-  onAdditionalFilterChange?: (key: string, value: string) => void;
-  
+  additionalFilters?: AdditionalFilterConfig[];
+  onAdditionalFilterChange?: (key: string, value: AdditionalFilterValue) => void;
+
   // Bulk actions
   bulkActions?: Array<{
     label: string;
@@ -132,14 +178,14 @@ interface TableToolbarProps {
     icon?: React.ReactNode;
     disabled?: boolean;
   }>;
-  
+
   // Status filters
   statusFilters?: {
     value: string;
     onChange: (value: string) => void;
     options: Array<{ value: string; label: string; count?: number }>;
   };
-  
+
   // Date range filters
   dateRange?: {
     from: Date | undefined;
@@ -173,6 +219,14 @@ export default function TableToolbar({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const cityFilter = filters?.city;
+  const typeFilter = filters?.type;
+  const priceMinFilter = filters?.priceMin;
+  const priceMaxFilter = filters?.priceMax;
+  const pricePerSqmMinFilter = filters?.pricePerSqmMin;
+  const pricePerSqmMaxFilter = filters?.pricePerSqmMax;
+  const remainingRightsMinFilter = filters?.remainingRightsMin;
+  const remainingRightsMaxFilter = filters?.remainingRightsMax;
 
   // Handle hydration mismatch
   React.useEffect(() => {
@@ -183,37 +237,196 @@ export default function TableToolbar({
   const filteredColumns = columns.filter(column =>
     column.header.toLowerCase().includes(columnSearch.toLowerCase())
   );
+  const userAssetsFilter = additionalFilters.find(
+    (filter): filter is SelectAdditionalFilter =>
+      filter.key === 'userAssets' && (!filter.type || filter.type === 'select')
+  );
+
+  const additionalFiltersActive = additionalFilters?.some((filter) => {
+    if (filter.type === 'number-range') {
+      return filter.value.min !== undefined || filter.value.max !== undefined;
+    }
+    if (filter.type === 'date-range') {
+      return Boolean(filter.value.from) || Boolean(filter.value.to);
+    }
+    if (filter.type === 'text') {
+      return (filter.value ?? '').trim() !== (filter.defaultValue ?? '');
+    }
+    const defaultValue = filter.type === 'select' || filter.type === undefined
+      ? filter.defaultValue ?? 'all'
+      : undefined;
+    return filter.value !== defaultValue;
+  }) ?? false;
 
   const hasActiveFilters = 
-    filters.city.value !== 'all' ||
-    filters.type.value !== 'all' ||
-    filters.priceMin.value !== undefined ||
-    filters.priceMax.value !== undefined ||
-    (filters.pricePerSqmMin && filters.pricePerSqmMin.value !== undefined) ||
-    (filters.pricePerSqmMax && filters.pricePerSqmMax.value !== undefined) ||
-    (filters.remainingRightsMin && filters.remainingRightsMin.value !== undefined) ||
-    (filters.remainingRightsMax && filters.remainingRightsMax.value !== undefined) ||
-    additionalFilters.some(filter => filter.value !== 'all') ||
+    (cityFilter && cityFilter.value !== 'all') ||
+    (typeFilter && typeFilter.value !== 'all') ||
+    (priceMinFilter && priceMinFilter.value !== undefined) ||
+    (priceMaxFilter && priceMaxFilter.value !== undefined) ||
+    (pricePerSqmMinFilter && pricePerSqmMinFilter.value !== undefined) ||
+    (pricePerSqmMaxFilter && pricePerSqmMaxFilter.value !== undefined) ||
+    (remainingRightsMinFilter && remainingRightsMinFilter.value !== undefined) ||
+    (remainingRightsMaxFilter && remainingRightsMaxFilter.value !== undefined) ||
+    additionalFiltersActive ||
     (statusFilters && statusFilters.value !== 'all') ||
     (dateRange && (dateRange.from || dateRange.to)) ||
-    (additionalFilters.find(f => f.key === 'userAssets')?.value === 'mine');
+    (userAssetsFilter?.value === 'mine');
 
   const clearAllFilters = () => {
-    filters.city.onChange('all');
-    filters.type.onChange('all');
-    filters.priceMin.onChange(undefined);
-    filters.priceMax.onChange(undefined);
-    filters.pricePerSqmMin?.onChange(undefined);
-    filters.pricePerSqmMax?.onChange(undefined);
-    filters.remainingRightsMin?.onChange(undefined);
-    filters.remainingRightsMax?.onChange(undefined);
-    additionalFilters.forEach(filter => {
-      onAdditionalFilterChange?.(filter.key, 'all');
+    if (cityFilter) {
+      const nextValue = cityFilter.showAllOption === false ? (cityFilter.options[0] ?? '') : 'all';
+      cityFilter.onChange(nextValue);
+    }
+    if (typeFilter) {
+      const nextValue = typeFilter.showAllOption === false ? (typeFilter.options[0] ?? '') : 'all';
+      typeFilter.onChange(nextValue);
+    }
+    priceMinFilter?.onChange(undefined);
+    priceMaxFilter?.onChange(undefined);
+    pricePerSqmMinFilter?.onChange(undefined);
+    pricePerSqmMaxFilter?.onChange(undefined);
+    remainingRightsMinFilter?.onChange(undefined);
+    remainingRightsMaxFilter?.onChange(undefined);
+    additionalFilters?.forEach(filter => {
+      if (filter.type === 'number-range') {
+        onAdditionalFilterChange?.(filter.key, filter.defaultValue ?? { min: undefined, max: undefined });
+      } else if (filter.type === 'date-range') {
+        onAdditionalFilterChange?.(filter.key, filter.defaultValue ?? { from: undefined, to: undefined });
+      } else if (filter.type === 'text') {
+        onAdditionalFilterChange?.(filter.key, filter.defaultValue ?? '');
+      } else {
+        const defaultValue = filter.defaultValue ?? 'all';
+        onAdditionalFilterChange?.(filter.key, defaultValue);
+      }
     });
     // Track filter usage
     trackFeatureUsage('filter', undefined, { action: 'clear_all' });
     statusFilters?.onChange('all');
     dateRange?.onChange(undefined, undefined);
+  };
+
+  const renderAdditionalFilterControl = (filter: AdditionalFilterConfig) => {
+    const track = (metadata: Record<string, any>) =>
+      trackFeatureUsage('filter', undefined, {
+        filter_type: filter.analyticsKey ?? filter.key,
+        ...metadata,
+      });
+
+    if (filter.type === 'number-range') {
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">מינימום</Label>
+            <Input
+              type="number"
+              value={filter.value.min ?? ''}
+              placeholder={filter.minPlaceholder ?? ''}
+              step={filter.step}
+              onChange={(e) => {
+                const parsed = e.target.value ? Number(e.target.value) : undefined;
+                onAdditionalFilterChange?.(filter.key, { ...filter.value, min: parsed });
+                track({ value: parsed ?? 'clear', suffix: 'min' });
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">מקסימום</Label>
+            <Input
+              type="number"
+              value={filter.value.max ?? ''}
+              placeholder={filter.maxPlaceholder ?? ''}
+              step={filter.step}
+              onChange={(e) => {
+                const parsed = e.target.value ? Number(e.target.value) : undefined;
+                onAdditionalFilterChange?.(filter.key, { ...filter.value, max: parsed });
+                track({ value: parsed ?? 'clear', suffix: 'max' });
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (filter.type === 'date-range') {
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">מתאריך</Label>
+            <Input
+              type="date"
+              value={filter.value.from ?? ''}
+              placeholder={filter.fromPlaceholder}
+              onChange={(e) => {
+                const value = e.target.value || undefined;
+                onAdditionalFilterChange?.(filter.key, { ...filter.value, from: value });
+                track({ value: value ?? 'clear', suffix: 'from' });
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">עד תאריך</Label>
+            <Input
+              type="date"
+              value={filter.value.to ?? ''}
+              placeholder={filter.toPlaceholder}
+              onChange={(e) => {
+                const value = e.target.value || undefined;
+                onAdditionalFilterChange?.(filter.key, { ...filter.value, to: value });
+                track({ value: value ?? 'clear', suffix: 'to' });
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (filter.type === 'text') {
+      return (
+        <Input
+          value={filter.value}
+          placeholder={filter.placeholder}
+          onChange={(e) => {
+            const value = e.target.value;
+            onAdditionalFilterChange?.(filter.key, value);
+            track({ value });
+          }}
+        />
+      );
+    }
+
+    return (
+      <Select
+        value={filter.value}
+        onValueChange={(value) => {
+          onAdditionalFilterChange?.(filter.key, value);
+          track({ value });
+        }}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder={filter.placeholder ?? `בחר ${filter.label.toLowerCase()}`} />
+        </SelectTrigger>
+        <SelectContent>
+          {(() => {
+            const defaultValue = filter.defaultValue ?? 'all';
+            const hasDefaultOption = filter.options?.some((option) => option.value === defaultValue);
+            const shouldRenderDefault = filter.showAllOption ?? !hasDefaultOption;
+            return shouldRenderDefault ? (
+              <SelectItem value={defaultValue}>הכל</SelectItem>
+            ) : null;
+          })()}
+          {filter.options?.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              <span className="flex justify-between gap-2 rtl:flex-row-reverse">
+                <span>{option.label}</span>
+                {option.count !== undefined && (
+                  <span className="text-xs text-muted-foreground">{option.count}</span>
+                )}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
   };
 
   return (
@@ -247,7 +460,7 @@ export default function TableToolbar({
           </SheetTrigger>
             <SheetContent className="w-80" side="right">
               <SheetHeader>
-                <SheetTitle>סינון נכסים</SheetTitle>
+                <SheetTitle>אפשרויות סינון</SheetTitle>
               </SheetHeader>
               <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pr-2">
                 <div className="flex items-center justify-between rtl:flex-row-reverse">
@@ -265,12 +478,12 @@ export default function TableToolbar({
                 </div>
 
                 {/* My Assets Checkbox - Prominent at top */}
-                {additionalFilters.find(f => f.key === 'userAssets') && (
+                {userAssetsFilter && (
                   <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border rtl:flex-row-reverse rtl:space-x-reverse">
                     <input
                       type="checkbox"
                       id="my-assets-checkbox"
-                      checked={additionalFilters.find(f => f.key === 'userAssets')?.value === 'mine'}
+                      checked={userAssetsFilter?.value === 'mine'}
                       onChange={(e) => {
                         const value = e.target.checked ? 'mine' : 'all';
                         onAdditionalFilterChange?.('userAssets', value);
@@ -285,176 +498,211 @@ export default function TableToolbar({
                 )}
 
                 <div className="grid grid-cols-2 gap-2">
-                  {/* City filter */}
-                  <div className="space-y-1">
-                    <Label htmlFor="city-filter" className="text-sm">עיר</Label>
-                    <Select value={filters.city.value} onValueChange={(value) => {
-                      filters.city.onChange(value);
-                      trackFeatureUsage('filter', undefined, { filter_type: 'city', value });
-                    }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="כל הערים" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">כל הערים</SelectItem>
-                        {filters.city.options.map((city) => (
-                          <SelectItem key={city} value={city}>
-                            {city}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Type filter */}
-                  <div className="space-y-1">
-                    <Label htmlFor="type-filter" className="text-sm">סוג נכס</Label>
-                    <Select value={filters.type.value} onValueChange={(value) => {
-                      filters.type.onChange(value);
-                      trackFeatureUsage('filter', undefined, { filter_type: 'type', value });
-                    }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="כל הסוגים" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">כל הסוגים</SelectItem>
-                        {filters.type.options.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Price range */}
-                  <div className="space-y-1">
-                    <Label htmlFor="price-min" className="text-sm">מחיר מינימלי</Label>
-                    <Input
-                      id="price-min"
-                      type="number"
-                      placeholder="₪"
-                      value={filters.priceMin.value || ""}
-                      onChange={(e) => {
-                        const value = e.target.value ? Number(e.target.value) : undefined;
-                        filters.priceMin.onChange(value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'price_min', value });
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="price-max" className="text-sm">מחיר מקסימלי</Label>
-                    <Input
-                      id="price-max"
-                      type="number"
-                      placeholder="₪"
-                      value={filters.priceMax.value || ""}
-                      onChange={(e) => {
-                        const value = e.target.value ? Number(e.target.value) : undefined;
-                        filters.priceMax.onChange(value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'price_max', value });
-                      }}
-                    />
-                  </div>
-
-                  {/* Price per sqm range */}
-                  {filters.pricePerSqmMin && (
+                  {cityFilter && (cityFilter.alwaysVisible || cityFilter.options.length > 0) && (
                     <div className="space-y-1">
-                      <Label htmlFor="price-per-sqm-min" className="text-sm">מחיר למ&quot;ר מינימלי</Label>
+                      <Label htmlFor="city-filter" className="text-sm">
+                        {cityFilter.label ?? 'עיר'}
+                      </Label>
+                      <Select
+                        value={cityFilter.value}
+                        onValueChange={(value) => {
+                          cityFilter.onChange(value);
+                          trackFeatureUsage('filter', undefined, {
+                            filter_type: cityFilter.analyticsKey ?? 'city',
+                            value,
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={cityFilter.placeholder ?? 'כל הערים'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cityFilter.showAllOption !== false && (
+                            <SelectItem value="all">{cityFilter.allLabel ?? 'כל הערים'}</SelectItem>
+                          )}
+                          {cityFilter.options.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {typeFilter && (typeFilter.alwaysVisible || typeFilter.options.length > 0) && (
+                    <div className="space-y-1">
+                      <Label htmlFor="type-filter" className="text-sm">
+                        {typeFilter.label ?? 'סוג נכס'}
+                      </Label>
+                      <Select
+                        value={typeFilter.value}
+                        onValueChange={(value) => {
+                          typeFilter.onChange(value);
+                          trackFeatureUsage('filter', undefined, {
+                            filter_type: typeFilter.analyticsKey ?? 'type',
+                            value,
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={typeFilter.placeholder ?? 'כל הסוגים'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {typeFilter.showAllOption !== false && (
+                            <SelectItem value="all">{typeFilter.allLabel ?? 'כל הסוגים'}</SelectItem>
+                          )}
+                          {typeFilter.options.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {priceMinFilter && (
+                    <div className="space-y-1">
+                      <Label htmlFor="price-min" className="text-sm">
+                        {priceMinFilter.label ?? 'מחיר מינימלי'}
+                      </Label>
+                      <Input
+                        id="price-min"
+                        type="number"
+                        placeholder={priceMinFilter.placeholder ?? '₪'}
+                        value={priceMinFilter.value ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          priceMinFilter.onChange(value);
+                          trackFeatureUsage('filter', undefined, {
+                            filter_type: priceMinFilter.analyticsKey ?? 'price_min',
+                            value,
+                          });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {priceMaxFilter && (
+                    <div className="space-y-1">
+                      <Label htmlFor="price-max" className="text-sm">
+                        {priceMaxFilter.label ?? 'מחיר מקסימלי'}
+                      </Label>
+                      <Input
+                        id="price-max"
+                        type="number"
+                        placeholder={priceMaxFilter.placeholder ?? '₪'}
+                        value={priceMaxFilter.value ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          priceMaxFilter.onChange(value);
+                          trackFeatureUsage('filter', undefined, {
+                            filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
+                            value,
+                          });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {pricePerSqmMinFilter && (
+                    <div className="space-y-1">
+                      <Label htmlFor="price-per-sqm-min" className="text-sm">
+                        {pricePerSqmMinFilter.label ?? 'מחיר למ"ר מינימלי'}
+                      </Label>
                       <Input
                         id="price-per-sqm-min"
                         type="number"
-                        placeholder="₪/מ²"
-                        value={filters.pricePerSqmMin.value || ""}
+                        placeholder={pricePerSqmMinFilter.placeholder ?? '₪/מ²'}
+                        value={pricePerSqmMinFilter.value ?? ""}
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
-                          filters.pricePerSqmMin?.onChange(value);
-                          trackFeatureUsage('filter', undefined, { filter_type: 'price_per_sqm_min', value });
+                          pricePerSqmMinFilter.onChange(value);
+                          trackFeatureUsage('filter', undefined, {
+                            filter_type: pricePerSqmMinFilter.analyticsKey ?? 'price_per_sqm_min',
+                            value,
+                          });
                         }}
                       />
                     </div>
                   )}
 
-                  {filters.pricePerSqmMax && (
+                  {pricePerSqmMaxFilter && (
                     <div className="space-y-1">
-                      <Label htmlFor="price-per-sqm-max" className="text-sm">מחיר למ&quot;ר מקסימלי</Label>
+                      <Label htmlFor="price-per-sqm-max" className="text-sm">
+                        {pricePerSqmMaxFilter.label ?? 'מחיר למ"ר מקסימלי'}
+                      </Label>
                       <Input
                         id="price-per-sqm-max"
                         type="number"
-                        placeholder="₪/מ²"
-                        value={filters.pricePerSqmMax.value || ""}
+                        placeholder={pricePerSqmMaxFilter.placeholder ?? '₪/מ²'}
+                        value={pricePerSqmMaxFilter.value ?? ""}
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
-                          filters.pricePerSqmMax?.onChange(value);
-                          trackFeatureUsage('filter', undefined, { filter_type: 'price_per_sqm_max', value });
+                          pricePerSqmMaxFilter.onChange(value);
+                          trackFeatureUsage('filter', undefined, {
+                            filter_type: pricePerSqmMaxFilter.analyticsKey ?? 'price_per_sqm_max',
+                            value,
+                          });
                         }}
                       />
                     </div>
                   )}
 
-                  {/* Remaining rights range */}
-                  {filters.remainingRightsMin && (
+                  {remainingRightsMinFilter && (
                     <div className="space-y-1">
-                      <Label htmlFor="remaining-rights-min" className="text-sm">יתרת זכויות מינימלית</Label>
+                      <Label htmlFor="remaining-rights-min" className="text-sm">
+                        {remainingRightsMinFilter.label ?? 'יתרת זכויות מינימלית'}
+                      </Label>
                       <Input
                         id="remaining-rights-min"
                         type="number"
-                        placeholder="מ²"
-                        value={filters.remainingRightsMin.value || ""}
+                        placeholder={remainingRightsMinFilter.placeholder ?? 'מ²'}
+                        value={remainingRightsMinFilter.value ?? ""}
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
-                          filters.remainingRightsMin?.onChange(value);
-                          trackFeatureUsage('filter', undefined, { filter_type: 'remaining_rights_min', value });
+                          remainingRightsMinFilter.onChange(value);
+                          trackFeatureUsage('filter', undefined, {
+                            filter_type: remainingRightsMinFilter.analyticsKey ?? 'remaining_rights_min',
+                            value,
+                          });
                         }}
                       />
                     </div>
                   )}
 
-                  {filters.remainingRightsMax && (
+                  {remainingRightsMaxFilter && (
                     <div className="space-y-1">
-                      <Label htmlFor="remaining-rights-max" className="text-sm">יתרת זכויות מקסימלית</Label>
+                      <Label htmlFor="remaining-rights-max" className="text-sm">
+                        {remainingRightsMaxFilter.label ?? 'יתרת זכויות מקסימלית'}
+                      </Label>
                       <Input
                         id="remaining-rights-max"
                         type="number"
-                        placeholder="מ²"
-                        value={filters.remainingRightsMax.value || ""}
+                        placeholder={remainingRightsMaxFilter.placeholder ?? 'מ²'}
+                        value={remainingRightsMaxFilter.value ?? ""}
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
-                          filters.remainingRightsMax?.onChange(value);
-                          trackFeatureUsage('filter', undefined, { filter_type: 'remaining_rights_max', value });
+                          remainingRightsMaxFilter.onChange(value);
+                          trackFeatureUsage('filter', undefined, {
+                            filter_type: remainingRightsMaxFilter.analyticsKey ?? 'remaining_rights_max',
+                            value,
+                          });
                         }}
                       />
                     </div>
                   )}
 
                   {/* Additional filters */}
-                  {additionalFilters.filter(filter => filter.key !== 'userAssets').map((filter) => (
-                    <div key={filter.key} className="space-y-1">
-                      <Label className="text-sm">{filter.label}</Label>
-                      <Select
-                        value={filter.value}
-                        onValueChange={(value) => onAdditionalFilterChange?.(filter.key, value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={`בחר ${filter.label.toLowerCase()}`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">הכל</SelectItem>
-                          {filter.options?.map(option => (
-                            <SelectItem key={option.value} value={option.value}>
-                              <span className="flex justify-between gap-2 rtl:flex-row-reverse">
-                                <span>{option.label}</span>
-                                {option.count !== undefined && (
-                                  <span className="text-xs text-muted-foreground">{option.count}</span>
-                                )}
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+                  {additionalFilters
+                    .filter((filter) => filter.key !== 'userAssets')
+                    .map((filter) => (
+                      <div key={filter.key} className="space-y-1">
+                        <Label className="text-sm">{filter.label}</Label>
+                        {renderAdditionalFilterControl(filter)}
+                      </div>
+                    ))}
                 </div>
 
                 {/* Status filters */}
@@ -705,7 +953,7 @@ export default function TableToolbar({
         <div className="flex items-center gap-4 rtl:flex-row-reverse">
           <span>
             {isClient && selectedCount > 0 ? `${selectedCount} נבחרים מתוך ` : ''}
-            {totalCount} נכסים
+            {totalCount} פריטים
           </span>
           {hasActiveFilters && (
             <Badge variant="outline" className="text-xs">

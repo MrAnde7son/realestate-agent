@@ -11,6 +11,9 @@ import {
   ColumnFiltersState,
   SortingState,
   VisibilityState,
+  getPaginationRowModel,
+  PaginationState,
+  Updater,
 } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
@@ -23,9 +26,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Calendar, MapPin, Home, Building } from 'lucide-react'
-import TableToolbar from '@/components/TableToolbar'
+import { ArrowDown, ArrowUp, ArrowUpDown, Calendar, Home, Building } from 'lucide-react'
+import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import TablePagination from '@/components/TablePagination'
 
 interface Transaction {
   id?: string
@@ -49,13 +53,36 @@ interface TransactionsTableProps {
       onChange: (value: string) => void
       options: { value: string; label: string }[]
     }
-    area?: {
-      value: string
-      onChange: (value: string) => void
-      options: { value: string; label: string }[]
-    }
+  }
+  priceMin?: number
+  onPriceMinChange?: (value: number | undefined) => void
+  priceMax?: number
+  onPriceMaxChange?: (value: number | undefined) => void
+  pricePerSqmMin?: number
+  onPricePerSqmMinChange?: (value: number | undefined) => void
+  pricePerSqmMax?: number
+  onPricePerSqmMaxChange?: (value: number | undefined) => void
+  areaRange?: {
+    min?: number
+    max?: number
+    onChange: (value: { min?: number; max?: number }) => void
+  }
+  addressFilter?: {
+    value: string
+    onChange: (value: string) => void
   }
   onRefresh?: () => void
+  manualPagination?: boolean
+  manualSorting?: boolean
+  pageCount?: number
+  paginationState?: PaginationState
+  onPaginationChange?: (updater: Updater<PaginationState>) => void
+  sortingState?: SortingState
+  onSortingChange?: (updater: Updater<SortingState>) => void
+  totalCount?: number
+  filterOptions?: {
+    source?: string[]
+  }
 }
 
 function createColumns(): ColumnDef<Transaction>[] {
@@ -153,6 +180,7 @@ function createColumns(): ColumnDef<Transaction>[] {
         const getSourceDisplay = (source: string) => {
           switch (source) {
             case 'collected_government': return 'ממשלתי'
+            case 'government': return 'ממשלתי'
             case 'internal': return 'מאגר פנימי'
             default: return source || 'לא ידוע'
           }
@@ -160,6 +188,7 @@ function createColumns(): ColumnDef<Transaction>[] {
         const getSourceVariant = (source: string) => {
           switch (source) {
             case 'collected_government': return 'default'
+            case 'government': return 'default'
             case 'internal': return 'secondary'
             default: return 'outline'
           }
@@ -180,18 +209,57 @@ export default function TransactionsTable({
   searchValue = '',
   onSearchChange,
   filters,
+  priceMin,
+  onPriceMinChange,
+  priceMax,
+  onPriceMaxChange,
+  pricePerSqmMin,
+  onPricePerSqmMinChange,
+  pricePerSqmMax,
+  onPricePerSqmMaxChange,
+  areaRange,
+  addressFilter,
   onRefresh,
+  manualPagination = false,
+  manualSorting = false,
+  pageCount,
+  paginationState,
+  onPaginationChange,
+  sortingState,
+  onSortingChange,
+  totalCount,
+  filterOptions,
 }: TransactionsTableProps) {
   const { trackFeatureUsage } = useAnalytics()
-  const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
+  const [internalSorting, setInternalSorting] = useState<SortingState>(sortingState ?? [])
+  const [internalPagination, setInternalPagination] = useState<PaginationState>(
+    paginationState ?? { pageIndex: 0, pageSize: 10 }
+  )
+
+  React.useEffect(() => {
+    if (sortingState) {
+      setInternalSorting(sortingState)
+    }
+  }, [sortingState])
+
+  React.useEffect(() => {
+    if (paginationState) {
+      setInternalPagination(paginationState)
+    }
+  }, [paginationState])
 
   const columns = useMemo(() => createColumns(), [])
 
-  // Filter data based on search and filters
+  const useClientFiltering = !(manualPagination || manualSorting)
+
   const filteredData = useMemo(() => {
+    if (!useClientFiltering) {
+      return data
+    }
+
     let filtered = data
 
     // Apply search filter
@@ -213,90 +281,204 @@ export default function TransactionsTable({
     }
 
     // Apply area filter
-    if (filters?.area?.value && filters.area.value !== 'all') {
-      const areaRange = filters.area.value.split('-')
-      if (areaRange.length === 2) {
-        const minArea = parseInt(areaRange[0])
-        const maxArea = parseInt(areaRange[1])
-        filtered = filtered.filter((transaction) => 
-          transaction.area && transaction.area >= minArea && transaction.area <= maxArea
-        )
+    if (typeof priceMin === 'number') {
+      filtered = filtered.filter((transaction) => typeof transaction.price === 'number' && transaction.price >= priceMin)
+    }
+
+    if (typeof priceMax === 'number') {
+      filtered = filtered.filter((transaction) => typeof transaction.price === 'number' && transaction.price <= priceMax)
+    }
+
+    if (typeof pricePerSqmMin === 'number') {
+      filtered = filtered.filter((transaction) => typeof transaction.price_per_sqm === 'number' && transaction.price_per_sqm >= pricePerSqmMin)
+    }
+
+    if (typeof pricePerSqmMax === 'number') {
+      filtered = filtered.filter((transaction) => typeof transaction.price_per_sqm === 'number' && transaction.price_per_sqm <= pricePerSqmMax)
+    }
+
+    const areaMin = areaRange?.min
+    if (areaMin !== undefined) {
+      filtered = filtered.filter((transaction) => typeof transaction.area === 'number' && transaction.area >= areaMin)
+    }
+
+    const areaMax = areaRange?.max
+    if (areaMax !== undefined) {
+      filtered = filtered.filter((transaction) => typeof transaction.area === 'number' && transaction.area <= areaMax)
+    }
+
+    if (addressFilter?.value) {
+      const search = addressFilter.value.trim().toLowerCase()
+      if (search) {
+        filtered = filtered.filter((transaction) => {
+          const address = transaction.address?.toLowerCase() ?? ''
+          return address.includes(search)
+        })
       }
     }
 
     return filtered
-  }, [data, searchValue, filters])
+  }, [
+    addressFilter?.value,
+    areaRange?.max,
+    areaRange?.min,
+    data,
+    filters?.source?.value,
+    priceMax,
+    priceMin,
+    pricePerSqmMax,
+    pricePerSqmMin,
+    searchValue,
+    useClientFiltering,
+  ])
+
+  React.useEffect(() => {
+    if (!manualPagination && useClientFiltering) {
+      setInternalPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    }
+  }, [filteredData.length, manualPagination, useClientFiltering])
+
+  const tableData = useClientFiltering ? filteredData : data
+  const resolvedSorting = sortingState ?? internalSorting
+  const resolvedPagination = paginationState ?? internalPagination
+
+  const handleSortingChange = (updater: Updater<SortingState>) => {
+    const next = typeof updater === 'function' ? updater(resolvedSorting) : updater
+    if (onSortingChange) {
+      onSortingChange(next)
+    } else {
+      setInternalSorting(next)
+    }
+  }
+
+  const handlePaginationChange = (updater: Updater<PaginationState>) => {
+    const next = typeof updater === 'function' ? updater(resolvedPagination) : updater
+    if (onPaginationChange) {
+      onPaginationChange(next)
+    } else {
+      setInternalPagination(next)
+    }
+  }
 
   const table = useReactTable({
-    data: filteredData,
+    data: tableData,
     columns,
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     state: {
-      sorting,
+      sorting: resolvedSorting,
       columnFilters,
       columnVisibility,
       rowSelection,
+      pagination: resolvedPagination,
     },
+    manualPagination,
+    manualSorting,
+    pageCount: manualPagination ? pageCount : undefined,
+    onPaginationChange: handlePaginationChange,
+    ...(!manualSorting ? { getSortedRowModel: getSortedRowModel() } : {}),
+    ...(!manualPagination ? { getPaginationRowModel: getPaginationRowModel() } : {}),
+    ...(!manualSorting || !manualPagination ? { getFilteredRowModel: getFilteredRowModel() } : {}),
   })
 
-  // Additional filters for the toolbar
-  const additionalFilters = useMemo(() => {
-    const sources = Array.from(new Set(data.map(t => t.source).filter(Boolean))).filter((source): source is string => typeof source === 'string')
-    const areas = Array.from(new Set(data.map(t => t.area).filter((area): area is number => typeof area === 'number' && !isNaN(area)))).sort((a, b) => a - b)
-    
-    // Create area ranges
-    const areaRanges = []
-    if (areas.length > 0) {
-      const minArea = Math.min(...areas)
-      const maxArea = Math.max(...areas)
-      const step = Math.ceil((maxArea - minArea) / 5)
-      
-      for (let i = 0; i < 5; i++) {
-        const start = minArea + (i * step)
-        const end = i === 4 ? maxArea : start + step - 1
-        areaRanges.push(`${start}-${end}`)
-      }
-    }
+  const resolvedTotalCount = totalCount ?? filteredData.length
 
-    return [
-      {
+  // Additional filters for the toolbar
+  const additionalFilters = useMemo((): AdditionalFilterConfig[] => {
+    const items: AdditionalFilterConfig[] = []
+
+    const sourceOptions =
+      filterOptions?.source && filterOptions.source.length > 0
+        ? filterOptions.source
+        : Array.from(
+            new Set(
+              data
+                .map((transaction) => transaction.source)
+                .filter((value): value is string => typeof value === 'string' && value.length > 0)
+            )
+          )
+
+    if (sourceOptions.length > 0 && filters?.source) {
+      const getSourceLabel = (source: string) => {
+        switch (source) {
+          case 'collected_government':
+          case 'government':
+            return 'ממשלתי'
+          case 'internal':
+            return 'מאגר פנימי'
+          default:
+            return source || 'לא ידוע'
+        }
+      }
+
+      items.push({
         key: 'source',
         label: 'מקור',
-        value: 'all',
+        type: 'select',
+        value: filters.source.value ?? 'all',
+        showAllOption: false,
         options: [
-          { value: 'all', label: 'הכל' },
-          ...sources.map(source => ({
-            value: source,
-            label: source === 'collected_government' ? 'ממשלתי' : 'מאגר פנימי'
-          }))
-        ]
-      },
-      {
-        key: 'area',
-        label: 'שטח',
-        value: 'all',
-        options: [
-          { value: 'all', label: 'הכל' },
-          ...areaRanges.map(range => ({
-            value: range,
-            label: `${range} מ״ר`
-          }))
-        ]
-      }
-    ]
-  }, [data])
+          { value: 'all', label: 'כל המקורות' },
+          ...sourceOptions.map((value) => ({
+            value,
+            label: getSourceLabel(value),
+          })),
+        ],
+      })
+    }
 
-  const handleAdditionalFilterChange = (key: string, value: string) => {
-    if (key === 'source' && filters?.source?.onChange) {
+    if (addressFilter) {
+      items.push({
+        key: 'address',
+        label: 'כתובת',
+        type: 'text',
+        value: addressFilter.value,
+        placeholder: 'חפש כתובת...',
+      })
+    }
+
+    if (areaRange) {
+      items.push({
+        key: 'areaRange',
+        label: 'שטח (מ״ר)',
+        type: 'number-range',
+        value: {
+          min: areaRange.min,
+          max: areaRange.max,
+        },
+        minPlaceholder: 'מינימום',
+        maxPlaceholder: 'מקסימום',
+        step: 1,
+      })
+    }
+
+    return items
+  }, [addressFilter, areaRange, data, filterOptions, filters?.source])
+
+  const handleAdditionalFilterChange = (key: string, value: AdditionalFilterValue) => {
+    if (key === 'source' && typeof value === 'string' && filters?.source?.onChange) {
       filters.source.onChange(value)
-    } else if (key === 'area' && filters?.area?.onChange) {
-      filters.area.onChange(value)
+      return
+    }
+
+    if (key === 'address' && typeof value === 'string' && addressFilter) {
+      addressFilter.onChange(value)
+      return
+    }
+
+    if (
+      key === 'areaRange' &&
+      areaRange &&
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      ('min' in value || 'max' in value)
+    ) {
+      const nextValue = value as { min?: number; max?: number }
+      areaRange.onChange({ min: nextValue.min, max: nextValue.max })
     }
   }
 
@@ -324,17 +506,56 @@ export default function TransactionsTable({
         }}
         searchPlaceholder="חיפוש בעסקאות..."
         filters={{
-          city: { value: 'all', onChange: () => {}, options: [] },
-          type: { value: 'all', onChange: () => {}, options: [] },
-          priceMin: { value: undefined, onChange: () => {} },
-          priceMax: { value: undefined, onChange: () => {} },
-          ...(filters || {})
+          ...(onPriceMinChange
+            ? {
+                priceMin: {
+                  value: priceMin,
+                  onChange: onPriceMinChange,
+                  label: 'מחיר מינימלי',
+                  placeholder: '₪',
+                  analyticsKey: 'transactions_price_min',
+                },
+              }
+            : {}),
+          ...(onPriceMaxChange
+            ? {
+                priceMax: {
+                  value: priceMax,
+                  onChange: onPriceMaxChange,
+                  label: 'מחיר מקסימלי',
+                  placeholder: '₪',
+                  analyticsKey: 'transactions_price_max',
+                },
+              }
+            : {}),
+          ...(onPricePerSqmMinChange
+            ? {
+                pricePerSqmMin: {
+                  value: pricePerSqmMin,
+                  onChange: onPricePerSqmMinChange,
+                  label: 'מחיר למ"ר מינימלי',
+                  placeholder: '₪/מ"ר',
+                  analyticsKey: 'transactions_price_per_sqm_min',
+                },
+              }
+            : {}),
+          ...(onPricePerSqmMaxChange
+            ? {
+                pricePerSqmMax: {
+                  value: pricePerSqmMax,
+                  onChange: onPricePerSqmMaxChange,
+                  label: 'מחיר למ"ר מקסימלי',
+                  placeholder: '₪/מ"ר',
+                  analyticsKey: 'transactions_price_per_sqm_max',
+                },
+              }
+            : {}),
         }}
         additionalFilters={additionalFilters}
         onAdditionalFilterChange={handleAdditionalFilterChange}
         columns={toolbarColumns}
         selectedCount={table.getSelectedRowModel().rows.length}
-        totalCount={filteredData.length}
+        totalCount={resolvedTotalCount}
         onExportSelected={() => {}}
         onExportAll={() => {}}
         viewMode="table"
@@ -349,16 +570,37 @@ export default function TransactionsTable({
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="text-right rtl:text-right">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const sorted = header.column.getIsSorted()
+                  return (
+                    <TableHead key={header.id} className="text-right rtl:text-right">
+                      {header.isPlaceholder ? null : (
+                        <button
+                          type="button"
+                          onClick={header.column.getToggleSortingHandler()}
+                          disabled={!header.column.getCanSort()}
+                          className="flex w-full items-center justify-end gap-1 text-xs font-medium rtl:flex-row-reverse disabled:cursor-default"
+                        >
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                          {header.column.getCanSort() && (
+                            <span className="text-muted-foreground">
+                              {sorted === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : sorted === 'desc' ? (
+                                <ArrowDown className="h-3 w-3" />
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3" />
+                              )}
+                            </span>
+                          )}
+                        </button>
+                      )}
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -386,6 +628,7 @@ export default function TransactionsTable({
           </TableBody>
         </Table>
       </div>
+      <TablePagination table={table} />
     </div>
   )
 }

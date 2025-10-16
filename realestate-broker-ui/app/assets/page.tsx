@@ -49,6 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import PlanLimitDialog from "@/components/PlanLimitDialog";
 import { apiClient } from "@/lib/api-client";
+import { useDedupedEffect } from "@/hooks/use-deduped-effect";
 
 const DEFAULT_RADIUS_METERS = 100;
 
@@ -671,7 +672,7 @@ export default function AssetsPage() {
     }
   };
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetchAssets();
   }, []);
 

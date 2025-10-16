@@ -29,6 +29,7 @@ import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building } from 'lucide-
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
+import { useDedupedEffect } from '@/hooks/use-deduped-effect'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
@@ -715,7 +716,7 @@ React.useEffect(() => {
     loadDocumentsTable()
   }, [loadDocumentsTable])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     setLoading(true)
     apiClient.get(`/api/assets/${id}`)
       .then(response => {
@@ -730,7 +731,7 @@ React.useEffect(() => {
       .finally(() => setLoading(false))
   }, [id])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetch(`/api/assets/${id}/appraisal`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load appraisal')
@@ -745,7 +746,7 @@ React.useEffect(() => {
       .catch(err => console.error('Error loading appraisal:', err))
   }, [id])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     fetch(`/api/assets/${id}/transactions`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load transactions')
@@ -882,7 +883,7 @@ useEffect(() => {
   loadRightsData()
 }, [loadRightsData])
 
-  useEffect(() => {
+  useDedupedEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
     if (stored) {
       try { setSections(JSON.parse(stored)) } catch {}

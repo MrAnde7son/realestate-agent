@@ -5,7 +5,11 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  ColumnResizeMode,
+  getSortedRowModel,
+  SortingState,
+  getPaginationRowModel,
+  PaginationState,
+  Updater,
 } from '@tanstack/react-table';
 import {
   Table,
@@ -16,8 +20,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/Badge';
-import { Calendar, Building } from 'lucide-react';
+import { Calendar, Building, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import TableToolbar from '@/components/TableToolbar';
+import TablePagination from '@/components/TablePagination';
 import { useAnalytics } from '@/hooks/useAnalytics';
 
 interface Plan {
@@ -49,6 +54,18 @@ interface PlansTableProps {
     };
   };
   onRefresh?: () => void;
+  manualPagination?: boolean;
+  manualSorting?: boolean;
+  pageCount?: number;
+  paginationState?: PaginationState;
+  onPaginationChange?: (value: PaginationState) => void;
+  sortingState?: SortingState;
+  onSortingChange?: (value: SortingState) => void;
+  totalCount?: number;
+  filterOptions?: {
+    source?: string[];
+    status?: string[];
+  };
 }
 
 function createColumns(): ColumnDef<Plan>[] {
@@ -80,6 +97,7 @@ function createColumns(): ColumnDef<Plan>[] {
           switch (source) {
             case 'rami': return 'רמ״י';
             case 'mavat': return 'מנהל התיכנון';
+            case 'collected_government': return 'מנהל התיכנון';
             default: return 'מקומי';
           }
         };
@@ -87,6 +105,7 @@ function createColumns(): ColumnDef<Plan>[] {
           switch (source) {
             case 'rami': return 'default';
             case 'mavat': return 'secondary';
+            case 'collected_government': return 'secondary';
             default: return 'outline';
           }
         };
@@ -134,19 +153,52 @@ export default function PlansTable({
   onSearchChange,
   filters,
   onRefresh,
+  manualPagination = false,
+  manualSorting = false,
+  pageCount,
+  paginationState,
+  onPaginationChange,
+  sortingState,
+  onSortingChange,
+  totalCount,
+  filterOptions,
 }: PlansTableProps) {
   const { trackFeatureUsage } = useAnalytics();
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>(sortingState ?? []);
+  const [internalPagination, setInternalPagination] = React.useState<PaginationState>(
+    paginationState ?? {
+      pageIndex: 0,
+      pageSize: 10,
+    }
+  );
+
+  React.useEffect(() => {
+    if (sortingState) {
+      setInternalSorting(sortingState);
+    }
+  }, [sortingState]);
+
+  React.useEffect(() => {
+    if (paginationState) {
+      setInternalPagination(paginationState);
+    }
+  }, [paginationState]);
 
   const columns = React.useMemo(() => createColumns(), []);
 
+  const useClientFiltering = !(manualPagination || manualSorting);
+
   const filteredData = React.useMemo(() => {
-    return data.filter(plan => {
-      // Search filter
+    if (!useClientFiltering) {
+      return data;
+    }
+
+    return data.filter((plan) => {
       if (searchValue) {
         const searchLower = searchValue.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
           plan.description?.toLowerCase().includes(searchLower) ||
           plan.plan_number?.toLowerCase().includes(searchLower) ||
           plan.status?.toLowerCase().includes(searchLower) ||
@@ -156,34 +208,69 @@ export default function PlansTable({
         if (!matchesSearch) return false;
       }
 
-      // Source filter
       if (filters?.source?.value && filters.source.value !== 'all' && plan.source !== filters.source.value) {
         return false;
       }
 
-      // Status filter
       if (filters?.status?.value && filters.status.value !== 'all' && plan.status !== filters.status.value) {
         return false;
       }
 
       return true;
     });
-  }, [data, searchValue, filters]);
+  }, [data, searchValue, filters, useClientFiltering]);
+
+  const tableData = useClientFiltering ? filteredData : data;
+
+  const resolvedSorting = sortingState ?? internalSorting;
+  const resolvedPagination = paginationState ?? internalPagination;
+
+  const handleSortingChange = (updater: Updater<SortingState>) => {
+    const next = typeof updater === 'function' ? updater(resolvedSorting) : updater;
+    if (onSortingChange) {
+      onSortingChange(next);
+    } else {
+      setInternalSorting(next);
+    }
+  };
+
+  const handlePaginationChange = (updater: Updater<PaginationState>) => {
+    const next = typeof updater === 'function' ? updater(resolvedPagination) : updater;
+    if (onPaginationChange) {
+      onPaginationChange(next);
+    } else {
+      setInternalPagination(next);
+    }
+  };
 
   const table = useReactTable({
-    data: filteredData,
+    data: tableData,
     columns,
     state: {
       rowSelection,
       columnVisibility,
+      sorting: resolvedSorting,
+      pagination: resolvedPagination,
     },
+    manualPagination,
+    manualSorting,
+    pageCount: manualPagination ? pageCount : undefined,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onColumnVisibilityChange: setColumnVisibility,
+    onSortingChange: handleSortingChange,
+    onPaginationChange: handlePaginationChange,
     getCoreRowModel: getCoreRowModel(),
+    ...(!manualSorting ? { getSortedRowModel: getSortedRowModel() } : {}),
+    ...(!manualPagination ? { getPaginationRowModel: getPaginationRowModel() } : {}),
   });
 
-  // Prepare columns for toolbar
+  React.useEffect(() => {
+    if (!manualPagination && useClientFiltering) {
+      setInternalPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    }
+  }, [filteredData.length, manualPagination, useClientFiltering]);
+
   const toolbarColumns = table.getAllColumns()
     .filter(column => column.getCanHide())
     .map(column => ({
@@ -194,48 +281,47 @@ export default function PlansTable({
     }));
 
   const additionalFilters = React.useMemo(() => {
-    const filters = [];
-    
-    if (data.length > 0) {
-      // Source filter
-      const sources = [...new Set(data.map(plan => plan.source))];
-      if (sources.length > 1) {
-        filters.push({
-          key: 'source',
-          label: 'מקור',
-          type: 'select',
-          value: 'all',
-          options: [
-            { value: 'all', label: 'הכל' },
-            ...sources.map(source => ({
-              value: source,
-              label: source === 'rami' ? 'רמ״י' : source === 'mavat' ? 'מנהל התיכנון' : 'מקומי'
-            }))
-          ]
-        });
-      }
+    const filtersList = [] as Array<{ key: string; label: string; value: string; options: Array<{ value: string; label: string }>; }>;
 
-      // Status filter
-      const statuses = [...new Set(data.map(plan => plan.status).filter(Boolean))];
-      if (statuses.length > 1) {
-        filters.push({
-          key: 'status',
-          label: 'סטטוס',
-          type: 'select',
-          value: 'all',
-          options: [
-            { value: 'all', label: 'הכל' },
-            ...statuses.map(status => ({ value: status, label: status }))
-          ]
-        });
-      }
+    const sources = filterOptions?.source && filterOptions.source.length > 0
+      ? filterOptions.source
+      : [...new Set(data.map(plan => plan.source).filter(Boolean))];
+
+    if (sources.length > 0) {
+      filtersList.push({
+        key: 'source',
+        label: 'מקור',
+        value: filters?.source?.value ?? 'all',
+        options: [
+          { value: 'all', label: 'הכל' },
+          ...sources.map(source => ({
+            value: source,
+            label: source === 'rami' ? 'רמ״י' : source === 'mavat' ? 'מנהל התיכנון' : 'מקומי'
+          }))
+        ]
+      });
     }
 
-    return filters;
-  }, [data]);
+    const statuses = filterOptions?.status && filterOptions.status.length > 0
+      ? filterOptions.status
+      : [...new Set(data.map(plan => plan.status).filter(Boolean))];
+
+    if (statuses.length > 0) {
+      filtersList.push({
+        key: 'status',
+        label: 'סטטוס',
+        value: filters?.status?.value ?? 'all',
+        options: [
+          { value: 'all', label: 'הכל' },
+          ...statuses.map(status => ({ value: status, label: status }))
+        ]
+      });
+    }
+
+    return filtersList;
+  }, [data, filters, filterOptions]);
 
   const handleAdditionalFilterChange = (key: string, value: string) => {
-    // Handle filter changes here if needed
     trackFeatureUsage('filter', undefined, { filter_type: key, value });
   };
 
@@ -249,9 +335,10 @@ export default function PlansTable({
     );
   }
 
+  const recordCount = manualPagination ? (totalCount ?? data.length) : filteredData.length;
+
   return (
     <div className="rounded-xl border border-border bg-card overflow-x-auto rtl">
-      {/* Integrated Toolbar */}
       <TableToolbar
         searchValue={searchValue}
         onSearchChange={(value) => {
@@ -274,7 +361,7 @@ export default function PlansTable({
         onAdditionalFilterChange={handleAdditionalFilterChange}
         columns={toolbarColumns}
         selectedCount={table.getSelectedRowModel().rows.length}
-        totalCount={filteredData.length}
+        totalCount={recordCount}
         onExportSelected={() => {}}
         onExportAll={() => {}}
         viewMode="table"
@@ -283,27 +370,47 @@ export default function PlansTable({
         loading={loading}
       />
 
-      {/* Table */}
       <div className="relative rtl">
         <Table className="rtl">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="text-right rtl:text-right">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const sorted = header.column.getIsSorted();
+                  return (
+                    <TableHead key={header.id} className="text-right rtl:text-right">
+                      {header.isPlaceholder ? null : (
+                        <button
+                          type="button"
+                          onClick={header.column.getToggleSortingHandler()}
+                          disabled={!header.column.getCanSort()}
+                          className="flex w-full items-center justify-end gap-1 text-xs font-medium rtl:flex-row-reverse disabled:cursor-default"
+                        >
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                          {header.column.getCanSort() && (
+                            <span className="text-muted-foreground">
+                              {sorted === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : sorted === 'desc' ? (
+                                <ArrowDown className="h-3 w-3" />
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3" />
+                              )}
+                            </span>
+                          )}
+                        </button>
+                      )}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
-            {filteredData.length === 0 ? (
+            {table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
                   <div className="flex flex-col items-center justify-center py-8">
@@ -326,6 +433,7 @@ export default function PlansTable({
           </TableBody>
         </Table>
       </div>
+      <TablePagination table={table} />
     </div>
   );
 }

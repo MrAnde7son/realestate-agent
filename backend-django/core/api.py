@@ -140,15 +140,21 @@ class DocumentViewSet(viewsets.ModelViewSet):
     
     Provides CRUD operations for document files and metadata.
     """
-    queryset = Document.objects.all()
+    queryset = Document.objects.select_related('asset', 'user').prefetch_related('assets')
     serializer_class = DocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+    CATEGORY_LOOKUP = {
+        doc_type: category
+        for category, types in Document.DOCUMENT_CATEGORIES.items()
+        for doc_type in types
+    }
+
     def get_queryset(self):
         """Filter documents by user permissions."""
+        base_qs = Document.objects.select_related('asset', 'user').prefetch_related('assets')
         if self.request.user.is_staff:
-            return Document.objects.all()
-        return Document.objects.filter(
+            return base_qs
+        return base_qs.filter(
             Q(asset__created_by=self.request.user) | Q(assets__created_by=self.request.user)
         ).distinct()
     
@@ -289,6 +295,127 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 {'error': 'Failed to search documents'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def _get_category_for_type(self, document_type: str) -> str:
+        return self.CATEGORY_LOOKUP.get(document_type, 'אחר')
+
+    @extend_schema(
+        summary="Documents table data",
+        description="Retrieve paginated documents for table view",
+        tags=["Documents"],
+    )
+    @action(detail=False, methods=['get'])
+    def table(self, request):
+        try:
+            queryset = self.get_queryset()
+
+            asset_id = request.query_params.get('asset_id')
+            if asset_id:
+                queryset = queryset.filter(Q(asset_id=asset_id) | Q(assets__id=asset_id)).distinct()
+
+            search = request.query_params.get('search')
+            if search:
+                queryset = queryset.filter(
+                    Q(title__icontains=search)
+                    | Q(description__icontains=search)
+                    | Q(external_id__icontains=search)
+                    | Q(filename__icontains=search)
+                )
+
+            category_filter = request.query_params.get('category')
+            if category_filter and category_filter != 'all':
+                category_types = None
+                for category, types in Document.DOCUMENT_CATEGORIES.items():
+                    if category == category_filter:
+                        category_types = types
+                        break
+                if category_types:
+                    queryset = queryset.filter(document_type__in=category_types)
+                else:
+                    queryset = queryset.none()
+
+            type_filter = request.query_params.get('type')
+            if type_filter and type_filter != 'all':
+                queryset = queryset.filter(document_type=type_filter)
+
+            source_filter = request.query_params.get('source')
+            if source_filter and source_filter != 'all':
+                queryset = queryset.filter(source__iexact=source_filter)
+
+            status_filter = request.query_params.get('status')
+            if status_filter and status_filter != 'all':
+                queryset = queryset.filter(status__iexact=status_filter)
+
+            try:
+                limit = max(1, min(int(request.query_params.get('limit', 25)), 100))
+            except (TypeError, ValueError):
+                limit = 25
+
+            try:
+                offset = max(0, int(request.query_params.get('offset', 0)))
+            except (TypeError, ValueError):
+                offset = 0
+
+            ordering = request.query_params.get('ordering', '-document_date')
+            ordering_map = {
+                'title': 'title',
+                'document_type': 'document_type',
+                'status': 'status',
+                'source': 'source',
+                'document_date': 'document_date',
+                'uploaded_at': 'uploaded_at',
+            }
+
+            if ordering.lstrip('-') in ordering_map:
+                mapped = ordering_map[ordering.lstrip('-')]
+                if ordering.startswith('-'):
+                    mapped = f'-{mapped}'
+                queryset = queryset.order_by(mapped, '-id')
+            else:
+                queryset = queryset.order_by('-document_date', '-id')
+
+            total_count = queryset.count()
+
+            documents = list(queryset[offset: offset + limit])
+            serialized = self.get_serializer(documents, many=True).data
+            for item in serialized:
+                doc_type = item.get('document_type') or item.get('documentType')
+                item['category'] = self._get_category_for_type(doc_type)
+
+            distinct_types = list(queryset.values_list('document_type', flat=True).distinct())
+            distinct_sources = list(queryset.values_list('source', flat=True).distinct())
+            distinct_statuses = list(
+                queryset.exclude(status__isnull=True)
+                .exclude(status='')
+                .values_list('status', flat=True)
+                .distinct()
+            )
+
+            categories = sorted({self._get_category_for_type(doc_type) for doc_type in distinct_types})
+            categories = [category for category in categories if category]
+
+            filters = {
+                'category': categories,
+                'type': sorted(filter(None, distinct_types)),
+                'source': sorted(filter(None, distinct_sources)),
+                'status': sorted(filter(None, distinct_statuses)),
+            }
+
+            return Response({
+                'results': serialized,
+                'count': total_count,
+                'limit': limit,
+                'offset': offset,
+                'ordering': ordering,
+                'filters': filters,
+            })
+
+        except Exception as e:
+            logger.error(f"Error retrieving documents table data: {e}")
+            return Response({
+                'error': 'Failed to get documents',
+                'details': str(e),
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 # Cost estimation API endpoints
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])

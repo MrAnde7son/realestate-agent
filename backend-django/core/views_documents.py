@@ -1306,9 +1306,10 @@ class DocumentDetailView(APIView):
         try:
             # Get document
             document = get_object_or_404(
-                Document,
-                Q(id=document_id),
-                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                Document.objects.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct(),
+                id=document_id,
             )
 
             linked_assets = list(document.all_assets())
@@ -1338,9 +1339,10 @@ class DocumentDetailView(APIView):
         try:
             # Get document
             document = get_object_or_404(
-                Document,
-                Q(id=document_id),
-                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                Document.objects.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct(),
+                id=document_id,
             )
 
             linked_assets = list(document.all_assets())
@@ -1375,9 +1377,10 @@ class DocumentDetailView(APIView):
         try:
             # Get document
             document = get_object_or_404(
-                Document,
-                Q(id=document_id),
-                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                Document.objects.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct(),
+                id=document_id,
             )
 
             linked_assets = list(document.all_assets())
@@ -1417,9 +1420,10 @@ class DocumentDownloadView(APIView):
         try:
             # Get document
             document = get_object_or_404(
-                Document,
-                Q(id=document_id),
-                Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                Document.objects.filter(
+                    Q(asset_id=asset_id) | Q(assets__id=asset_id)
+                ).distinct(),
+                id=document_id,
             )
 
             linked_assets = list(document.all_assets())

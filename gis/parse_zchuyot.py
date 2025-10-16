@@ -365,6 +365,8 @@ class PlansParser:
                     "deposit_date": deposit,
                     "effective_date": effective,
                 }
+                if not plan_data.get("name"):
+                    plan_data["name"] = plan_data.get("plan_number") or ""
 
                 plans.append(plan_data)
                 current_plan = plan_data

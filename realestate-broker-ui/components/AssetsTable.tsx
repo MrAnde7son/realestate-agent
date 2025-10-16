@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
-import TableToolbar from './TableToolbar'
+import TableToolbar, { AdditionalFilterValue } from './TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import ImageGallery from './ImageGallery'
 
@@ -657,7 +657,10 @@ export default function AssetsTable({
     return items
   }, [filters])
 
-  const handleAdditionalFilterChange = React.useCallback((key: string, value: string) => {
+  const handleAdditionalFilterChange = React.useCallback((key: string, value: AdditionalFilterValue) => {
+    if (typeof value !== 'string') {
+      return
+    }
     if (!filters) return
     const track = (filterType: string, filterValue: string) => {
       trackFeatureUsage('filter', undefined, { filter_type: filterType, value: filterValue })

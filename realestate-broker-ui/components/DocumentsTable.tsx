@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import TableToolbar from '@/components/TableToolbar';
+import TableToolbar, { AdditionalFilterValue } from '@/components/TableToolbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, Download, ExternalLink } from 'lucide-react';
@@ -478,7 +478,10 @@ export default function DocumentsTable({
     availableFilters?.status,
   ]);
 
-  const handleAdditionalFilterChange = (key: string, value: string) => {
+  const handleAdditionalFilterChange = (key: string, value: AdditionalFilterValue) => {
+    if (typeof value !== 'string') {
+      return;
+    }
     if (key === 'category' && filters?.category?.onChange) {
       filters.category.onChange(value);
     }
@@ -512,12 +515,6 @@ export default function DocumentsTable({
           }
         }}
         searchPlaceholder="חיפוש במסמכים..."
-        filters={{
-          city: { value: 'all', onChange: () => {}, options: [] },
-          type: { value: 'all', onChange: () => {}, options: [] },
-          priceMin: { value: undefined, onChange: () => {} },
-          priceMax: { value: undefined, onChange: () => {} },
-        }}
         additionalFilters={additionalFilters}
         onAdditionalFilterChange={handleAdditionalFilterChange}
         columns={toolbarColumns}

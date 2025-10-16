@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ExternalLink, RefreshCw, Loader2, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { api } from '@/lib/api-client'
-import TableToolbar from '@/components/TableToolbar'
+import TableToolbar, { AdditionalFilterValue } from '@/components/TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useDedupedEffect } from '@/hooks/use-deduped-effect'
 
@@ -167,7 +167,11 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     resetPageIndex()
   }, [resetPageIndex])
 
-  const handleAdditionalFilterChange = useCallback((key: string, value: string) => {
+  const handleAdditionalFilterChange = useCallback((key: string, value: AdditionalFilterValue) => {
+    if (typeof value !== 'string') {
+      trackFeatureUsage('filter', undefined, { filter_type: key, value })
+      return
+    }
     trackFeatureUsage('filter', undefined, { filter_type: key, value })
     switch (key) {
       case 'rooms':
@@ -308,6 +312,35 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     fetchListings()
   }, [fetchListings])
 
+  const roomOptions = useMemo(() => {
+    const serverRooms = Array.isArray(listingsState.filters.rooms)
+      ? listingsState.filters.rooms.filter(Boolean)
+      : []
+
+    if (serverRooms.length > 0) {
+      return serverRooms.map((room) => ({
+        value: room,
+        label: room.includes('חדר') ? room : `${room} חדרים`,
+      }))
+    }
+
+    const derived = new Map<string, { value: string; label: string }>()
+
+    listingsState.items.forEach((listing) => {
+      if (listing.rooms === null || listing.rooms === undefined || Number.isNaN(listing.rooms)) {
+        return
+      }
+      const value = String(listing.rooms)
+      if (derived.has(value)) {
+        return
+      }
+      const label = formatRooms(listing.rooms, listing.rooms_display)
+      derived.set(value, { value, label })
+    })
+
+    return Array.from(derived.values())
+  }, [listingsState.filters.rooms, listingsState.items])
+
   useEffect(() => {
     if (
       sourceFilter !== 'all' &&
@@ -325,12 +358,19 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     }
     if (
       roomsFilter !== 'all' &&
-      listingsState.filters.rooms.length > 0 &&
-      !listingsState.filters.rooms.includes(roomsFilter)
+      roomOptions.length > 0 &&
+      !roomOptions.some((option) => option.value === roomsFilter)
     ) {
       setRoomsFilter('all')
     }
-  }, [listingsState.filters, sourceFilter, propertyTypeFilter, roomsFilter])
+  }, [
+    listingsState.filters.source,
+    listingsState.filters.property_type,
+    roomOptions,
+    sourceFilter,
+    propertyTypeFilter,
+    roomsFilter,
+  ])
 
   const additionalFilters = useMemo(() => {
     const filters: Array<{
@@ -340,17 +380,14 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
       options: Array<{ value: string; label: string }>
     }> = []
 
-    if (listingsState.filters.rooms.length > 0) {
+    if (roomOptions.length > 0) {
       filters.push({
         key: 'rooms',
         label: 'חדרים',
         value: roomsFilter,
         options: [
           { value: 'all', label: 'כל החדרים' },
-          ...listingsState.filters.rooms.map((room) => ({
-            value: room,
-            label: `${room} חדרים`,
-          })),
+          ...roomOptions,
         ],
       })
     }
@@ -386,7 +423,14 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     }
 
     return filters
-  }, [listingsState.filters, roomsFilter, propertyTypeFilter, sourceFilter])
+  }, [
+    listingsState.filters.property_type,
+    listingsState.filters.source,
+    roomOptions,
+    roomsFilter,
+    propertyTypeFilter,
+    sourceFilter,
+  ])
 
   const totalPages = Math.max(1, Math.ceil(listingsState.total / pagination.pageSize))
   const canGoPrev = pagination.pageIndex > 0
@@ -430,10 +474,20 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
               onSearchChange={handleSearchChange}
               searchPlaceholder="חיפוש במודעות..."
               filters={{
-                city: { value: 'all', onChange: () => {}, options: [] },
-                type: { value: 'all', onChange: () => {}, options: [] },
-                priceMin: { value: priceMin, onChange: handlePriceMinChange },
-                priceMax: { value: priceMax, onChange: handlePriceMaxChange },
+                priceMin: {
+                  value: priceMin,
+                  onChange: handlePriceMinChange,
+                  label: 'מחיר מינימלי',
+                  placeholder: '₪',
+                  analyticsKey: 'price_min',
+                },
+                priceMax: {
+                  value: priceMax,
+                  onChange: handlePriceMaxChange,
+                  label: 'מחיר מקסימלי',
+                  placeholder: '₪',
+                  analyticsKey: 'price_max',
+                },
               }}
               additionalFilters={additionalFilters}
               onAdditionalFilterChange={handleAdditionalFilterChange}

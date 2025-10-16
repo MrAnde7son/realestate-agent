@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import TableToolbar from '@/components/TableToolbar';
+import TableToolbar, { AdditionalFilterValue } from '@/components/TableToolbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink } from 'lucide-react';
@@ -184,6 +184,10 @@ export default function DecisiveAppraisalsTable({
 
   const columns = React.useMemo(() => createColumns(), []);
 
+  const [appraiserFilter, setAppraiserFilter] = React.useState('');
+  const [valueRange, setValueRange] = React.useState<{ min?: number; max?: number }>({});
+  const [dateRange, setDateRange] = React.useState<{ from?: string; to?: string }>({});
+
   const filteredData = React.useMemo(() => {
     return data.filter((row) => {
       if (searchValue) {
@@ -202,9 +206,48 @@ export default function DecisiveAppraisalsTable({
         if ((row.source || 'all') !== filters.source.value) return false;
       }
 
+      if (appraiserFilter.trim()) {
+        const search = appraiserFilter.trim().toLowerCase();
+        if (!row.appraiser?.toLowerCase().includes(search)) return false;
+      }
+
+      if (valueRange.min !== undefined || valueRange.max !== undefined) {
+        const numericValue = typeof row.value === 'string' ? Number(row.value) : row.value;
+        if (numericValue === undefined || Number.isNaN(numericValue)) {
+          return false;
+        }
+        if (valueRange.min !== undefined && numericValue < valueRange.min) return false;
+        if (valueRange.max !== undefined && numericValue > valueRange.max) return false;
+      }
+
+      if (dateRange.from || dateRange.to) {
+        const appraisalDate = row.date ? new Date(row.date) : undefined;
+        if (!appraisalDate || Number.isNaN(appraisalDate.getTime())) {
+          return false;
+        }
+        if (dateRange.from) {
+          const fromDate = new Date(dateRange.from);
+          if (appraisalDate < fromDate) return false;
+        }
+        if (dateRange.to) {
+          const toDate = new Date(dateRange.to);
+          toDate.setHours(23, 59, 59, 999);
+          if (appraisalDate > toDate) return false;
+        }
+      }
+
       return true;
     });
-  }, [data, searchValue, filters]);
+  }, [
+    data,
+    searchValue,
+    filters,
+    appraiserFilter,
+    valueRange.min,
+    valueRange.max,
+    dateRange.from,
+    dateRange.to,
+  ]);
 
   React.useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
@@ -238,19 +281,15 @@ export default function DecisiveAppraisalsTable({
       toggle: (value: boolean) => column.toggleVisibility(value),
     }));
 
-  const additionalFilters = React.useMemo(() => {
-    const filtersList: Array<{
-      key: string;
-      label: string;
-      value: string;
-      options: Array<{ value: string; label: string }>;
-    }> = [];
+  const additionalFilters = React.useMemo<AdditionalFilterConfig[]>(() => {
+    const filtersList: AdditionalFilterConfig[] = [];
 
     const sources = Array.from(new Set(data.map((row) => row.source).filter(Boolean))) as string[];
     if (sources.length > 0) {
       filtersList.push({
         key: 'source',
         label: 'מקור',
+        type: 'select',
         value: filters?.source?.value ?? 'all',
         options: [
           { value: 'all', label: 'כל המקורות' },
@@ -259,14 +298,62 @@ export default function DecisiveAppraisalsTable({
       });
     }
 
-    return filtersList;
-  }, [data, filters]);
+    filtersList.push(
+      {
+        key: 'appraiser',
+        label: 'שמאי',
+        type: 'text',
+        value: appraiserFilter,
+        placeholder: 'חפש שמאי...',
+      },
+      {
+        key: 'date',
+        label: 'תאריך',
+        type: 'date-range',
+        value: { from: dateRange.from, to: dateRange.to },
+      },
+      {
+        key: 'value',
+        label: 'שווי מוערך',
+        type: 'number-range',
+        value: { min: valueRange.min, max: valueRange.max },
+        minPlaceholder: 'מינימום',
+        maxPlaceholder: 'מקסימום',
+      },
+    );
 
-  const handleAdditionalFilterChange = (key: string, value: string) => {
-    if (key === 'source' && filters?.source?.onChange) {
+    return filtersList;
+  }, [
+    appraiserFilter,
+    data,
+    dateRange.from,
+    dateRange.to,
+    filters?.source?.value,
+    valueRange.min,
+    valueRange.max,
+  ]);
+
+  const handleAdditionalFilterChange = React.useCallback((key: string, value: AdditionalFilterValue) => {
+    if (key === 'source' && typeof value === 'string' && filters?.source?.onChange) {
       filters.source.onChange(value);
+      trackFeatureUsage('filter', undefined, { filter_type: 'decisive_source', value });
+      return;
     }
-  };
+    if (key === 'appraiser' && typeof value === 'string') {
+      setAppraiserFilter(value);
+      trackFeatureUsage('filter', undefined, { filter_type: 'decisive_appraiser', value });
+      return;
+    }
+    if (key === 'date' && typeof value !== 'string') {
+      setDateRange({ from: value.from, to: value.to });
+      trackFeatureUsage('filter', undefined, { filter_type: 'decisive_date', value });
+      return;
+    }
+    if (key === 'value' && typeof value !== 'string') {
+      setValueRange({ min: value.min, max: value.max });
+      trackFeatureUsage('filter', undefined, { filter_type: 'decisive_value', value });
+    }
+  }, [filters?.source, trackFeatureUsage]);
 
   if (loading) {
     return (
@@ -287,12 +374,6 @@ export default function DecisiveAppraisalsTable({
           }
         }}
         searchPlaceholder="חיפוש בשומות מכריעות..."
-        filters={{
-          city: { value: 'all', onChange: () => {}, options: [] },
-          type: { value: 'all', onChange: () => {}, options: [] },
-          priceMin: { value: undefined, onChange: () => {} },
-          priceMax: { value: undefined, onChange: () => {} },
-        }}
         additionalFilters={additionalFilters}
         onAdditionalFilterChange={handleAdditionalFilterChange}
         columns={toolbarColumns}

@@ -100,12 +100,12 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [appraisal, setAppraisal] = useState<any | null>(null)
   const [decisiveAppraisals, setDecisiveAppraisals] = useState<any[]>([])
   const [ramiAppraisals, setRamiAppraisals] = useState<any[]>([])
-  const [transactionsData, setTransactionsData] = useState<{ items: any[]; total: number; filters: { source: string[]; area: string[] } }>({ items: [], total: 0, filters: { source: [], area: [] } })
+  const [transactionsData, setTransactionsData] = useState<{ items: any[]; total: number; filters: { source: string[] } }>({ items: [], total: 0, filters: { source: [] } })
   const [transactionsLoading, setTransactionsLoading] = useState(false)
   const [transactionsSorting, setTransactionsSorting] = useState<SortingState>([{ id: 'date', desc: true }])
   const [transactionsPagination, setTransactionsPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [marketAnalysis, setMarketAnalysis] = useState<any>(null)
-  const [permitsData, setPermitsData] = useState<{ items: PermitRow[]; total: number; filters: { stage: string[]; document_type: string[]; source: string[] } }>({ items: [], total: 0, filters: { stage: [], document_type: [], source: [] } })
+  const [permitsData, setPermitsData] = useState<{ items: PermitRow[]; total: number; filters: { stage: string[]; document_type: string[]; source: string[]; request_type: string[] } }>({ items: [], total: 0, filters: { stage: [], document_type: [], source: [], request_type: [] } })
   const [plansData, setPlansData] = useState<{ items: any[]; total: number; filters: { source: string[]; status: string[] } }>({ items: [], total: 0, filters: { source: [], status: [] } })
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -134,15 +134,31 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [plansSearch, setPlansSearch] = useState('')
   const [plansSourceFilter, setPlansSourceFilter] = useState('all')
   const [plansStatusFilter, setPlansStatusFilter] = useState('all')
+  const [plansPlanNumberFilter, setPlansPlanNumberFilter] = useState('')
+  const [plansDescriptionFilter, setPlansDescriptionFilter] = useState('')
   const [plansSorting, setPlansSorting] = useState<SortingState>([{ id: 'effective_date', desc: true }])
   const [plansPagination, setPlansPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [plansLoading, setPlansLoading] = useState(false)
   const [transactionsSourceFilter, setTransactionsSourceFilter] = useState('all')
-  const [transactionsAreaFilter, setTransactionsAreaFilter] = useState('all')
+  const [transactionsPriceMin, setTransactionsPriceMin] = useState<number | undefined>(undefined)
+  const [transactionsPriceMax, setTransactionsPriceMax] = useState<number | undefined>(undefined)
+  const [transactionsPricePerSqmMin, setTransactionsPricePerSqmMin] = useState<number | undefined>(undefined)
+  const [transactionsPricePerSqmMax, setTransactionsPricePerSqmMax] = useState<number | undefined>(undefined)
+  const [transactionsAreaMin, setTransactionsAreaMin] = useState<number | undefined>(undefined)
+  const [transactionsAreaMax, setTransactionsAreaMax] = useState<number | undefined>(undefined)
+  const [transactionsAddressFilter, setTransactionsAddressFilter] = useState('')
   const [permitsSearch, setPermitsSearch] = useState('')
   const [permitsStageFilter, setPermitsStageFilter] = useState('all')
   const [permitsTypeFilter, setPermitsTypeFilter] = useState('all')
   const [permitsSourceFilter, setPermitsSourceFilter] = useState('all')
+  const [permitsRequestTypeFilter, setPermitsRequestTypeFilter] = useState('all')
+  const [permitsPermitNumberFilter, setPermitsPermitNumberFilter] = useState('')
+  const [permitsRequestNumberFilter, setPermitsRequestNumberFilter] = useState('')
+  const [permitsDescriptionFilter, setPermitsDescriptionFilter] = useState('')
+  const [permitsApprovalDateFrom, setPermitsApprovalDateFrom] = useState<string | undefined>(undefined)
+  const [permitsApprovalDateTo, setPermitsApprovalDateTo] = useState<string | undefined>(undefined)
+  const [permitsExpiryDateFrom, setPermitsExpiryDateFrom] = useState<string | undefined>(undefined)
+  const [permitsExpiryDateTo, setPermitsExpiryDateTo] = useState<string | undefined>(undefined)
   const [permitsSorting, setPermitsSorting] = useState<SortingState>([{ id: 'approvalDate', desc: true }])
   const [permitsPagination, setPermitsPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [permitsLoading, setPermitsLoading] = useState(false)
@@ -161,7 +177,30 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
 
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
-}, [permitsSearch, permitsStageFilter, permitsTypeFilter, permitsSourceFilter])
+}, [
+  permitsSearch,
+  permitsStageFilter,
+  permitsTypeFilter,
+  permitsSourceFilter,
+  permitsRequestTypeFilter,
+  permitsPermitNumberFilter,
+  permitsRequestNumberFilter,
+  permitsDescriptionFilter,
+  permitsApprovalDateFrom,
+  permitsApprovalDateTo,
+  permitsExpiryDateFrom,
+  permitsExpiryDateTo,
+])
+
+React.useEffect(() => {
+  if (
+    permitsRequestTypeFilter !== 'all' &&
+    permitsData.filters.request_type.length > 0 &&
+    !permitsData.filters.request_type.includes(permitsRequestTypeFilter)
+  ) {
+    setPermitsRequestTypeFilter('all')
+  }
+}, [permitsData.filters.request_type, permitsRequestTypeFilter])
 
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
@@ -169,7 +208,17 @@ React.useEffect(() => {
 
 React.useEffect(() => {
   setTransactionsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
-}, [transactionsSearch, transactionsSourceFilter, transactionsAreaFilter])
+}, [
+  transactionsSearch,
+  transactionsSourceFilter,
+  transactionsPriceMin,
+  transactionsPriceMax,
+  transactionsPricePerSqmMin,
+  transactionsPricePerSqmMax,
+  transactionsAreaMin,
+  transactionsAreaMax,
+  transactionsAddressFilter,
+])
 
 React.useEffect(() => {
   setTransactionsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
@@ -177,7 +226,7 @@ React.useEffect(() => {
 
 React.useEffect(() => {
   setPlansPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
-}, [plansSearch, plansSourceFilter, plansStatusFilter])
+}, [plansSearch, plansSourceFilter, plansStatusFilter, plansPlanNumberFilter, plansDescriptionFilter])
 
 React.useEffect(() => {
   setPlansPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
@@ -594,27 +643,6 @@ React.useEffect(() => {
     ]
   }, [transactionsData.filters.source])
 
-  const transactionAreaOptions = useMemo(() => {
-    const mapLabel = (value: string) => {
-      if (!value) return '—'
-      if (value.endsWith('+')) {
-        return `${value.replace('+', '+')} מ״ר`
-      }
-      const [start, end] = value.split('-')
-      if (!start || !end) {
-        return value
-      }
-      return `${start}-${end} מ״ר`
-    }
-    const available = transactionsData.filters.area || []
-    return [
-      { value: 'all', label: 'הכל' },
-      ...available
-        .filter((value): value is string => typeof value === 'string' && value.length > 0)
-        .map((value) => ({ value, label: mapLabel(value) })),
-    ]
-  }, [transactionsData.filters.area])
-
   const permitRadius = asset?._meta?.radius ?? 50
   
   const remainingRightsDisplayValue = useMemo(() => {
@@ -842,6 +870,30 @@ const loadPermits = React.useCallback(async () => {
     if (permitsSourceFilter !== 'all') {
       params.set('source', permitsSourceFilter)
     }
+    if (permitsRequestTypeFilter !== 'all') {
+      params.set('request_type', permitsRequestTypeFilter)
+    }
+    if (permitsPermitNumberFilter.trim()) {
+      params.set('permit_number', permitsPermitNumberFilter.trim())
+    }
+    if (permitsRequestNumberFilter.trim()) {
+      params.set('request_number', permitsRequestNumberFilter.trim())
+    }
+    if (permitsDescriptionFilter.trim()) {
+      params.set('description', permitsDescriptionFilter.trim())
+    }
+    if (permitsApprovalDateFrom) {
+      params.set('approval_date_from', permitsApprovalDateFrom)
+    }
+    if (permitsApprovalDateTo) {
+      params.set('approval_date_to', permitsApprovalDateTo)
+    }
+    if (permitsExpiryDateFrom) {
+      params.set('expiry_date_from', permitsExpiryDateFrom)
+    }
+    if (permitsExpiryDateTo) {
+      params.set('expiry_date_to', permitsExpiryDateTo)
+    }
 
     const sortMapping: Record<string, string> = {
       approvalDate: 'approval_date',
@@ -872,15 +924,32 @@ const loadPermits = React.useCallback(async () => {
         stage: data.filters?.stage || [],
         document_type: data.filters?.document_type || [],
         source: data.filters?.source || [],
+        request_type: data.filters?.request_type || [],
       },
     })
   } catch (err) {
     console.error('Error loading permits:', err)
-    setPermitsData({ items: [], total: 0, filters: { stage: [], document_type: [], source: [] } })
+    setPermitsData({ items: [], total: 0, filters: { stage: [], document_type: [], source: [], request_type: [] } })
   } finally {
     setPermitsLoading(false)
   }
-}, [id, permitsPagination, permitsSorting, permitsSearch, permitsStageFilter, permitsTypeFilter, permitsSourceFilter])
+}, [
+  id,
+  permitsPagination,
+  permitsSorting,
+  permitsSearch,
+  permitsStageFilter,
+  permitsTypeFilter,
+  permitsSourceFilter,
+  permitsRequestTypeFilter,
+  permitsPermitNumberFilter,
+  permitsRequestNumberFilter,
+  permitsDescriptionFilter,
+  permitsApprovalDateFrom,
+  permitsApprovalDateTo,
+  permitsExpiryDateFrom,
+  permitsExpiryDateTo,
+])
 
 useDedupedEffect(() => {
   if (activeTab !== 'permits') return
@@ -901,8 +970,26 @@ const loadTransactions = React.useCallback(async () => {
     if (transactionsSourceFilter !== 'all') {
       params.set('source', transactionsSourceFilter)
     }
-    if (transactionsAreaFilter !== 'all') {
-      params.set('area', transactionsAreaFilter)
+    if (transactionsPriceMin !== undefined) {
+      params.set('price_min', String(transactionsPriceMin))
+    }
+    if (transactionsPriceMax !== undefined) {
+      params.set('price_max', String(transactionsPriceMax))
+    }
+    if (transactionsPricePerSqmMin !== undefined) {
+      params.set('price_per_sqm_min', String(transactionsPricePerSqmMin))
+    }
+    if (transactionsPricePerSqmMax !== undefined) {
+      params.set('price_per_sqm_max', String(transactionsPricePerSqmMax))
+    }
+    if (transactionsAreaMin !== undefined) {
+      params.set('area_min', String(transactionsAreaMin))
+    }
+    if (transactionsAreaMax !== undefined) {
+      params.set('area_max', String(transactionsAreaMax))
+    }
+    if (transactionsAddressFilter.trim()) {
+      params.set('address', transactionsAddressFilter.trim())
     }
 
     const sortMapping: Record<string, string> = {
@@ -930,7 +1017,6 @@ const loadTransactions = React.useCallback(async () => {
       total: data.count || 0,
       filters: {
         source: data.filters?.source || [],
-        area: data.filters?.area || [],
       },
     })
     setMarketAnalysis(data.market_analysis || null)
@@ -941,7 +1027,20 @@ const loadTransactions = React.useCallback(async () => {
   } finally {
     setTransactionsLoading(false)
   }
-}, [id, transactionsPagination, transactionsSorting, transactionsSearch, transactionsSourceFilter, transactionsAreaFilter])
+}, [
+  id,
+  transactionsPagination,
+  transactionsSorting,
+  transactionsSearch,
+  transactionsSourceFilter,
+  transactionsPriceMin,
+  transactionsPriceMax,
+  transactionsPricePerSqmMin,
+  transactionsPricePerSqmMax,
+  transactionsAreaMin,
+  transactionsAreaMax,
+  transactionsAddressFilter,
+])
 
 useDedupedEffect(() => {
   if (activeTab !== 'transactions') return
@@ -964,6 +1063,12 @@ const loadPlans = React.useCallback(async () => {
     }
     if (plansStatusFilter !== 'all') {
       params.set('status', plansStatusFilter)
+    }
+    if (plansPlanNumberFilter.trim()) {
+      params.set('plan_number', plansPlanNumberFilter.trim())
+    }
+    if (plansDescriptionFilter.trim()) {
+      params.set('description', plansDescriptionFilter.trim())
     }
 
     const sortMapping: Record<string, string> = {
@@ -998,7 +1103,7 @@ const loadPlans = React.useCallback(async () => {
   } finally {
     setPlansLoading(false)
   }
-}, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter])
+}, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter, plansPlanNumberFilter, plansDescriptionFilter])
 
 useDedupedEffect(() => {
   if (activeTab !== 'plans') return
@@ -1922,6 +2027,16 @@ useDedupedEffect(() => {
                 source: plansData.filters.source,
                 status: plansData.filters.status,
               }}
+              advancedFilters={{
+                planNumber: {
+                  value: plansPlanNumberFilter,
+                  onChange: setPlansPlanNumberFilter,
+                },
+                description: {
+                  value: plansDescriptionFilter,
+                  onChange: setPlansDescriptionFilter,
+                },
+              }}
               onRefresh={loadPlans}
             />
           </TabsContent>
@@ -2611,6 +2726,40 @@ useDedupedEffect(() => {
                   options: [],
                 },
               }}
+              advancedFilters={{
+                requestType: {
+                  value: permitsRequestTypeFilter,
+                  onChange: setPermitsRequestTypeFilter,
+                },
+                permitNumber: {
+                  value: permitsPermitNumberFilter,
+                  onChange: setPermitsPermitNumberFilter,
+                },
+                requestNumber: {
+                  value: permitsRequestNumberFilter,
+                  onChange: setPermitsRequestNumberFilter,
+                },
+                description: {
+                  value: permitsDescriptionFilter,
+                  onChange: setPermitsDescriptionFilter,
+                },
+                approvalDate: {
+                  from: permitsApprovalDateFrom,
+                  to: permitsApprovalDateTo,
+                  onChange: ({ from, to }) => {
+                    setPermitsApprovalDateFrom(from)
+                    setPermitsApprovalDateTo(to)
+                  },
+                },
+                expiryDate: {
+                  from: permitsExpiryDateFrom,
+                  to: permitsExpiryDateTo,
+                  onChange: ({ from, to }) => {
+                    setPermitsExpiryDateFrom(from)
+                    setPermitsExpiryDateTo(to)
+                  },
+                },
+              }}
               manualPagination
               manualSorting
               pageCount={Math.max(1, Math.ceil((permitsData.total || 0) / permitsPagination.pageSize))}
@@ -2623,6 +2772,7 @@ useDedupedEffect(() => {
                 stage: permitsData.filters.stage,
                 documentType: permitsData.filters.document_type,
                 source: permitsData.filters.source,
+                requestType: permitsData.filters.request_type,
               }}
               onRefresh={loadPermits}
               radius={permitRadius}
@@ -2688,11 +2838,26 @@ useDedupedEffect(() => {
                   onChange: setTransactionsSourceFilter,
                   options: transactionSourceOptions,
                 },
-                area: {
-                  value: transactionsAreaFilter,
-                  onChange: setTransactionsAreaFilter,
-                  options: transactionAreaOptions,
+              }}
+              priceMin={transactionsPriceMin}
+              onPriceMinChange={setTransactionsPriceMin}
+              priceMax={transactionsPriceMax}
+              onPriceMaxChange={setTransactionsPriceMax}
+              pricePerSqmMin={transactionsPricePerSqmMin}
+              onPricePerSqmMinChange={setTransactionsPricePerSqmMin}
+              pricePerSqmMax={transactionsPricePerSqmMax}
+              onPricePerSqmMaxChange={setTransactionsPricePerSqmMax}
+              areaRange={{
+                min: transactionsAreaMin,
+                max: transactionsAreaMax,
+                onChange: ({ min, max }) => {
+                  setTransactionsAreaMin(min)
+                  setTransactionsAreaMax(max)
                 },
+              }}
+              addressFilter={{
+                value: transactionsAddressFilter,
+                onChange: setTransactionsAddressFilter,
               }}
               onRefresh={loadTransactions}
               manualPagination
@@ -2713,7 +2878,6 @@ useDedupedEffect(() => {
               totalCount={transactionsData.total}
               filterOptions={{
                 source: transactionsData.filters.source,
-                area: transactionsData.filters.area,
               }}
             />
           </TabsContent>

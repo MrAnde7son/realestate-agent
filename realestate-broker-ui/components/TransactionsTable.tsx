@@ -27,7 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ArrowDown, ArrowUp, ArrowUpDown, Calendar, Home, Building } from 'lucide-react'
-import TableToolbar from '@/components/TableToolbar'
+import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import TablePagination from '@/components/TablePagination'
 
@@ -53,11 +53,23 @@ interface TransactionsTableProps {
       onChange: (value: string) => void
       options: { value: string; label: string }[]
     }
-    area?: {
-      value: string
-      onChange: (value: string) => void
-      options: { value: string; label: string }[]
-    }
+  }
+  priceMin?: number
+  onPriceMinChange?: (value: number | undefined) => void
+  priceMax?: number
+  onPriceMaxChange?: (value: number | undefined) => void
+  pricePerSqmMin?: number
+  onPricePerSqmMinChange?: (value: number | undefined) => void
+  pricePerSqmMax?: number
+  onPricePerSqmMaxChange?: (value: number | undefined) => void
+  areaRange?: {
+    min?: number
+    max?: number
+    onChange: (value: { min?: number; max?: number }) => void
+  }
+  addressFilter?: {
+    value: string
+    onChange: (value: string) => void
   }
   onRefresh?: () => void
   manualPagination?: boolean
@@ -70,7 +82,6 @@ interface TransactionsTableProps {
   totalCount?: number
   filterOptions?: {
     source?: string[]
-    area?: string[]
   }
 }
 
@@ -198,6 +209,16 @@ export default function TransactionsTable({
   searchValue = '',
   onSearchChange,
   filters,
+  priceMin,
+  onPriceMinChange,
+  priceMax,
+  onPriceMaxChange,
+  pricePerSqmMin,
+  onPricePerSqmMinChange,
+  pricePerSqmMax,
+  onPricePerSqmMaxChange,
+  areaRange,
+  addressFilter,
   onRefresh,
   manualPagination = false,
   manualSorting = false,
@@ -260,19 +281,54 @@ export default function TransactionsTable({
     }
 
     // Apply area filter
-    if (filters?.area?.value && filters.area.value !== 'all') {
-      const areaRange = filters.area.value.split('-')
-      if (areaRange.length === 2) {
-        const minArea = parseInt(areaRange[0])
-        const maxArea = parseInt(areaRange[1])
-        filtered = filtered.filter((transaction) => 
-          transaction.area && transaction.area >= minArea && transaction.area <= maxArea
-        )
+    if (typeof priceMin === 'number') {
+      filtered = filtered.filter((transaction) => typeof transaction.price === 'number' && transaction.price >= priceMin)
+    }
+
+    if (typeof priceMax === 'number') {
+      filtered = filtered.filter((transaction) => typeof transaction.price === 'number' && transaction.price <= priceMax)
+    }
+
+    if (typeof pricePerSqmMin === 'number') {
+      filtered = filtered.filter((transaction) => typeof transaction.price_per_sqm === 'number' && transaction.price_per_sqm >= pricePerSqmMin)
+    }
+
+    if (typeof pricePerSqmMax === 'number') {
+      filtered = filtered.filter((transaction) => typeof transaction.price_per_sqm === 'number' && transaction.price_per_sqm <= pricePerSqmMax)
+    }
+
+    if (areaRange?.min !== undefined) {
+      filtered = filtered.filter((transaction) => typeof transaction.area === 'number' && transaction.area >= areaRange.min)
+    }
+
+    if (areaRange?.max !== undefined) {
+      filtered = filtered.filter((transaction) => typeof transaction.area === 'number' && transaction.area <= areaRange.max)
+    }
+
+    if (addressFilter?.value) {
+      const search = addressFilter.value.trim().toLowerCase()
+      if (search) {
+        filtered = filtered.filter((transaction) => {
+          const address = transaction.address?.toLowerCase() ?? ''
+          return address.includes(search)
+        })
       }
     }
 
     return filtered
-  }, [data, searchValue, filters, useClientFiltering])
+  }, [
+    addressFilter?.value,
+    areaRange?.max,
+    areaRange?.min,
+    data,
+    filters?.source?.value,
+    priceMax,
+    priceMin,
+    pricePerSqmMax,
+    pricePerSqmMin,
+    searchValue,
+    useClientFiltering,
+  ])
 
   React.useEffect(() => {
     if (!manualPagination && useClientFiltering) {
@@ -329,29 +385,8 @@ export default function TransactionsTable({
   const resolvedTotalCount = totalCount ?? filteredData.length
 
   // Additional filters for the toolbar
-  const additionalFilters = useMemo(() => {
-    const getSourceLabel = (source: string) => {
-      switch (source) {
-        case 'collected_government':
-        case 'government':
-          return 'ממשלתי'
-        case 'internal':
-          return 'מאגר פנימי'
-        default:
-          return source || 'לא ידוע'
-      }
-    }
-
-    const getAreaLabel = (range: string) => {
-      if (range.endsWith('+')) {
-        return `${range.replace('+', '+')} מ״ר`
-      }
-      const [start, end] = range.split('-')
-      if (!start || !end) {
-        return range
-      }
-      return `${start}-${end} מ״ר`
-    }
+  const additionalFilters = useMemo((): AdditionalFilterConfig[] => {
+    const items: AdditionalFilterConfig[] = []
 
     const sourceOptions =
       filterOptions?.source && filterOptions.source.length > 0
@@ -364,46 +399,76 @@ export default function TransactionsTable({
             )
           )
 
-    const areaOptions =
-      filterOptions?.area && filterOptions.area.length > 0
-        ? filterOptions.area
-        : []
+    if (sourceOptions.length > 0 && filters?.source) {
+      const getSourceLabel = (source: string) => {
+        switch (source) {
+          case 'collected_government':
+          case 'government':
+            return 'ממשלתי'
+          case 'internal':
+            return 'מאגר פנימי'
+          default:
+            return source || 'לא ידוע'
+        }
+      }
 
-    return [
-      {
+      items.push({
         key: 'source',
         label: 'מקור',
-        value: filters?.source?.value ?? 'all',
+        type: 'select',
+        value: filters.source.value ?? 'all',
+        showAllOption: false,
         options: [
-          { value: 'all', label: 'הכל' },
+          { value: 'all', label: 'כל המקורות' },
           ...sourceOptions.map((value) => ({
             value,
             label: getSourceLabel(value),
           })),
         ],
-      },
-      {
-        key: 'area',
-        label: 'שטח',
-        value: filters?.area?.value ?? 'all',
-        options: [
-          { value: 'all', label: 'הכל' },
-          ...(areaOptions.length > 0
-            ? areaOptions.map((value) => ({
-                value,
-                label: getAreaLabel(value),
-              }))
-            : []),
-        ],
-      },
-    ]
-  }, [filterOptions, data, filters])
+      })
+    }
 
-  const handleAdditionalFilterChange = (key: string, value: string) => {
-    if (key === 'source' && filters?.source?.onChange) {
+    if (addressFilter) {
+      items.push({
+        key: 'address',
+        label: 'כתובת',
+        type: 'text',
+        value: addressFilter.value,
+        placeholder: 'חפש כתובת...',
+      })
+    }
+
+    if (areaRange) {
+      items.push({
+        key: 'areaRange',
+        label: 'שטח (מ״ר)',
+        type: 'number-range',
+        value: {
+          min: areaRange.min,
+          max: areaRange.max,
+        },
+        minPlaceholder: 'מינימום',
+        maxPlaceholder: 'מקסימום',
+        step: 1,
+      })
+    }
+
+    return items
+  }, [addressFilter, areaRange, data, filterOptions, filters?.source])
+
+  const handleAdditionalFilterChange = (key: string, value: AdditionalFilterValue) => {
+    if (key === 'source' && typeof value === 'string' && filters?.source?.onChange) {
       filters.source.onChange(value)
-    } else if (key === 'area' && filters?.area?.onChange) {
-      filters.area.onChange(value)
+      return
+    }
+
+    if (key === 'address' && typeof value === 'string' && addressFilter) {
+      addressFilter.onChange(value)
+      return
+    }
+
+    if (key === 'areaRange' && areaRange && typeof value !== 'string') {
+      areaRange.onChange({ min: value.min, max: value.max })
     }
   }
 
@@ -431,11 +496,50 @@ export default function TransactionsTable({
         }}
         searchPlaceholder="חיפוש בעסקאות..."
         filters={{
-          city: { value: 'all', onChange: () => {}, options: [] },
-          type: { value: 'all', onChange: () => {}, options: [] },
-          priceMin: { value: undefined, onChange: () => {} },
-          priceMax: { value: undefined, onChange: () => {} },
-          ...(filters || {})
+          ...(onPriceMinChange
+            ? {
+                priceMin: {
+                  value: priceMin,
+                  onChange: onPriceMinChange,
+                  label: 'מחיר מינימלי',
+                  placeholder: '₪',
+                  analyticsKey: 'transactions_price_min',
+                },
+              }
+            : {}),
+          ...(onPriceMaxChange
+            ? {
+                priceMax: {
+                  value: priceMax,
+                  onChange: onPriceMaxChange,
+                  label: 'מחיר מקסימלי',
+                  placeholder: '₪',
+                  analyticsKey: 'transactions_price_max',
+                },
+              }
+            : {}),
+          ...(onPricePerSqmMinChange
+            ? {
+                pricePerSqmMin: {
+                  value: pricePerSqmMin,
+                  onChange: onPricePerSqmMinChange,
+                  label: 'מחיר למ"ר מינימלי',
+                  placeholder: '₪/מ"ר',
+                  analyticsKey: 'transactions_price_per_sqm_min',
+                },
+              }
+            : {}),
+          ...(onPricePerSqmMaxChange
+            ? {
+                pricePerSqmMax: {
+                  value: pricePerSqmMax,
+                  onChange: onPricePerSqmMaxChange,
+                  label: 'מחיר למ"ר מקסימלי',
+                  placeholder: '₪/מ"ר',
+                  analyticsKey: 'transactions_price_per_sqm_max',
+                },
+              }
+            : {}),
         }}
         additionalFilters={additionalFilters}
         onAdditionalFilterChange={handleAdditionalFilterChange}

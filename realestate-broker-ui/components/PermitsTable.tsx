@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/button';
-import TableToolbar from '@/components/TableToolbar';
+import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar';
 import TablePagination from '@/components/TablePagination';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { ArrowDown, ArrowUp, ArrowUpDown, Building, ExternalLink, FileDown } from 'lucide-react';
@@ -84,6 +84,15 @@ interface PermitsTableProps {
     stage?: string[];
     documentType?: string[];
     source?: string[];
+    requestType?: string[];
+  };
+  advancedFilters?: {
+    permitNumber?: { value: string; onChange: (value: string) => void };
+    requestNumber?: { value: string; onChange: (value: string) => void };
+    requestType?: { value: string; onChange: (value: string) => void };
+    description?: { value: string; onChange: (value: string) => void };
+    approvalDate?: { from?: string; to?: string; onChange: (value: { from?: string; to?: string }) => void };
+    expiryDate?: { from?: string; to?: string; onChange: (value: { from?: string; to?: string }) => void };
   };
 }
 
@@ -368,6 +377,7 @@ export default function PermitsTable({
   onSortingChange,
   totalCount,
   filterOptions,
+  advancedFilters,
 }: PermitsTableProps) {
   const { trackFeatureUsage } = useAnalytics();
   const [rowSelection, setRowSelection] = React.useState({});
@@ -392,6 +402,15 @@ export default function PermitsTable({
   const columns = React.useMemo(() => createColumns(), []);
 
   const useClientFiltering = !(manualPagination || manualSorting);
+
+  const permitNumberFilterValue = advancedFilters?.permitNumber?.value ?? '';
+  const requestNumberFilterValue = advancedFilters?.requestNumber?.value ?? '';
+  const requestTypeFilterValue = advancedFilters?.requestType?.value ?? 'all';
+  const descriptionFilterValue = advancedFilters?.description?.value ?? '';
+  const approvalDateFrom = advancedFilters?.approvalDate?.from ?? '';
+  const approvalDateTo = advancedFilters?.approvalDate?.to ?? '';
+  const expiryDateFrom = advancedFilters?.expiryDate?.from ?? '';
+  const expiryDateTo = advancedFilters?.expiryDate?.to ?? '';
 
   const filteredData = React.useMemo(() => {
     if (!useClientFiltering) {
@@ -431,8 +450,97 @@ export default function PermitsTable({
       filtered = filtered.filter((permit) => permit.source === filters.source?.value);
     }
 
+    if (advancedFilters?.permitNumber?.value) {
+      const search = advancedFilters.permitNumber.value.trim().toLowerCase();
+      if (search) {
+        filtered = filtered.filter((permit) => {
+          const permitNumber = permit.permitNumber?.toLowerCase() ?? '';
+          return permitNumber.includes(search);
+        });
+      }
+    }
+
+    if (advancedFilters?.requestNumber?.value) {
+      const search = advancedFilters.requestNumber.value.trim().toLowerCase();
+      if (search) {
+        filtered = filtered.filter((permit) => {
+          const requestNumber = permit.requestNumber?.toLowerCase() ?? '';
+          return requestNumber.includes(search);
+        });
+      }
+    }
+
+    if (advancedFilters?.requestType?.value && advancedFilters.requestType.value !== 'all') {
+      filtered = filtered.filter((permit) => permit.requestType === advancedFilters.requestType?.value);
+    }
+
+    if (advancedFilters?.description?.value) {
+      const search = advancedFilters.description.value.trim().toLowerCase();
+      if (search) {
+        filtered = filtered.filter((permit) => {
+          const description = permit.description?.toLowerCase() ?? '';
+          const title = permit.title?.toLowerCase() ?? '';
+          return description.includes(search) || title.includes(search);
+        });
+      }
+    }
+
+    if (advancedFilters?.approvalDate) {
+      const from = advancedFilters.approvalDate.from ? new Date(advancedFilters.approvalDate.from) : undefined;
+      const to = advancedFilters.approvalDate.to ? new Date(advancedFilters.approvalDate.to) : undefined;
+      if (from || to) {
+        filtered = filtered.filter((permit) => {
+          const dateString = permit.approvalDate || permit.issueDate;
+          if (!dateString) return false;
+          const approvalDate = new Date(dateString);
+          if (Number.isNaN(approvalDate.getTime())) return false;
+          if (from && approvalDate < from) return false;
+          if (to) {
+            const toDate = new Date(to);
+            toDate.setHours(23, 59, 59, 999);
+            if (approvalDate > toDate) return false;
+          }
+          return true;
+        });
+      }
+    }
+
+    if (advancedFilters?.expiryDate) {
+      const from = advancedFilters.expiryDate.from ? new Date(advancedFilters.expiryDate.from) : undefined;
+      const to = advancedFilters.expiryDate.to ? new Date(advancedFilters.expiryDate.to) : undefined;
+      if (from || to) {
+        filtered = filtered.filter((permit) => {
+          const dateString = permit.expiryDate;
+          if (!dateString) return false;
+          const expiryDate = new Date(dateString);
+          if (Number.isNaN(expiryDate.getTime())) return false;
+          if (from && expiryDate < from) return false;
+          if (to) {
+            const toDate = new Date(to);
+            toDate.setHours(23, 59, 59, 999);
+            if (expiryDate > toDate) return false;
+          }
+          return true;
+        });
+      }
+    }
+
     return filtered;
-  }, [data, searchValue, filters, useClientFiltering]);
+  }, [
+    advancedFilters?.approvalDate?.from,
+    advancedFilters?.approvalDate?.to,
+    advancedFilters?.description?.value,
+    advancedFilters?.expiryDate?.from,
+    advancedFilters?.expiryDate?.to,
+    advancedFilters?.permitNumber?.value,
+    advancedFilters?.requestNumber?.value,
+    advancedFilters?.requestType?.value,
+    data,
+    filters,
+    searchValue,
+    useClientFiltering,
+    advancedFilters,
+  ]);
 
   const tableData = useClientFiltering ? filteredData : data;
 
@@ -494,12 +602,7 @@ export default function PermitsTable({
     }));
 
   const additionalFilters = React.useMemo(() => {
-    const filtersList: Array<{
-      key: string;
-      label: string;
-      value: string;
-      options: Array<{ value: string; label: string }>;
-    }> = [];
+    const filtersList: AdditionalFilterConfig[] = [];
 
     const stages = filterOptions?.stage && filterOptions.stage.length > 0
       ? filterOptions.stage
@@ -509,7 +612,9 @@ export default function PermitsTable({
       filtersList.push({
         key: 'stage',
         label: 'שלב',
+        type: 'select',
         value: filters?.stage?.value ?? 'all',
+        showAllOption: false,
         options: [
           { value: 'all', label: 'כל השלבים' },
           ...stages.map((stage) => ({ value: stage, label: stage })),
@@ -525,7 +630,9 @@ export default function PermitsTable({
       filtersList.push({
         key: 'documentType',
         label: 'סוג מסמך',
+        type: 'select',
         value: filters?.documentType?.value ?? 'all',
+        showAllOption: false,
         options: [
           { value: 'all', label: 'כל הסוגים' },
           ...docTypes.map((type) => ({
@@ -544,7 +651,9 @@ export default function PermitsTable({
       filtersList.push({
         key: 'source',
         label: 'מקור',
+        type: 'select',
         value: filters?.source?.value ?? 'all',
+        showAllOption: false,
         options: [
           { value: 'all', label: 'כל המקורות' },
           ...sources.map((source) => ({
@@ -555,18 +664,133 @@ export default function PermitsTable({
       });
     }
 
-    return filtersList;
-  }, [data, filters, filterOptions]);
+    const requestTypes = filterOptions?.requestType && filterOptions.requestType.length > 0
+      ? filterOptions.requestType
+      : Array.from(new Set(data.map((permit) => permit.requestType).filter(Boolean))) as string[];
 
-  const handleAdditionalFilterChange = (key: string, value: string) => {
-    if (key === 'stage' && filters?.stage?.onChange) {
-      filters.stage.onChange(value);
+    if (advancedFilters?.requestType && requestTypes.length > 0) {
+      filtersList.push({
+        key: 'requestType',
+        label: 'סוג בקשה',
+        type: 'select',
+        value: advancedFilters.requestType.value ?? 'all',
+        showAllOption: false,
+        options: [
+          { value: 'all', label: 'כל סוגי הבקשה' },
+          ...requestTypes.map((requestType) => ({
+            value: requestType,
+            label: requestType,
+          })),
+        ],
+      });
     }
-    if (key === 'documentType' && filters?.documentType?.onChange) {
-      filters.documentType.onChange(value);
+
+    if (advancedFilters?.permitNumber) {
+      filtersList.push({
+        key: 'permitNumber',
+        label: 'מספר היתר',
+        type: 'text',
+        value: advancedFilters.permitNumber.value,
+        placeholder: 'לדוגמה 12345',
+      });
     }
-    if (key === 'source' && filters?.source?.onChange) {
-      filters.source.onChange(value);
+
+    if (advancedFilters?.requestNumber) {
+      filtersList.push({
+        key: 'requestNumber',
+        label: 'מספר בקשה',
+        type: 'text',
+        value: advancedFilters.requestNumber.value,
+        placeholder: 'לדוגמה 456/2024',
+      });
+    }
+
+    if (advancedFilters?.description) {
+      filtersList.push({
+        key: 'description',
+        label: 'תוכן הבקשה',
+        type: 'text',
+        value: advancedFilters.description.value,
+        placeholder: 'חפש לפי תיאור',
+      });
+    }
+
+    if (advancedFilters?.approvalDate) {
+      filtersList.push({
+        key: 'approvalDate',
+        label: 'תאריך אישור',
+        type: 'date-range',
+        value: {
+          from: advancedFilters.approvalDate.from,
+          to: advancedFilters.approvalDate.to,
+        },
+      });
+    }
+
+    if (advancedFilters?.expiryDate) {
+      filtersList.push({
+        key: 'expiryDate',
+        label: 'תוקף',
+        type: 'date-range',
+        value: {
+          from: advancedFilters.expiryDate.from,
+          to: advancedFilters.expiryDate.to,
+        },
+      });
+    }
+
+    return filtersList;
+  }, [
+    advancedFilters?.approvalDate?.from,
+    advancedFilters?.approvalDate?.to,
+    advancedFilters?.description?.value,
+    advancedFilters?.permitNumber?.value,
+    advancedFilters?.requestNumber?.value,
+    advancedFilters?.requestType?.value,
+    advancedFilters?.expiryDate?.from,
+    advancedFilters?.expiryDate?.to,
+    data,
+    filters?.documentType?.value,
+    filters?.source?.value,
+    filters?.stage?.value,
+    filterOptions,
+    advancedFilters,
+  ]);
+
+  const handleAdditionalFilterChange = (key: string, value: AdditionalFilterValue) => {
+    if (typeof value === 'string') {
+      if (key === 'stage' && filters?.stage?.onChange) {
+        filters.stage.onChange(value);
+      }
+      if (key === 'documentType' && filters?.documentType?.onChange) {
+        filters.documentType.onChange(value);
+      }
+      if (key === 'source' && filters?.source?.onChange) {
+        filters.source.onChange(value);
+      }
+      if (key === 'requestType' && advancedFilters?.requestType) {
+        advancedFilters.requestType.onChange(value);
+      }
+      if (key === 'permitNumber' && advancedFilters?.permitNumber) {
+        advancedFilters.permitNumber.onChange(value);
+      }
+      if (key === 'requestNumber' && advancedFilters?.requestNumber) {
+        advancedFilters.requestNumber.onChange(value);
+      }
+      if (key === 'description' && advancedFilters?.description) {
+        advancedFilters.description.onChange(value);
+      }
+      return;
+    }
+
+    if ('from' in value || 'to' in value) {
+      if (key === 'approvalDate' && advancedFilters?.approvalDate) {
+        advancedFilters.approvalDate.onChange({ from: value.from, to: value.to });
+      }
+      if (key === 'expiryDate' && advancedFilters?.expiryDate) {
+        advancedFilters.expiryDate.onChange({ from: value.from, to: value.to });
+      }
+      return;
     }
   };
 
@@ -595,13 +819,6 @@ export default function PermitsTable({
           }
         }}
         searchPlaceholder="חיפוש בהיתרים..."
-        filters={{
-          city: { value: 'all', onChange: () => {}, options: [] },
-          type: { value: 'all', onChange: () => {}, options: [] },
-          priceMin: { value: undefined, onChange: () => {} },
-          priceMax: { value: undefined, onChange: () => {} },
-          ...(filters || {}),
-        }}
         additionalFilters={additionalFilters}
         onAdditionalFilterChange={handleAdditionalFilterChange}
         columns={toolbarColumns}

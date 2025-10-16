@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/Badge';
 import { Calendar, Building, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import TableToolbar from '@/components/TableToolbar';
+import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar';
 import TablePagination from '@/components/TablePagination';
 import { useAnalytics } from '@/hooks/useAnalytics';
 
@@ -65,6 +65,10 @@ interface PlansTableProps {
   filterOptions?: {
     source?: string[];
     status?: string[];
+  };
+  advancedFilters?: {
+    planNumber?: { value: string; onChange: (value: string) => void };
+    description?: { value: string; onChange: (value: string) => void };
   };
 }
 
@@ -162,6 +166,7 @@ export default function PlansTable({
   onSortingChange,
   totalCount,
   filterOptions,
+  advancedFilters,
 }: PlansTableProps) {
   const { trackFeatureUsage } = useAnalytics();
   const [rowSelection, setRowSelection] = React.useState({});
@@ -216,9 +221,36 @@ export default function PlansTable({
         return false;
       }
 
+      if (advancedFilters?.planNumber?.value) {
+        const planNumberSearch = advancedFilters.planNumber.value.trim().toLowerCase();
+        if (planNumberSearch && !plan.plan_number?.toLowerCase().includes(planNumberSearch)) {
+          return false;
+        }
+      }
+
+      if (advancedFilters?.description?.value) {
+        const descriptionSearch = advancedFilters.description.value.trim().toLowerCase();
+        if (
+          descriptionSearch &&
+          !(
+            plan.description?.toLowerCase().includes(descriptionSearch) ||
+            plan.raw?.title?.toLowerCase().includes(descriptionSearch)
+          )
+        ) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [data, searchValue, filters, useClientFiltering]);
+  }, [
+    data,
+    searchValue,
+    filters,
+    useClientFiltering,
+    advancedFilters?.planNumber?.value,
+    advancedFilters?.description?.value,
+  ]);
 
   const tableData = useClientFiltering ? filteredData : data;
 
@@ -280,8 +312,8 @@ export default function PlansTable({
       toggle: (value: boolean) => column.toggleVisibility(value)
     }));
 
-  const additionalFilters = React.useMemo(() => {
-    const filtersList = [] as Array<{ key: string; label: string; value: string; options: Array<{ value: string; label: string }>; }>;
+  const additionalFilters = React.useMemo((): AdditionalFilterConfig[] => {
+    const filtersList: AdditionalFilterConfig[] = [];
 
     const sources = filterOptions?.source && filterOptions.source.length > 0
       ? filterOptions.source
@@ -291,7 +323,9 @@ export default function PlansTable({
       filtersList.push({
         key: 'source',
         label: 'מקור',
+        type: 'select',
         value: filters?.source?.value ?? 'all',
+        showAllOption: false,
         options: [
           { value: 'all', label: 'הכל' },
           ...sources.map(source => ({
@@ -310,7 +344,9 @@ export default function PlansTable({
       filtersList.push({
         key: 'status',
         label: 'סטטוס',
+        type: 'select',
         value: filters?.status?.value ?? 'all',
+        showAllOption: false,
         options: [
           { value: 'all', label: 'הכל' },
           ...statuses.map(status => ({ value: status, label: status }))
@@ -318,10 +354,52 @@ export default function PlansTable({
       });
     }
 
-    return filtersList;
-  }, [data, filters, filterOptions]);
+    if (advancedFilters?.planNumber) {
+      filtersList.push({
+        key: 'planNumber',
+        label: 'מספר תוכנית',
+        type: 'text',
+        value: advancedFilters.planNumber.value,
+        placeholder: 'לדוגמה 12345',
+      });
+    }
 
-  const handleAdditionalFilterChange = (key: string, value: string) => {
+    if (advancedFilters?.description) {
+      filtersList.push({
+        key: 'description',
+        label: 'תיאור',
+        type: 'text',
+        value: advancedFilters.description.value,
+        placeholder: 'חפש בתיאור...',
+      });
+    }
+
+    return filtersList;
+  }, [
+    data,
+    filters,
+    filterOptions,
+    advancedFilters?.planNumber?.value,
+    advancedFilters?.description?.value,
+  ]);
+
+  const handleAdditionalFilterChange = (key: string, value: AdditionalFilterValue) => {
+    if (typeof value === 'string') {
+      if (key === 'source' && filters?.source?.onChange) {
+        filters.source.onChange(value);
+      }
+      if (key === 'status' && filters?.status?.onChange) {
+        filters.status.onChange(value);
+      }
+      if (key === 'planNumber' && advancedFilters?.planNumber) {
+        advancedFilters.planNumber.onChange(value);
+      }
+      if (key === 'description' && advancedFilters?.description) {
+        advancedFilters.description.onChange(value);
+      }
+      trackFeatureUsage('filter', undefined, { filter_type: key, value });
+      return;
+    }
     trackFeatureUsage('filter', undefined, { filter_type: key, value });
   };
 
@@ -350,13 +428,6 @@ export default function PlansTable({
           }
         }}
         searchPlaceholder="חיפוש בתוכניות..."
-        filters={{
-          city: { value: 'all', onChange: () => {}, options: [] },
-          type: { value: 'all', onChange: () => {}, options: [] },
-          priceMin: { value: undefined, onChange: () => {} },
-          priceMax: { value: undefined, onChange: () => {} },
-          ...(filters || {})
-        }}
         additionalFilters={additionalFilters}
         onAdditionalFilterChange={handleAdditionalFilterChange}
         columns={toolbarColumns}

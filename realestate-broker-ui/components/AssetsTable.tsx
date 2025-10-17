@@ -466,7 +466,7 @@ export default function AssetsTable({
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(COLUMN_PREFERENCES_KEY)
-        return saved ? { ...DEFAULT_COLUMN_VISIBILITY, ...JSON.parse(saved) } : { ...DEFAULT_COLUMN_VISIBILITY }
+        return saved ? JSON.parse(saved) : { ...DEFAULT_COLUMN_VISIBILITY }
       } catch (error) {
         console.warn('Failed to load column preferences:', error)
         return { ...DEFAULT_COLUMN_VISIBILITY }

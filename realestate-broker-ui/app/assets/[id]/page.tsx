@@ -576,7 +576,7 @@ React.useEffect(() => {
     if (plansData.items && plansData.items.length > 0) {
       allDocs.push(...plansData.items.map((plan: any) => ({
         id: `plan_${plan.id}`,
-        title: plan.description || `תכנית ${plan.plan_number}`,
+        title: plan.title || plan.description || `תכנית ${plan.plan_number}`,
         type: translateDocumentType('plan'),
         url: plan.file_url,
         source: translateSource(plan.source === 'rami' ? 'RAMI' : plan.source === 'mavat' ? 'Mavat' : 'Local'),
@@ -1073,6 +1073,7 @@ const loadPlans = React.useCallback(async () => {
 
     const sortMapping: Record<string, string> = {
       plan_number: 'plan_number',
+      title: 'title',
       description: 'description',
       status: 'status',
       source: 'source',

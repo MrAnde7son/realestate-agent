@@ -2639,8 +2639,16 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
                 plan_number = plan.get('planNumber') or plan.get('plan_number', '')
                 if plan_number:
                     # Create Plan record
+                    plan_title = (
+                        plan.get('title')
+                        or plan.get('plan_name')
+                        or plan.get('planName')
+                        or plan.get('name')
+                        or f'תכנית רמ״י {plan_number}'
+                    )
                     plan_payload = {
-                        'description': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                        'title': plan_title,
+                        'description': plan.get('description') or plan_title,
                         'status': plan.get('status', ''),
                         'file_url': plan.get('url', ''),
                         'raw': plan,
@@ -2679,8 +2687,16 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
                 plan_id = plan.get('plan_id') or plan.get('id', '')
                 if plan_id:
                     plan_key = f"{plan_id}"
+                    plan_title = (
+                        plan.get('title')
+                        or plan.get('plan_name')
+                        or plan.get('planName')
+                        or plan.get('name')
+                        or f'תכנית מנהל התיכנון {plan_id}'
+                    )
                     plan_payload = {
-                        'description': plan.get('title', f'תכנית מנהל התיכנון {plan_id}'),
+                        'title': plan_title,
+                        'description': plan.get('description') or plan_title,
                         'status': plan.get('status', ''),
                         'file_url': plan.get('url', ''),
                         'raw': plan,

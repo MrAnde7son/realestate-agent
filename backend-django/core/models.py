@@ -1364,6 +1364,7 @@ class Plan(models.Model):
         related_name='plans_m2m'
     )
     plan_number = models.CharField(max_length=100)
+    title = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=50, blank=True)
     effective_date = models.DateField(blank=True, null=True)

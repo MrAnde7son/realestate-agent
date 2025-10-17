@@ -94,7 +94,7 @@ class PermitAdmin(admin.ModelAdmin):
 @admin.register(Plan)
 class PlanAdmin(admin.ModelAdmin):
     inlines = [AssetPlanInline]
-    search_fields = ('id', 'plan_number')
+    search_fields = ('id', 'plan_number', 'title')
 
 
 @admin.register(Listing)

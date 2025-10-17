@@ -2421,10 +2421,17 @@ def _normalize_plan_entry(entry):
         entry.get("plan_id"),
     )
 
-    description = _first_non_empty(
-        entry.get("description"),
+    title = _first_non_empty(
         entry.get("title"),
         entry.get("name"),
+        entry.get("plan_name"),
+        entry.get("planTitle"),
+    )
+
+    description = _first_non_empty(
+        entry.get("description"),
+        entry.get("summary"),
+        title,
     )
 
     status = _first_non_empty(entry.get("status"))
@@ -2442,6 +2449,7 @@ def _normalize_plan_entry(entry):
             None,
             [
                 plan_number,
+                title,
                 description,
                 status,
                 source,
@@ -2453,6 +2461,7 @@ def _normalize_plan_entry(entry):
     return {
         "id": entry.get("id"),
         "plan_number": plan_number,
+        "title": title,
         "description": description,
         "status": status,
         "effective_date": effective_date,
@@ -2511,6 +2520,7 @@ def asset_plans(request, asset_id):
             plan_entries.append(_normalize_plan_entry({
                 "id": plan.id,
                 "plan_number": plan.plan_number,
+                "title": plan.title,
                 "description": plan.description,
                 "status": plan.status,
                 "effective_date": plan.effective_date.isoformat() if plan.effective_date else None,
@@ -2541,6 +2551,7 @@ def asset_plans(request, asset_id):
             plan_entries.append(_normalize_plan_entry({
                 "id": doc.id,
                 "plan_number": plan_number,
+                "title": doc.title or doc.description,
                 "description": doc.description or doc.title,
                 "status": doc.status,
                 "effective_date": doc.document_date.isoformat() if doc.document_date else None,
@@ -2581,6 +2592,8 @@ def asset_plans(request, asset_id):
                 return _parse_date_value(item.get('effective_date')) or datetime.min
             if ordering_field == 'plan_number':
                 return item.get('plan_number') or ''
+            if ordering_field == 'title':
+                return item.get('title') or ''
             if ordering_field == 'status':
                 return item.get('status') or ''
             if ordering_field == 'source':

@@ -400,6 +400,52 @@ interface AssetsTableProps {
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
 const COLUMN_SIZING_KEY = 'assets-table-column-sizing'
 
+const DEFAULT_VISIBLE_COLUMNS = new Set([
+  'select',
+  'address',
+  'price',
+  'pricePerSqm',
+  'deltaVsAreaPct',
+  'domPercentile',
+  'competition1km',
+  'riskFlags',
+  'actions'
+])
+
+const ALL_COLUMN_IDS = [
+  'select',
+  'address',
+  'price',
+  'pricePerSqm',
+  'deltaVsAreaPct',
+  'domPercentile',
+  'competition1km',
+  'zoning',
+  'remainingRightsSqm',
+  'program',
+  'lastPermitQ',
+  'docsCount',
+  'noiseLevel',
+  'antennaDistanceM',
+  'greenWithin300m',
+  'shelterDistanceM',
+  'riskFlags',
+  'assetStatus',
+  'modelPrice',
+  'priceGapPct',
+  'confidencePct',
+  'rentEstimate',
+  'capRatePct',
+  'actions'
+] as const
+
+const DEFAULT_COLUMN_VISIBILITY = ALL_COLUMN_IDS.reduce<Record<string, boolean>>((acc, columnId) => {
+  if (!DEFAULT_VISIBLE_COLUMNS.has(columnId)) {
+    acc[columnId] = false
+  }
+  return acc
+}, {})
+
 export default function AssetsTable({ 
   data = [], 
   loading = false, 
@@ -420,13 +466,13 @@ export default function AssetsTable({
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(COLUMN_PREFERENCES_KEY)
-        return saved ? JSON.parse(saved) : {}
+        return saved ? { ...DEFAULT_COLUMN_VISIBILITY, ...JSON.parse(saved) } : { ...DEFAULT_COLUMN_VISIBILITY }
       } catch (error) {
         console.warn('Failed to load column preferences:', error)
-        return {}
+        return { ...DEFAULT_COLUMN_VISIBILITY }
       }
     }
-    return {}
+    return { ...DEFAULT_COLUMN_VISIBILITY }
   })
   const [columnSizing, setColumnSizing] = React.useState<Record<string, number>>(() => {
     // Load saved column sizing from localStorage on component mount

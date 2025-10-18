@@ -405,9 +405,9 @@ const DEFAULT_VISIBLE_COLUMNS = new Set([
   'address',
   'price',
   'pricePerSqm',
-  'deltaVsAreaPct',
+  'modelPrice',
+  'rentEstimate',
   'domPercentile',
-  'competition1km',
   'riskFlags',
   'actions'
 ])
@@ -431,10 +431,8 @@ const ALL_COLUMN_IDS = [
   'shelterDistanceM',
   'riskFlags',
   'assetStatus',
-  'modelPrice',
   'priceGapPct',
   'confidencePct',
-  'rentEstimate',
   'capRatePct',
   'actions'
 ] as const

@@ -52,7 +52,6 @@ class MavatCollector(BaseCollector):
                         "entity_number": plan.entity_number,
                         "approval_date": plan.approval_date,
                         "status_date": plan.status_date,
-                        "raw": plan.raw
                     })
                 
                 return formatted_plans

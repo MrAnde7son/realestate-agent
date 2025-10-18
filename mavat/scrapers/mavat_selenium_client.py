@@ -904,31 +904,26 @@ class MavatSeleniumClient:
                                 continue
                             
                             # Determine plan ID (usually first cell with meaningful content)
-                            plan_id = None
-                            for cell_text in cell_texts:
-                                if cell_text and (cell_text.isdigit() or len(cell_text) > 3):
-                                    plan_id = cell_text
-                                    break
-                            
+                            plan_id = cell_texts[0] if cell_texts else None
+                            plan_name = cell_texts[1] if len(cell_texts) > 1 else None
+
+                            if not plan_id:
+                                plan_id = next((text for text in cell_texts if text), None)
                             if not plan_id:
                                 plan_id = f"plan_{table_idx}_{row_idx}"
-                            
-                            # Use the first non-empty cell as title
-                            title = next((text for text in cell_texts if text), None)
-                            
+
+                            if not plan_name:
+                                plan_name = next(
+                                    (text for idx, text in enumerate(cell_texts) if idx != 0 and text),
+                                    None
+                                )
+
+                            title = plan_name or plan_id
+
                             # Try to identify additional fields based on table structure
-                            authority = None
-                            jurisdiction = None
-                            status = None
-                            
-                            if len(cell_texts) >= 3:
-                                # Common pattern: ID, Title, Authority, Location, Status
-                                if len(cell_texts) >= 4:
-                                    authority = cell_texts[2] if len(cell_texts) > 2 else None
-                                if len(cell_texts) >= 5:
-                                    jurisdiction = cell_texts[3] if len(cell_texts) > 3 else None
-                                if len(cell_texts) >= 6:
-                                    status = cell_texts[4] if len(cell_texts) > 4 else None
+                            authority = cell_texts[2] if len(cell_texts) > 2 else None
+                            jurisdiction = cell_texts[3] if len(cell_texts) > 3 else None
+                            status = cell_texts[4] if len(cell_texts) > 4 else None
                             
                             hit = MavatSearchHit(
                                 plan_id=plan_id,
@@ -940,6 +935,7 @@ class MavatSeleniumClient:
                                     "table_index": table_idx,
                                     "row_index": row_idx,
                                     "cell_texts": cell_texts,
+                                    "plan_name": plan_name,
                                     "element_html": row.get_attribute("outerHTML")[:500]
                                 }
                             )

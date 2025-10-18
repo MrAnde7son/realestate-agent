@@ -83,7 +83,7 @@ describe('AssetsTable default columns', () => {
     fireEvent.pointerDown(columnsButton)
     fireEvent.keyDown(columnsButton, { key: 'Enter', code: 'Enter', charCode: 13 })
 
-    const resetButton = await screen.findByRole('button', { name: 'שחזר ברירת מחדל' })
+    const resetButton = await screen.findByRole('button', { name: 'שחזר' })
     fireEvent.click(resetButton)
 
     await waitFor(() => {

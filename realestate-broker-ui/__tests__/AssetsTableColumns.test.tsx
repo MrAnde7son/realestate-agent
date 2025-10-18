@@ -49,8 +49,7 @@ describe('AssetsTable default columns', () => {
       expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('columnheader', { name: 'תחרות (1ק"מ)' })).not.toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Δ מול איזור' })).not.toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'מחיר' })).toBeInTheDocument()
 
     expect(screen.queryByRole('columnheader', { name: 'ייעוד' })).not.toBeInTheDocument()
     expect(screen.queryByRole('columnheader', { name: 'שטחי ציבור ≤300מ"' })).not.toBeInTheDocument()

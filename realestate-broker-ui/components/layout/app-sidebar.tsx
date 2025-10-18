@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Logo from "@/components/Logo";
-import * as Collapsible from "@radix-ui/react-collapsible";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { useAuth } from "@/lib/auth-context";
 import { getRoleLabel } from "@/lib/role-constants";
 
@@ -152,34 +152,55 @@ export default function AppSidebar({
 
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto p-4">
-        <nav className="space-y-2">
-          {navigation.map((item) => {
-            const Icon = item.icon;
+        <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
+          <nav className="space-y-2">
+            {navigation.map((item) => {
+              const Icon = item.icon;
 
-            const active = isActive(item.href, pathname);
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center rounded-lg text-sm transition-colors",
-                  isCollapsed ? "justify-center px-2 py-3" : "gap-2 px-3 py-2",
-                  active
-                    ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)] font-semibold"
-                    : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8"
-                )}
-              >
-                <item.icon
-                    className={cn(
-                      isCollapsed ? "h-8 w-8" : "h-4 w-4",
-                      active && "text-primary"
-                    )}
-                  />
-                {!isCollapsed && <span>{item.name}</span>}
-              </Link>
-            );
-          })}
-        </nav>
+              const active = isActive(item.href, pathname);
+
+              return (
+                <Tooltip.Root key={item.name}>
+                  <Tooltip.Trigger asChild>
+                    <Link
+                      href={item.href}
+                      aria-label={isCollapsed ? item.name : undefined}
+                      className={cn(
+                        "flex items-center rounded-lg text-sm transition-colors",
+                        isCollapsed
+                          ? "justify-center px-2 py-3"
+                          : "gap-2 px-3 py-2",
+                        active
+                          ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)] font-semibold"
+                          : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8"
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          isCollapsed ? "h-8 w-8" : "h-4 w-4",
+                          active && "text-primary"
+                        )}
+                      />
+                      {!isCollapsed && <span>{item.name}</span>}
+                    </Link>
+                  </Tooltip.Trigger>
+                  {isCollapsed && (
+                    <Tooltip.Portal>
+                      <Tooltip.Content
+                        side="right"
+                        sideOffset={8}
+                        className="rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white shadow-md"
+                      >
+                        {item.name}
+                        <Tooltip.Arrow className="fill-gray-900" />
+                      </Tooltip.Content>
+                    </Tooltip.Portal>
+                  )}
+                </Tooltip.Root>
+              );
+            })}
+          </nav>
+        </Tooltip.Provider>
       </div>
 
       {/* Footer with User Menu - Moved to bottom of sidebar */}

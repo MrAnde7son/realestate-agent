@@ -21,10 +21,11 @@ class RamiCollector(BaseCollector):
             
             # Fetch plans using the same method as the test
             plans = self.client.fetch_plans(search_params)
+            enriched_plans: List[Dict[str, Any]] = []
 
             for plan in plans:
                 documents = self.client.extract_document_urls(plan)
-                plans.append({
+                enriched_plans.append({
                     "planNumber": plan.get("planNumber", ""),
                     "planId": plan.get("planId", ""),
                     "status": plan.get("status", ""),
@@ -32,8 +33,8 @@ class RamiCollector(BaseCollector):
                     "documents": documents,
                     "raw": plan
                 })
-            
-            return plans
+
+            return enriched_plans
         except Exception:
             return []
 

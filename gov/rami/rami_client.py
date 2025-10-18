@@ -178,7 +178,7 @@ class RamiClient:
     def _extract_document_urls(self, plan: Dict[str, Any]) -> List[Dict[str, str]]:
         """Extract document URLs from a plan's documentsSet."""
         documents = []
-        documents_set = plan.get('documentsSet', {})
+        documents_set = plan.pop('documentsSet', {})
         
         if not documents_set:
             return documents
@@ -201,7 +201,7 @@ class RamiClient:
             documents.append({
                 'type': 'takanon',
                 'name': takanon.get('info', 'תקנון סרוק'),
-                'url': self.BASE_URL + clean_path_str,
+                'url': self.BASE_URL + clean_path_str
             })
         
         # Extract tasritim (drawings/blueprints)
@@ -212,8 +212,7 @@ class RamiClient:
                 documents.append({
                     'type': 'tasrit',
                     'name': tasrit.get('info', 'תשריט'),
-                    'url': self.BASE_URL + clean_path_str,
-                    'path': tasrit['path']
+                    'url': self.BASE_URL + clean_path_str
                 })
         
         # Extract nispachim (appendices)
@@ -224,8 +223,7 @@ class RamiClient:
                 documents.append({
                     'type': 'nispach',
                     'name': nispach.get('info', 'נספח'),
-                    'url': self.BASE_URL + clean_path_str,
-                    'path': nispach['path']
+                    'url': self.BASE_URL + clean_path_str
                 })
         
         # Extract MMG files
@@ -235,8 +233,7 @@ class RamiClient:
             documents.append({
                 'type': 'mmg',
                 'name': mmg.get('info', 'קבצי ממג'),
-                'url': self.BASE_URL + clean_path_str,
-                'path': mmg['path']
+                'url': self.BASE_URL + clean_path_str
             })
         
         return documents

@@ -864,7 +864,7 @@ export default function TableToolbar({
                       }}
                       className="h-6 px-2 text-xs"
                     >
-                      שחזר ברירת מחדל
+                      שחזר
                     </Button>
                   )}
                 </div>

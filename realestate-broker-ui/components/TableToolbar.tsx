@@ -151,6 +151,7 @@ interface TableToolbarProps {
     visible: boolean;
     toggle: (value: boolean) => void;
   }>;
+  onResetColumns?: () => void;
 
   // Export
   onExportSelected: () => void;
@@ -200,6 +201,7 @@ export default function TableToolbar({
   searchPlaceholder = "חיפוש...",
   filters,
   columns,
+  onResetColumns,
   onExportSelected,
   onExportAll,
   selectedCount,
@@ -850,6 +852,21 @@ export default function TableToolbar({
                   >
                     בטל הכל
                   </Button>
+                  {onResetColumns && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setColumnSearch('');
+                        onResetColumns();
+                      }}
+                      className="h-6 px-2 text-xs"
+                    >
+                      שחזר
+                    </Button>
+                  )}
                 </div>
               </div>
               {filteredColumns.length === 0 ? (

@@ -39,7 +39,8 @@ except Exception:  # pragma: no cover - optional dependency
 # ---------- utilities ----------
 class TextNormalizer:
     """Utility class for text normalization operations."""
-    WS = re.compile(r"[ \t\u200e\u200f]+")
+    # unify whitespace across all whitespace characters
+    WS = re.compile(r"\s+")
     MULTI_NL = re.compile(r"\n{2,}")
     HEBREW_KEYWORDS = [
         "התראות",
@@ -60,6 +61,19 @@ class TextNormalizer:
         if not text:
             return ""
         text = text.replace("\u200e", "").replace("\u200f", "")
+        # Insert a space between Hebrew letters and digits to fix glued tokens
+        # e.g., "דרך18" -> "דרך 18"
+        heb = r"\u0590-\u05FF"
+        digits = r"0-9"
+        text = re.sub(rf"([{heb}])(?=[{digits}])|([{digits}])(?=[{heb}])",
+                      lambda m: (m.group(1) or m.group(2)) + " ", text)
+        # Split common glued Hebrew prepositions that get merged in OCR (e.g., "בניהעלגגות")
+        # Add spaces around 'על' and 'של' when adjacent to Hebrew letters
+        text = re.sub(rf"([{heb}])על", r"\1 על", text)
+        text = re.sub(rf"על([{heb}])", r"על \1", text)
+        text = re.sub(rf"([{heb}])של", r"\1 של", text)
+        # Normalize punctuation spacing
+        text = re.sub(r"\s*([()\/,:;])\s*", r" \1 ", text)
         text = cls.WS.sub(" ", text)
         return text.strip()
 
@@ -474,25 +488,254 @@ class PolicyParser:
 class RightsParser:
     """Parses building rights and privileges."""
     def parse_rights(self, text: str) -> Dict[str, Any]:
-        rights = {"notes": []}
-        lines = [TextNormalizer.normalize(line) for line in text.splitlines() if TextNormalizer.normalize(line)]
+        """
+        Parse the 'rights' (זכויות בנייה) section into a structured dictionary.
+        Returns a dictionary with nested keys for lot, floors, setbacks, parking, auxiliary buildings, etc.
+        """
+        rights: Dict[str, Any] = {
+            # free‐text notes captured from each rights line
+            "notes": [],
+            # minimum lot requirements
+            "lot": {
+                "min_sqm": None,           # שטח מגרש מינימלי לבנייה
+                "min_frontage_m": None,    # רוחב חזית מינימלי
+            },
+            # floor‐by‐floor percentage rights
+            "floors": {
+                "typical_pct": None,       # אחוז לבנייה בקומה טיפוסית
+                "second_pct": None,        # אחוז לבנייה בקומה שנייה/ראשונה
+                "third_pct": None,         # אחוז לבנייה בקומה שלישית
+                "max_floors": None,        # מספר קומות מקסימלי
+                "basement": {             # זכויות למרתף
+                    "allowed": None,
+                    "max_height_m": None,
+                },
+            },
+            # building line setbacks in meters
+            "setbacks_m": {
+                "side": None,              # קו בניין צדדי
+                "rear": None,              # קו בניין אחורי
+            },
+            # list of parking allowances parsed from “חניה” lines
+            "parking": [],
+            # auxiliary buildings area rights (מבנה עזר)
+            "auxiliary_buildings": {
+                "area_sqm": None,
+            },
+            # storage (מחסן) area rights
+            "storage": {
+                "area_sqm": None,
+            },
+            # raw building line strings captured
+            "building_lines": [],
+        }
+
+        lines = [
+            TextNormalizer.normalize(line)
+            for line in text.splitlines()
+            if TextNormalizer.normalize(line)
+        ]
 
         for line in lines:
-            # original quick capture (kept)
-            self._parse_line_for_rights(line, rights)
-            # detailed capture inside the section (added for parity/robustness)
-            self._parse_building_lines(line, rights)
-            self._parse_floor_percentages(line, rights)
-            self._parse_minmax_values(line, rights)
-            self._parse_dwelling_units(line, rights)
-            self._parse_floors(line, rights)
-            self._parse_coverage(line, rights)
-            self._parse_parking(line, rights)
-            self._parse_auxiliary_building(line, rights)
+            L = line
 
-        # de-dupe referred plans
-        if "referred_plans" in rights:
-            rights["referred_plans"] = sorted(list(set(rights["referred_plans"])))
+            # explicit lot area in format "שטח מגרש <number>מ"ר"
+            # This appears before the word "מינימום" in some PDF tables.
+            m = re.search(r"שטח\s+מגרש\s*(\d{2,5})\s*מ\"?ר", L)
+            if m and rights["lot"]["min_sqm"] is None:
+                rights["lot"]["min_sqm"] = int(m.group(1))
+            # capture building lines (retain original for context)
+            if any(w in L for w in ["קו בניין", "ןיינב"]) and L not in rights["building_lines"]:
+                rights["building_lines"].append(L)
+
+            # lot minimum size (מינימום ... מ"ר)
+            m = re.search(r"\bמינימום\b.*?\b(\d{2,5})\b\s*מ\"?ר", L)
+            if m:
+                try:
+                    rights["lot"]["min_sqm"] = int(m.group(1))
+                except Exception:
+                    pass
+
+            # minimum frontage width (רוחב חזית מינימלי)
+            m = re.search(
+                r"(?:חזית\s*רוחב|רוחב\s*חזית).{0,20}מינימל[יי].*?(\d{1,3})\s*מטר",
+                L,
+            )
+            if m:
+                try:
+                    rights["lot"]["min_frontage_m"] = int(m.group(1))
+                except Exception:
+                    pass
+
+            # floor percentages: detect lines mentioning specific floor types and extract the percentage
+            if any(term in L for term in ["טיפוסית", "שניה", "שנייה", "ראשונה", "שלישית"]):
+                pm = re.search(r"(\d{1,3})\s*אחוז", L)
+                if pm:
+                    percent = int(pm.group(1))
+                    # Determine floor type by priority: second/first > third > typical
+                    if ("שניה" in L or "שנייה" in L or "ראשונה" in L) and rights["floors"].get("second_pct") is None:
+                        rights["floors"]["second_pct"] = percent
+                    elif "שלישית" in L and rights["floors"].get("third_pct") is None:
+                        rights["floors"]["third_pct"] = percent
+                    elif "טיפוסית" in L and rights["floors"].get("typical_pct") is None:
+                        rights["floors"]["typical_pct"] = percent
+
+            # max number of floors (מקסימום ... מספר קומות)
+            # explicit pattern: "מספר קומות" followed by a digit
+            m = re.search(r"מספר\s+קומות\s*(\d+)", L)
+            if m:
+                rights["floors"]["max_floors"] = int(m.group(1))
+            else:
+                # fallback: digit before "מספר קומות"
+                m = re.search(r"(\d+)\s*מספר\s+קומות", L)
+                if m:
+                    rights["floors"]["max_floors"] = int(m.group(1))
+                else:
+                    # pattern: "מקסימום" followed by digit and "מספר" (less common)
+                    m = re.search(r"\bמקסימום\b\s*(\d+)\s*(?:מספר\s*)?קומות", L)
+                    if m:
+                        rights["floors"]["max_floors"] = int(m.group(1))
+
+            # basement height: detect patterns where "מרתף" and "גובה" appear in any order
+            bh = None
+            # Pattern where 'גובה' precedes 'מרתף'
+            m = re.search(r"גובה\s+קומה\s+מרתף\s*(\d+(?:\.\d+)?)\s*מטר", L)
+            if m:
+                bh = m.group(1)
+            else:
+                # pattern where 'מרתף' precedes 'גובה'
+                m = re.search(r"מרתף.*?גובה\s*(\d+(?:\.\d+)?)\s*מטר", L)
+                if m:
+                    bh = m.group(1)
+            if bh is not None:
+                rights["floors"]["basement"]["allowed"] = True
+                try:
+                    rights["floors"]["basement"]["max_height_m"] = float(bh)
+                except Exception:
+                    rights["floors"]["basement"]["max_height_m"] = None
+
+            # setbacks (side/rear)
+            # patterns to capture both normal and OCR reversed forms
+            setback_patterns = [
+                # distance first: "4 מטרים קו בניין צדדי" (distance, type)
+                r"(\d+)\s*מ(?:ט|ת)רים?\s*קו\s+בניי?ן\s+(צדדי|אחורי|חזית)",
+                # type first: "קו בניין צדדי 1 4 מטרים" – allow optional enumeration digits between type and distance
+                r"קו\s+בניי?ן\s+(צדדי|אחורי|חזית)\s*\d*\s*(\d+)\s*מ(?:ט|ת)ר(?:ים)?",
+                # OCR reversed forms: side
+                r"(\d+)\s*(?:ידדץ|צדדי)\s*ןיינב\s*וק",
+                # OCR reversed forms: rear
+                r"(\d+)\s*ירוחא\s*ןיינב\s*וק",
+            ]
+            for pat in setback_patterns:
+                m = re.search(pat, L)
+                if not m:
+                    continue
+                # Normalize capture groups: either (distance,line_type) or (line_type,distance)
+                if len(m.groups()) == 2 and m.group(1).isdigit():
+                    distance = int(m.group(1))
+                    line_type = m.group(2)
+                elif len(m.groups()) == 2 and m.group(2).isdigit():
+                    distance = int(m.group(2))
+                    line_type = m.group(1)
+                else:
+                    continue
+                if line_type in ["צדדי", "ידדץ", "1", "2"]:
+                    rights["setbacks_m"]["side"] = distance
+                elif line_type in ["אחורי", "ירוחא"]:
+                    rights["setbacks_m"]["rear"] = distance
+                # we do not store "חזית" as separate here
+                break
+
+            # parking requirements: digits may appear before or after the word "מותר"
+            # Patterns like "2550 מותר חניה" or "מותר 2550 א"
+            # capture the number near "מותר" regardless of order
+            pm = re.search(r"(\d+)\s*מותר", L)
+            if pm:
+                rights["parking"].append({"value": int(pm.group(1)), "raw_text": L})
+            else:
+                pm = re.search(r"מותר\s*(\d+)", L)
+                if pm:
+                    rights["parking"].append({"value": int(pm.group(1)), "raw_text": L})
+
+            # explicit number of parking spaces (מספר מקומות חניה). Parse digits around the phrase
+            ps_match = None
+            # pattern: "X מקומות חניה" or "X מקומות חניה" with optional whitespace
+            ps_match = re.search(r"(\d+)\s*מקומות?\s*חניה", L)
+            if not ps_match:
+                ps_match = re.search(r"מקומות?\s*חניה\s*(\d+)", L)
+            if not ps_match:
+                ps_match = re.search(r"(\d+)\s*חניות", L)
+            if ps_match:
+                try:
+                    rights.setdefault("parking_spaces", 0)
+                    rights["parking_spaces"] = int(ps_match.group(1))
+                except Exception:
+                    pass
+
+            # auxiliary building area (מבנה עזר). Digits may appear before or after the phrase.
+            # Skip only if the line contains a numeric fraction (e.g., plan number like 347/123).
+            if not re.search(r"\d+\/\d+", L):
+                m = re.search(r"(\d+)\s*מבנה\s*עזר", L)
+                if not m:
+                    m = re.search(r"מבנה\s*עזר\s*(\d+)", L)
+                if m:
+                    try:
+                        rights["auxiliary_buildings"]["area_sqm"] = int(m.group(1))
+                    except Exception:
+                        pass
+
+            # storage area (מחסן). Digits may appear before or after the word.
+            # Skip only if the line contains a numeric fraction (e.g., plan number like 347/123).
+            if not re.search(r"\d+\/\d+", L):
+                m = re.search(r"(\d+)\s*מחסן", L)
+                if not m:
+                    m = re.search(r"מחסן\s*(\d+)", L)
+                if m:
+                    try:
+                        rights["storage"]["area_sqm"] = int(m.group(1))
+                    except Exception:
+                        pass
+                else:
+                    # sometimes the line says "מחסן ... עד 5 מ"ר" – capture the number after "עד"
+                    if "מחסן" in L:
+                        m2 = re.search(r"עד\s*(\d{1,3})\s*מ\"?ר", L)
+                        if m2:
+                            try:
+                                rights["storage"]["area_sqm"] = int(m2.group(1))
+                            except Exception:
+                                pass
+
+            # auxiliary building height (גובה מבנה עזר/מחסן). Capture a numeric height in meters
+            # detect height specification for auxiliary building or storage. Sometimes the article interrupts (e.g., "מבנה העזר").
+            if ("מחסן" in L or ("מבנה" in L and "עזר" in L)) and "גובה" in L:
+                hm = re.search(r"גובה[^\d]*(\d+(?:\.\d+)?)\s*מ", L)
+                if hm:
+                    try:
+                        rights.setdefault("auxiliary_buildings", {})
+                        rights["auxiliary_buildings"]["max_height_m"] = float(hm.group(1))
+                    except Exception:
+                        pass
+
+            # building coverage percentage (overall percentage of lot allowed for construction)
+            # patterns like "20% אחוז משטח מגרש" or "אחוז בנייה 20%"
+            cov_patterns = [
+                r"(\d{1,3})\s*%\s*אחוז\s+משטח\s+מגרש",
+                r"אחוז\s+משטח\s+מגרש\s*(\d{1,3})\s*%",
+                r"(\d{1,3})\s*%\s*אחוז\s+בנייה",
+                r"אחוז\s+בנייה\s*(\d{1,3})\s*%",
+            ]
+            for pat in cov_patterns:
+                m = re.search(pat, L)
+                if m:
+                    try:
+                        rights["building_coverage_percentage"] = int(m.group(1))
+                    except Exception:
+                        rights["building_coverage_percentage"] = None
+                    break
+
+            # accumulate notes
+            rights["notes"].append({"text": L, "type": "general"})
+
         return rights
 
     def parse_privilege_table_directly(self, text: str) -> Dict[str, Any]:
@@ -510,6 +753,7 @@ class RightsParser:
             self._parse_coverage(line, rights)
             self._parse_parking(line, rights)
             self._parse_auxiliary_building(line, rights)
+            self._parse_storage(line, rights)
         return rights
 
     # ---- helpers for rights ----
@@ -645,35 +889,63 @@ class RightsParser:
                 break
 
     def _parse_coverage(self, line: str, rights: Dict[str, Any]) -> None:
+        # capture coverage percentages whether the number appears before or after the words
         pats = [
-            r"(\d+)\s*%\s*אחוז\s+משטח\s+מגרש",
-            r"(\d+)\s*%\s*אחוז\s+בנייה",
+            # number first
+            r"(\d{1,3})\s*%\s*אחוז\s+משטח\s+מגרש",
+            r"(\d{1,3})\s*%\s*אחוז\s+בנייה",
+            r"(\d{1,3})\s*%\s*אחוזי?\s+בנייה",
+            # words first
+            r"אחוז\s+משטח\s+מגרש\s*(\d{1,3})\s*%",
+            r"אחוז\s+בנייה\s*(\d{1,3})\s*%",
+            r"אחוזי?\s+בנייה\s*(\d{1,3})\s*%",
         ]
         for pat in pats:
             m = re.search(pat, line)
             if m:
-                rights["building_coverage_percentage"] = int(m.group(1))
+                try:
+                    rights["building_coverage_percentage"] = int(m.group(1))
+                except Exception:
+                    rights["building_coverage_percentage"] = None
                 break
 
     def _parse_parking(self, line: str, rights: Dict[str, Any]) -> None:
-        pats = [
-            r"(\d+)\s*מותר\s+חניה",
-            r"(\d+)\s*רתומ\s+הינח",
-        ]
-        for pat in pats:
-            m = re.search(pat, line)
-            if m:
-                rights.setdefault("parking_requirements", []).append(
-                    {"value": int(m.group(1)), "raw_text": line}
-                )
-                break
+        """Parse parking allowances from lines. Accept numbers before or after the word 'מותר'."""
+        # First, capture numbers before 'מותר' followed by any text
+        pm = re.search(r"(\d+)\s*מותר", line)
+        if pm:
+            rights.setdefault("parking", []).append(
+                {"value": int(pm.group(1)), "raw_text": line}
+            )
+            return
+        # Then capture numbers after 'מותר'
+        pm = re.search(r"מותר\s*(\d+)", line)
+        if pm:
+            rights.setdefault("parking", []).append(
+                {"value": int(pm.group(1)), "raw_text": line}
+            )
 
     def _parse_auxiliary_building(self, line: str, rights: Dict[str, Any]) -> None:
         if "/" in line:
             return
         m = re.search(r"(\d+)\s*רזעהנבמ", line)
         if m:
-            rights["auxiliary_building_area"] = int(m.group(1))
+            # Use nested structure consistent with parse_rights
+            rights.setdefault("auxiliary_buildings", {})
+            rights["auxiliary_buildings"]["area_sqm"] = int(m.group(1))
+
+    def _parse_storage(self, line: str, rights: Dict[str, Any]) -> None:
+        """Parse storage (מחסן) area from lines in the privilege table."""
+        # Skip lines containing slash (often plan numbers with slashes)
+        if "/" in line:
+            return
+        m = re.search(r"(\d+)\s*מחסן", line)
+        if not m:
+            m = re.search(r"מחסן\s*(\d+)", line)
+        if m:
+            # Use nested structure to mirror parse_rights
+            rights.setdefault("storage", {})
+            rights["storage"]["area_sqm"] = int(m.group(1))
 
     def _classify_minmax_entry(self, line: str) -> Optional[str]:
         """Classify min/max entries to help downstream aggregation."""

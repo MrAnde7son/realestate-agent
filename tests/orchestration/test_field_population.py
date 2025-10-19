@@ -6,6 +6,19 @@ Test the enhanced asset field population from collected data.
 
 import pytest
 from unittest.mock import Mock
+import sys
+import types
+
+if 'pyproj' not in sys.modules:
+    class _DummyTransformer:
+        """Minimal stub for pyproj.Transformer used in unit tests."""
+
+        @classmethod
+        def from_crs(cls, *args, **kwargs):
+            raise RuntimeError("pyproj Transformer stub invoked in tests")
+
+    sys.modules['pyproj'] = types.SimpleNamespace(Transformer=_DummyTransformer)
+
 from orchestration.data_pipeline import _populate_asset_fields_from_listings, _populate_asset_fields_from_tabu
 
 

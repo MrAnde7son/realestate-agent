@@ -130,13 +130,19 @@ class Yad2Scraper:
 
             listings: List[RealEstateListing] = []
 
-            for marker in payload.get("markers", []) or []:
+            result = payload.get("data")
+            for marker in result.get("markers", []) or []:
                 listing = self._convert_map_marker(marker, marker_type="yad2")
                 if listing:
                     listings.append(listing)
 
-            for marker in payload.get("yad1Markers", []) or []:
+            for marker in result.get("yad1Markers", []) or []:
                 listing = self._convert_map_marker(marker, marker_type="yad1")
+                if listing:
+                    listings.append(listing)
+
+            for marker in result.get("agencyPromotions", []) or []:
+                listing = self._convert_map_marker(marker, marker_type="yad2")
                 if listing:
                     listings.append(listing)
 
@@ -817,7 +823,7 @@ class Yad2Scraper:
 
 
 if __name__ == "__main__":
-    search_params =  { 'coords': '50.0,50.0', 'city': 5000, 'neighborhood': 1512}
+    search_params =  { 'city': 5000, 'neighborhood': 203, "topArea": 2, "area": 1, "zoom": 15}
     scraper = Yad2Scraper(search_params)
-    deals = scraper.fetch_latest_deals()
+    deals = scraper.fetch_map_listings()
     print(deals)

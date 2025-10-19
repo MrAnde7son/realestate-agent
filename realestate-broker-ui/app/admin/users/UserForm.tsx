@@ -223,14 +223,17 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="phone">טלפון</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="050-1234567"
-              disabled={isSubmitting}
-            />
+          <Input
+            id="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+            placeholder="050-1234567"
+            disabled={isSubmitting}
+            dir="ltr"
+            inputMode="tel"
+            className="text-left"
+          />
           </div>
 
           <div className="space-y-2">
@@ -270,7 +273,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
       <div className="space-y-4">
         <h3 className="text-lg font-medium">סטטוס משתמש</h3>
         <div className="space-y-3">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 rtl:space-x-reverse">
             <input
               type="checkbox"
               id="is_active"
@@ -282,7 +285,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
             <Label htmlFor="is_active">משתמש פעיל</Label>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 rtl:space-x-reverse">
             <input
               type="checkbox"
               id="is_verified"
@@ -294,7 +297,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
             <Label htmlFor="is_verified">משתמש מאומת</Label>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 rtl:space-x-reverse">
             <input
               type="checkbox"
               id="is_demo"
@@ -306,7 +309,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
             <Label htmlFor="is_demo">משתמש דמו</Label>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 rtl:space-x-reverse">
             <input
               type="checkbox"
               id="is_staff"
@@ -437,7 +440,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
       <div className="space-y-4">
         <h3 className="text-lg font-medium">התראות</h3>
         <div className="space-y-3">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 rtl:space-x-reverse">
             <input
               type="checkbox"
               id="notify_email"
@@ -449,7 +452,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
             <Label htmlFor="notify_email">התראות באימייל</Label>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 rtl:space-x-reverse">
             <input
               type="checkbox"
               id="notify_whatsapp"
@@ -461,7 +464,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
             <Label htmlFor="notify_whatsapp">התראות בווטסאפ</Label>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 rtl:space-x-reverse">
             <input
               type="checkbox"
               id="notify_urgent"

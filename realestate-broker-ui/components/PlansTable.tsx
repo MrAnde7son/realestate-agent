@@ -154,7 +154,7 @@ function createColumns(): ColumnDef<Plan>[] {
         return date ? (
           <div className="flex items-center gap-1 text-sm text-muted-foreground rtl:flex-row-reverse">
             <Calendar className="h-3 w-3" />
-            {new Date(date).toLocaleDateString('he-IL')}
+            <span dir="ltr">{new Date(date).toLocaleDateString('he-IL')}</span>
           </div>
         ) : (
           <span className="text-muted-foreground text-sm">—</span>
@@ -459,13 +459,13 @@ export default function PlansTable({
                 {headerGroup.headers.map((header) => {
                   const sorted = header.column.getIsSorted();
                   return (
-                    <TableHead key={header.id} className="text-right rtl:text-right">
+                    <TableHead key={header.id} className="text-start rtl:text-start">
                       {header.isPlaceholder ? null : (
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
                           disabled={!header.column.getCanSort()}
-                          className="flex w-full items-center justify-end gap-1 text-xs font-medium rtl:flex-row-reverse disabled:cursor-default"
+                          className="flex w-full items-center justify-start gap-1 text-xs font-medium disabled:cursor-default"
                         >
                           {flexRender(
                             header.column.columnDef.header,
@@ -504,7 +504,7 @@ export default function PlansTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} className="hover:bg-muted/50">
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-right rtl:text-right">
+                    <TableCell key={cell.id} className="text-start rtl:text-start">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

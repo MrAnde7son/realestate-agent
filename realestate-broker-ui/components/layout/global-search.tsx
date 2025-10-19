@@ -208,7 +208,7 @@ export function GlobalSearch() {
         <DialogTitle className="sr-only">חיפוש גלובלי</DialogTitle>
         <CommandInput 
           placeholder="חפש בכל האתר..." 
-          className="text-right border-0 focus:ring-0"
+          className="text-start border-0 focus:ring-0"
           dir="rtl"
           value={searchQuery}
           onValueChange={(value) => {
@@ -220,15 +220,15 @@ export function GlobalSearch() {
         />
         <CommandList className="max-h-[400px] overflow-y-auto">
           <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">לא נמצאו תוצאות.</CommandEmpty>
-          <CommandGroup heading="ניווט מהיר" className="text-right">
+          <CommandGroup heading="ניווט מהיר" className="text-start">
             {searchItems.map((item) => (
               <CommandItem
                 key={item.href}
                 onSelect={() => runCommand(() => router.push(item.href))}
                 className="group"
               >
-                <span className="ml-3 text-xl group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
-                <div className="flex-1 text-right">
+                <span className="ms-3 text-xl group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
+                <div className="flex-1 text-start">
                   <div className="font-semibold group-hover:text-[var(--brand-teal)] transition-colors duration-200">{item.title}</div>
                   <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors duration-200">
                     {item.description}
@@ -246,15 +246,15 @@ export function GlobalSearch() {
             <>
               {/* Contacts Results */}
               {crmContacts.length > 0 && (
-                <CommandGroup heading="לקוחות" className="text-right">
+                <CommandGroup heading="לקוחות" className="text-start">
                   {crmContacts.map((contact) => (
                     <CommandItem
                       key={`contact-${contact.id}`}
                       onSelect={() => runCommand(() => router.push('/crm/contacts'), searchQuery)}
                       className="group"
                     >
-                      <Users className="ml-3 h-4 w-4 text-blue-500" />
-                      <div className="flex-1 text-right">
+                      <Users className="ms-3 h-4 w-4 text-blue-500" />
+                      <div className="flex-1 text-start">
                         <div className="font-semibold group-hover:text-[var(--brand-teal)] transition-colors duration-200">
                           {contact.name}
                         </div>
@@ -289,15 +289,15 @@ export function GlobalSearch() {
 
               {/* Leads Results */}
               {crmLeads.length > 0 && (
-                <CommandGroup heading="לידים" className="text-right">
+                <CommandGroup heading="לידים" className="text-start">
                   {crmLeads.map((lead) => (
                     <CommandItem
                       key={`lead-${lead.id}`}
                       onSelect={() => runCommand(() => router.push('/crm/leads'), searchQuery)}
                       className="group"
                     >
-                      <UserCheck className="ml-3 h-4 w-4 text-green-500" />
-                      <div className="flex-1 text-right">
+                      <UserCheck className="ms-3 h-4 w-4 text-green-500" />
+                      <div className="flex-1 text-start">
                         <div className="font-semibold group-hover:text-[var(--brand-teal)] transition-colors duration-200">
                           {lead.contact.name} - {lead.asset_address}
                         </div>
@@ -326,9 +326,9 @@ export function GlobalSearch() {
 
               {/* Loading State */}
               {isSearchingCrm && (
-                <CommandGroup heading="חיפוש CRM" className="text-right">
+                <CommandGroup heading="חיפוש CRM" className="text-start">
                   <CommandItem disabled>
-                    <div className="flex-1 text-right">
+                    <div className="flex-1 text-start">
                       <div className="text-sm text-muted-foreground">מחפש ב-CRM...</div>
                     </div>
                   </CommandItem>

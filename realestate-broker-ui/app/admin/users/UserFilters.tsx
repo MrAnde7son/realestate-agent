@@ -59,7 +59,7 @@ export function UserFilters({
           <Filter className="h-4 w-4 me-2" />
           <span className="hidden sm:inline">סינון</span>
           {hasActiveFilters && (
-            <Badge variant="secondary" className="mr-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+            <Badge variant="secondary" className="me-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
               !
             </Badge>
           )}
@@ -69,7 +69,7 @@ export function UserFilters({
         <SheetHeader>
           <SheetTitle>סינון משתמשים</SheetTitle>
         </SheetHeader>
-        <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pr-2">
+        <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
           <div className="flex items-center justify-between">
             {hasActiveFilters && (
               <Button

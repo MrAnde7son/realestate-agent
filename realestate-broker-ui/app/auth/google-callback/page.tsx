@@ -105,7 +105,7 @@ export default function GoogleCallbackPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center">
-          <div className="flex items-center justify-center space-x-2 text-muted-foreground">
+          <div className="flex items-center justify-center space-x-2 rtl:space-x-reverse text-muted-foreground">
             <AlertCircle className="h-4 w-4" />
             <span>אם לא תועבר אוטומטית, לחץ על הכפתור למטה</span>
           </div>

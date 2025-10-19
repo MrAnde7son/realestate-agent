@@ -246,10 +246,10 @@ export default function MortgageAnalyzePage() {
                     type="number" 
                     value={input.loanAmount}
                     readOnly
-                    className="bg-muted pr-10"
+                    className="bg-muted pe-10"
                     placeholder="2,800,000" 
                   />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+                  <div className="absolute start-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
                     מחושב אוטומטית
                   </div>
                 </div>

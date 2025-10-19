@@ -442,8 +442,8 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
         <CardHeader>
           <div className="flex justify-between items-center rtl:flex-row-reverse">
             <div>
-              <CardTitle className="text-right">מודעות</CardTitle>
-              <p className="text-sm text-muted-foreground text-right">
+              <CardTitle className="text-start">מודעות</CardTitle>
+              <p className="text-sm text-muted-foreground text-start">
                 מודעות נדלן מהמקורות השונים
               </p>
             </div>
@@ -455,12 +455,12 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
             >
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                  <Loader2 className="h-4 w-4 animate-spin ms-2" />
                   טוען...
                 </>
               ) : (
                 <>
-                  <RefreshCw className="h-4 w-4 ml-2" />
+                  <RefreshCw className="h-4 w-4 ms-2" />
                   רענן
                 </>
               )}
@@ -531,64 +531,64 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                 <Table className="rtl">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-right rtl:text-right">כותרת</TableHead>
-                      <TableHead className="text-right rtl:text-right">
+                      <TableHead className="text-start rtl:text-start">כותרת</TableHead>
+                      <TableHead className="text-start rtl:text-start">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('price')}
-                          className="flex items-center justify-end gap-1 w-full text-sm font-medium rtl:flex-row-reverse"
+                          className="flex items-center justify-start gap-1 w-full text-sm font-medium"
                         >
                           מחיר
                           {getSortIcon('price')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-right rtl:text-right">
+                      <TableHead className="text-start rtl:text-start">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('rooms')}
-                          className="flex items-center justify-end gap-1 w-full text-sm font-medium rtl:flex-row-reverse"
+                          className="flex items-center justify-start gap-1 w-full text-sm font-medium"
                         >
                           חדרים
                           {getSortIcon('rooms')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-right rtl:text-right">
+                      <TableHead className="text-start rtl:text-start">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('size')}
-                          className="flex items-center justify-end gap-1 w-full text-sm font-medium rtl:flex-row-reverse"
+                          className="flex items-center justify-start gap-1 w-full text-sm font-medium"
                         >
                           גודל
                           {getSortIcon('size')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-right rtl:text-right">
+                      <TableHead className="text-start rtl:text-start">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('source')}
-                          className="flex items-center justify-end gap-1 w-full text-sm font-medium rtl:flex-row-reverse"
+                          className="flex items-center justify-start gap-1 w-full text-sm font-medium"
                         >
                           מקור
                           {getSortIcon('source')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-right rtl:text-right">
+                      <TableHead className="text-start rtl:text-start">
                         <button
                           type="button"
                           onClick={() => toggleOrdering('date_posted')}
-                          className="flex items-center justify-end gap-1 w-full text-sm font-medium rtl:flex-row-reverse"
+                          className="flex items-center justify-start gap-1 w-full text-sm font-medium"
                         >
                           תאריך
                           {getSortIcon('date_posted')}
                         </button>
                       </TableHead>
-                      <TableHead className="text-right rtl:text-right">פעולות</TableHead>
+                      <TableHead className="text-start rtl:text-start">פעולות</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {listingsState.items.map((listing, index) => (
                       <TableRow key={listing.id || `${listing.source || 'listing'}-${index}`} className="hover:bg-muted/50">
-                        <TableCell className="text-right rtl:text-right">
+                        <TableCell className="text-start rtl:text-start">
                           <div className="space-y-1">
                             <p className="font-medium">{listing.title || '—'}</p>
                             {listing.address && (
@@ -596,29 +596,35 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right rtl:text-right font-medium">
-                          {formatPrice(listing.price)}
+                        <TableCell className="text-start rtl:text-start">
+                          <span dir="ltr" className="block text-end font-medium">
+                            {formatPrice(listing.price)}
+                          </span>
                         </TableCell>
-                        <TableCell className="text-right rtl:text-right">
+                        <TableCell className="text-start rtl:text-start">
                           {formatRooms(listing.rooms, listing.rooms_display)}
                         </TableCell>
-                        <TableCell className="text-right rtl:text-right">
-                          {formatSize(listing.size)}
+                        <TableCell className="text-start rtl:text-start">
+                          <span dir="ltr" className="block text-end">
+                            {formatSize(listing.size)}
+                          </span>
                         </TableCell>
-                        <TableCell className="text-right rtl:text-right">
+                        <TableCell className="text-start rtl:text-start">
                           <Badge className={getSourceColor(listing.source)}>
                             {getSourceDisplay(listing.source)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right rtl:text-right">
-                          {formatDate(listing.date_posted)}
+                        <TableCell className="text-start rtl:text-start">
+                          <span dir="ltr" className="block text-end">
+                            {formatDate(listing.date_posted)}
+                          </span>
                         </TableCell>
-                        <TableCell className="text-right rtl:text-right">
+                        <TableCell className="text-start rtl:text-start">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => listing.url && window.open(listing.url, '_blank')}
-                            className="mr-0 ml-2"
+                            className="me-0 ms-2"
                             disabled={!listing.url}
                           >
                             <ExternalLink className="h-4 w-4" />

@@ -265,15 +265,15 @@ export default function SettingsPage() {
              *   </CardHeader>
              *   <CardContent className="space-y-2">
              *     <Button variant="outline" size="sm" className="w-full justify-start">
-             *       <Zap className="h-4 w-4 ml-2" />
+             *       <Zap className="h-4 w-4 ms-2" />
              *       ייצא הגדרות
              *     </Button>
              *     <Button variant="outline" size="sm" className="w-full justify-start">
-             *       <Database className="h-4 w-4 ml-2" />
+             *       <Database className="h-4 w-4 ms-2" />
              *       ייצא נתונים
              *     </Button>
              *     <Button variant="outline" size="sm" className="w-full justify-start">
-             *       <Shield className="h-4 w-4 ml-2" />
+             *       <Shield className="h-4 w-4 ms-2" />
              *       היסטוריית אבטחה
              *     </Button>
              *   </CardContent>
@@ -312,7 +312,7 @@ export default function SettingsPage() {
                   asChild
                 >
                   <Link href="/user-guide">
-                    <Globe className="h-4 w-4 ml-2" />
+                    <Globe className="h-4 w-4 ms-2" />
                     מדריך משתמש
                   </Link>
                 </Button>
@@ -323,19 +323,19 @@ export default function SettingsPage() {
                   asChild
                 >
                   <Link href="/terms-of-use">
-                    <FileText className="h-4 w-4 ml-2" />
+                    <FileText className="h-4 w-4 ms-2" />
                     תנאי שימוש
                   </Link>
                 </Button>
                 <ContactSupportDialog>
                   <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Bell className="h-4 w-4 ml-2" />
+                    <Bell className="h-4 w-4 ms-2" />
                     צור קשר עם התמיכה
                   </Button>
                 </ContactSupportDialog>
                 <BugReportDialog>
                   <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Shield className="h-4 w-4 ml-2" />
+                    <Shield className="h-4 w-4 ms-2" />
                     דווח על באג
                   </Button>
                 </BugReportDialog>

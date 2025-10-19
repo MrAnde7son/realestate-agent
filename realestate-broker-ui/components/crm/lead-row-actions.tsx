@@ -194,7 +194,7 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
                 {isLoading ? (
                   <>
                     <ButtonLoader size="sm" />
-                    <span className="mr-2">מוסיף...</span>
+                    <span className="me-2">מוסיף...</span>
                   </>
                 ) : (
                   'הוסף'

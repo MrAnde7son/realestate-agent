@@ -80,14 +80,14 @@ export default function DocumentSearch({
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Search Input */}
         <div className="flex-1 relative">
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Search className="absolute end-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             type="text"
             placeholder="חיפוש במסמכים..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="pr-10"
+            className="pe-10"
             dir="rtl"
           />
         </div>
@@ -126,7 +126,7 @@ export default function DocumentSearch({
               &quot;{searchQuery}&quot;
               <button
                 onClick={() => setSearchQuery("")}
-                className="ml-1 hover:bg-muted rounded-full p-0.5"
+                className="ms-1 hover:bg-muted rounded-full p-0.5"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -139,7 +139,7 @@ export default function DocumentSearch({
               {selectedCategory}
               <button
                 onClick={() => setSelectedCategory("all")}
-                className="ml-1 hover:bg-muted rounded-full p-0.5"
+                className="ms-1 hover:bg-muted rounded-full p-0.5"
               >
                 <X className="h-3 w-3" />
               </button>

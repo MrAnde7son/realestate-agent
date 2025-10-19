@@ -97,6 +97,9 @@ export function ContactForm({
           value={formData.phone}
           onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
           placeholder="050-1234567"
+          dir="ltr"
+          inputMode="tel"
+          className="text-left"
         />
       </div>
 
@@ -125,6 +128,9 @@ export function ContactForm({
           min={0}
           step={1000}
           value={formData.equity ?? ''}
+          dir="ltr"
+          inputMode="numeric"
+          className="text-left"
           onChange={(e) => {
             const value = e.target.value;
             setFormData(prev => ({
@@ -160,7 +166,7 @@ export function ContactForm({
                 <button
                   type="button"
                   onClick={() => removeTag(tag)}
-                  className="ml-1 hover:text-destructive"
+                  className="ms-1 hover:text-destructive"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -175,7 +181,7 @@ export function ContactForm({
           {isLoading ? (
             <>
               <ButtonLoader size="sm" />
-              <span className="mr-2">שומר...</span>
+              <span className="me-2">שומר...</span>
             </>
           ) : (
             'שמור'

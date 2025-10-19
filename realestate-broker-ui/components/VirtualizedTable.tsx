@@ -365,7 +365,7 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
                   <span className="hidden sm:inline">ייצוא נבחרים</span>
                   <span className="sm:hidden">ייצוא</span>
                   {anySelected && (
-                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                    <span className="ms-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
                       {table.getSelectedRowModel().rows.length}
                     </span>
                   )}
@@ -392,7 +392,7 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
                     {table.getFlatHeaders().map(h=>(
                       <TH 
                         key={h.id} 
-                        className={h.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                        className={h.column.id==='address'?'sticky end-0 bg-card z-10':''}
                       >
                         {flexRender(h.column.columnDef.header, h.getContext())}
                       </TH>
@@ -430,7 +430,7 @@ export default function VirtualizedTable({ data = [], loading = false, onDelete 
                         {row.getVisibleCells().map(cell=>(
                           <TD 
                             key={cell.id} 
-                            className={cell.column.id==='address'?'sticky right-0 bg-card z-10':''}
+                            className={cell.column.id==='address'?'sticky end-0 bg-card z-10':''}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TD>

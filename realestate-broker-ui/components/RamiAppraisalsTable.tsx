@@ -98,7 +98,7 @@ function createColumns(): ColumnDef<RamiAppraisalRow>[] {
       accessorKey: 'planNumber',
       header: 'תכנית',
       cell: ({ row }) => (
-        <div className="text-sm font-medium text-right">
+        <div className="text-sm font-medium text-start">
           {row.original.planNumber || 'תכנית רמ״י'}
         </div>
       ),
@@ -107,8 +107,8 @@ function createColumns(): ColumnDef<RamiAppraisalRow>[] {
       accessorKey: 'date',
       header: 'תאריך',
       cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground text-right">
-          {formatDate(row.original.date)}
+        <div className="text-sm text-muted-foreground text-end">
+          <span dir="ltr">{formatDate(row.original.date)}</span>
         </div>
       ),
     },
@@ -116,8 +116,8 @@ function createColumns(): ColumnDef<RamiAppraisalRow>[] {
       accessorKey: 'value',
       header: 'שווי מוערך',
       cell: ({ row }) => (
-        <div className="text-sm font-semibold text-right">
-          {formatCurrency(row.original.value)}
+        <div className="text-sm font-semibold text-end">
+          <span dir="ltr">{formatCurrency(row.original.value)}</span>
         </div>
       ),
     },
@@ -125,7 +125,7 @@ function createColumns(): ColumnDef<RamiAppraisalRow>[] {
       accessorKey: 'status',
       header: 'סטטוס',
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           {statusBadge(row.original.status)}
         </div>
       ),
@@ -134,7 +134,7 @@ function createColumns(): ColumnDef<RamiAppraisalRow>[] {
       accessorKey: 'source',
       header: 'מקור',
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           {sourceBadge(row.original.source)}
         </div>
       ),
@@ -143,8 +143,8 @@ function createColumns(): ColumnDef<RamiAppraisalRow>[] {
       accessorKey: 'fetchedAt',
       header: 'עודכן',
       cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground text-right">
-          {formatDate(row.original.fetchedAt)}
+        <div className="text-sm text-muted-foreground text-end">
+          <span dir="ltr">{formatDate(row.original.fetchedAt)}</span>
         </div>
       ),
     },
@@ -154,7 +154,7 @@ function createColumns(): ColumnDef<RamiAppraisalRow>[] {
       enableHiding: false,
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           {row.original.url && (
             <Button
               size="sm"
@@ -162,7 +162,7 @@ function createColumns(): ColumnDef<RamiAppraisalRow>[] {
               onClick={() => window.open(row.original.url, '_blank')}
               className="text-xs"
             >
-              <ExternalLink className="h-3 w-3 ml-1 inline-block" />
+              <ExternalLink className="h-3 w-3 ms-1 inline-block" />
               פתיחה
             </Button>
           )}
@@ -428,13 +428,13 @@ export default function RamiAppraisalsTable({
               {headerGroup.headers.map((header) => {
                 const sorted = header.column.getIsSorted();
                 return (
-                  <TableHead key={header.id} className="text-right rtl:text-right">
+                  <TableHead key={header.id} className="text-start">
                     {header.isPlaceholder ? null : (
                       <button
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
                         disabled={!header.column.getCanSort()}
-                        className="flex w-full items-center justify-end gap-1 text-xs font-medium rtl:flex-row-reverse disabled:cursor-default"
+                        className="flex w-full items-center justify-start gap-1 text-xs font-medium disabled:cursor-default"
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {header.column.getCanSort() && (
@@ -467,7 +467,7 @@ export default function RamiAppraisalsTable({
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} className="hover:bg-muted/50">
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="text-right rtl:text-right">
+                  <TableCell key={cell.id} className="text-start">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

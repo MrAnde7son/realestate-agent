@@ -1257,7 +1257,7 @@ export default function AssetsPage() {
                 <div className="hidden sm:block">
                   <div className="space-y-3">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex space-x-4">
+                      <div key={i} className="flex space-x-4 rtl:space-x-reverse">
                         <Skeleton className="h-4 w-4" />
                         <Skeleton className="h-4 w-48" />
                         <Skeleton className="h-4 w-20" />
@@ -1276,7 +1276,7 @@ export default function AssetsPage() {
                     <div key={i} className="p-4 border rounded-lg space-y-2">
                       <Skeleton className="h-4 w-3/4" />
                       <Skeleton className="h-3 w-1/2" />
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 rtl:space-x-reverse">
                         <Skeleton className="h-6 w-16" />
                         <Skeleton className="h-6 w-20" />
                         <Skeleton className="h-6 w-12" />

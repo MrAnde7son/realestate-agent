@@ -121,7 +121,7 @@ export default function AuthPage() {
         </div>
 
         {/* Auth Tabs */}
-        <div className="flex space-x-1 bg-muted p-1 rounded-lg">
+        <div className="flex space-x-1 rtl:space-x-reverse bg-muted p-1 rounded-lg">
           <Button 
             variant={isLogin ? "default" : "ghost"} 
             className="flex-1"
@@ -159,12 +159,12 @@ export default function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">דוא״ל</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
                       placeholder="הכנס את הדוא״ל שלך"
-                      className="pl-10"
+                      className="ps-10"
                       {...loginForm.register('email')}
                     />
                   </div>
@@ -178,19 +178,19 @@ export default function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">סיסמה</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="הכנס את הסיסמה שלך"
-                      className="pl-10 pr-10"
+                      className="ps-10 pe-10"
                       {...loginForm.register('password')}
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      className="absolute end-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
@@ -226,7 +226,7 @@ export default function AuthPage() {
                 onClick={() => googleLogin(redirectTo)}
                 disabled={isLoading}
               >
-                <Building className="h-4 w-4 ml-2" />
+                <Building className="h-4 w-4 ms-2" />
                 התחבר עם Google
               </Button>
             </CardContent>
@@ -365,19 +365,19 @@ export default function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">סיסמה</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="הכנס סיסמה"
-                      className="pl-10 pr-10"
+                      className="ps-10 pe-10"
                       {...registerForm.register('password')}
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      className="absolute end-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
@@ -397,19 +397,19 @@ export default function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">אימות סיסמה</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="אמת את הסיסמה שלך"
-                      className="pl-10 pr-10"
+                      className="ps-10 pe-10"
                       {...registerForm.register('confirmPassword')}
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      className="absolute end-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     >
                       {showConfirmPassword ? (

@@ -855,7 +855,7 @@ export default function AssetsTable({
                     {table.getFlatHeaders().map(h=>(
                       <TH 
                         key={h.id} 
-                        className={`relative whitespace-nowrap ${h.column.id==='address'?'sticky right-0 bg-card z-10':''} ${
+                        className={`relative whitespace-nowrap ${h.column.id==='address'?'sticky end-0 bg-card z-10':''} ${
                           h.column.getCanResize() ? 'hover:bg-muted/30' : ''
                         } ${h.column.id === 'actions' ? 'w-full' : ''}`}
                         style={{ 
@@ -868,13 +868,13 @@ export default function AssetsTable({
                             {flexRender(h.column.columnDef.header, h.getContext())}
                           </div>
                           {h.column.getCanResize() && (
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-2">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 ms-2">
                               <div className="w-1 h-4 bg-muted-foreground/40 rounded-full"></div>
                             </div>
                           )}
                         </div>
                         <div
-                          className={`absolute top-0 left-0 h-full w-2 cursor-e-resize select-none touch-none ${
+                          className={`absolute top-0 start-0 h-full w-2 cursor-e-resize select-none touch-none ${
                             h.column.getCanResize() 
                               ? 'bg-border/30 hover:bg-primary/60 hover:w-3 transition-all duration-200' 
                               : 'bg-transparent'
@@ -935,7 +935,7 @@ export default function AssetsTable({
                         {row.getVisibleCells().map(cell=>(
                           <TD 
                             key={cell.id} 
-                            className={`whitespace-nowrap ${cell.column.id==='address'?'sticky right-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
+                            className={`whitespace-nowrap ${cell.column.id==='address'?'sticky end-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
                             style={{ 
                               width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize(),
                               minWidth: cell.column.id === 'address' ? '200px' : '80px'

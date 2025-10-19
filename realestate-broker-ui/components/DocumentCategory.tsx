@@ -172,7 +172,7 @@ export default function DocumentCategory({
               </div>
             </div>
             
-            <div className="flex items-center gap-1 ml-3">
+            <div className="flex items-center gap-1 ms-3">
               {document.is_downloadable && document.file_url && (
                 <Button
                   variant="ghost"

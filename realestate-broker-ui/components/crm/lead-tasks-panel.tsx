@@ -235,7 +235,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="flex-1 sm:flex-none">
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4 me-2" />
                   <span className="hidden sm:inline">משימה חדשה</span>
                   <span className="sm:hidden">חדשה</span>
                 </Button>
@@ -254,7 +254,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
             {onClose && (
               <Button size="sm" variant="outline" onClick={onClose} className="h-9 w-9 p-0 sm:h-9 sm:w-auto sm:px-3">
                 <X className="h-4 w-4" />
-                <span className="hidden sm:inline mr-2">סגור</span>
+                <span className="hidden sm:inline me-2">סגור</span>
               </Button>
             )}
           </div>
@@ -283,12 +283,12 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right min-w-[150px]">כותרת</TableHead>
-                    <TableHead className="text-right min-w-[120px] hidden sm:table-cell">תיאור</TableHead>
-                    <TableHead className="text-right min-w-[100px] hidden md:table-cell">תאריך יעד</TableHead>
-                    <TableHead className="text-right min-w-[100px] hidden sm:table-cell">סטטוס</TableHead>
-                    <TableHead className="text-right min-w-[100px] hidden lg:table-cell">נוצר</TableHead>
-                    <TableHead className="text-right min-w-[80px]">פעולות</TableHead>
+                    <TableHead className="text-start min-w-[150px]">כותרת</TableHead>
+                    <TableHead className="text-start min-w-[120px] hidden sm:table-cell">תיאור</TableHead>
+                    <TableHead className="text-start min-w-[100px] hidden md:table-cell">תאריך יעד</TableHead>
+                    <TableHead className="text-start min-w-[100px] hidden sm:table-cell">סטטוס</TableHead>
+                    <TableHead className="text-start min-w-[100px] hidden lg:table-cell">נוצר</TableHead>
+                    <TableHead className="text-start min-w-[80px]">פעולות</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -296,7 +296,7 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
                     const statusInfo = getStatusInfo(task.status);
                     return (
                       <TableRow key={task.id}>
-                        <TableCell className="text-right">
+                        <TableCell className="text-start">
                           <div className="font-medium text-sm sm:text-base">{task.title}</div>
                           <div className="text-xs text-muted-foreground sm:hidden">
                             <Badge className={`${statusInfo.color} text-xs`}>
@@ -304,28 +304,28 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
                             </Badge>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right hidden sm:table-cell">
+                        <TableCell className="text-start hidden sm:table-cell">
                           <div className="text-xs sm:text-sm text-muted-foreground max-w-xs truncate">
                             {task.description || 'ללא תיאור'}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right hidden md:table-cell">
+                        <TableCell className="text-start hidden md:table-cell">
                           <div className="flex items-center gap-1 text-xs sm:text-sm">
                             <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                             {formatDate(task.due_at)}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right hidden sm:table-cell">
+                        <TableCell className="text-start hidden sm:table-cell">
                           <Badge className={`${statusInfo.color} text-xs`}>
                             {statusInfo.label}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right hidden lg:table-cell">
+                        <TableCell className="text-start hidden lg:table-cell">
                           <div className="text-xs sm:text-sm text-muted-foreground">
                             {formatDate(task.created_at)}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-start">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -335,19 +335,19 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
                             <DropdownMenuContent align="end" className="w-48">
                               {task.status === 'pending' && (
                                 <DropdownMenuItem onClick={() => handleCompleteTask(task)}>
-                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  <CheckCircle className="h-4 w-4 me-2" />
                                   סמן כהושלם
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => handleEditTask(task)}>
-                                <Clock className="h-4 w-4 mr-2" />
+                                <Clock className="h-4 w-4 me-2" />
                                 ערוך
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleDeleteTask(task)}
                                 className="text-red-600"
                               >
-                                <XCircle className="h-4 w-4 mr-2" />
+                                <XCircle className="h-4 w-4 me-2" />
                                 מחק
                               </DropdownMenuItem>
                             </DropdownMenuContent>

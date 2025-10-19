@@ -234,6 +234,9 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
             value={value}
             min={paramConfig.min}
             max={paramConfig.max}
+            dir="ltr"
+            inputMode="numeric"
+            className="text-left"
             onChange={(e) => {
               const newValue = paramConfig.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value)
               updateRule(rules.indexOf(rule), {
@@ -312,11 +315,11 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
                   disabled={testing}
                   className="w-full sm:w-auto"
                 >
-                  <TestTube className="h-4 w-4 ml-2" />
+                  <TestTube className="h-4 w-4 ms-2" />
                   {testing ? 'שולח...' : 'בדוק ערוצים'}
                 </Button>
                 <Button size="sm" onClick={addRule} className="w-full sm:w-auto">
-                  <Plus className="h-4 w-4 ml-2" />
+                  <Plus className="h-4 w-4 ms-2" />
                   הוסף כלל
                 </Button>
               </>
@@ -423,7 +426,7 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
                       <Label>ערוצי התראה</Label>
                       <div className="space-y-2">
                         {Object.entries(ALERT_CHANNEL_LABELS).map(([key, label]) => (
-                          <div key={key} className="flex items-center space-x-2">
+                          <div key={key} className="flex items-center space-x-2 rtl:space-x-reverse">
                             <Switch
                               checked={rule.channels.includes(key as AlertChannel)}
                               onCheckedChange={(checked) => {

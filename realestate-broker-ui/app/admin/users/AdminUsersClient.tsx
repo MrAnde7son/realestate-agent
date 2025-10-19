@@ -412,7 +412,7 @@ export default function AdminUsersClient() {
                   size="sm"
                   onClick={clearFilters}
                 >
-                  <X className="h-4 w-4 mr-2" />
+                  <X className="h-4 w-4 me-2" />
                   נקה מסננים
                 </Button>
               )}
@@ -425,14 +425,14 @@ export default function AdminUsersClient() {
                 onClick={loadUsers}
                 disabled={isLoading}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 me-2 ${isLoading ? 'animate-spin' : ''}`} />
                 רענן
               </Button>
               
               <Dialog open={isCreating} onOpenChange={setIsCreating}>
                 <DialogTrigger asChild>
                   <Button size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-4 w-4 me-2" />
                     הוסף משתמש
                   </Button>
                 </DialogTrigger>
@@ -451,12 +451,12 @@ export default function AdminUsersClient() {
           
           {/* Search Bar */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="חפש לפי שם, אימייל או טלפון..."
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
+              className="ps-10"
             />
           </div>
           
@@ -474,7 +474,7 @@ export default function AdminUsersClient() {
                   <TableHead>סטטוס</TableHead>
                   <TableHead>תאריך יצירה</TableHead>
                   <TableHead>כניסה אחרונה</TableHead>
-                  <TableHead className="text-right">פעולות</TableHead>
+                  <TableHead className="text-start">פעולות</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -501,7 +501,7 @@ export default function AdminUsersClient() {
                     </TableCell>
                     <TableCell>{user.created_at_display}</TableCell>
                     <TableCell>{user.last_login_display}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-start">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm">
@@ -515,7 +515,7 @@ export default function AdminUsersClient() {
                               setIsEditing(true);
                             }}
                           >
-                            <Edit className="h-4 w-4 mr-2" />
+                            <Edit className="h-4 w-4 me-2" />
                             ערוך
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -523,12 +523,12 @@ export default function AdminUsersClient() {
                           >
                             {user.is_active ? (
                               <>
-                                <UserX className="h-4 w-4 mr-2" />
+                                <UserX className="h-4 w-4 me-2" />
                                 השבת
                               </>
                             ) : (
                               <>
-                                <UserCheck className="h-4 w-4 mr-2" />
+                                <UserCheck className="h-4 w-4 me-2" />
                                 הפעל
                               </>
                             )}
@@ -536,14 +536,14 @@ export default function AdminUsersClient() {
                           <DropdownMenuItem
                             onClick={() => handleResetPassword(user)}
                           >
-                            <Key className="h-4 w-4 mr-2" />
+                            <Key className="h-4 w-4 me-2" />
                             אפס סיסמה
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDeleteUser(user)}
                             className="text-red-600"
                           >
-                            <Trash2 className="h-4 w-4 mr-2" />
+                            <Trash2 className="h-4 w-4 me-2" />
                             מחק
                           </DropdownMenuItem>
                         </DropdownMenuContent>

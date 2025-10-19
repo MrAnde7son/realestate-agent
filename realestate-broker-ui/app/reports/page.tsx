@@ -192,13 +192,13 @@ export default function ReportsPage() {
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={report.url} target="_blank">
                         <Eye className="h-4 w-4" />
-                        <span className="hidden sm:inline ml-2">תצוגה</span>
+                        <span className="hidden sm:inline ms-2">תצוגה</span>
                       </Link>
                     </Button>
                     <Button variant="outline" size="sm" asChild>
                       <a href={report.url} download>
                         <Download className="h-4 w-4" />
-                        <span className="hidden sm:inline ml-2">הורדה</span>
+                        <span className="hidden sm:inline ms-2">הורדה</span>
                       </a>
                     </Button>
                     {/* Debug: Delete button should be visible */}
@@ -214,7 +214,7 @@ export default function ReportsPage() {
                       style={{ minWidth: '80px', height: '32px' }}
                     >
                       <Trash2 className="h-4 w-4" />
-                      <span className="ml-2">
+                      <span className="ms-2">
                         {deleting === report.id ? 'מוחק...' : 'מחיקה'}
                       </span>
                     </Button>

@@ -31,7 +31,7 @@ export function FullPageLoader({ message = "טוען...", showLogo = true }: Pag
             <span className="text-white font-bold text-lg">נ</span>
           </div>
         )}
-        <div className="flex items-center space-x-2 space-x-reverse">
+        <div className="flex items-center space-x-2 rtl:space-x-reverse">
           <Loader2 className="h-8 w-8 animate-spin text-brand-teal" />
           <span className="text-lg text-muted-foreground">{message}</span>
         </div>

@@ -2912,11 +2912,9 @@ def _create_documents_from_gis_plans(asset, plans, scope: str, system_user):
             'meta': plan,
         }
 
-        external_id = f"gis_{scope_key}_{normalized_id}"
-
         _upsert_document(
             doc_type,
-            external_id,
+            plan_name,
             document_payload,
             asset=asset,
             user=system_user,

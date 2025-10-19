@@ -7,10 +7,23 @@ export async function GET(
   const { id } = params
 
   try {
-    // Fetch from backend
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-    console.log('Fetching plans from:', `${backendUrl}/api/assets/${id}/plans/`)
-    const backendResponse = await fetch(`${backendUrl}/api/assets/${id}/plans/`)
+    const baseUrl = `${backendUrl}/api/assets/${id}/plans/`
+    const searchParams = request.nextUrl.searchParams.toString()
+    const url = searchParams ? `${baseUrl}?${searchParams}` : baseUrl
+
+    const headers: HeadersInit = {
+      'Cache-Control': 'no-cache',
+    }
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+
+    const backendResponse = await fetch(url, {
+      cache: 'no-store',
+      headers,
+    })
 
     if (backendResponse.ok) {
       const data = await backendResponse.json()

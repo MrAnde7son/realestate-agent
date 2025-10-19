@@ -10,7 +10,20 @@ export async function GET(
 ) {
   const { filename } = params;
   try {
-    const res = await fetch(`${BACKEND_URL}/api/reports/file/${filename}`, { cache: 'no-store' });
+    const backendHeaders: Record<string, string> = {};
+    const incomingCookie = req.headers.get('cookie');
+    if (incomingCookie) {
+      backendHeaders['cookie'] = incomingCookie;
+    }
+    const incomingAuth = req.headers.get('authorization');
+    if (incomingAuth) {
+      backendHeaders['authorization'] = incomingAuth;
+    }
+
+    const res = await fetch(`${BACKEND_URL}/api/reports/file/${filename}`, {
+      cache: 'no-store',
+      headers: backendHeaders,
+    });
     if (res.ok) {
       const buffer = await res.arrayBuffer();
       return new NextResponse(buffer, {

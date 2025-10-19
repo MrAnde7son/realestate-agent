@@ -29,7 +29,10 @@ describe('reports file API', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/reports/file/r1.pdf'),
-      expect.any(Object)
+      expect.objectContaining({
+        cache: 'no-store',
+        headers: {},
+      })
     );
     expect(res.status).toBe(200);
     const buf = await res.arrayBuffer();
@@ -44,6 +47,32 @@ describe('reports file API', () => {
     const res = await GET(new Request('http://test'), { params: { filename: 'r1.pdf' } });
     expect(fetchMock).toHaveBeenCalled();
     expect(res.status).toBe(200);
+    fetchMock.mockRestore();
+  });
+
+  it('forwards auth headers to backend', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response('pdfdata', { status: 200, headers: { 'Content-Type': 'application/pdf' } })
+    );
+
+    const req = new Request('http://test', {
+      headers: {
+        cookie: 'sessionid=abc',
+        authorization: 'Bearer token',
+      },
+    });
+
+    await GET(req, { params: { filename: 'r2.pdf' } });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/reports/file/r2.pdf'),
+      expect.objectContaining({
+        headers: {
+          cookie: 'sessionid=abc',
+          authorization: 'Bearer token',
+        },
+      })
+    );
     fetchMock.mockRestore();
   });
 

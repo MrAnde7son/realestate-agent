@@ -107,6 +107,7 @@ try:  # pragma: no cover - best effort import
         Plan,
         Permit,
     )
+    from core.storage import document_storage  # type: ignore
 except ImportError as e:  # pragma: no cover - best effort
     logging.getLogger(__name__).warning(f"Failed to import Django models: {e}")
 
@@ -115,6 +116,7 @@ except ImportError as e:  # pragma: no cover - best effort
 
     AssetDocument = AssetListing = AssetPermit = AssetPlan = AssetTransaction = None  # type: ignore
     Document = DjangoListing = Plan = Permit = None  # type: ignore
+    document_storage = None  # type: ignore
 
 
 def _load_user_notifiers() -> List[Notifier]:
@@ -284,6 +286,62 @@ def _ensure_plan_link(plan: Any, asset: Any) -> None:
     AssetPlan.objects.get_or_create(plan=plan, asset=asset)
 
 
+def _download_document_binary(
+    payload: Dict[str, Any],
+    asset: Any,
+    existing_document: Any = None,
+) -> Dict[str, Any]:
+    """Persist a document's binary if a URL is available."""
+
+    if document_storage is None:
+        return {}
+
+    if not isinstance(payload, dict):
+        return {}
+
+    current_path = payload.get('file_path') or ''
+    if current_path:
+        return {}
+
+    if existing_document is not None:
+        existing_path = getattr(existing_document, 'file_path', '') or ''
+        if existing_path:
+            try:
+                if existing_document.is_downloadable:
+                    return {}
+            except Exception:  # pragma: no cover - defensive guard
+                pass
+
+    url = payload.get('external_url') or getattr(existing_document, 'external_url', '')
+    if not url:
+        return {}
+
+    filename = payload.get('filename') or getattr(existing_document, 'filename', None)
+    mime_type = payload.get('mime_type') or getattr(existing_document, 'mime_type', None)
+    asset_id = getattr(asset, 'id', None) or getattr(existing_document, 'asset_id', None) or 'unassigned'
+
+    try:
+        stored, error = document_storage.save_from_url(
+            url,
+            asset_id,
+            filename=filename,
+            mime_type=mime_type,
+        )
+    except Exception as exc:  # pragma: no cover - best effort logging
+        logger.warning("Failed downloading document binary from %s: %s", url, exc)
+        return {}
+
+    if not stored or error:
+        logger.warning(
+            "Unable to persist document binary from %s: %s",
+            url,
+            error or 'unknown error',
+        )
+        return {}
+
+    return stored
+
+
 def _ensure_transaction_link(transaction: Any, asset: Any) -> None:
     """Ensure the AssetTransaction through link exists."""
     if not transaction or not asset or AssetTransaction is None:
@@ -328,6 +386,9 @@ def _upsert_document(
     created = False
 
     update_payload = dict(payload)
+    file_payload = _download_document_binary(update_payload, asset, existing_document=document)
+    if file_payload:
+        update_payload.update(file_payload)
 
     if document is None:
         create_kwargs = dict(update_payload)
@@ -2950,7 +3011,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         'description': permit.get('sug_bakasha', ''),
         'status': permit.get('building_stage', ''),
         'filename': f"{permission_num or external_id}.pdf",
-        'file_path': './permits/',
+        'file_path': '',
         'file_size': 0,
         'mime_type': 'application/pdf',
         'external_url': permit.get('url_hadmaya', ''),

@@ -1,9 +1,13 @@
 import os
 import tempfile
 from pathlib import Path
+import shutil
+from unittest import mock
+
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.storage import default_storage
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
@@ -114,14 +118,31 @@ class PermitDocumentCreationTest(TestCase):
             }
         ]
 
-        _create_documents_from_permits(self.asset, permits, source='Handasa')
+        temp_dir = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(temp_dir, ignore_errors=True))
 
-        document = Document.objects.get(asset=self.asset, external_id='HANDASA-123')
-        self.assertEqual(document.title, 'Handasa Permit')
-        self.assertEqual(document.source, 'Handasa')
-        self.assertEqual(document.document_type, 'permit')
-        self.assertEqual(document.document_date.isoformat(), '2024-01-01')
-        self.assertEqual(document.external_url, permits[0]['external_url'])
+        with override_settings(MEDIA_ROOT=temp_dir):
+            with mock.patch('orchestration.data_pipeline.document_storage.save_from_url') as mock_save:
+                def _fake_save(url, asset_id, filename=None, mime_type=None, timeout=30):
+                    return document_storage.save_from_content(
+                        b'binary-permit',
+                        asset_id,
+                        filename or 'permit.pdf',
+                        mime_type or 'application/pdf',
+                    )
+
+                mock_save.side_effect = _fake_save
+                _create_documents_from_permits(self.asset, permits, source='Handasa')
+
+            document = Document.objects.get(asset=self.asset, external_id='HANDASA-123')
+            self.assertEqual(document.title, 'Handasa Permit')
+            self.assertEqual(document.source, 'Handasa')
+            self.assertEqual(document.document_type, 'permit')
+            self.assertEqual(document.document_date.isoformat(), '2024-01-01')
+            self.assertEqual(document.external_url, permits[0]['external_url'])
+            self.assertTrue(document.file_path)
+            self.assertGreater(document.file_size, 0)
+            self.assertTrue(document.is_downloadable)
 
     def test_handasa_document_updates_existing(self):
         base_permit = {
@@ -136,31 +157,77 @@ class PermitDocumentCreationTest(TestCase):
             'meta': {'UniqueID': '{HANDASA-123}'},
         }
 
-        _create_documents_from_permits(self.asset, [base_permit], source='Handasa')
+        temp_dir = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(temp_dir, ignore_errors=True))
 
-        updated = dict(base_permit)
-        updated['status'] = 'issued'
-        updated['description'] = 'Updated description'
-        updated['document_date'] = '2024-02-15'
-        _create_documents_from_permits(self.asset, [updated], source='Handasa')
+        with override_settings(MEDIA_ROOT=temp_dir):
+            with mock.patch('orchestration.data_pipeline.document_storage.save_from_url') as mock_save:
+                def _fake_save(url, asset_id, filename=None, mime_type=None, timeout=30):
+                    return document_storage.save_from_content(
+                        b'permit-data',
+                        asset_id,
+                        filename or 'permit.pdf',
+                        mime_type or 'application/pdf',
+                    )
+
+                mock_save.side_effect = _fake_save
+                _create_documents_from_permits(self.asset, [base_permit], source='Handasa')
+
+                updated = dict(base_permit)
+                updated['status'] = 'issued'
+                updated['description'] = 'Updated description'
+                updated['document_date'] = '2024-02-15'
+                _create_documents_from_permits(self.asset, [updated], source='Handasa')
 
         document = Document.objects.get(asset=self.asset, external_id='HANDASA-123')
         self.assertEqual(document.status, 'issued')
         self.assertEqual(document.description, 'Updated description')
         self.assertEqual(document.document_date.isoformat(), '2024-02-15')
 
+    def test_gis_permit_documents_store_binary(self):
+        permit = {
+            'permission_num': 'G-42',
+            'koteret': 'GIS Permit',
+            'sug_bakasha': 'Construction',
+            'building_stage': 'approved',
+            'url_hadmaya': 'https://gis.example.com/permits/G-42.pdf',
+            'permission_date': 1700000000000,
+        }
+
+        temp_dir = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(temp_dir, ignore_errors=True))
+
+        with override_settings(MEDIA_ROOT=temp_dir):
+            with mock.patch('orchestration.data_pipeline.document_storage.save_from_url') as mock_save:
+                def _fake_save(url, asset_id, filename=None, mime_type=None, timeout=30):
+                    return document_storage.save_from_content(
+                        b'gis-permit',
+                        asset_id,
+                        filename or 'permit.pdf',
+                        mime_type or 'application/pdf',
+                    )
+
+                mock_save.side_effect = _fake_save
+                _create_documents_from_permits(self.asset, [permit], source='GIS')
+
+            document = Document.objects.get(asset=self.asset, external_id='G-42')
+            self.assertTrue(document.file_path)
+            self.assertGreater(document.file_size, 0)
+            self.assertTrue(document.is_downloadable)
+
 
 class DocumentStorageTest(TestCase):
     """Test document storage functionality."""
-    
+
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
-    
+        self.override = override_settings(MEDIA_ROOT=self.temp_dir)
+        self.override.enable()
+
     def tearDown(self):
-        # Clean up temp files
-        import shutil
+        self.override.disable()
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-    
+
     def test_get_upload_path(self):
         """Test upload path generation."""
         asset_id = 123
@@ -190,6 +257,40 @@ class DocumentStorageTest(TestCase):
             content_type="application/x-executable"
         )
         self.assertFalse(document_storage._validate_file(invalid_file))
+
+    def test_save_from_content_persists_file(self):
+        """Saving bytes should create a stored document entry."""
+
+        saved, error = document_storage.save_from_content(b"hello", asset_id=99, filename="hello.pdf")
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(saved)
+        self.assertTrue(default_storage.exists(saved['file_path']))
+        with default_storage.open(saved['file_path'], 'rb') as fh:
+            self.assertEqual(fh.read(), b"hello")
+
+    @mock.patch('core.storage.requests.get')
+    def test_save_from_url_downloads_file(self, mock_get):
+        """Downloading from URL should persist the remote content."""
+
+        response = mock.Mock()
+        response.content = b"%PDF-1.4"
+        response.headers = {'Content-Type': 'application/pdf'}
+        response.raise_for_status = mock.Mock()
+        mock_get.return_value = response
+
+        saved, error = document_storage.save_from_url(
+            'https://example.com/documents/sample.pdf',
+            asset_id=101,
+        )
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(saved)
+        self.assertTrue(default_storage.exists(saved['file_path']))
+        with default_storage.open(saved['file_path'], 'rb') as fh:
+            self.assertEqual(fh.read(), b"%PDF-1.4")
+        self.assertEqual(saved['mime_type'], 'application/pdf')
+        mock_get.assert_called_once_with('https://example.com/documents/sample.pdf', timeout=30)
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())

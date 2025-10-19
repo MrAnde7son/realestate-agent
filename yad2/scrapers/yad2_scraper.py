@@ -348,6 +348,12 @@ class Yad2Scraper:
                 parts.append(city)
 
             listing.address = ", ".join([part for part in parts if part])
+            if neighborhood:
+                listing.meta["neighborhood"] = neighborhood
+            if city:
+                listing.meta["city"] = city
+            if street:
+                listing.meta["street"] = street
 
             coords = address.get("coords") or marker.get("coords")
             if isinstance(coords, dict):
@@ -484,6 +490,12 @@ class Yad2Scraper:
 
         address_parts = [part for part in [street_line, neighborhood, city] if part]
         listing.address = ", ".join(address_parts) if address_parts else None
+        if neighborhood:
+            listing.meta["neighborhood"] = neighborhood
+        if city:
+            listing.meta["city"] = city
+        if street:
+            listing.meta["street"] = street
 
         listing.property_type = deal_entry.get("propertyType")
         listing.title = listing.property_type or listing.address

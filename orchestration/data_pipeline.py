@@ -2159,6 +2159,49 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     if not normalized_listings:
         return
     
+    def _extract_listing_neighborhood(listing_data):
+        """Extract neighborhood text from a normalized listing dictionary."""
+        if not isinstance(listing_data, dict):
+            return None
+
+        candidate = listing_data.get('neighborhood')
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+
+        meta = listing_data.get('meta')
+        if isinstance(meta, dict):
+            candidate = meta.get('neighborhood')
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+
+            address_meta = meta.get('address') or meta.get('address_components')
+            if isinstance(address_meta, dict):
+                candidate = address_meta.get('neighborhood')
+                if isinstance(candidate, str) and candidate.strip():
+                    return candidate.strip()
+
+            raw_meta = meta.get('raw')
+            if isinstance(raw_meta, dict):
+                raw_neighborhood = raw_meta.get('neighborhood')
+                if isinstance(raw_neighborhood, dict):
+                    candidate = raw_neighborhood.get('text') or raw_neighborhood.get('name')
+                    if isinstance(candidate, str) and candidate.strip():
+                        return candidate.strip()
+                elif isinstance(raw_neighborhood, str) and raw_neighborhood.strip():
+                    return raw_neighborhood.strip()
+
+                address = raw_meta.get('address')
+                if isinstance(address, dict):
+                    raw_neighborhood = address.get('neighborhood')
+                    if isinstance(raw_neighborhood, dict):
+                        candidate = raw_neighborhood.get('text') or raw_neighborhood.get('name')
+                        if isinstance(candidate, str) and candidate.strip():
+                            return candidate.strip()
+                    elif isinstance(raw_neighborhood, str) and raw_neighborhood.strip():
+                        return raw_neighborhood.strip()
+
+        return None
+    
     # Find the best listing to use as the primary source
     # Priority: exact address match > same street > any listing
     best_listing = None
@@ -2190,6 +2233,13 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     
     # Populate asset fields from the best listing
     update_fields = set()
+
+    if not asset.neighborhood:
+        listing_neighborhood = _extract_listing_neighborhood(best_listing)
+        if listing_neighborhood:
+            asset.neighborhood = listing_neighborhood
+            update_fields.add('neighborhood')
+            logger.debug('[ASSET_FIELDS] Set neighborhood from listing: %s', asset.neighborhood)
     
     # Price
     if best_listing.get('price') and not asset.price:

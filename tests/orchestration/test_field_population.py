@@ -23,6 +23,7 @@ class MockAsset:
         self.building_type = None
         self.normalized_address = None
         self.street = None
+        self.neighborhood = None
         self.meta = {}
         self.save_called = False
     
@@ -50,7 +51,15 @@ class TestAssetFieldPopulation:
                 'bedrooms': 3,
                 'floor': 2,
                 'listing_id': '12345',
-                'url': 'https://yad2.co.il/item/12345'
+                'url': 'https://yad2.co.il/item/12345',
+                'meta': {
+                    'neighborhood': 'רמת החייל',
+                    'raw': {
+                        'address': {
+                            'neighborhood': {'text': 'רמת החייל'}
+                        }
+                    }
+                }
             },
             {
                 'price': 3000000,
@@ -72,6 +81,7 @@ class TestAssetFieldPopulation:
         assert asset.rooms == 4
         assert asset.bedrooms == 3
         assert asset.floor == 2
+        assert asset.neighborhood == 'רמת החייל'
         
         # Verify source tracking
         assert 'primary_listing_source' in asset.meta
@@ -116,6 +126,7 @@ class TestAssetFieldPopulation:
         assert asset.price_per_sqm is None
         assert asset.rooms is None
         assert asset.bedrooms is None
+        assert asset.neighborhood is None
         
         # Verify save was not called
         assert not asset.save_called
@@ -154,6 +165,7 @@ class TestAssetFieldPopulation:
         assert asset.price_per_sqm is None
         assert asset.rooms is None
         assert asset.bedrooms is None
+        assert asset.neighborhood is None
         
         # Verify save was not called
         assert not asset.save_called
@@ -166,6 +178,7 @@ class TestAssetFieldPopulation:
         asset.total_area = 90   # Already has area
         asset.rooms = 3        # Already has rooms
         asset.normalized_address = "רחוב הרצל 15, תל אביב"  # Add exact address for matching
+        asset.neighborhood = 'קיים'
         
         # Mock listings
         listings = [
@@ -175,7 +188,10 @@ class TestAssetFieldPopulation:
                 'address': 'רחוב הרצל 15, תל אביב',  # Exact match
                 'rooms': 5,       # Different rooms
                 'bedrooms': 4,
-                'floor': 2
+                'floor': 2,
+                'meta': {
+                    'neighborhood': 'רמת החייל',
+                }
             }
         ]
         
@@ -186,6 +202,7 @@ class TestAssetFieldPopulation:
         assert asset.price == 2000000  # Original value preserved
         assert asset.total_area == 90   # Original value preserved
         assert asset.rooms == 3        # Original value preserved
+        assert asset.neighborhood == 'קיים'
         
         # Verify new fields were populated
         assert asset.bedrooms == 4

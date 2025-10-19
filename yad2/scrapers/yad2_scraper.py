@@ -10,6 +10,7 @@ import requests
 import json
 import time
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 from bs4 import BeautifulSoup
 try:
     from urllib.parse import urljoin
@@ -56,6 +57,95 @@ class Yad2Scraper:
         
         # Parameter reference for validation
         self.param_reference = Yad2ParameterReference()
+
+    # ------------------------------------------------------------------
+    # API helpers
+    # ------------------------------------------------------------------
+    def fetch_map_listings(self, zoom: Optional[int] = None, **overrides) -> List[RealEstateListing]:
+        """
+        Fetch active listings via Yad2's public map feed API.
+
+        Args:
+            zoom: Optional zoom level (defaults to 15).
+            **overrides: Explicit parameters (city, neighborhood, property, etc.)
+
+        Returns:
+            List of :class:`RealEstateListing` instances.
+        """
+        try:
+            url = f"{self.api_base_url}/realestate-feed/forsale/map"
+            active = self.search_params.get_active_parameters()
+
+            allowed_params = {
+                "topArea",
+                "area",
+                "city",
+                "neighborhood",
+                "street",
+                "property",
+                "dealType",
+                "priceOnly",
+                "exclusive",
+                "minPrice",
+                "maxPrice",
+                "rooms",
+                "minRooms",
+                "maxRooms",
+                "minSize",
+                "maxSize",
+            }
+
+            params: Dict[str, Any] = {}
+
+            def _choose_value(key: str) -> Optional[Any]:
+                if key in overrides and overrides[key] is not None:
+                    return overrides[key]
+                return active.get(key)
+
+            for key in allowed_params:
+                value = _choose_value(key)
+                if value is None:
+                    continue
+                if key == "property" and isinstance(value, (list, tuple, set)):
+                    params[key] = ",".join(str(v) for v in value if v is not None)
+                else:
+                    params[key] = value
+
+            zoom_value = overrides.get("zoom")
+            if zoom_value is None:
+                zoom_value = zoom if zoom is not None else active.get("zoom")
+            params["zoom"] = zoom_value if zoom_value is not None else 15
+
+            logger.info("Fetching map listings with params: %s", params)
+            response = self.session.get(url, params=params, timeout=30)
+            if response.status_code != 200:
+                logger.warning("Failed to fetch map listings: %s", response.status_code)
+                return []
+
+            try:
+                payload = response.json()
+            except json.JSONDecodeError:
+                logger.error("Failed to decode map listings response as JSON")
+                return []
+
+            listings: List[RealEstateListing] = []
+
+            for marker in payload.get("markers", []) or []:
+                listing = self._convert_map_marker(marker, marker_type="yad2")
+                if listing:
+                    listings.append(listing)
+
+            for marker in payload.get("yad1Markers", []) or []:
+                listing = self._convert_map_marker(marker, marker_type="yad1")
+                if listing:
+                    listings.append(listing)
+
+            logger.info("Fetched %s listings from Yad2 map endpoint", len(listings))
+            self.listings = listings
+            return listings
+        except Exception as exc:
+            logger.error("Error fetching map listings: %s", exc)
+            return []
 
     def get_property_types(self):
         """Get all property type codes with names."""
@@ -218,6 +308,160 @@ class Yad2Scraper:
         except Exception as e:
             logger.error("Error fetching latest deals: {}".format(e))
             return []
+
+    def _convert_map_marker(self, marker: Dict[str, Any], marker_type: str = "yad2") -> Optional[RealEstateListing]:
+        """Convert a map marker response entry into a :class:`RealEstateListing`."""
+
+        if not marker:
+            return None
+
+        try:
+            listing = RealEstateListing()
+
+            address = marker.get("address") or {}
+            city = self._extract_nested_text(address, "city")
+            neighborhood = self._extract_nested_text(address, "neighborhood")
+            street = self._extract_nested_text(address, "street")
+
+            house = address.get("house") or {}
+            house_number = house.get("number")
+            if house_number is not None:
+                listing.floor = house.get("floor")
+            elif house.get("floor") is not None:
+                listing.floor = house.get("floor")
+
+            parts = []
+            if street:
+                if house_number is not None:
+                    parts.append(f"{street} {house_number}")
+                else:
+                    parts.append(street)
+            if neighborhood:
+                parts.append(neighborhood)
+            if city:
+                parts.append(city)
+
+            listing.address = ", ".join([part for part in parts if part])
+
+            coords = address.get("coords") or marker.get("coords")
+            if isinstance(coords, dict):
+                lon = coords.get("lon")
+                lat = coords.get("lat")
+            elif isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                lon, lat = coords[0], coords[1]
+            else:
+                lon = lat = None
+            try:
+                if lon is not None and lat is not None:
+                    listing.coordinates = (float(lon), float(lat))
+            except (TypeError, ValueError):
+                listing.coordinates = None
+
+            additional = marker.get("additionalDetails") or {}
+            property_details = additional.get("property") or {}
+            listing.property_type = property_details.get("text") or property_details.get("name") or marker.get("propertyType")
+            listing.rooms = additional.get("roomsCount") or marker.get("rooms")
+            listing.size = additional.get("squareMeter") or marker.get("size")
+
+            metadata = marker.get("metaData") or {}
+            if listing.size is None:
+                listing.size = metadata.get("squareMeterBuild")
+
+            cover_image = metadata.get("coverImage")
+            if cover_image:
+                listing.images.append(cover_image)
+            for image in metadata.get("images") or []:
+                if image and image not in listing.images:
+                    listing.images.append(image)
+
+            price = marker.get("price")
+            if price in (0, "0", 0.0):
+                price = None
+            listing.price = price
+
+            token = marker.get("token")
+            order_id = marker.get("orderId") or marker.get("listingId")
+            if token:
+                listing.url = f"{self.base_url}/item/{token}"
+                listing.listing_id = str(order_id or token)
+            elif order_id is not None:
+                listing.listing_id = str(order_id)
+            else:
+                listing.listing_id = None
+
+            title_parts = []
+            if listing.property_type:
+                title_parts.append(listing.property_type)
+            if listing.address:
+                title_parts.append(listing.address)
+            if not title_parts and listing.listing_id:
+                title_parts.append(str(listing.listing_id))
+            listing.title = " - ".join(title_parts) if title_parts else None
+
+            tags = marker.get("tags") or []
+            if tags:
+                listing.features["tags"] = [tag.get("name") for tag in tags if tag.get("name")]
+
+            customer = marker.get("customer") or {}
+            has_agency = bool(customer.get("agencyName"))
+            ad_type_raw = marker.get("adType")
+            ad_type = ad_type_raw.lower() if isinstance(ad_type_raw, str) else None
+
+            seller_type: Optional[str] = None
+            if has_agency:
+                seller_type = "broker"
+            elif ad_type in {"private"}:
+                seller_type = "private"
+            elif ad_type in {"commercial", "agency", "broker"}:
+                seller_type = "broker"
+            elif ad_type:
+                seller_type = ad_type
+
+            if has_agency:
+                listing.features["agency"] = {
+                    "name": customer.get("agencyName"),
+                    "logo": customer.get("agencyLogo"),
+                }
+
+            if seller_type:
+                listing.features["seller_type"] = seller_type
+                listing.meta["seller_type"] = seller_type
+
+            video_url = metadata.get("video")
+            if video_url:
+                listing.meta["video"] = video_url
+
+            listing.meta.update({
+                "source": "yad2_map",
+                "marker_type": marker_type,
+                "token": token,
+                "order_id": order_id,
+                "ad_type": marker.get("adType"),
+                "category_id": marker.get("categoryId"),
+                "subcategory_id": marker.get("subcategoryId"),
+                "customer": customer or None,
+                "raw": marker,
+            })
+
+            if marker_type == "yad1":
+                listing.meta["project_id"] = marker.get("projectId")
+
+            return listing
+        except Exception as exc:
+            logger.debug("Failed to convert map marker: %s", exc)
+            return None
+
+    @staticmethod
+    def _extract_nested_text(container: Dict[str, Any], key: str) -> Optional[str]:
+        """Helper to safely extract nested 'text' values."""
+        if not container:
+            return None
+        value = container.get(key)
+        if isinstance(value, dict):
+            return value.get("text") or value.get("name")
+        if isinstance(value, str):
+            return value
+        return None
     
     def _convert_latest_deal_to_listing(self, deal_entry):
         """Convert a latest-deal payload entry into a RealEstateListing."""

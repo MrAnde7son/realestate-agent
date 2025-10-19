@@ -51,7 +51,7 @@ class GISCollector(BaseCollector):
             "noise": self.client.get_noise_levels(x, y),
             "antennas": self.client.get_cell_antennas(x, y),
             "land_use_detailed": self.client.get_land_use_detailed(x, y),
-            "preservation": self.client.get_preservation(x, y),
+            "preservation": [], #TODO it fails for now self.client.get_preservation(x, y),
             "dangerous": self.client.get_dangerous_buildings(x, y),
             "local_plans": self.client.get_plans_local(x, y),
             "city_plans": self.client.get_plans_citywide(x, y),

@@ -19,6 +19,7 @@ class TestGISPlanDocumentCreation:
         plan_payload = {
             "oid_taba": 7,
             "id_taba": 641,
+            "plan_number": "641",
             "taba": "ג                   ",
             "shem_taba": "תכנית \"ג\" - גגות - בניה על גגות בתים",
             "k_status": 11,
@@ -47,7 +48,11 @@ class TestGISPlanDocumentCreation:
         }
 
         city_plan_payload = dict(
-            plan_payload, id_taba=777, tr_matan_tokef=None, t_status="מופקד"
+            plan_payload,
+            id_taba=777,
+            plan_number="777",
+            tr_matan_tokef=None,
+            t_status="מופקד",
         )
 
         gis_data = {

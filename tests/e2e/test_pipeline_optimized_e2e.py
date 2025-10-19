@@ -96,7 +96,6 @@ def test_mavat_collector_formats_results_without_network_calls():
             "entity_number": "123",
             "approval_date": "2024-01-01",
             "status_date": "2024-02-01",
-            "raw": {"id": "123", "title": "Tel Aviv Plan"},
         },
         {
             "plan_id": "456",
@@ -106,7 +105,6 @@ def test_mavat_collector_formats_results_without_network_calls():
             "entity_number": "123",
             "approval_date": "2024-01-01",
             "status_date": "2024-02-01",
-            "raw": {"id": "456", "title": "Residential"},
         },
     ]
     assert client.calls == [{"block": "6336", "city": "Tel Aviv"}]

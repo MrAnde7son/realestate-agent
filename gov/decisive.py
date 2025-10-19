@@ -217,5 +217,5 @@ class DecisiveAppraisalClient:
 
 
 if __name__ == "__main__":
-    results = DecisiveAppraisalClient().fetch_appraisals(block="8733",plot="15", max_pages=1)
+    results = DecisiveAppraisalClient().fetch_appraisals(block="6336", max_pages=1)
     print(results)

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class DealCache:
     """Cache for storing and retrieving deal data with incremental updates."""
     
-    def __init__(self, cache_dir: str = "deal_cache", max_age_hours: int = 24):
+    def __init__(self, cache_dir: str = "deal_cache", max_age_hours: int = 24*30):
         """Initialize the deal cache.
         
         Args:
@@ -28,6 +28,7 @@ class DealCache:
             max_age_hours: Maximum age of cached data before refresh (in hours)
         """
         self.cache_dir = Path(cache_dir)
+        logger.info(f"Initializing deal cache in {str(self.cache_dir)}")
         self.cache_dir.mkdir(exist_ok=True)
         self.max_age_hours = max_age_hours
         
@@ -36,6 +37,7 @@ class DealCache:
         # Create a safe filename from the address
         safe_address = "".join(c for c in address if c.isalnum() or c in (' ', '-', '_')).rstrip()
         safe_address = safe_address.replace(' ', '_')
+        logger.info(f"Getting cache file for {safe_address}")
         return self.cache_dir / f"{safe_address}.json"
     
     def _get_metadata_file(self, address: str) -> Path:

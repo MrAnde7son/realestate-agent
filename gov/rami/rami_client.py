@@ -36,7 +36,6 @@ class RamiClient:
 
     def __init__(
         self,
-        *,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
         page_param: str = "page",
@@ -149,8 +148,8 @@ class RamiClient:
         
         return {
             "planNumber": plan_number,
-            "block": block,
-            "parcel": parcel,
+            "gush": block,
+            "chelka": parcel,
             "statuses": statuses,
             "planTypes": plan_types,
             "fromStatusDate": from_status_date,
@@ -174,13 +173,12 @@ class RamiClient:
             raise RuntimeError("401 Unauthorized – missing Cookie/Authorization headers?")
 
         data = response.json()
-        rows = list(self._extract_results(data))
-        return pd.DataFrame(rows)
+        return list(self._extract_results(data))
 
     def _extract_document_urls(self, plan: Dict[str, Any]) -> List[Dict[str, str]]:
         """Extract document URLs from a plan's documentsSet."""
         documents = []
-        documents_set = plan.get('documentsSet', {})
+        documents_set = plan.pop('documentsSet', {})
         
         if not documents_set:
             return documents
@@ -203,8 +201,7 @@ class RamiClient:
             documents.append({
                 'type': 'takanon',
                 'name': takanon.get('info', 'תקנון סרוק'),
-                'url': self.BASE_URL + clean_path_str,
-                'path': takanon['path']
+                'url': self.BASE_URL + clean_path_str
             })
         
         # Extract tasritim (drawings/blueprints)
@@ -215,8 +212,7 @@ class RamiClient:
                 documents.append({
                     'type': 'tasrit',
                     'name': tasrit.get('info', 'תשריט'),
-                    'url': self.BASE_URL + clean_path_str,
-                    'path': tasrit['path']
+                    'url': self.BASE_URL + clean_path_str
                 })
         
         # Extract nispachim (appendices)
@@ -227,8 +223,7 @@ class RamiClient:
                 documents.append({
                     'type': 'nispach',
                     'name': nispach.get('info', 'נספח'),
-                    'url': self.BASE_URL + clean_path_str,
-                    'path': nispach['path']
+                    'url': self.BASE_URL + clean_path_str
                 })
         
         # Extract MMG files
@@ -238,11 +233,16 @@ class RamiClient:
             documents.append({
                 'type': 'mmg',
                 'name': mmg.get('info', 'קבצי ממג'),
-                'url': self.BASE_URL + clean_path_str,
-                'path': mmg['path']
+                'url': self.BASE_URL + clean_path_str
             })
         
         return documents
+
+    def extract_document_urls(self, plan: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Public wrapper to obtain normalized document URLs for a plan."""
+        if not isinstance(plan, dict):
+            return []
+        return self._extract_document_urls(plan)
 
     def download_document(self, url: str, save_path: Union[str, Path], 
                          overwrite: bool = False) -> bool:
@@ -403,3 +403,9 @@ class RamiClient:
 
 
 __all__ = ["RamiClient"]
+
+if __name__ == "__main__":
+    client = RamiClient()
+    search_params = client.create_search_params(block="6336")
+    plans = client.fetch_plans(search_params)
+    print(plans)

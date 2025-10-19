@@ -576,7 +576,7 @@ React.useEffect(() => {
     if (plansData.items && plansData.items.length > 0) {
       allDocs.push(...plansData.items.map((plan: any) => ({
         id: `plan_${plan.id}`,
-        title: plan.description || `תכנית ${plan.plan_number}`,
+        title: plan.title || plan.description || `תכנית ${plan.plan_number}`,
         type: translateDocumentType('plan'),
         url: plan.file_url,
         source: translateSource(plan.source === 'rami' ? 'RAMI' : plan.source === 'mavat' ? 'Mavat' : 'Local'),
@@ -1210,6 +1210,7 @@ const loadPlans = React.useCallback(async () => {
 
     const sortMapping: Record<string, string> = {
       plan_number: 'plan_number',
+      title: 'title',
       description: 'description',
       status: 'status',
       source: 'source',
@@ -2460,8 +2461,8 @@ useDedupedEffect(() => {
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                           {rightsRows
                             .filter(row => row.type === 'floor_details')
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg">
+                            .map((row: any, idx: number) => (
+                              <div key={row.id ?? `floor-detail-${idx}`} className="p-3 border rounded-lg">
                                 <div className="text-sm text-muted-foreground">{row.type}</div>
                                 <div className="text-lg font-medium">
                                   {row.percentage ? `${row.percentage}%` : row.area_sqm ? `${row.area_sqm} מ״ר` : '—'}
@@ -2480,8 +2481,8 @@ useDedupedEffect(() => {
                         <div className="space-y-2">
                           {rightsRows
                             .filter(row => row.type === 'specific_right')
-                            .map((row: any) => (
-                              <div key={row.id} className="p-3 border rounded-lg bg-green-50">
+                            .map((row: any, idx: number) => (
+                              <div key={row.id ?? `specific-right-${idx}`} className="p-3 border rounded-lg bg-green-50">
                                 <div className="text-sm text-muted-foreground">זכות בנייה</div>
                                 <div className="text-lg font-medium">{row.description}</div>
                               </div>

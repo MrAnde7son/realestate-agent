@@ -28,6 +28,7 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 interface Plan {
   id: string;
   plan_number: string;
+  title?: string;
   description: string;
   status: string;
   effective_date?: string;
@@ -84,6 +85,19 @@ function createColumns(): ColumnDef<Plan>[] {
       ),
     },
     {
+      accessorKey: 'title',
+      header: 'שם תוכנית',
+      cell: ({ row }) => {
+        const value = row.getValue('title') as string | undefined;
+        const fallback = row.original.description;
+        return (
+          <div className="max-w-[300px] truncate text-sm">
+            {value || fallback || 'ללא שם'}
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: 'description',
       header: 'תיאור',
       cell: ({ row }) => (
@@ -102,7 +116,7 @@ function createColumns(): ColumnDef<Plan>[] {
             case 'rami': return 'רמ״י';
             case 'mavat': return 'מנהל התיכנון';
             case 'collected_government': return 'מנהל התיכנון';
-            default: return 'מקומי';
+            default: return 'GIS';
           }
         };
         const getSourceVariant = (source: string) => {
@@ -204,6 +218,7 @@ export default function PlansTable({
       if (searchValue) {
         const searchLower = searchValue.toLowerCase();
         const matchesSearch =
+          plan.title?.toLowerCase().includes(searchLower) ||
           plan.description?.toLowerCase().includes(searchLower) ||
           plan.plan_number?.toLowerCase().includes(searchLower) ||
           plan.status?.toLowerCase().includes(searchLower) ||
@@ -233,6 +248,7 @@ export default function PlansTable({
         if (
           descriptionSearch &&
           !(
+            plan.title?.toLowerCase().includes(descriptionSearch) ||
             plan.description?.toLowerCase().includes(descriptionSearch) ||
             plan.raw?.title?.toLowerCase().includes(descriptionSearch)
           )

@@ -16,7 +16,13 @@ class MavatCollector(BaseCollector):
         self.client = client or MavatSeleniumClient()
         self.logger = logging.getLogger(__name__)
 
-    def collect(self, block: str, parcel: Optional[str] = None, city: Optional[str] = None) -> List[Dict[str, Any]]:
+    def collect(
+        self,
+        block: str,
+        parcel: Optional[str] = None,
+        city: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """Collect Mavat plans for a given block/parcel.
         
         This method implements the base collect interface and provides
@@ -30,6 +36,8 @@ class MavatCollector(BaseCollector):
             Parcel number for cadastral search.
         city: str, optional
             City name for additional context.
+        limit: int, optional
+            Maximum number of plans to return. Defaults to no explicit limit.
             
         Returns
         -------
@@ -39,7 +47,7 @@ class MavatCollector(BaseCollector):
         try:
             # Block search is enough for mavat to cover larger area
             with self.client as client:
-                plans = client.search_plans(block=block, city=city)
+                plans = client.search_plans(block=block, city=city, limit=limit)
                 
                 # Convert to consistent format
                 formatted_plans = []
@@ -52,7 +60,6 @@ class MavatCollector(BaseCollector):
                         "entity_number": plan.entity_number,
                         "approval_date": plan.approval_date,
                         "status_date": plan.status_date,
-                        "raw": plan.raw
                     })
                 
                 return formatted_plans
@@ -67,5 +74,5 @@ class MavatCollector(BaseCollector):
 
 if __name__ == '__main__':
     collector = MavatCollector()
-    result = collector.collect(block=6336, city="תמא")
+    result = collector.collect(block=6336)
     print(result)

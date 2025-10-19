@@ -169,7 +169,11 @@ class Yad2Collector(BaseCollector):
                 if search_params:
                     self.client.set_search_parameters(**search_params)
 
-            listings.extend(self.client.scrape_all_pages(max_pages=max_pages, delay=0))
+            map_listings = self.client.fetch_map_listings()
+            if map_listings:
+                listings.extend(map_listings)
+            else:
+                listings.extend(self.client.scrape_all_pages(max_pages=max_pages, delay=0))
 
             listings.extend(self.client.fetch_latest_deals())
 

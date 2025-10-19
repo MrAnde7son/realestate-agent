@@ -400,6 +400,50 @@ interface AssetsTableProps {
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
 const COLUMN_SIZING_KEY = 'assets-table-column-sizing'
 
+const DEFAULT_VISIBLE_COLUMNS = new Set([
+  'select',
+  'address',
+  'price',
+  'pricePerSqm',
+  'modelPrice',
+  'rentEstimate',
+  'domPercentile',
+  'riskFlags',
+  'actions'
+])
+
+const ALL_COLUMN_IDS = [
+  'select',
+  'address',
+  'price',
+  'pricePerSqm',
+  'deltaVsAreaPct',
+  'domPercentile',
+  'competition1km',
+  'zoning',
+  'remainingRightsSqm',
+  'program',
+  'lastPermitQ',
+  'docsCount',
+  'noiseLevel',
+  'antennaDistanceM',
+  'greenWithin300m',
+  'shelterDistanceM',
+  'riskFlags',
+  'assetStatus',
+  'priceGapPct',
+  'confidencePct',
+  'capRatePct',
+  'actions'
+] as const
+
+const DEFAULT_COLUMN_VISIBILITY = ALL_COLUMN_IDS.reduce<Record<string, boolean>>((acc, columnId) => {
+  if (!DEFAULT_VISIBLE_COLUMNS.has(columnId)) {
+    acc[columnId] = false
+  }
+  return acc
+}, {})
+
 export default function AssetsTable({ 
   data = [], 
   loading = false, 
@@ -420,13 +464,13 @@ export default function AssetsTable({
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(COLUMN_PREFERENCES_KEY)
-        return saved ? JSON.parse(saved) : {}
+        return saved ? { ...DEFAULT_COLUMN_VISIBILITY, ...JSON.parse(saved) } : { ...DEFAULT_COLUMN_VISIBILITY }
       } catch (error) {
         console.warn('Failed to load column preferences:', error)
-        return {}
+        return { ...DEFAULT_COLUMN_VISIBILITY }
       }
     }
-    return {}
+    return { ...DEFAULT_COLUMN_VISIBILITY }
   })
   const [columnSizing, setColumnSizing] = React.useState<Record<string, number>>(() => {
     // Load saved column sizing from localStorage on component mount
@@ -459,7 +503,7 @@ export default function AssetsTable({
   const handleColumnVisibilityChange = React.useCallback((updaterOrValue: any) => {
     setColumnVisibility(prev => {
       const newVisibility = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue
-      
+
       // Save to localStorage
       if (typeof window !== 'undefined') {
         try {
@@ -468,8 +512,24 @@ export default function AssetsTable({
           console.warn('Failed to save column preferences:', error)
         }
       }
-      
+
       return newVisibility
+    })
+  }, [])
+
+  const handleResetColumns = React.useCallback(() => {
+    setColumnVisibility(() => {
+      const defaults = { ...DEFAULT_COLUMN_VISIBILITY }
+
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(COLUMN_PREFERENCES_KEY, JSON.stringify(defaults))
+        } catch (error) {
+          console.warn('Failed to save column preferences:', error)
+        }
+      }
+
+      return defaults
     })
   }, [])
 
@@ -765,6 +825,7 @@ export default function AssetsTable({
             }}
             additionalFilters={additionalFilters}
             onAdditionalFilterChange={handleAdditionalFilterChange}
+            onResetColumns={handleResetColumns}
             columns={toolbarColumns}
             onExportSelected={handleExportSelected}
             onExportAll={() => exportAssetsCsv(data, table.getVisibleLeafColumns(), trackFeatureUsage)}

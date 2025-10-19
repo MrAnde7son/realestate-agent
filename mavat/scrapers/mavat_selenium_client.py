@@ -18,7 +18,11 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    StaleElementReferenceException,
+    TimeoutException,
+)
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
@@ -151,7 +155,7 @@ class MavatSeleniumClient:
         plan_area: Optional[str] = None,
         street: Optional[str] = None,
         status: Optional[str] = None,
-        limit: int = 20
+        limit: Optional[int] = None
     ) -> List[MavatSearchHit]:
         """Search for plans using Selenium automation.
         
@@ -679,7 +683,7 @@ class MavatSeleniumClient:
                 self.logger.warning(f"Error executing search via Enter key: {e}")
                 raise RuntimeError(f"No search method available: {e}")
 
-    def _basic_search(self, query: str, limit: int = 20) -> List[MavatSearchHit]:
+    def _basic_search(self, query: str, limit: Optional[int] = None) -> List[MavatSearchHit]:
         """Perform basic search using the simple text input.
         
         Protected method - should only be called via search_plans().
@@ -815,7 +819,7 @@ class MavatSeleniumClient:
         except Exception as e:
             raise RuntimeError(f"Basic search failed: {e}")
 
-    def _advanced_search(self, limit: int = 20, **kwargs) -> List[MavatSearchHit]:
+    def _advanced_search(self, limit: Optional[int] = None, **kwargs) -> List[MavatSearchHit]:
         """Perform advanced search using specific form fields.
         
         Protected method - should only be called via search_plans().
@@ -857,7 +861,154 @@ class MavatSeleniumClient:
         except Exception as e:
             raise RuntimeError(f"Advanced search failed: {e}")
 
-    def _extract_search_results(self, limit: int) -> List[MavatSearchHit]:
+    def _find_show_more_button(self):
+        """Locate the 'show more' button if present."""
+        if not self.driver:
+            return None
+
+        selectors = [
+            "div.sv3-results-layout__loadmore_n button",
+            "div.sv3-results-layout__loadmore button",
+            "button[aria-label='הצג עוד']",
+            "button[aria-label*='הצג עוד']",
+        ]
+
+        for selector in selectors:
+            try:
+                candidates = self.driver.find_elements(By.CSS_SELECTOR, selector)
+            except Exception:
+                candidates = []
+
+            for button in candidates:
+                if not button:
+                    continue
+
+                text = (button.text or "").strip()
+                aria_label = (button.get_attribute("aria-label") or "").strip()
+
+                if "הצג עוד" not in text and "הצג עוד" not in aria_label:
+                    continue
+
+                if not button.is_displayed():
+                    continue
+
+                if not button.is_enabled():
+                    continue
+
+                if button.get_attribute("disabled") is not None:
+                    continue
+
+                if button.get_attribute("aria-disabled") in {"true", "1"}:
+                    continue
+
+                return button
+
+        # Fallback to searching all buttons and matching by text
+        try:
+            for button in self.driver.find_elements(By.TAG_NAME, "button"):
+                if not button:
+                    continue
+                text = (button.text or "").strip()
+                aria_label = (button.get_attribute("aria-label") or "").strip()
+                if "הצג עוד" in text or "הצג עוד" in aria_label:
+                    if button.is_displayed() and button.is_enabled():
+                        if button.get_attribute("disabled") is None and button.get_attribute("aria-disabled") not in {"true", "1"}:
+                            return button
+        except Exception:
+            pass
+
+        return None
+
+    def _count_loaded_result_rows(self) -> int:
+        """Count the number of non-empty result rows in the first data table."""
+        if not self.driver:
+            return 0
+
+        tables = self.driver.find_elements(By.CSS_SELECTOR, "table")
+        for table in tables:
+            rows = table.find_elements(By.CSS_SELECTOR, "tr")
+            if len(rows) <= 1:
+                continue
+
+            data_rows = 0
+            for row in rows[1:]:
+                cells = row.find_elements(By.CSS_SELECTOR, "td, th")
+                if any(cell.text.strip() for cell in cells):
+                    data_rows += 1
+
+            if data_rows:
+                return data_rows
+
+        return 0
+
+    def _load_more_results_if_needed(self, limit: Optional[int]) -> None:
+        """Click the 'show more' button until the desired limit is reached or no more rows exist."""
+        if not self.driver:
+            return
+
+        # Treat None as unlimited results
+        target = limit if limit and limit > 0 else float("inf")
+
+        current_count = self._count_loaded_result_rows()
+        max_attempts = 10
+        attempts = 0
+
+        self.logger.debug(f"Initial result rows loaded: {current_count}, target: {target}")
+
+        while current_count < target:
+            button = self._find_show_more_button()
+            if not button:
+                self.logger.debug("No 'show more' button found or it is disabled.")
+                break
+
+            attempts += 1
+            if attempts > max_attempts:
+                self.logger.warning("Reached maximum 'show more' attempts; stopping.")
+                break
+
+            self.logger.info("Clicking 'show more' to load additional results...")
+
+            try:
+                self.driver.execute_script(
+                    "arguments[0].scrollIntoView({block: 'center'});", button
+                )
+            except Exception:
+                pass
+
+            try:
+                button.click()
+            except (ElementClickInterceptedException, StaleElementReferenceException):
+                try:
+                    self.driver.execute_script("arguments[0].click();", button)
+                except Exception as e:
+                    self.logger.debug(f"JavaScript click on 'show more' failed: {e}")
+                    break
+            except Exception as e:
+                self.logger.debug(f"Click on 'show more' failed: {e}")
+                try:
+                    self.driver.execute_script("arguments[0].click();", button)
+                except Exception as js_error:
+                    self.logger.debug(f"Fallback JavaScript click failed: {js_error}")
+                    break
+
+            self._wait_for_spinner()
+            time.sleep(2)
+
+            wait_timeout = min(self.timeout, 10)
+            try:
+                WebDriverWait(self.driver, wait_timeout).until(
+                    lambda _: self._count_loaded_result_rows() > current_count
+                )
+            except TimeoutException:
+                new_count = self._count_loaded_result_rows()
+                if new_count <= current_count:
+                    self.logger.debug("No additional rows loaded after 'show more' click.")
+                    break
+
+            current_count = self._count_loaded_result_rows()
+            self.logger.debug(f"'Show more' attempt {attempts} loaded {current_count} rows.")
+
+    def _extract_search_results(self, limit: Optional[int]) -> List[MavatSearchHit]:
         """Extract search results from the current page.
         
         Args:
@@ -869,7 +1020,13 @@ class MavatSeleniumClient:
         self.logger.info("Extracting search results...")
         time.sleep(3)
         self._wait_for_spinner()
-        
+
+        if limit is not None and limit <= 0:
+            return []
+
+        target_count = limit if limit and limit > 0 else None
+        self._load_more_results_if_needed(target_count)
+
         # Extract search results
         hits = []
         
@@ -895,7 +1052,7 @@ class MavatSeleniumClient:
                     self.logger.debug(f"Table {table_idx} has data: {first_data_row}")
                     
                     # Extract data from all rows
-                    for row_idx, row in enumerate(rows[1:limit+1]):  # Skip header, limit results
+                    for row_idx, row in enumerate(rows[1:]):  # Skip header rows
                         try:
                             cells = row.find_elements(By.CSS_SELECTOR, "td, th")
                             cell_texts = [cell.text.strip() for cell in cells]
@@ -904,31 +1061,26 @@ class MavatSeleniumClient:
                                 continue
                             
                             # Determine plan ID (usually first cell with meaningful content)
-                            plan_id = None
-                            for cell_text in cell_texts:
-                                if cell_text and (cell_text.isdigit() or len(cell_text) > 3):
-                                    plan_id = cell_text
-                                    break
-                            
+                            plan_id = cell_texts[0] if cell_texts else None
+                            plan_name = cell_texts[1] if len(cell_texts) > 1 else None
+
+                            if not plan_id:
+                                plan_id = next((text for text in cell_texts if text), None)
                             if not plan_id:
                                 plan_id = f"plan_{table_idx}_{row_idx}"
-                            
-                            # Use the first non-empty cell as title
-                            title = next((text for text in cell_texts if text), None)
-                            
+
+                            if not plan_name:
+                                plan_name = next(
+                                    (text for idx, text in enumerate(cell_texts) if idx != 0 and text),
+                                    None
+                                )
+
+                            title = plan_name or plan_id
+
                             # Try to identify additional fields based on table structure
-                            authority = None
-                            jurisdiction = None
-                            status = None
-                            
-                            if len(cell_texts) >= 3:
-                                # Common pattern: ID, Title, Authority, Location, Status
-                                if len(cell_texts) >= 4:
-                                    authority = cell_texts[2] if len(cell_texts) > 2 else None
-                                if len(cell_texts) >= 5:
-                                    jurisdiction = cell_texts[3] if len(cell_texts) > 3 else None
-                                if len(cell_texts) >= 6:
-                                    status = cell_texts[4] if len(cell_texts) > 4 else None
+                            authority = cell_texts[2] if len(cell_texts) > 2 else None
+                            jurisdiction = cell_texts[3] if len(cell_texts) > 3 else None
+                            status = cell_texts[4] if len(cell_texts) > 4 else None
                             
                             hit = MavatSearchHit(
                                 plan_id=plan_id,
@@ -940,10 +1092,14 @@ class MavatSeleniumClient:
                                     "table_index": table_idx,
                                     "row_index": row_idx,
                                     "cell_texts": cell_texts,
+                                    "plan_name": plan_name,
                                     "element_html": row.get_attribute("outerHTML")[:500]
                                 }
                             )
                             hits.append(hit)
+
+                            if target_count and len(hits) >= target_count:
+                                return hits[:target_count]
                             
                         except Exception as e:
                             self.logger.warning(f"Error extracting data from row {row_idx}: {e}")
@@ -953,7 +1109,9 @@ class MavatSeleniumClient:
                         break  # Found results in this table
         
         self.logger.info(f"Extracted {len(hits)} search results")
-        return hits[:limit]
+        if target_count:
+            return hits[:target_count]
+        return hits
 
     def fetch_pdf(self, plan_number: str) -> bytes:
         """Fetch PDF for a specific plan number.
@@ -1172,21 +1330,6 @@ class MavatSeleniumClient:
 
 if __name__ == "__main__":
     with MavatSeleniumClient(headless=False) as client:
-        if client.is_accessible():
-            print("Mavat is accessible")
-            hits = client.search_plans(block=6336, limit=1)
-            for hit in hits:
-                print(hit)
-                try:
-                    plan = client.get_plan_details(hit.plan_id)
-                    print(plan)
-                except Exception as e:
-                    print(f"Error fetching plan details: {e}")
-
-                try:
-                    pdf_content = client.fetch_pdf(hit.plan_id)
-                    print(f"Fetched PDF content of size: {len(pdf_content)} bytes")
-                except Exception as e:
-                    print(f"Error fetching PDF: {e}")
-        else:
-            print("Mavat is not accessible") 
+            hits = client.search_plans(block=6336)
+            length = len(hits)
+            print(f"Found {length} hits")

@@ -92,3 +92,68 @@ def test_get_search_summary_and_save(tmp_path):
     with open(out, "r", encoding="utf-8") as fh:
         data = json.load(fh)
     assert data["total_listings"] == 1
+
+
+def test_fetch_map_listings_converts_markers(monkeypatch):
+    payload = {
+        "data": {
+        "markers": [
+            {
+                "address": {
+                    "city": {"text": "תל אביב יפו"},
+                    "neighborhood": {"text": "רמת החייל"},
+                    "street": {"text": "ליפא קרפל"},
+                    "house": {"number": 15, "floor": 0},
+                    "coords": {"lon": 34.832671, "lat": 32.111408},
+                },
+                "subcategoryId": 1,
+                "categoryId": 2,
+                "adType": "private",
+                "price": 8_500_000,
+                "token": "j1l4opy9",
+                "orderId": 56008383,
+                "additionalDetails": {
+                    "property": {"text": "דו משפחתי"},
+                    "roomsCount": 3.5,
+                    "squareMeter": 336,
+                },
+                "metaData": {
+                    "coverImage": "https://example.com/cover.jpg",
+                    "images": [
+                        "https://example.com/cover.jpg",
+                        "https://example.com/extra.jpg",
+                    ],
+                },
+                "tags": [{"name": "חניה"}],
+            }
+        ],
+        "yad1Markers": [],
+        }
+    }
+
+    class DummyResponse:
+        status_code = 200
+
+        def json(self):
+            return payload
+
+    scraper = Yad2Scraper(Yad2SearchParameters(city=5000, neighborhood=203))
+    monkeypatch.setattr(
+        scraper.session,
+        "get",
+        lambda url, params, timeout: DummyResponse(),
+    )
+
+    listings = scraper.fetch_map_listings()
+    assert len(listings) == 1
+    listing = listings[0]
+
+    assert listing.price == 8_500_000
+    assert listing.listing_id == "56008383"
+    assert listing.coordinates == (34.832671, 32.111408)
+    assert listing.property_type == "דו משפחתי"
+    assert listing.images == [
+        "https://example.com/cover.jpg",
+        "https://example.com/extra.jpg",
+    ]
+    assert listing.meta["marker_type"] == "yad2"

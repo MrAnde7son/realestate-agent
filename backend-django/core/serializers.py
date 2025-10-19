@@ -300,7 +300,7 @@ class PlanSerializer(MetaSerializerMixin):
     class Meta:
         model = Plan
         fields = [
-            'id', 'asset', 'asset_ids', 'assets', 'plan_number', 'description', 'status',
+            'id', 'asset', 'asset_ids', 'assets', 'plan_number', 'title', 'description', 'status',
             'effective_date', 'file_url'
         ]
         read_only_fields = ['asset']

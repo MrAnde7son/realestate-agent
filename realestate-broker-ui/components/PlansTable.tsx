@@ -116,7 +116,7 @@ function createColumns(): ColumnDef<Plan>[] {
             case 'rami': return 'רמ״י';
             case 'mavat': return 'מנהל התיכנון';
             case 'collected_government': return 'מנהל התיכנון';
-            default: return 'מקומי';
+            default: return 'GIS';
           }
         };
         const getSourceVariant = (source: string) => {

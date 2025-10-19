@@ -2763,8 +2763,7 @@ def _create_documents_from_gis_plans(asset, plans, scope: str, system_user):
             continue
 
         plan_number_raw = _first_nonempty(
-            plan.get('id_taba'),
-            (plan.get('taba') or '').strip(),
+            plan.get('taba'),
             plan.get('plan_number'),
             plan.get('planNumber'),
             plan.get('number'),

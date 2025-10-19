@@ -15,7 +15,10 @@ if 'pyproj' not in sys.modules:
 
         @classmethod
         def from_crs(cls, *args, **kwargs):
-            raise RuntimeError("pyproj Transformer stub invoked in tests")
+            return cls()
+
+        def transform(self, x, y, *args, **kwargs):
+            return x, y
 
     sys.modules['pyproj'] = types.SimpleNamespace(Transformer=_DummyTransformer)
 

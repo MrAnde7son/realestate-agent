@@ -20,7 +20,6 @@ class TestMavatSearchHit:
             status="Approved",
             authority="Test Authority",
             jurisdiction="Test Jurisdiction",
-            raw={"test": "data"}
         )
         
         assert hit.plan_id == "12345"
@@ -28,7 +27,6 @@ class TestMavatSearchHit:
         assert hit.status == "Approved"
         assert hit.authority == "Test Authority"
         assert hit.jurisdiction == "Test Jurisdiction"
-        assert hit.raw == {"test": "data"}
 
     def test_mavat_search_hit_defaults(self):
         """Test MavatSearchHit with default values."""
@@ -39,7 +37,6 @@ class TestMavatSearchHit:
         assert hit.status is None
         assert hit.authority is None
         assert hit.jurisdiction is None
-        assert hit.raw is None
 
 
 class TestMavatPlan:
@@ -54,7 +51,6 @@ class TestMavatPlan:
             authority="Test Authority",
             jurisdiction="Test Jurisdiction",
             last_update="2024-01-01",
-            raw={"test": "data"}
         )
         
         assert plan.plan_id == "12345"
@@ -63,7 +59,6 @@ class TestMavatPlan:
         assert plan.authority == "Test Authority"
         assert plan.jurisdiction == "Test Jurisdiction"
         assert plan.last_update == "2024-01-01"
-        assert plan.raw == {"test": "data"}
 
     def test_mavat_plan_defaults(self):
         """Test MavatPlan with default values."""
@@ -75,7 +70,6 @@ class TestMavatPlan:
         assert plan.authority is None
         assert plan.jurisdiction is None
         assert plan.last_update is None
-        assert plan.raw is None
 
 
 class TestMavatScraper:

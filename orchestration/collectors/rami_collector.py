@@ -13,28 +13,28 @@ class RamiCollector(BaseCollector):
     def __init__(self, client: Optional[RamiClient] = None) -> None:
         self.client = client or RamiClient()
 
-    def collect(self, block: str, parcel: str) -> List[Dict[str, Any]]:
+    def collect(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
         """Collect RAMI plans for a given block (block) and parcel (parcel)."""
         try:
             # Block search is enough for rami to cover larger area
             search_params = self.client.create_search_params(block=block)
             
             # Fetch plans using the same method as the test
-            plans_df = self.client.fetch_plans(search_params)
-            
-            # Convert DataFrame to list of dictionaries
-            formatted_plans = []
-            for _, plan_row in plans_df.iterrows():
-                plan = plan_row.to_dict()
-                formatted_plans.append({
+            plans = self.client.fetch_plans(search_params)
+            enriched_plans: List[Dict[str, Any]] = []
+
+            for plan in plans:
+                documents = self.client.extract_document_urls(plan)
+                enriched_plans.append({
                     "planNumber": plan.get("planNumber", ""),
                     "planId": plan.get("planId", ""),
-                    "title": plan.get("title", ""),
                     "status": plan.get("status", ""),
+                    "title": plan.get("mahut", ""),
+                    "documents": documents,
                     "raw": plan
                 })
-            
-            return formatted_plans
+
+            return enriched_plans
         except Exception:
             return []
 
@@ -42,3 +42,8 @@ class RamiCollector(BaseCollector):
         """Validate the parameters for RAMI data collection."""
         required_params = ['block']
         return all(param in kwargs for param in required_params)
+
+if __name__ == "__main__":
+    client = RamiCollector()
+    plans = client.collect(block="6336")
+    print(plans)

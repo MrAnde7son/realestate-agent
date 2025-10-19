@@ -2159,6 +2159,49 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     if not normalized_listings:
         return
     
+    def _extract_listing_neighborhood(listing_data):
+        """Extract neighborhood text from a normalized listing dictionary."""
+        if not isinstance(listing_data, dict):
+            return None
+
+        candidate = listing_data.get('neighborhood')
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+
+        meta = listing_data.get('meta')
+        if isinstance(meta, dict):
+            candidate = meta.get('neighborhood')
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+
+            address_meta = meta.get('address') or meta.get('address_components')
+            if isinstance(address_meta, dict):
+                candidate = address_meta.get('neighborhood')
+                if isinstance(candidate, str) and candidate.strip():
+                    return candidate.strip()
+
+            raw_meta = meta.get('raw')
+            if isinstance(raw_meta, dict):
+                raw_neighborhood = raw_meta.get('neighborhood')
+                if isinstance(raw_neighborhood, dict):
+                    candidate = raw_neighborhood.get('text') or raw_neighborhood.get('name')
+                    if isinstance(candidate, str) and candidate.strip():
+                        return candidate.strip()
+                elif isinstance(raw_neighborhood, str) and raw_neighborhood.strip():
+                    return raw_neighborhood.strip()
+
+                address = raw_meta.get('address')
+                if isinstance(address, dict):
+                    raw_neighborhood = address.get('neighborhood')
+                    if isinstance(raw_neighborhood, dict):
+                        candidate = raw_neighborhood.get('text') or raw_neighborhood.get('name')
+                        if isinstance(candidate, str) and candidate.strip():
+                            return candidate.strip()
+                    elif isinstance(raw_neighborhood, str) and raw_neighborhood.strip():
+                        return raw_neighborhood.strip()
+
+        return None
+    
     # Find the best listing to use as the primary source
     # Priority: exact address match > same street > any listing
     best_listing = None
@@ -2190,6 +2233,13 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     
     # Populate asset fields from the best listing
     update_fields = set()
+
+    if not asset.neighborhood:
+        listing_neighborhood = _extract_listing_neighborhood(best_listing)
+        if listing_neighborhood:
+            asset.neighborhood = listing_neighborhood
+            update_fields.add('neighborhood')
+            logger.debug('[ASSET_FIELDS] Set neighborhood from listing: %s', asset.neighborhood)
     
     # Price
     if best_listing.get('price') and not asset.price:
@@ -2632,15 +2682,34 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
                     asset=asset,
                     user=system_user,
                 )
-        
+
+        # Create Plan/Document records from GIS plans
+        if gis_data:
+            local_plans = gis_data.get('local_plans') or []
+            city_plans = gis_data.get('city_plans') or []
+
+            if local_plans:
+                _create_documents_from_gis_plans(asset, local_plans, 'local', system_user)
+
+            if city_plans:
+                _create_documents_from_gis_plans(asset, city_plans, 'citywide', system_user)
+
         # Create Plan records from RAMI plans
         if plans:
             for plan in plans:
                 plan_number = plan.get('planNumber') or plan.get('plan_number', '')
                 if plan_number:
                     # Create Plan record
+                    plan_title = (
+                        plan.get('title')
+                        or plan.get('plan_name')
+                        or plan.get('planName')
+                        or plan.get('name')
+                        or f'תכנית רמ״י {plan_number}'
+                    )
                     plan_payload = {
-                        'description': plan.get('title', f'תכנית רמ״י {plan_number}'),
+                        'title': plan_title,
+                        'description': plan.get('description') or plan_title,
                         'status': plan.get('status', ''),
                         'file_url': plan.get('url', ''),
                         'raw': plan,
@@ -2679,8 +2748,16 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
                 plan_id = plan.get('plan_id') or plan.get('id', '')
                 if plan_id:
                     plan_key = f"{plan_id}"
+                    plan_title = (
+                        plan.get('title')
+                        or plan.get('plan_name')
+                        or plan.get('planName')
+                        or plan.get('name')
+                        or f'תכנית מנהל התיכנון {plan_id}'
+                    )
                     plan_payload = {
-                        'description': plan.get('title', f'תכנית מנהל התיכנון {plan_id}'),
+                        'title': plan_title,
+                        'description': plan.get('description') or plan_title,
                         'status': plan.get('status', ''),
                         'file_url': plan.get('url', ''),
                         'raw': plan,
@@ -2720,6 +2797,189 @@ def _create_documents_and_plans(asset, gis_data, gov_data, plans, mavat_plans, h
         logger.error(f"Failed to create documents and plans for asset {asset.id}: {e}")
 
 
+
+def _create_documents_from_gis_plans(asset, plans, scope: str, system_user):
+    """Create Plan and Document entries for GIS plan datasets."""
+
+    if not plans:
+        return
+
+    scope_key = (scope or 'local').lower()
+    doc_type = 'plan_local' if scope_key == 'local' else 'plan_citywide'
+    scope_label = 'מקומית' if scope_key == 'local' else 'עירונית'
+
+    for index, plan in enumerate(plans, start=1):
+        if not isinstance(plan, dict):
+            continue
+
+        plan_number_raw = _first_nonempty(
+            plan.get('taba'),
+            plan.get('plan_number'),
+            plan.get('planNumber'),
+            plan.get('number'),
+            plan.get('ms_tochnit'),
+            plan.get('plan_no'),
+            plan.get('planNo'),
+        )
+        if not plan_number_raw:
+            continue
+
+        plan_number_str = str(plan_number_raw).strip()
+        if not plan_number_str:
+            continue
+
+        plan_name = _first_nonempty(
+            plan.get('shem_taba'),
+            plan.get('plan_name'),
+            plan.get('planName'),
+            plan.get('name'),
+            plan.get('title'),
+        )
+
+        plan_status = _first_nonempty(
+            plan.get('t_status'),
+            plan.get('t_status_klali'),
+            plan.get('status'),
+            plan.get('plan_status'),
+            plan.get('status_name'),
+        ) or ''
+
+        plan_description = _first_nonempty(
+            plan.get('description'),
+            plan.get('remarks'),
+            plan.get('note'),
+        )
+
+        if not plan_description:
+            details = [
+                value.strip()
+                for value in (
+                    plan.get('t_sivug') or '',
+                    plan.get('t_hekef') or '',
+                    plan.get('t_ramat_pirut') or '',
+                )
+                if value and str(value).strip()
+            ]
+            if details:
+                plan_description = " | ".join(details)
+
+        external_url = _first_nonempty(
+            plan.get('url_documents'),
+            plan.get('url_iplan'),
+            plan.get('url'),
+            plan.get('external_url'),
+            plan.get('link'),
+            plan.get('download_url'),
+            plan.get('document_url'),
+        )
+
+        urls_field = plan.get('urls')
+        if isinstance(urls_field, list) and urls_field:
+            external_url = external_url or urls_field[0]
+        elif isinstance(urls_field, str) and urls_field.strip():
+            external_url = external_url or urls_field.strip()
+
+        def _extract_plan_date(value):
+            if value in (None, '', 0):
+                return None
+            if isinstance(value, (int, float)):
+                return _convert_unix_timestamp_to_date(int(value))
+            if isinstance(value, date):
+                return value
+            if isinstance(value, str):
+                parsed = _parse_document_date(value)
+                if parsed:
+                    return parsed
+                digits = ''.join(ch for ch in value if ch.isdigit())
+                if digits:
+                    try:
+                        return _convert_unix_timestamp_to_date(int(digits))
+                    except Exception:  # pragma: no cover - defensive parse
+                        return None
+            return None
+
+        effective_date = _extract_plan_date(
+            _first_nonempty(plan.get('tr_matan_tokef'), plan.get('effective_date'), plan.get('effectiveDate'))
+        )
+        deposit_date = _extract_plan_date(
+            _first_nonempty(plan.get('tr_hafkada'), plan.get('deposit_date'), plan.get('depositDate'))
+        )
+        status_change_date = _extract_plan_date(plan.get('tr_shinuy_status'))
+
+        plan_title = plan_name or f"תכנית {scope_label} {plan_number_str}"
+        plan_description = plan_description or plan_title
+
+        plan_payload = {
+            'title': plan_title,
+            'description': plan_description,
+            'status': plan_status,
+            'file_url': (external_url or ''),
+            'raw': plan,
+        }
+
+        if effective_date:
+            plan_payload['effective_date'] = effective_date
+
+        _upsert_plan(plan_number_str, plan_payload, asset=asset)
+
+        normalized_id = re.sub(r'[^0-9A-Za-z]+', '_', plan_number_str).strip('_') or str(index)
+        filename = plan.get('shem_mismach') or f"gis_{scope_key}_{normalized_id}.pdf"
+        inferred_mime = 'application/pdf'
+
+        def _infer_mime_from_name(name: Optional[str]) -> Optional[str]:
+            if not name:
+                return None
+            lower_name = str(name).lower()
+            if lower_name.endswith('.pdf'):
+                return 'application/pdf'
+            if lower_name.endswith('.docx'):
+                return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            if lower_name.endswith('.doc'):
+                return 'application/msword'
+            if lower_name.endswith('.zip'):
+                return 'application/zip'
+            return None
+
+        inferred = _infer_mime_from_name(filename) or _infer_mime_from_name(external_url)
+        if inferred:
+            inferred_mime = inferred
+        else:
+            inferred_mime = 'application/octet-stream'
+
+        doc_status = 'approved' if _is_plan_status_approved(plan_status) else 'pending'
+
+        document_payload = {
+            'title': plan_title,
+            'description': f"תכנית {scope_label} מספר {plan_number_str}",
+            'status': doc_status,
+            'external_url': external_url or '',
+            'source': 'GIS',
+            'document_date': effective_date or deposit_date or status_change_date,
+            'file_size': int(plan.get('ms_mismach') or 0) if str(plan.get('ms_mismach') or '').strip().isdigit() else 0,
+            'filename': filename,
+            'file_path': '',
+            'mime_type': inferred_mime,
+            'meta': plan,
+        }
+
+        _upsert_document(
+            doc_type,
+            plan_name,
+            document_payload,
+            asset=asset,
+            user=system_user,
+        )
+
+
+def _is_plan_status_approved(status: Optional[str]) -> bool:
+    """Return True if the plan status indicates an approved/effective plan."""
+
+    if not status:
+        return False
+
+    normalized = str(status).lower()
+    approved_keywords = ('מאושר', 'בתוקף', 'approved', 'תקף')
+    return any(keyword in normalized for keyword in approved_keywords)
 
 
 def _create_documents_from_permits(asset, permits, source: str = 'GIS'):

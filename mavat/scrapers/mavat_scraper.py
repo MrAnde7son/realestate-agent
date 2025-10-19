@@ -20,8 +20,7 @@ The scraper exposes two primary methods:
 
 ``plan_details``
     Navigate directly to a plan page and return a :class:`MavatPlan`
-    with basic metadata about the plan.  Additional payloads (e.g.
-    documents, GIS layers) are captured in the ``raw`` field.
+    with basic metadata about the plan.
 
 The Playwright dependency is optional: if Playwright is not installed
 the scraper will raise an informative error when used.  To install
@@ -62,8 +61,6 @@ class MavatSearchHit:
     jurisdiction: Optional[str]
         The local government or jurisdiction in which the plan is
         located.
-    raw: Dict[str, Any]
-        The raw JSON item returned by the Mavat API for inspection.
     """
 
     plan_id: str
@@ -71,7 +68,6 @@ class MavatSearchHit:
     status: Optional[str] = None
     authority: Optional[str] = None
     jurisdiction: Optional[str] = None
-    raw: Dict[str, Any] = None
 
 
 @dataclass
@@ -92,10 +88,6 @@ class MavatPlan:
         The local government or jurisdiction of the plan.
     last_update: Optional[str]
         Date of the last update according to the API, if available.
-    raw: Dict[str, Any]
-        A dictionary containing all captured payloads for advanced
-        consumers.  Keys include ``details``, ``documents`` and others
-        as exposed by the site.
     """
 
     plan_id: str
@@ -104,7 +96,6 @@ class MavatPlan:
     authority: Optional[str] = None
     jurisdiction: Optional[str] = None
     last_update: Optional[str] = None
-    raw: Dict[str, Any] = None
 
 
 class MavatScraper:
@@ -238,7 +229,6 @@ class MavatScraper:
                             status=status,
                             authority=authority,
                             jurisdiction=jurisdiction,
-                            raw=item,
                         )
                     )
                     if limit and len(hits) >= limit:
@@ -259,9 +249,6 @@ class MavatScraper:
         -------
         MavatPlan
             An object containing basic details about the plan.  The
-            ``raw`` field contains additional payloads captured during
-            the scraping session, keyed by descriptive names (e.g.
-            ``details``, ``documents``).
         """
         self._ensure_playwright()
         payloads: Dict[str, Any] = {}
@@ -319,7 +306,6 @@ class MavatScraper:
                     authority=_get(details, "authority", "InstitutionName", "AuthorityName") or None,
                     jurisdiction=_get(details, "jurisdiction", "LocalGovName", "LocalAuthorityName") or None,
                     last_update=_get(details, "lastUpdate", "LastUpdateDate") or None,
-                    raw=payloads,
                 )
             finally:
                 browser.close()

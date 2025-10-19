@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const id = Number(params.id)
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-  const permitsEndpoint = `${backendUrl}/api/assets/${id}/permits/`
+  const baseUrl = `${backendUrl}/api/assets/${id}/permits/`
+  const searchParams = request.nextUrl.searchParams.toString()
+  const permitsEndpoint = searchParams ? `${baseUrl}?${searchParams}` : baseUrl
 
   try {
-    const resp = await fetch(permitsEndpoint, { cache: 'no-store' })
+    const headers: HeadersInit = {
+      'Cache-Control': 'no-cache',
+    }
+    const authHeader = request.headers.get('authorization')
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+
+    const resp = await fetch(permitsEndpoint, {
+      cache: 'no-store',
+      headers,
+    })
     if (!resp.ok) {
       return NextResponse.json({ error: 'Failed to fetch permits', status: resp.status, permits: [] }, { status: 200 })
     }

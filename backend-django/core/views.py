@@ -6,6 +6,7 @@ import os
 import secrets
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
+from typing import Optional
 from pathlib import Path
 
 from django.http import JsonResponse, FileResponse, Http404
@@ -2414,6 +2415,99 @@ def asset_permits(request, asset_id):
         )
 
 
+def _canonical_plan_number(value):
+    """Normalize plan numbers for deduplication by removing whitespace and quotes."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    cleaned = re.sub(r'\s+', '', value).replace('"', '').replace("'", '')
+    return cleaned or None
+
+
+def _canonical_plan_title(value):
+    """Normalize plan titles for fallback deduplication (case/spacing insensitive)."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    cleaned = re.sub(r'\s+', ' ', value).strip().lower()
+    return cleaned or None
+
+
+def _translate_plan_status(status: Optional[str]) -> Optional[str]:
+    """Convert internal English status labels into Hebrew display strings."""
+    if not status:
+        return status
+    normalized = str(status).strip().lower()
+    translations = {
+        "approved": "מאושר",
+        "pending": "בתהליך",
+        "draft": "טיוטה",
+        "cancelled": "מבוטלת",
+        "canceled": "מבוטלת",
+        "rejected": "נדחתה",
+        "submitted": "הוגשה",
+        "in_review": "בבחינה",
+        "in review": "בבחינה",
+        "published": "פורסמה",
+        "mixed": "מעורב",
+        "unknown": "לא ידוע",
+    }
+    return translations.get(normalized, status)
+
+
+def _merge_plan_entries(entries):
+    """Merge plan rows representing the same plan (based on number/title) across sources."""
+    merged = {}
+    for entry in entries:
+        canonical_number = _canonical_plan_number(entry.get("plan_number"))
+        canonical_title = _canonical_plan_title(entry.get("title") or entry.get("description"))
+        key = canonical_number or canonical_title or f"__missing__:{entry.get('id')}"
+
+        if key not in merged:
+            merged_entry = dict(entry)
+            merged_entry["search_values"] = list(entry.get("search_values", []))
+            initial_source = merged_entry.get("source")
+            merged_entry["sources"] = [initial_source] if initial_source else []
+            merged[key] = merged_entry
+            continue
+
+        existing = merged[key]
+        incoming_source = entry.get("source")
+        existing_sources = existing.get("sources") or []
+        if incoming_source and incoming_source not in existing_sources:
+            sources = set(filter(None, existing_sources))
+            existing_source_value = existing.get("source")
+            if existing_source_value and existing_source_value != "mixed":
+                sources.add(existing_source_value)
+            sources.add(incoming_source)
+            combined_sources = sorted(sources)
+            existing["sources"] = combined_sources
+
+            meaningful_sources = [s for s in combined_sources if s.lower() != "unknown"]
+            if len(meaningful_sources) == 1:
+                existing["source"] = meaningful_sources[0]
+            elif len(meaningful_sources) > 1:
+                existing["source"] = "mixed"
+            else:
+                existing["source"] = combined_sources[0] if combined_sources else existing.get("source")
+
+        for field in ("title", "description", "status", "effective_date", "file_url"):
+            if not existing.get(field) and entry.get(field):
+                existing[field] = entry.get(field)
+
+        existing_search = existing.get("search_values") or []
+        incoming_search = entry.get("search_values") or []
+        if incoming_search:
+            existing["search_values"] = list(dict.fromkeys(existing_search + incoming_search))
+
+        if not existing.get("raw") and entry.get("raw"):
+            existing["raw"] = entry.get("raw")
+
+    return list(merged.values())
+
+
 def _normalize_plan_entry(entry):
     plan_number = _first_non_empty(
         entry.get("plan_number"),
@@ -2421,13 +2515,21 @@ def _normalize_plan_entry(entry):
         entry.get("plan_id"),
     )
 
-    description = _first_non_empty(
-        entry.get("description"),
+    title = _first_non_empty(
         entry.get("title"),
         entry.get("name"),
+        entry.get("plan_name"),
+        entry.get("planTitle"),
+    )
+
+    description = _first_non_empty(
+        entry.get("description"),
+        entry.get("summary"),
+        title,
     )
 
     status = _first_non_empty(entry.get("status"))
+    status = _translate_plan_status(status)
     effective_date = _format_date_value(
         entry.get("effective_date")
         or entry.get("status_date")
@@ -2442,6 +2544,7 @@ def _normalize_plan_entry(entry):
             None,
             [
                 plan_number,
+                title,
                 description,
                 status,
                 source,
@@ -2453,6 +2556,7 @@ def _normalize_plan_entry(entry):
     return {
         "id": entry.get("id"),
         "plan_number": plan_number,
+        "title": title,
         "description": description,
         "status": status,
         "effective_date": effective_date,
@@ -2470,7 +2574,6 @@ def asset_plans(request, asset_id):
         return JsonResponse({"error": "GET method required"}, status=405)
 
     try:
-        # Get asset
         try:
             asset = Asset.objects.get(id=asset_id)
         except Asset.DoesNotExist:
@@ -2478,12 +2581,12 @@ def asset_plans(request, asset_id):
 
         try:
             limit = max(1, min(int(request.GET.get('limit', 25)), 100))
-        except ValueError:
+        except (TypeError, ValueError):
             limit = 25
 
         try:
             offset = max(0, int(request.GET.get('offset', 0)))
-        except ValueError:
+        except (TypeError, ValueError):
             offset = 0
 
         search_query = request.GET.get('search')
@@ -2496,28 +2599,31 @@ def asset_plans(request, asset_id):
         local_plans = Plan.objects.filter(
             Q(asset_id=asset_id) | Q(assets__id=asset_id)
         ).distinct()
-        seen_plan_numbers = set()
         for plan in local_plans:
-            source = "unknown"
-            raw_source = ((plan.raw or {}).get('source') or '').lower()
-            if (plan.raw or {}).get('planNumber'):
+            plan_raw = plan.raw or {}
+            raw_source = str(plan_raw.get('source') or '').lower()
+            source = 'unknown'
+            if plan_raw.get('planNumber'):
                 source = 'rami'
-            if raw_source == 'mavat' or (plan.raw or {}).get('plan_id'):
+            elif raw_source == 'mavat' or plan_raw.get('plan_id'):
                 source = 'mavat'
-            if plan.raw and 'source' in plan.raw and plan.raw['source']:
-                source = str(plan.raw['source']).lower()
+            elif raw_source:
+                source = raw_source
+            elif plan_raw.get('url_documents'):
+                source = 'gis'
 
-            seen_plan_numbers.add(plan.plan_number)
-            plan_entries.append(_normalize_plan_entry({
+            normalized_entry = _normalize_plan_entry({
                 "id": plan.id,
                 "plan_number": plan.plan_number,
+                "title": plan.title,
                 "description": plan.description,
                 "status": plan.status,
                 "effective_date": plan.effective_date.isoformat() if plan.effective_date else None,
                 "file_url": plan.file_url,
                 "source": source,
                 "raw": plan.raw,
-            }))
+            })
+            plan_entries.append(normalized_entry)
 
         plan_documents = Document.objects.filter(
             Q(asset_id=asset_id) | Q(assets__id=asset_id),
@@ -2526,21 +2632,24 @@ def asset_plans(request, asset_id):
 
         for doc in plan_documents:
             meta = doc.meta or {}
-            plan_number = doc.external_id or meta.get('planNumber') or meta.get('plan_number') or f"document_{doc.id}"
-            if plan_number in seen_plan_numbers:
-                continue
-            seen_plan_numbers.add(plan_number)
-
+            meta_plan_number = meta.get('planNumber') or meta.get('plan_number')
+            fallback_number = doc.external_id or f"document_{doc.id}"
+            display_plan_number = meta_plan_number or fallback_number
             source = 'unknown'
             raw_source = (doc.source or '').lower()
-            if 'rami' in raw_source:
+            meta_source = (meta.get('source') or '').lower()
+            if 'rami' in raw_source or 'rami' in meta_source:
                 source = 'rami'
-            elif 'mavat' in raw_source or meta.get('source') == 'Mavat' or plan_number.startswith('mavat_'):
+            elif 'mavat' in raw_source or meta_source == 'mavat':
                 source = 'mavat'
+            elif 'gis' in raw_source or meta.get('url_documents'):
+                source = 'gis'
 
             plan_entries.append(_normalize_plan_entry({
                 "id": doc.id,
-                "plan_number": plan_number,
+                "plan_number": display_plan_number,
+                "planNumber": fallback_number,
+                "title": doc.title or doc.description,
                 "description": doc.description or doc.title,
                 "status": doc.status,
                 "effective_date": doc.document_date.isoformat() if doc.document_date else None,
@@ -2549,12 +2658,20 @@ def asset_plans(request, asset_id):
                 "raw": meta,
             }))
 
+        plan_entries = _merge_plan_entries(plan_entries)
+
         # Allow filtering/searching
         filtered_plans = []
         search_lower = search_query.lower() if search_query else None
         for entry in plan_entries:
             if source_filter and source_filter != 'all':
-                if (entry.get('source') or '').lower() != source_filter.lower():
+                entry_sources = entry.get('sources') or []
+                candidate_sources = set()
+                candidate_sources.update(s.lower() for s in entry_sources if isinstance(s, str))
+                source_single = entry.get('source')
+                if source_single:
+                    candidate_sources.add(source_single.lower())
+                if source_filter.lower() not in candidate_sources:
                     continue
 
             if status_filter and status_filter != 'all':
@@ -2581,6 +2698,8 @@ def asset_plans(request, asset_id):
                 return _parse_date_value(item.get('effective_date')) or datetime.min
             if ordering_field == 'plan_number':
                 return item.get('plan_number') or ''
+            if ordering_field == 'title':
+                return item.get('title') or ''
             if ordering_field == 'status':
                 return item.get('status') or ''
             if ordering_field == 'source':
@@ -2593,9 +2712,23 @@ def asset_plans(request, asset_id):
 
         paginated_plans = filtered_plans[offset: offset + limit]
 
+        source_values: set[str] = set()
+        status_values: set[str] = set()
+        for item in plan_entries:
+            sources_list = item.get('sources') or []
+            for s in sources_list:
+                if s:
+                    source_values.add(s)
+            source_single = item.get('source')
+            if source_single:
+                source_values.add(source_single)
+            status = item.get('status')
+            if status:
+                status_values.add(status)
+
         filters_metadata = {
-            'source': sorted({item.get('source') for item in plan_entries if item.get('source')}),
-            'status': sorted({item.get('status') for item in plan_entries if item.get('status')}),
+            'source': sorted(source_values),
+            'status': sorted(status_values),
         }
 
         return JsonResponse({

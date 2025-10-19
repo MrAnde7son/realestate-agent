@@ -48,7 +48,9 @@ def test_prepare_location_parameters(location_payload):
 def test_collect_applies_location_parameters(location_payload):
     mock_client = Mock()
     mock_client.fetch_location_autocomplete.return_value = location_payload
+    mock_client.fetch_map_listings.return_value = []
     mock_client.scrape_all_pages.return_value = ["listing"]
+    mock_client.fetch_latest_deals.return_value = []
 
     collector = Yad2Collector(client=mock_client)
     location = LocationQuery(street="הברזל", house_number=32, city="תל אביב")

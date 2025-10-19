@@ -116,27 +116,22 @@ def test_single_plan_download():
         'cityText': 'בני ברק',
         'documentsSet': {
             'takanon': {
-                'path': '/IturTabotData/takanonim/telmer/5050330.pdf',
                 'info': 'תקנון סרוק'
             },
             'tasritim': [
                 {
-                    'path': '/IturTabotData\\tabot\\telmer\\5050330\\5050330_מצב מאושר-גיליון 1.pdf',
                     'info': '5050330_מצב מאושר-גיליון 1'
                 },
                 {
-                    'path': '/IturTabotData\\tabot\\telmer\\5050330\\5050330_מצב מאושר-גיליון 2.pdf',
                     'info': '5050330_מצב מאושר-גיליון 2'
                 }
             ],
             'nispachim': [
                 {
-                    'path': '/IturTabotData\\nispachim\\telmer\\5050330\\46.pdf',
                     'info': 'חתכים'
                 }
             ],
             'mmg': {
-                'path': '/IturTabotData\\download\\telmer\\5050330.zip',
                 'info': 'הורדת קבצי ממג 1 MB'
             }
         }

@@ -96,6 +96,7 @@ def test_get_search_summary_and_save(tmp_path):
 
 def test_fetch_map_listings_converts_markers(monkeypatch):
     payload = {
+        "data": {
         "markers": [
             {
                 "address": {
@@ -127,6 +128,7 @@ def test_fetch_map_listings_converts_markers(monkeypatch):
             }
         ],
         "yad1Markers": [],
+        }
     }
 
     class DummyResponse:

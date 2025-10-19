@@ -22,6 +22,113 @@ if 'pyproj' not in sys.modules:
 
     sys.modules['pyproj'] = types.SimpleNamespace(Transformer=_DummyTransformer)
 
+if 'selenium' not in sys.modules:
+    selenium_module = types.ModuleType('selenium')
+    selenium_module.__path__ = []
+
+    class _DummyChromeOptions:
+        def add_argument(self, *args, **kwargs):
+            pass
+
+    class _DummyChromeDriver:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def set_page_load_timeout(self, *args, **kwargs):
+            pass
+
+        def execute_cdp_cmd(self, *args, **kwargs):
+            pass
+
+    selenium_module.webdriver = types.SimpleNamespace(
+        Chrome=_DummyChromeDriver,
+        ChromeOptions=_DummyChromeOptions,
+    )
+    sys.modules['selenium'] = selenium_module
+
+    webdriver_module = types.ModuleType('selenium.webdriver')
+    webdriver_module.__path__ = []
+    webdriver_module.Chrome = _DummyChromeDriver
+    webdriver_module.ChromeOptions = _DummyChromeOptions
+    sys.modules['selenium.webdriver'] = webdriver_module
+
+    common_module = types.ModuleType('selenium.webdriver.common')
+    common_module.__path__ = []
+    sys.modules['selenium.webdriver.common'] = common_module
+
+    class _DummyBy:
+        XPATH = "xpath"
+        CSS_SELECTOR = "css"
+        ID = "id"
+
+    by_module = types.ModuleType('selenium.webdriver.common.by')
+    by_module.By = _DummyBy
+    sys.modules['selenium.webdriver.common.by'] = by_module
+
+    class _DummyKeys:
+        ENTER = "ENTER"
+
+    keys_module = types.ModuleType('selenium.webdriver.common.keys')
+    keys_module.Keys = _DummyKeys
+    sys.modules['selenium.webdriver.common.keys'] = keys_module
+
+    chrome_module = types.ModuleType('selenium.webdriver.chrome')
+    chrome_module.__path__ = []
+    sys.modules['selenium.webdriver.chrome'] = chrome_module
+
+    class _DummyService:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    service_module = types.ModuleType('selenium.webdriver.chrome.service')
+    service_module.Service = _DummyService
+    sys.modules['selenium.webdriver.chrome.service'] = service_module
+
+    support_module = types.ModuleType('selenium.webdriver.support')
+    support_module.__path__ = []
+    sys.modules['selenium.webdriver.support'] = support_module
+
+    class _DummyWebDriverWait:
+        def __init__(self, driver, timeout, *args, **kwargs):
+            self.driver = driver
+            self.timeout = timeout
+
+        def until(self, method, *args, **kwargs):
+            return True
+
+    support_ui_module = types.ModuleType('selenium.webdriver.support.ui')
+    support_ui_module.WebDriverWait = _DummyWebDriverWait
+    sys.modules['selenium.webdriver.support.ui'] = support_ui_module
+
+    class _DummyExpectedConditions:
+        @staticmethod
+        def presence_of_element_located(locator):
+            return lambda driver: True
+
+        @staticmethod
+        def element_to_be_clickable(locator):
+            return lambda driver: True
+
+    support_module.expected_conditions = _DummyExpectedConditions
+    support_ec_module = types.ModuleType('selenium.webdriver.support.expected_conditions')
+    support_ec_module.presence_of_element_located = _DummyExpectedConditions.presence_of_element_located
+    support_ec_module.element_to_be_clickable = _DummyExpectedConditions.element_to_be_clickable
+    sys.modules['selenium.webdriver.support.expected_conditions'] = support_ec_module
+
+if 'webdriver_manager' not in sys.modules:
+    webdriver_manager_module = types.ModuleType('webdriver_manager')
+    chrome_manager_module = types.ModuleType('webdriver_manager.chrome')
+
+    class _DummyChromeDriverManager:
+        def install(self):
+            return "/tmp/chromedriver"
+
+    chrome_manager_module.ChromeDriverManager = _DummyChromeDriverManager
+    webdriver_manager_module.chrome = chrome_manager_module
+
+    sys.modules['webdriver_manager'] = webdriver_manager_module
+    sys.modules['webdriver_manager.chrome'] = chrome_manager_module
+
 from orchestration.data_pipeline import _populate_asset_fields_from_listings, _populate_asset_fields_from_tabu
 
 

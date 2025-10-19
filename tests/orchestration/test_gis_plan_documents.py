@@ -69,13 +69,18 @@ class TestGISPlanDocumentCreation:
             handasa_archive=[],
         )
 
-        local_plan = Plan.objects.get(plan_number="641")
-        assert local_plan.title == "תכנית \"ג\" - גגות - בניה על גגות בתים"
-        assert local_plan.file_url == documents_url
-        assert local_plan.raw["id_taba"] == 641
-        assert local_plan.effective_date == datetime.date(1994, 4, 21)
+        plan_title = plan_payload["shem_taba"]
+        plan_number = plan_payload["taba"].strip()
 
-        local_document = Document.objects.get(external_id="gis_local_641")
+        plan = Plan.objects.get(plan_number=plan_number)
+        assert plan.title == plan_title
+        assert plan.file_url == documents_url
+        assert plan.raw["id_taba"] == 777
+        assert plan.effective_date == datetime.date(1994, 4, 21)
+
+        local_document = Document.objects.get(
+            document_type="plan_local", external_id=plan_title
+        )
         assert local_document.document_type == "plan_local"
         assert local_document.source == "GIS"
         assert local_document.external_url == documents_url
@@ -84,12 +89,9 @@ class TestGISPlanDocumentCreation:
         assert local_document.filename == "97t.doc"
         assert local_document.mime_type == "application/msword"
 
-        city_plan = Plan.objects.get(plan_number="777")
-        assert city_plan.title == "תכנית \"ג\" - גגות - בניה על גגות בתים"
-        assert city_plan.file_url == documents_url
-        assert city_plan.raw["id_taba"] == 777
-
-        city_document = Document.objects.get(external_id="gis_citywide_777")
+        city_document = Document.objects.get(
+            document_type="plan_citywide", external_id=plan_title
+        )
         assert city_document.document_type == "plan_citywide"
         assert city_document.status == "pending"
         assert city_document.external_url == documents_url

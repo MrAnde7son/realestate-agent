@@ -109,7 +109,7 @@ services:
   healthCheckPath: /
   autoDeployTrigger: commit
   rootDir: gov
-- type: web
+- type: backend-django
   name: gis-mcp
   runtime: python
   repo: https://github.com/MrAnde7son/realestate-agent
@@ -140,7 +140,7 @@ services:
   name: nadlaner-api
   env: python
   repo: https://github.com/MrAnde7son/realestate-agent
-  plan: starter
+  plan: free
   envVars:
   - key: OPENAI_MODEL
     sync: false

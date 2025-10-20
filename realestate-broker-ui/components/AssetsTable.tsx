@@ -409,6 +409,7 @@ const DEFAULT_VISIBLE_COLUMNS = new Set([
   'rentEstimate',
   'domPercentile',
   'riskFlags',
+  'assetStatus',
   'actions'
 ])
 

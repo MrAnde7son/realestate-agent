@@ -11,6 +11,40 @@ from .email import send_email
 
 logger = logging.getLogger(__name__)
 
+PIPELINE_CACHE_KEY = "pipeline_cache"
+PIPELINE_COLLECTED_KEY = "collected"
+PIPELINE_NORMALIZED_KEY = "normalized_listings"
+PIPELINE_RESULTS_KEY = "results"
+
+
+def _get_asset(asset_id: int):
+    from .models import Asset
+
+    try:
+        return Asset.objects.get(id=asset_id)
+    except Asset.DoesNotExist as exc:
+        logger.error("Asset %s not found", asset_id)
+        raise ValueError(f"Asset {asset_id} not found") from exc
+
+
+def _load_pipeline_cache(asset) -> Dict[str, Any]:
+    return dict(asset.meta.get(PIPELINE_CACHE_KEY, {}))
+
+
+def _store_pipeline_cache(asset, cache: Dict[str, Any]) -> None:
+    meta = asset.meta or {}
+    meta[PIPELINE_CACHE_KEY] = cache
+    asset.meta = meta
+    asset.save(update_fields=["meta"])
+
+
+def _clear_pipeline_cache(asset) -> None:
+    meta = asset.meta or {}
+    if PIPELINE_CACHE_KEY in meta:
+        meta.pop(PIPELINE_CACHE_KEY)
+        asset.meta = meta
+        asset.save(update_fields=["meta"])
+
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def send_notification_email(
@@ -30,62 +64,219 @@ def send_notification_email(
         raise self.retry(exc=exc)
 
 
-@shared_task
-def run_data_pipeline(asset_id: int, max_pages: int = 1):
-    """Run the high-level data pipeline for a newly added asset.
+def _collect_pipeline_step(asset_id: int, max_pages: int) -> Dict[str, Any]:
+    """Collect raw data for the pipeline and persist it in the asset cache."""
 
-    Looks up the asset's address information and feeds it into
-    :class:`orchestration.data_pipeline.DataPipeline`. The pipeline
-    persists all collected records to the SQLAlchemy database and
-    returns the created ``Listing`` IDs.
-    """
-    # Lazy import to avoid import errors during Django startup
+    asset = None
     try:
-        from orchestration.data_pipeline import DataPipeline
-    except ImportError as e:
-        logger.error("Failed to import orchestration module: %s", e)
-        logger.error("Make sure the orchestration module is available in the Python path")
-        raise ImportError("Orchestration module is required but not available") from e
-
-    try:
-        from .models import Asset
-
-        asset = Asset.objects.get(id=asset_id)
-    except Exception:
-        logger.error("Asset %s not found", asset_id)
-        return []
-
-    # Mark asset as enriching
-    asset.status = "enriching"
-    asset.last_enrich_error = None
-    asset.save(update_fields=["status", "last_enrich_error"])
-
-    pipeline = DataPipeline()
-    street = asset.street or ""
-    city = asset.city or ""
-    house_number = asset.number or 0
-    block = asset.block or ""
-    parcel = asset.parcel or ""
-    logger.info("Starting data pipeline for asset %s", asset_id)
-    try:
-        result = pipeline.run(city, street, house_number, max_pages=max_pages, asset_id=asset_id, block=block, parcel=parcel)
-        track('asset_sync', asset_id=asset_id)
-        asset.status = "done"
-        asset.last_enriched_at = timezone.now()
-        asset.save(update_fields=["status", "last_enriched_at", "last_enrich_error"])
-        logger.info(
-            "Data pipeline completed for asset %s with %s listings",
-            asset_id,
-            len(result) if hasattr(result, '__len__') else result,
-        )
-        return result
-    except Exception as e:
-        track('asset_sync_fail', asset_id=asset_id, error_code=str(e))
-        asset.status = "failed"
-        asset.last_enrich_error = str(e)
+        asset = _get_asset(asset_id)
+        asset.status = "enriching"
+        asset.last_enrich_error = None
         asset.save(update_fields=["status", "last_enrich_error"])
-        logger.exception("Data pipeline failed for asset %s", asset_id)
+
+        from orchestration.data_pipeline import CollectedPipelineData, DataPipeline
+
+        pipeline = DataPipeline()
+        collected = pipeline.collect_sources(
+            city=asset.city or "",
+            street=asset.street or "",
+            house_number=asset.number or 0,
+            max_pages=max_pages,
+            asset_id=asset_id,
+            block=asset.block or "",
+            parcel=asset.parcel or "",
+        )
+
+        cache = _load_pipeline_cache(asset)
+        cache[PIPELINE_COLLECTED_KEY] = collected.to_dict()
+        cache["max_pages"] = max_pages
+        _store_pipeline_cache(asset, cache)
+
+        logger.info(
+            "Collected pipeline data for asset %s (listings=%s)",
+            asset_id,
+            len(collected.listings),
+        )
+
+        return {
+            "asset_id": asset_id,
+            "max_pages": max_pages,
+            "listings_count": len(collected.listings),
+        }
+    except Exception as exc:  # noqa: BLE001
+        track('asset_sync_fail', asset_id=asset_id, error_code=str(exc))
+        if asset is not None:
+            asset.status = "failed"
+            asset.last_enrich_error = str(exc)
+            asset.save(update_fields=["status", "last_enrich_error"])
+        logger.exception("Pipeline collection failed for asset %s", asset_id)
         raise
+
+
+def _normalize_pipeline_step(context: Dict[str, Any], asset_id: int) -> Dict[str, Any]:
+    """Normalize collected listings and cache the results."""
+
+    asset = None
+    try:
+        asset = _get_asset(asset_id)
+        cache = _load_pipeline_cache(asset)
+        from orchestration.data_pipeline import CollectedPipelineData, _normalize_listings
+
+        collected_payload = cache.get(PIPELINE_COLLECTED_KEY)
+        if not collected_payload:
+            raise ValueError("Collected data is missing from pipeline cache")
+
+        collected = CollectedPipelineData.from_dict(collected_payload)
+        normalized = _normalize_listings(collected.listings or [])
+        cache[PIPELINE_NORMALIZED_KEY] = normalized
+        _store_pipeline_cache(asset, cache)
+
+        updated = dict(context or {})
+        updated["normalized_count"] = len(normalized)
+        return updated
+    except Exception as exc:  # noqa: BLE001
+        track('asset_sync_fail', asset_id=asset_id, error_code=str(exc))
+        if asset is not None:
+            asset.status = "failed"
+            asset.last_enrich_error = str(exc)
+            asset.save(update_fields=["status", "last_enrich_error"])
+        logger.exception("Pipeline normalization failed for asset %s", asset_id)
+        raise
+
+
+def _persist_pipeline_step(context: Dict[str, Any], asset_id: int) -> Dict[str, Any]:
+    """Persist collected data into the analytics store."""
+
+    asset = None
+    try:
+        asset = _get_asset(asset_id)
+        cache = _load_pipeline_cache(asset)
+        from orchestration.data_pipeline import CollectedPipelineData, DataPipeline, _load_user_notifiers
+
+        collected_payload = cache.get(PIPELINE_COLLECTED_KEY)
+        if not collected_payload:
+            raise ValueError("Collected data is missing from pipeline cache")
+
+        collected = CollectedPipelineData.from_dict(collected_payload)
+        pipeline = DataPipeline()
+        notifiers = _load_user_notifiers()
+        results, listing_ids = pipeline.persist_collected_data(
+            collected,
+            notifiers=notifiers,
+            asset_id=asset_id,
+        )
+
+        cache[PIPELINE_RESULTS_KEY] = results
+        _store_pipeline_cache(asset, cache)
+
+        updated = dict(context or {})
+        updated["persisted_listing_ids"] = listing_ids
+        updated["result_sources"] = [
+            result.get("source")
+            for result in results
+            if isinstance(result, dict)
+        ]
+        return updated
+    except Exception as exc:  # noqa: BLE001
+        track('asset_sync_fail', asset_id=asset_id, error_code=str(exc))
+        if asset is not None:
+            asset.status = "failed"
+            asset.last_enrich_error = str(exc)
+            asset.save(update_fields=["status", "last_enrich_error"])
+        logger.exception("Pipeline persistence failed for asset %s", asset_id)
+        raise
+
+
+def _link_pipeline_step(context: Dict[str, Any], asset_id: int) -> Dict[str, Any]:
+    """Finalize the pipeline by updating Django models and clearing cache."""
+
+    asset = None
+    try:
+        asset = _get_asset(asset_id)
+        cache = _load_pipeline_cache(asset)
+        from orchestration.data_pipeline import CollectedPipelineData, DataPipeline
+
+        collected_payload = cache.get(PIPELINE_COLLECTED_KEY)
+        normalized = cache.get(PIPELINE_NORMALIZED_KEY, [])
+        results = cache.get(PIPELINE_RESULTS_KEY, [])
+        if not collected_payload:
+            raise ValueError("Collected data is missing from pipeline cache")
+
+        collected = CollectedPipelineData.from_dict(collected_payload)
+        pipeline = DataPipeline()
+        pipeline.link_asset(asset_id, collected, normalized, results)
+
+        _clear_pipeline_cache(asset)
+        asset.status = "done"
+        asset.last_enrich_error = None
+        asset.last_enriched_at = timezone.now()
+        asset.save(update_fields=["status", "last_enriched_at", "last_enrich_error", "meta"])
+
+        track('asset_sync', asset_id=asset_id)
+
+        updated = dict(context or {})
+        updated["status"] = "done"
+        updated["completed_at"] = timezone.now().isoformat()
+        return updated
+    except Exception as exc:  # noqa: BLE001
+        track('asset_sync_fail', asset_id=asset_id, error_code=str(exc))
+        if asset is not None:
+            asset.status = "failed"
+            asset.last_enrich_error = str(exc)
+            asset.save(update_fields=["status", "last_enrich_error"])
+        logger.exception("Pipeline linking failed for asset %s", asset_id)
+        raise
+
+
+def _execute_pipeline_inline(asset_id: int, max_pages: int) -> Dict[str, Any]:
+    """Run the pipeline sequentially within the current process."""
+
+    context = _collect_pipeline_step(asset_id, max_pages)
+    context = _normalize_pipeline_step(context, asset_id)
+    context = _persist_pipeline_step(context, asset_id)
+    context = _link_pipeline_step(context, asset_id)
+    return context
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def collect_pipeline_data(self, asset_id: int, max_pages: int = 1) -> Dict[str, Any]:
+    return _collect_pipeline_step(asset_id, max_pages)
+
+
+@shared_task(bind=True)
+def normalize_pipeline_data(self, context: Dict[str, Any], asset_id: int) -> Dict[str, Any]:
+    return _normalize_pipeline_step(context, asset_id)
+
+
+@shared_task(bind=True)
+def persist_pipeline_data(self, context: Dict[str, Any], asset_id: int) -> Dict[str, Any]:
+    return _persist_pipeline_step(context, asset_id)
+
+
+@shared_task(bind=True)
+def link_pipeline_data(self, context: Dict[str, Any], asset_id: int) -> Dict[str, Any]:
+    return _link_pipeline_step(context, asset_id)
+
+
+@shared_task(bind=True)
+def run_data_pipeline(self, asset_id: int, max_pages: int = 1):
+    """Kick off the multi-step pipeline workflow for an asset."""
+
+    if getattr(self.request, "called_directly", False):
+        return _execute_pipeline_inline(asset_id, max_pages)
+
+    from celery import chain
+
+    workflow = chain(
+        collect_pipeline_data.s(asset_id, max_pages),
+        normalize_pipeline_data.s(asset_id=asset_id),
+        persist_pipeline_data.s(asset_id=asset_id),
+        link_pipeline_data.s(asset_id=asset_id),
+    )
+
+    async_result = workflow.apply_async()
+    logger.info("Queued pipeline chain %s for asset %s", async_result.id, asset_id)
+    return {"asset_id": asset_id, "chain_id": async_result.id}
 
 
 @shared_task

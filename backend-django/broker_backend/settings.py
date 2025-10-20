@@ -138,7 +138,7 @@ if os.getenv('USE_CELERY', 'false').lower() == 'true':
     CELERY_TASK_TRACK_STARTED = True
     CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
     CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-    CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+    CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
     from celery.schedules import crontab
     CELERY_BEAT_SCHEDULE = {
         'cleanup-demo-data': {

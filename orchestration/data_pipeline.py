@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Iterable, List, Optional, Dict, Tuple
+from dataclasses import dataclass, field
 import os
 import time
 import re
@@ -48,6 +49,67 @@ except Exception:  # pragma: no cover - fallback when Django not configured
 from orchestration.alerts import Notifier
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CollectedPipelineData:
+    """Container for intermediate pipeline artifacts between Celery steps."""
+
+    location: Dict[str, Any] = field(default_factory=dict)
+    block: str = ""
+    parcel: str = ""
+    x_itm: Optional[float] = None
+    y_itm: Optional[float] = None
+    lon_wgs84: Optional[float] = None
+    lat_wgs84: Optional[float] = None
+    govmap_data: Dict[str, Any] = field(default_factory=dict)
+    gis_data: Dict[str, Any] = field(default_factory=dict)
+    gov_data: Dict[str, Any] = field(default_factory=dict)
+    plans: List[Dict[str, Any]] = field(default_factory=list)
+    mavat_plans: List[Dict[str, Any]] = field(default_factory=list)
+    handasa_archive: List[Dict[str, Any]] = field(default_factory=list)
+    listings: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize the collected data to a JSON-friendly dictionary."""
+
+        return {
+            "location": self.location,
+            "block": self.block,
+            "parcel": self.parcel,
+            "x_itm": self.x_itm,
+            "y_itm": self.y_itm,
+            "lon_wgs84": self.lon_wgs84,
+            "lat_wgs84": self.lat_wgs84,
+            "govmap_data": self.govmap_data,
+            "gis_data": self.gis_data,
+            "gov_data": self.gov_data,
+            "plans": self.plans,
+            "mavat_plans": self.mavat_plans,
+            "handasa_archive": self.handasa_archive,
+            "listings": self.listings,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "CollectedPipelineData":
+        """Rehydrate :class:`CollectedPipelineData` from serialized content."""
+
+        return cls(
+            location=payload.get("location", {}),
+            block=payload.get("block", ""),
+            parcel=payload.get("parcel", ""),
+            x_itm=payload.get("x_itm"),
+            y_itm=payload.get("y_itm"),
+            lon_wgs84=payload.get("lon_wgs84"),
+            lat_wgs84=payload.get("lat_wgs84"),
+            govmap_data=payload.get("govmap_data", {}),
+            gis_data=payload.get("gis_data", {}),
+            gov_data=payload.get("gov_data", {}),
+            plans=payload.get("plans", []),
+            mavat_plans=payload.get("mavat_plans", []),
+            handasa_archive=payload.get("handasa_archive", []),
+            listings=payload.get("listings", []),
+        )
 
 
 def _convert_unix_timestamp_to_date(timestamp_ms: int) -> Optional[date]:
@@ -680,6 +742,428 @@ class DataPipeline:
                 )
             )
 
+    def _listing_dict_to_model(self, payload: Dict[str, Any]) -> RealEstateListing:
+        """Convert a serialized listing dictionary back to a model instance."""
+
+        listing = RealEstateListing()
+        for key, value in payload.items():
+            if hasattr(listing, key):
+                setattr(listing, key, value)
+        return listing
+
+    # ------------------------------------------------------------------
+    def collect_sources(
+        self,
+        city: str,
+        street: str,
+        house_number: int,
+        max_pages: int = 1,
+        asset_id: Optional[int] = None,
+        block: Optional[str] = None,
+        parcel: Optional[str] = None,
+    ) -> CollectedPipelineData:
+        """Collect raw data from the different external providers."""
+
+        location = LocationQuery(city=city, street=street, house_number=house_number)
+        block_value = block or ""
+        parcel_value = parcel or ""
+        x_itm = None
+        y_itm = None
+        lon_wgs84 = None
+        lat_wgs84 = None
+
+        logger.info(
+            "🚀 Starting data collection for %s (max_pages=%s)",
+            location.formatted or location.street_with_number or location.city,
+            max_pages,
+        )
+
+        # ---------------- GovMap ----------------
+        govmap_data: Dict[str, Any] = {}
+        try:
+            logger.info("🗺️ Getting address coordinates and parcel data from GovMap...")
+            govmap_data = self._collect_with_observability(
+                "govmap",
+                self.govmap.collect,
+                location=location,
+                timeout=self.TIMEOUTS.get("govmap"),
+                retries=self.RETRIES.get("govmap", 0),
+                asset_id=asset_id,
+                block=block_value,
+                parcel=parcel_value,
+            )
+            track("collector_success", source="govmap")
+
+            if "x" in govmap_data and "y" in govmap_data:
+                x_itm = govmap_data["x"]
+                y_itm = govmap_data["y"]
+                lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+                logger.info(
+                    "📍 Coordinates extracted: ITM(%s, %s) -> WGS84(%s, %s)",
+                    x_itm,
+                    y_itm,
+                    f"{lon_wgs84:.6f}" if lon_wgs84 is not None else None,
+                    f"{lat_wgs84:.6f}" if lat_wgs84 is not None else None,
+                )
+            else:
+                logger.warning("⚠️ No coordinates found in GovMap response")
+        except Exception as exc:  # noqa: BLE001
+            govmap_data = {}
+            track("collector_fail", source="govmap", error_code=str(exc))
+            logger.warning("⚠️ GovMap collection failed: %s", exc)
+            logger.info("🔄 Falling back to GIS collector for coordinates...")
+
+        if govmap_data.get("api_data", {}).get("parcel"):
+            parcel_props = govmap_data.get("api_data", {}).get("parcel", {}).get("properties", {})
+            block_value = parcel_props.get("gushnumber", block_value) or ""
+            parcel_value = parcel_props.get("parcelnumber", parcel_value) or ""
+
+        if govmap_data.get("address") and govmap_data.get("address") != location.formatted:
+            corrected_address = govmap_data["address"]
+            logger.info("🔄 Using corrected address from GovMap: %s", corrected_address)
+            try:
+                address_pattern = r"^(.+?)\s+(\d+)(?:\s*,\s*(.+))?$"
+                match = re.match(address_pattern, corrected_address.strip())
+                if match:
+                    street_part = match.group(1).strip()
+                    house_number_part = int(match.group(2))
+                    city_part = match.group(3).strip() if match.group(3) else location.city
+                    location = LocationQuery(
+                        street=street_part,
+                        house_number=house_number_part,
+                        city=city_part,
+                    )
+                    logger.info(
+                        "📍 Updated location: street='%s', number=%s, city='%s'",
+                        street_part,
+                        house_number_part,
+                        city_part,
+                    )
+                else:
+                    parts = corrected_address.split(',')
+                    if len(parts) >= 2:
+                        street_part = parts[0].strip()
+                        city_part = parts[1].strip()
+                        location = LocationQuery(
+                            street=street_part,
+                            house_number=location.house_number,
+                            city=city_part,
+                        )
+                        logger.info(
+                            "📍 Updated location (simple parse): street='%s', city='%s'",
+                            street_part,
+                            city_part,
+                        )
+                    else:
+                        logger.info("📍 Could not parse corrected address, keeping original location")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to parse corrected address '%s': %s", corrected_address, exc)
+                logger.info("📍 Keeping original location due to parsing error")
+
+        # ---------------- GIS ----------------
+        gis_data: Dict[str, Any] = {}
+        try:
+            logger.info("🗺️ Collecting GIS data...")
+            gis_data = self._collect_with_observability(
+                "gis",
+                self.gis.collect,
+                location=location,
+                timeout=self.TIMEOUTS.get("gis"),
+                retries=self.RETRIES.get("gis", 0),
+                asset_id=asset_id,
+                block=block_value,
+                parcel=parcel_value,
+            )
+            track("collector_success", source="gis")
+            if gis_data.get("block") and gis_data.get("parcel"):
+                block_value = gis_data.get("block", block_value) or ""
+                parcel_value = gis_data.get("parcel", parcel_value) or ""
+                logger.info(
+                    "✅ GIS data collected successfully: block=%s, parcel=%s",
+                    block_value,
+                    parcel_value,
+                )
+        except Exception as exc:  # noqa: BLE001
+            gis_data = {}
+            track("collector_fail", source="gis", error_code=str(exc))
+            logger.warning("⚠️ GIS collection failed: %s", exc)
+
+        # ---------------- Handasa ----------------
+        handasa_archive: List[Dict[str, Any]] = []
+        if block_value:
+            try:
+                logger.info("🏗️ Collecting Handasa permits...")
+                handasa_archive = self._collect_with_observability(
+                    "handasa",
+                    self.handasa.collect,
+                    block=block_value,
+                    parcel=parcel_value,
+                    timeout=self.TIMEOUTS.get("handasa"),
+                    retries=self.RETRIES.get("handasa", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="handasa")
+                logger.info("🏗️ Handasa documents collected: %d", len(handasa_archive))
+            except Exception as exc:  # noqa: BLE001
+                handasa_archive = []
+                track("collector_fail", source="handasa", error_code=str(exc))
+                logger.warning("⚠️ Handasa collection failed: %s", exc)
+
+        # ---------------- Government ----------------
+        gov_data: Dict[str, Any] = {"decisive": [], "transactions": []}
+        if block_value and parcel_value:
+            try:
+                logger.info("🏛️ Collecting government data...")
+                gov_data = self._collect_with_observability(
+                    "gov",
+                    self.gov.collect,
+                    block_value,
+                    parcel=parcel_value,
+                    location=location,
+                    timeout=self.TIMEOUTS.get("gov"),
+                    retries=self.RETRIES.get("gov", 0),
+                    asset_id=asset_id,
+                )
+                track("collector_success", source="gov")
+                logger.info(
+                    "🏛️ Government data collected: decisives=%d transactions=%d",
+                    len(gov_data.get("decisive", [])),
+                    len(gov_data.get("transactions", [])),
+                )
+            except Exception as exc:  # noqa: BLE001
+                gov_data = {"decisive": [], "transactions": []}
+                track("collector_fail", source="gov", error_code=str(exc))
+                logger.warning("⚠️ Government collection failed: %s", exc)
+
+        # ---------------- Plans ----------------
+        plans: List[Dict[str, Any]] = []
+        try:
+            logger.info("📐 Collecting RAMI plans...")
+            plans = self._collect_with_observability(
+                "rami",
+                self.rami.collect,
+                block=block_value,
+                parcel=parcel_value,
+                timeout=self.TIMEOUTS.get("rami"),
+                retries=self.RETRIES.get("rami", 0),
+                asset_id=asset_id,
+            )
+            track("collector_success", source="rami")
+        except Exception as exc:  # noqa: BLE001
+            plans = []
+            track("collector_fail", source="rami", error_code=str(exc))
+            logger.warning("⚠️ RAMI collection failed: %s", exc)
+
+        mavat_plans: List[Dict[str, Any]] = []
+        try:
+            logger.info("🗺️ Collecting Mavat plans...")
+            mavat_plans = self._collect_with_observability(
+                "mavat",
+                self.mavat.collect,
+                block=block_value,
+                parcel=parcel_value,
+                timeout=self.TIMEOUTS.get("mavat"),
+                retries=self.RETRIES.get("mavat", 0),
+                asset_id=asset_id,
+            )
+            track("collector_success", source="mavat")
+        except Exception as exc:  # noqa: BLE001
+            mavat_plans = []
+            track("collector_fail", source="mavat", error_code=str(exc))
+            logger.warning("⚠️ Mavat collection failed: %s", exc)
+
+        # ---------------- Yad2 listings ----------------
+        listings: List[Any] = []
+        try:
+            logger.info("🏠 Collecting Yad2 listings...")
+            listings = self._collect_with_observability(
+                "yad2",
+                self.yad2.collect,
+                location=location,
+                max_pages=max_pages,
+                timeout=self.TIMEOUTS.get("yad2"),
+                retries=self.RETRIES.get("yad2", 0),
+                asset_id=asset_id,
+            )
+            track("collector_success", source="yad2")
+            logger.info("🏠 Yad2 listings collected: %d", len(listings or []))
+        except Exception as exc:  # noqa: BLE001
+            listings = []
+            track("collector_fail", source="yad2", error_code=str(exc))
+            logger.warning("⚠️ Yad2 collection failed: %s", exc)
+
+        serialized_listings = [_listing_to_dict(listing) for listing in (listings or [])]
+
+        return CollectedPipelineData(
+            location=location.to_dict(),
+            block=block_value,
+            parcel=parcel_value,
+            x_itm=x_itm,
+            y_itm=y_itm,
+            lon_wgs84=lon_wgs84,
+            lat_wgs84=lat_wgs84,
+            govmap_data=govmap_data,
+            gis_data=gis_data,
+            gov_data=gov_data,
+            plans=plans,
+            mavat_plans=mavat_plans,
+            handasa_archive=handasa_archive,
+            listings=serialized_listings,
+        )
+
+    def persist_collected_data(
+        self,
+        collected: CollectedPipelineData,
+        *,
+        notifiers: Optional[List[Notifier]] = None,
+        asset_id: Optional[int] = None,
+    ) -> Tuple[List[Any], List[int]]:
+        """Persist collected artifacts into the analytics database."""
+
+        notifiers = notifiers or []
+        session_provided = self.session is not None
+        session = self.session or (self.db.get_session() if self.db else None)
+        if session is None:
+            raise RuntimeError("No database session available")
+
+        results: List[Any] = []
+        pending_notifications: List[Tuple[Notifier, Any]] = []
+        created_listing_ids: List[int] = []
+
+        try:
+            listings = [self._listing_dict_to_model(item) for item in collected.listings]
+            if listings:
+                for listing in listings:
+                    db_listing = self._store_listing(session, listing)
+                    listing_snapshot = _build_listing_snapshot(listing, db_listing)
+                    created_listing_ids.append(db_listing.id)
+
+                    # Source record for Yad2 listing
+                    listing_payload = listing.to_dict()
+                    self._add_source_record(session, db_listing.id, "yad2", listing_payload)
+                    results.append({"source": "yad2", "data": listing_payload})
+
+                    # Attach additional sources
+                    if collected.govmap_data.get("api_data", {}).get("autocomplete"):
+                        autocomplete_data = collected.govmap_data["api_data"]["autocomplete"]
+                        self._add_source_record(
+                            session,
+                            db_listing.id,
+                            "govmap_autocomplete",
+                            autocomplete_data,
+                        )
+                        results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
+
+                    if collected.govmap_data:
+                        self._add_source_record(session, db_listing.id, "govmap", collected.govmap_data)
+                        results.append({"source": "govmap", "data": collected.govmap_data})
+
+                    if collected.gis_data:
+                        self._add_source_record(session, db_listing.id, "gis", collected.gis_data)
+                        results.append({"source": "gis", "data": collected.gis_data})
+
+                    if collected.handasa_archive:
+                        self._add_source_record(session, db_listing.id, "handasa", collected.handasa_archive)
+                        results.append({"source": "handasa", "data": collected.handasa_archive})
+
+                    self._add_source_record(session, db_listing.id, "gov", collected.gov_data)
+
+                    decisives = collected.gov_data.get("decisive") or []
+                    if decisives:
+                        self._add_source_record(session, db_listing.id, "decisive", decisives)
+                        results.append({"source": "decisive", "data": decisives})
+
+                    deals = collected.gov_data.get("transactions") or []
+                    self._add_transactions(session, db_listing.id, deals)
+                    if deals:
+                        results.append({"source": "transactions", "data": deals})
+
+                    if collected.plans:
+                        self._add_source_record(session, db_listing.id, "gov_rami", collected.plans)
+                        results.append({"source": "gov_rami", "data": collected.plans})
+
+                    if collected.mavat_plans:
+                        self._add_source_record(session, db_listing.id, "mavat", collected.mavat_plans)
+                        results.append({"source": "mavat", "data": collected.mavat_plans})
+
+                    for notifier in notifiers:
+                        if notifier.matches(listing_snapshot):
+                            pending_notifications.append((notifier, listing_snapshot))
+            else:
+                logger.info("📊 No Yad2 listings found, but adding collected data to results")
+
+                if collected.govmap_data.get("api_data", {}).get("autocomplete"):
+                    autocomplete_data = collected.govmap_data["api_data"]["autocomplete"]
+                    results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
+
+                if collected.govmap_data:
+                    results.append({"source": "govmap", "data": collected.govmap_data})
+
+                if collected.gis_data:
+                    results.append({"source": "gis", "data": collected.gis_data})
+
+                if collected.handasa_archive:
+                    results.append({"source": "handasa", "data": collected.handasa_archive})
+
+                if collected.gov_data.get("decisive"):
+                    results.append({"source": "decisive", "data": collected.gov_data["decisive"]})
+                if collected.gov_data.get("transactions"):
+                    results.append({"source": "transactions", "data": collected.gov_data["transactions"]})
+
+                if collected.plans:
+                    results.append({"source": "gov_rami", "data": collected.plans})
+
+                if collected.mavat_plans:
+                    results.append({"source": "mavat", "data": collected.mavat_plans})
+
+            session.commit()
+        finally:
+            if not session_provided:
+                session.close()
+
+        _dispatch_notifications(pending_notifications)
+
+        return results, created_listing_ids
+
+    def link_asset(
+        self,
+        asset_id: Optional[int],
+        collected: CollectedPipelineData,
+        normalized_listings: List[Dict[str, Any]],
+        results: List[Any],
+    ) -> None:
+        """Update the Django models with the collected information."""
+
+        if not asset_id:
+            return
+
+        _update_asset_with_collected_data(
+            asset_id,
+            collected.block,
+            collected.parcel,
+            collected.govmap_data.get("api_data", {}).get("autocomplete", {}),
+            collected.govmap_data,
+            collected.gis_data,
+            collected.gov_data,
+            collected.plans,
+            collected.mavat_plans,
+            collected.handasa_archive,
+            normalized_listings,
+            collected.x_itm,
+            collected.y_itm,
+            collected.lon_wgs84,
+            collected.lat_wgs84,
+        )
+
+        _create_asset_snapshot(asset_id, results)
+
+        try:
+            from core.tasks import evaluate_alerts_for_asset
+
+            evaluate_alerts_for_asset.delay(asset_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to trigger alert evaluation for asset %s: %s", asset_id, exc)
+
     # ------------------------------------------------------------------
     def run(
         self,
@@ -733,396 +1217,40 @@ class DataPipeline:
             "data_pipeline.run",
             attributes=span_attributes,
         ):
-            # Load user notifiers once per run
             notifiers = _load_user_notifiers()
+            collected = self.collect_sources(
+                city=city,
+                street=street,
+                house_number=house_number,
+                max_pages=max_pages,
+                asset_id=asset_id,
+                block=block,
+                parcel=parcel,
+            )
 
-            # Decide which session to use
-            session_provided = self.session is not None
-            session = self.session or (self.db.get_session() if self.db else None)
-            if session is None:
-                raise RuntimeError("No database session available")
+            normalized_listings = _normalize_listings(collected.listings or [])
+            results, created_listing_ids = self.persist_collected_data(
+                collected,
+                notifiers=notifiers,
+                asset_id=asset_id,
+            )
 
-            results: List[Any] = []
-            pending_notifications: List[Tuple[Notifier, Any]] = []
-            
-            # Get address coordinates using GovMap autocomplete
-            x_itm = None
-            y_itm = None
-            lon_wgs84 = None
-            lat_wgs84 = None
-            block = block or ""
-            parcel = parcel or ""
-            
-            # Use GovMap collector to get coordinates and parcel data
-            try:
-                logger.info("🗺️ Getting address coordinates and parcel data from GovMap...")
-                govmap_data = self._collect_with_observability(
-                    "govmap",
-                    self.govmap.collect,
-                    location=location,
-                    timeout=self.TIMEOUTS.get("govmap"),
-                    retries=self.RETRIES.get("govmap", 0),
-                    asset_id=asset_id,
-                    block=block,
-                    parcel=parcel,
-                )
-                track("collector_success", source="govmap")
-                
-                # Extract coordinates from GovMap result
-                if "x" in govmap_data and "y" in govmap_data:
-                    x_itm = govmap_data["x"]
-                    y_itm = govmap_data["y"]
-                    # Convert ITM to WGS84
-                    lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
-                    logger.info(f"📍 Coordinates extracted: ITM({x_itm}, {y_itm}) -> WGS84({lon_wgs84:.6f}, {lat_wgs84:.6f})")
-                else:
-                    logger.warning("⚠️ No coordinates found in GovMap response")
-                    
-            except Exception as e:
-                govmap_data = {}
-                track("collector_fail", source="govmap", error_code=str(e))
-                logger.warning(f"⚠️ GovMap collection failed: {e}")
-                logger.info("🔄 Falling back to GIS collector for coordinates...")
-            
-            # Extract block and parcel from GovMap data
-            if govmap_data.get("api_data", {}).get("parcel"):
-                parcel_props = govmap_data.get("api_data", {}).get("parcel", {}).get('properties', {})
-                block = parcel_props.get("gushnumber", "")
-                parcel = parcel_props.get("parcelnumber", "")
-
-            logger.info(f"🏛️ GovMap data collected: block={block}, parcel={parcel}")
-
-                # Note: Additional GovMap data (parcel API, layers catalog, search types) 
-                # is now collected by the enhanced GovMap collector above
-            
-            # Update location with corrected address from GovMap if available
-            if govmap_data.get("address") and govmap_data.get("address") != location.formatted:
-                # GovMap provided a corrected address, update the location object
-                corrected_address = govmap_data["address"]
-                logger.info(f"🔄 Using corrected address from GovMap: {corrected_address}")
-                
-                # Parse the corrected address to update the location object
-                try:
-                    # Try to extract street, house number, and city from the corrected address
-                    # Pattern to match Hebrew addresses like "רחוב שם 123, עיר"
-                    address_pattern = r'^(.+?)\s+(\d+)(?:\s*,\s*(.+))?$'
-                    match = re.match(address_pattern, corrected_address.strip())
-                    
-                    if match:
-                        street_part = match.group(1).strip()
-                        house_number = int(match.group(2))
-                        city_part = match.group(3).strip() if match.group(3) else location.city
-                        
-                        # Update the location object with corrected address components
-                        location = LocationQuery(
-                            street=street_part,
-                            house_number=house_number,
-                            city=city_part
-                        )
-                        logger.info(f"📍 Updated location: street='{street_part}', number={house_number}, city='{city_part}'")
-                    else:
-                        # If parsing fails, try to extract just the street name
-                        # Split by space and take the first part as street, rest as city
-                        parts = corrected_address.split(',')
-                        if len(parts) >= 2:
-                            street_part = parts[0].strip()
-                            city_part = parts[1].strip()
-                            location = LocationQuery(
-                                street=street_part,
-                                house_number=location.house_number,
-                                city=city_part
-                            )
-                            logger.info(f"📍 Updated location (simple parse): street='{street_part}', city='{city_part}'")
-                        else:
-                            logger.info("📍 Could not parse corrected address, keeping original location")
-                except Exception as e:
-                    logger.warning(f"Failed to parse corrected address '{corrected_address}': {e}")
-                    logger.info("📍 Keeping original location due to parsing error")
-            
-            # Get GIS data (supplementary or fallback for coordinates)
-            gis_data = {}
-            try:
-                logger.info("🗺️ Collecting GIS data...")
-                gis_data = self._collect_with_observability(
-                    "gis",
-                    self.gis.collect,
-                    location=location,
-                    timeout=self.TIMEOUTS.get("gis"),
-                    retries=self.RETRIES.get("gis", 0),
-                    asset_id=asset_id,
-                    block=block,
-                    parcel=parcel,
-                )
-                track("collector_success", source="gis")
-                
-                # Extract block and parcel from successful GIS collection
-                if gis_data.get('block') and gis_data.get('parcel'):
-                    block = gis_data.get('block', '')
-                    parcel = gis_data.get('parcel', '')
-                    logger.info(f"✅ GIS data collected successfully: block={block}, parcel={parcel}")
-            except Exception as e:
-                gis_data = {}
-                track("collector_fail", source="gis", error_code=str(e))
-                logger.warning(f"⚠️ GIS collection failed: {e}")
-
-            # Collect Handasa archive
-            handasa_archive: List[Dict[str, Any]] = []
-            if block:
-                try:
-                    logger.info("🏗️ Collecting Handasa permits...")
-                    handasa_archive = self._collect_with_observability(
-                        "handasa",
-                        self.handasa.collect,
-                        block=block,
-                        parcel=parcel,
-                        timeout=self.TIMEOUTS.get("handasa"),
-                        retries=self.RETRIES.get("handasa", 0),
-                        asset_id=asset_id,
-                    )
-                    track("collector_success", source="handasa")
-                    logger.info("🏗️ Handasa documents collected: %d", len(handasa_archive))
-                except Exception as e:
-                    handasa_archive = []
-                    track("collector_fail", source="handasa", error_code=str(e))
-                    logger.warning(f"⚠️ Handasa collection failed: {e}")
-
-            # Get government data once for the address
-            gov_data = {"decisive": [], "transactions": []}
-            if block and parcel:
-                try:
-                    logger.info("🏛️ Collecting government data...")
-                    gov_data = self._collect_with_observability(
-                        "gov",
-                        self.gov.collect,
-                        block,
-                        parcel=parcel,
-                        location=location,
-                        timeout=self.TIMEOUTS.get("gov"),
-                        retries=self.RETRIES.get("gov", 0),
-                        asset_id=asset_id,
-                    )
-                    track("collector_success", source="gov")
-                    logger.info(f"📊 Government data collected: {len(gov_data.get('decisive', []))} decisives, {len(gov_data.get('transactions', []))} transactions")
-                except Exception as e:
-                    gov_data = {"decisive": [], "transactions": []}
-                    track("collector_fail", source="gov", error_code=str(e))
-                    logger.warning(f"⚠️ Government data collection failed: {e}")
-            
-            # Get RAMI plans once for the address
-            plans = []
-            if block and parcel:
-                try:
-                    logger.info("📋 Collecting RAMI plans...")
-                    plans = self._collect_with_observability(
-                        "gov_rami",
-                        self.rami.collect,
-                        block=block,
-                        parcel=parcel,
-                        timeout=self.TIMEOUTS.get("gov_rami"),
-                        retries=self.RETRIES.get("gov_rami", 0),
-                        asset_id=asset_id,
-                    )
-                    track("collector_success", source="gov_rami")
-                    logger.info(f"📋 RAMI plans collected: {len(plans)} plans")
-                except Exception as e:
-                    plans = []
-                    track("collector_fail", source="gov_rami", error_code=str(e))
-                    logger.warning(f"⚠️ RAMI collection failed: {e}")
-            
-            # Get Mavat plans once for the address
-            mavat_plans = []
-            if block and parcel:
-                try:
-                    logger.info("🏗️ Collecting Mavat plans...")
-                    mavat_plans = self._collect_with_observability(
-                        "mavat",
-                        self.mavat.collect,
-                        block=block,
-                        parcel=parcel,
-                        city=location.city,
-                        timeout=self.TIMEOUTS.get("mavat"),
-                        retries=self.RETRIES.get("mavat", 0),
-                        asset_id=asset_id,
-                    )
-                    track("collector_success", source="mavat")
-                    logger.info(f"🏗️ Mavat plans collected: {len(mavat_plans)} plans")
-                except Exception as e:
-                    mavat_plans = []
-                    track("collector_fail", source="mavat", error_code=str(e))
-                    logger.warning(f"⚠️ Mavat collection failed: {e}")
-            
-            # Search Yad2 for listings
-            try:
-                logger.info("🏠 Searching Yad2 for listings...")
-                
-                # Update location with address information from GovMap if location is not properly provided
-                if govmap_data.get('addresses') and govmap_data['addresses'] and not (location.street and location.city):
-                    first_address = govmap_data['addresses'][0]
-                    if first_address.get('street') and first_address.get('city'):
-                        # Create new location with the detailed address
-                        location = LocationQuery(
-                            street=first_address.get('street', ''),
-                            city=first_address.get('city', ''),
-                            house_number=first_address.get('house_number')
-                        )
-                        logger.info(f"Updated location for Yad2 search: {location.street} {location.house_number}, {location.city}")
-                
-                listings = self._collect_with_observability(
-                    "yad2",
-                    self.yad2.collect,
-                    location,
-                    max_pages=max_pages,
-                    timeout=self.TIMEOUTS.get("yad2"),
-                    retries=self.RETRIES.get("yad2", 0),
-                    asset_id=asset_id,
-                )
-                track("collector_success", source="yad2")
-                logger.info(f"📊 Found {len(listings)} Yad2 listings")
-            except Exception as e:
-                track("collector_fail", source="yad2", error_code=str(e))
-                logger.error(f"❌ Yad2 collection failed: {e}")
-                listings = []
-            
-            try:
-                # Process listings if any exist
-                for i, listing in enumerate(listings, 1):
-                    logger.info(f"🏠 Processing listing {i}/{len(listings)}: {listing.title}")
-                    # Store listing in DB and add to return list
-                    db_listing = self._store_listing(session, listing)
-                    results.append(listing)
-
-                    listing_snapshot = _build_listing_snapshot(listing, db_listing)
-
-                    # ---------------- GovMap Autocomplete (already collected above) ----------------
-                    if govmap_data.get("api_data", {}).get("autocomplete"):
-                        autocomplete_data = govmap_data["api_data"]["autocomplete"]
-                        self._add_source_record(session, db_listing.id, "govmap_autocomplete", autocomplete_data)
-                        results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
-
-                    # ---------------- GovMap Parcel Data (already collected above) ----------------
-                    if govmap_data:
-                        self._add_source_record(session, db_listing.id, "govmap", govmap_data)
-                        results.append({"source": "govmap", "data": govmap_data})
-
-                    # ---------------- GIS (supplementary data) ----------------
-                    if gis_data:
-                        self._add_source_record(session, db_listing.id, "gis", gis_data)
-                        results.append({"source": "gis", "data": gis_data})
-
-                    if handasa_archive:
-                        self._add_source_record(session, db_listing.id, "handasa", handasa_archive)
-                        results.append({"source": "handasa", "data": handasa_archive})
-
-                    # ---------------- Gov data (collected once above) ----------------
-                    self._add_source_record(session, db_listing.id, "gov", gov_data)
-                    
-                    decisives = gov_data.get("decisive") or []
-                    if decisives:
-                        self._add_source_record(
-                            session, db_listing.id, "decisive", decisives
-                        )
-                        results.append({"source": "decisive", "data": decisives})
-
-                    deals = gov_data.get("transactions") or []
-                    self._add_transactions(session, db_listing.id, deals)
-                    if deals:
-                        results.append({"source": "transactions", "data": deals})
-
-                    # ---------------- RAMI plans (collected once above) ----------------
-                    if plans:
-                        self._add_source_record(session, db_listing.id, "gov_rami", plans)
-                        results.append({"source": "gov_rami", "data": plans})
-
-                    # ---------------- Mavat plans (collected once above) ----------------
-                    if mavat_plans:
-                        self._add_source_record(
-                            session, db_listing.id, "mavat", mavat_plans
-                        )
-                        results.append({"source": "mavat", "data": mavat_plans})
-
-                    # ---------------- Alerts ----------------
-                    for notifier in notifiers:
-                        if notifier.matches(listing_snapshot):
-                            pending_notifications.append((notifier, listing_snapshot))
-                
-                # If no listings, still add collected data to results
-                if not listings:
-                    logger.info("📊 No Yad2 listings found, but adding collected data to results")
-                    
-                    # Add GovMap autocomplete data to results
-                    if govmap_data.get("api_data", {}).get("autocomplete"):
-                        autocomplete_data = govmap_data["api_data"]["autocomplete"]
-                        results.append({"source": "govmap_autocomplete", "data": autocomplete_data})
-
-                    # Add GovMap parcel data to results
-                    if govmap_data:
-                        results.append({"source": "govmap", "data": govmap_data})
-                    
-                    # Add GIS data to results (supplementary)
-                    if gis_data:
-                        results.append({"source": "gis", "data": gis_data})
-
-                    if handasa_archive:
-                        results.append({"source": "handasa", "data": handasa_archive})
-                    
-                    # Add government data to results
-                    if gov_data.get("decisive"):
-                        results.append({"source": "decisive", "data": gov_data["decisive"]})
-                    if gov_data.get("transactions"):
-                        results.append({"source": "transactions", "data": gov_data["transactions"]})
-                    
-                    # Add RAMI plans to results
-                    if plans:
-                        results.append({"source": "gov_rami", "data": plans})
-                    
-                    # Add Mavat plans to results
-                    if mavat_plans:
-                        results.append({"source": "mavat", "data": mavat_plans})
-
-                session.commit()
-
-                _dispatch_notifications(pending_notifications)
-
-                listing_payloads = _normalize_listings(listings)
-
-                # Update Asset model with collected data
-                if asset_id:
-                    _update_asset_with_collected_data(
-                        asset_id,
-                        block,
-                        parcel,
-                        govmap_data.get("api_data", {}).get("autocomplete", {}),
-                        govmap_data,
-                        gis_data,
-                        gov_data,
-                        plans,
-                        mavat_plans,
-                        handasa_archive,
-                        listing_payloads,
-                        x_itm,
-                        y_itm,
-                        lon_wgs84,
-                        lat_wgs84,
-                    )
-
-                    # Create snapshot for alert evaluation
-                    _create_asset_snapshot(asset_id, results)
-
-                    # Trigger alert evaluation
-                    try:
-                        from core.tasks import evaluate_alerts_for_asset
-                        evaluate_alerts_for_asset.delay(asset_id)
-                    except Exception as e:
-                        logger.error("Failed to trigger alert evaluation for asset %s: %s", asset_id, e)
-            finally:
-                if not session_provided:
-                    session.close()
+            if asset_id:
+                self.link_asset(asset_id, collected, normalized_listings, results)
 
             # Log completion summary
             execution_time = time.perf_counter() - start_time
             logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
-            logger.info(f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
-            
+            unique_sources = {
+                r.get('source', 'yad2') if isinstance(r, dict) else 'yad2'
+                for r in results
+            }
+            logger.info(
+                "📊 Processed %s listings with data from %s sources",
+                len(collected.listings),
+                len(unique_sources),
+            )
+
             return results
 
 

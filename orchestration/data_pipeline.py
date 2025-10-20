@@ -107,6 +107,9 @@ try:  # pragma: no cover - best effort import
         Plan,
         Permit,
     )
+    from core.storage import document_storage  # type: ignore
+    from django.core.files.base import ContentFile  # type: ignore
+    from django.core.files.storage import default_storage  # type: ignore
 except ImportError as e:  # pragma: no cover - best effort
     logging.getLogger(__name__).warning(f"Failed to import Django models: {e}")
 
@@ -115,6 +118,9 @@ except ImportError as e:  # pragma: no cover - best effort
 
     AssetDocument = AssetListing = AssetPermit = AssetPlan = AssetTransaction = None  # type: ignore
     Document = DjangoListing = Plan = Permit = None  # type: ignore
+    document_storage = None  # type: ignore
+    ContentFile = None  # type: ignore
+    default_storage = None  # type: ignore
 
 
 def _load_user_notifiers() -> List[Notifier]:
@@ -3022,11 +3028,21 @@ def _create_documents_from_permits(asset, permits, source: str = 'GIS'):
         if not external_id:
             continue
 
+        existing_doc = (
+            Document.objects.filter(document_type=doc_type, external_id=external_id)
+            .order_by("id")
+            .first()
+            if Document is not None
+            else None
+        )
+
         document_payload = {
             key: value
             for key, value in normalized_doc.items()
             if key not in ('document_type', 'external_id')
         }
+        _prepare_permit_document_file(asset, document_payload, existing_doc)
+
         document, doc_created = _upsert_document(
             doc_type,
             external_id,
@@ -3100,6 +3116,79 @@ def _create_documents_from_permits(asset, permits, source: str = 'GIS'):
         created_count,
         len(permits) - created_count,
     )
+
+
+def _prepare_permit_document_file(asset, document_payload, existing_doc=None) -> None:
+    """Ensure permit document payload references a stored file within Django storage."""
+
+    if not asset or getattr(asset, 'id', None) is None:
+        return
+    if document_storage is None or ContentFile is None:
+        return
+
+    try:
+        storage_exists = default_storage.exists  # type: ignore[attr-defined]
+    except Exception:
+        storage_exists = None
+
+    if existing_doc is not None and storage_exists is not None:
+        existing_path = getattr(existing_doc, 'file_path', '')
+        if existing_path and storage_exists(existing_path):
+            document_payload.setdefault('file_path', existing_path)
+            document_payload.setdefault('file_size', getattr(existing_doc, 'file_size', 0))
+            if getattr(existing_doc, 'mime_type', None) and not document_payload.get('mime_type'):
+                document_payload['mime_type'] = existing_doc.mime_type
+            return
+
+    candidate_paths: List[str] = []
+    initial_path = document_payload.get('file_path')
+    if isinstance(initial_path, str) and initial_path:
+        candidate_paths.append(initial_path)
+
+    meta = document_payload.get('meta')
+    if isinstance(meta, dict):
+        for key in ('pdf_path', 'file_path', 'local_path', 'download_path'):
+            value = meta.get(key)
+            if isinstance(value, str) and value:
+                candidate_paths.append(value)
+
+    for candidate in candidate_paths:
+        expanded = os.path.abspath(candidate)
+        if not os.path.exists(expanded):
+            continue
+
+        filename = document_payload.get('filename') or os.path.basename(expanded) or 'document.pdf'
+        try:
+            with open(expanded, 'rb') as fh:
+                content = ContentFile(fh.read())
+        except (OSError, TypeError) as exc:
+            logger.warning("Failed to open permit file %s: %s", expanded, exc)
+            continue
+
+        content.name = filename
+        info, error = document_storage.save_document(content, asset.id, filename)
+        if error:
+            logger.warning("Failed to store permit document %s: %s", expanded, error)
+            continue
+
+        document_payload['file_path'] = info.get('file_path', '')
+        document_payload['file_size'] = info.get('file_size', 0)
+        if not document_payload.get('mime_type'):
+            document_payload['mime_type'] = info.get('mime_type', document_payload.get('mime_type', 'application/pdf'))
+
+        meta_dict = document_payload.get('meta')
+        if isinstance(meta_dict, dict):
+            meta_dict.setdefault('downloaded', True)
+            meta_dict['storage_path'] = document_payload['file_path']
+        return
+
+    if storage_exists is not None:
+        current_path = document_payload.get('file_path')
+        if current_path and not storage_exists(current_path):
+            document_payload['file_path'] = ''
+
+    if not document_payload.get('file_size'):
+        document_payload['file_size'] = 0
 
 
 def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallback_index: int) -> Optional[Dict[str, Any]]:
@@ -3210,7 +3299,7 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
         'description': permit.get('sug_bakasha', ''),
         'status': permit.get('building_stage', ''),
         'filename': f"{permission_num or external_id}.pdf",
-        'file_path': './permits/',
+        'file_path': permit.get('pdf_path', ''),
         'file_size': 0,
         'mime_type': 'application/pdf',
         'external_url': permit.get('url_hadmaya', ''),

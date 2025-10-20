@@ -252,7 +252,10 @@ class TelAvivGS:
             for attrs in permits:
                 url = self.normalize_doc_url(attrs.get("url_hadmaya"))
                 if not url:
-                    self._logger.debug("Skipping permit without url_hadmaya", extra={"attrs": {k: attrs.get(k) for k in ("permission_num","request_num")}})
+                    self._logger.debug(
+                        "Skipping permit without url_hadmaya",
+                        extra={"attrs": {k: attrs.get(k) for k in ("permission_num", "request_num")}},
+                    )
                     continue
                 perm_num = attrs.get("permission_num")
                 req_num = attrs.get("request_num")
@@ -265,8 +268,24 @@ class TelAvivGS:
                     r.raise_for_status()
                     with open(dest_path, "wb") as fh:
                         fh.write(r.content)
+
+                    attrs["pdf_downloaded"] = True
+                    attrs["pdf_path"] = os.path.abspath(dest_path)
+                    attrs["pdf_filename"] = filename
+                    attrs["pdf_size"] = len(r.content)
+                    attrs["pdf_mime_type"] = (
+                        r.headers.get("Content-Type") or "application/pdf"
+                    )
                 except requests.RequestException as e:
-                    self._logger.warning("Failed to download PDF", extra={"url": url, "error": str(e)})
+                    self._logger.warning(
+                        "Failed to download PDF",
+                        extra={"url": url, "error": str(e)},
+                    )
+                except OSError as e:
+                    self._logger.warning(
+                        "Failed to persist PDF",
+                        extra={"dest": dest_path, "error": str(e)},
+                    )
         return permits
 
     def get_land_use_main(self, x: float, y: float) -> List[Dict[str, Any]]:

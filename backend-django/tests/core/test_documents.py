@@ -1,8 +1,11 @@
 import os
+import shutil
 import tempfile
 from pathlib import Path
+
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework.test import APITestCase
@@ -148,6 +151,41 @@ class PermitDocumentCreationTest(TestCase):
         self.assertEqual(document.status, 'issued')
         self.assertEqual(document.description, 'Updated description')
         self.assertEqual(document.document_date.isoformat(), '2024-02-15')
+
+    def test_gis_permit_download_is_copied_to_storage(self):
+        temp_media_root = tempfile.mkdtemp()
+        temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+        try:
+            temp_pdf.write(b"%PDF-1.4\n% nadlaner test document")
+            temp_pdf.flush()
+        finally:
+            temp_pdf.close()
+
+        permit = {
+            'permission_num': '123',
+            'request_num': '456',
+            'koteret': 'Permit Title',
+            'sug_bakasha': 'Test Permit',
+            'building_stage': 'issued',
+            'url_hadmaya': 'https://example.com/permits/123.pdf',
+            'pdf_path': temp_pdf.name,
+        }
+
+        try:
+            with override_settings(MEDIA_ROOT=temp_media_root):
+                _create_documents_from_permits(self.asset, [permit], source='GIS')
+
+                document = Document.objects.get(asset=self.asset, external_id='123')
+                self.assertTrue(document.is_downloadable)
+                self.assertGreater(document.file_size, 0)
+
+                stored_path = default_storage.path(document.file_path)
+                self.assertTrue(os.path.exists(stored_path))
+                with open(stored_path, 'rb') as stored_file:
+                    self.assertTrue(stored_file.read().startswith(b"%PDF"))
+        finally:
+            os.remove(temp_pdf.name)
+            shutil.rmtree(temp_media_root, ignore_errors=True)
 
 
 class DocumentStorageTest(TestCase):

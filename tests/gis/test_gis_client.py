@@ -94,6 +94,11 @@ def test_get_building_permits_with_download(monkeypatch, tmp_path):
         pdf_path = save_dir / "123.pdf"
         assert pdf_path.exists()
         assert pdf_path.read_bytes().startswith(b"%PDF")
+        attrs = results[0]
+        assert attrs["pdf_downloaded"] is True
+        assert attrs["pdf_filename"] == "123.pdf"
+        assert attrs["pdf_path"] == os.path.abspath(str(pdf_path))
+        assert attrs["pdf_size"] == pdf_path.stat().st_size
 
 
 def test_get_building_privilege_page_success(monkeypatch, tmp_path):

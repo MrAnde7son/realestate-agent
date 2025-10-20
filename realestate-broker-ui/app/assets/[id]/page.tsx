@@ -732,9 +732,146 @@ React.useEffect(() => {
       if (!searchTerm) return true
       const field = (row?.field || '').toLowerCase()
       const value = (row?.value || '').toLowerCase()
-      return field.includes(searchTerm) || value.includes(searchTerm)
+      const description = (row?.description || '').toLowerCase()
+      const rawText = (row?.raw_text || '').toLowerCase()
+      const lineType = (row?.line_type || '').toLowerCase()
+      const text = (row?.text || '').toLowerCase()
+      return (
+        field.includes(searchTerm) ||
+        value.includes(searchTerm) ||
+        description.includes(searchTerm) ||
+        rawText.includes(searchTerm) ||
+        lineType.includes(searchTerm) ||
+        text.includes(searchTerm)
+      )
     })
   }, [rightsRows, rightsDocFilter, rightsSearch])
+
+  const buildingLineRows = React.useMemo(
+    () => rightsRows.filter(row => row?.type === 'building_line'),
+    [rightsRows]
+  )
+  const buildingLineDetailedRows = React.useMemo(
+    () => rightsRows.filter(row => row?.type === 'building_line_detailed'),
+    [rightsRows]
+  )
+  const uniqueBuildingLineDetailedRows = React.useMemo(() => {
+    const seen = new Set<string>()
+    return buildingLineDetailedRows.filter(row => {
+      const key = `${row?.line_type ?? ''}-${row?.distance_meters ?? ''}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [buildingLineDetailedRows])
+  const normalizeHebrewSpacing = React.useCallback((text?: string) => {
+    if (!text) return ''
+    return (
+      text
+        .replace(/\s+/g, ' ')
+        .replace(/(\d)([^\d\s])/g, '$1 $2')
+        .replace(/([^\d\s])(\d)/g, '$1 $2')
+        .trim()
+    )
+  }, [])
+
+  const parseBuildingLineText = React.useCallback((rawText?: string) => {
+    if (!rawText) return null
+    const normalized = normalizeHebrewSpacing(rawText)
+    if (!normalized) return null
+    const distanceBefore = normalized.match(/(\d+(?:\.\d+)?)\s*(?:מטר(?:ים)?|מ['״׳])/)
+    const distanceAfter = normalized.match(/(?:מטר(?:ים)?|מ['״׳])\s*(\d+(?:\.\d+)?)/)
+    const distanceValue = distanceBefore?.[1] ?? distanceAfter?.[1]
+    const distance = distanceValue ? Number(distanceValue) : null
+    const typeKeywords: { keyword: string; label: string }[] = [
+      { keyword: 'צדדי', label: 'צדדי' },
+      { keyword: 'צדדית', label: 'צדדי' },
+      { keyword: 'אחורי', label: 'אחורי' },
+      { keyword: 'אחורית', label: 'אחורי' },
+      { keyword: 'חזית', label: 'חזית' },
+      { keyword: 'קדמי', label: 'חזית' },
+      { keyword: 'קדמית', label: 'חזית' },
+    ]
+    let lineType: string | null = null
+    for (const { keyword, label } of typeKeywords) {
+      if (normalized.includes(keyword)) {
+        lineType = label
+        break
+      }
+    }
+    if (!lineType) {
+      // OCR sometimes sticks words together like "1קובנייןצדדי"
+      for (const { keyword, label } of typeKeywords) {
+        if (normalized.replace(/\s+/g, '').includes(keyword)) {
+          lineType = label
+          break
+        }
+      }
+    }
+    if (lineType && distance !== null) {
+      return {
+        lineType,
+        distanceMeters: distance,
+        rawText: normalized,
+      }
+    }
+    return null
+  }, [normalizeHebrewSpacing])
+
+  const parsedBuildingLines = React.useMemo(() => {
+    const structured: Array<{ lineType: string; distanceMeters: number; rawText: string; id?: string }> = []
+    const unstructured: Array<{ rawText: string; id?: string }> = []
+    const structuredKeys = new Set<string>()
+    const unstructuredKeys = new Set<string>()
+    buildingLineRows.forEach((row, idx) => {
+      const rawText = row.description ?? row.value ?? row.text ?? ''
+      const parsed = parseBuildingLineText(rawText)
+      if (parsed) {
+        const key = `${parsed.lineType}-${parsed.distanceMeters}`
+        if (!structuredKeys.has(key)) {
+          structuredKeys.add(key)
+          structured.push({ ...parsed, id: row.id ?? `building-line-${idx}` })
+        }
+      } else if (rawText) {
+        const compact = rawText.replace(/\s+/g, '')
+        const hasLineKeyword = /קובניין|קו.?בניין/.test(compact)
+        const mentionsDistance = /מטר/.test(rawText)
+        if (!(hasLineKeyword && mentionsDistance)) {
+          return
+        }
+        const normalized = normalizeHebrewSpacing(rawText)
+        if (normalized && !unstructuredKeys.has(normalized)) {
+          unstructuredKeys.add(normalized)
+          unstructured.push({ rawText: normalized, id: row.id ?? `building-line-unparsed-${idx}` })
+        }
+      }
+    })
+    return { structured, unstructured }
+  }, [buildingLineRows, parseBuildingLineText, normalizeHebrewSpacing])
+
+  const combinedBuildingLineEntries = React.useMemo(() => {
+    const seen = new Set<string>()
+    const entries: Array<{ lineType: string; distanceMeters: number | null; id?: string }> = []
+
+    uniqueBuildingLineDetailedRows.forEach((row, idx) => {
+      const lineType = row.line_type || 'אחורי'
+      const distance = row.distance_meters ?? null
+      const key = `${lineType}-${distance ?? 'na'}`
+      if (seen.has(key)) return
+      seen.add(key)
+      entries.push({ lineType, distanceMeters: distance, id: row.id ?? `building-line-detailed-${idx}` })
+    })
+
+    parsedBuildingLines.structured.forEach((entry, idx) => {
+      const key = `${entry.lineType}-${entry.distanceMeters}`
+      if (seen.has(key)) return
+      seen.add(key)
+      entries.push({ lineType: entry.lineType, distanceMeters: entry.distanceMeters, id: entry.id ?? `building-line-parsed-${idx}` })
+    })
+
+    return entries
+  }, [uniqueBuildingLineDetailedRows, parsedBuildingLines.structured])
+
 
   // Load documents organized by category
   const loadDocumentsTable = React.useCallback(async () => {
@@ -2287,19 +2424,33 @@ useDedupedEffect(() => {
                 <CardContent>
                   <div className="space-y-6">
                     {/* Building Lines */}
-                    {rightsRows.some(row => row.type === 'building_line') && (
+                    {(buildingLineDetailedRows.length > 0 ||
+                      parsedBuildingLines.structured.length > 0 ||
+                      parsedBuildingLines.unstructured.length > 0) && (
                       <div>
                         <h4 className="text-lg font-semibold mb-3">קווי בניין</h4>
-                        <div className="space-y-2">
-                          {rightsRows
-                            .filter(row => row.type === 'building_line')
-                            .map((row: any, idx: number) => (
-                              <div key={row.id ?? `building-line-${idx}`} className="p-3 border rounded-lg bg-blue-50">
-                                <div className="text-sm text-muted-foreground">קו בניין</div>
-                                <div className="text-lg font-medium">{row.description}</div>
+                        {(buildingLineDetailedRows.length > 0 || parsedBuildingLines.structured.length > 0) && (
+                          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                            {combinedBuildingLineEntries.map((entry, idx) => (
+                              <div key={entry.id ?? `building-line-entry-${idx}`} className="p-3 border rounded-lg bg-blue-50">
+                                <div className="text-sm text-muted-foreground">{`קו בניין ${entry.lineType}`}</div>
+                                <div className="text-lg font-medium">
+                                  {entry.distanceMeters !== null ? `${entry.distanceMeters} מ׳` : '—'}
+                                </div>
                               </div>
                             ))}
-                        </div>
+                          </div>
+                        )}
+                        {parsedBuildingLines.unstructured.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            {parsedBuildingLines.unstructured.map((entry, idx) => (
+                              <div key={entry.id ?? `building-line-unparsed-${idx}`} className="p-3 border rounded-lg bg-blue-50">
+                                <div className="text-sm text-muted-foreground">קו בניין (נוסח חופשי)</div>
+                                <div className="text-lg font-medium">{normalizeHebrewSpacing(entry.rawText)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -2340,22 +2491,6 @@ useDedupedEffect(() => {
                       </div>
                     )}
 
-                    {/* General Notes */}
-                    {rightsRows.some(row => row.source === 'privilege_page' && row.type === 'general') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">הערות כלליות</h4>
-                        <div className="space-y-2">
-                          {rightsRows
-                            .filter(row => row.source === 'privilege_page' && row.type === 'general')
-                            .map((row: any, idx: number) => (
-                              <div key={row.id ?? `general-note-${idx}`} className="p-3 border rounded-lg bg-gray-50">
-                                <div className="text-sm text-muted-foreground">הערה</div>
-                                <div className="text-lg font-medium">{row.text}</div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>

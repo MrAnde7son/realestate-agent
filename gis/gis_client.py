@@ -454,9 +454,6 @@ class TelAvivGS:
                 else:
                     # No options found, try individual options
                     self._try_individual_privilege_options(block, parcel, save_dir, result)
-            else:
-                # Main page is not HTML or PDF, try individual options
-                self._try_individual_privilege_options(block, parcel, save_dir, result)
 
 
             return result

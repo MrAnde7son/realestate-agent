@@ -542,11 +542,361 @@ class ZchuyotParser:
 
     # -- rights ------------------------------------------------------------- #
     def _parse_rights(self, lines: Sequence[str], section_index: Dict[str, int]) -> Dict[str, Any]:
-        start = section_index.get("rights")
-        if start is None:
+        section_lines = self._slice_section(lines, section_index, "rights")
+        if not section_lines:
             return {"text": None}
-        rights_text = "\n".join(line for line in lines[start + 1 :])
-        return {"text": rights_text.strip() or None}
+
+        rights_text = "\n".join(section_lines).strip()
+        working: Dict[str, Any] = {
+            "building_lines": [],
+            "building_lines_detailed": [],
+            "floor_percentages": [],
+            "floor_percentages_detailed": [],
+            "minimum_values": [],
+            "maximum_values": [],
+            "minmax_values": [],
+            "parking_requirements": [],
+            "notes": [],
+        }
+
+        for line in section_lines:
+            if not line or self._is_table_header(line):
+                continue
+            working["notes"].append({"text": line, "type": "general"})
+            self._extract_building_lines(line, working)
+            self._extract_floor_percentages(line, working)
+            self._extract_minmax_values(line, working)
+            self._extract_dwelling_units(line, working)
+            self._extract_number_of_floors(line, working)
+            self._extract_building_coverage(line, working)
+            self._extract_parking(line, working)
+            self._extract_auxiliary_building(line, working)
+
+        result: Dict[str, Any] = {"text": rights_text or None}
+
+        for key in (
+            "building_lines",
+            "building_lines_detailed",
+            "floor_percentages",
+            "floor_percentages_detailed",
+            "minimum_values",
+            "maximum_values",
+            "minmax_values",
+            "parking_requirements",
+            "notes",
+        ):
+            values = working.get(key)
+            if values:
+                result[key] = values
+
+        if working.get("dwelling_units") is not None:
+            result["dwelling_units"] = working["dwelling_units"]
+
+        if working.get("number_of_floors") is not None:
+            result["number_of_floors"] = working["number_of_floors"]
+            result["floors"] = working["number_of_floors"]
+
+        if working.get("building_coverage_percentage") is not None:
+            coverage = working["building_coverage_percentage"]
+            result["building_coverage_percentage"] = coverage
+            result["coverage"] = coverage
+
+        if working.get("auxiliary_building_area") is not None:
+            area = working["auxiliary_building_area"]
+            result["auxiliary_building_area"] = area
+            result["auxiliary_building"] = area
+
+        # dedupe simple list fields
+        if "building_lines" in result:
+            result["building_lines"] = list(dict.fromkeys(result["building_lines"]))
+
+        if "minmax_values" in result:
+            # ensure min/max entries keep consistent structure
+            result["minmax_values"] = [
+                {k: v for k, v in entry.items() if k != "bound"} for entry in result["minmax_values"]
+            ]
+
+        return result
+
+    def _extract_building_lines(self, line: str, rights: Dict[str, Any]) -> None:
+        if "קו" not in line or "בניין" not in line:
+            return
+
+        lines = rights.setdefault("building_lines", [])
+        if line not in lines:
+            lines.append(line)
+
+        type_keywords = {
+            "חזית": "חזית",
+            "צדדי": "צדדי",
+            "צידי": "צדדי",
+            "אחורי": "אחורי",
+            "אחורית": "אחורי",
+            "קדמי": "קדמי",
+        }
+        line_type = None
+        for keyword, canonical in type_keywords.items():
+            if keyword in line:
+                line_type = canonical
+                break
+
+        distance: Optional[float] = None
+        patterns = [
+            r"קו\s+בניין(?:\s+(?:חזית|צדדי|צידי|אחורי|קדמי)\s*\d*)?\s*(\d+(?:\.\d+)?)\s*מ",
+            r"(\d+(?:\.\d+)?)\s*מ[\"׳״']?\s*(?:קו\s+בניין)",
+        ]
+        for pat in patterns:
+            match = re.search(pat, line)
+            if match:
+                distance = self._coerce_number(match.group(1))
+                break
+
+        if distance is None:
+            # fallback: last number before the keyword "קו בניין"
+            idx = line.find("קו בניין")
+            if idx != -1:
+                numbers = re.findall(r"(\d+(?:\.\d+)?)", line[:idx])
+                if numbers:
+                    distance = self._coerce_number(numbers[-1])
+
+        if distance is None:
+            return
+
+        detailed = rights.setdefault("building_lines_detailed", [])
+        if not any(entry.get("raw_text") == line for entry in detailed):
+            detailed.append(
+                {
+                    "type": line_type,
+                    "distance_meters": distance,
+                    "raw_text": line,
+                }
+            )
+
+    def _extract_floor_percentages(self, line: str, rights: Dict[str, Any]) -> None:
+        if "קומ" not in line:
+            return
+        if "מספר קומות" in line or "קומות מספר" in line:
+            return
+        if "שטח קומה" not in line and "אחוז" not in line:
+            return
+
+        tokens_after = None
+        if "שטח קומה" in line:
+            after = line.split("שטח קומה", 1)[1].strip()
+            tokens_after = after.split()
+        elif "קומה" in line:
+            after = line.split("קומה", 1)[1].strip()
+            tokens_after = after.split()
+
+        if not tokens_after:
+            return
+
+        floor_tokens: List[str] = []
+        numeric_token: Optional[str] = None
+        for tok in tokens_after:
+            if self._is_numeric_token(tok):
+                numeric_token = tok
+                break
+            floor_tokens.append(tok)
+
+        if not numeric_token:
+            return
+
+        floor_label = " ".join(floor_tokens).strip()
+        if not floor_label:
+            return
+
+        percentage_value = self._coerce_number(numeric_token)
+        if percentage_value is None:
+            return
+
+        detailed_entry = {
+            "floor": floor_label,
+            "percentage": percentage_value,
+            "raw_text": line,
+        }
+        detailed = rights.setdefault("floor_percentages_detailed", [])
+        if not any(entry.get("raw_text") == line for entry in detailed):
+            detailed.append(detailed_entry)
+            rights.setdefault("floor_percentages", []).append(percentage_value)
+
+    def _extract_minmax_values(self, line: str, rights: Dict[str, Any]) -> None:
+        keywords = [
+            ("מינימום", "minimum"),
+            ("םינימום", "minimum"),
+            ("םומינימ", "minimum"),
+            ("מקסימום", "maximum"),
+            ("םקסימום", "maximum"),
+            ("םומיסקמ", "maximum"),
+        ]
+        for keyword, bound in keywords:
+            idx = line.find(keyword)
+            if idx == -1:
+                continue
+            value_str = self._value_before_index(line, idx)
+            if value_str is None:
+                continue
+            value = self._coerce_number(value_str)
+            if value is None:
+                continue
+
+            entry: Dict[str, Any] = {
+                "value": value,
+                "raw_text": line,
+                "bound": bound,
+            }
+            entry_type = self._classify_minmax_entry(line)
+            if entry_type:
+                entry["type"] = entry_type
+
+            rights.setdefault("minmax_values", []).append(entry.copy())
+
+            target_key = "minimum_values" if bound == "minimum" else "maximum_values"
+            rights.setdefault(target_key, []).append(
+                {k: v for k, v in entry.items() if k not in {"bound"}}
+            )
+
+            if entry_type == "dwelling_units":
+                rights["dwelling_units"] = int(value)
+            if entry_type == "floors" and bound == "maximum":
+                current = rights.get("number_of_floors")
+                candidate = int(value)
+                if current is None or candidate > current:
+                    rights["number_of_floors"] = candidate
+            if entry_type == "auxiliary_building_area":
+                rights["auxiliary_building_area"] = value
+            if entry_type == "parking":
+                record = {"value": value, "raw_text": line}
+                entries = rights.setdefault("parking_requirements", [])
+                if not any(item.get("raw_text") == line for item in entries):
+                    entries.append(record)
+            if entry_type == "percentage":
+                if any(term in line for term in ["אחוז משטח", "אחוז בנייה", "אחוזי בניה"]):
+                    rights["building_coverage_percentage"] = value
+            break
+
+    def _extract_dwelling_units(self, line: str, rights: Dict[str, Any]) -> None:
+        patterns = [
+            r"(\d+)\s*יחידות?\s+דיור",
+            r"יחידות?\s+דיור\s*(\d+)",
+            r"מספר\s+יחידות\s+דיור\s*(\d+)",
+        ]
+        for pat in patterns:
+            match = re.search(pat, line)
+            if match:
+                value = self._coerce_number(match.group(1))
+                if value is not None:
+                    rights["dwelling_units"] = int(value)
+                return
+
+    def _extract_number_of_floors(self, line: str, rights: Dict[str, Any]) -> None:
+        if "מספר קומות" not in line and "קומות מספר" not in line:
+            return
+        match = re.search(r"(\d+)", line)
+        if not match:
+            return
+        value = self._coerce_number(match.group(1))
+        if value is not None:
+            current = rights.get("number_of_floors")
+            candidate = int(value)
+            if current is None or candidate > current:
+                rights["number_of_floors"] = candidate
+
+    def _extract_building_coverage(self, line: str, rights: Dict[str, Any]) -> None:
+        if "אחוז" not in line:
+            return
+        patterns = [
+            r"(\d+(?:\.\d+)?)\s*%\s*אחוז(?:י)?\s*(?:בנייה|בניה|משטח)",
+            r"(\d+(?:\.\d+)?)\s*אחוז(?:י)?\s*(?:בנייה|בניה|משטח)",
+        ]
+        for pat in patterns:
+            match = re.search(pat, line)
+            if match:
+                value = self._coerce_number(match.group(1))
+                if value is not None:
+                    rights["building_coverage_percentage"] = value
+                    return
+
+    def _extract_parking(self, line: str, rights: Dict[str, Any]) -> None:
+        if "חניה" not in line:
+            return
+        patterns = [
+            r"(\d+(?:\.\d+)?)\s*(?:מקומות|מקום)\s+חניה",
+            r"חניה\s*(?:מותר(?:ת)?|מינימום|מקסימום)\s*(\d+(?:\.\d+)?)",
+        ]
+        for pat in patterns:
+            match = re.search(pat, line)
+            if match:
+                value = self._coerce_number(match.group(1))
+                if value is None:
+                    continue
+                entries = rights.setdefault("parking_requirements", [])
+                if not any(item.get("raw_text") == line for item in entries):
+                    entries.append({"value": value, "raw_text": line})
+                return
+
+    def _extract_auxiliary_building(self, line: str, rights: Dict[str, Any]) -> None:
+        if "מבנה עזר" not in line:
+            return
+        match = re.search(
+            r"מבנה\s+עזר\s+(\d+(?:\.\d+)?)\s*(?:מ\"ר|מטר(?:ים)?)?\s*(?:מינימום|מקסימום)",
+            line,
+        )
+        if not match:
+            return
+        value = self._coerce_number(match.group(1))
+        if value is None:
+            return
+        rights["auxiliary_building_area"] = value
+
+    def _coerce_number(self, token: Optional[str]) -> Optional[float]:
+        if token is None:
+            return None
+        clean = token.replace(",", "").replace("'", "").replace("״", "").replace("”", "")
+        try:
+            value = float(clean)
+        except ValueError:
+            return None
+        if value.is_integer():
+            return int(value)
+        return value
+
+    def _is_numeric_token(self, token: str) -> bool:
+        return bool(re.fullmatch(r"\d+(?:\.\d+)?", token.replace(",", "")))
+
+    def _value_before_index(self, line: str, idx: int) -> Optional[str]:
+        segment = line[:idx]
+        matches = re.findall(r"(\d+(?:\.\d+)?)", segment)
+        return matches[-1] if matches else None
+
+    def _classify_minmax_entry(self, line: str) -> Optional[str]:
+        text = line.replace(" ", "")
+        lower = line.lower()
+
+        if re.search(r"מספר\s+קומות", line) or re.search(r"קומות\s*מספר", line) or "מספרקומות" in text or "תומוקרפסמ" in text:
+            return "floors"
+
+        dwelling_keywords = ["יחידותדיור", "דיור", "דירות", "יחידות"]
+        if any(kw in text for kw in dwelling_keywords):
+            return "dwelling_units"
+
+        parking_keywords = ["חניה", "הינח", "חני", "חניות"]
+        if any(kw in line for kw in parking_keywords):
+            return "parking"
+
+        auxiliary_keywords = ["מבנהעזר", "רזעהנבמ"]
+        if any(kw in text for kw in auxiliary_keywords):
+            return "auxiliary_building_area"
+
+        percent_keywords = ["%", "אחוז", "זחוא", "percent"]
+        if any(kw in line or kw in lower for kw in percent_keywords):
+            return "percentage"
+
+        area_keywords = ["מ\"ר", "מ״ר", "ר\"מ", "ר״מ", "שטח", "חטש", "בנייה", "בניה"]
+        if any(kw in line or kw in text or kw in lower for kw in area_keywords):
+            return "building_area"
+
+        return None
 
 
 # --------------------------------------------------------------------------- #

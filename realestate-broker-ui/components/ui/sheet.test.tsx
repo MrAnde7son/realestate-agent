@@ -25,6 +25,8 @@ describe("SheetContent physical positioning", () => {
 
     const sheet = await waitFor(() => screen.getByTestId("sheet-right"));
     expect(sheet).toHaveClass("right-0");
+    expect(sheet).toHaveClass("rtl:right-0");
+    expect(sheet).toHaveClass("rtl:left-auto");
     expect(sheet).not.toHaveClass("end-0");
   });
 
@@ -33,6 +35,8 @@ describe("SheetContent physical positioning", () => {
 
     const sheet = await waitFor(() => screen.getByTestId("sheet-left"));
     expect(sheet).toHaveClass("left-0");
+    expect(sheet).toHaveClass("rtl:left-0");
+    expect(sheet).toHaveClass("rtl:right-auto");
     expect(sheet).not.toHaveClass("start-0");
   });
 });

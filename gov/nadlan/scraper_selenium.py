@@ -76,42 +76,100 @@ class NadlanDealsScraper:
             self.incremental_collector = None
     
     def _init_driver(self):
-        """Initialize the Selenium WebDriver."""
-        if self.driver is None:
-            service = Service(ChromeDriverManager().install())
-            options = webdriver.ChromeOptions()
-            if self.headless:
-                options.add_argument('--headless=new')  # Use new headless mode
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                options.add_argument('--disable-extensions')
-                options.add_argument('--disable-plugins')
-                options.add_argument('--disable-images')  # Disable images for faster loading
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--window-size=1280,720')
-            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36')
-            
-            # Enable logging for better debugging
-            options.add_argument('--enable-logging')
-            options.add_argument('--log-level=0')
-            
-            # Disable images and CSS for faster loading (optional)
-            # prefs = {"profile.managed_default_content_settings.images": 2}
-            # options.add_experimental_option("prefs", prefs)
-            
-            self.driver = webdriver.Chrome(service=service, options=options)
-            self.driver.set_page_load_timeout(self.timeout)
-            
-            # Enable network logging - but only if not in headless mode or if it fails gracefully
-            try:
-                self.driver.execute_cdp_cmd('Network.enable', {})
-                self.driver.execute_cdp_cmd('Runtime.enable', {})
-                logger.info("Network monitoring enabled successfully")
-            except Exception as e:
-                logger.warning(f"Failed to enable network monitoring: {e}")
-                # Continue without network monitoring
-    
+        """Initialize the Selenium WebDriver with headless-safe, stealthy settings."""
+        if self.driver is not None:
+            return
+
+        from selenium import webdriver
+        from selenium.webdriver.chrome.service import Service
+        from webdriver_manager.chrome import ChromeDriverManager
+        import os
+        import tempfile
+
+        # Persist cookies/consent between runs
+        user_data_dir = os.path.join(tempfile.gettempdir(), "nadlan_chrome_profile")
+        os.makedirs(user_data_dir, exist_ok=True)
+
+        options = webdriver.ChromeOptions()
+
+        # Use new headless; don’t set a fake/old UA. Let ChromeDriver pick a matching UA.
+        if self.headless:
+            options.add_argument("--headless=new")
+
+        # DO NOT block images/CSS; the app may depend on them
+        # options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})  # <-- leave disabled
+
+        # Make the browser look normal
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--window-size=1366,768")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-features=Translate")        # remove oddities
+        options.add_argument("--user-data-dir=" + user_data_dir)    # persist cookies/consent
+        options.add_argument("--lang=he-IL")                        # UI language
+
+        # Improve headless WebGL/canvas fidelity
+        options.add_argument("--use-gl=swiftshader")
+        options.add_argument("--enable-webgl")
+        options.add_argument("--ignore-gpu-blocklist")
+
+        # Avoid first-run noise
+        options.add_argument("--no-first-run")
+        options.add_argument("--no-default-browser-check")
+
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
+
+        # PageLoadStrategy "eager" can help with flaky SPA loads
+        try:
+            driver.execute_cdp_cmd("Page.setWebLifecycleState", {"state": "active"})
+        except Exception:
+            pass
+
+        # --- Stealth hardening via CDP ---
+        try:
+            # Timezone + locale + languages
+            driver.execute_cdp_cmd("Emulation.setTimezoneOverride", {"timezoneId": "Asia/Jerusalem"})
+            driver.execute_cdp_cmd("Emulation.setLocaleOverride", {"locale": "he-IL"})
+            driver.execute_cdp_cmd("Network.setUserAgentOverride", {
+                # Use current UA but add Accept-Language header
+                "userAgent": driver.execute_script("return navigator.userAgent"),
+                "acceptLanguage": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+                "platform": "MacIntel"
+            })
+            # Mask webdriver and align platform/vendor
+            driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                "source": """
+                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                    Object.defineProperty(navigator, 'platform', {get: () => 'MacIntel'});
+                    Object.defineProperty(navigator, 'language', {get: () => 'he-IL'});
+                    Object.defineProperty(navigator, 'languages', {get: () => ['he-IL','he','en-US','en']});
+                    Object.defineProperty(navigator, 'vendor', {get: () => 'Google Inc.'});
+                    // WebGL vendor/renderer spoof to match headful-like entropy
+                    const getParameter = WebGLRenderingContext.prototype.getParameter;
+                    WebGLRenderingContext.prototype.getParameter = function(param){
+                    if (param === 37445) return 'Google Inc.';           // UNMASKED_VENDOR_WEBGL
+                    if (param === 37446) return 'ANGLE (Apple, Apple GPU)'; // UNMASKED_RENDERER_WEBGL
+                    return getParameter.call(this, param);
+                    };
+                """
+            })
+        except Exception as e:
+            logger.debug(f"CDP stealth setup failed: {e}")
+
+        # Performance logs may be flaky in headless; don't fail the run if not available
+        try:
+            driver.execute_cdp_cmd("Network.enable", {})
+            driver.execute_cdp_cmd("Runtime.enable", {})
+        except Exception as e:
+            logger.debug(f"Could not enable Network/Runtime: {e}")
+
+        # Slightly longer script timeouts for SPAs
+        driver.set_page_load_timeout(self.timeout)
+        driver.set_script_timeout(max(self.timeout, 60))
+
+        self.driver = driver
+
     def _wait_for_deals_api_call(self, timeout: int = 30) -> bool:
         """Wait for the deals API call to complete by monitoring network requests."""
         import time
@@ -716,44 +774,8 @@ class NadlanDealsScraper:
                             logger.debug(f"Could not save screenshot: {e}")
                         
                         # Error modal indicates API failure - refresh to reload deals
-                        logger.info("Error modal detected - API call failed, refreshing page to reload deals...")
-                        
-                        try:
-                            # Store current URL before refresh
-                            current_url = self.driver.current_url
-                            logger.info(f"Current URL before refresh: {current_url}")
-                            
-                            self.driver.refresh()
-                            logger.info("Page refreshed successfully")
-                            
-                            # Wait for page to load after refresh
-                            self._wait_for_page_load()
-                            
-                            # Check if we're still on the deals page or need to navigate back
-                            refreshed_url = self.driver.current_url
-                            logger.info(f"URL after refresh: {refreshed_url}")
-                            
-                            # If we're not on a deals page anymore, try to navigate back
-                            if "page=deals" not in refreshed_url and "view=address" in current_url:
-                                logger.info("Not on deals page after refresh, attempting to navigate back...")
-                                # Extract address ID from the original URL if possible
-                                if "id=" in current_url:
-                                    address_id = current_url.split("id=")[1].split("&")[0]
-                                    deals_url = f"https://www.nadlan.gov.il/?view=address&id={address_id}&page=deals"
-                                    logger.info(f"Navigating to deals URL: {deals_url}")
-                                    self.driver.get(deals_url)
-                                    self._wait_for_page_load()
-                            
-                            # Check if error modal is still present after refresh
-                            if self._check_for_error_modal():
-                                logger.warning("Error modal still present after refresh")
-                                raise NadlanAPIError("Website showed error modal even after refresh: שגיאה בטעינת הנתונים")
-                            else:
-                                logger.info("Error modal cleared after refresh, continuing with data extraction...")
-                                
-                        except Exception as refresh_error:
-                            logger.error(f"Failed to refresh page: {refresh_error}")
-                            raise NadlanAPIError("Website showed error modal: שגיאה בטעינת הנתונים")
+                        logger.info("Error modal detected - API call failed...")
+                        raise NadlanAPIError("Website showed error modal even after refresh: שגיאה בטעינת הנתונים")
                             
                 except NadlanAPIError:
                     raise
@@ -1317,7 +1339,7 @@ class NadlanDealsScraper:
         return info
 
 if __name__ == "__main__":
-    scraper = NadlanDealsScraper(headless=False)
-    deals = scraper.get_deals_by_address("רוזוב 14 תל אביב", max_age_days=180)
+    scraper = NadlanDealsScraper()
+    deals = scraper.get_deals_by_address("הירקון 319 תל אביב", max_age_days=365 * 10)
     for deal in deals:
         print(f"{deal.address} - ₪{deal.deal_amount:,.0f}")

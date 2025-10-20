@@ -5,13 +5,21 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import type { CSSProperties } from "react";
 
-const renderSheet = (side?: "left" | "right") => {
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+
+const renderSheet = (side?: "left" | "right", style?: CSSProperties) => {
   render(
     <div dir="rtl">
       <Sheet open>
-        <SheetContent side={side} data-testid={`sheet-${side ?? "default"}`}>
+        <SheetContent
+          side={side}
+          data-testid={`sheet-${side ?? "default"}`}
+          style={style}
+        >
+          <SheetTitle className="sr-only">כותרת</SheetTitle>
+          <SheetDescription className="sr-only">תיאור</SheetDescription>
           תוכן
         </SheetContent>
       </Sheet>
@@ -28,6 +36,7 @@ describe("SheetContent physical positioning", () => {
     expect(sheet).toHaveClass("rtl:right-0");
     expect(sheet).toHaveClass("rtl:left-auto");
     expect(sheet).not.toHaveClass("end-0");
+    expect(sheet).toHaveStyle({ right: "0px", left: "auto" });
   });
 
   it("keeps left-sided sheet anchored to the viewport's left edge in RTL", async () => {
@@ -38,5 +47,13 @@ describe("SheetContent physical positioning", () => {
     expect(sheet).toHaveClass("rtl:left-0");
     expect(sheet).toHaveClass("rtl:right-auto");
     expect(sheet).not.toHaveClass("start-0");
+    expect(sheet).toHaveStyle({ left: "0px", right: "auto" });
+  });
+
+  it("respects explicit style overrides while keeping the opposite edge auto", async () => {
+    renderSheet("right", { right: "1.5rem" });
+
+    const sheet = await waitFor(() => screen.getByTestId("sheet-right"));
+    expect(sheet).toHaveStyle({ right: "1.5rem", left: "auto" });
   });
 });

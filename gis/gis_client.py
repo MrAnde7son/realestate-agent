@@ -26,7 +26,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from utils.retry import request_with_retry
 from pyproj import Transformer
 
-from gis.parse_zchuyot import parse_html_privilege_page, parse_zchuyot
+from gis.parse_zchuyot import parse_zchuyot
 
 
 class ArcGISError(RuntimeError):

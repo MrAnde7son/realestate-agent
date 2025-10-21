@@ -946,18 +946,7 @@ class ZchuyotParser:
 def parse_zchuyot(pdf_path: str) -> Dict[str, Any]:
     parser = ZchuyotParser()
     return parser.parse(pdf_path)
-
-
-def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
-    """
-    Backwards-compatibility shim.  The Tel-Aviv GIS client imports this helper,
-    but the current workflow no longer relies on HTML privilege dropdown pages.
-    Returning an empty list keeps the import surface identical without
-    re-introducing the legacy parser.
-    """
-
-    return []
-
+    
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     data = parse_zchuyot("backend-django/privilege_pages/privilege_block_6638_parcel_392.pdf")

@@ -124,7 +124,11 @@ describe('Asset Management Integration', () => {
     
     // Default fetch responses
     ;(global.fetch as any).mockImplementation((url: string, options?: any) => {
-      if (url === '/api/assets' && (!options || options.method === 'GET')) {
+      if (
+        typeof url === 'string' &&
+        url.startsWith('/api/assets') &&
+        (!options || options.method === 'GET')
+      ) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -156,7 +160,11 @@ describe('Asset Management Integration', () => {
         })
       }
       
-      if (url === '/api/assets' && options?.method === 'POST') {
+      if (
+        typeof url === 'string' &&
+        url.startsWith('/api/assets') &&
+        options?.method === 'POST'
+      ) {
         const body = options.body ? JSON.parse(options.body) : {}
         return Promise.resolve({
           ok: true,

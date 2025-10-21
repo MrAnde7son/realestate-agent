@@ -52,11 +52,18 @@ const newAssetSchema = z.object({
   rentEstimate: z.number().optional()
 })
 
-export async function GET(request: Request) {
+export async function GET(request?: Request) {
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
   const token = cookies().get('access_token')?.value
-  const url = new URL(request.url)
-  const search = url.search ? url.search : ''
+  let search = ''
+  if (request?.url) {
+    try {
+      const url = new URL(request.url)
+      search = url.search ? url.search : ''
+    } catch (error) {
+      console.warn('Failed to parse request URL in /api/assets GET handler:', error)
+    }
+  }
 
   // Assets endpoint is open to everyone - no authentication required
   try {

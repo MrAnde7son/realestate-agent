@@ -39,7 +39,6 @@ import { ListingsPanel } from '@/components/crm/listings-panel'
 import DecisiveAppraisalsTable, { DecisiveAppraisalRow } from '@/components/DecisiveAppraisalsTable'
 import RamiAppraisalsTable, { RamiAppraisalRow } from '@/components/RamiAppraisalsTable'
 import DocumentsTable, { DocumentRow } from '@/components/DocumentsTable'
-import DocumentSearch from '@/components/DocumentSearch'
 import PermitsTable, { PermitRow } from '@/components/PermitsTable'
 import type { SortingState } from '@tanstack/react-table'
 import {
@@ -513,8 +512,6 @@ React.useEffect(() => {
     status: mapFilterValues(documentsData.filters?.status),
   }), [documentsData.filters])
 
-  const availableDocumentCategories = useMemo(() => new Set(availableDocumentFilters.category), [availableDocumentFilters.category])
-
   const formatNumber = (value?: number, options?: Intl.NumberFormatOptions) =>
     value !== undefined && value !== null
       ? value.toLocaleString('he-IL', options)
@@ -539,30 +536,6 @@ React.useEffect(() => {
     }
   }
 
-  const handleDocumentResults = React.useCallback(
-    (result: { type: 'params' | 'reset'; query: string; category: string }) => {
-      const normalizedQuery = result.query?.trim() ?? ''
-      setDocumentsTableSearch(normalizedQuery)
-
-      if (result.type === 'reset') {
-        setDocumentsCategoryFilter('all')
-        setDocumentsTypeFilter('all')
-        setDocumentsSourceFilter('all')
-        setDocumentsStatusFilter('all')
-      } else {
-        const category = result.category ?? 'all'
-        if (category === 'all' || !category) {
-          setDocumentsCategoryFilter('all')
-        } else if (availableDocumentCategories.has(category)) {
-          setDocumentsCategoryFilter(category)
-        }
-      }
-
-      setDocumentsPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    },
-    [availableDocumentCategories, setDocumentsPagination]
-  )
-
   // Combine all document sources into a unified list
   const getAllDocuments = () => {
     const allDocs: any[] = []
@@ -586,13 +559,14 @@ React.useEffect(() => {
     const translateSource = (source: string) => {
       const translations: Record<string, string> = {
         'user_upload': 'העלאה ידנית',
-        'GIS': 'מערכת מידע גיאוגרפית',
+        'gis': 'מערכת מידע גיאוגרפית',
         'gis_permit': 'מערכת מידע גיאוגרפית',
         'gis_rights': 'מערכת מידע גיאוגרפית',
-        'RAMI': 'רמ״י',
+        'handasa': 'תיק בניין',
+        'rami': 'רמ״י',
         'rami_plan': 'רמ״י',
-        'Mavat': 'מבת',
-        'Gov': 'ממשלתי',
+        'mavat': 'מבת',
+        'gov': 'ממשלתי',
         'tabu': 'טאבו',
         'tabu_upload': 'טאבו',
         'meta_migration': 'העברה מנתונים קיימים',
@@ -602,7 +576,7 @@ React.useEffect(() => {
         'external': 'מקור חיצוני',
         'unknown': 'מקומי',
       }
-      return translations[source] || source
+      return source && translations[source.toLowerCase()] || source
     }
     
     // 1. User-uploaded documents from asset.documents
@@ -3141,13 +3115,6 @@ useDedupedEffect(() => {
                     )}
                   </Button>
                 </form>
-
-                {/* Document Search and Filter */}
-                <DocumentSearch
-                  assetId={parseInt(id)}
-                  onResultsChange={handleDocumentResults}
-                />
-
                 {/* Error Display */}
                 {documentsError && (
                   <div className="text-red-600 text-sm bg-red-50 p-3 rounded">

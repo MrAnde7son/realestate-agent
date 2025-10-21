@@ -506,8 +506,16 @@ export default function AssetsPage() {
       setLoading(true);
 
       const params = new URLSearchParams();
-      params.set("page", String(pagination.pageIndex + 1));
-      params.set("pageSize", String(pagination.pageSize));
+      const isDefaultPageIndex = pagination.pageIndex === 0;
+      const isDefaultPageSize = pagination.pageSize === DEFAULT_PAGE_SIZE;
+
+      if (!isDefaultPageIndex) {
+        params.set("page", String(pagination.pageIndex + 1));
+      }
+
+      if (!isDefaultPageSize) {
+        params.set("pageSize", String(pagination.pageSize));
+      }
 
       if (search) params.set("search", search);
       if (city && city !== "all") params.set("city", city);

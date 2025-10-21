@@ -541,22 +541,16 @@ export default function AssetsPage() {
 
       if (response.ok) {
         const rows = response.data?.rows ?? [];
-        setAssets(rows);
-
         const paginationInfo = response.data?.pagination;
-        if (paginationInfo) {
-          setTotalCount(paginationInfo.total ?? rows.length);
-          setPagination(prev => {
-            const nextIndex = Math.max(0, (paginationInfo.page ?? 1) - 1);
-            const nextSize = paginationInfo.page_size ?? prev.pageSize;
-            if (nextIndex === prev.pageIndex && nextSize === prev.pageSize) {
-              return prev;
-            }
-            return { pageIndex: nextIndex, pageSize: nextSize };
-          });
-        } else {
-          setTotalCount(rows.length);
-        }
+        const total = paginationInfo?.total ?? rows.length;
+        const pageSizeFromApi = paginationInfo?.page_size ?? pagination.pageSize;
+        const requestedPageIndex = paginationInfo
+          ? Math.max(0, (paginationInfo.page ?? 1) - 1)
+          : pagination.pageIndex;
+        const lastPageIndex = total > 0 ? Math.max(0, Math.ceil(total / pageSizeFromApi) - 1) : 0;
+        const adjustedPageIndex = Math.min(requestedPageIndex, lastPageIndex);
+
+        setTotalCount(total);
 
         if (response.data?.filters) {
           const filters = response.data.filters as Partial<AssetFilterMetadata>;
@@ -570,6 +564,34 @@ export default function AssetsPage() {
             buildingTypes: filters.buildingTypes ?? [],
             rooms: filters.rooms ?? [],
             statusCounts: filters.statusCounts ?? {},
+          });
+        }
+
+        if (rows.length === 0 && total > 0 && requestedPageIndex !== adjustedPageIndex) {
+          setPagination(prev => {
+            if (prev.pageIndex === adjustedPageIndex && prev.pageSize === pageSizeFromApi) {
+              return prev;
+            }
+            return { pageIndex: adjustedPageIndex, pageSize: pageSizeFromApi };
+          });
+          return;
+        }
+
+        setAssets(rows);
+
+        if (paginationInfo) {
+          setPagination(prev => {
+            if (prev.pageIndex === adjustedPageIndex && prev.pageSize === pageSizeFromApi) {
+              return prev;
+            }
+            return { pageIndex: adjustedPageIndex, pageSize: pageSizeFromApi };
+          });
+        } else if (pageSizeFromApi !== pagination.pageSize) {
+          setPagination(prev => {
+            if (prev.pageSize === pageSizeFromApi) {
+              return prev;
+            }
+            return { ...prev, pageSize: pageSizeFromApi };
           });
         }
       } else {
@@ -751,6 +773,7 @@ export default function AssetsPage() {
         const successfulIds = getSuccessfulIds(response.data);
         if (successfulIds.length > 0) {
           setAssets(prev => prev.filter(asset => !successfulIds.includes(asset.id)));
+          await fetchAssets();
         }
         toast({
           title: "מחיקה מרובה",

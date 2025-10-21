@@ -312,7 +312,7 @@ export default function LeadsList({
       ) : (
         <div className="bg-white rounded-lg border overflow-x-auto">
           <div className="min-w-full">
-            <Table>
+            <Table className="table-auto min-w-[960px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8 whitespace-nowrap"></TableHead>

@@ -262,7 +262,7 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
       ) : (
         <div className="bg-white rounded-lg border overflow-x-auto">
           <div className="min-w-full">
-            <Table>
+            <Table className="table-auto min-w-[880px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="whitespace-nowrap min-w-[120px] rtl:text-start">שם</TableHead>

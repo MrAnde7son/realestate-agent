@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from contextlib import nullcontext
 from types import ModuleType, SimpleNamespace
 
 
@@ -156,8 +157,15 @@ if "opentelemetry" not in sys.modules:
     otel_module = ModuleType("opentelemetry")
     trace_module = ModuleType("opentelemetry.trace")
 
+    class _DummyTracer:
+        def start_as_current_span(self, *args, **kwargs):
+            return nullcontext()
+
+        def start_span(self, *args, **kwargs):
+            return nullcontext()
+
     def _get_tracer(*args, **kwargs):
-        return object()
+        return _DummyTracer()
 
     def _set_tracer_provider(*args, **kwargs):
         return None

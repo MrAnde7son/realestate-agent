@@ -12,7 +12,7 @@ from core.llm.types import ChatMessage
 async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
     captured = {}
 
-    def fake_configure(*, api_key):
+    def fake_configure(api_key):
         captured["configured_key"] = api_key
 
     class FakeChatSession:
@@ -21,7 +21,7 @@ async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
             return types.SimpleNamespace(text="ok")
 
     class FakeModel:
-        def __init__(self, *, model_name, generation_config=None, system_instruction=None):
+        def __init__(self, model_name, generation_config=None, system_instruction=None):
             captured["model_name"] = model_name
             captured["generation_config"] = generation_config
             captured["system_instruction"] = system_instruction

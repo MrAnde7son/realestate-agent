@@ -18,7 +18,7 @@ def reload_backend(monkeypatch, settings):
 
     settings.EMAIL_BACKEND = "core.email_backends.resend_backend.ResendEmailBackend"
 
-    def _reload(*, api_key: str | None = "test_api_key", **env: str) -> object:
+    def _reload(api_key: str | None = "test_api_key", **env: str) -> object:
         if api_key is None:
             monkeypatch.delenv("RESEND_API_KEY", raising=False)
         else:

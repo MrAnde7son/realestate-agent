@@ -1,49 +1,73 @@
 from __future__ import annotations
 
-from typing import Optional
-from unittest.mock import patch
+import pytest
+from celery import exceptions as celery_exceptions
 
 from core import tasks
-from core.models import Asset
-from orchestration.location import LocationQuery
-
-
-class DummyPipeline:
-    def __init__(self):
-        self.calls = []
-
-    def run(
-        self,
-        location: Optional[LocationQuery] = None,
-        *,
-        max_pages: int = 1,
-        asset_id: Optional[int] = None,
-    ):
-        # Record a single tuple of the call arguments
-        self.calls.append((location, max_pages, asset_id))
-        return [42]
 
 
 def test_run_data_pipeline_task(monkeypatch):
-    asset = Asset(
-        id=1,
-        scope_type="address",
-        city="City",
-        street="Main",
-        number=5,
+    class DummySignature:
+        def __init__(self, name: str, args: tuple, kwargs: dict):
+            self.name = name
+            self.args = args
+            self.kwargs = kwargs
+            self.options: dict = {}
+
+        def set(self, **options):
+            self.options.update(options)
+            return self
+
+    def fake_collect_s(*args, **kwargs):
+        return DummySignature("collect", args, kwargs)
+
+    def fake_normalize_s(*args, **kwargs):
+        return DummySignature("normalize", args, kwargs)
+
+    def fake_persist_s(*args, **kwargs):
+        return DummySignature("persist", args, kwargs)
+
+    def fake_link_s(*args, **kwargs):
+        return DummySignature("link", args, kwargs)
+
+    monkeypatch.setattr(tasks.collect_asset_data, "s", fake_collect_s)
+    monkeypatch.setattr(tasks.normalize_asset_data, "s", fake_normalize_s)
+    monkeypatch.setattr(tasks.persist_asset_data, "s", fake_persist_s)
+    monkeypatch.setattr(tasks.link_asset_data, "s", fake_link_s)
+
+    captured = {}
+
+    class DummyWorkflow:
+        def __init__(self, args, kwargs):
+            self.signatures = args
+            self.kwargs = kwargs
+            self.options = {}
+
+        def set(self, **options):
+            self.options.update(options)
+            return self
+
+        def freeze(self, *args, **kwargs):  # pragma: no cover - Celery stub
+            return self
+
+        def delay(self, *args, **kwargs):  # pragma: no cover - Celery stub
+            return None
+
+    def fake_chain(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return DummyWorkflow(args, kwargs)
+
+    monkeypatch.setattr(tasks, "chain", fake_chain)
+
+    with pytest.raises(celery_exceptions.Ignore):
+        tasks.run_data_pipeline.run(asset_id=1, max_pages=2)
+
+    collected_names = tuple((sig.name, sig.args, sig.kwargs) for sig in captured["args"])
+    assert collected_names == (
+        ("collect", (), {"asset_id": 1, "max_pages": 2}),
+        ("normalize", (), {}),
+        ("persist", (), {}),
+        ("link", (), {}),
     )
-    # Mock ORM get & save so we don't hit DB
-    monkeypatch.setattr(Asset.objects, "get", lambda id: asset)
-    monkeypatch.setattr(asset, "save", lambda *args, **kwargs: None)
-
-    dummy = DummyPipeline()
-
-    # Patch the DataPipeline class used inside the task implementation
-    with patch("orchestration.data_pipeline.DataPipeline", return_value=dummy):
-        # Call the underlying function via .run (Celery Task wraps it)
-        result = tasks.run_data_pipeline.run(asset_id=1, max_pages=1)
-
-    assert result == [42]
-    # Expect the pipeline to be invoked with asset's address fields
-    expected_location = LocationQuery(city="City", street="Main", house_number=5)
-    assert dummy.calls == [(expected_location, 1, 1)]
+    assert captured["kwargs"] == {}

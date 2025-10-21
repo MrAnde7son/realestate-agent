@@ -468,7 +468,7 @@ export default function HomePage() {
                   </div>
                   {!isAuthenticated && (
                     <Button onClick={() => handleProtectedAction("שוק")} className="mt-4">
-                      <TrendingUp className="h-4 w-4 mr-2" />
+                      <TrendingUp className="h-4 w-4 me-2" />
                       התחבר לצפייה בנתונים
                     </Button>
                   )}
@@ -527,7 +527,7 @@ export default function HomePage() {
                   </div>
                   <Button asChild className="mt-4">
                     <Link href="/assets">
-                      <Building className="h-4 w-4 mr-2" />
+                      <Building className="h-4 w-4 me-2" />
                       הוסף נכס ראשון
                     </Link>
                   </Button>
@@ -594,7 +594,7 @@ export default function HomePage() {
                 </div>
                 {!isAuthenticated && (
                   <Button onClick={() => handleProtectedAction("עסקאות")} className="mt-4">
-                    <BarChart3 className="h-4 w-4 mr-2" />
+                    <BarChart3 className="h-4 w-4 me-2" />
                     התחבר לצפייה בנתונים
                   </Button>
                 )}
@@ -665,7 +665,7 @@ export default function HomePage() {
                 </div>
                 {!isAuthenticated && (
                   <Button onClick={() => handleProtectedAction("אזורים")} className="mt-4">
-                    <MapPin className="h-4 w-4 mr-2" />
+                    <MapPin className="h-4 w-4 me-2" />
                     התחבר לצפייה בנתונים
                   </Button>
                 )}
@@ -753,7 +753,7 @@ export default function HomePage() {
                 </p>
                 <Button asChild>
                   <Link href="/alerts">
-                    <Bell className="h-4 w-4 mr-2" />
+                    <Bell className="h-4 w-4 me-2" />
                     הגדר התראות ראשונות
                   </Link>
                 </Button>
@@ -780,7 +780,7 @@ export default function HomePage() {
               {isAuthenticated ? (
                 <Button asChild className="w-full mt-4">
                   <Link href="/assets">
-                    <Building className="h-4 w-4 ml-2" />
+                    <Building className="h-4 w-4 ms-2" />
                     הוסף נכס
                   </Link>
                 </Button>
@@ -789,7 +789,7 @@ export default function HomePage() {
                   onClick={() => handleProtectedAction("assets")}
                   className="w-full mt-4"
                 >
-                  <Building className="h-4 w-4 ml-2" />
+                  <Building className="h-4 w-4 ms-2" />
                   התחבר להוספת נכס
                 </Button>
               )}
@@ -812,7 +812,7 @@ export default function HomePage() {
               {isAuthenticated ? (
                 <Button asChild variant="outline" className="w-full mt-4">
                   <Link href="/alerts">
-                    <AlertCircle className="h-4 w-4 ml-2" />
+                    <AlertCircle className="h-4 w-4 ms-2" />
                     צור התראה
                   </Link>
                 </Button>
@@ -822,7 +822,7 @@ export default function HomePage() {
                   variant="outline"
                   className="w-full mt-4"
                 >
-                  <AlertCircle className="h-4 w-4 ml-2" />
+                  <AlertCircle className="h-4 w-4 ms-2" />
                   התחבר ליצירת התראה
                 </Button>
               )}
@@ -845,7 +845,7 @@ export default function HomePage() {
               {isAuthenticated ? (
                 <Button asChild variant="outline" className="w-full mt-4">
                   <Link href="/mortgage/analyze">
-                    <Banknote className="h-4 w-4 ml-2" />
+                    <Banknote className="h-4 w-4 ms-2" />
                     חשב משכנתא
                   </Link>
                 </Button>
@@ -855,7 +855,7 @@ export default function HomePage() {
                   variant="outline"
                   className="w-full mt-4"
                 >
-                  <Banknote className="h-4 w-4 ml-2" />
+                  <Banknote className="h-4 w-4 ms-2" />
                   התחבר למחשבון
                 </Button>
               )}

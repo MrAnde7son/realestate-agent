@@ -588,7 +588,7 @@ export default function MapView({
 
       {/* Back to Table Button */}
       {onBackToTable && (
-        <div className="absolute top-4 left-4 z-20">
+        <div className="absolute top-4 start-4 z-20">
           <Button
             variant="outline"
             size="sm"
@@ -596,32 +596,32 @@ export default function MapView({
             className="bg-white/90 backdrop-blur-sm"
             title="חזרה לטבלה"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="h-4 w-4 me-2 rtl:rotate-180" />
             חזרה לטבלה
           </Button>
         </div>
       )}
 
       {/* Search Bar */}
-      <div className={`absolute top-4 z-20 ${onBackToTable ? 'left-48 right-24' : 'left-4 right-24'}`}>
+      <div className={`absolute top-4 z-20 ${onBackToTable ? 'start-48 end-24' : 'start-4 end-24'}`}>
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="חפש מיקום..."
-            className="pr-10 bg-white/90 backdrop-blur-sm"
+            className="pe-10 bg-white/90 backdrop-blur-sm"
             onFocus={() => setShowSearchResults(true)}
           />
           
           {/* Search Results */}
           {showSearchResults && searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-lg border z-30 max-h-60 overflow-y-auto">
+            <div className="absolute top-full start-0 end-0 mt-1 bg-white rounded-md shadow-lg border z-30 max-h-60 overflow-y-auto">
               {searchResults.map((result) => (
                 <button
                   key={result.place_id}
                   onClick={() => handleSearchResultClick(result)}
-                  className="w-full px-4 py-2 text-right hover:bg-gray-50 border-b last:border-b-0"
+                  className="w-full px-4 py-2 text-start hover:bg-gray-50 border-b last:border-b-0"
                 >
                   {result.formatted_address}
                 </button>
@@ -632,11 +632,11 @@ export default function MapView({
       </div>
 
       {/* Layer Controls */}
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-4 end-4 z-20">
         <Popover open={showLayerControls} onOpenChange={setShowLayerControls}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm">
-              <Layers className="h-4 w-4 mr-2" />
+              <Layers className="h-4 w-4 me-2" />
               שכבות
             </Button>
           </PopoverTrigger>
@@ -678,7 +678,7 @@ export default function MapView({
       </div>
 
       {/* Asset Count */}
-      <div className="absolute bottom-4 left-4 z-20">
+      <div className="absolute bottom-4 start-4 z-20">
         <div className="bg-white/90 backdrop-blur-sm rounded-md px-3 py-2 text-sm">
           <span className="font-medium">{assets.length}</span> נכסים
         </div>

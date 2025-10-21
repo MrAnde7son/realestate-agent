@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
               <CardTitle>איסוף מידע</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="list-disc pl-5 space-y-1">
+              <ul className="list-disc ps-5 space-y-1">
                 <li><strong>מידע אישי:</strong> שם, כתובת אימייל, מספר טלפון ופרטי תשלום</li>
                 <li><strong>מידע שימוש:</strong> נתונים על השימוש בפלטפורמה, דפים שנצפו ופעולות שבוצעו</li>
                 <li><strong>מידע טכני:</strong> כתובת IP, סוג דפדפן, מערכת הפעלה וזמן גישה</li>
@@ -35,7 +35,7 @@ export default function PrivacyPolicyPage() {
               <CardTitle>שימוש במידע</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="list-disc pl-5 space-y-1">
+              <ul className="list-disc ps-5 space-y-1">
                 <li>מתן שירותי הפלטפורמה והתאמה אישית</li>
                 <li>עיבוד תשלומים וניהול חשבונות</li>
                 <li>שיפור השירותים ופיתוח תכונות חדשות</li>
@@ -52,7 +52,7 @@ export default function PrivacyPolicyPage() {
             </CardHeader>
             <CardContent>
               <p>אנו לא מוכרים, משכירים או חושפים מידע אישי לצדדים שלישיים, למעט:</p>
-              <ul className="list-disc pl-5 space-y-1 mt-2">
+              <ul className="list-disc ps-5 space-y-1 mt-2">
                 <li>ספקי שירותים מהימנים המסייעים לנו להפעיל את הפלטפורמה</li>
                 <li>כאשר נדרש על פי חוק או צו בית משפט</li>
                 <li>כדי להגן על זכויותינו, רכושנו או בטיחות המשתמשים</li>
@@ -66,7 +66,7 @@ export default function PrivacyPolicyPage() {
               <CardTitle>אבטחת מידע</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="list-disc pl-5 space-y-1">
+              <ul className="list-disc ps-5 space-y-1">
                 <li>הצפנה מתקדמת של נתונים רגישים</li>
                 <li>גישה מוגבלת למידע אישי רק לעובדים מורשים</li>
                 <li>מערכות אבטחה מתקדמות ומניטור 24/7</li>
@@ -81,7 +81,7 @@ export default function PrivacyPolicyPage() {
               <CardTitle>זכויות המשתמש</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="list-disc pl-5 space-y-1">
+              <ul className="list-disc ps-5 space-y-1">
                 <li><strong>גישה למידע:</strong> זכות לקבל עותק של המידע האישי שלך</li>
                 <li><strong>תיקון מידע:</strong> זכות לתקן מידע שגוי או לא מעודכן</li>
                 <li><strong>מחיקת מידע:</strong> זכות לבקש מחיקת המידע האישי שלך</li>
@@ -126,7 +126,7 @@ export default function PrivacyPolicyPage() {
               <p>
                 לשאלות או בקשות הקשורות לפרטיות, ניתן לפנות אלינו:
               </p>
-              <ul className="list-disc pl-5 space-y-1 mt-2">
+              <ul className="list-disc ps-5 space-y-1 mt-2">
                 <li>דרך טופס &ldquo;צור קשר&rdquo; באפליקציה</li>
                 <li>בדף ההגדרות תחת &ldquo;עזרה ותמיכה&rdquo;</li>
                 <li>בדוא&ldquo;ל: privacy@nadlaner.com</li>

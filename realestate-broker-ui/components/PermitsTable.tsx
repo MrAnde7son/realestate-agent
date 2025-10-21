@@ -149,7 +149,7 @@ const RequestTypeCell = ({ value }: { value?: string }) => {
           <div
             tabIndex={0}
             dir="rtl"
-            className="max-w-[220px] cursor-help overflow-hidden rounded-md border border-border/40 bg-muted/40 px-2 py-0.5 text-xs font-medium leading-4 text-right text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background max-h-10"
+            className="max-w-[220px] cursor-help overflow-hidden rounded-md border border-border/40 bg-muted/40 px-2 py-0.5 text-xs font-medium leading-4 text-start text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background max-h-10"
           >
             <span className="block truncate">{preview}</span>
           </div>
@@ -184,7 +184,7 @@ const DescriptionCell = ({ value }: { value?: string }) => {
           <div
             tabIndex={0}
             dir="rtl"
-            className="max-w-[400px] cursor-help overflow-hidden rounded-lg bg-muted/30 px-3 py-1 text-sm text-right leading-[1.35rem] text-muted-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background max-h-16"
+            className="max-w-[400px] cursor-help overflow-hidden rounded-lg bg-muted/30 px-3 py-1 text-sm text-start leading-[1.35rem] text-muted-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background max-h-16"
           >
             <span className="block leading-[1.35rem] line-clamp-2">{preview}</span>
           </div>
@@ -213,7 +213,7 @@ function createColumns(): ColumnDef<PermitRow>[] {
       cell: ({ row }) => {
         const permit = row.original;
         return (
-          <div className="space-y-1 text-right">
+          <div className="space-y-1 text-start">
             <div className="font-medium text-sm">
               {permit.title || permit.description || 'היתר בנייה'}
             </div>
@@ -230,7 +230,7 @@ function createColumns(): ColumnDef<PermitRow>[] {
       accessorKey: 'permitNumber',
       header: 'מספר היתר',
       cell: ({ row }) => (
-        <div className="text-sm font-medium text-right">
+        <div className="text-sm font-medium text-start">
           {row.original.permitNumber || '—'}
         </div>
       ),
@@ -239,7 +239,7 @@ function createColumns(): ColumnDef<PermitRow>[] {
       accessorKey: 'requestNumber',
       header: 'מספר בקשה',
       cell: ({ row }) => (
-        <div className="text-sm text-right">
+        <div className="text-sm text-start">
           {row.original.requestNumber || '—'}
         </div>
       ),
@@ -293,7 +293,7 @@ function createColumns(): ColumnDef<PermitRow>[] {
       accessorKey: 'documentType',
       header: 'סוג מסמך',
       cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground text-right">
+        <div className="text-sm text-muted-foreground text-start">
           {documentTypeDisplay(row.original.documentType)}
         </div>
       ),
@@ -302,8 +302,8 @@ function createColumns(): ColumnDef<PermitRow>[] {
       accessorKey: 'approvalDate',
       header: 'תאריך אישור',
       cell: ({ row }) => (
-        <div className="text-sm text-right">
-          {row.original.approvalDate || row.original.issueDate || '—'}
+        <div className="text-sm text-end">
+          <span dir="ltr">{row.original.approvalDate || row.original.issueDate || '—'}</span>
         </div>
       ),
     },
@@ -311,8 +311,8 @@ function createColumns(): ColumnDef<PermitRow>[] {
       accessorKey: 'expiryDate',
       header: 'תוקף',
       cell: ({ row }) => (
-        <div className="text-sm text-right">
-          {row.original.expiryDate || '—'}
+        <div className="text-sm text-end">
+          <span dir="ltr">{row.original.expiryDate || '—'}</span>
         </div>
       ),
     },
@@ -324,7 +324,7 @@ function createColumns(): ColumnDef<PermitRow>[] {
       cell: ({ row }) => {
         const permit = row.original;
         return (
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-start gap-2">
             {permit.handasaLink && (
               <Button
                 variant="outline"
@@ -337,7 +337,7 @@ function createColumns(): ColumnDef<PermitRow>[] {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <ExternalLink className="h-3 w-3 ml-1 inline-block" />
+                  <ExternalLink className="h-3 w-3 ms-1 inline-block" />
                   אתר העירייה
                 </a>
               </Button>
@@ -349,7 +349,7 @@ function createColumns(): ColumnDef<PermitRow>[] {
                 onClick={() => window.open(permit.externalUrl as string, '_blank')}
                 className="text-xs"
               >
-                <FileDown className="h-3 w-3 ml-1 inline-block" />
+                <FileDown className="h-3 w-3 ms-1 inline-block" />
                 הורדה
               </Button>
             )}
@@ -811,13 +811,13 @@ export default function PermitsTable({
                 {headerGroup.headers.map((header) => {
                   const sorted = header.column.getIsSorted();
                   return (
-                    <TableHead key={header.id} className="text-right rtl:text-right">
+                    <TableHead key={header.id} className="text-start rtl:text-start">
                       {header.isPlaceholder ? null : (
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
                           disabled={!header.column.getCanSort()}
-                          className="flex w-full items-center justify-end gap-1 text-xs font-medium rtl:flex-row-reverse disabled:cursor-default"
+                          className="flex w-full items-center justify-start gap-1 text-xs font-medium disabled:cursor-default"
                         >
                           {flexRender(
                             header.column.columnDef.header,
@@ -860,7 +860,7 @@ export default function PermitsTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} className="hover:bg-muted/50">
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-right rtl:text-right">
+                    <TableCell key={cell.id} className="text-start rtl:text-start">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

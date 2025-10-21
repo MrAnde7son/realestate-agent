@@ -214,11 +214,11 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rtl:flex-row-reverse">
-        <h2 className="text-2xl font-bold rtl:text-right">לקוחות</h2>
+        <h2 className="text-2xl font-bold rtl:text-start">לקוחות</h2>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+              <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
               לקוח חדש
             </Button>
           </DialogTrigger>
@@ -237,12 +237,12 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
 
       <div className="mb-2">
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="חפש לקוחות..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pr-10"
+            className="pe-10"
           />
         </div>
       </div>
@@ -254,7 +254,7 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
           </div>
           {!searchQuery && (
             <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+              <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
               צור לקוח ראשון
             </Button>
           )}
@@ -262,25 +262,25 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
       ) : (
         <div className="bg-white rounded-lg border overflow-x-auto">
           <div className="min-w-full">
-            <Table>
+            <Table className="table-auto min-w-[880px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="whitespace-nowrap min-w-[120px] rtl:text-right">שם</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-right">אימייל</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[120px] rtl:text-right">טלפון</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-right">הון עצמי</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-right">תגיות</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-right">נוצר</TableHead>
-                  <TableHead className="rtl:text-right whitespace-nowrap min-w-[120px]">פעולות</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[120px] rtl:text-start">שם</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-start">אימייל</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[120px] rtl:text-start">טלפון</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-start">הון עצמי</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-start">תגיות</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-start">נוצר</TableHead>
+                  <TableHead className="rtl:text-start whitespace-nowrap min-w-[120px]">פעולות</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredContacts.map((contact) => (
                   <TableRow key={contact.id}>
-                    <TableCell className="font-medium whitespace-nowrap rtl:text-right">{contact.name}</TableCell>
-                    <TableCell className="whitespace-nowrap rtl:text-right">{contact.email || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap rtl:text-right">{contact.phone || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap rtl:text-right">{formatEquity(contact.equity)}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap rtl:text-start">{contact.name}</TableCell>
+                    <TableCell className="whitespace-nowrap rtl:text-start">{contact.email || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap rtl:text-start">{contact.phone || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap rtl:text-start">{formatEquity(contact.equity)}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1 rtl:flex-row-reverse">
                         {contact.tags.map((tag) => (
@@ -290,7 +290,7 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap rtl:text-right">
+                    <TableCell className="whitespace-nowrap rtl:text-start">
                       {new Date(contact.created_at).toLocaleDateString('he-IL')}
                     </TableCell>
                     <TableCell>

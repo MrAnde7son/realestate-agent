@@ -19,9 +19,9 @@ export function ConfirmationDialog() {
     <AlertDialog open={state.isOpen} onOpenChange={close}>
       <AlertDialogContent className="sm:max-w-md w-[95vw] mx-auto">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-right">{state.title}</AlertDialogTitle>
+          <AlertDialogTitle className="text-start">{state.title}</AlertDialogTitle>
           {state.description && (
-            <AlertDialogDescription className="text-right">
+            <AlertDialogDescription className="text-start">
               {state.description}
             </AlertDialogDescription>
           )}

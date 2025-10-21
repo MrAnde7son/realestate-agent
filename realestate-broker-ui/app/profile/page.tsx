@@ -258,7 +258,7 @@ export default function ProfilePage() {
                   </div>
                   {!isEditing && (
                     <Button onClick={handleEdit} variant="outline" size="sm">
-                      <Edit className="h-4 w-4 ml-2" />
+                      <Edit className="h-4 w-4 ms-2" />
                       ערוך
                     </Button>
                   )}
@@ -391,12 +391,12 @@ export default function ProfilePage() {
                       <Button type="submit" disabled={isLoading}>
                         {isLoading ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white me-2" />
                             שומר...
                           </>
                         ) : (
                           <>
-                            <Save className="h-4 w-4 ml-2" />
+                            <Save className="h-4 w-4 ms-2" />
                             שמור שינויים
                           </>
                         )}
@@ -456,7 +456,7 @@ export default function ProfilePage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              className="absolute end-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                               onClick={() => togglePasswordVisibility('current')}
                             >
                               {showPasswords.current ? (
@@ -486,7 +486,7 @@ export default function ProfilePage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              className="absolute end-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                               onClick={() => togglePasswordVisibility('new')}
                             >
                               {showPasswords.new ? (
@@ -516,7 +516,7 @@ export default function ProfilePage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              className="absolute end-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                               onClick={() => togglePasswordVisibility('confirm')}
                             >
                               {showPasswords.confirm ? (
@@ -549,12 +549,12 @@ export default function ProfilePage() {
                           >
                             {isChangingPassword ? (
                               <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white me-2" />
                                 משנה סיסמה...
                               </>
                             ) : (
                               <>
-                                <Key className="h-4 w-4 ml-2" />
+                                <Key className="h-4 w-4 ms-2" />
                                 שנה סיסמה
                               </>
                             )}

@@ -573,13 +573,13 @@ export default function TransactionsTable({
                 {headerGroup.headers.map((header) => {
                   const sorted = header.column.getIsSorted()
                   return (
-                    <TableHead key={header.id} className="text-right rtl:text-right">
+                    <TableHead key={header.id} className="text-start">
                       {header.isPlaceholder ? null : (
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
                           disabled={!header.column.getCanSort()}
-                          className="flex w-full items-center justify-end gap-1 text-xs font-medium rtl:flex-row-reverse disabled:cursor-default"
+                          className="flex w-full items-center justify-start gap-1 text-xs font-medium disabled:cursor-default"
                         >
                           {flexRender(
                             header.column.columnDef.header,
@@ -618,7 +618,7 @@ export default function TransactionsTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} className="hover:bg-muted/50">
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-right rtl:text-right">
+                    <TableCell key={cell.id} className="text-start">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

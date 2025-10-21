@@ -1325,7 +1325,7 @@ useDedupedEffect(() => {
           <div className="flex items-center gap-2 mb-4">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/assets">
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
                 חזרה לרשימה
               </Link>
             </Button>
@@ -1343,7 +1343,7 @@ useDedupedEffect(() => {
           <div className="flex items-center gap-2 mb-4">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/assets">
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
                 חזרה לרשימה
               </Link>
             </Button>
@@ -1528,7 +1528,7 @@ useDedupedEffect(() => {
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/assets">
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
                 חזרה לרשימה
               </Link>
             </Button>
@@ -1541,7 +1541,7 @@ useDedupedEffect(() => {
               </p>
             </div>
           </div>
-          <div className="w-full text-right space-y-2 md:w-auto">
+          <div className="w-full text-start space-y-2 md:w-auto">
             <div className="text-3xl font-bold">{formatCurrency(asset.price) ?? '—'}</div>
             <div className="text-muted-foreground">
               {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
@@ -1550,21 +1550,21 @@ useDedupedEffect(() => {
             </div>
             {/* Attribution Information */}
             {asset.attribution && (
-              <div className="text-xs text-muted-foreground mt-2 space-y-1 text-right">
+              <div className="text-xs text-muted-foreground mt-2 space-y-1 text-start">
                 {asset.attribution.created_by && (
-                  <div className="text-right">
+                  <div className="text-start">
                     <span className="font-medium">נוצר על ידי: </span>
                     <span>{asset.attribution.created_by.name}</span>
                   </div>
                 )}
                 {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
-                  <div className="text-right">
+                  <div className="text-start">
                     <span className="font-medium">עודכן לאחרונה על ידי: </span>
                     <span>{asset.attribution.last_updated_by.name}</span>
                   </div>
                 )}
                 {asset.recent_contributions && asset.recent_contributions.length > 0 && (
-                  <div className="text-right">
+                  <div className="text-start">
                     <span className="font-medium">תרומות אחרונות: </span>
                     <span>{asset.recent_contributions.length}</span>
                   </div>
@@ -1828,7 +1828,7 @@ useDedupedEffect(() => {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="flex flex-wrap md:flex-nowrap">
+          <TabsList className="flex flex-wrap gap-2 md:flex-nowrap md:gap-0">
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="listings">מודעות</TabsTrigger>
             <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
@@ -2361,7 +2361,7 @@ useDedupedEffect(() => {
                                   <div className="text-sm text-muted-foreground">{building.housing_units} יחידות דיור</div>
                                 )}
                               </div>
-                              <div className="text-right text-sm">
+                              <div className="text-start text-sm">
                                 {building.total_area_sqm > 0 && (
                                   <div className="font-medium">{building.total_area_sqm.toLocaleString()} מ״ר</div>
                                 )}
@@ -2419,11 +2419,11 @@ useDedupedEffect(() => {
                       <Table>
                         <TableHeader>
                           <TableRow className="rtl:flex-row-reverse">
-                            <TableHead className="text-right">בעלים</TableHead>
-                            <TableHead className="text-right">אחוז בעלות</TableHead>
-                            <TableHead className="text-right">מספר זיהוי</TableHead>
-                            <TableHead className="text-right">תאריך רכישה</TableHead>
-                            <TableHead className="text-right">הערות</TableHead>
+                            <TableHead className="text-start">בעלים</TableHead>
+                            <TableHead className="text-start">אחוז בעלות</TableHead>
+                            <TableHead className="text-start">מספר זיהוי</TableHead>
+                            <TableHead className="text-start">תאריך רכישה</TableHead>
+                            <TableHead className="text-start">הערות</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -2520,19 +2520,19 @@ useDedupedEffect(() => {
                               
                               return (
                                 <TableRow key={index} className="rtl:flex-row-reverse">
-                                  <TableCell className="text-right font-medium">
+                                  <TableCell className="text-start font-medium">
                                     {ownerName || '—'}
                                   </TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell className="text-start">
                                     {convertToPercentage(ownershipRow?.value || '')}
                                   </TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell className="text-start">
                                     {idRow?.value || '—'}
                                   </TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell className="text-start">
                                     {dateRow?.value || '—'}
                                   </TableCell>
-                                  <TableCell className="text-right text-sm">
+                                  <TableCell className="text-start text-sm">
                                     {getMortgageNotes()}
                                   </TableCell>
                                 </TableRow>
@@ -2554,37 +2554,37 @@ useDedupedEffect(() => {
               </CardHeader>
               <CardContent className="space-y-2" dir="rtl">
                 {/* Environmental Measurements */}
-                <div className="flex justify-between text-right">
+                <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">רמת רעש:</span>
                   {renderValue(asset.noiseLevel ? `${asset.noiseLevel}/5` : '—', 'noiseLevel')}
                 </div>
-                <div className="flex justify-between text-right">
+                <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מרחק מאנטנה:</span>
                   {renderValue(asset.antennaDistanceM ? `${asset.antennaDistanceM} מ׳` : '—', 'antennaDistanceM')}
                 </div>
-                <div className="flex justify-between text-right">
+                <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מרחק ממקלט:</span>
                   {renderValue(asset.shelterDistanceM ? `${asset.shelterDistanceM} מ׳` : '—', 'shelterDistanceM')}
                 </div>
                 
                 {/* Environmental Features */}
-                <div className="flex justify-between text-right">
+                <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">שטחים ירוקים:</span>
                   {renderValue(asset.greenWithin300m ? 'כן' : 'לא', 'greenWithin300m')}
                 </div>
-                <div className="flex justify-between text-right">
+                <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">תחבורה ציבורית:</span>
                   {renderValue(asset.publicTransport ?? '—', 'publicTransport')}
                 </div>
-                <div className="flex justify-between text-right">
+                <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מבני ציבור:</span>
                   {renderValue(asset.publicBuildings ?? '—', 'publicBuildings')}
                 </div>
-                <div className="flex justify-between text-right">
+                <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מצב חניה:</span>
                   {renderValue(asset.parking ?? '—', 'parking')}
                 </div>
-                <div className="flex justify-between text-right">
+                <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">פרויקטים סמוכים:</span>
                   {renderValue(asset.nearbyProjects ?? '—', 'nearbyProjects')}
                 </div>
@@ -2614,7 +2614,7 @@ useDedupedEffect(() => {
                     <CardTitle>היתרים</CardTitle>
                     <CardDescription>נתונים מעודכנים ממערכת ההיתרים של העירייה</CardDescription>
                   </div>
-                  <div className="text-right">
+                  <div className="text-start">
                     <div className="text-2xl font-bold">{permitsData.total}</div>
                     <div className="text-sm text-muted-foreground">
                       בקשות פעילות ברדיוס {permitRadius} מטר
@@ -2628,47 +2628,47 @@ useDedupedEffect(() => {
                 <CardHeader>נתוני גוש חלקה</CardHeader>
                 <CardBody className="space-y-2" dir="rtl">
                   {/* Parcel Information */}
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">שטח חלקה:</span>
                     {renderValue(asset.parcelArea ? `${asset.parcelArea.toLocaleString()} מ״ר` : '—', 'parcelArea')}
                   </div>
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">סטטוס חלקה:</span>
                     {renderValue(asset.parcelStatus, 'parcelStatus')}
                   </div>
                   
                   {/* Block Information */}
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">שטח גוש:</span>
                     {renderValue(asset.blockArea ? `${asset.blockArea.toLocaleString()} מ״ר` : '—', 'blockArea')}
                   </div>
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">מספר חלקות בגוש:</span>
                     {renderValue(asset.blockTotalParcels, 'blockTotalParcels')}
                   </div>
                   
                   {/* Permit Information */}
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">מספר היתרים:</span>
                     {renderValue(asset.totalPermits, 'totalPermits')}
                   </div>
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">מספר בקשה:</span>
                     {renderValue(asset.permitRequestNum, 'permitRequestNum')}
                   </div>
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">יחידות דיור:</span>
                     {renderValue(asset.permitHousingUnits, 'permitHousingUnits')}
                   </div>
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">שטח מגורים:</span>
                     {renderValue(asset.permitResidentialArea ? `${asset.permitResidentialArea.toLocaleString()} מ״ר` : '—', 'permitResidentialArea')}
                   </div>
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">שטח חניה:</span>
                     {renderValue(asset.permitParkingArea ? `${asset.permitParkingArea.toLocaleString()} מ״ר` : '—', 'permitParkingArea')}
                   </div>
-                  <div className="flex justify-between text-right">
+                  <div className="flex justify-between text-start">
                     <span className="text-muted-foreground">יחידות חניה:</span>
                     {renderValue(asset.permitParkingUnits, 'permitParkingUnits')}
                   </div>
@@ -2681,7 +2681,7 @@ useDedupedEffect(() => {
                 </CardHeader>
                 <CardContent className="space-y-4" dir="rtl">
                   <div className="space-y-2">
-                    <div className="flex justify-between text-right">
+                    <div className="flex justify-between text-start">
                       <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
                       {renderValue(
                         <Badge variant={asset.lastPermitQ ? 'success' : 'neutral'}>
@@ -2690,13 +2690,13 @@ useDedupedEffect(() => {
                         'lastPermitQ'
                       )}
                     </div>
-                    <div className="flex justify-between text-right">
+                    <div className="flex justify-between text-start">
                       <span className="text-muted-foreground">פעילות בנייה באזור:</span>
                       <span>{asset.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t">
-                    <div className="text-sm text-muted-foreground text-right">
+                    <div className="text-sm text-muted-foreground text-start">
                       נתונים מעודכנים ממערכת היתרי הבנייה של עיריית תל אביב
                     </div>
                   </div>
@@ -2709,15 +2709,15 @@ useDedupedEffect(() => {
                 </CardHeader>
                 <CardContent className="space-y-4" dir="rtl">
                   <div className="space-y-2">
-                    <div className="flex justify-between text-right">
+                    <div className="flex justify-between text-start">
                       <span className="text-muted-foreground">היתר בתוקף:</span>
                       {renderValue(<Badge variant="success">כן</Badge>, 'permitValid')}
                     </div>
-                    <div className="flex justify-between text-right">
+                    <div className="flex justify-between text-start">
                       <span className="text-muted-foreground">סוג היתר:</span>
                       {renderValue('מגורים', 'permitType')}
                     </div>
-                    <div className="flex justify-between text-right">
+                    <div className="flex justify-between text-start">
                       <span className="text-muted-foreground">אישורי חיבור:</span>
                       {renderValue(<Badge variant="success">מאושר</Badge>, 'utilityApprovals')}
                     </div>
@@ -2808,7 +2808,7 @@ useDedupedEffect(() => {
               </CardHeader>
               <CardBody className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-4">
-                  <div className="text-center rtl:text-right">
+                  <div className="text-center rtl:text-start">
                     <div className="text-2xl font-bold flex items-center justify-center gap-1">
                       {!!asset.pricePerSqm
                         ? formatCurrency(asset.pricePerSqm)
@@ -2820,7 +2820,7 @@ useDedupedEffect(() => {
                     </div>
                     <div className="text-sm text-muted-foreground">מחיר למ״ר - נכס זה</div>
                   </div>
-                  <div className="text-center rtl:text-right">
+                  <div className="text-center rtl:text-start">
                     <div className="text-2xl font-bold">
                       {marketAnalysis?.avg_price_per_sqm !== null && marketAnalysis?.avg_price_per_sqm !== undefined
                         ? formatCurrency(marketAnalysis?.avg_price_per_sqm)
@@ -2828,7 +2828,7 @@ useDedupedEffect(() => {
                     </div>
                     <div className="text-sm text-muted-foreground">ממוצע מחיר למ״ר</div>
                   </div>
-                  <div className="text-center rtl:text-right">
+                  <div className="text-center rtl:text-start">
                     <div className="text-2xl font-bold">
                       {marketAnalysis?.min_price_per_sqm !== null && marketAnalysis?.max_price_per_sqm !== null
                         ? `${formatCurrency(marketAnalysis?.min_price_per_sqm)} - ${formatCurrency(marketAnalysis?.max_price_per_sqm)}`
@@ -2836,7 +2836,7 @@ useDedupedEffect(() => {
                     </div>
                     <div className="text-sm text-muted-foreground">טווח מחיר למ״ר</div>
                   </div>
-                  <div className="text-center rtl:text-right">
+                  <div className="text-center rtl:text-start">
                     <div className="text-2xl font-bold">
                       {!!asset.pricePerSqm && !!marketAnalysis?.avg_price_per_sqm
                         ? `${Math.round(((asset.pricePerSqm / marketAnalysis?.avg_price_per_sqm) - 1) * 100)}%`
@@ -2941,7 +2941,7 @@ useDedupedEffect(() => {
                       <div>
                         <h3 className="font-medium mb-2">הכרעות שמאי</h3>
                         <div className="space-y-2">
-                          <div className="p-3 border rounded rtl:text-right">
+                          <div className="p-3 border rounded rtl:text-start">
                             <div className="font-medium">{appraisal.appraiser}</div>
                             <div className="text-sm text-muted-foreground">
                               {appraisal.date && new Date(appraisal.date).toLocaleDateString('he-IL')}
@@ -2959,7 +2959,7 @@ useDedupedEffect(() => {
                       <div>
                         <h3 className="font-medium mb-2">שומות רמ״י</h3>
                         <div className="space-y-2">
-                          <div className="p-3 border rounded rtl:text-right">
+                          <div className="p-3 border rounded rtl:text-start">
                             <div className="font-medium">
                               {appraisal.plan_number ? `תכנית ${appraisal.plan_number}` : 'שומת רמ״י מעודכנת'}
                             </div>
@@ -2987,19 +2987,19 @@ useDedupedEffect(() => {
                       </CardHeader>
                       <CardContent>
                         <div className="grid gap-4 md:grid-cols-3">
-                          <div className="text-center rtl:text-right">
+                          <div className="text-center rtl:text-start">
                             <div className="text-2xl font-bold">
                               {formatCurrency(appraisal.appraisedValue)}
                             </div>
                             <div className="text-sm text-muted-foreground">הכרעת שמאי</div>
                           </div>
-                          <div className="text-center rtl:text-right">
+                          <div className="text-center rtl:text-start">
                             <div className="text-2xl font-bold">
                               {formatCurrency(appraisal.marketValue)}
                             </div>
                             <div className="text-sm text-muted-foreground">שומת רמ״י</div>
                           </div>
-                          <div className="text-center rtl:text-right">
+                          <div className="text-center rtl:text-start">
                             <div className="text-2xl font-bold">
                               {!!asset.price
                                 ? `₪${(asset.price / 1000000).toFixed(1)}M`
@@ -3098,12 +3098,12 @@ useDedupedEffect(() => {
                     >
                       {documentsLoading ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <Loader2 className="h-4 w-4 animate-spin me-2" />
                           טוען...
                         </>
                       ) : (
                         <>
-                          <RefreshCw className="h-4 w-4 mr-2" />
+                          <RefreshCw className="h-4 w-4 me-2" />
                           רענן
                         </>
                       )}
@@ -3210,20 +3210,20 @@ useDedupedEffect(() => {
           <TabsContent value="contributions" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-right">תרומות קהילה</CardTitle>
-                <p className="text-sm text-muted-foreground text-right">
+                <CardTitle className="text-start">תרומות קהילה</CardTitle>
+                <p className="text-sm text-muted-foreground text-start">
                   היסטוריית התרומות והעדכונים שנעשו על הנכס הזה על ידי חברי הקהילה
                 </p>
               </CardHeader>
-              <CardContent className="space-y-4 text-right">
+              <CardContent className="space-y-4 text-start">
                 {/* Attribution Summary */}
                 {asset.attribution && (
                   <div className="grid gap-3 lg:grid-cols-2">
                     {asset.attribution.created_by && (
-                      <div className="p-3 border rounded-lg text-right">
+                      <div className="p-3 border rounded-lg text-start">
                         <h3 className="font-medium mb-2 text-sm">יוצר הנכס</h3>
                         <div className="flex items-center gap-2 rtl:flex-row-reverse">
-                          <div className="flex-1 text-right">
+                          <div className="flex-1 text-start">
                             <p className="font-medium text-sm truncate">{asset.attribution.created_by.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{asset.attribution.created_by.email}</p>
                           </div>
@@ -3237,10 +3237,10 @@ useDedupedEffect(() => {
                     )}
                     
                     {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
-                      <div className="p-3 border rounded-lg text-right">
+                      <div className="p-3 border rounded-lg text-start">
                         <h3 className="font-medium mb-2 text-sm">עודכן לאחרונה על ידי</h3>
                         <div className="flex items-center gap-2 rtl:flex-row-reverse">
-                          <div className="flex-1 text-right">
+                          <div className="flex-1 text-start">
                             <p className="font-medium text-sm truncate">{asset.attribution.last_updated_by.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{asset.attribution.last_updated_by.email}</p>
                           </div>
@@ -3256,13 +3256,13 @@ useDedupedEffect(() => {
                 )}
 
                 {/* Recent Contributions */}
-                <div className="text-right">
+                <div className="text-start">
                   <h3 className="font-medium mb-3 text-sm">תרומות אחרונות</h3>
                   {asset.recent_contributions && asset.recent_contributions.length > 0 ? (
                     <div className="space-y-2">
                       {asset.recent_contributions.map((contrib: any, idx: number) => (
                         <div key={idx} className="flex items-start gap-2 p-2 border rounded-lg rtl:flex-row-reverse">
-                          <div className="flex-1 text-right">
+                          <div className="flex-1 text-start">
                             <div className="flex items-center justify-between rtl:flex-row-reverse mb-1">
                               <p className="font-medium text-sm">{contrib.user.name}</p>
                               <span className="text-xs text-muted-foreground">
@@ -3274,7 +3274,7 @@ useDedupedEffect(() => {
                               {contrib.field_name && ` - ${contrib.field_name}`}
                             </p>
                             {contrib.description && (
-                              <p className="text-xs text-right text-muted-foreground">{contrib.description}</p>
+                              <p className="text-xs text-start text-muted-foreground">{contrib.description}</p>
                             )}
                             {contrib.source && (
                               <span className="inline-block px-1.5 py-0.5 text-xs bg-secondary rounded-full mt-1">
@@ -3300,19 +3300,19 @@ useDedupedEffect(() => {
 
                 {/* Community Stats */}
                 <div className="grid gap-2 grid-cols-3">
-                  <div className="p-2 border rounded-lg text-center text-right">
+                  <div className="p-2 border rounded-lg text-center text-start">
                     <div className="text-lg font-bold text-primary">
                       {asset.recent_contributions?.length || 0}
                     </div>
                     <div className="text-xs text-muted-foreground">תרומות</div>
                   </div>
-                  <div className="p-2 border rounded-lg text-center text-right">
+                  <div className="p-2 border rounded-lg text-center text-start">
                     <div className="text-lg font-bold text-primary">
                       {asset.attribution?.created_by ? 1 : 0}
                     </div>
                     <div className="text-xs text-muted-foreground">יוצר</div>
                   </div>
-                  <div className="p-2 border rounded-lg text-center text-right">
+                  <div className="p-2 border rounded-lg text-center text-start">
                     <div className="text-lg font-bold text-primary">
                       {new Set(asset.recent_contributions?.map((c: any) => c.user.id) || []).size}
                     </div>

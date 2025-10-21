@@ -324,6 +324,9 @@ export default function TableToolbar({
               value={filter.value.min ?? ''}
               placeholder={filter.minPlaceholder ?? ''}
               step={filter.step}
+              dir="ltr"
+              inputMode="numeric"
+              className="text-left"
               onChange={(e) => {
                 const parsed = e.target.value ? Number(e.target.value) : undefined;
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, min: parsed });
@@ -338,6 +341,9 @@ export default function TableToolbar({
               value={filter.value.max ?? ''}
               placeholder={filter.maxPlaceholder ?? ''}
               step={filter.step}
+              dir="ltr"
+              inputMode="numeric"
+              className="text-left"
               onChange={(e) => {
                 const parsed = e.target.value ? Number(e.target.value) : undefined;
                 onAdditionalFilterChange?.(filter.key, { ...filter.value, max: parsed });
@@ -435,12 +441,12 @@ export default function TableToolbar({
     <div className="flex flex-col gap-3 p-3 sm:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
       {/* Search - Full width */}
       <div className="relative w-full">
-        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder={searchPlaceholder}
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pr-10 text-right w-full min-h-[44px]"
+          className="pe-10 text-start w-full min-h-[44px]"
           dir="rtl"
         />
       </div>
@@ -454,7 +460,7 @@ export default function TableToolbar({
               <Filter className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               <span className="hidden sm:inline">סינון</span>
               {hasActiveFilters && (
-                <Badge variant="secondary" className="mr-2 rtl:ml-2 rtl:mr-0 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                <Badge variant="secondary" className="me-2 rtl:ms-2 rtl:me-0 h-5 w-5 p-0 flex items-center justify-center text-xs">
                   !
                 </Badge>
               )}
@@ -464,7 +470,7 @@ export default function TableToolbar({
               <SheetHeader>
                 <SheetTitle>אפשרויות סינון</SheetTitle>
               </SheetHeader>
-              <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pr-2">
+              <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
                 <div className="flex items-center justify-between rtl:flex-row-reverse">
                   {hasActiveFilters && (
                     <Button
@@ -574,6 +580,9 @@ export default function TableToolbar({
                         type="number"
                         placeholder={priceMinFilter.placeholder ?? '₪'}
                         value={priceMinFilter.value ?? ""}
+                        dir="ltr"
+                        inputMode="numeric"
+                        className="text-left"
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
                           priceMinFilter.onChange(value);
@@ -596,6 +605,9 @@ export default function TableToolbar({
                         type="number"
                         placeholder={priceMaxFilter.placeholder ?? '₪'}
                         value={priceMaxFilter.value ?? ""}
+                        dir="ltr"
+                        inputMode="numeric"
+                        className="text-left"
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
                           priceMaxFilter.onChange(value);
@@ -618,6 +630,9 @@ export default function TableToolbar({
                         type="number"
                         placeholder={pricePerSqmMinFilter.placeholder ?? '₪/מ²'}
                         value={pricePerSqmMinFilter.value ?? ""}
+                        dir="ltr"
+                        inputMode="numeric"
+                        className="text-left"
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
                           pricePerSqmMinFilter.onChange(value);
@@ -640,6 +655,9 @@ export default function TableToolbar({
                         type="number"
                         placeholder={pricePerSqmMaxFilter.placeholder ?? '₪/מ²'}
                         value={pricePerSqmMaxFilter.value ?? ""}
+                        dir="ltr"
+                        inputMode="numeric"
+                        className="text-left"
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
                           pricePerSqmMaxFilter.onChange(value);
@@ -662,6 +680,9 @@ export default function TableToolbar({
                         type="number"
                         placeholder={remainingRightsMinFilter.placeholder ?? 'מ²'}
                         value={remainingRightsMinFilter.value ?? ""}
+                        dir="ltr"
+                        inputMode="numeric"
+                        className="text-left"
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
                           remainingRightsMinFilter.onChange(value);
@@ -684,6 +705,9 @@ export default function TableToolbar({
                         type="number"
                         placeholder={remainingRightsMaxFilter.placeholder ?? 'מ²'}
                         value={remainingRightsMaxFilter.value ?? ""}
+                        dir="ltr"
+                        inputMode="numeric"
+                        className="text-left"
                         onChange={(e) => {
                           const value = e.target.value ? Number(e.target.value) : undefined;
                           remainingRightsMaxFilter.onChange(value);
@@ -721,7 +745,7 @@ export default function TableToolbar({
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                             {option.count !== undefined && (
-                              <span className="mr-2 rtl:ml-2 rtl:mr-0 text-muted-foreground">({option.count})</span>
+                              <span className="me-2 rtl:ms-2 rtl:me-0 text-muted-foreground">({option.count})</span>
                             )}
                           </SelectItem>
                         ))}
@@ -810,12 +834,12 @@ export default function TableToolbar({
             <DropdownMenuSeparator />
             <div className="p-2 border-b">
               <div className="relative">
-                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                 <Input
                   placeholder="חיפוש עמודות..."
                   value={columnSearch}
                   onChange={(e) => setColumnSearch(e.target.value)}
-                  className="pr-8 text-right text-sm h-8"
+                  className="pe-8 text-start text-sm h-8"
                   dir="rtl"
                 />
               </div>
@@ -909,7 +933,7 @@ export default function TableToolbar({
                   disabled={action.disabled}
                   className="bg-white text-foreground hover:bg-muted"
                 >
-                  {action.icon && <span className="mr-2 rtl:ml-2 rtl:mr-0">{action.icon}</span>}
+                  {action.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{action.icon}</span>}
                   {action.label}
                 </DropdownMenuCheckboxItem>
               ))}

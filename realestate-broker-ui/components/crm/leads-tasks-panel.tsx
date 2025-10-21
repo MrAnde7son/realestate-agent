@@ -289,7 +289,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between rtl:flex-row-reverse">
-          <div className="rtl:text-right">
+          <div className="rtl:text-start">
             <CardTitle className="flex items-center gap-2 rtl:flex-row-reverse">
               <Users className="h-5 w-5" />
               לידים ומשימות
@@ -305,7 +305,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
               onCreated={handleContactAssigned}
               trigger={
                 <Button size="sm">
-                  <Plus className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+                  <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
                   שייך לקוח
                 </Button>
               }
@@ -313,7 +313,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
             <Dialog open={isCreateTaskModalOpen} onOpenChange={setIsCreateTaskModalOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
-                  <CheckSquare className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+                  <CheckSquare className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
                   משימה חדשה
                 </Button>
               </DialogTrigger>
@@ -350,7 +350,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
 
           <TabsContent value="leads" className="space-y-4">
             {leads.length === 0 ? (
-              <div className="text-center py-8 rtl:text-right">
+              <div className="text-center py-8 rtl:text-start">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <div className="text-lg font-medium mb-2">אין לקוחות משויכים</div>
                 <div className="text-sm text-muted-foreground mb-4">
@@ -362,7 +362,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
                   onCreated={handleContactAssigned}
                   trigger={
                     <Button>
-                      <Plus className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+                      <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
                       שייך לקוח ראשון
                     </Button>
                   }
@@ -395,16 +395,16 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-right">לקוח</TableHead>
-                        <TableHead className="text-right">סטטוס</TableHead>
-                        <TableHead className="text-right">פעילות אחרונה</TableHead>
-                        <TableHead className="text-right">פעולות</TableHead>
+                        <TableHead className="text-start">לקוח</TableHead>
+                        <TableHead className="text-start">סטטוס</TableHead>
+                        <TableHead className="text-start">פעילות אחרונה</TableHead>
+                        <TableHead className="text-start">פעולות</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {leads.map((lead) => (
                         <TableRow key={lead.id}>
-                          <TableCell className="text-right">
+                          <TableCell className="text-start">
                             <div>
                               <div className="font-medium">{lead.contact.name}</div>
                               {lead.contact.email && (
@@ -419,15 +419,15 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-start">
                             <LeadStatusBadge status={lead.status} />
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-start">
                             <div className="text-sm">
                               {formatDate(lead.last_activity_at)}
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-start">
                             <LeadRowActions
                               lead={lead}
                               onUpdate={handleLeadUpdate}
@@ -467,12 +467,12 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-right">כותרת</TableHead>
-                        <TableHead className="text-right">לקוח</TableHead>
-                        <TableHead className="text-right">תאריך יעד</TableHead>
-                        <TableHead className="text-right">סטטוס</TableHead>
-                        <TableHead className="text-right">נוצר</TableHead>
-                        <TableHead className="text-right">פעולות</TableHead>
+                        <TableHead className="text-start">כותרת</TableHead>
+                        <TableHead className="text-start">לקוח</TableHead>
+                        <TableHead className="text-start">תאריך יעד</TableHead>
+                        <TableHead className="text-start">סטטוס</TableHead>
+                        <TableHead className="text-start">נוצר</TableHead>
+                        <TableHead className="text-start">פעולות</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -480,7 +480,7 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
                         const statusInfo = statusOptions.find(opt => opt.value === task.status) || statusOptions[0];
                         return (
                           <TableRow key={task.id}>
-                            <TableCell className="text-right">
+                            <TableCell className="text-start">
                               <div className="font-medium">{task.title}</div>
                               {task.description && (
                                 <div className="text-sm text-muted-foreground max-w-xs truncate">
@@ -488,29 +488,29 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
                                 </div>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-start">
                               <div className="flex items-center gap-1 text-sm">
                                 <User className="h-4 w-4" />
                                 {task.contact.name}
                               </div>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-start">
                               <div className="flex items-center gap-1 text-sm">
                                 <Calendar className="h-4 w-4" />
                                 {task.due_at ? formatDate(task.due_at) : 'ללא תאריך'}
                               </div>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-start">
                               <Badge className={statusInfo.color}>
                                 {statusInfo.label}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-start">
                               <div className="text-sm text-muted-foreground">
                                 {formatDate(task.created_at)}
                               </div>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-start">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="sm">
@@ -520,19 +520,19 @@ export function LeadsTasksPanel({ assetId, assetAddress }: LeadsTasksPanelProps)
                                 <DropdownMenuContent align="end">
                                   {task.status === 'pending' && (
                                     <DropdownMenuItem onClick={() => handleCompleteTask(task)}>
-                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      <CheckCircle className="h-4 w-4 me-2" />
                                       סמן כהושלם
                                     </DropdownMenuItem>
                                   )}
                                   <DropdownMenuItem onClick={() => handleEditTask(task)}>
-                                    <Clock className="h-4 w-4 mr-2" />
+                                    <Clock className="h-4 w-4 me-2" />
                                     ערוך
                                   </DropdownMenuItem>
                                   <DropdownMenuItem 
                                     onClick={() => handleDeleteTask(task)}
                                     className="text-red-600"
                                   >
-                                    <XCircle className="h-4 w-4 mr-2" />
+                                    <XCircle className="h-4 w-4 me-2" />
                                     מחק
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>

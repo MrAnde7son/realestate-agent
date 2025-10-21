@@ -117,7 +117,7 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rtl:flex-row-reverse">
-          <div className="rtl:text-right">
+          <div className="rtl:text-start">
             <CardTitle className="flex items-center gap-2 rtl:flex-row-reverse text-base sm:text-lg">
               <Users className="h-4 w-4 sm:h-5 sm:w-5" />
               לקוחות משויכים
@@ -132,7 +132,7 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
             onCreated={handleContactAssigned}
             trigger={
               <Button size="sm" className="w-full sm:w-auto">
-                <Plus className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+                <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
                 שייך לקוח
               </Button>
             }
@@ -145,7 +145,7 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
             <div className="text-muted-foreground">טוען לידים...</div>
           </div>
         ) : leads.length === 0 ? (
-          <div className="text-center py-6 sm:py-8 rtl:text-right">
+          <div className="text-center py-6 sm:py-8 rtl:text-start">
             <Users className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
             <div className="text-base sm:text-lg font-medium mb-2">אין לקוחות משויכים</div>
             <div className="text-sm text-muted-foreground mb-4">
@@ -157,7 +157,7 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
               onCreated={handleContactAssigned}
               trigger={
                 <Button size="sm">
-                  <Plus className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+                  <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
                   שייך לקוח ראשון
                 </Button>
               }
@@ -191,17 +191,17 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-right min-w-[150px]">לקוח</TableHead>
-                      <TableHead className="text-right min-w-[100px] hidden sm:table-cell">סטטוס</TableHead>
-                      <TableHead className="text-right min-w-[100px] hidden md:table-cell">משימות</TableHead>
-                      <TableHead className="text-right min-w-[100px] hidden lg:table-cell">פעילות אחרונה</TableHead>
-                      <TableHead className="text-right min-w-[120px]">פעולות</TableHead>
+                      <TableHead className="text-start min-w-[150px]">לקוח</TableHead>
+                      <TableHead className="text-start min-w-[100px] hidden sm:table-cell">סטטוס</TableHead>
+                      <TableHead className="text-start min-w-[100px] hidden md:table-cell">משימות</TableHead>
+                      <TableHead className="text-start min-w-[100px] hidden lg:table-cell">פעילות אחרונה</TableHead>
+                      <TableHead className="text-start min-w-[120px]">פעולות</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {leads.map((lead) => (
                       <TableRow key={lead.id}>
-                        <TableCell className="text-right">
+                        <TableCell className="text-start">
                           <div>
                             <div className="font-medium text-sm sm:text-base">{lead.contact.name}</div>
                             <div className="text-xs text-muted-foreground sm:hidden">
@@ -219,21 +219,21 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right hidden sm:table-cell">
+                        <TableCell className="text-start hidden sm:table-cell">
                           <LeadStatusBadge status={lead.status} />
                         </TableCell>
-                        <TableCell className="text-right hidden md:table-cell">
+                        <TableCell className="text-start hidden md:table-cell">
                           <LeadTaskSummary 
                             lead={lead} 
                             onShowTasks={() => setSelectedLeadForTasks(lead)}
                           />
                         </TableCell>
-                        <TableCell className="text-right hidden lg:table-cell">
+                        <TableCell className="text-start hidden lg:table-cell">
                           <div className="text-xs sm:text-sm">
                             {formatDate(lead.last_activity_at)}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-start">
                           <LeadRowActions
                             lead={lead}
                             onUpdate={handleLeadUpdate}
@@ -251,7 +251,7 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
             {/* Recent Notes */}
             {leads.some(lead => lead.notes.length > 0) && (
               <div>
-                <h4 className="font-medium mb-2 flex items-center gap-2 rtl:flex-row-reverse rtl:text-right text-sm sm:text-base">
+                <h4 className="font-medium mb-2 flex items-center gap-2 rtl:flex-row-reverse rtl:text-start text-sm sm:text-base">
                   <MessageSquare className="h-4 w-4" />
                   הערות אחרונות
                 </h4>
@@ -267,7 +267,7 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
                         </div>
                         <div className="space-y-1">
                           {lead.notes.slice(-1).map((note, index) => (
-                            <div key={index} className="text-xs sm:text-sm bg-white p-2 rounded border-l-2 rtl:border-r-2 rtl:border-l-0 border-blue-200 rtl:text-right">
+                            <div key={index} className="text-xs sm:text-sm bg-white p-2 rounded border-l-2 rtl:border-r-2 rtl:border-l-0 border-blue-200 rtl:text-start">
                               <div className="text-xs text-muted-foreground mb-1">
                                 {formatDate(note.ts)}
                               </div>

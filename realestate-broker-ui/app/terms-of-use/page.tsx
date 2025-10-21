@@ -101,7 +101,7 @@ export default function TermsOfUsePage() {
               </CardHeader>
               <CardContent>
                 {hasList(section) ? (
-                  <ul className="list-disc pr-5 space-y-2">
+                  <ul className="list-disc pe-5 space-y-2">
                     {section.list.map((item) => (
                       <li key={item}>{item}</li>
                     ))}

@@ -905,7 +905,7 @@ export default function DealExpensesPage() {
                     </div>
                   ) : (
                     <div className="relative asset-dropdown-container">
-                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Search className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder="חפש נכס לפי כתובת, עיר או שכונה..."
                         value={assetSearchQuery}
@@ -914,10 +914,10 @@ export default function DealExpensesPage() {
                           setShowAssetDropdown(true)
                         }}
                         onFocus={() => setShowAssetDropdown(true)}
-                        className="pr-10"
+                        className="pe-10"
                       />
                       {showAssetDropdown && (
-                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <div className="absolute top-full start-0 end-0 z-50 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                           {loadingAssets ? (
                             <div className="p-3 text-center text-muted-foreground">
                               טוען נכסים...
@@ -926,7 +926,7 @@ export default function DealExpensesPage() {
                             getFilteredAssets().map(asset => (
                               <button
                                 key={asset.id}
-                                className="w-full text-right p-3 hover:bg-muted/50 border-b last:border-b-0"
+                                className="w-full text-start p-3 hover:bg-muted/50 border-b last:border-b-0"
                                 onClick={() => handleAssetSelect(asset)}
                               >
                                 <div className="font-medium">{asset.address}</div>
@@ -986,13 +986,15 @@ export default function DealExpensesPage() {
                   מחיר הנכס
                 </Label>
                 <div className="relative">
-                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
-                  <Input 
-                    id="price" 
-                    type="number" 
-                    value={price} 
+                  <span className="absolute end-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={price}
                     onChange={e => handlePriceChange(parseInt(e.target.value) || 0)}
-                    className="pr-10"
+                    dir="ltr"
+                    inputMode="numeric"
+                    className="pe-10 text-left"
                     placeholder="3,000,000"
                   />
                 </div>
@@ -1006,13 +1008,15 @@ export default function DealExpensesPage() {
                   שטח הנכס
                 </Label>
                 <div className="relative">
-                  <Building className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Building className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="area"
                     type="number"
                     value={area}
                     onChange={e => handleAreaChange(parseInt(e.target.value) || 0)}
-                    className="pr-10"
+                    dir="ltr"
+                    inputMode="numeric"
+                    className="pe-10 text-left"
                     placeholder="100"
                   />
                 </div>
@@ -1038,7 +1042,7 @@ export default function DealExpensesPage() {
                         variant="outline"
                         className="text-xs"
                       >
-                        <TrendingUp className="h-4 w-4 ml-2" />
+                        <TrendingUp className="h-4 w-4 ms-2" />
                         ברירת מחדל
                       </Button>
                     </div>
@@ -1054,13 +1058,15 @@ export default function DealExpensesPage() {
                           שטח בנוי מתוכנן (מ&quot;ר)
                         </Label>
                         <div className="relative">
-                          <LandPlot className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <LandPlot className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
                             id="construction-area"
                             type="number"
                             value={constructionArea}
                             onChange={e => handleConstructionAreaChange(parseFloat(e.target.value) || 0)}
-                            className="pr-10"
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="pe-10 text-left"
                             placeholder="200"
                           />
                         </div>
@@ -1070,13 +1076,15 @@ export default function DealExpensesPage() {
                           עלות בנייה למ&quot;ר
                         </Label>
                         <div className="relative">
-                          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
+                          <span className="absolute end-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
                           <Input
                             id="construction-cost"
                             type="number"
                             value={constructionCostPerSqm}
                             onChange={e => handleConstructionCostChange(parseFloat(e.target.value) || 0)}
-                            className="pr-10"
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="pe-10 text-left"
                             placeholder="5,000"
                           />
                         </div>
@@ -1086,14 +1094,14 @@ export default function DealExpensesPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                      <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
                         <Switch
                           checked={constructionIncludesVat}
                           onCheckedChange={handleConstructionVatChange}
                         />
                         <span className="text-sm">העלות שהוזנה כוללת מע&quot;מ</span>
                       </label>
-                      <div className="text-xs text-muted-foreground text-right">
+                      <div className="text-xs text-muted-foreground text-start">
                         {constructionIncludesVat
                           ? 'העלות תיקח בחשבון את הסכום שהוזן ככולל מע&quot;מ'
                           : `הסכום יחושב בהתאם למע"מ הנוכחי (${(vatRate * 100).toFixed(1)}%)`}
@@ -1137,6 +1145,9 @@ export default function DealExpensesPage() {
                               type="number"
                               value={dekelArea}
                               onChange={e => setDekelArea(parseFloat(e.target.value) || 0)}
+                              dir="ltr"
+                              inputMode="numeric"
+                              className="text-left"
                               placeholder="100"
                             />
                           </div>
@@ -1178,7 +1189,7 @@ export default function DealExpensesPage() {
                             <Label className="text-xs">היקף עבודות</Label>
                             <div className="space-y-1">
                               {costOptions.scopes.map(scope => (
-                                <label key={scope.code} className="flex items-center space-x-2 space-x-reverse">
+                                <label key={scope.code} className="flex items-center space-x-2 rtl:space-x-reverse">
                                   <input
                                     type="checkbox"
                                     checked={dekelScope.includes(scope.code)}
@@ -1207,12 +1218,12 @@ export default function DealExpensesPage() {
                       >
                         {loadingEstimate ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2" />
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ms-2" />
                             מחשב אומדן...
                           </>
                         ) : (
                           <>
-                            <Calculator className="h-4 w-4 ml-2" />
+                            <Calculator className="h-4 w-4 ms-2" />
                             חשב אומדן דקל
                           </>
                         )}
@@ -1310,13 +1321,15 @@ export default function DealExpensesPage() {
                       <div className="space-y-2">
                         <Label className="text-xs">אחוז בעלות</Label>
                         <div className="relative">
-                          <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input 
-                            placeholder="100" 
-                            type="number" 
-                            value={buyer.sharePct} 
+                          <Percent className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="100"
+                            type="number"
+                            value={buyer.sharePct}
                             onChange={e => handleBuyerChange(index, 'sharePct', parseFloat(e.target.value) || 0)}
-                            className="pr-10"
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="pe-10 text-left"
                           />
                         </div>
                       </div>
@@ -1325,35 +1338,35 @@ export default function DealExpensesPage() {
                     <div className="space-y-3">
                       <Label className="text-xs text-muted-foreground">הטבות מיוחדות</Label>
                       <div className="grid grid-cols-2 gap-3">
-                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
                           <Switch 
                             checked={buyer.isFirstHome} 
                             onCheckedChange={v => handleBuyerChange(index, 'isFirstHome', v)} 
                           />
                           <span className="text-sm">דירה יחידה</span>
                         </label>
-                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
                           <Switch 
                             checked={buyer.isReplacementHome} 
                             onCheckedChange={v => handleBuyerChange(index, 'isReplacementHome', v)} 
                           />
                           <span className="text-sm">דירה חלופית</span>
                         </label>
-                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
                           <Switch 
                             checked={buyer.oleh} 
                             onCheckedChange={v => handleBuyerChange(index, 'oleh', v)} 
                           />
                           <span className="text-sm">עולה חדש</span>
                         </label>
-                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
                           <Switch 
                             checked={buyer.disabled} 
                             onCheckedChange={v => handleBuyerChange(index, 'disabled', v)} 
                           />
                           <span className="text-sm">נכה/עיוור</span>
                         </label>
-                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer col-span-2">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer col-span-2">
                           <Switch 
                             checked={buyer.bereavedFamily} 
                             onCheckedChange={v => handleBuyerChange(index, 'bereavedFamily', v)} 
@@ -1389,7 +1402,7 @@ export default function DealExpensesPage() {
                   variant="outline"
                   className="w-full sm:w-auto"
                 >
-                  <TrendingUp className="h-4 w-4 ml-2" />
+                  <TrendingUp className="h-4 w-4 ms-2" />
                   ברירות מחדל
                 </Button>
                 <Button
@@ -1398,7 +1411,7 @@ export default function DealExpensesPage() {
                   variant="outline"
                   className="w-full sm:w-auto"
                 >
-                  <X className="h-4 w-4 ml-2" />
+                  <X className="h-4 w-4 ms-2" />
                   נקה הכל
                 </Button>
               </div>
@@ -1447,32 +1460,36 @@ export default function DealExpensesPage() {
                           <div className="space-y-2">
                             <Label className="text-xs">אחוז מהמחיר</Label>
                             <div className="relative">
-                              <Percent className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Percent className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                               <Input
                                 placeholder="0"
                                 type="number"
                                 value={services[key].percent ?? ''}
                                 onChange={e => handleServiceChange(key, 'percent', parseFloat(e.target.value) || 0)}
-                                className="pr-10"
+                                dir="ltr"
+                                inputMode="numeric"
+                                className="pe-10 text-left"
                               />
                             </div>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs">סכום קבוע</Label>
                             <div className="relative">
-                              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
+                              <span className="absolute end-3 top-1/2 transform -translate-y-1/2 text-muted-foreground font-medium">₪</span>
                               <Input
                                 placeholder="0"
                                 type="number"
                                 value={services[key].amount ?? ''}
                                 onChange={e => handleServiceChange(key, 'amount', parseFloat(e.target.value) || 0)}
-                                className="pr-10"
+                                dir="ltr"
+                                inputMode="numeric"
+                                className="pe-10 text-left"
                               />
                             </div>
                           </div>
                         </div>
                         
-                        <label className="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                        <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
                           <Switch
                             checked={services[key].includesVat}
                             onCheckedChange={v => handleServiceChange(key, 'includesVat', v)}
@@ -1491,7 +1508,7 @@ export default function DealExpensesPage() {
         {/* Calculate Button */}
         <div className="flex justify-center mt-8">
           <Button onClick={calculate} size="lg" className="px-8">
-            <Receipt className="h-5 w-5 ml-2" />
+            <Receipt className="h-5 w-5 ms-2" />
             חשב הוצאות
           </Button>
         </div>
@@ -1500,11 +1517,11 @@ export default function DealExpensesPage() {
         {result && (
           <div className="flex justify-center gap-4 mt-4">
             <Button onClick={exportToCSV} variant="outline" size="sm">
-              <FileSpreadsheet className="h-4 w-4 ml-2" />
+              <FileSpreadsheet className="h-4 w-4 ms-2" />
               ייצא ל-CSV
             </Button>
             <Button onClick={exportToPDF} variant="outline" size="sm">
-              <FileImage className="h-4 w-4 ml-2" />
+              <FileImage className="h-4 w-4 ms-2" />
               ייצא ל-PDF
             </Button>
           </div>
@@ -1627,9 +1644,9 @@ export default function DealExpensesPage() {
                     onClick={goToMortgageCalculator}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    <Banknote className="h-4 w-4 ml-2" />
+                    <Banknote className="h-4 w-4 ms-2" />
                     חשב משכנתא
-                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    <ArrowLeft className="h-4 w-4 me-2 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>

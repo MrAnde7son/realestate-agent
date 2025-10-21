@@ -79,13 +79,13 @@ export function LeadTaskSummary({ lead, onShowTasks, compact = true }: LeadTaskS
       <div className="flex items-center gap-1">
         {overdueTasks.length > 0 && (
           <Badge variant="destructive" className="text-xs px-1 py-0">
-            <AlertCircle className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+            <AlertCircle className="h-2 w-2 sm:h-3 sm:w-3 me-1" />
             {overdueTasks.length}
           </Badge>
         )}
         {pendingTasks.length > 0 && overdueTasks.length === 0 && (
           <Badge variant="secondary" className="text-xs px-1 py-0">
-            <Clock className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+            <Clock className="h-2 w-2 sm:h-3 sm:w-3 me-1" />
             {pendingTasks.length}
           </Badge>
         )}
@@ -109,21 +109,21 @@ export function LeadTaskSummary({ lead, onShowTasks, compact = true }: LeadTaskS
       <div className="flex items-center gap-1 flex-wrap">
         {overdueTasks.length > 0 && (
           <Badge variant="destructive" className="text-xs">
-            <AlertCircle className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+            <AlertCircle className="h-2 w-2 sm:h-3 sm:w-3 me-1" />
             <span className="hidden sm:inline">{overdueTasks.length} משימות באיחור</span>
             <span className="sm:hidden">{overdueTasks.length}</span>
           </Badge>
         )}
         {pendingTasks.length > 0 && overdueTasks.length === 0 && (
           <Badge variant="secondary" className="text-xs">
-            <Clock className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+            <Clock className="h-2 w-2 sm:h-3 sm:w-3 me-1" />
             <span className="hidden sm:inline">{pendingTasks.length} משימות ממתינות</span>
             <span className="sm:hidden">{pendingTasks.length}</span>
           </Badge>
         )}
         {tasks.length > pendingTasks.length && (
           <Badge variant="outline" className="text-xs">
-            <CheckSquare className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+            <CheckSquare className="h-2 w-2 sm:h-3 sm:w-3 me-1" />
             <span className="hidden sm:inline">{tasks.length - pendingTasks.length} הושלמו</span>
             <span className="sm:hidden">{tasks.length - pendingTasks.length}</span>
           </Badge>

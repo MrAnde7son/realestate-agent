@@ -218,7 +218,7 @@ export default function AppSidebar({
                 <AvatarFallback>{getUserInitials()}</AvatarFallback>
               </Avatar>
               {!isCollapsed && (
-                <div className="flex-1 text-right">
+                <div className="flex-1 text-start">
                   <div className="text-sm font-medium">
                     {getUserDisplayName()}
                   </div>
@@ -260,19 +260,19 @@ export default function AppSidebar({
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
                 <Link href="/profile" className="flex items-center">
-                  <User className="ml-2 h-4 w-4" />
+                  <User className="ms-2 h-4 w-4" />
                   <span>פרופיל</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/billing" className="flex items-center">
-                  <CreditCard className="ml-2 h-4 w-4" />
+                  <CreditCard className="ms-2 h-4 w-4" />
                   <span>חבילות ותשלומים</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/settings" className="flex items-center">
-                  <Settings className="ml-2 h-4 w-4" />
+                  <Settings className="ms-2 h-4 w-4" />
                   <span>הגדרות</span>
                 </Link>
               </DropdownMenuItem>
@@ -282,7 +282,7 @@ export default function AppSidebar({
               className="text-red-600 focus:text-red-600"
               onClick={handleLogout}
             >
-              <LogOut className="ml-2 h-4 w-4" />
+              <LogOut className="ms-2 h-4 w-4" />
               <span>התנתק</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -20,13 +20,13 @@ export function Navbar() {
       <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* Logo - Left side */}
         <div className="flex items-center">
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2 rtl:space-x-reverse">
             <span className="text-lg sm:text-xl font-bold">🏠 Real Estate Pro</span>
           </Link>
         </div>
 
         {/* Desktop Navigation - Hidden on mobile and large screens */}
-        <div className="hidden md:flex lg:hidden items-center space-x-4">
+        <div className="hidden md:flex lg:hidden items-center space-x-4 rtl:space-x-reverse">
           {navigationItems.map((item) => (
             <Link
               key={item.href}

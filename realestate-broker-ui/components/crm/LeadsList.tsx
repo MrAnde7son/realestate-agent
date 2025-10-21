@@ -271,10 +271,10 @@ export default function LeadsList({
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rtl:flex-row-reverse">
-        <h2 className="text-2xl font-bold rtl:text-right">לידים</h2>
+        <h2 className="text-2xl font-bold rtl:text-start">לידים</h2>
         <Link href="/assets">
           <Button>
-            <Plus className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+            <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
             צור ליד חדש
           </Button>
         </Link>
@@ -282,12 +282,12 @@ export default function LeadsList({
 
       <div className="mb-2">
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="חפש לידים..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pr-10"
+            className="pe-10"
           />
         </div>
       </div>
@@ -303,7 +303,7 @@ export default function LeadsList({
           {!searchQuery && (
             <Link href="/assets">
               <Button>
-                <Plus className="h-4 w-4 ml-2" />
+                <Plus className="h-4 w-4 ms-2" />
                 עבור לנכסים ליצירת ליד
               </Button>
             </Link>
@@ -312,16 +312,16 @@ export default function LeadsList({
       ) : (
         <div className="bg-white rounded-lg border overflow-x-auto">
           <div className="min-w-full">
-            <Table>
+            <Table className="table-auto min-w-[960px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8 whitespace-nowrap"></TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-right">לקוח</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-right">נכס</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-right">משימות</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-right">סטטוס</TableHead>
-                  <TableHead className="whitespace-nowrap min-w-[120px] rtl:text-right">פעילות אחרונה</TableHead>
-                  <TableHead className="rtl:text-right whitespace-nowrap min-w-[120px]">פעולות</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-start">לקוח</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[150px] rtl:text-start">נכס</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-start">משימות</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[100px] rtl:text-start">סטטוס</TableHead>
+                  <TableHead className="whitespace-nowrap min-w-[120px] rtl:text-start">פעילות אחרונה</TableHead>
+                  <TableHead className="rtl:text-start whitespace-nowrap min-w-[120px]">פעולות</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -338,12 +338,12 @@ export default function LeadsList({
                           {expandedRows.has(lead.id) ? (
                             <ChevronDown className="h-3 w-3" />
                           ) : (
-                            <ChevronRight className="h-3 w-3" />
+                            <ChevronRight className="h-3 w-3 rtl:rotate-180" />
                           )}
                         </Button>
                       </TableCell>
                       <TableCell>
-                        <div className="rtl:text-right">
+                        <div className="rtl:text-start">
                           <div className="font-medium">{lead.contact.name}</div>
                           {lead.contact.email && (
                             <div className="text-sm text-muted-foreground">{lead.contact.email}</div>
@@ -355,7 +355,7 @@ export default function LeadsList({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 rtl:flex-row-reverse">
-                          <div className="rtl:text-right">
+                          <div className="rtl:text-start">
                             <div className="font-medium">{lead.asset_address}</div>
                             <Button
                               variant="link"
@@ -363,24 +363,24 @@ export default function LeadsList({
                               className="p-0 h-auto min-h-[44px]"
                               onClick={() => window.open(`/assets/${lead.asset_id_read}`, '_blank')}
                             >
-                              <ExternalLink className="h-3 w-3 ml-1 rtl:mr-1 rtl:ml-0" />
+                              <ExternalLink className="h-3 w-3 ms-1 rtl:me-1 rtl:ms-0" />
                               צפה בנכס
                             </Button>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="rtl:text-right">
+                        <div className="rtl:text-start">
                           <LeadTaskSummary lead={lead} compact={true} />
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="rtl:text-right">
+                        <div className="rtl:text-start">
                           <LeadStatusBadge status={lead.status} />
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm rtl:text-right">{formatDate(lead.last_activity_at)}</div>
+                        <div className="text-sm rtl:text-start">{formatDate(lead.last_activity_at)}</div>
                       </TableCell>
                       <TableCell>
                         <LeadRowActions
@@ -477,7 +477,7 @@ export default function LeadsList({
                                   >
                                     <DialogTrigger asChild>
                                       <Button size="sm" className="h-7 px-3">
-                                        <Plus className="h-3 w-3 mr-1" />
+                                        <Plus className="h-3 w-3 me-1" />
                                         משימה חדשה
                                       </Button>
                                     </DialogTrigger>

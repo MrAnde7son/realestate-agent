@@ -160,7 +160,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       accessorKey: 'title',
       header: 'מסמך',
       cell: ({ row }) => (
-        <div className="space-y-1 text-right">
+        <div className="space-y-1 text-start">
           <div className="font-medium text-sm truncate">
             {row.original.title}
           </div>
@@ -181,7 +181,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       accessorKey: 'category',
       header: 'קטגוריה',
       cell: ({ row }) => (
-        <div className="text-sm text-right">
+        <div className="text-sm text-start">
           {row.original.category || '—'}
         </div>
       ),
@@ -190,7 +190,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       accessorKey: 'type',
       header: 'סוג',
       cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground text-right">
+        <div className="text-sm text-muted-foreground text-start">
           {translateType(row.original.type)}
         </div>
       ),
@@ -199,7 +199,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       accessorKey: 'status',
       header: 'סטטוס',
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <Badge variant={statusVariant(row.original.status) as any}>
             {statusLabel(row.original.status)}
           </Badge>
@@ -210,7 +210,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       accessorKey: 'source',
       header: 'מקור',
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <Badge variant="outline">{sourceLabel(row.original.source)}</Badge>
         </div>
       ),
@@ -219,8 +219,8 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       accessorKey: 'documentDate',
       header: 'תאריך מסמך',
       cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground text-right">
-          {formatDate(row.original.documentDate)}
+        <div className="text-sm text-muted-foreground text-end">
+          <span dir="ltr">{formatDate(row.original.documentDate)}</span>
         </div>
       ),
     },
@@ -228,8 +228,8 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       accessorKey: 'uploadedAt',
       header: 'הועלה',
       cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground text-right">
-          {formatDate(row.original.uploadedAt)}
+        <div className="text-sm text-muted-foreground text-end">
+          <span dir="ltr">{formatDate(row.original.uploadedAt)}</span>
         </div>
       ),
     },
@@ -237,7 +237,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       accessorKey: 'uploadedBy',
       header: 'הועלה ע״י',
       cell: ({ row }) => (
-        <div className="text-sm text-right">
+        <div className="text-sm text-start">
           {row.original.uploadedBy || '—'}
         </div>
       ),
@@ -248,7 +248,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
       enableHiding: false,
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-start gap-2">
           {row.original.isDownloadable && row.original.fileUrl && (
             <Button
               size="sm"
@@ -256,7 +256,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
               onClick={() => window.open(row.original.fileUrl, '_blank')}
               className="text-xs"
             >
-              <Download className="h-3 w-3 ml-1 inline-block" />
+              <Download className="h-3 w-3 ms-1 inline-block" />
               הורדה
             </Button>
           )}
@@ -267,7 +267,7 @@ function createColumns(): ColumnDef<DocumentRow>[] {
               onClick={() => window.open(row.original.externalUrl, '_blank')}
               className="text-xs"
             >
-              <ExternalLink className="h-3 w-3 ml-1 inline-block" />
+              <ExternalLink className="h-3 w-3 ms-1 inline-block" />
               קישור
             </Button>
           )}
@@ -535,13 +535,13 @@ export default function DocumentsTable({
               {headerGroup.headers.map((header) => {
                 const sorted = header.column.getIsSorted();
                 return (
-                  <TableHead key={header.id} className="text-right rtl:text-right">
+                  <TableHead key={header.id} className="text-start">
                     {header.isPlaceholder ? null : (
                       <button
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
                         disabled={!header.column.getCanSort()}
-                        className="flex w-full items-center justify-end gap-1 text-xs font-medium rtl:flex-row-reverse disabled:cursor-default"
+                        className="flex w-full items-center justify-start gap-1 text-xs font-medium disabled:cursor-default"
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {header.column.getCanSort() && (
@@ -574,7 +574,7 @@ export default function DocumentsTable({
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} className="hover:bg-muted/50">
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="text-right rtl:text-right">
+                  <TableCell key={cell.id} className="text-start">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

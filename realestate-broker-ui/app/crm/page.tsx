@@ -211,8 +211,8 @@ export default function CrmUnifiedPage() {
     <DashboardLayout>
       <div className="container mx-auto p-3 sm:p-6 space-y-6">
         <div className="mb-2 sm:mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 rtl:text-right">ניהול לקוחות ולידים</h1>
-          <p className="text-muted-foreground text-sm sm:text-base rtl:text-right">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 rtl:text-start">ניהול לקוחות ולידים</h1>
+          <p className="text-muted-foreground text-sm sm:text-base rtl:text-start">
             ניהול לקוחות, מעקב לידים ושליחת דוחות ממותגים
           </p>
         </div>
@@ -220,10 +220,10 @@ export default function CrmUnifiedPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <Card className="cursor-pointer" onClick={() => handleCardClick('leads')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
-              <CardTitle className="text-sm font-medium rtl:text-right">לידים</CardTitle>
+              <CardTitle className="text-sm font-medium rtl:text-start">לידים</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent className="rtl:text-right">
+            <CardContent className="rtl:text-start">
               <div className="text-xl sm:text-2xl font-bold">{stats.totalLeads}</div>
               <p className="text-xs text-muted-foreground">{stats.newLeads} חדשים</p>
             </CardContent>
@@ -231,10 +231,10 @@ export default function CrmUnifiedPage() {
 
           <Card className="cursor-pointer" onClick={() => handleCardClick('clients')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
-              <CardTitle className="text-sm font-medium rtl:text-right">לקוחות</CardTitle>
+              <CardTitle className="text-sm font-medium rtl:text-start">לקוחות</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent className="rtl:text-right">
+            <CardContent className="rtl:text-start">
               <div className="text-xl sm:text-2xl font-bold">{contacts.length}</div>
               <p className="text-xs text-muted-foreground">לקוחות רשומים</p>
             </CardContent>
@@ -242,10 +242,10 @@ export default function CrmUnifiedPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
-              <CardTitle className="text-sm font-medium rtl:text-right">המרה</CardTitle>
+              <CardTitle className="text-sm font-medium rtl:text-start">המרה</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
-            <CardContent className="rtl:text-right">
+            <CardContent className="rtl:text-start">
               <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.conversionRate}%</div>
               <p className="text-xs text-muted-foreground">{stats.closedWon} נסגרו בהצלחה</p>
             </CardContent>
@@ -253,10 +253,10 @@ export default function CrmUnifiedPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
-              <CardTitle className="text-sm font-medium rtl:text-right">נסגרו ללא הצלחה</CardTitle>
+              <CardTitle className="text-sm font-medium rtl:text-start">נסגרו ללא הצלחה</CardTitle>
               <XCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
-            <CardContent className="rtl:text-right">
+            <CardContent className="rtl:text-start">
               <div className="text-xl sm:text-2xl font-bold text-red-600">{stats.closedLost}</div>
               <p className="text-xs text-muted-foreground">לא התממשו</p>
             </CardContent>
@@ -280,7 +280,7 @@ export default function CrmUnifiedPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <Card>
-            <CardHeader className="rtl:text-right">
+            <CardHeader className="rtl:text-start">
               <CardTitle className="text-base sm:text-lg">פעולות מהירות</CardTitle>
               <CardDescription className="text-sm">גישה מהירה לפעולות נפוצות</CardDescription>
             </CardHeader>
@@ -288,31 +288,31 @@ export default function CrmUnifiedPage() {
               <div className="flex flex-col sm:flex-row gap-2 rtl:flex-row-reverse">
                 <Link href="/crm/contacts" className="flex-1">
                   <Button className="w-full" size="sm">
-                    <Users className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+                    <Users className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
                     ניהול לקוחות
                   </Button>
                 </Link>
                 <Link href="/crm/leads" className="flex-1">
                   <Button variant="outline" className="w-full" size="sm">
-                    <TrendingUp className="h-4 w-4 ml-2 rtl:mr-2 rtl:ml-0" />
+                    <TrendingUp className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
                     ניהול לידים
                   </Button>
                 </Link>
               </div>
-              <div className="text-xs sm:text-sm text-muted-foreground rtl:text-right">
+              <div className="text-xs sm:text-sm text-muted-foreground rtl:text-start">
                 כדי ליצור ליד חדש, עבור לעמוד נכסים ולחץ על &quot;שייך לקוח&quot;
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="rtl:text-right">
+            <CardHeader className="rtl:text-start">
               <CardTitle className="text-base sm:text-lg">לידים אחרונים</CardTitle>
               <CardDescription className="text-sm">פעילות אחרונה במערכת</CardDescription>
             </CardHeader>
             <CardContent>
               {recentLeads.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground rtl:text-right">
+                <div className="text-center py-4 text-muted-foreground rtl:text-start">
                   אין לידים עדיין
                 </div>
               ) : (
@@ -322,7 +322,7 @@ export default function CrmUnifiedPage() {
                       key={lead.id}
                       className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg rtl:flex-row-reverse"
                     >
-                      <div className="flex-1 rtl:text-right min-w-0">
+                      <div className="flex-1 rtl:text-start min-w-0">
                         <div className="font-medium text-sm sm:text-base truncate">
                           {lead.contact.name}
                         </div>
@@ -341,7 +341,7 @@ export default function CrmUnifiedPage() {
                         </Badge>
                         <Link href="/crm/leads">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <ArrowRight className="h-3 w-3" />
+                            <ArrowRight className="h-3 w-3 rtl:rotate-180" />
                           </Button>
                         </Link>
                       </div>
@@ -355,7 +355,7 @@ export default function CrmUnifiedPage() {
 
         {stats.totalLeads > 0 && (
           <Card>
-            <CardHeader className="rtl:text-right">
+            <CardHeader className="rtl:text-start">
               <CardTitle className="text-base sm:text-lg">התפלגות סטטוסים</CardTitle>
               <CardDescription className="text-sm">פילוח הלידים לפי סטטוס</CardDescription>
             </CardHeader>

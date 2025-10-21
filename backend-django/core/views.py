@@ -17,6 +17,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import (
     Q,
     Avg,
@@ -29,6 +30,7 @@ from django.db.models import (
     ExpressionWrapper,
     F,
     CharField,
+    Count,
 )
 from datetime import datetime
 from asgiref.sync import async_to_sync
@@ -118,6 +120,8 @@ logger = logging.getLogger(__name__)
 # Rate limiting for asset creation to avoid abuse
 ASSETS_POST_LIMIT = 5  # max POST requests per window
 ASSETS_POST_WINDOW = 60  # window size in seconds
+DEFAULT_ASSET_PAGE_SIZE = 25
+MAX_ASSET_PAGE_SIZE = 100
 _assets_rate_limit = {}
 
 def _update_onboarding(user, step):
@@ -1185,8 +1189,8 @@ def assets(request):
     }
     """
     if request.method == "GET":
-        # Return all assets in listing format
-        return _get_assets_list()
+        # Return paginated assets in listing format
+        return _get_assets_list(request)
 
     if request.method == "DELETE":
         user = getattr(request, "user", None)
@@ -1397,13 +1401,261 @@ def assets(request):
         )
 
 
-def _get_assets_list():
-    """Helper function to get all assets in listing format."""
+def _parse_positive_int(value, default):
+    try:
+        parsed = int(value)
+        if parsed > 0:
+            return parsed
+    except (TypeError, ValueError):
+        pass
+    return default
+
+
+def _parse_optional_number(value, cast_type=float):
+    try:
+        if value is None:
+            return None
+        parsed = cast_type(value)
+        return parsed
+    except (TypeError, ValueError):
+        return None
+
+
+def _apply_asset_filters(queryset, params, user):
+    search = params.get("search")
+    if search:
+        queryset = queryset.filter(
+            Q(normalized_address__icontains=search)
+            | Q(city__icontains=search)
+            | Q(neighborhood__icontains=search)
+            | Q(street__icontains=search)
+            | Q(block__icontains=search)
+            | Q(parcel__icontains=search)
+            | Q(building_type__icontains=search)
+            | Q(meta__address__icontains=search)
+            | Q(meta__raw_input__address__icontains=search)
+        )
+
+    city = params.get("city")
+    if city and city != "all":
+        queryset = queryset.filter(city__iexact=city)
+
+    type_filter = params.get("type")
+    if type_filter and type_filter != "all":
+        queryset = queryset.filter(
+            Q(building_type__iexact=type_filter)
+            | Q(meta__property_type__iexact=type_filter)
+            | Q(meta__propertyType__iexact=type_filter)
+        )
+
+    price_min = _parse_optional_number(params.get("priceMin"), int)
+    if price_min is not None:
+        queryset = queryset.filter(price__gte=price_min)
+
+    price_max = _parse_optional_number(params.get("priceMax"), int)
+    if price_max is not None:
+        queryset = queryset.filter(price__lte=price_max)
+
+    neighborhood = params.get("neighborhood")
+    if neighborhood and neighborhood != "all":
+        queryset = queryset.filter(neighborhood__iexact=neighborhood)
+
+    zoning = params.get("zoning")
+    if zoning and zoning != "all":
+        queryset = queryset.filter(zoning__iexact=zoning)
+
+    risk_filter = params.get("risk")
+    if risk_filter == "flagged":
+        queryset = queryset.exclude(
+            Q(risk_flags__isnull=True) | Q(risk_flags=[])
+        )
+    elif risk_filter == "clean":
+        queryset = queryset.filter(
+            Q(risk_flags__isnull=True) | Q(risk_flags=[])
+        )
+
+    documents_filter = params.get("documents")
+    if documents_filter == "with":
+        queryset = queryset.filter(
+            Q(documents__isnull=False) | Q(documents_m2m__isnull=False)
+        )
+    elif documents_filter == "without":
+        queryset = queryset.filter(
+            documents__isnull=True, documents_m2m__isnull=True
+        )
+
+    status_filter = params.get("status")
+    if status_filter and status_filter != "all":
+        queryset = queryset.filter(status__iexact=status_filter)
+
+    rental_sale = params.get("rentalSale")
+    if rental_sale and rental_sale != "all":
+        queryset = queryset.filter(
+            Q(meta__source__icontains="yad2")
+            | Q(meta__sources__contains=["yad2"])
+            | Q(meta__sources__contains=["Yad2"])
+            | Q(meta__sources__contains=["YAD2"])
+        )
+
+    user_assets = params.get("userAssets")
+    if user_assets and user_assets != "all":
+        if not user or not getattr(user, "is_authenticated", False):
+            return queryset.none()
+        if user_assets == "mine":
+            queryset = queryset.filter(created_by=user)
+        elif user_assets == "others":
+            queryset = queryset.exclude(created_by=user)
+
+    building_type = params.get("buildingType")
+    if building_type and building_type != "all":
+        queryset = queryset.filter(building_type__iexact=building_type)
+
+    floor_min = _parse_optional_number(params.get("floorMin"), int)
+    if floor_min is not None:
+        queryset = queryset.filter(floor__gte=floor_min)
+
+    floor_max = _parse_optional_number(params.get("floorMax"), int)
+    if floor_max is not None:
+        queryset = queryset.filter(floor__lte=floor_max)
+
+    area_min = _parse_optional_number(params.get("areaMin"))
+    if area_min is not None:
+        queryset = queryset.filter(area__gte=area_min)
+
+    area_max = _parse_optional_number(params.get("areaMax"))
+    if area_max is not None:
+        queryset = queryset.filter(area__lte=area_max)
+
+    rooms_filter = params.get("rooms")
+    if rooms_filter and rooms_filter != "all":
+        rooms_value = _parse_optional_number(rooms_filter, int)
+        if rooms_value is not None:
+            queryset = queryset.filter(rooms=rooms_value)
+
+    features_filter = params.get("features")
+    if features_filter and features_filter != "all":
+        if features_filter == "elevator":
+            queryset = queryset.filter(elevator=True)
+        elif features_filter == "parking":
+            queryset = queryset.filter(parking_spaces__gt=0)
+        elif features_filter == "balcony":
+            queryset = queryset.filter(balcony_area__gt=0)
+        elif features_filter == "storage":
+            queryset = queryset.filter(storage_room=True)
+
+    price_per_sqm_min = _parse_optional_number(params.get("pricePerSqmMin"), int)
+    if price_per_sqm_min is not None:
+        queryset = queryset.filter(price_per_sqm__gte=price_per_sqm_min)
+
+    price_per_sqm_max = _parse_optional_number(params.get("pricePerSqmMax"), int)
+    if price_per_sqm_max is not None:
+        queryset = queryset.filter(price_per_sqm__lte=price_per_sqm_max)
+
+    remaining_rights_min = _parse_optional_number(params.get("remainingRightsMin"))
+    if remaining_rights_min is not None:
+        queryset = queryset.filter(meta__remainingRightsSqm__gte=remaining_rights_min)
+
+    remaining_rights_max = _parse_optional_number(params.get("remainingRightsMax"))
+    if remaining_rights_max is not None:
+        queryset = queryset.filter(meta__remainingRightsSqm__lte=remaining_rights_max)
+
+    block_filter = params.get("block")
+    if block_filter and block_filter != "all":
+        queryset = queryset.filter(block__iexact=block_filter)
+
+    parcel_filter = params.get("parcel")
+    if parcel_filter and parcel_filter != "all":
+        queryset = queryset.filter(parcel__iexact=parcel_filter)
+
+    return queryset.distinct()
+
+
+def _get_asset_filter_metadata():
+    base_qs = Asset.objects.all()
+
+    def _distinct(field):
+        return [
+            value
+            for value in base_qs.order_by().values_list(field, flat=True).distinct()
+            if value not in (None, "")
+        ]
+
+    property_types = set(_distinct("building_type"))
+    property_types.update(
+        value
+        for value in base_qs.order_by().values_list("meta__property_type", flat=True).distinct()
+        if value not in (None, "")
+    )
+    property_types.update(
+        value
+        for value in base_qs.order_by().values_list("meta__propertyType", flat=True).distinct()
+        if value not in (None, "")
+    )
+
+    room_values = sorted(
+        {
+            value
+            for value in base_qs.order_by().values_list("rooms", flat=True).distinct()
+            if value is not None
+        }
+    )
+
+    status_counts = {
+        row["status"]: row["count"]
+        for row in base_qs.values("status").annotate(count=Count("id"))
+        if row["status"]
+    }
+
+    return {
+        "cities": sorted(set(_distinct("city"))),
+        "types": sorted(property_types),
+        "neighborhoods": sorted(set(_distinct("neighborhood"))),
+        "zonings": sorted(set(_distinct("zoning"))),
+        "blocks": sorted(set(_distinct("block"))),
+        "parcels": sorted(set(_distinct("parcel"))),
+        "buildingTypes": sorted(set(_distinct("building_type"))),
+        "rooms": room_values,
+        "statusCounts": status_counts,
+    }
+
+
+def _get_assets_list(request):
+    """Helper function to get paginated assets in listing format."""
+
+    params = request.GET
+
+    page = _parse_positive_int(params.get("page"), 1)
+    page_size = _parse_positive_int(
+        params.get("pageSize") or params.get("page_size"), DEFAULT_ASSET_PAGE_SIZE
+    )
+    page_size = min(page_size, MAX_ASSET_PAGE_SIZE)
 
     try:
-        assets_qs = Asset.objects.all().order_by("-created_at")
-        serializer = AssetSerializer(assets_qs, many=True)
-        return Response({"rows": serializer.data})
+        queryset = Asset.objects.all().order_by("-created_at")
+        queryset = _apply_asset_filters(queryset, params, getattr(request, "user", None))
+
+        paginator = Paginator(queryset, page_size)
+        try:
+            page_obj = paginator.page(page)
+        except (EmptyPage, PageNotAnInteger):
+            page_obj = paginator.page(1)
+
+        serializer = AssetSerializer(page_obj.object_list, many=True)
+
+        return Response(
+            {
+                "rows": serializer.data,
+                "pagination": {
+                    "page": page_obj.number,
+                    "page_size": page_size,
+                    "total": paginator.count,
+                    "total_pages": paginator.num_pages,
+                    "has_next": page_obj.has_next(),
+                    "has_previous": page_obj.has_previous(),
+                },
+                "filters": _get_asset_filter_metadata(),
+            }
+        )
     except Exception as e:
         logger.error("Error fetching assets: %s", e)
         return Response(

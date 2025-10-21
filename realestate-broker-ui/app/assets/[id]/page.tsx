@@ -723,6 +723,40 @@ React.useEffect(() => {
     return null
   }, [asset, calculatedRights])
 
+  const summaryMetrics = useMemo(() => {
+    const remaining = remainingRightsDisplayValue
+
+    let additional: number | null =
+      calculatedRights?.summary?.additional_rights_percentage ??
+      null
+    if (
+      additional == null &&
+      asset?.remainingRightsSqm !== undefined &&
+      asset?.remainingRightsSqm !== null &&
+      asset?.area
+    ) {
+      additional = Math.round((asset.remainingRightsSqm / asset.area) * 100)
+    }
+
+    let estimated: number | null =
+      calculatedRights?.summary?.estimated_rights_value_k ??
+      null
+    if (
+      estimated == null &&
+      asset?.pricePerSqm &&
+      remaining !== null &&
+      remaining > 0
+    ) {
+      estimated = Math.round((asset.pricePerSqm * remaining * 0.7) / 1000)
+    }
+
+    return {
+      remaining,
+      additional,
+      estimated,
+    }
+  }, [asset, calculatedRights, remainingRightsDisplayValue])
+
   const loadRightsData = React.useCallback(async () => {
     if (!id) return
     setRightsLoading(true)
@@ -2124,29 +2158,28 @@ useDedupedEffect(() => {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {calculatedRights?.summary?.remaining_rights_sqm 
-                        ? formatNumber(calculatedRights.summary.remaining_rights_sqm)
-                        : formatNumber(asset.remainingRightsSqm) ?? '—'}
+                      {summaryMetrics.remaining !== null
+                        ? formatNumber(summaryMetrics.remaining) ?? '—'
+                        : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {calculatedRights?.summary?.additional_rights_percentage 
-                        ? `${calculatedRights.summary.additional_rights_percentage}%`
-                        : (!!asset.remainingRightsSqm && !!asset.area
-                            ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
-                            : '—')}
+                      {summaryMetrics.additional !== null
+                        ? formatPercent(
+                            summaryMetrics.additional,
+                            Number.isInteger(summaryMetrics.additional) ? 0 : 1
+                          ) ?? '—'
+                        : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {calculatedRights?.summary?.estimated_rights_value_k 
-                        ? `₪${calculatedRights.summary.estimated_rights_value_k}K`
-                        : (!!asset.pricePerSqm && !!asset.remainingRightsSqm
-                            ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
-                            : '—')}
+                      {summaryMetrics.estimated !== null
+                        ? `₪${summaryMetrics.estimated.toLocaleString('he-IL')}K`
+                        : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
                   </div>

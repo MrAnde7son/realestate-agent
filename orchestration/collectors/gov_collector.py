@@ -34,8 +34,6 @@ class GovCollector(BaseCollector):
 
     def collect(
         self,
-        block: str,
-        parcel: Optional[str] = None,
         location: Optional[LocationQuery] = None,
         max_age_days: Optional[int] = None,
         force_refresh: bool = False,
@@ -43,14 +41,14 @@ class GovCollector(BaseCollector):
         """Collect government data for a given block/parcel and location.
 
         Args:
-            block: Block number for decisive appraisals
-            parcel: Parcel number (optional)
             location: Location query for transaction history
             max_age_days: Override default max age for transactions (optional)
             force_refresh: Force refresh even if cache is available (optional)
         """
 
         query = ensure_location_query(location)
+        block = (query.block or "").strip()
+        parcel = (query.parcel or "").strip()
         address = query.formatted or query.street or query.city
 
         return {
@@ -83,12 +81,8 @@ class GovCollector(BaseCollector):
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for government data collection."""
 
-        location = kwargs.get("location")
-        return (
-            bool(kwargs.get('block'))
-            and isinstance(location, LocationQuery)
-            and not location.is_empty()
-        )
+        location = ensure_location_query(kwargs.get("location"))
+        return bool(str(location.block or "").strip())
 
 if __name__ == "__main__":
     # Example with fully optimized collector

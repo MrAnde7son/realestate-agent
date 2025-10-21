@@ -48,8 +48,6 @@ class FakeGISCollector(GISCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        block: Optional[str] = None,
-        parcel: Optional[str] = None,
     ):
         return {
             "blocks": [{"ms_gush": "1"}],
@@ -94,7 +92,7 @@ class FakeRamiCollector(RamiCollector):
     def __init__(self):
         pass
 
-    def collect(self, block, parcel):
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
         return [{"planNumber": "111", "planId": "222"}]
 
 
@@ -142,7 +140,7 @@ class FakeMavatCollector(MavatCollector):
     def __init__(self):
         pass
 
-    def collect(self, block, parcel, city=None):
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
         return [{"plan_id": "333", "title": "Test Mavat Plan", "status": "approved"}]
 
 
@@ -150,7 +148,7 @@ class FakeHandasaCollector(HandasaCollector):
     def __init__(self):
         pass
 
-    def collect(self, block: str, parcel: Optional[str] = None):
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
         return [
             {
                 "title": "Handasa Permit",
@@ -196,7 +194,8 @@ def test_data_pipeline_integration():
     )
 
     # Run the pipeline - it should return collected data, not save to database
-    results = pipeline.run("", "Fake", 1, asset_id=123)
+    location = LocationQuery(street="Fake", house_number=1)
+    results = pipeline.run(location=location, asset_id=123)
     
     # Verify that the pipeline returned results
     assert results, "Pipeline did not return any results"
@@ -225,7 +224,7 @@ def test_data_pipeline_integration():
 
 
 def test_calculate_market_metrics_skips_invalid_listings():
-    from orchestration.data_pipeline import _calculate_market_metrics
+    from orchestration.pipeline.asset_enrichment import _calculate_market_metrics
 
     asset = DummyAsset()
 

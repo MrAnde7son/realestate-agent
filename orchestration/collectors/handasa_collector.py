@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from handasa.client import HandasaClient
 
 from orchestration.collectors.base_collector import BaseCollector
+from orchestration.location import LocationQuery, ensure_location_query
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +17,15 @@ class HandasaCollector(BaseCollector):
     def __init__(self, client: Optional[HandasaClient] = None) -> None:
         self.client = client or HandasaClient()
 
-    def collect(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
+    def collect(
+        self,
+        location: Optional[LocationQuery] = None,
+    ) -> List[Dict[str, Any]]:
+        query = ensure_location_query(location)
+        block = query.block
+        parcel = query.parcel
         if not block:
             raise ValueError("HandasaCollector requires a block number")
-
         try:
             return self.client.get_archive(block, parcel)
         except Exception:
@@ -27,7 +33,10 @@ class HandasaCollector(BaseCollector):
             raise
 
     def validate_parameters(self, **kwargs) -> bool:
-        block = kwargs.get("block")
+        location = ensure_location_query(
+            kwargs.get("location"),
+        )
+        block = location.block
         return bool(str(block or "").strip())
 
 

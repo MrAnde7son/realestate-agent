@@ -8,6 +8,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from orchestration.location import LocationQuery
+
 
 class TestMavatCollectorIntegration:
     """Integration tests for MavatCollector."""
@@ -94,7 +96,7 @@ class TestMavatCollectorErrorHandling:
                 collector = MavatCollector(client=mock_client)
                 
                 # Should return empty list on error, not raise exception
-                result = collector.collect("666", "1")
+                result = collector.collect(LocationQuery(block="666", parcel="1"))
                 assert result == []
         except Exception as e:
             pytest.fail(f"Collect method error handling test failed: {e}")

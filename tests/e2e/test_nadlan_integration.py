@@ -61,8 +61,8 @@ def test_gov_collector_combines_transactions_and_decisive_data():
     decisive_client = FakeDecisiveClient(appraisals)
     collector = GovCollector(deals_client=scraper, decisive_client=decisive_client)
 
-    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
-    result = collector.collect(block="6336", parcel="7", location=location)
+    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block="6336", parcel="7")
+    result = collector.collect(location=location)
 
     assert [entry["deal_amount"] for entry in result["transactions"]] == [2_800_000, 3_100_000]
     assert [entry["title"] for entry in result["decisive"]] == ["תכנית א", "תכנית ב"]
@@ -75,35 +75,34 @@ def test_gov_collector_handles_external_failures_gracefully():
     decisive_client = FakeDecisiveClient([], fail=True)
     collector = GovCollector(deals_client=scraper, decisive_client=decisive_client)
 
-    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
-    result = collector.collect(block="6336", parcel="7", location=location)
+    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block="6336", parcel="7")
+    result = collector.collect(location=location)
 
     assert result == {"decisive": [], "transactions": []}
 
 
-def test_validate_parameters_requires_block_and_location():
+def test_validate_parameters_requires_location():
     collector = GovCollector(
         deals_client=FakeNadlanScraper(), decisive_client=FakeDecisiveClient()
     )
-    good_location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
+    good_location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block="6336", parcel="7")
 
-    assert collector.validate_parameters(block="6336", parcel="7", location=good_location) is True
-    assert collector.validate_parameters(block="6336", parcel="7") is False
-    assert collector.validate_parameters(parcel="7", location=good_location) is False
+    assert collector.validate_parameters(location=good_location) is True
+    assert collector.validate_parameters(location=None) is False
 
 
 @pytest.mark.parametrize(
     "location,expected",
     [
-        (LocationQuery(city="תל אביב", street="רוזוב"), "רוזוב תל אביב"),
-        (LocationQuery(city="תל אביב"), "תל אביב"),
-        (LocationQuery(street="רוזוב", house_number=10), "רוזוב 10"),
+        (LocationQuery(city="תל אביב", street="רוזוב", block="6336", parcel="7"), "רוזוב תל אביב"),
+        (LocationQuery(city="תל אביב", block="6336", parcel="7"), "תל אביב"),
+        (LocationQuery(street="רוזוב", house_number=10, block="6336", parcel="7"), "רוזוב 10"),
     ],
 )
 def test_scraper_receives_human_readable_address(location: LocationQuery, expected: str):
     scraper = FakeNadlanScraper([_deal()])
     collector = GovCollector(deals_client=scraper, decisive_client=FakeDecisiveClient())
 
-    collector.collect(block="6336", parcel="7", location=location)
+    collector.collect(location=location)
 
     assert scraper.calls == [expected]

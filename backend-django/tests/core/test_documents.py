@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from core.models import Asset, Document
 from core.storage import document_storage
-from orchestration.data_pipeline import _create_documents_from_permits
+from orchestration.pipeline.asset_enrichment import _create_documents_from_permits
 
 User = get_user_model()
 

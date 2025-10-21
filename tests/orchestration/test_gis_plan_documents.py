@@ -3,7 +3,7 @@ import datetime
 import pytest
 
 from core.models import Asset, Document, Plan
-from orchestration.data_pipeline import _create_documents_and_plans
+from orchestration.pipeline.asset_enrichment import _create_documents_and_plans
 
 
 @pytest.mark.django_db

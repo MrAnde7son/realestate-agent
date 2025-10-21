@@ -2,6 +2,7 @@ import types
 
 from orchestration import data_pipeline
 from orchestration.data_pipeline import DataPipeline
+from orchestration.location import LocationQuery
 from db.database import SQLAlchemyDatabase
 
 
@@ -106,7 +107,7 @@ def test_pipeline_sends_alerts(monkeypatch):
     monkeypatch.setattr(data_pipeline, "_load_user_notifiers", lambda: [notifier])
     monkeypatch.setattr(data_pipeline, "_dispatch_notifications", fake_dispatch)
 
-    pipeline.run("", "Fake", 1, asset_id=123)
+    pipeline.run(LocationQuery(street="Fake", house_number=1), asset_id=123)
 
     assert notifier.matches_calls == ["t"]
     assert len(dispatched) == 1

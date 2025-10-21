@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from gov.rami.rami_client import RamiClient
 
 from orchestration.collectors.base_collector import BaseCollector
+from orchestration.location import LocationQuery, ensure_location_query
 
 
 class RamiCollector(BaseCollector):
@@ -13,8 +14,15 @@ class RamiCollector(BaseCollector):
     def __init__(self, client: Optional[RamiClient] = None) -> None:
         self.client = client or RamiClient()
 
-    def collect(self, block: str, parcel: Optional[str] = None) -> List[Dict[str, Any]]:
+    def collect(
+        self,
+        location: Optional[LocationQuery] = None,
+    ) -> List[Dict[str, Any]]:
         """Collect RAMI plans for a given block (block) and parcel (parcel)."""
+        query = ensure_location_query(location)
+        block = (query.block or "").strip()
+        if not block:
+            raise ValueError("RamiCollector requires a block number")
         try:
             # Block search is enough for rami to cover larger area
             search_params = self.client.create_search_params(block=block)
@@ -40,8 +48,9 @@ class RamiCollector(BaseCollector):
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for RAMI data collection."""
-        required_params = ['block']
-        return all(param in kwargs for param in required_params)
+        query = ensure_location_query(kwargs.get("location"))
+        block = (query.block or "").strip()
+        return bool(block)
 
 if __name__ == "__main__":
     client = RamiCollector()

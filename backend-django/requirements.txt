@@ -37,6 +37,7 @@ redis>=4.0.0
 pytest-django>=4.4.0
 pytest>=6.0.0
 pytest-cov>=4.0.0
+coverage>=7.0.0
 pytest-mock>=3.10.0
 
 # Production (uncomment as needed)

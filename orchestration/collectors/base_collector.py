@@ -1,7 +1,9 @@
 """Base collector class for data collection framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
+
+from orchestration.location import LocationQuery, ensure_location_query
 
 
 class BaseCollector(ABC):
@@ -12,7 +14,7 @@ class BaseCollector(ABC):
     """
     
     @abstractmethod
-    def collect(self, **kwargs) -> Any:
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs) -> Any:
         """Collect data from the source.
         
         This method must be implemented by all subclasses to provide
@@ -31,4 +33,5 @@ class BaseCollector(ABC):
         Returns:
             True if parameters are valid, False otherwise.
         """
-        return True
+        location = ensure_location_query(kwargs.get("location"))
+        return bool(str(location))

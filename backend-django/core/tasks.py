@@ -6,6 +6,8 @@ from celery import shared_task
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from orchestration.location import LocationQuery
+
 from .analytics import track
 from .email import send_email
 
@@ -68,7 +70,20 @@ def run_data_pipeline(asset_id: int, max_pages: int = 1):
     parcel = asset.parcel or ""
     logger.info("Starting data pipeline for asset %s", asset_id)
     try:
-        result = pipeline.run(city, street, house_number, max_pages=max_pages, asset_id=asset_id, block=block, parcel=parcel)
+        subparcel = asset.subparcel or ""
+        location = LocationQuery(
+            city=city,
+            street=street,
+            house_number=house_number or None,
+            block=block,
+            parcel=parcel,
+            subparcel=subparcel,
+        )
+        result = pipeline.run(
+            location=location,
+            max_pages=max_pages,
+            asset_id=asset_id,
+        )
         track('asset_sync', asset_id=asset_id)
         asset.status = "done"
         asset.last_enriched_at = timezone.now()
@@ -659,4 +674,3 @@ def alerts_daily_digest():
             
         except Exception as e:
             logger.error("Failed to send daily digest for user %s: %s", user_id, e)
-

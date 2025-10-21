@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pytest
 
@@ -37,7 +37,7 @@ class FakeMavatClient:
     def __exit__(self, exc_type, exc, tb):
         return False
 
-    def search_plans(self, *, block: str, city: str | None = None, **_):
+    def search_plans(self, block: str, city: str | None = None, **_):
         self.calls.append({"block": block, "city": city})
         return list(self._plans)
 
@@ -85,7 +85,7 @@ def test_mavat_collector_formats_results_without_network_calls():
     client = FakeMavatClient(plans)
     collector = MavatCollector(client=client)
 
-    formatted = collector.collect(block="6336", city="Tel Aviv")
+    formatted = collector.collect(LocationQuery(block="6336", city="Tel Aviv"))
 
     assert formatted == [
         {
@@ -224,10 +224,10 @@ class StubGISCollector:
         self.payload = payload
         self.calls: List[Dict[str, Any]] = []
 
-    def collect(self, *, location=None, block=None, parcel=None, **kwargs):
+    def collect(self, location=None, **kwargs):
         self.calls.append({
-            "block": block,
-            "parcel": parcel,
+            "block": getattr(location, "block", None),
+            "parcel": getattr(location, "parcel", None),
             "street": getattr(location, "street", None),
         })
         return dict(self.payload)
@@ -238,7 +238,7 @@ class StubGovMapCollector:
         self.payload = payload
         self.calls: List[Dict[str, Any]] = []
 
-    def collect(self, *, location=None, block=None, parcel=None, **kwargs):
+    def collect(self, location=None, block=None, parcel=None, **kwargs):
         self.calls.append({
             "block": block,
             "parcel": parcel,
@@ -252,8 +252,15 @@ class StubGovCollector:
         self.payload = payload
         self.calls: List[Any] = []
 
-    def collect(self, block, parcel, location, **kwargs):
-        self.calls.append((block, parcel, location.street))
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
+        location = location or LocationQuery()
+        self.calls.append(
+            (
+                getattr(location, "block", None),
+                getattr(location, "parcel", None),
+                getattr(location, "street", None),
+            )
+        )
         return dict(self.payload)
 
 
@@ -262,8 +269,9 @@ class StubRamiCollector:
         self.plans = plans
         self.calls: List[Any] = []
 
-    def collect(self, *, block=None, parcel=None, **kwargs):
-        self.calls.append((block, parcel))
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
+        location = location or LocationQuery()
+        self.calls.append((location.block, location.parcel))
         return list(self.plans)
 
 
@@ -272,8 +280,9 @@ class StubMavatCollector:
         self.plans = plans
         self.calls: List[Any] = []
 
-    def collect(self, *, block=None, parcel=None, city=None, **kwargs):
-        self.calls.append((block, parcel, city))
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
+        location = location or LocationQuery()
+        self.calls.append((location.block, location.parcel, location.city))
         return list(self.plans)
 
 
@@ -324,7 +333,8 @@ def test_pipeline_combines_collector_results_with_stubs():
     listings = [FakeListing(title="Sunny flat", address="רוזוב 14 תל אביב", listing_id="TLV-1")]
     pipeline = _build_pipeline(session, listings)
 
-    results = pipeline.run(city="תל אביב", street="רוזוב", house_number=14, max_pages=1)
+    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block="6336", parcel="7")
+    results = pipeline.run(location=location, max_pages=1)
 
     # Listing plus enrichment payloads from the collectors
     sources = [
@@ -340,7 +350,8 @@ def test_pipeline_handles_empty_listing_results():
     session = FakeSession()
     pipeline = _build_pipeline(session, listings=[])
 
-    results = pipeline.run(city="תל אביב", street="רוזוב", house_number=14, max_pages=1)
+    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
+    results = pipeline.run(location=location, max_pages=1)
 
     assert all(isinstance(entry, dict) for entry in results)
     assert {entry["source"] for entry in results} == {

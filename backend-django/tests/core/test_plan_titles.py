@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from core.models import Asset, Plan
 from core.serializers import PlanSerializer
 from core.views import _normalize_plan_entry
-from orchestration.data_pipeline import _create_documents_and_plans
+from orchestration.pipeline.asset_enrichment import _create_documents_and_plans
 
 
 User = get_user_model()

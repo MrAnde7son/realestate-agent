@@ -31,14 +31,14 @@ def test_auto_expand_creates_related_address(monkeypatch):
         status="done",
     )
 
-    triggered: list[int] = []
+    linked: list[int] = []
 
-    def fake_trigger(asset_id: int) -> None:
-        triggered.append(asset_id)
+    def fake_link(asset, *args, **kwargs):
+        linked.append(asset.id)
 
     monkeypatch.setattr(
-        "orchestration.pipeline.asset_expansion._trigger_pipeline_for_asset",
-        fake_trigger,
+        "orchestration.pipeline.asset_expansion._link_existing_data_to_asset",
+        fake_link,
     )
 
     created_ids = auto_expand_related_assets(
@@ -55,7 +55,7 @@ def test_auto_expand_creates_related_address(monkeypatch):
     assert new_asset.city == "Tel Aviv"
     assert new_asset.meta.get("auto_created") is True
     assert new_asset.meta.get("scope_type") == "address"
-    assert triggered == created_ids
+    assert linked == created_ids
 
 
 @pytest.mark.django_db
@@ -68,14 +68,14 @@ def test_auto_expand_creates_parcel_asset_from_transactions(monkeypatch):
         status="done",
     )
 
-    triggered: list[int] = []
+    linked: list[int] = []
 
-    def fake_trigger(asset_id: int) -> None:
-        triggered.append(asset_id)
+    def fake_link(asset, *args, **kwargs):
+        linked.append(asset.id)
 
     monkeypatch.setattr(
-        "orchestration.pipeline.asset_expansion._trigger_pipeline_for_asset",
-        fake_trigger,
+        "orchestration.pipeline.asset_expansion._link_existing_data_to_asset",
+        fake_link,
     )
 
     created_ids = auto_expand_related_assets(
@@ -101,4 +101,4 @@ def test_auto_expand_creates_parcel_asset_from_transactions(monkeypatch):
     assert parcel_asset.normalized_address.startswith("Block 123 Parcel 456")
     assert parcel_asset.meta.get("auto_created") is True
     assert parcel_asset.meta.get("scope_type") == "parcel"
-    assert triggered == created_ids
+    assert linked == created_ids

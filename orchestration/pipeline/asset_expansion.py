@@ -221,7 +221,25 @@ def auto_expand_related_assets(
 
         created_asset_ids.append(new_asset.id)
         created_keys.update(_candidate_keys_from_asset(new_asset))
-        _trigger_pipeline_for_asset(new_asset.id)
+
+        try:
+            _link_existing_data_to_asset(
+                new_asset,
+                candidate,
+                listings,
+                govmap_data,
+                gis_data,
+                gov_data,
+                plans,
+                mavat_plans,
+                handasa_archive,
+            )
+        except Exception:  # pragma: no cover - defensive fail safe
+            logger.exception(
+                "Failed to link collected data to auto-created asset %s (from %s)",
+                new_asset.id,
+                asset_id,
+            )
 
     return created_asset_ids
 
@@ -533,6 +551,168 @@ def _format_parcel_label(
     if city_norm:
         parts.append(city_norm)
     return " ".join(part for part in parts if part)
+
+
+def _link_existing_data_to_asset(
+    asset: Any,
+    candidate: AddressCandidate,
+    listings: Sequence[Dict[str, Any]] | None,
+    govmap_data: Dict[str, Any] | None,
+    gis_data: Dict[str, Any] | None,
+    gov_data: Dict[str, Any] | None,
+    plans: Sequence[Dict[str, Any]] | None,
+    mavat_plans: Sequence[Dict[str, Any]] | None,
+    handasa_archive: Sequence[Dict[str, Any]] | None,
+) -> None:
+    try:
+        from django.utils import timezone
+        from orchestration.pipeline.asset_enrichment import update_asset_with_collected_data
+    except Exception:  # pragma: no cover - requires Django context
+        logger.debug(
+            "Skipping auto-linking for asset %s; Django enrichment unavailable",
+            getattr(asset, "id", "?"),
+        )
+        return
+
+    block = candidate.location.block or ""
+    parcel = candidate.location.parcel or ""
+    subparcel = candidate.location.subparcel or ""
+    autocomplete = (govmap_data or {}).get("api_data", {}).get("autocomplete", {})
+
+    filtered_listings = _filter_listings_for_candidate(listings, candidate)
+    filtered_transactions = _filter_transactions_for_candidate(
+        (gov_data or {}).get("transactions", []),
+        candidate,
+    )
+    filtered_gov_data = dict(gov_data or {})
+    if filtered_transactions is not None:
+        filtered_gov_data["transactions"] = filtered_transactions
+
+    filtered_gov_decisive = _filter_decisive_for_candidate(
+        (gov_data or {}).get("decisive", []),
+        candidate,
+    )
+    if filtered_gov_decisive is not None:
+        filtered_gov_data["decisive"] = filtered_gov_decisive
+
+    update_asset_with_collected_data(
+        asset.id,
+        block,
+        parcel,
+        autocomplete,
+        govmap_data or {},
+        gis_data or {},
+        filtered_gov_data,
+        plans or [],
+        mavat_plans or [],
+        handasa_archive or [],
+        filtered_listings,
+        x_itm=(govmap_data or {}).get("x"),
+        y_itm=(govmap_data or {}).get("y"),
+        lon_wgs84=(govmap_data or {}).get("lon"),
+        lat_wgs84=(govmap_data or {}).get("lat"),
+    )
+
+    asset.__class__.objects.filter(id=asset.id).update(
+        status="done",
+        last_enrich_error=None,
+        last_enriched_at=timezone.now(),
+    )
+
+    asset.refresh_from_db(fields=["meta"])
+    asset.meta = asset.meta or {}
+    asset.meta.setdefault("auto_created", True)
+    asset.meta.setdefault("scope_type", candidate.scope_type)
+    if candidate.raw_address and "raw_address" not in asset.meta:
+        asset.meta["raw_address"] = candidate.raw_address
+    parent_id = asset.meta.get("auto_linked_from_parent") or asset.meta.get("auto_created_from")
+    if parent_id:
+        asset.meta["auto_linked_from_parent"] = parent_id
+    asset.save(update_fields=["meta"])
+
+
+def _filter_listings_for_candidate(
+    listings: Sequence[Dict[str, Any]] | None,
+    candidate: AddressCandidate,
+) -> List[Dict[str, Any]]:
+    if not listings:
+        return []
+
+    street = _normalize_text(candidate.location.street).lower()
+    number = str(candidate.location.house_number or "")
+    city = _normalize_text(candidate.location.city).lower()
+    if not street and not number and not city:
+        return list(listings)
+
+    results: List[Dict[str, Any]] = []
+    for listing in listings:
+        address = _normalize_text(listing.get("address")).lower()
+        if street and street not in address:
+            continue
+        if number and number not in address:
+            continue
+        if city and city not in address:
+            continue
+        results.append(listing)
+    return results or list(listings)
+
+
+def _filter_transactions_for_candidate(
+    transactions: Sequence[Dict[str, Any]] | None,
+    candidate: AddressCandidate,
+) -> Optional[List[Dict[str, Any]]]:
+    if not transactions:
+        return []
+
+    street = _normalize_text(candidate.location.street).lower()
+    number = str(candidate.location.house_number or "")
+    city = _normalize_text(candidate.location.city).lower()
+
+    filtered: List[Dict[str, Any]] = []
+    for tx in transactions:
+        tx_street = _normalize_text(_safe_get(tx, "street")).lower()
+        tx_number = str(_safe_get(tx, "number") or _safe_get(tx, "house_number") or "")
+        tx_city = _normalize_text(_safe_get(tx, "city")).lower()
+
+        if street and street not in tx_street:
+            continue
+        if number and number != tx_number:
+            continue
+        if city and city not in tx_city:
+            continue
+        filtered.append(tx)
+
+    return filtered or None
+
+
+def _filter_decisive_for_candidate(
+    decisive: Sequence[Dict[str, Any]] | None,
+    candidate: AddressCandidate,
+) -> Optional[List[Dict[str, Any]]]:
+    if not decisive:
+        return []
+
+    street = _normalize_text(candidate.location.street).lower()
+    city = _normalize_text(candidate.location.city).lower()
+
+    filtered: List[Dict[str, Any]] = []
+    for item in decisive:
+        item_street = _normalize_text(_safe_get(item, "street")).lower()
+        item_city = _normalize_text(_safe_get(item, "city")).lower()
+        if street and street not in item_street:
+            continue
+        if city and city not in item_city:
+            continue
+        filtered.append(item)
+
+    return filtered or None
+
+
+def _safe_get(obj: Any, key: str) -> Any:
+    if isinstance(obj, dict):
+        if key in obj:
+            return obj[key]
+    return None
 
 
 def _trigger_pipeline_for_asset(asset_id: int) -> None:

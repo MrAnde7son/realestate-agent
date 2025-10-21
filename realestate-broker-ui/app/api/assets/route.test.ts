@@ -47,6 +47,9 @@ describe('/api/assets', () => {
     global.fetch = originalFetch
   })
 
+  const createGetRequest = (url = 'http://127.0.0.1:3000/api/assets') =>
+    new NextRequest(url, { method: 'GET' })
+
   describe('GET', () => {
     it('fetches assets from backend', async () => {
       global.fetch = vi.fn().mockResolvedValue({
@@ -73,7 +76,7 @@ describe('/api/assets', () => {
         })
       } as any)
 
-      const response = await GET()
+      const response = await GET(createGetRequest())
       const data = await response.json()
 
       expect(global.fetch).toHaveBeenCalledTimes(1)
@@ -84,7 +87,7 @@ describe('/api/assets', () => {
     it('returns error when backend fetch fails', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('fail'))
 
-      const response = await GET()
+      const response = await GET(createGetRequest())
       const data = await response.json()
 
       expect(global.fetch).toHaveBeenCalledTimes(1)

@@ -6,7 +6,7 @@ import os
 import secrets
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 from pathlib import Path
 
 from django.http import JsonResponse, FileResponse, Http404
@@ -17,6 +17,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import (
     Q,
     Avg,
@@ -29,6 +30,7 @@ from django.db.models import (
     ExpressionWrapper,
     F,
     CharField,
+    Count,
 )
 from datetime import datetime
 from asgiref.sync import async_to_sync
@@ -118,6 +120,8 @@ logger = logging.getLogger(__name__)
 # Rate limiting for asset creation to avoid abuse
 ASSETS_POST_LIMIT = 5  # max POST requests per window
 ASSETS_POST_WINDOW = 60  # window size in seconds
+DEFAULT_ASSET_PAGE_SIZE = 25
+MAX_ASSET_PAGE_SIZE = 100
 _assets_rate_limit = {}
 
 def _update_onboarding(user, step):
@@ -993,6 +997,249 @@ def reports(request):
         )
 
 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def assets_bulk_action(request):
+    """Perform bulk actions on multiple assets."""
+
+    data = parse_json(request)
+    if not data:
+        return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+
+    action = data.get("action")
+    asset_ids = data.get("assetIds") or data.get("asset_ids")
+
+    if not action or not isinstance(asset_ids, list) or not asset_ids:
+        return Response(
+            {"error": "action and assetIds are required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        requested_ids = [int(asset_id) for asset_id in asset_ids]
+    except (TypeError, ValueError):
+        return Response({"error": "assetIds must be integers"}, status=400)
+
+    assets_map = {
+        asset.id: asset
+        for asset in Asset.objects.filter(id__in=requested_ids).select_related("created_by")
+    }
+
+    if not assets_map:
+        return Response(
+            {"error": "No assets found for provided IDs"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    user = request.user
+
+    results: list[dict[str, Any]] = []
+    success_count = 0
+    not_found_count = 0
+
+    if action == "delete":
+        if not (
+            getattr(user, "role", None) == User.Role.ADMIN
+            or getattr(user, "is_superuser", False)
+        ):
+            return Response(
+                {"error": "Admin privileges required to delete assets"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        for asset_id in requested_ids:
+            asset = assets_map.get(asset_id)
+            if not asset:
+                not_found_count += 1
+                results.append({"assetId": asset_id, "status": "not_found"})
+                continue
+
+            try:
+                deleted = asset.delete_asset()
+                if deleted:
+                    success_count += 1
+                    results.append({"assetId": asset_id, "status": "success"})
+                else:
+                    results.append(
+                        {
+                            "assetId": asset_id,
+                            "status": "failed",
+                            "error": "Failed to delete asset",
+                        }
+                    )
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception("Error deleting asset %s: %s", asset_id, exc)
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+
+        message = f"Deleted {success_count} of {len(requested_ids)} assets"
+
+    elif action == "sync":
+        from django.conf import settings
+
+        celery_enabled = bool(getattr(settings, "CELERY_BROKER_URL", None))
+
+        try:
+            from .tasks import run_data_pipeline
+        except Exception as exc:  # pragma: no cover - import safety
+            logger.exception("Failed to import run_data_pipeline: %s", exc)
+            return Response(
+                {"error": "Sync is not available"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        for asset_id in requested_ids:
+            asset = assets_map.get(asset_id)
+            if not asset:
+                not_found_count += 1
+                results.append({"assetId": asset_id, "status": "not_found"})
+                continue
+
+            try:
+                address = asset.address
+                if not address:
+                    raise ValueError("Asset is missing address information")
+
+                asset.status = "syncing"
+                asset.last_sync_started_at = timezone.now()
+                asset.save(update_fields=["status", "last_sync_started_at"])
+
+                job_id = None
+                if celery_enabled:
+                    result = run_data_pipeline.delay(asset.id, max_pages=1)
+                    job_id = getattr(result, "id", None)
+                else:
+                    import threading
+
+                    def run_sync_async(asset_pk: int) -> None:
+                        try:
+                            run_data_pipeline(asset_pk, max_pages=1)
+                            logger.info(
+                                "Background asset sync completed for asset %s", asset_pk
+                            )
+                        except Exception as err:  # pragma: no cover - defensive
+                            logger.error(
+                                "Background asset sync failed for asset %s: %s",
+                                asset_pk,
+                                err,
+                            )
+                            try:
+                                asset_obj = Asset.objects.get(id=asset_pk)
+                                asset_obj.status = "failed"
+                                asset_obj.last_enrich_error = str(err)
+                                asset_obj.save(update_fields=["status", "last_enrich_error"])
+                            except Exception as save_error:
+                                logger.error("Failed to update asset status: %s", save_error)
+
+                    thread = threading.Thread(
+                        target=run_sync_async, args=(asset.id,), daemon=True
+                    )
+                    thread.start()
+
+                success_count += 1
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "success",
+                        "jobId": job_id,
+                    }
+                )
+            except Exception as exc:
+                logger.error("Failed to start sync for asset %s: %s", asset_id, exc)
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+
+        message = f"Sync started for {success_count} of {len(requested_ids)} assets"
+
+    elif action in {"create_report", "report"}:
+        sections = data.get("sections") or DEFAULT_REPORT_SECTIONS
+
+        for asset_id in requested_ids:
+            asset = assets_map.get(asset_id)
+            if not asset:
+                not_found_count += 1
+                results.append({"assetId": asset_id, "status": "not_found"})
+                continue
+
+            try:
+                track("report_request", user=user, asset_id=asset_id)
+                report = report_service.create_report(asset_id, sections)
+                if not report:
+                    raise RuntimeError("Failed to create report")
+
+                if not report_service.generate_pdf(report):
+                    raise RuntimeError("PDF generation failed")
+
+                _update_onboarding(user, "generate_first_report")
+                track("report_success", user=user, asset_id=asset_id)
+                track_feature_usage(
+                    "report_generation",
+                    user=user,
+                    asset_id=asset_id,
+                    meta={"bulk": True},
+                )
+
+                success_count += 1
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "success",
+                        "reportId": report.id,
+                        "filename": report.filename,
+                    }
+                )
+            except Exception as exc:
+                track(
+                    "report_fail",
+                    user=user,
+                    asset_id=asset_id,
+                    error_code=str(exc),
+                )
+                logger.exception("Report generation failed for asset %s", asset_id)
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+
+        message = f"Generated reports for {success_count} of {len(requested_ids)} assets"
+
+    else:
+        return Response({"error": "Unsupported action"}, status=400)
+
+    failed_count = len(requested_ids) - success_count - not_found_count
+
+    response_data = {
+        "action": action,
+        "total": len(requested_ids),
+        "success": success_count,
+        "failed": failed_count,
+        "notFound": not_found_count,
+        "results": results,
+        "message": message,
+    }
+
+    status_code = (
+        status.HTTP_200_OK
+        if success_count == len(requested_ids)
+        else status.HTTP_207_MULTI_STATUS
+    )
+
+    return Response(response_data, status=status_code)
+
+
 def report_file(request, filename):
     """Serve a generated report PDF from the backend."""
     report = report_service.get_report_by_filename(filename)
@@ -1185,8 +1432,8 @@ def assets(request):
     }
     """
     if request.method == "GET":
-        # Return all assets in listing format
-        return _get_assets_list()
+        # Return paginated assets in listing format
+        return _get_assets_list(request)
 
     if request.method == "DELETE":
         user = getattr(request, "user", None)
@@ -1397,13 +1644,261 @@ def assets(request):
         )
 
 
-def _get_assets_list():
-    """Helper function to get all assets in listing format."""
+def _parse_positive_int(value, default):
+    try:
+        parsed = int(value)
+        if parsed > 0:
+            return parsed
+    except (TypeError, ValueError):
+        pass
+    return default
+
+
+def _parse_optional_number(value, cast_type=float):
+    try:
+        if value is None:
+            return None
+        parsed = cast_type(value)
+        return parsed
+    except (TypeError, ValueError):
+        return None
+
+
+def _apply_asset_filters(queryset, params, user):
+    search = params.get("search")
+    if search:
+        queryset = queryset.filter(
+            Q(normalized_address__icontains=search)
+            | Q(city__icontains=search)
+            | Q(neighborhood__icontains=search)
+            | Q(street__icontains=search)
+            | Q(block__icontains=search)
+            | Q(parcel__icontains=search)
+            | Q(building_type__icontains=search)
+            | Q(meta__address__icontains=search)
+            | Q(meta__raw_input__address__icontains=search)
+        )
+
+    city = params.get("city")
+    if city and city != "all":
+        queryset = queryset.filter(city__iexact=city)
+
+    type_filter = params.get("type")
+    if type_filter and type_filter != "all":
+        queryset = queryset.filter(
+            Q(building_type__iexact=type_filter)
+            | Q(meta__property_type__iexact=type_filter)
+            | Q(meta__propertyType__iexact=type_filter)
+        )
+
+    price_min = _parse_optional_number(params.get("priceMin"), int)
+    if price_min is not None:
+        queryset = queryset.filter(price__gte=price_min)
+
+    price_max = _parse_optional_number(params.get("priceMax"), int)
+    if price_max is not None:
+        queryset = queryset.filter(price__lte=price_max)
+
+    neighborhood = params.get("neighborhood")
+    if neighborhood and neighborhood != "all":
+        queryset = queryset.filter(neighborhood__iexact=neighborhood)
+
+    zoning = params.get("zoning")
+    if zoning and zoning != "all":
+        queryset = queryset.filter(zoning__iexact=zoning)
+
+    risk_filter = params.get("risk")
+    if risk_filter == "flagged":
+        queryset = queryset.exclude(
+            Q(risk_flags__isnull=True) | Q(risk_flags=[])
+        )
+    elif risk_filter == "clean":
+        queryset = queryset.filter(
+            Q(risk_flags__isnull=True) | Q(risk_flags=[])
+        )
+
+    documents_filter = params.get("documents")
+    if documents_filter == "with":
+        queryset = queryset.filter(
+            Q(documents__isnull=False) | Q(documents_m2m__isnull=False)
+        )
+    elif documents_filter == "without":
+        queryset = queryset.filter(
+            documents__isnull=True, documents_m2m__isnull=True
+        )
+
+    status_filter = params.get("status")
+    if status_filter and status_filter != "all":
+        queryset = queryset.filter(status__iexact=status_filter)
+
+    rental_sale = params.get("rentalSale")
+    if rental_sale and rental_sale != "all":
+        queryset = queryset.filter(
+            Q(meta__source__icontains="yad2")
+            | Q(meta__sources__contains=["yad2"])
+            | Q(meta__sources__contains=["Yad2"])
+            | Q(meta__sources__contains=["YAD2"])
+        )
+
+    user_assets = params.get("userAssets")
+    if user_assets and user_assets != "all":
+        if not user or not getattr(user, "is_authenticated", False):
+            return queryset.none()
+        if user_assets == "mine":
+            queryset = queryset.filter(created_by=user)
+        elif user_assets == "others":
+            queryset = queryset.exclude(created_by=user)
+
+    building_type = params.get("buildingType")
+    if building_type and building_type != "all":
+        queryset = queryset.filter(building_type__iexact=building_type)
+
+    floor_min = _parse_optional_number(params.get("floorMin"), int)
+    if floor_min is not None:
+        queryset = queryset.filter(floor__gte=floor_min)
+
+    floor_max = _parse_optional_number(params.get("floorMax"), int)
+    if floor_max is not None:
+        queryset = queryset.filter(floor__lte=floor_max)
+
+    area_min = _parse_optional_number(params.get("areaMin"))
+    if area_min is not None:
+        queryset = queryset.filter(area__gte=area_min)
+
+    area_max = _parse_optional_number(params.get("areaMax"))
+    if area_max is not None:
+        queryset = queryset.filter(area__lte=area_max)
+
+    rooms_filter = params.get("rooms")
+    if rooms_filter and rooms_filter != "all":
+        rooms_value = _parse_optional_number(rooms_filter, int)
+        if rooms_value is not None:
+            queryset = queryset.filter(rooms=rooms_value)
+
+    features_filter = params.get("features")
+    if features_filter and features_filter != "all":
+        if features_filter == "elevator":
+            queryset = queryset.filter(elevator=True)
+        elif features_filter == "parking":
+            queryset = queryset.filter(parking_spaces__gt=0)
+        elif features_filter == "balcony":
+            queryset = queryset.filter(balcony_area__gt=0)
+        elif features_filter == "storage":
+            queryset = queryset.filter(storage_room=True)
+
+    price_per_sqm_min = _parse_optional_number(params.get("pricePerSqmMin"), int)
+    if price_per_sqm_min is not None:
+        queryset = queryset.filter(price_per_sqm__gte=price_per_sqm_min)
+
+    price_per_sqm_max = _parse_optional_number(params.get("pricePerSqmMax"), int)
+    if price_per_sqm_max is not None:
+        queryset = queryset.filter(price_per_sqm__lte=price_per_sqm_max)
+
+    remaining_rights_min = _parse_optional_number(params.get("remainingRightsMin"))
+    if remaining_rights_min is not None:
+        queryset = queryset.filter(meta__remainingRightsSqm__gte=remaining_rights_min)
+
+    remaining_rights_max = _parse_optional_number(params.get("remainingRightsMax"))
+    if remaining_rights_max is not None:
+        queryset = queryset.filter(meta__remainingRightsSqm__lte=remaining_rights_max)
+
+    block_filter = params.get("block")
+    if block_filter and block_filter != "all":
+        queryset = queryset.filter(block__iexact=block_filter)
+
+    parcel_filter = params.get("parcel")
+    if parcel_filter and parcel_filter != "all":
+        queryset = queryset.filter(parcel__iexact=parcel_filter)
+
+    return queryset.distinct()
+
+
+def _get_asset_filter_metadata():
+    base_qs = Asset.objects.all()
+
+    def _distinct(field):
+        return [
+            value
+            for value in base_qs.order_by().values_list(field, flat=True).distinct()
+            if value not in (None, "")
+        ]
+
+    property_types = set(_distinct("building_type"))
+    property_types.update(
+        value
+        for value in base_qs.order_by().values_list("meta__property_type", flat=True).distinct()
+        if value not in (None, "")
+    )
+    property_types.update(
+        value
+        for value in base_qs.order_by().values_list("meta__propertyType", flat=True).distinct()
+        if value not in (None, "")
+    )
+
+    room_values = sorted(
+        {
+            value
+            for value in base_qs.order_by().values_list("rooms", flat=True).distinct()
+            if value is not None
+        }
+    )
+
+    status_counts = {
+        row["status"]: row["count"]
+        for row in base_qs.values("status").annotate(count=Count("id"))
+        if row["status"]
+    }
+
+    return {
+        "cities": sorted(set(_distinct("city"))),
+        "types": sorted(property_types),
+        "neighborhoods": sorted(set(_distinct("neighborhood"))),
+        "zonings": sorted(set(_distinct("zoning"))),
+        "blocks": sorted(set(_distinct("block"))),
+        "parcels": sorted(set(_distinct("parcel"))),
+        "buildingTypes": sorted(set(_distinct("building_type"))),
+        "rooms": room_values,
+        "statusCounts": status_counts,
+    }
+
+
+def _get_assets_list(request):
+    """Helper function to get paginated assets in listing format."""
+
+    params = request.GET
+
+    page = _parse_positive_int(params.get("page"), 1)
+    page_size = _parse_positive_int(
+        params.get("pageSize") or params.get("page_size"), DEFAULT_ASSET_PAGE_SIZE
+    )
+    page_size = min(page_size, MAX_ASSET_PAGE_SIZE)
 
     try:
-        assets_qs = Asset.objects.all().order_by("-created_at")
-        serializer = AssetSerializer(assets_qs, many=True)
-        return Response({"rows": serializer.data})
+        queryset = Asset.objects.all().order_by("-created_at")
+        queryset = _apply_asset_filters(queryset, params, getattr(request, "user", None))
+
+        paginator = Paginator(queryset, page_size)
+        try:
+            page_obj = paginator.page(page)
+        except (EmptyPage, PageNotAnInteger):
+            page_obj = paginator.page(1)
+
+        serializer = AssetSerializer(page_obj.object_list, many=True)
+
+        return Response(
+            {
+                "rows": serializer.data,
+                "pagination": {
+                    "page": page_obj.number,
+                    "page_size": page_size,
+                    "total": paginator.count,
+                    "total_pages": paginator.num_pages,
+                    "has_next": page_obj.has_next(),
+                    "has_previous": page_obj.has_previous(),
+                },
+                "filters": _get_asset_filter_metadata(),
+            }
+        )
     except Exception as e:
         logger.error("Error fetching assets: %s", e)
         return Response(

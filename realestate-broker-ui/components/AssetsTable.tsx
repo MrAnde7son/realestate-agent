@@ -1,6 +1,6 @@
 'use client'
 import * as React from 'react'
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable, ColumnResizeMode } from '@tanstack/react-table'
+import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, useReactTable, ColumnResizeMode, PaginationState, Updater } from '@tanstack/react-table'
 import type { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMe
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from './TableToolbar'
+import TablePagination from '@/components/TablePagination'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import ImageGallery from './ImageGallery'
 
@@ -266,6 +267,13 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
   ]
 }
 
+type AssetsTableBulkAction = {
+  label: string
+  action: (selectedAssets: Asset[], helpers: { clearSelection: () => void }) => void | Promise<void>
+  icon?: React.ReactNode
+  disabled?: boolean
+}
+
 interface AssetsTableProps {
   data?: Asset[]
   loading?: boolean
@@ -389,12 +397,13 @@ interface AssetsTableProps {
   onAddNew?: () => void
   viewMode?: 'table' | 'cards' | 'map'
   onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
-  bulkActions?: Array<{
-    label: string
-    action: () => void
-    icon?: React.ReactNode
-    disabled?: boolean
-  }>
+  bulkActions?: AssetsTableBulkAction[]
+  manualPagination?: boolean
+  paginationState?: PaginationState
+  onPaginationChange?: (value: PaginationState) => void
+  pageCount?: number
+  totalCount?: number
+  pageSizeOptions?: number[]
 }
 
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
@@ -445,9 +454,9 @@ const DEFAULT_COLUMN_VISIBILITY = ALL_COLUMN_IDS.reduce<Record<string, boolean>>
   return acc
 }, {})
 
-export default function AssetsTable({ 
-  data = [], 
-  loading = false, 
+export default function AssetsTable({
+  data = [],
+  loading = false,
   onDelete,
   searchValue = '',
   onSearchChange,
@@ -455,7 +464,14 @@ export default function AssetsTable({
   onRefresh,
   onAddNew,
   viewMode = 'table',
-  onViewModeChange
+  onViewModeChange,
+  bulkActions = [],
+  manualPagination = false,
+  paginationState,
+  onPaginationChange,
+  pageCount,
+  totalCount,
+  pageSizeOptions,
 }: AssetsTableProps){
   const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
@@ -489,6 +505,10 @@ export default function AssetsTable({
   const [alertModalOpen, setAlertModalOpen] = React.useState(false)
   const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
   const [mounted, setMounted] = React.useState(false)
+  const [internalPagination, setInternalPagination] = React.useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
+
+  const manualPaginationActive = Boolean(manualPagination && paginationState && onPaginationChange)
+  const resolvedPagination = manualPaginationActive ? paginationState! : internalPagination
 
   // Handle hydration mismatch
   React.useEffect(() => {
@@ -538,7 +558,7 @@ export default function AssetsTable({
   const handleColumnSizingChange = React.useCallback((updaterOrValue: any) => {
     setColumnSizing(prev => {
       const newSizing = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue
-      
+
       // Save to localStorage
       if (typeof window !== 'undefined') {
         try {
@@ -551,6 +571,38 @@ export default function AssetsTable({
       return newSizing
     })
   }, [])
+
+  const handlePaginationChange = React.useCallback(
+    (updater: Updater<PaginationState>) => {
+      if (manualPaginationActive) {
+        if (onPaginationChange) {
+          const next = typeof updater === 'function' ? updater(resolvedPagination) : updater
+          onPaginationChange(next)
+        }
+      } else {
+        setInternalPagination(prev =>
+          typeof updater === 'function' ? updater(prev) : updater
+        )
+      }
+    },
+    [manualPaginationActive, onPaginationChange, resolvedPagination]
+  )
+
+  const computedPageCount = React.useMemo(() => {
+    if (!manualPaginationActive) {
+      return undefined
+    }
+    if (typeof pageCount === 'number') {
+      return pageCount
+    }
+    const total = totalCount ?? data.length
+    if (!resolvedPagination.pageSize) {
+      return 1
+    }
+    return total === 0 ? 1 : Math.ceil(total / resolvedPagination.pageSize)
+  }, [manualPaginationActive, pageCount, totalCount, data.length, resolvedPagination.pageSize])
+
+  const recordCount = manualPaginationActive ? (totalCount ?? data.length) : data.length
 
   // Create a ref to store the table instance
   const tableRef = React.useRef<any>(null)
@@ -571,10 +623,11 @@ export default function AssetsTable({
   const table = useReactTable({
     data,
     columns,
-    state: { 
+    state: {
       rowSelection,
       columnVisibility,
-      columnSizing
+      columnSizing,
+      pagination: resolvedPagination,
     },
     enableRowSelection: true,
     enableColumnResizing: true,
@@ -583,8 +636,22 @@ export default function AssetsTable({
     onRowSelectionChange: setRowSelection,
     onColumnVisibilityChange: handleColumnVisibilityChange,
     onColumnSizingChange: handleColumnSizingChange,
-    getCoreRowModel: getCoreRowModel()
+    onPaginationChange: handlePaginationChange,
+    getCoreRowModel: getCoreRowModel(),
+    ...(manualPaginationActive
+      ? {
+          manualPagination: true as const,
+          pageCount: computedPageCount ?? 1,
+        }
+      : {
+          getPaginationRowModel: getPaginationRowModel(),
+        }),
   })
+
+  const clearSelection = React.useCallback(() => {
+    setRowSelection({})
+    table.resetRowSelection()
+  }, [table])
 
   // Store table instance in ref
   React.useEffect(() => {
@@ -600,7 +667,24 @@ export default function AssetsTable({
     exportAssetsCsv(selected, table.getVisibleLeafColumns(), trackFeatureUsage)
   }
 
-  const anySelected = table.getSelectedRowModel().rows.length > 0
+  const selectedAssets = React.useMemo(
+    () => {
+      void rowSelection
+      return table.getSelectedRowModel().rows.map(row => row.original)
+    },
+    [table, rowSelection]
+  )
+
+  const toolbarBulkActions = React.useMemo(
+    () =>
+      (bulkActions || []).map(action => ({
+        label: action.label,
+        icon: action.icon,
+        disabled: action.disabled,
+        action: () => action.action(selectedAssets, { clearSelection })
+      })),
+    [bulkActions, selectedAssets, clearSelection]
+  )
 
   // Prepare columns for toolbar
   const toolbarColumns = table.getAllColumns()
@@ -831,12 +915,13 @@ export default function AssetsTable({
             onExportSelected={handleExportSelected}
             onExportAll={() => exportAssetsCsv(data, table.getVisibleLeafColumns(), trackFeatureUsage)}
             selectedCount={table.getSelectedRowModel().rows.length}
-            totalCount={data.length}
+            totalCount={recordCount}
             viewMode={viewMode}
             onViewModeChange={onViewModeChange || (() => {})}
             onRefresh={onRefresh || (() => {})}
             onAddNew={onAddNew}
             loading={loading}
+            bulkActions={toolbarBulkActions}
             statusFilters={filters?.status ? {
               value: filters.status.value,
               onChange: (value: string) => {
@@ -986,6 +1071,8 @@ export default function AssetsTable({
           )}
         </div>
       )}
+
+      <TablePagination table={table} pageSizeOptions={pageSizeOptions} />
 
       {/* Alert Modal */}
       <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>

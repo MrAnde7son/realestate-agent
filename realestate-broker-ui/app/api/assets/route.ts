@@ -52,13 +52,22 @@ const newAssetSchema = z.object({
   rentEstimate: z.number().optional()
 })
 
-export async function GET() {
+export async function GET(request: Request) {
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
   const token = cookies().get('access_token')?.value
-  
+  let search = ''
+  if (request?.url) {
+    try {
+      const url = new URL(request.url)
+      search = url.search ? url.search : ''
+    } catch (error) {
+      console.warn('Failed to parse request URL in /api/assets GET handler:', error)
+    }
+  }
+
   // Assets endpoint is open to everyone - no authentication required
   try {
-    const res = await fetch(`${backendUrl}/api/assets/`, {
+    const res = await fetch(`${backendUrl}/api/assets/${search}`, {
       headers: {
         ...(token && { Authorization: `Bearer ${token}` })
       }
@@ -68,7 +77,11 @@ export async function GET() {
     }
     const data = await res.json()
     const assets = (data.rows || data || []).map((asset: any) => normalizeFromBackend(asset))
-    return NextResponse.json({ rows: assets })
+    return NextResponse.json({
+      rows: assets,
+      pagination: data.pagination,
+      filters: data.filters,
+    })
   } catch (error) {
     console.error('Error fetching assets from backend:', error)
     return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500 })

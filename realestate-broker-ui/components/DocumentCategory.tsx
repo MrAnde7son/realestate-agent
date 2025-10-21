@@ -59,23 +59,25 @@ const getStatusLabel = (status: string) => {
 
 const translateSource = (source: string) => {
   const translations: Record<string, string> = {
-    user_upload: "העלאה ידנית",
-    GIS: "מערכת מידע גיאוגרפית",
-    gis_permit: "מערכת מידע גיאוגרפית",
-    gis_rights: "מערכת מידע גיאוגרפית",
-    RAMI: "רמ״י",
-    rami_plan: "רמ״י",
-    Mavat: "מבת",
-    Gov: "ממשלתי",
-    tabu: "טאבו",
-    tabu_upload: "טאבו",
-    meta_migration: "העברה מנתונים קיימים",
-    yad2: "יד2",
-    nadlan: "נדלן",
-    pipeline: "צינור נתונים",
-    external: "מקור חיצוני",
-  };
-  return translations[source] || source;
+    'user_upload': 'העלאה ידנית',
+    'gis': 'מערכת מידע גיאוגרפית',
+    'gis_permit': 'מערכת מידע גיאוגרפית',
+    'gis_rights': 'מערכת מידע גיאוגרפית',
+    'handasa': 'תיק בניין',
+    'rami': 'רמ״י',
+    'rami_plan': 'רמ״י',
+    'mavat': 'מבת',
+    'gov': 'ממשלתי',
+    'tabu': 'טאבו',
+    'tabu_upload': 'טאבו',
+    'meta_migration': 'העברה מנתונים קיימים',
+    'yad2': 'יד2',
+    'nadlan': 'נדלן',
+    'pipeline': 'צינור נתונים',
+    'external': 'מקור חיצוני',
+    'unknown': 'מקומי',
+  }
+  return source && translations[source.toLowerCase()] || source
 };
 
 export default function DocumentCategory({

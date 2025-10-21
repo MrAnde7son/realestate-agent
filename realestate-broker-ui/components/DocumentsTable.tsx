@@ -93,6 +93,8 @@ const translateType = (type?: string) => {
     permit: 'היתר בנייה',
     rights: 'זכויות',
     plan: 'תכנית',
+    plan_citywide: 'תכנית',
+    plan_local: 'תכנית',
     other: 'אחר',
   };
   return map[type] || type;
@@ -127,24 +129,25 @@ const statusLabel = (status?: string) => {
 const sourceLabel = (source?: string) => {
   if (!source) return '—';
   const translations: Record<string, string> = {
-    user_upload: 'העלאה ידנית',
-    gis: 'מערכת מידע גיאוגרפית',
-    gis_permit: 'מערכת מידע גיאוגרפית',
-    gis_rights: 'מערכת מידע גיאוגרפית',
-    rami: 'רמ״י',
-    rami_plan: 'רמ״י',
-    mavat: 'מנהל התיכנון',
-    gov: 'ממשלתי',
-    collected_government: 'ממשלתי',
-    tabu: 'טאבו',
-    tabu_upload: 'טאבו',
-    meta_migration: 'העברה מנתונים קיימים',
-    yad2: 'יד2',
-    nadlan: 'מידע נדלן',
-    pipeline: 'צינור נתונים',
-    external: 'מקור חיצוני',
-  };
-  return source && translations[source.toLowerCase()] || source;
+    'user_upload': 'העלאה ידנית',
+    'gis': 'מערכת מידע גיאוגרפית',
+    'gis_permit': 'מערכת מידע גיאוגרפית',
+    'gis_rights': 'מערכת מידע גיאוגרפית',
+    'handasa': 'תיק בניין',
+    'rami': 'רמ״י',
+    'rami_plan': 'רמ״י',
+    'mavat': 'מבת',
+    'gov': 'ממשלתי',
+    'tabu': 'טאבו',
+    'tabu_upload': 'טאבו',
+    'meta_migration': 'העברה מנתונים קיימים',
+    'yad2': 'יד2',
+    'nadlan': 'נדלן',
+    'pipeline': 'צינור נתונים',
+    'external': 'מקור חיצוני',
+    'unknown': 'מקומי',
+  }
+  return source && translations[source.toLowerCase()] || source
 };
 
 const formatDate = (value?: string) => {

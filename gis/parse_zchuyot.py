@@ -1,975 +1,957 @@
 # -*- coding: utf-8 -*-
 """
-Parse Tel-Aviv "Zchuyot" (rights) PDF -> structured JSON for MCP server.
+Lightweight parser that extracts core “Zchuyot” information from Tel-Aviv
+privilege PDF files.  The parser focuses on the information the MCP backend
+actually uses today:
 
-Extracts:
-- header: issue_date, address, block/parcel, parcel area (if present)
-- alerts (התראות)
-- plans in force: local / citywide / national-regional (+ in planning if present)
-- policy docs (מדיניות תכנונית)
-- rights details (זכויות/קווי בניין/אחוזים) when recognizable
-- all hyperlinks to plan docs and maps
+* parcel identification (block / parcel / parcel area)
+* parcel level details (street lines, land-use)
+* alert list
+* plans in force (local / citywide / national-regional)
+* plans in planning (citywide / national-regional)
+* planning policies
+* rights section (kept as raw text for downstream processing)
 
-Usage:
-  python parse_zchuyot_oop.py file.pdf --json out.json --plans-csv plans.csv
+The code intentionally avoids heavy dependencies (OCR, NLP, etc.) and relies on
+pdfplumber to get the textual content.  To cope with the bidi quirks of Hebrew
+PDFs we normalise every extracted line: token order is flipped, Hebrew words are
+reversed character-wise, numeric fragments are restored, and well-known plan
+codes (e.g. תמ\"א/70) are canonicalised.
 """
 
+from __future__ import annotations
+
 import argparse
-import csv
 import json
 import os
 import re
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pdfplumber
-from bs4 import BeautifulSoup
-from dateutil import parser as dateparser
-
-# Optional OCR
-try:
-    import pytesseract
-    from PIL import Image
-except Exception:  # pragma: no cover - optional dependency
-    pytesseract = None
-    Image = None
 
 
-# ---------- utilities ----------
-class TextNormalizer:
-    """Utility class for text normalization operations."""
-    WS = re.compile(r"[ \t\u200e\u200f]+")
-    MULTI_NL = re.compile(r"\n{2,}")
-    HEBREW_KEYWORDS = [
-        "התראות",
-        "תכניות",
-        "תוכנית",
-        "תאריך",
-        "כתובת",
-        "שטח",
-        "חלקה",
-        "גוש",
-        "זכויות",
-    ]
-    HEBREW_PUNCTUATION = {"'", '"', "`", "״", "׳", "’", "‘", "־", "-", "–", "—"}
-
-    @classmethod
-    def normalize(cls, text: str) -> str:
-        """Normalize text by removing special characters and whitespace."""
-        if not text:
-            return ""
-        text = text.replace("\u200e", "").replace("\u200f", "")
-        text = cls.WS.sub(" ", text)
-        return text.strip()
-
-    @classmethod
-    def normalize_multiline(cls, text: str) -> str:
-        """Normalize multiline text by reducing multiple newlines."""
-        return cls.MULTI_NL.sub("\n", text)
-
-    @classmethod
-    def reverse_hebrew_segments(cls, text: str) -> str:
-        """Reverse contiguous Hebrew letter segments to correct bidi extraction issues."""
-        if not text:
-            return text
-
-        def is_hebrew_char(ch: str) -> bool:
-            return "\u0590" <= ch <= "\u05ff"
-
-        result: List[str] = []
-        buffer: List[str] = []
-
-        def flush() -> None:
-            if buffer:
-                result.append("".join(reversed(buffer)))
-                buffer.clear()
-
-        for ch in text:
-            if is_hebrew_char(ch) or ch in cls.HEBREW_PUNCTUATION:
-                buffer.append(ch)
-            else:
-                flush()
-                result.append(ch)
-        flush()
-        return "".join(result)
-
-    @classmethod
-    def needs_bidi_fix(cls, text: str) -> bool:
-        """Heuristic to detect if extracted text has reversed Hebrew segments."""
-        if not text:
-            return False
-
-        # If any canonical keyword is present in normal order, assume OK.
-        if any(keyword in text for keyword in cls.HEBREW_KEYWORDS):
-            return False
-
-        # Check if reversed variants of the keywords appear instead.
-        for keyword in cls.HEBREW_KEYWORDS:
-            reversed_kw = cls.reverse_hebrew_segments(keyword)
-            if reversed_kw and reversed_kw in text:
-                return True
-        return False
-
-    @classmethod
-    def fix_bidi_text(cls, text: str) -> str:
-        """Fix reversed Hebrew segments across multiline text."""
-        if not text:
-            return text
-        fixed_lines = []
-        for line in text.splitlines():
-            fixed_lines.append(cls.reverse_hebrew_segments(line))
-        return "\n".join(fixed_lines)
+DATE_RE = re.compile(r"\d{2}/\d{2}/\d{4}")
+HEBREW_RE = re.compile(r"[\u0590-\u05FF]")
+PLAN_PREFIXES = ("תמ\"א", "תמא", "תת\"ל", "תתל")
 
 
-class DateParser:
-    """Utility class for date parsing operations."""
-    @staticmethod
-    def try_parse_date(date_str: str) -> Optional[str]:
-        """Try to parse a date string into ISO format."""
-        if not date_str:
-            return None
-        s = date_str.strip().replace(".", "-").replace("/", "-")
-        try:
-            return dateparser.parse(s, dayfirst=True, fuzzy=True).strftime("%Y-%m-%d")
-        except Exception:
-            return None
+# --------------------------------------------------------------------------- #
+# helpers for bidi/hebrew token clean-up
+# --------------------------------------------------------------------------- #
+
+def _reverse_digits(value: str) -> str:
+    """Reverse every numeric sequence in the token."""
+
+    def _flip(match: re.Match[str]) -> str:
+        return match.group(0)[::-1]
+
+    return re.sub(r"\d+", _flip, value)
 
 
-class PatternMatcher:
-    """Utility class for pattern matching operations."""
-    @staticmethod
-    def find_first(patterns: List[str], text: str, date: bool = False) -> Optional[str]:
-        """Find first match from a list of patterns."""
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                value = TextNormalizer.normalize(match.group(1))
-                if date:
-                    return DateParser.try_parse_date(value) or value
-                return value
+def _fix_plan_code(token: str) -> str:
+    """Canonicalise plan code fragments after bidi reversal."""
+    mapping = {
+        'א"מת': 'תמ"א',
+        "אמת": "תמא",
+        'א"לתת': 'תת"ל',
+        "אלתת": "תתל",
+    }
+
+    for suffix, canonical in mapping.items():
+        if token.endswith("/" + suffix):
+            parts = token.split("/")
+            rest = "/".join(reversed(parts[:-1]))
+            return f"{canonical}/{rest}"
+        if token.startswith(suffix + "/"):
+            parts = token.split("/")
+            rest = "/".join(parts[1:])
+            return f"{canonical}/{rest}"
+    return token
+
+
+def _looks_like_plan_number(token: str) -> bool:
+    """Heuristic that recognises common plan number formats."""
+    if token.startswith(PLAN_PREFIXES):
+        return True
+    if token.startswith("תמ\"א") or token.startswith("תמא"):
+        return True
+    if re.fullmatch(r"[א-ת]\d{1,4}", token):
+        return True
+    if re.fullmatch(r"\d{3,}[א-ת]?", token):
+        return True
+    if re.fullmatch(r"[א-ת]{1,2}\d{1,4}", token):
+        return True
+    if "/" in token and any(prefix in token for prefix in PLAN_PREFIXES):
+        return True
+    return False
+
+
+def _normalize_plan_number(value: str) -> str:
+    """Ensure plan numbers such as ג1 are reported as 1ג, keep others as-is."""
+    value = value.strip()
+    match = re.fullmatch(r"([א-ת]+)(\d+)", value)
+    if match:
+        return f"{match.group(2)}{match.group(1)}"
+    return value
+
+
+def _format_date(value: Optional[str]) -> Optional[str]:
+    """Convert DD/MM/YYYY strings into ISO 8601 (YYYY-MM-DD)."""
+    if not value:
+        return None
+    try:
+        day, month, year = value.split("/")
+        return f"{year}-{month}-{day}"
+    except Exception:
         return None
 
-    @staticmethod
-    def safe_int(value: Optional[str]) -> Optional[int]:
-        """Safely convert string to integer."""
-        try:
-            return int(value) if value and value.isdigit() else None
-        except Exception:
-            return None
 
-    @staticmethod
-    def find_all_urls(text: str) -> List[str]:
-        """Find all URLs in text."""
-        urls = re.findall(r"https?://[^\s]+", text)
-        clean_urls = []
-        seen = set()
-        for url in urls:
-            url = url.rstrip(").,;]>\u200e\u200f")
-            if url not in seen:
-                seen.add(url)
-                clean_urls.append(url)
-        return clean_urls
+# --------------------------------------------------------------------------- #
+# line extraction & normalisation
+# --------------------------------------------------------------------------- #
 
+class LineExtractor:
+    """Extracts and normalises PDF text into a simple list of lines."""
 
-# ---------- extraction / splitting ----------
-class TextExtractor:
-    """Handles PDF text extraction with OCR fallback."""
-    def __init__(self, ocr_available: bool = False):
-        self.ocr_available = ocr_available and pytesseract is not None and Image is not None
+    def __init__(self, x_tolerance: float = 1.0, y_tolerance: float = 3.0) -> None:
+        self.x_tolerance = x_tolerance
+        self.y_tolerance = y_tolerance
 
-    def extract_text(self, pdf_path: str) -> str:
-        """Extract text from PDF with OCR fallback if needed."""
-        text = self._extract_text_from_pdf(pdf_path)
-        if len(TextNormalizer.normalize(text)) >= 80:
-            return text
-        if self.ocr_available:
-            return self._extract_text_with_ocr(pdf_path)
-        return text
-
-    def _extract_text_from_pdf(self, pdf_path: str) -> str:
-        txt_pages = []
+    def extract(self, pdf_path: str) -> List[str]:
+        lines: List[str] = []
         with pdfplumber.open(pdf_path) as pdf:
             for page in pdf.pages:
-                t = page.extract_text() or ""
-                txt_pages.append(t)
-        return TextNormalizer.normalize_multiline("\n".join(txt_pages))
+                text = page.extract_text(
+                    layout=True,
+                    x_tolerance=self.x_tolerance,
+                    y_tolerance=self.y_tolerance,
+                )
+                if not text:
+                    continue
+                for raw_line in text.splitlines():
+                    norm = self._normalize_line(raw_line)
+                    if norm:
+                        lines.append(norm)
+        return lines
 
-    def _extract_text_with_ocr(self, pdf_path: str) -> str:
-        ocr_results = []
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                image = page.to_image(resolution=300).original
-                if not isinstance(image, Image.Image):
-                    image = Image.fromarray(image)
-                ocr_text = pytesseract.image_to_string(image, lang="heb+eng")
-                ocr_results.append(ocr_text)
-        return "\n".join(ocr_results)
-
-
-class SectionSplitter:
-    """Handles splitting of document into sections."""
-    SECTION_MARKERS = [
-        ("alerts",       r"\nהתראות\b"),
-        ("plans_local",  r"\n(?:תכניות|תוכניות)\s*מקומיות\s*בתוקף"),
-        ("plans_city",   r"\n(?:תכניות|תוכניות)?\s*כלל\s*עירוניות\s*בתוקף"),
-        ("plans_natreg", r"\n(?:תכניות|תוכניות)\s*מתאר\s*ארציות\s*ומחוזיות\s*בתוקף"),
-        ("plans_arch",   r"\n(?:תכניות|תוכניות)\s*בינוי\s*ועיצוב\s*ארכיטקטוני"),
-        ("in_planning_city", r"\n(?:תכניות|תוכניות)\s*(?:כלל\s*עירוניות|כללעירוניות)?\s*בתכנון"),
-        ("in_planning_natreg", r"\n(?:תכניות|תוכניות)\s*מתאר\s*(?:ארציות\s*ומחוזיות|ארציותומחוזיות)\s*בתכנון"),
-        ("policy",       r"\nמדיניות\s*תכנונית\b"),
-        ("land_use",     r"\nיעוד\s*קרקע\b"),
-        ("rights",       r"\nפירוט\s*זכויות\b"),
-        ("permit_terms", r"\nתנאי\s*למתן\s*היתר\s*בניה\b"),
-        ("links",        r"\nhttps?://"),
-    ]
-
-    def split_sections(self, text: str) -> Dict[str, str]:
-        indices = []
-        for name, pattern in self.SECTION_MARKERS:
-            match = re.search(pattern, text, re.S)
-            if match:
-                indices.append((name, match.start()))
-        indices.sort(key=lambda x: x[1])
-
-        sections = {}
-        for i, (name, pos) in enumerate(indices):
-            end = indices[i + 1][1] if i + 1 < len(indices) else len(text)
-            sections[name] = text[pos:end]
-        return sections
+    def _normalize_line(self, line: str) -> str:
+        line = (
+            line.replace("\u200f", "")
+            .replace("\u200e", "")
+            .replace("\u008a", " ")
+            .replace("`", '"')
+        )
+        line = re.sub(r"\s+", " ", line).strip()
+        if not line:
+            return ""
+        if HEBREW_RE.search(line):
+            tokens = [tok for tok in line.split(" ") if tok]
+            tokens.reverse()
+            fixed: List[str] = []
+            for token in tokens:
+                if HEBREW_RE.search(token):
+                    token = token[::-1]
+                    token = _reverse_digits(token)
+                    match = re.match(r"^(\d+)([א-ת]+)$", token)
+                    if match:
+                        token = f"{match.group(2)}{match.group(1)}"
+                    token = _fix_plan_code(token)
+                fixed.append(token)
+            line = " ".join(fixed)
+        return line.strip()
 
 
-# ---------- header, alerts, plans, policy ----------
-class HeaderParser:
-    """Parses document header information."""
-    def parse(self, text: str) -> Dict[str, Any]:
-        header = {
+# --------------------------------------------------------------------------- #
+# data classes
+# --------------------------------------------------------------------------- #
+
+@dataclass
+class PlanEntry:
+    plan_number: str
+    name: str
+    deposit_date: Optional[str] = None
+    effective_date: Optional[str] = None
+    publication: Optional[str] = None
+    mbat_number: Optional[str] = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        payload = {
+            "plan_number": self.plan_number,
+            "name": self.name,
+            "deposit_date": self.deposit_date,
+            "effective_date": self.effective_date,
+        }
+        if self.publication:
+            payload["publication"] = self.publication
+        if self.mbat_number:
+            payload["mbat_number"] = self.mbat_number
+        return payload
+
+
+# --------------------------------------------------------------------------- #
+# core parser
+# --------------------------------------------------------------------------- #
+
+class ZchuyotParser:
+    """High level orchestrator."""
+
+    SECTION_LABELS = {
+        "alerts": "התראות",
+        "plans_header": "תכניות בתוקף",
+        "plans_local": "תכניות מקומיות בתוקף",
+        "plans_citywide": "כלל עירוניות בתוקף",
+        "plans_natreg": "תכניות מתאר ארציות ומחוזיות בתוקף",
+        "plans_in_planning_header": "תכניות בתכנון",
+        "plans_in_planning_citywide": "כלל עירוניות בתכנון",
+        "plans_in_planning_natreg": "תכניות מתאר ארציות ומחוזיות בתכנון",
+        "policy": "מדיניות תכנונית",
+        "rights": "פירוט זכויות",
+    }
+
+    TABLE_HEADER_KEYWORDS = (
+        "מס\"",
+        "שם תוכנית",
+        "שם תכנית",
+        "תאריך",
+        "תוקף",
+        "הפקדה",
+        "פירסומים",
+        "פרסום",
+        "מבא\"\"ת",
+        "י.פ.",
+        "סעיף",
+    )
+
+    def __init__(self) -> None:
+        self.extractor = LineExtractor()
+
+    # -- public API --------------------------------------------------------- #
+    def parse(self, pdf_path: str) -> Dict[str, Any]:
+        lines = self.extractor.extract(pdf_path)
+        section_index = self._index_sections(lines)
+
+        basic_info, address_lines = self._parse_basic(lines)
+        land_use = self._parse_land_use(lines)
+        alerts = self._parse_alerts(lines, section_index)
+
+        plans_in_force = {
+            "local": self._parse_plan_table(
+                lines,
+                section_index,
+                "plans_local",
+                ["plans_citywide", "plans_natreg", "plans_in_planning_header"],
+            ),
+            "citywide": self._parse_plan_table(
+                lines,
+                section_index,
+                "plans_citywide",
+                ["plans_natreg", "plans_in_planning_header"],
+            ),
+            "national_regional": self._parse_plan_table(
+                lines,
+                section_index,
+                "plans_natreg",
+                ["plans_in_planning_header"],
+            ),
+        }
+
+        plans_in_planning = {
+            "citywide": self._parse_city_planning(
+                lines, section_index, "plans_in_planning_citywide", ["plans_in_planning_natreg", "policy"]
+            ),
+            "national_regional": self._parse_plan_table(
+                lines,
+                section_index,
+                "plans_in_planning_natreg",
+                ["policy"],
+            ),
+        }
+
+        policies = self._parse_policies(lines, section_index)
+        rights = self._parse_rights(lines, section_index)
+
+        result: Dict[str, Any] = {
+            "source_file": os.path.abspath(pdf_path),
+            "extracted_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "basic": {
+                **basic_info,
+                "land_use": land_use,
+            },
+            "details": {
+                "addresses": address_lines,
+            },
+            "alerts": alerts,
+            "plans": {
+                "in_force": {
+                    "local": [p.as_dict() for p in plans_in_force["local"]],
+                    "citywide": [p.as_dict() for p in plans_in_force["citywide"]],
+                    "national_regional": [p.as_dict() for p in plans_in_force["national_regional"]],
+                },
+                "in_planning": {
+                    "citywide": [p.as_dict() for p in plans_in_planning["citywide"]],
+                    "national_regional": [p.as_dict() for p in plans_in_planning["national_regional"]],
+                },
+            },
+            "policies": policies,
+            "rights": rights,
+            "raw_preview": "\n".join(lines[:200]),
+        }
+        return result
+
+    # -- section helpers ---------------------------------------------------- #
+    def _index_sections(self, lines: Sequence[str]) -> Dict[str, int]:
+        indices: Dict[str, int] = {}
+        for idx, line in enumerate(lines):
+            for key, label in self.SECTION_LABELS.items():
+                if key not in indices and line.strip().startswith(label):
+                    indices[key] = idx
+        return indices
+
+    def _slice_section(
+        self,
+        lines: Sequence[str],
+        section_index: Dict[str, int],
+        key: str,
+        next_keys: Optional[Sequence[str]] = None,
+    ) -> List[str]:
+        start = section_index.get(key)
+        if start is None:
+            return []
+        end = len(lines)
+        if next_keys:
+            for nk in next_keys:
+                candidate = section_index.get(nk)
+                if candidate is not None and candidate > start:
+                    end = min(end, candidate)
+        return list(lines[start + 1 : end])
+
+    # -- basic info --------------------------------------------------------- #
+    def _parse_basic(self, lines: Sequence[str]) -> Tuple[Dict[str, Any], List[str]]:
+        basic: Dict[str, Any] = {
             "issue_date": None,
-            "address": None,
             "block": None,
             "parcel": None,
             "parcel_area_sqm": None,
         }
+        addresses: List[str] = []
 
-        # תאריך הפקה
-        header["issue_date"] = PatternMatcher.find_first(
-            [r"(?:(?:תאריך|תאריך הפקה)\s*[:\-]?\s*)([0-9./ -]{6,})"],
-            text,
-            date=True,
-        )
-
-        # כתובת (strip common OCR junk/backticks/parentheticals)
-        addr = PatternMatcher.find_first(
-            [r"(?:רחוב|כתובת)\s*[:\-]?\s*([^\n]+)"], text
-        )
-        if addr:
-            addr = re.sub(r"[`'\"“”]", "", addr)
-            addr = re.sub(r"\(.*?\)$", "", addr).strip(" -:,")
-        header["address"] = addr or None
-
-        # גוש/חלקה
-        block = PatternMatcher.find_first(
-            [
-                r"(\d{1,6})\s*[:\-]?\s*גוש",
-                r"גוש\s*[:\-]?\s*(\d{1,6})",
-            ],
-            text,
-        )
-        parcel = PatternMatcher.find_first(
-            [
-                r"חלקה\s*[:\-]?\s*(\d{1,6})",
-                r"(\d{1,6})\s*[:\-]?\s*חלקה",
-            ],
-            text,
-        )
-        header["block"] = PatternMatcher.safe_int(block)
-        header["parcel"] = PatternMatcher.safe_int(parcel)
-
-        # שטח חלקה/מגרש (try a couple of variants)
-        area = PatternMatcher.find_first(
-            [
-                r"(?:שטח\s*(?:לחישוב|מר')\s*[:\- ]*)([\d,\.]+)",
-                r"שטח\s*(?:מגרש|חלקה)\s*[:\- ]*([\d,\.]+)\s*(?:מ[\"״']?ר)?",
-            ],
-            text,
-        )
-        if area:
-            try:
-                header["parcel_area_sqm"] = float(area.replace(",", ""))
-            except Exception:
-                pass
-
-        return header
-
-
-class AlertsParser:
-    """Parses alerts section."""
-    def parse(self, text: str) -> List[str]:
-        lines = [TextNormalizer.normalize(line) for line in text.splitlines()]
-        alerts = []
         for line in lines:
-            if not line:
-                continue
-            if any(t in line for t in ["התראה", "הגבלה", "עתיקות", "ארכיאולוג", "גובה", "מעניקה"]):
-                alerts.append(line)
-        # dedupe
-        seen, out = set(), []
-        for a in alerts:
-            if a not in seen:
-                seen.add(a)
-                out.append(a)
-        return out
+            issue = re.search(r"תאריך הפקה:\s*(\d{2}/\d{2}/\d{4})", line)
+            if issue and not basic["issue_date"]:
+                basic["issue_date"] = _format_date(issue.group(1))
 
+            ids = re.search(r"גוש:\s*(\d+).*חלקה:\s*(\d+)", line)
+            if ids:
+                basic["block"] = int(ids.group(1))
+                basic["parcel"] = int(ids.group(2))
 
-class PlansParser:
-    """Parses plans sections."""
-    DATE_PATTERN = r"(?:[0-3]?\d/[01]?\d/\d{4})"
+        try:
+            idx = lines.index("פרטי קרקע")
+            for candidate in lines[idx + 1 : idx + 6]:
+                if candidate.startswith("גוש חלקה") or candidate.startswith("התראות"):
+                    break
+                if candidate:
+                    addresses.append(candidate)
+        except ValueError:
+            addresses = []
 
-    def parse_plans_block(self, text: str) -> List[Dict[str, Any]]:
-        lines = [TextNormalizer.normalize(line) for line in text.splitlines() if TextNormalizer.normalize(line)]
-        plans: List[Dict[str, Any]] = []
-        pending_lead: List[str] = []
-        current_plan: Optional[Dict[str, Any]] = None
-        current_trailing: List[str] = []
-        plan_line_regex = re.compile(r"^\d{3,6}\b")
-        date_leading_regex = re.compile(r"^(?:\d{1,2}/){2}\d{4}")
+        for idx, line in enumerate(lines):
+            if "שטח לחישוב זכויות" in line:
+                if idx + 1 < len(lines):
+                    parts = [p for p in lines[idx + 1].split() if p.replace(".", "", 1).isdigit()]
+                    if parts:
+                        try:
+                            basic["parcel_area_sqm"] = float(parts[0])
+                        except ValueError:
+                            pass
+                break
 
-        def finalize_trailing() -> None:
-            nonlocal current_plan, current_trailing
-            if current_plan and current_trailing:
-                current_plan["name"] = self._merge_name_parts(current_plan.get("name"), current_trailing)
-                current_trailing = []
+        return basic, addresses
 
-        for raw_line in lines:
-            line = raw_line.strip()
-            if not line or self._is_header_line(line):
-                continue
-
-            if plan_line_regex.match(line) or date_leading_regex.match(line):
-                finalize_trailing()
-                tokens = line.split()
-                if len(tokens) < 1:
-                    continue
-
-                yalkut_number = tokens[0]
-                date_strings = re.findall(self.DATE_PATTERN, line)
-                if not date_strings:
-                    pending_lead.append(line)
-                    current_plan = None
-                    current_trailing = []
-                    continue
-                deposit = DateParser.try_parse_date(date_strings[0]) if date_strings else None
-                effective = DateParser.try_parse_date(date_strings[1]) if len(date_strings) > 1 else deposit
-
-                plan_number_token = tokens[-1] if len(tokens) > 1 else ""
-
-                body_tokens = tokens[1:-1] if len(tokens) > 2 else tokens[1:]
-                body_tokens = [
-                    token for token in body_tokens
-                    if not re.fullmatch(self.DATE_PATTERN, token)
-                ]
-
-                name_parts = pending_lead + body_tokens
-                pending_lead = []
-
-                plan_data: Dict[str, Any] = {
-                    "plan_number": self._normalize_plan_number(plan_number_token),
-                    "name": self._merge_name_parts(None, name_parts),
-                    "deposit_date": deposit,
-                    "effective_date": effective,
-                }
-                if not plan_data.get("name"):
-                    plan_data["name"] = plan_data.get("plan_number") or ""
-
-                plans.append(plan_data)
-                current_plan = plan_data
-                current_trailing = []
-            else:
-                if current_plan:
-                    current_trailing.append(line)
-                else:
-                    pending_lead.append(line)
-
-        finalize_trailing()
-        return self._dedupe_plans(plans)
-
-    def _is_header_line(self, line: str) -> bool:
-        header_keywords = {
-            "מס`ילקוט", "מס` תוכנית", "מס`", "שםתוכנית", "שם תוכנית",
-            "תאריךמתן", "תאריך מתן", "תאריךהפקדה", "תאריך הפקדה",
-            "תאריךאישור", "תאריך אישור",
-            "פירסומים", "פרסומים", "מספרמקוון", "מספר מקוון",
-            "תכניותמקומיותבתוקף", "תכניות מקומיות בתוקף",
-            "תכניותכללעירוניותבתוקף", "תכניות כלל עירוניות בתוקף",
-            "כללעירוניותבתוקף", "כלל עירוניות בתוקף",
-            "תכניותמתארארציותומחוזיותבתוקף", "תכניות מתאר ארציות ומחוזיות בתוקף",
-            "תכניותכללעירוניותבתכנון", "תכניות כלל עירוניות בתכנון",
-            "תכניותמתארארציותומחוזיותבתכנון", "תכניות מתאר ארציות ומחוזיות בתכנון"
-        }
-        return any(keyword in line for keyword in header_keywords)
-
-    def _normalize_plan_number(self, value: str) -> Optional[str]:
-        if not value:
-            return None
-        value = value.strip()
-        m = re.match(r"^(\d+)([א-ת])$", value)
-        if m:
-            return f"{m.group(2)}{m.group(1)}"
-        return value
-
-    def _merge_name_parts(self, base: Optional[str], parts: List[str]) -> Optional[str]:
-        segments: List[str] = []
-        if base:
-            segments.append(base.strip())
-        for part in parts:
-            clean = part.strip(" -:,;")
-            if clean:
-                segments.append(clean)
-        if not segments:
-            return None
-        return " ".join(segments)
-
-    def _dedupe_plans(self, plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        seen = set()
-        out = []
-        for p in plans:
-            key = (p.get("plan_number"), p.get("deposit_date"), p.get("effective_date"), p.get("name"))
-            if key not in seen:
-                seen.add(key)
-                out.append(p)
-        return out
-
-
-class PolicyParser:
-    """Parses policy documents section."""
-    DATE_PATTERN = r"(?:[0-3]?\d/[01]?\d/\d{4})"
-
-    def parse(self, text: str) -> List[Dict[str, Any]]:
-        out = []
-        lines = [TextNormalizer.normalize(line) for line in text.splitlines() if TextNormalizer.normalize(line)]
-        for L in lines:
-            pol = self._parse_policy_line(L)
-            if pol:
-                out.append(pol)
-        return out
-
-    def _parse_policy_line(self, line: str) -> Optional[Dict[str, Any]]:
-        mnum = re.search(r"\b(9\d{3}|8\d{3})\b", line)  # many policy ids 8000-9000+
-        dates = re.findall(self.DATE_PATTERN, line)
-        name = line
-        if mnum:
-            name = name.replace(mnum.group(0), "").strip()
-        for d in dates:
-            name = name.replace(d, "").strip()
-        if mnum or dates or name:
-            return {
-                "policy_number": mnum.group(0) if mnum else None,
-                "name": name or None,
-                "date": DateParser.try_parse_date(dates[0]) if dates else None,
-            }
+    # -- land use ----------------------------------------------------------- #
+    def _parse_land_use(self, lines: Sequence[str]) -> Optional[str]:
+        for idx, line in enumerate(lines):
+            if line.startswith("יעוד קרקע"):
+                collected: List[str] = []
+                for candidate in lines[idx + 1 : idx + 6]:
+                    if not candidate:
+                        break
+                    if candidate.startswith("תכניות") or candidate.startswith("מסמכי") or candidate.startswith("פירוט"):
+                        break
+                    if candidate.startswith("זכות "):
+                        break
+                    if candidate.startswith("יעוד קרקע"):
+                        continue
+                    collected.append(candidate)
+                    if len(collected) >= 1:
+                        break
+                if collected:
+                    return " ".join(collected).strip()
         return None
 
+    # -- alerts ------------------------------------------------------------- #
+    def _parse_alerts(self, lines: Sequence[str], section_index: Dict[str, int]) -> List[str]:
+        alerts = self._slice_section(lines, section_index, "alerts", ["plans_header", "plans_local"])
+        cleaned: List[str] = []
+        for line in alerts:
+            if not line or line.startswith("תכניות"):
+                break
+            if "הערה להתראה" in line or "הוראות" in line:
+                continue
+            if line.strip() == "":
+                continue
+            cleaned.append(line)
+        return cleaned
 
-# ---------- rights ----------
-class RightsParser:
-    """Parses building rights and privileges."""
-    def parse_rights(self, text: str) -> Dict[str, Any]:
-        rights = {"notes": []}
-        lines = [TextNormalizer.normalize(line) for line in text.splitlines() if TextNormalizer.normalize(line)]
+    # -- plans in force ----------------------------------------------------- #
+    def _parse_plan_table(
+        self,
+        lines: Sequence[str],
+        section_index: Dict[str, int],
+        key: str,
+        next_keys: Optional[Sequence[str]] = None,
+    ) -> List[PlanEntry]:
+        section_lines = self._slice_section(lines, section_index, key, next_keys)
+        plans: List[PlanEntry] = []
+        name_buffer: List[str] = []
 
-        for line in lines:
-            # original quick capture (kept)
-            self._parse_line_for_rights(line, rights)
-            # detailed capture inside the section (added for parity/robustness)
-            self._parse_building_lines(line, rights)
-            self._parse_floor_percentages(line, rights)
-            self._parse_minmax_values(line, rights)
-            self._parse_dwelling_units(line, rights)
-            self._parse_floors(line, rights)
-            self._parse_coverage(line, rights)
-            self._parse_parking(line, rights)
-            self._parse_auxiliary_building(line, rights)
-
-        # de-dupe referred plans
-        if "referred_plans" in rights:
-            rights["referred_plans"] = sorted(list(set(rights["referred_plans"])))
-        return rights
-
-    def parse_privilege_table_directly(self, text: str) -> Dict[str, Any]:
-        """Parse privilege table structure directly from raw text."""
-        rights: Dict[str, Any] = {}
-        for raw in text.split("\n"):
-            line = TextNormalizer.normalize(raw)
+        for line in section_lines:
             if not line:
                 continue
-            self._parse_building_lines(line, rights)
-            self._parse_floor_percentages(line, rights)
-            self._parse_minmax_values(line, rights)
-            self._parse_dwelling_units(line, rights)
-            self._parse_floors(line, rights)
-            self._parse_coverage(line, rights)
-            self._parse_parking(line, rights)
-            self._parse_auxiliary_building(line, rights)
-        return rights
+            if self._is_table_header(line):
+                continue
+            if self._is_plan_row(line):
+                plan = self._parse_plan_row(line, name_buffer)
+                if plan:
+                    plans.append(plan)
+                name_buffer = []
+            else:
+                name_buffer.append(line)
+        return plans
 
-    # ---- helpers for rights ----
-    def _parse_line_for_rights(self, line: str, rights: Dict[str, Any]) -> None:
-        if any(w in line for w in ["קו", "בניין", "קו בניין"]):
-            rights.setdefault("building_lines", []).append(line)
-        if "`מ" in line and "ןיינבוק" in line:
-            rights.setdefault("building_lines", []).append(line)
+    def _is_table_header(self, line: str) -> bool:
+        return any(keyword in line for keyword in self.TABLE_HEADER_KEYWORDS)
 
-        if re.search(r"(?:מספר\s+קומות|קומות\s*מספר)", line):
-            m = re.search(r"(\d+)\s*קומות", line)
-            if m:
-                rights["number_of_floors"] = int(m.group(1))
-            rights["floors_note"] = line
+    def _is_plan_row(self, line: str) -> bool:
+        tokens = line.split()
+        if not tokens:
+            return False
+        first = tokens[0]
+        if _looks_like_plan_number(first):
+            return True
+        if DATE_RE.search(line):
+            return True
+        return False
 
-        # coverage (specific)
-        for pat in [
-            r"אחוז\s+משטח\s+מגרש\s*(\d+)\s*%",
-            r"(\d+)\s*%\s*אחוז\s+משטח\s+מגרש",
-            r"אחוז\s+בנייה\s*(\d+)\s*%",
-            r"(\d+)\s*%\s*אחוז\s+בנייה",
-        ]:
-            m = re.search(pat, line)
-            if m:
-                rights["building_coverage_percentage"] = int(m.group(1))
-                break
+    def _parse_plan_row(self, line: str, name_buffer: Sequence[str]) -> Optional[PlanEntry]:
+        tokens = line.split()
+        if not tokens:
+            return None
 
-        # plan refs
-        plan_refs = re.findall(r"\b(\d{3,6})\b", line)
-        if plan_refs:
-            rights.setdefault("referred_plans", []).extend(plan_refs)
+        plan_number = _normalize_plan_number(tokens[0])
 
-        rights.setdefault("notes", []).append({"text": line, "type": "general"})
+        remainder = tokens[1:]
+        dates = [tok for tok in remainder if DATE_RE.fullmatch(tok)]
+        deposit_date = _format_date(dates[0]) if dates else None
+        effective_date = _format_date(dates[1]) if len(dates) > 1 else None
 
-    def _parse_building_lines(self, line: str, rights: Dict[str, Any]) -> None:
-        pats = [
-            r"(\d+)\s*מטרים?\s*קו\s+בניין\s+(צדדי|אחורי|חזית)",
-            r"(\d+)\s*(\d+)\s*ידדצןיינבוק",  # OCR: side building line
-            r"(\d+)\s*ירוחא\s*ןיינב\s*וק",   # OCR: rear building line
-        ]
-        for pat in pats:
-            m = re.search(pat, line)
-            if m and len(m.groups()) == 2:
-                distance = int(m.group(1))
-                line_type = m.group(2)
-                if line_type in ["צדדי", "1", "2"]:
-                    line_type = "צדדי"
-                elif line_type in ["אחורי", "ירוחא"]:
-                    line_type = "אחורי"
-                elif line_type in ["חזית"]:
-                    line_type = "חזית"
-                rights.setdefault("building_lines_detailed", []).append(
-                    {"type": line_type, "distance_meters": distance, "raw_text": line}
+        remainder = [tok for tok in remainder if tok not in dates]
+        publication = None
+        mbat_number = None
+
+        if remainder and remainder[-1].isdigit():
+            publication = remainder.pop()
+
+        inline_name = " ".join(remainder).strip()
+        full_name_parts = [part for part in name_buffer if part and not self._is_table_header(part)]
+        if inline_name:
+            full_name_parts.append(inline_name)
+
+        name = " ".join(full_name_parts).strip() or plan_number
+
+        return PlanEntry(
+            plan_number=plan_number,
+            name=name,
+            deposit_date=deposit_date,
+            effective_date=effective_date,
+            publication=publication,
+            mbat_number=mbat_number,
+        )
+
+    # -- plans in planning -------------------------------------------------- #
+    def _parse_city_planning(
+        self,
+        lines: Sequence[str],
+        section_index: Dict[str, int],
+        key: str,
+        next_keys: Optional[Sequence[str]] = None,
+    ) -> List[PlanEntry]:
+        section_lines = self._slice_section(lines, section_index, key, next_keys)
+        plans: List[PlanEntry] = []
+        buffer: List[str] = []
+
+        for line in section_lines:
+            if not line or self._is_table_header(line):
+                continue
+            if re.fullmatch(r"[0-9-]+\s+\d+", line):
+                parts = line.split()
+                mbat = parts[0]
+                plan_number = _normalize_plan_number(parts[1])
+                name = " ".join(buffer).strip() or plan_number
+                plans.append(
+                    PlanEntry(
+                        plan_number=plan_number,
+                        name=name,
+                        mbat_number=mbat,
+                    )
                 )
-                break
+                buffer = []
+            else:
+                buffer.append(line)
+        return plans
 
-    def _parse_floor_percentages(self, line: str, rights: Dict[str, Any]) -> None:
-        # Adds variants without the % sign but with “אחוז/אחוזים”
-        pats = [
-            r"(\d+)\s*%\s*(טיפוסית|שנייה|ראשונה|שלישית)",
-            r"(\d+)\s*תיסופיט",
-            r"(\d+)\s*הינש",
-            r"(\d+)\s*(?:אחוז(?:ים)?)\s*(טיפוסית|שנייה|ראשונה|שלישית)",     # NEW
-            r"קומה\s+(טיפוסית|שנייה|ראשונה|שלישית)\s+(\d+)\s*(?:אחוז(?:ים)?)",  # NEW
-        ]
-        for pat in pats:
-            m = re.search(pat, line)
-            if m:
-                percent = int(m.group(1))
-                if "תיסופיט" in line:
-                    floor_type = "טיפוסית"
-                elif "הינש" in line:
-                    floor_type = "שנייה"
-                elif len(m.groups()) > 1 and not m.group(2).isdigit():
-                    floor_type = m.group(2)
-                else:
-                    # groups order differs across patterns; try best-effort
-                    floor_type = m.group(2) if len(m.groups()) > 1 and not m.group(2).isdigit() else "טיפוסית"
-                rights.setdefault("floor_percentages_detailed", []).append(
-                    {"type": floor_type, "percentage": percent, "raw_text": line}
-                )
-                break
+    # -- policies ----------------------------------------------------------- #
+    def _parse_policies(self, lines: Sequence[str], section_index: Dict[str, int]) -> List[Dict[str, Any]]:
+        policy_lines = self._slice_section(lines, section_index, "policy", ["rights"])
+        policies: List[Dict[str, Any]] = []
+        for line in policy_lines:
+            if not line or self._is_table_header(line):
+                continue
+            tokens = line.split()
+            if len(tokens) < 3:
+                continue
+            number = tokens[0] if tokens[0].isdigit() else None
+            date_candidate = tokens[-1] if DATE_RE.fullmatch(tokens[-1]) else None
+            decision_candidate = tokens[-2] if len(tokens) >= 2 else None
+            if decision_candidate and not re.search(r"\d", decision_candidate):
+                decision_candidate = None
+            name_tokens = tokens[1 : -2 if (date_candidate and decision_candidate) else -1]
+            name = " ".join(name_tokens).strip() if name_tokens else None
+            policies.append(
+                {
+                    "policy_number": number,
+                    "name": name,
+                    "decision_number": decision_candidate if decision_candidate and decision_candidate != number else None,
+                    "approval_date": _format_date(date_candidate) if date_candidate else None,
+                }
+            )
+        return policies
 
-    def _parse_minmax_values(self, line: str, rights: Dict[str, Any]) -> None:
-        pats = [
-            r"(\d+)\s*(מינימום|מקסימום)",
-            r"(\d+)\s*(םומינימ|םומיסקמ)",
-            r"(\d+)\s*(םינימום|םקסימום)",
-        ]
-        if any(k in line for k in ["/", "תיסופיט", "הינש"]):
+    # -- rights ------------------------------------------------------------- #
+    def _parse_rights(self, lines: Sequence[str], section_index: Dict[str, int]) -> Dict[str, Any]:
+        section_lines = self._slice_section(lines, section_index, "rights")
+        if not section_lines:
+            return {"text": None}
+
+        rights_text = "\n".join(section_lines).strip()
+        working: Dict[str, Any] = {
+            "building_lines": [],
+            "building_lines_detailed": [],
+            "floor_percentages": [],
+            "floor_percentages_detailed": [],
+            "minimum_values": [],
+            "maximum_values": [],
+            "minmax_values": [],
+            "parking_requirements": [],
+            "notes": [],
+        }
+
+        for line in section_lines:
+            if not line or self._is_table_header(line):
+                continue
+            working["notes"].append({"text": line, "type": "general"})
+            self._extract_building_lines(line, working)
+            self._extract_floor_percentages(line, working)
+            self._extract_minmax_values(line, working)
+            self._extract_dwelling_units(line, working)
+            self._extract_number_of_floors(line, working)
+            self._extract_building_coverage(line, working)
+            self._extract_parking(line, working)
+            self._extract_auxiliary_building(line, working)
+
+        result: Dict[str, Any] = {"text": rights_text or None}
+
+        for key in (
+            "building_lines",
+            "building_lines_detailed",
+            "floor_percentages",
+            "floor_percentages_detailed",
+            "minimum_values",
+            "maximum_values",
+            "minmax_values",
+            "parking_requirements",
+            "notes",
+        ):
+            values = working.get(key)
+            if values:
+                result[key] = values
+
+        if working.get("dwelling_units") is not None:
+            result["dwelling_units"] = working["dwelling_units"]
+
+        if working.get("number_of_floors") is not None:
+            result["number_of_floors"] = working["number_of_floors"]
+            result["floors"] = working["number_of_floors"]
+
+        if working.get("building_coverage_percentage") is not None:
+            coverage = working["building_coverage_percentage"]
+            result["building_coverage_percentage"] = coverage
+            result["coverage"] = coverage
+
+        if working.get("auxiliary_building_area") is not None:
+            area = working["auxiliary_building_area"]
+            result["auxiliary_building_area"] = area
+            result["auxiliary_building"] = area
+
+        # dedupe simple list fields
+        if "building_lines" in result:
+            result["building_lines"] = list(dict.fromkeys(result["building_lines"]))
+
+        if "minmax_values" in result:
+            # ensure min/max entries keep consistent structure
+            result["minmax_values"] = [
+                {k: v for k, v in entry.items() if k != "bound"} for entry in result["minmax_values"]
+            ]
+
+        return result
+
+    def _extract_building_lines(self, line: str, rights: Dict[str, Any]) -> None:
+        if "קו" not in line or "בניין" not in line:
             return
-        for pat in pats:
-            m = re.search(pat, line)
-            if m:
-                value = int(m.group(1))
-                kind = m.group(2)
-                entry: Dict[str, Any] = {"value": value, "raw_text": line}
-                entry_type = self._classify_minmax_entry(line)
-                if entry_type:
-                    entry["type"] = entry_type
-                if kind in ["מינימום", "םומינימ", "םינימום"]:
-                    rights.setdefault("minimum_values", []).append(entry)
-                elif kind in ["מקסימום", "םומיסקמ", "םקסימום"]:
-                    rights.setdefault("maximum_values", []).append(entry)
+
+        lines = rights.setdefault("building_lines", [])
+        if line not in lines:
+            lines.append(line)
+
+        type_keywords = {
+            "חזית": "חזית",
+            "צדדי": "צדדי",
+            "צידי": "צדדי",
+            "אחורי": "אחורי",
+            "אחורית": "אחורי",
+            "קדמי": "קדמי",
+        }
+        line_type = None
+        for keyword, canonical in type_keywords.items():
+            if keyword in line:
+                line_type = canonical
                 break
 
-    def _parse_dwelling_units(self, line: str, rights: Dict[str, Any]) -> None:
-        pats = [
+        distance: Optional[float] = None
+        patterns = [
+            r"קו\s+בניין(?:\s+(?:חזית|צדדי|צידי|אחורי|קדמי)\s*\d*)?\s*(\d+(?:\.\d+)?)\s*מ",
+            r"(\d+(?:\.\d+)?)\s*מ[\"׳״']?\s*(?:קו\s+בניין)",
+        ]
+        for pat in patterns:
+            match = re.search(pat, line)
+            if match:
+                distance = self._coerce_number(match.group(1))
+                break
+
+        if distance is None:
+            # fallback: last number before the keyword "קו בניין"
+            idx = line.find("קו בניין")
+            if idx != -1:
+                numbers = re.findall(r"(\d+(?:\.\d+)?)", line[:idx])
+                if numbers:
+                    distance = self._coerce_number(numbers[-1])
+
+        if distance is None:
+            return
+
+        detailed = rights.setdefault("building_lines_detailed", [])
+        if not any(entry.get("raw_text") == line for entry in detailed):
+            detailed.append(
+                {
+                    "type": line_type,
+                    "distance_meters": distance,
+                    "raw_text": line,
+                }
+            )
+
+    def _extract_floor_percentages(self, line: str, rights: Dict[str, Any]) -> None:
+        if "קומ" not in line:
+            return
+        if "מספר קומות" in line or "קומות מספר" in line:
+            return
+        if "שטח קומה" not in line and "אחוז" not in line:
+            return
+
+        tokens_after = None
+        if "שטח קומה" in line:
+            after = line.split("שטח קומה", 1)[1].strip()
+            tokens_after = after.split()
+        elif "קומה" in line:
+            after = line.split("קומה", 1)[1].strip()
+            tokens_after = after.split()
+
+        if not tokens_after:
+            return
+
+        floor_tokens: List[str] = []
+        numeric_token: Optional[str] = None
+        for tok in tokens_after:
+            if self._is_numeric_token(tok):
+                numeric_token = tok
+                break
+            floor_tokens.append(tok)
+
+        if not numeric_token:
+            return
+
+        floor_label = " ".join(floor_tokens).strip()
+        if not floor_label:
+            return
+
+        percentage_value = self._coerce_number(numeric_token)
+        if percentage_value is None:
+            return
+
+        detailed_entry = {
+            "floor": floor_label,
+            "percentage": percentage_value,
+            "raw_text": line,
+        }
+        detailed = rights.setdefault("floor_percentages_detailed", [])
+        if not any(entry.get("raw_text") == line for entry in detailed):
+            detailed.append(detailed_entry)
+            rights.setdefault("floor_percentages", []).append(percentage_value)
+
+    def _extract_minmax_values(self, line: str, rights: Dict[str, Any]) -> None:
+        keywords = [
+            ("מינימום", "minimum"),
+            ("םינימום", "minimum"),
+            ("םומינימ", "minimum"),
+            ("מקסימום", "maximum"),
+            ("םקסימום", "maximum"),
+            ("םומיסקמ", "maximum"),
+        ]
+        for keyword, bound in keywords:
+            idx = line.find(keyword)
+            if idx == -1:
+                continue
+            value_str = self._value_before_index(line, idx)
+            if value_str is None:
+                continue
+            value = self._coerce_number(value_str)
+            if value is None:
+                continue
+
+            entry: Dict[str, Any] = {
+                "value": value,
+                "raw_text": line,
+                "bound": bound,
+            }
+            entry_type = self._classify_minmax_entry(line)
+            if entry_type:
+                entry["type"] = entry_type
+
+            rights.setdefault("minmax_values", []).append(entry.copy())
+
+            target_key = "minimum_values" if bound == "minimum" else "maximum_values"
+            rights.setdefault(target_key, []).append(
+                {k: v for k, v in entry.items() if k not in {"bound"}}
+            )
+
+            if entry_type == "dwelling_units":
+                rights["dwelling_units"] = int(value)
+            if entry_type == "floors" and bound == "maximum":
+                current = rights.get("number_of_floors")
+                candidate = int(value)
+                if current is None or candidate > current:
+                    rights["number_of_floors"] = candidate
+            if entry_type == "auxiliary_building_area":
+                rights["auxiliary_building_area"] = value
+            if entry_type == "parking":
+                record = {"value": value, "raw_text": line}
+                entries = rights.setdefault("parking_requirements", [])
+                if not any(item.get("raw_text") == line for item in entries):
+                    entries.append(record)
+            if entry_type == "percentage":
+                if any(term in line for term in ["אחוז משטח", "אחוז בנייה", "אחוזי בניה"]):
+                    rights["building_coverage_percentage"] = value
+            break
+
+    def _extract_dwelling_units(self, line: str, rights: Dict[str, Any]) -> None:
+        patterns = [
             r"(\d+)\s*יחידות?\s+דיור",
             r"יחידות?\s+דיור\s*(\d+)",
             r"מספר\s+יחידות\s+דיור\s*(\d+)",
-            r"(\d+)\s*מספר\s+יחידות\s+דיור",
         ]
-        for pat in pats:
-            m = re.search(pat, line)
-            if m:
-                units = int(m.group(1) or (m.group(2) if len(m.groups()) > 1 else 0))
-                rights["dwelling_units"] = units
-                break
+        for pat in patterns:
+            match = re.search(pat, line)
+            if match:
+                value = self._coerce_number(match.group(1))
+                if value is not None:
+                    rights["dwelling_units"] = int(value)
+                return
 
-    def _parse_floors(self, line: str, rights: Dict[str, Any]) -> None:
-        pats = [
-            r"(\d+)\s*קומות",
-            r"קומות\s*(\d+)",
-            r"מספר\s+קומות\s*(\d+)",
-            r"(\d+)\s*מספר\s+קומות",
-        ]
-        for pat in pats:
-            m = re.search(pat, line)
-            if m:
-                floors = int(m.group(1) or (m.group(2) if len(m.groups()) > 1 else 0))
-                rights["number_of_floors"] = floors
-                break
-
-    def _parse_coverage(self, line: str, rights: Dict[str, Any]) -> None:
-        pats = [
-            r"(\d+)\s*%\s*אחוז\s+משטח\s+מגרש",
-            r"(\d+)\s*%\s*אחוז\s+בנייה",
-        ]
-        for pat in pats:
-            m = re.search(pat, line)
-            if m:
-                rights["building_coverage_percentage"] = int(m.group(1))
-                break
-
-    def _parse_parking(self, line: str, rights: Dict[str, Any]) -> None:
-        pats = [
-            r"(\d+)\s*מותר\s+חניה",
-            r"(\d+)\s*רתומ\s+הינח",
-        ]
-        for pat in pats:
-            m = re.search(pat, line)
-            if m:
-                rights.setdefault("parking_requirements", []).append(
-                    {"value": int(m.group(1)), "raw_text": line}
-                )
-                break
-
-    def _parse_auxiliary_building(self, line: str, rights: Dict[str, Any]) -> None:
-        if "/" in line:
+    def _extract_number_of_floors(self, line: str, rights: Dict[str, Any]) -> None:
+        if "מספר קומות" not in line and "קומות מספר" not in line:
             return
-        m = re.search(r"(\d+)\s*רזעהנבמ", line)
-        if m:
-            rights["auxiliary_building_area"] = int(m.group(1))
+        match = re.search(r"(\d+)", line)
+        if not match:
+            return
+        value = self._coerce_number(match.group(1))
+        if value is not None:
+            current = rights.get("number_of_floors")
+            candidate = int(value)
+            if current is None or candidate > current:
+                rights["number_of_floors"] = candidate
+
+    def _extract_building_coverage(self, line: str, rights: Dict[str, Any]) -> None:
+        if "אחוז" not in line:
+            return
+        patterns = [
+            r"(\d+(?:\.\d+)?)\s*%\s*אחוז(?:י)?\s*(?:בנייה|בניה|משטח)",
+            r"(\d+(?:\.\d+)?)\s*אחוז(?:י)?\s*(?:בנייה|בניה|משטח)",
+        ]
+        for pat in patterns:
+            match = re.search(pat, line)
+            if match:
+                value = self._coerce_number(match.group(1))
+                if value is not None:
+                    rights["building_coverage_percentage"] = value
+                    return
+
+    def _extract_parking(self, line: str, rights: Dict[str, Any]) -> None:
+        if "חניה" not in line:
+            return
+
+        entries = rights.setdefault("parking_requirements", [])
+
+        # --- 1) Qualitative: "חניה מותר/מותרת/אסור/אסורה" + optional plan ref (e.g., א2550, תמ"א/38) ---
+        # Guard: only treat as qualitative if there is no nearby explicit numeric count.
+        numeric_hint = re.search(
+            r"(?:\d+\s*(?:מקומות|מקום)\s+חניה)|(?:חניה\s*(?:מותר(?:ת)?|מינימום|מקסימום)\s*\d)",
+            line
+        )
+
+        qual = re.search(
+            r"""חניה\s*
+                (?P<status>מותר(?:ת)?|אסור(?:ה)?)      # permitted/forbidden (Hebrew variants)
+                (?:\s*(?:בתכנית|עפ(?:י)?|לפי)?)\s*     # optional "per plan/according to"
+                (?P<plan>(?:[א-ת"\/\-\s]?\d[\w"\/\-\s]*)?)\s*$   # optional plan ref (e.g., א2550, תמ"א/38)
+            """,
+            line, re.VERBOSE
+        )
+
+        if qual and not numeric_hint:
+            status_he = qual.group("status")
+            status = "permitted" if status_he.startswith("מותר") else "forbidden"
+            plan_ref = (qual.group("plan") or "").strip()
+            plan_ref = re.sub(r"\s+", "", plan_ref) if plan_ref else None
+
+            if not any(item.get("raw_text") == line for item in entries):
+                entries.append({
+                    "type": "qualitative",
+                    "status": status,  # "permitted" | "forbidden"
+                    "source_plan": plan_ref,  # e.g., "א2550" (optional)
+                    "value": None,  # keep schema tolerant for callers expecting "value"
+                    "raw_text": line,
+                })
+            return
+
+        # --- 2) Quantitative: your existing patterns ---
+        patterns = [
+            r"(\d+(?:\.\d+)?)\s*(?:מקומות|מקום)\s+חניה",
+            r"חניה\s*(?:מותר(?:ת)?|מינימום|מקסימום)\s*(\d+(?:\.\d+)?)",
+        ]
+        for pat in patterns:
+            match = re.search(pat, line)
+            if match:
+                value = self._coerce_number(match.group(1))
+                if value is None:
+                    continue
+                if not any(item.get("raw_text") == line for item in entries):
+                    entries.append({
+                        "type": "quantitative",
+                        "value": value,
+                        "unit": "spaces",
+                        "raw_text": line,
+                    })
+                return
+
+    def _extract_auxiliary_building(self, line: str, rights: Dict[str, Any]) -> None:
+        if "מבנה עזר" not in line:
+            return
+        match = re.search(
+            r"מבנה\s+עזר\s+(\d+(?:\.\d+)?)\s*(?:מ\"ר|מטר(?:ים)?)?\s*(?:מינימום|מקסימום)",
+            line,
+        )
+        if not match:
+            return
+        value = self._coerce_number(match.group(1))
+        if value is None:
+            return
+        rights["auxiliary_building_area"] = value
+
+    def _coerce_number(self, token: Optional[str]) -> Optional[float]:
+        if token is None:
+            return None
+        clean = token.replace(",", "").replace("'", "").replace("״", "").replace("”", "")
+        try:
+            value = float(clean)
+        except ValueError:
+            return None
+        if value.is_integer():
+            return int(value)
+        return value
+
+    def _is_numeric_token(self, token: str) -> bool:
+        return bool(re.fullmatch(r"\d+(?:\.\d+)?", token.replace(",", "")))
+
+    def _value_before_index(self, line: str, idx: int) -> Optional[str]:
+        segment = line[:idx]
+        matches = re.findall(r"(\d+(?:\.\d+)?)", segment)
+        return matches[-1] if matches else None
 
     def _classify_minmax_entry(self, line: str) -> Optional[str]:
-        """Classify min/max entries to help downstream aggregation."""
-        if not line:
-            return None
         text = line.replace(" ", "")
         lower = line.lower()
 
-        floors_keywords = ["מספרקומות", "תומוקרפסמ", "קומות", "קומה", "תיספקומ"]
-        for kw in floors_keywords:
-            if kw in text:
-                return "floors"
+        if re.search(r"מספר\s+קומות", line) or re.search(r"קומות\s*מספר", line) or "מספרקומות" in text or "תומוקרפסמ" in text:
+            return "floors"
 
         dwelling_keywords = ["יחידותדיור", "דיור", "דירות", "יחידות"]
-        for kw in dwelling_keywords:
-            if kw in text:
-                return "dwelling_units"
+        if any(kw in text for kw in dwelling_keywords):
+            return "dwelling_units"
 
         parking_keywords = ["חניה", "הינח", "חני", "חניות"]
-        for kw in parking_keywords:
-            if kw in line:
-                return "parking"
+        if any(kw in line for kw in parking_keywords):
+            return "parking"
 
         auxiliary_keywords = ["מבנהעזר", "רזעהנבמ"]
-        for kw in auxiliary_keywords:
-            if kw in text:
-                return "auxiliary_building_area"
+        if any(kw in text for kw in auxiliary_keywords):
+            return "auxiliary_building_area"
 
         percent_keywords = ["%", "אחוז", "זחוא", "percent"]
-        for kw in percent_keywords:
-            if kw in line or kw in lower:
-                return "percentage"
+        if any(kw in line or kw in lower for kw in percent_keywords):
+            return "percentage"
 
         area_keywords = ["מ\"ר", "מ״ר", "ר\"מ", "ר״מ", "שטח", "חטש", "בנייה", "בניה"]
-        for kw in area_keywords:
-            if kw in line or kw in text or kw in lower:
-                return "building_area"
+        if any(kw in line or kw in text or kw in lower for kw in area_keywords):
+            return "building_area"
 
         return None
 
 
-# ---------- HTML dropdown parser ----------
-class HTMLPrivilegePageParser:
-    """Parses HTML privilege pages."""
-    def parse(self, html_content: str) -> List[Dict[str, Any]]:
-        parcels: List[Dict[str, Any]] = []
-        try:
-            soup = BeautifulSoup(html_content, "html.parser")
-            opts_match = re.search(r"is_opts\s*=\s*'([^']+)'", html_content)
-            if opts_match:
-                opts_html = opts_match.group(1).replace("`", '"')
-                opts_soup = BeautifulSoup(opts_html, "html.parser")
-                for option in opts_soup.find_all("option"):
-                    p = self._parse_option(option)
-                    if p:
-                        parcels.append(p)
+# --------------------------------------------------------------------------- #
+# public convenience functions
+# --------------------------------------------------------------------------- #
 
-            if not parcels:
-                for option in soup.find_all("option"):
-                    p = self._parse_option(option)
-                    if p:
-                        parcels.append(p)
-        except Exception as e:
-            print(f"Error parsing HTML privilege page: {e}")
-        return parcels
-
-    def _parse_option(self, option) -> Optional[Dict[str, Any]]:
-        value = option.get("value", "")
-        text = option.get_text(strip=True)
-        if not value or not text or "block=" not in value:
-            return None
-
-        params: Dict[str, str] = {}
-        for param in value.split("&"):
-            if "=" in param:
-                k, v = param.split("=", 1)
-                params[k] = v
-
-        parcel_info: Dict[str, Any] = {
-            "block": params.get("block"),
-            "parcel": params.get("parcel"),
-            "status": params.get("status"),
-            "street": params.get("street"),
-            "house": params.get("house"),
-            "chasum": params.get("chasum"),
-            "raw_text": text,
-            "parcel_number": None,
-            "parcel_status": None,
-            "street_name": None,
-            "house_number": None,
-            "land_use": None,
-            "area": None,
-        }
-        self._extract_parcel_details(text, parcel_info)
-        return parcel_info
-
-    def _extract_parcel_details(self, text: str, parcel_info: Dict[str, Any]) -> None:
-        m = re.search(r"מגרש:\s*(\d+)", text)
-        if m:
-            parcel_info["parcel_number"] = m.group(1)
-        m = re.search(r"(\w+)\s*-\s*", text)
-        if m:
-            parcel_info["parcel_status"] = m.group(1)
-        m = re.search(r"-\s*([^(]+?)\s*\(", text)
-        if m:
-            parcel_info["street_name"] = m.group(1).strip()
-        m = re.search(r"מס.?\s*(\d+)", text)
-        if m:
-            parcel_info["house_number"] = m.group(1)
-        det = re.search(r"\(([^)]+)\)", text)
-        if det:
-            details = det.group(1)
-            m = re.search(r"יעוד קרקע:\s*([^\n]+)", details)
-            if m:
-                parcel_info["land_use"] = m.group(1).split("שטח")[0].strip()
-            m = re.search(r"שטח:\s*([\d,\.]+)", details)
-            if m:
-                parcel_info["area"] = m.group(1).strip()
-
-
-# ---------- main orchestrator ----------
-class ZchuyotParser:
-    """Main parser class that orchestrates the parsing process."""
-    def __init__(self, ocr_available: bool = False):
-        self.text_extractor = TextExtractor(ocr_available)
-        self.section_splitter = SectionSplitter()
-        self.header_parser = HeaderParser()
-        self.alerts_parser = AlertsParser()
-        self.plans_parser = PlansParser()
-        self.rights_parser = RightsParser()
-        self.policy_parser = PolicyParser()
-        self.html_parser = HTMLPrivilegePageParser()
-
-    def parse(self, pdf_path: str) -> Dict[str, Any]:
-        text = self.text_extractor.extract_text(pdf_path)
-        text = TextNormalizer.normalize(text)
-        if TextNormalizer.needs_bidi_fix(text):
-            text = TextNormalizer.fix_bidi_text(text)
-            text = TextNormalizer.normalize_multiline(text)
-            text = TextNormalizer.normalize(text)
-
-        # basic header
-        basic_info = self.header_parser.parse(text)
-
-        # sections
-        sections = self.section_splitter.split_sections(text)
-
-        # urls
-        all_urls = PatternMatcher.find_all_urls(text)
-
-        # plans
-        plans_data = self._parse_plans(sections)
-
-        # alerts
-        alerts = self.alerts_parser.parse(sections.get("alerts", ""))
-
-        # policy
-        policy = self.policy_parser.parse(sections.get("policy", ""))
-
-        # rights (section + doc-wide)
-        rights = self.rights_parser.parse_rights(
-            sections.get("rights", "") + "\n" + sections.get("permit_terms", "")
-        )
-        direct_rights = self.rights_parser.parse_privilege_table_directly(text)
-        rights = self._merge_rights_data(rights, direct_rights)
-
-        # attach urls to plans
-        plans_data = self._attach_urls_to_plans(plans_data, all_urls)
-
-        result = {
-            "source_file": os.path.abspath(pdf_path),
-            "extracted_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "basic": basic_info,
-            "alerts": alerts,
-            "plans": plans_data,
-            "policy": policy,
-            "rights": rights,
-            "all_links": all_urls,
-            "raw_preview": text[:2000],
-        }
-        return result
-
-    def _parse_plans(self, sections: Dict[str, str]) -> Dict[str, Any]:
-        return {
-            "in_force": {
-                "local": self.plans_parser.parse_plans_block(sections.get("plans_local", "")),
-                "citywide": self.plans_parser.parse_plans_block(sections.get("plans_city", "")),
-                "national_regional": self.plans_parser.parse_plans_block(sections.get("plans_natreg", "")),
-                "architectural": self.plans_parser.parse_plans_block(sections.get("plans_arch", "")),
-            },
-            "in_planning": {
-                "citywide": self.plans_parser.parse_plans_block(sections.get("in_planning_city", "")),
-                "national_regional": self.plans_parser.parse_plans_block(sections.get("in_planning_natreg", "")),
-            },
-        }
-
-    def _merge_rights_data(self, rights: Dict[str, Any], direct_rights: Dict[str, Any]) -> Dict[str, Any]:
-        for key, value in direct_rights.items():
-            if key in rights:
-                if isinstance(value, list) and isinstance(rights[key], list):
-                    rights[key].extend(value)
-                elif isinstance(value, dict) and isinstance(rights[key], dict):
-                    rights[key].update(value)
-                else:
-                    rights[key] = value
-            else:
-                rights[key] = value
-        return rights
-
-    def _attach_urls_to_plans(self, plans_data: Dict[str, Any], all_urls: List[str]) -> Dict[str, Any]:
-        for category in plans_data.values():
-            if isinstance(category, dict):
-                for plan_list in category.values():
-                    if not isinstance(plan_list, list):
-                        continue
-                    for plan in plan_list:
-                        pn = plan.get("plan_number", "") or ""
-                        p_urls = [u for u in all_urls if pn and pn in u]
-                        if p_urls:
-                            # de-dupe
-                            seen, uu = set(), []
-                            for u in p_urls:
-                                if u not in seen:
-                                    seen.add(u)
-                                    uu.append(u)
-                            plan["urls"] = uu
-        return plans_data
-
-
-# ---------- export ----------
-class CSVExporter:
-    """Handles CSV export functionality (without mutating parsed data)."""
-    @staticmethod
-    def export_plans_csv(plans_data: Dict[str, Any], output_path: str) -> None:
-        all_plans = (
-            plans_data["in_force"]["local"]
-            + plans_data["in_force"]["citywide"]
-            + plans_data["in_force"]["national_regional"]
-            + plans_data["in_force"]["architectural"]
-        )
-        fields = ["plan_number", "name", "deposit_date", "effective_date", "urls"]
-
-        # create rows without mutating input
-        rows: List[Dict[str, Any]] = []
-        for p in all_plans:
-            row = {k: p.get(k) for k in fields}
-            if isinstance(row.get("urls"), list):
-                row["urls"] = " | ".join(row["urls"])
-            rows.append(row)
-
-        with open(output_path, "w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=fields)
-            w.writeheader()
-            w.writerows(rows)
-
-
-# ---------- compatibility functions ----------
 def parse_zchuyot(pdf_path: str) -> Dict[str, Any]:
-    """Parse a Zchuyot PDF file - compatibility wrapper for the new OOP parser."""
-    parser = ZchuyotParser(ocr_available=True)
+    parser = ZchuyotParser()
     return parser.parse(pdf_path)
+    
 
-
-def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
-    """Parse HTML privilege page - compatibility wrapper for the new OOP parser."""
-    parser = HTMLPrivilegePageParser()
-    return parser.parse(html_content)
-
-
-# ---------- CLI ----------
-def main():
-    parser = argparse.ArgumentParser(description="Parse Tel-Aviv Zchuyot PDF → JSON")
-    parser.add_argument("pdf", help="path to PDF")
-    parser.add_argument("--json", help="output JSON file")
-    parser.add_argument("--plans-csv", help="CSV of in-force plans (all types merged)")
-    args = parser.parse_args()
-
-    try:
-        zchuyot_parser = ZchuyotParser(ocr_available=True)
-        data = zchuyot_parser.parse(args.pdf)
-
-        if args.json:
-            with open(args.json, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            print(f"JSON saved to {args.json}")
-        else:
-            print(json.dumps(data, ensure_ascii=False, indent=2))
-
-        if args.plans_csv:
-            CSVExporter.export_plans_csv(data["plans"], args.plans_csv)
-            print(f"Plans CSV saved to {args.plans_csv}")
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    data = parse_zchuyot("backend-django/privilege_pages/privilege_block_6638_parcel_392.pdf")
+    print(data)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

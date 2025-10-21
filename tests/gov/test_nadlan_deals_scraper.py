@@ -189,7 +189,8 @@ class TestNadlanDealsScraper:
         scraper.error_modal_encountered = True
         
         # Mock the selenium fetch to return empty results
-        with patch.object(scraper, '_fetch_deals_by_address_selenium', return_value=[]):
+        with patch.object(scraper, '_init_driver'), \
+             patch.object(scraper, '_fetch_deals_by_address_selenium', return_value=[]):
             deals = scraper.get_deals_by_address("ק\"ם 3 תל אביב-יפו")
             
             # Should return empty results
@@ -211,7 +212,8 @@ class TestNadlanDealsScraper:
         scraper.error_modal_encountered = False
         
         # Mock the selenium fetch to return empty results
-        with patch.object(scraper, '_fetch_deals_by_address_selenium', return_value=[]):
+        with patch.object(scraper, '_init_driver'), \
+             patch.object(scraper, '_fetch_deals_by_address_selenium', return_value=[]):
             deals = scraper.get_deals_by_address("ק\"ם 3 תל אביב-יפו")
             
             # Should return empty results
@@ -239,7 +241,8 @@ class TestNadlanDealsScraper:
         ]
         
         # Mock the selenium fetch to return results
-        with patch.object(scraper, '_fetch_deals_by_address_selenium', return_value=mock_deals):
+        with patch.object(scraper, '_init_driver'), \
+             patch.object(scraper, '_fetch_deals_by_address_selenium', return_value=mock_deals):
             deals = scraper.get_deals_by_address("רמת החייל")
             
             # Should return results

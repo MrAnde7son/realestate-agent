@@ -175,6 +175,66 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [decisiveSearch, setDecisiveSearch] = useState('')
   const [ramiSearch, setRamiSearch] = useState('')
 
+  const parkingRequirements = calculatedRights?.building_privileges?.parking_requirements ?? []
+  const primaryParkingRequirement = parkingRequirements.length > 0 ? parkingRequirements[0] : null
+  const { parkingValueDisplay, parkingUnitLabel } = useMemo(() => {
+    let value = '—'
+    let unit = 'מ״ר'
+
+    if (!primaryParkingRequirement) {
+      return { parkingValueDisplay: value, parkingUnitLabel: unit }
+    }
+
+    const status = primaryParkingRequirement.status
+    if (typeof status === 'string' && status.trim()) {
+      const normalized = status.trim()
+      const statusLabel =
+        normalized === 'permitted'
+          ? 'מותרת'
+          : normalized === 'forbidden'
+          ? 'אסורה'
+          : normalized
+      return {
+        parkingValueDisplay: statusLabel,
+        parkingUnitLabel: 'סטטוס',
+      }
+    }
+
+    if (typeof primaryParkingRequirement.value === 'number') {
+      value = primaryParkingRequirement.value.toLocaleString()
+      unit =
+        primaryParkingRequirement.unit === 'spaces'
+          ? 'מקומות'
+          : primaryParkingRequirement.unit || 'מ״ר'
+      return { parkingValueDisplay: value, parkingUnitLabel: unit }
+    }
+
+    if (typeof primaryParkingRequirement.area_sqm === 'number') {
+      value = primaryParkingRequirement.area_sqm.toLocaleString()
+      return { parkingValueDisplay: value, parkingUnitLabel: unit }
+    }
+
+    const stringValue =
+      typeof primaryParkingRequirement.value === 'string'
+        ? primaryParkingRequirement.value.trim()
+        : ''
+
+    if (stringValue) {
+      return { parkingValueDisplay: stringValue, parkingUnitLabel: '' }
+    }
+
+    const rawText =
+      typeof primaryParkingRequirement.raw_text === 'string'
+        ? primaryParkingRequirement.raw_text.trim()
+        : ''
+
+    if (rawText) {
+      return { parkingValueDisplay: rawText, parkingUnitLabel: '' }
+    }
+
+    return { parkingValueDisplay: value, parkingUnitLabel: unit }
+  }, [primaryParkingRequirement])
+
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
 }, [
@@ -663,6 +723,40 @@ React.useEffect(() => {
     return null
   }, [asset, calculatedRights])
 
+  const summaryMetrics = useMemo(() => {
+    const remaining = remainingRightsDisplayValue
+
+    let additional: number | null =
+      calculatedRights?.summary?.additional_rights_percentage ??
+      null
+    if (
+      additional == null &&
+      asset?.remainingRightsSqm !== undefined &&
+      asset?.remainingRightsSqm !== null &&
+      asset?.area
+    ) {
+      additional = Math.round((asset.remainingRightsSqm / asset.area) * 100)
+    }
+
+    let estimated: number | null =
+      calculatedRights?.summary?.estimated_rights_value_k ??
+      null
+    if (
+      estimated == null &&
+      asset?.pricePerSqm &&
+      remaining !== null &&
+      remaining > 0
+    ) {
+      estimated = Math.round((asset.pricePerSqm * remaining * 0.7) / 1000)
+    }
+
+    return {
+      remaining,
+      additional,
+      estimated,
+    }
+  }, [asset, calculatedRights, remainingRightsDisplayValue])
+
   const loadRightsData = React.useCallback(async () => {
     if (!id) return
     setRightsLoading(true)
@@ -732,7 +826,18 @@ React.useEffect(() => {
       if (!searchTerm) return true
       const field = (row?.field || '').toLowerCase()
       const value = (row?.value || '').toLowerCase()
-      return field.includes(searchTerm) || value.includes(searchTerm)
+      const description = (row?.description || '').toLowerCase()
+      const rawText = (row?.raw_text || '').toLowerCase()
+      const lineType = (row?.line_type || '').toLowerCase()
+      const text = (row?.text || '').toLowerCase()
+      return (
+        field.includes(searchTerm) ||
+        value.includes(searchTerm) ||
+        description.includes(searchTerm) ||
+        rawText.includes(searchTerm) ||
+        lineType.includes(searchTerm) ||
+        text.includes(searchTerm)
+      )
     })
   }, [rightsRows, rightsDocFilter, rightsSearch])
 
@@ -2053,29 +2158,28 @@ useDedupedEffect(() => {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {calculatedRights?.summary?.remaining_rights_sqm 
-                        ? formatNumber(calculatedRights.summary.remaining_rights_sqm)
-                        : formatNumber(asset.remainingRightsSqm) ?? '—'}
+                      {summaryMetrics.remaining !== null
+                        ? formatNumber(summaryMetrics.remaining) ?? '—'
+                        : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">מ״ר זכויות נותרות</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {calculatedRights?.summary?.additional_rights_percentage 
-                        ? `${calculatedRights.summary.additional_rights_percentage}%`
-                        : (!!asset.remainingRightsSqm && !!asset.area
-                            ? `${Math.round((asset.remainingRightsSqm / asset.area) * 100)}%`
-                            : '—')}
+                      {summaryMetrics.additional !== null
+                        ? formatPercent(
+                            summaryMetrics.additional,
+                            Number.isInteger(summaryMetrics.additional) ? 0 : 1
+                          ) ?? '—'
+                        : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">אחוז זכויות נוספות</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
-                      {calculatedRights?.summary?.estimated_rights_value_k 
-                        ? `₪${calculatedRights.summary.estimated_rights_value_k}K`
-                        : (!!asset.pricePerSqm && !!asset.remainingRightsSqm
-                            ? `₪${Math.round((asset.pricePerSqm * asset.remainingRightsSqm * 0.7) / 1000)}K`
-                            : '—')}
+                      {summaryMetrics.estimated !== null
+                        ? `₪${summaryMetrics.estimated.toLocaleString('he-IL')}K`
+                        : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">ערך משוער זכויות</div>
                   </div>
@@ -2191,11 +2295,13 @@ useDedupedEffect(() => {
                       )}
 
                       {/* Parking */}
-                      {calculatedRights.building_privileges?.parking_requirements && calculatedRights.building_privileges.parking_requirements.length > 0 && (
+                      {parkingRequirements.length > 0 && (
                         <div className="p-3 border rounded-lg">
                           <div className="text-sm font-medium text-muted-foreground">חניה</div>
-                          <div className="text-xl font-bold">{calculatedRights.building_privileges.parking_requirements[0]?.area_sqm || '—'}</div>
-                          <div className="text-sm text-muted-foreground">מ״ר</div>
+                          <div className="text-xl font-bold">{parkingValueDisplay}</div>
+                          {parkingUnitLabel && (
+                            <div className="text-sm text-muted-foreground">{parkingUnitLabel}</div>
+                          )}
                         </div>
                       )}
 
@@ -2277,91 +2383,6 @@ useDedupedEffect(() => {
             )}
 
     
-            {/* Privilege Page Data */}
-            {rightsRows.some(row => row.source === 'privilege_page') && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>דף זכויות בנייה</CardTitle>
-                  <CardDescription>נתונים מדף הזכויות של עיריית תל אביב</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Building Lines */}
-                    {rightsRows.some(row => row.type === 'building_line') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">קווי בניין</h4>
-                        <div className="space-y-2">
-                          {rightsRows
-                            .filter(row => row.type === 'building_line')
-                            .map((row: any, idx: number) => (
-                              <div key={row.id ?? `building-line-${idx}`} className="p-3 border rounded-lg bg-blue-50">
-                                <div className="text-sm text-muted-foreground">קו בניין</div>
-                                <div className="text-lg font-medium">{row.description}</div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Floor Details */}
-                    {rightsRows.some(row => row.type === 'floor_details') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">פרטי קומות</h4>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {rightsRows
-                            .filter(row => row.type === 'floor_details')
-                            .map((row: any, idx: number) => (
-                              <div key={row.id ?? `floor-detail-${idx}`} className="p-3 border rounded-lg">
-                                <div className="text-sm text-muted-foreground">{row.type}</div>
-                                <div className="text-lg font-medium">
-                                  {row.percentage ? `${row.percentage}%` : row.area_sqm ? `${row.area_sqm} מ״ר` : '—'}
-                                </div>
-                                <div className="text-xs text-muted-foreground mt-1">קומה</div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Specific Rights */}
-                    {rightsRows.some(row => row.type === 'specific_right') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">זכויות ספציפיות</h4>
-                        <div className="space-y-2">
-                          {rightsRows
-                            .filter(row => row.type === 'specific_right')
-                            .map((row: any, idx: number) => (
-                              <div key={row.id ?? `specific-right-${idx}`} className="p-3 border rounded-lg bg-green-50">
-                                <div className="text-sm text-muted-foreground">זכות בנייה</div>
-                                <div className="text-lg font-medium">{row.description}</div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* General Notes */}
-                    {rightsRows.some(row => row.source === 'privilege_page' && row.type === 'general') && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-3">הערות כלליות</h4>
-                        <div className="space-y-2">
-                          {rightsRows
-                            .filter(row => row.source === 'privilege_page' && row.type === 'general')
-                            .map((row: any, idx: number) => (
-                              <div key={row.id ?? `general-note-${idx}`} className="p-3 border rounded-lg bg-gray-50">
-                                <div className="text-sm text-muted-foreground">הערה</div>
-                                <div className="text-lg font-medium">{row.text}</div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-
             {/* Ownership Summary */}
             {rightsRows.length > 0 && (
               <Card>

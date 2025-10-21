@@ -3,71 +3,8 @@ import tempfile
 
 import pytest
 
-from gis.parse_zchuyot import parse_html_privilege_page, parse_zchuyot
+from gis.parse_zchuyot import parse_zchuyot
 
-
-def test_parse_html_privilege_page():
-    """Test parsing HTML privilege page with multiple parcels."""
-    
-    # Sample HTML content similar to the one provided
-    html_content = """
-    <html>
-    <head>
-        <script>
-        var is_opts = '<SELECT NAME=opts DIR=rtl STYLE=`font-size:8pt` SIZE=6 onChange=f_option(this)>  <OPTION VALUE=`block=6632&parcel=3200&status=0&street=4844&house=0&chasum=0&`>מגרש: 3200 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: אזור תעסוקה שטח: 12826.81 מ``ר)</OPTION>  <OPTION VALUE=`block=6632&parcel=3214&status=0&street=4844&house=0&chasum=0&`>מגרש: 3214 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: מגורים שטח: 3702.89 מ``ר)</OPTION>  <OPTION VALUE=`block=6632&parcel=3215&status=0&street=1258&house=504&chasum=0&`>מגרש: 3215 מוסדר  -  רחוב פרופס מס` 504  (יעוד קרקע: דרך קיימת שטח: 16599.68 מ``ר)</OPTION>  <OPTION VALUE=`block=6632&parcel=3233&status=0&street=4844&house=0&chasum=0&`>מגרש: 3233 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: דרך מוצעת שטח: 5265.48 מ``ר)</OPTION> </SELECT>';
-        </script>
-    </head>
-    <body>
-        <select>
-            <option value="block=6632&parcel=3200&status=0&street=4844&house=0&chasum=0&">מגרש: 3200 מוסדר  -  רחוב קדושי השואה  (יעוד קרקע: אזור תעסוקה שטח: 12826.81 מ``ר)</option>
-        </select>
-    </body>
-    </html>
-    """
-    
-    parcels = parse_html_privilege_page(html_content)
-    
-    assert len(parcels) == 4, f"Expected 4 parcels, got {len(parcels)}"
-    
-    # Check first parcel
-    first_parcel = parcels[0]
-    assert first_parcel['block'] == '6632'
-    assert first_parcel['parcel'] == '3200'
-    assert first_parcel['parcel_number'] == '3200'
-    assert first_parcel['parcel_status'] == 'מוסדר'
-    assert first_parcel['street_name'] == 'רחוב קדושי השואה'
-    assert first_parcel['land_use'] == 'אזור תעסוקה'
-    assert first_parcel['area'] == '12826.81'
-    
-    # Check second parcel
-    second_parcel = parcels[1]
-    assert second_parcel['block'] == '6632'
-    assert second_parcel['parcel'] == '3214'
-    assert second_parcel['parcel_number'] == '3214'
-    assert second_parcel['land_use'] == 'מגורים'
-    assert second_parcel['area'] == '3702.89'
-    
-    # Check third parcel with house number
-    third_parcel = parcels[2]
-    assert third_parcel['block'] == '6632'
-    assert third_parcel['parcel'] == '3215'
-    assert third_parcel['house_number'] == '504'
-    assert third_parcel['land_use'] == 'דרך קיימת'
-    assert third_parcel['area'] == '16599.68'
-
-
-def test_parse_html_privilege_page_empty():
-    """Test parsing empty HTML content."""
-    
-    parcels = parse_html_privilege_page("")
-    assert parcels == []
-
-
-def test_parse_html_privilege_page_no_options():
-    """Test parsing HTML content without parcel options."""
-    html_content = "<html><body><p>No options here</p></body></html>"
-    parcels = parse_html_privilege_page(html_content)
-    assert parcels == []
 
 
 def test_parse_zchuyot_pdf():
@@ -89,10 +26,10 @@ def test_parse_zchuyot_pdf():
     assert "basic" in result, "Result should contain basic info"
     assert "plans" in result, "Result should contain plans"
     assert "alerts" in result, "Result should contain alerts"
-    assert "policy" in result, "Result should contain policy"
+    assert "policies" in result, "Result should contain policies"
     assert "rights" in result, "Result should contain rights"
-    assert "all_links" in result, "Result should contain all_links"
     assert "raw_preview" in result, "Result should contain raw_preview"
+    assert "details" in result, "Result should contain details section"
     
     # Validate source file path
     assert result["source_file"] == os.path.abspath(pdf_path)
@@ -104,10 +41,15 @@ def test_parse_zchuyot_pdf():
     basic = result["basic"]
     assert isinstance(basic, dict), "Basic info should be a dictionary"
     assert "issue_date" in basic, "Basic info should contain issue_date"
-    assert "address" in basic, "Basic info should contain address"
     assert "block" in basic, "Basic info should contain block"
     assert "parcel" in basic, "Basic info should contain parcel"
     assert "parcel_area_sqm" in basic, "Basic info should contain parcel_area_sqm"
+    assert "land_use" in basic, "Basic info should contain land_use"
+
+    details = result["details"]
+    assert isinstance(details, dict), "Details should be a dictionary"
+    assert "addresses" in details, "Details should include addresses list"
+    assert isinstance(details["addresses"], list), "Addresses should be a list"
     
     # Validate plans structure
     plans = result["plans"]
@@ -118,7 +60,6 @@ def test_parse_zchuyot_pdf():
     assert "local" in in_force, "In-force plans should contain local section"
     assert "citywide" in in_force, "In-force plans should contain citywide section"
     assert "national_regional" in in_force, "In-force plans should contain national_regional section"
-    assert "architectural" in in_force, "In-force plans should contain architectural section"
     
     in_planning = plans["in_planning"]
     assert "citywide" in in_planning, "In-planning should contain citywide section"
@@ -133,15 +74,14 @@ def test_parse_zchuyot_pdf():
     
     # Validate other sections are lists
     assert isinstance(result["alerts"], list), "Alerts should be a list"
-    assert isinstance(result["policy"], list), "Policy should be a list"
+    assert isinstance(result["policies"], list), "Policies should be a list"
     assert isinstance(result["rights"], dict), "Rights should be a dictionary"
-    assert isinstance(result["all_links"], list), "All_links should be a list"
     
     # Validate raw_preview is a string and not too long
     assert isinstance(result["raw_preview"], str), "Raw preview should be a string"
-    assert len(result["raw_preview"]) <= 2000, "Raw preview should be limited to 2000 characters"
+    assert 0 < len(result["raw_preview"]) <= 20000, "Raw preview should have a sensible length"
     
-    print(f"Successfully parsed PDF with {len(result['all_links'])} links")
+    print(f"Successfully parsed PDF with {len(result.get('policies', []))} policies")
     print(f"Basic info: {basic}")
     print(f"Total in-force plans: {sum(len(plans['in_force'][k]) for k in plans['in_force'])}")
     print(f"Total in-planning plans: {sum(len(plans['in_planning'][k]) for k in plans['in_planning'])}")
@@ -180,7 +120,7 @@ def test_parse_zchuyot_pdf_content_validation():
                     assert has_plan_info, f"Plan should have at least plan_number or name in {plan_type}.{section_name}"
     
     # Test that URLs are properly extracted and cleaned
-    all_links = result["all_links"]
+    all_links = result.get("all_links", [])
     if all_links:
         for url in all_links:
             assert url.startswith(("http://", "https://")), f"URL should start with http:// or https://: {url}"
@@ -235,10 +175,12 @@ def test_parse_zchuyot_pdf_plan_structure():
             assert isinstance(plan, dict), f"Plan in {section_name} should be a dictionary"
             
             # Check required fields for plans
-            required_fields = ["plan_number", "name", "deposit_date", "effective_date"]
-            for field in required_fields:
-                if field in plan:
-                    assert plan[field] is not None, f"Plan field {field} should not be None"
+            assert plan.get("plan_number"), f"Plan number missing in {section_name}"
+            assert plan.get("name") is not None, f"Plan name missing in {section_name}"
+
+            for date_field in ("deposit_date", "effective_date"):
+                if plan.get(date_field) is not None:
+                    assert isinstance(plan[date_field], str), f"{date_field} should be a string when present"
             
             # Check URLs field if present
             if "urls" in plan:
@@ -257,7 +199,7 @@ def test_parse_zchuyot_pdf_plan_structure():
             
             # In-planning plans might have different fields
             if "plan_number" in plan:
-                assert plan["plan_number"] is not None, f"Plan number should not be None in {section_name}"
+                assert plan["plan_number"] not in (None, ""), f"Plan number should not be empty in {section_name}"
             if "name" in plan:
                 assert plan["name"] is not None, f"Plan name should not be None in {section_name}"
     
@@ -277,47 +219,71 @@ def test_parse_zchuyot_pdf_rights_and_policy():
     rights = result["rights"]
     assert isinstance(rights, dict), "Rights should be a dictionary"
     
-    # Rights might be empty or contain information
-    if rights:
-        for key, value in rights.items():
-            # Handle different types of values in rights
-            if key == 'referred_plans':
-                # referred_plans can be a set or list
-                assert isinstance(value, (list, set)), f"Rights value for {key} should be a list or set"
-            elif key == 'notes':
-                # notes should be a list of dictionaries
-                assert isinstance(value, list), f"Rights value for {key} should be a list"
-                if value:  # If list is not empty
-                    for item in value:
-                        assert isinstance(item, dict), f"Each right item in {key} should be a dictionary"
-                        assert any(item.values()), f"Right item in {key} should have at least one non-empty value"
-            elif key in ['percent_building', 'basement_area', 'service_percentage', 'number_of_floors']:
-                # These can be single values (int, float, str)
-                assert isinstance(value, (int, float, str)), f"Rights value for {key} should be a number or string"
-            else:
-                # Other values should be lists (but items can be strings or other types)
-                assert isinstance(value, list), f"Rights value for {key} should be a list"
-                # Rights should have some meaningful content
-                if value:  # If list is not empty
-                    for item in value:
-                        # Items can be strings, numbers, or dictionaries
-                        assert isinstance(item, (str, int, float, dict)), f"Right item in {key} should be a string, number, or dictionary"
+    text_value = rights.get("text")
+    assert text_value is None or isinstance(text_value, str), "Rights.text should be a string or None"
+
+    list_fields = [
+        "building_lines",
+        "building_lines_detailed",
+        "floor_percentages",
+        "floor_percentages_detailed",
+        "minimum_values",
+        "maximum_values",
+        "minmax_values",
+        "parking_requirements",
+        "notes",
+    ]
+    for field in list_fields:
+        if field in rights:
+            assert isinstance(rights[field], list), f"Rights field {field} should be a list"
+
+    if "building_lines" in rights:
+        assert all(isinstance(item, str) for item in rights["building_lines"]), "Building lines should be strings"
+
+    if "building_lines_detailed" in rights:
+        for item in rights["building_lines_detailed"]:
+            assert isinstance(item, dict), "Detailed building line should be a dict"
+            assert "raw_text" in item, "Detailed building line requires raw_text"
+
+    if "floor_percentages" in rights:
+        for value in rights["floor_percentages"]:
+            assert isinstance(value, (int, float)), "Floor percentage entries should be numeric"
+
+    if "floor_percentages_detailed" in rights:
+        for item in rights["floor_percentages_detailed"]:
+            assert isinstance(item, dict), "Detailed floor percentage should be a dict"
+            assert "percentage" in item and isinstance(item["percentage"], (int, float)), "Detailed percentage must be numeric"
+
+    if "notes" in rights:
+        for note in rights["notes"]:
+            assert isinstance(note, dict), "Notes should contain dictionaries"
+            assert "text" in note, "Each note should include text"
+
+    numeric_fields = [
+        "building_coverage_percentage",
+        "coverage",
+        "dwelling_units",
+        "floors",
+        "auxiliary_building_area",
+    ]
+    for field in numeric_fields:
+        if field in rights and rights[field] is not None:
+            assert isinstance(rights[field], (int, float)), f"Rights field {field} should be numeric when present"
     
     # Test policy extraction
-    policy = result["policy"]
-    assert isinstance(policy, list), "Policy should be a list"
+    policies = result["policies"]
+    assert isinstance(policies, list), "Policies should be a list"
     
     # Policy might be empty or contain information
-    if policy:
-        for pol in policy:
+    if policies:
+        for pol in policies:
             assert isinstance(pol, dict), "Each policy item should be a dictionary"
             # Policy items should have some meaningful content
             assert any(pol.values()), "Policy item should have at least one non-empty value"
     
-    print(f"Rights and policy validation passed. Found {len(rights)} rights keys and {len(policy)} policy items")
+    print(f"Rights and policy validation passed. Found {len(rights)} rights keys and {len(policies)} policy items")
 
 
 if __name__ == "__main__":
     # Run tests
     pytest.main([__file__, "-v"])
-

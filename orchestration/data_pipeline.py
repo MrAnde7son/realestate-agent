@@ -1248,43 +1248,48 @@ def _update_asset_with_collected_data(asset_id: int, block: str, parcel: str, go
             logger.info(f"Asset {asset_id}: No GIS data available for processing")
         if handasa_archive:
             asset.meta['handasa_archive'] = handasa_archive
-        if not asset.meta.get('privilege_page_data'):
-            try:
-                from gis.gis_client import TelAvivGS  # type: ignore
+        existing_privilege_data = asset.meta.get('privilege_page_data')
 
-                def _extract_coord(data, key):
-                    if isinstance(data, dict):
-                        if data.get(key) is not None:
-                            return data.get(key)
-                        coords = data.get('coordinates')
-                        if isinstance(coords, dict):
-                            return coords.get(key)
-                    return None
+        try:
+            from gis.gis_client import TelAvivGS  # type: ignore
 
-                x = (
-                    _extract_coord(gis_data, 'x')
-                    or _extract_coord(asset.meta.get('gis_data'), 'x')
-                    or _extract_coord(govmap_data, 'x')
-                )
-                y = (
-                    _extract_coord(gis_data, 'y')
-                    or _extract_coord(asset.meta.get('gis_data'), 'y')
-                    or _extract_coord(govmap_data, 'y')
-                )
+            def _extract_coord(data, key):
+                if isinstance(data, dict):
+                    if data.get(key) is not None:
+                        return data.get(key)
+                    coords = data.get('coordinates')
+                    if isinstance(coords, dict):
+                        return coords.get(key)
+                return None
 
-                if x is not None and y is not None:
-                    gis_client = TelAvivGS()
-                    privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
-                    if privilege_data and isinstance(privilege_data, dict):
-                        parsed_items = []
-                        pdf_entries = privilege_data.get('pdf_data') or []
-                        for pdf_item in pdf_entries:
-                            if isinstance(pdf_item, dict) and pdf_item.get('data'):
-                                parsed_items.append(pdf_item['data'])
-                        if parsed_items:
-                            asset.meta['privilege_page_data'] = parsed_items
-            except Exception:
-                logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
+            x = (
+                _extract_coord(gis_data, 'x')
+                or _extract_coord(asset.meta.get('gis_data'), 'x')
+                or _extract_coord(govmap_data, 'x')
+            )
+            y = (
+                _extract_coord(gis_data, 'y')
+                or _extract_coord(asset.meta.get('gis_data'), 'y')
+                or _extract_coord(govmap_data, 'y')
+            )
+
+            if x is not None and y is not None:
+                gis_client = TelAvivGS()
+                privilege_data = gis_client.get_building_privilege_page(x, y, save_dir="privilege_pages")
+                if privilege_data and isinstance(privilege_data, dict):
+                    parsed_items = []
+                    pdf_entries = privilege_data.get('pdf_data') or []
+                    for pdf_item in pdf_entries:
+                        if isinstance(pdf_item, dict) and pdf_item.get('data'):
+                            parsed_items.append(pdf_item['data'])
+                    if parsed_items:
+                        asset.meta['privilege_page_data'] = parsed_items
+                        asset.meta['privilege_page_refreshed_at'] = datetime.utcnow().isoformat()
+                    elif existing_privilege_data is not None:
+                        # Keep previously stored privilege data if refresh yielded nothing
+                        asset.meta['privilege_page_data'] = existing_privilege_data
+        except Exception:
+            logger.debug("Privilege page acquisition failed for asset %s", asset_id, exc_info=True)
         
         # Always process GIS data (even if empty) to store gis_collector_data
         _process_gis_data(asset, gis_data)

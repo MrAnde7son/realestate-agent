@@ -26,7 +26,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from utils.retry import request_with_retry
 from pyproj import Transformer
 
-from gis.parse_zchuyot import parse_html_privilege_page, parse_zchuyot
+from gis.parse_zchuyot import parse_zchuyot
 
 
 class ArcGISError(RuntimeError):
@@ -454,9 +454,6 @@ class TelAvivGS:
                 else:
                     # No options found, try individual options
                     self._try_individual_privilege_options(block, parcel, save_dir, result)
-            else:
-                # Main page is not HTML or PDF, try individual options
-                self._try_individual_privilege_options(block, parcel, save_dir, result)
 
 
             return result

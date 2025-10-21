@@ -567,22 +567,43 @@ class AssetRightsView(APIView):
                 if isinstance(parking_req, str):
                     # Handle string parking requirements
                     parking_requirements.append({
-                        'area_sqm': 0,  # Can't extract numeric value from string
-                        'raw_text': parking_req
+                        'area_sqm': None,  # Can't extract numeric value from string
+                        'raw_text': parking_req,
+                        'value': parking_req
                     })
                 elif isinstance(parking_req, list):
                     for pr in parking_req:
                         if isinstance(pr, dict):
-                            parking_value = pr.get('value', 0)
-                            if parking_value > 0:
-                                parking_requirements.append({
-                                    'area_sqm': parking_value,
-                                    'raw_text': pr.get('raw_text', '')
-                                })
+                            parking_value = pr.get('value')
+                            parking_entry = {
+                                'area_sqm': None,
+                                'raw_text': pr.get('raw_text', ''),
+                                'type': pr.get('type')
+                            }
+
+                            if isinstance(parking_value, (int, float)):
+                                if parking_value > 0:
+                                    parking_entry['area_sqm'] = float(parking_value)
+                                parking_entry['value'] = parking_value
+                            elif parking_value is not None:
+                                parking_entry['value'] = parking_value
+
+                            if 'status' in pr:
+                                status = pr.get('status')
+                                parking_entry['status'] = status
+                                if parking_entry.get('value') in (None, '',):
+                                    parking_entry['value'] = status
+                            if 'source_plan' in pr:
+                                parking_entry['source_plan'] = pr.get('source_plan')
+                            if 'unit' in pr:
+                                parking_entry['unit'] = pr.get('unit')
+
+                            parking_requirements.append(parking_entry)
                         elif isinstance(pr, str):
                             parking_requirements.append({
-                                'area_sqm': 0,
-                                'raw_text': pr
+                                'area_sqm': None,
+                                'raw_text': pr,
+                                'value': pr
                             })
                 
                 calculated_rights['building_privileges'] = {

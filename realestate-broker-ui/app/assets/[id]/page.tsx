@@ -1723,7 +1723,7 @@ useDedupedEffect(() => {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="flex flex-wrap md:flex-nowrap">
+          <TabsList className="flex flex-wrap gap-2 md:flex-nowrap md:gap-0">
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="listings">מודעות</TabsTrigger>
             <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>

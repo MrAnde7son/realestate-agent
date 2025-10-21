@@ -51,8 +51,11 @@ import { useConfirm } from "@/hooks/use-confirm";
 import PlanLimitDialog from "@/components/PlanLimitDialog";
 import { apiClient } from "@/lib/api-client";
 import { useDedupedEffect } from "@/hooks/use-deduped-effect";
+import type { PaginationState } from "@tanstack/react-table";
 
 const DEFAULT_RADIUS_METERS = 100;
+const DEFAULT_PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 const RISK_FILTER_OPTIONS = [
   { value: "flagged", label: "עם דגלי סיכון" },
@@ -64,11 +67,36 @@ const DOCUMENTS_FILTER_OPTIONS = [
   { value: "without", label: "ללא מסמכים" },
 ] as const;
 
+type AssetFilterMetadata = {
+  cities: string[];
+  types: string[];
+  neighborhoods: string[];
+  zonings: string[];
+  blocks: string[];
+  parcels: string[];
+  buildingTypes: string[];
+  rooms: number[];
+  statusCounts: Record<string, number>;
+};
+
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
+  const [totalCount, setTotalCount] = useState(0);
+  const [filterMetadata, setFilterMetadata] = useState<AssetFilterMetadata>({
+    cities: [],
+    types: [],
+    neighborhoods: [],
+    zonings: [],
+    blocks: [],
+    parcels: [],
+    buildingTypes: [],
+    rooms: [],
+    statusCounts: {},
+  });
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [city, setCity] = useState<string>(() => searchParams.get("city") ?? "all");
@@ -250,6 +278,19 @@ export default function AssetsPage() {
     setRemainingRightsMax(remainingRightsMaxVal ? Number(remainingRightsMaxVal) : undefined);
     setBlockFilter(searchParams.get("block") ?? "all");
     setParcelFilter(searchParams.get("parcel") ?? "all");
+    const pageParam = searchParams.get("page");
+    const pageSizeParam = searchParams.get("pageSize");
+    setPagination(prev => {
+      const nextIndex = pageParam ? Math.max(Number(pageParam) - 1, 0) : 0;
+      const nextSize = pageSizeParam ? Number(pageSizeParam) : prev.pageSize;
+      if (Number.isNaN(nextSize) || nextSize <= 0) {
+        return { pageIndex: nextIndex, pageSize: prev.pageSize };
+      }
+      if (nextIndex === prev.pageIndex && nextSize === prev.pageSize) {
+        return prev;
+      }
+      return { pageIndex: nextIndex, pageSize: nextSize };
+    });
   }, [searchParams]);
 
   useEffect(() => {
@@ -379,6 +420,16 @@ export default function AssetsPage() {
     } else {
       params.delete("parcel");
     }
+    if (pagination.pageIndex > 0) {
+      params.set("page", String(pagination.pageIndex + 1));
+    } else {
+      params.delete("page");
+    }
+    if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
+      params.set("pageSize", String(pagination.pageSize));
+    } else {
+      params.delete("pageSize");
+    }
     const query = params.toString();
     const newUrl = query ? `${pathname}?${query}` : pathname;
     const currentQuery = searchParams.toString();
@@ -412,18 +463,115 @@ export default function AssetsPage() {
     remainingRightsMax,
     blockFilter,
     parcelFilter,
+    pagination.pageIndex,
+    pagination.pageSize,
     router,
     pathname,
     searchParams,
   ]);
 
+  React.useEffect(() => {
+    setPagination(prev => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
+  }, [
+    search,
+    city,
+    typeFilter,
+    priceMin,
+    priceMax,
+    neighborhood,
+    zoning,
+    riskFilter,
+    documentsFilter,
+    statusFilter,
+    rentalSaleFilter,
+    userAssetsFilter,
+    buildingTypeFilter,
+    floorMin,
+    floorMax,
+    areaMin,
+    areaMax,
+    roomsFilter,
+    featuresFilter,
+    pricePerSqmMin,
+    pricePerSqmMax,
+    remainingRightsMin,
+    remainingRightsMax,
+    blockFilter,
+    parcelFilter,
+  ]);
+
   // Function to fetch assets
-  const fetchAssets = async () => {
+  const fetchAssets = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get("/api/assets");
+
+      const params = new URLSearchParams();
+      params.set("page", String(pagination.pageIndex + 1));
+      params.set("pageSize", String(pagination.pageSize));
+
+      if (search) params.set("search", search);
+      if (city && city !== "all") params.set("city", city);
+      if (typeFilter && typeFilter !== "all") params.set("type", typeFilter);
+      if (priceMin != null) params.set("priceMin", String(priceMin));
+      if (priceMax != null) params.set("priceMax", String(priceMax));
+      if (neighborhood && neighborhood !== "all") params.set("neighborhood", neighborhood);
+      if (zoning && zoning !== "all") params.set("zoning", zoning);
+      if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
+      if (documentsFilter && documentsFilter !== "all") params.set("documents", documentsFilter);
+      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+      if (rentalSaleFilter && rentalSaleFilter !== "all") params.set("rentalSale", rentalSaleFilter);
+      if (userAssetsFilter && userAssetsFilter !== "all") params.set("userAssets", userAssetsFilter);
+      if (buildingTypeFilter && buildingTypeFilter !== "all") params.set("buildingType", buildingTypeFilter);
+      if (floorMin != null) params.set("floorMin", String(floorMin));
+      if (floorMax != null) params.set("floorMax", String(floorMax));
+      if (areaMin != null) params.set("areaMin", String(areaMin));
+      if (areaMax != null) params.set("areaMax", String(areaMax));
+      if (roomsFilter && roomsFilter !== "all") params.set("rooms", roomsFilter);
+      if (featuresFilter && featuresFilter !== "all") params.set("features", featuresFilter);
+      if (pricePerSqmMin != null) params.set("pricePerSqmMin", String(pricePerSqmMin));
+      if (pricePerSqmMax != null) params.set("pricePerSqmMax", String(pricePerSqmMax));
+      if (remainingRightsMin != null) params.set("remainingRightsMin", String(remainingRightsMin));
+      if (remainingRightsMax != null) params.set("remainingRightsMax", String(remainingRightsMax));
+      if (blockFilter && blockFilter !== "all") params.set("block", blockFilter);
+      if (parcelFilter && parcelFilter !== "all") params.set("parcel", parcelFilter);
+
+      const query = params.toString();
+      const endpoint = query ? `/api/assets?${query}` : "/api/assets";
+      const response = await apiClient.get(endpoint);
+
       if (response.ok) {
-        setAssets(response.data.rows);
+        const rows = response.data?.rows ?? [];
+        setAssets(rows);
+
+        const paginationInfo = response.data?.pagination;
+        if (paginationInfo) {
+          setTotalCount(paginationInfo.total ?? rows.length);
+          setPagination(prev => {
+            const nextIndex = Math.max(0, (paginationInfo.page ?? 1) - 1);
+            const nextSize = paginationInfo.page_size ?? prev.pageSize;
+            if (nextIndex === prev.pageIndex && nextSize === prev.pageSize) {
+              return prev;
+            }
+            return { pageIndex: nextIndex, pageSize: nextSize };
+          });
+        } else {
+          setTotalCount(rows.length);
+        }
+
+        if (response.data?.filters) {
+          const filters = response.data.filters as Partial<AssetFilterMetadata>;
+          setFilterMetadata({
+            cities: filters.cities ?? [],
+            types: filters.types ?? [],
+            neighborhoods: filters.neighborhoods ?? [],
+            zonings: filters.zonings ?? [],
+            blocks: filters.blocks ?? [],
+            parcels: filters.parcels ?? [],
+            buildingTypes: filters.buildingTypes ?? [],
+            rooms: filters.rooms ?? [],
+            statusCounts: filters.statusCounts ?? {},
+          });
+        }
       } else {
         console.error("Failed to fetch assets:", response.error);
       }
@@ -432,7 +580,35 @@ export default function AssetsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    pagination.pageIndex,
+    pagination.pageSize,
+    search,
+    city,
+    typeFilter,
+    priceMin,
+    priceMax,
+    neighborhood,
+    zoning,
+    riskFilter,
+    documentsFilter,
+    statusFilter,
+    rentalSaleFilter,
+    userAssetsFilter,
+    buildingTypeFilter,
+    floorMin,
+    floorMax,
+    areaMin,
+    areaMax,
+    roomsFilter,
+    featuresFilter,
+    pricePerSqmMin,
+    pricePerSqmMax,
+    remainingRightsMin,
+    remainingRightsMax,
+    blockFilter,
+    parcelFilter,
+  ]);
 
   const handleDeleteAsset = async (assetId: number) => {
     // Check if user is authenticated
@@ -475,7 +651,7 @@ export default function AssetsPage() {
       });
 
       if (response.ok) {
-        setAssets(prev => prev.filter(a => a.id !== assetId));
+        await fetchAssets();
         toast({
           title: "הצלחה",
           description: "הנכס נמחק בהצלחה",
@@ -841,54 +1017,22 @@ export default function AssetsPage() {
 
   useDedupedEffect(() => {
     fetchAssets();
-  }, []);
+  }, [fetchAssets]);
+
+  const pageCount = React.useMemo(
+    () => (totalCount === 0 ? 1 : Math.ceil(totalCount / pagination.pageSize)),
+    [totalCount, pagination.pageSize]
+  );
 
 
-  const cityOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((l) => l.city).filter(Boolean))
-      ) as string[],
-    [assets]
-  );
-  const typeOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((l) => l.type).filter(Boolean))
-      ) as string[],
-    [assets]
-  );
-  const neighborhoodOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((l) => l.neighborhood).filter(Boolean))
-      ) as string[],
-    [assets]
-  );
-  const zoningOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((l) => l.zoning).filter(Boolean))
-      ) as string[],
-    [assets]
-  );
-  const blockOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((l) => l.block).filter(Boolean))
-      ) as string[],
-    [assets]
-  );
-  const parcelOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((l) => l.parcel).filter(Boolean))
-      ) as string[],
-    [assets]
-  );
+  const cityOptions = React.useMemo(() => filterMetadata.cities, [filterMetadata.cities]);
+  const typeOptions = React.useMemo(() => filterMetadata.types, [filterMetadata.types]);
+  const neighborhoodOptions = React.useMemo(() => filterMetadata.neighborhoods, [filterMetadata.neighborhoods]);
+  const zoningOptions = React.useMemo(() => filterMetadata.zonings, [filterMetadata.zonings]);
+  const blockOptions = React.useMemo(() => filterMetadata.blocks, [filterMetadata.blocks]);
+  const parcelOptions = React.useMemo(() => filterMetadata.parcels, [filterMetadata.parcels]);
 
   const statusOptions = React.useMemo(() => {
-    const counts = new Map<string, { label: string; count: number }>();
     const getLabel = (value: string) => {
       switch (value) {
         case "done":
@@ -916,22 +1060,12 @@ export default function AssetsPage() {
       }
     };
 
-    assets.forEach((asset) => {
-      const statusValue = asset.assetStatus ?? "none";
-      const existing = counts.get(statusValue);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        counts.set(statusValue, { label: getLabel(statusValue), count: 1 });
-      }
-    });
-
-    return Array.from(counts.entries()).map(([value, data]) => ({
+    return Object.entries(filterMetadata.statusCounts).map(([value, count]) => ({
       value,
-      label: data.label,
-      count: data.count,
+      label: getLabel(value),
+      count,
     }));
-  }, [assets]);
+  }, [filterMetadata.statusCounts]);
 
   const riskFilterOptions = React.useMemo(
     () => [...RISK_FILTER_OPTIONS],
@@ -959,25 +1093,15 @@ export default function AssetsPage() {
     []
   );
 
-  const buildingTypeOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(assets.map((l) => l.buildingType).filter(Boolean))
-      ) as string[],
-    [assets]
-  );
+  const buildingTypeOptions = React.useMemo(() => filterMetadata.buildingTypes, [filterMetadata.buildingTypes]);
 
   const roomsFilterOptions = React.useMemo(
-    () => {
-      const rooms = Array.from(
-        new Set(assets.map((l) => l.rooms).filter(Boolean))
-      ).sort((a, b) => (a || 0) - (b || 0));
-      return rooms.map(room => ({
+    () =>
+      (filterMetadata.rooms ?? []).map(room => ({
         value: room?.toString() || "0",
         label: `${room} חדרים`
-      }));
-    },
-    [assets]
+      })),
+    [filterMetadata.rooms]
   );
 
   const featuresFilterOptions = React.useMemo(
@@ -990,217 +1114,6 @@ export default function AssetsPage() {
     []
   );
 
-  const filteredAssets = React.useMemo(
-    () =>
-      assets.filter((l) => {
-        // Search filter
-        if (search) {
-          const lower = search.toLowerCase();
-          const addressLower = l.address?.toLowerCase() || '';
-          const cityLower = l.city?.toLowerCase() || '';
-          const typeLower = l.type?.toLowerCase() || '';
-          if (!(addressLower.includes(lower) || cityLower.includes(lower) || typeLower.includes(lower))) {
-            return false;
-          }
-        }
-        
-        // City filter
-        if (city && city !== "all" && l.city !== city) {
-          return false;
-        }
-        
-        // Type filter
-        if (typeFilter && typeFilter !== "all" && l.type !== typeFilter) {
-          return false;
-        }
-
-        // Price filters - exclude items without price when price filters are applied
-        if (priceMin != null || priceMax != null) {
-          if (l.price == null) {
-            return false;
-          }
-          if (priceMin != null && l.price < priceMin) {
-            return false;
-          }
-          if (priceMax != null && l.price > priceMax) {
-            return false;
-          }
-        }
-
-        if (neighborhood && neighborhood !== "all" && l.neighborhood !== neighborhood) {
-          return false;
-        }
-
-        if (zoning && zoning !== "all" && l.zoning !== zoning) {
-          return false;
-        }
-
-        if (riskFilter === "flagged" && !(l.riskFlags && l.riskFlags.length > 0)) {
-          return false;
-        }
-
-        if (riskFilter === "clean" && l.riskFlags && l.riskFlags.length > 0) {
-          return false;
-        }
-
-        if (documentsFilter === "with" && !(l.documents && l.documents.length > 0)) {
-          return false;
-        }
-
-        if (documentsFilter === "without" && l.documents && l.documents.length > 0) {
-          return false;
-        }
-
-        if (statusFilter && statusFilter !== "all") {
-          const value = l.assetStatus ?? "none";
-          if (value !== statusFilter) {
-            return false;
-          }
-        }
-
-        // Rental/Sale filter
-        if (rentalSaleFilter && rentalSaleFilter !== "all") {
-          if (rentalSaleFilter === "rental" && !l.sources?.includes("yad2")) {
-            return false;
-          }
-          if (rentalSaleFilter === "sale" && !l.sources?.includes("yad2")) {
-            return false;
-          }
-        }
-
-        // User assets filter
-        if (userAssetsFilter && userAssetsFilter !== "all") {
-          if (userAssetsFilter === "mine" && l.attribution?.created_by?.id !== user?.id) {
-            return false;
-          }
-          if (userAssetsFilter === "others" && l.attribution?.created_by?.id === user?.id) {
-            return false;
-          }
-        }
-
-        // Building type filter
-        if (buildingTypeFilter && buildingTypeFilter !== "all" && l.buildingType !== buildingTypeFilter) {
-          return false;
-        }
-
-        // Floor range filters
-        if (floorMin != null || floorMax != null) {
-          if (l.floor == null) {
-            return false;
-          }
-          if (floorMin != null && l.floor < floorMin) {
-            return false;
-          }
-          if (floorMax != null && l.floor > floorMax) {
-            return false;
-          }
-        }
-
-        // Area range filters
-        if (areaMin != null || areaMax != null) {
-          if (l.area == null) {
-            return false;
-          }
-          if (areaMin != null && l.area < areaMin) {
-            return false;
-          }
-          if (areaMax != null && l.area > areaMax) {
-            return false;
-          }
-        }
-
-        // Rooms filter
-        if (roomsFilter && roomsFilter !== "all") {
-          const roomsValue = l.rooms?.toString() ?? "0";
-          if (roomsValue !== roomsFilter) {
-            return false;
-          }
-        }
-
-        // Features filter
-        if (featuresFilter && featuresFilter !== "all") {
-          if (featuresFilter === "elevator" && !l.elevator) {
-            return false;
-          }
-          if (featuresFilter === "parking" && !l.parkingSpaces) {
-            return false;
-          }
-          if (featuresFilter === "balcony" && !l.balconyArea) {
-            return false;
-          }
-          if (featuresFilter === "storage" && !l.storageRoom) {
-            return false;
-          }
-        }
-
-        // Price per sqm range filters
-        if (pricePerSqmMin != null || pricePerSqmMax != null) {
-          if (l.pricePerSqm == null) {
-            return false;
-          }
-          if (pricePerSqmMin != null && l.pricePerSqm < pricePerSqmMin) {
-            return false;
-          }
-          if (pricePerSqmMax != null && l.pricePerSqm > pricePerSqmMax) {
-            return false;
-          }
-        }
-
-        // Remaining rights range filters
-        if (remainingRightsMin != null || remainingRightsMax != null) {
-          if (l.remainingRightsSqm == null) {
-            return false;
-          }
-          if (remainingRightsMin != null && l.remainingRightsSqm < remainingRightsMin) {
-            return false;
-          }
-          if (remainingRightsMax != null && l.remainingRightsSqm > remainingRightsMax) {
-            return false;
-          }
-        }
-
-        // Block filter
-        if (blockFilter && blockFilter !== "all" && l.block !== blockFilter) {
-          return false;
-        }
-
-        // Parcel filter
-        if (parcelFilter && parcelFilter !== "all" && l.parcel !== parcelFilter) {
-          return false;
-        }
-
-        return true;
-      }),
-    [
-      assets,
-      search,
-      city,
-      typeFilter,
-      priceMin,
-      priceMax,
-      neighborhood,
-      zoning,
-      riskFilter,
-      documentsFilter,
-      statusFilter,
-      rentalSaleFilter,
-      userAssetsFilter,
-      buildingTypeFilter,
-      floorMin,
-      floorMax,
-      areaMin,
-      areaMax,
-      roomsFilter,
-      featuresFilter,
-      pricePerSqmMin,
-      pricePerSqmMax,
-      remainingRightsMin,
-      remainingRightsMax,
-      blockFilter,
-      parcelFilter,
-      user,
-    ]
-  );
 
   return (
     <DashboardLayout>
@@ -1211,7 +1124,7 @@ export default function AssetsPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">רשימת נכסים</h1>
             <p className="text-sm sm:text-base text-muted-foreground">
-              {loading ? 'טוען נכסים...' : `${assets.length} נכסים עם נתוני שמאות ותכנון מלאים`}
+              {loading ? 'טוען נכסים...' : `${totalCount} נכסים עם נתוני שמאות ותכנון מלאים`}
             </p>
           </div>
         </div>
@@ -1454,8 +1367,8 @@ export default function AssetsPage() {
               </div>
             ) : viewMode === 'map' ? (
               <MapView
-                key={`map-${viewMode}-${filteredAssets.length}`}
-                assets={filteredAssets}
+                key={`map-${viewMode}-${assets.length}`}
+                assets={assets}
                 center={[34.98, 31.0]}
                 zoom={14}
                 onAssetClick={(asset) => router.push(`/assets/${asset.id}`)}
@@ -1466,11 +1379,17 @@ export default function AssetsPage() {
               />
             ) : (
               <AssetsTable
-                data={filteredAssets}
+                data={assets}
                 loading={loading}
                 onDelete={isAdmin ? handleDeleteAsset : undefined}
                 searchValue={search}
                 onSearchChange={setSearch}
+                manualPagination
+                paginationState={pagination}
+                onPaginationChange={(next) => setPagination(next)}
+                pageCount={pageCount}
+                totalCount={totalCount}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
                 filters={{
                   city: {
                     value: city,
@@ -1627,7 +1546,7 @@ export default function AssetsPage() {
         {/* Summary */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            מציג {filteredAssets.length} מתוך {assets.length} נכסים
+            מציג {assets.length} מתוך {totalCount} נכסים
           </p>
         </div>
 

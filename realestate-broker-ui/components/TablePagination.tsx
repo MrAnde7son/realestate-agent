@@ -22,7 +22,19 @@ export default function TablePagination<TData>({
   const pagination = table.getState().pagination;
   const pageCount = table.getPageCount();
 
-  if (pageCount <= 1 && pageSizeOptions.length === 0) {
+  const normalizedPageSizeOptions = React.useMemo(() => {
+    const sanitized = pageSizeOptions
+      .map(size => Number(size))
+      .filter(size => Number.isFinite(size) && size > 0);
+
+    if (!sanitized.includes(pagination.pageSize)) {
+      sanitized.push(pagination.pageSize);
+    }
+
+    return Array.from(new Set(sanitized)).sort((a, b) => a - b);
+  }, [pageSizeOptions, pagination.pageSize]);
+
+  if (pageCount <= 1 && normalizedPageSizeOptions.length <= 1) {
     return null;
   }
 
@@ -63,7 +75,7 @@ export default function TablePagination<TData>({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {pageSizeOptions.map((size) => (
+            {normalizedPageSizeOptions.map((size) => (
               <SelectItem key={size} value={String(size)}>
                 {size}
               </SelectItem>

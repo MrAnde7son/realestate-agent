@@ -820,6 +820,42 @@ class ZchuyotParser:
     def _extract_parking(self, line: str, rights: Dict[str, Any]) -> None:
         if "חניה" not in line:
             return
+
+        entries = rights.setdefault("parking_requirements", [])
+
+        # --- 1) Qualitative: "חניה מותר/מותרת/אסור/אסורה" + optional plan ref (e.g., א2550, תמ"א/38) ---
+        # Guard: only treat as qualitative if there is no nearby explicit numeric count.
+        numeric_hint = re.search(
+            r"(?:\d+\s*(?:מקומות|מקום)\s+חניה)|(?:חניה\s*(?:מותר(?:ת)?|מינימום|מקסימום)\s*\d)",
+            line
+        )
+
+        qual = re.search(
+            r"""חניה\s*
+                (?P<status>מותר(?:ת)?|אסור(?:ה)?)      # permitted/forbidden (Hebrew variants)
+                (?:\s*(?:בתכנית|עפ(?:י)?|לפי)?)\s*     # optional "per plan/according to"
+                (?P<plan>(?:[א-ת"\/\-\s]?\d[\w"\/\-\s]*)?)\s*$   # optional plan ref (e.g., א2550, תמ"א/38)
+            """,
+            line, re.VERBOSE
+        )
+
+        if qual and not numeric_hint:
+            status_he = qual.group("status")
+            status = "permitted" if status_he.startswith("מותר") else "forbidden"
+            plan_ref = (qual.group("plan") or "").strip()
+            plan_ref = re.sub(r"\s+", "", plan_ref) if plan_ref else None
+
+            if not any(item.get("raw_text") == line for item in entries):
+                entries.append({
+                    "type": "qualitative",
+                    "status": status,  # "permitted" | "forbidden"
+                    "source_plan": plan_ref,  # e.g., "א2550" (optional)
+                    "value": None,  # keep schema tolerant for callers expecting "value"
+                    "raw_text": line,
+                })
+            return
+
+        # --- 2) Quantitative: your existing patterns ---
         patterns = [
             r"(\d+(?:\.\d+)?)\s*(?:מקומות|מקום)\s+חניה",
             r"חניה\s*(?:מותר(?:ת)?|מינימום|מקסימום)\s*(\d+(?:\.\d+)?)",
@@ -830,9 +866,13 @@ class ZchuyotParser:
                 value = self._coerce_number(match.group(1))
                 if value is None:
                     continue
-                entries = rights.setdefault("parking_requirements", [])
                 if not any(item.get("raw_text") == line for item in entries):
-                    entries.append({"value": value, "raw_text": line})
+                    entries.append({
+                        "type": "quantitative",
+                        "value": value,
+                        "unit": "spaces",
+                        "raw_text": line,
+                    })
                 return
 
     def _extract_auxiliary_building(self, line: str, rights: Dict[str, Any]) -> None:
@@ -920,20 +960,8 @@ def parse_html_privilege_page(html_content: str) -> List[Dict[str, Any]]:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    argv = argv if argv is not None else sys.argv[1:]
-    cli = argparse.ArgumentParser(description="Parse Tel-Aviv privilege (זכויות) PDF into structured JSON.")
-    cli.add_argument("pdf", help="Path to PDF document")
-    cli.add_argument("--json", help="Optional output JSON path")
-    args = cli.parse_args(argv)
-
-    data = parse_zchuyot(args.pdf)
-
-    if args.json:
-        with open(args.json, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-    else:
-        print(json.dumps(data, ensure_ascii=False, indent=2))
-    return 0
+    data = parse_zchuyot("backend-django/privilege_pages/privilege_block_6638_parcel_392.pdf")
+    print(data)
 
 
 if __name__ == "__main__":

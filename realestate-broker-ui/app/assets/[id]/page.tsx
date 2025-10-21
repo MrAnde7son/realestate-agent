@@ -175,6 +175,66 @@ export default function AssetDetail({ params }: { params: { id: string } }) {
   const [decisiveSearch, setDecisiveSearch] = useState('')
   const [ramiSearch, setRamiSearch] = useState('')
 
+  const parkingRequirements = calculatedRights?.building_privileges?.parking_requirements ?? []
+  const primaryParkingRequirement = parkingRequirements.length > 0 ? parkingRequirements[0] : null
+  const { parkingValueDisplay, parkingUnitLabel } = useMemo(() => {
+    let value = '—'
+    let unit = 'מ״ר'
+
+    if (!primaryParkingRequirement) {
+      return { parkingValueDisplay: value, parkingUnitLabel: unit }
+    }
+
+    const status = primaryParkingRequirement.status
+    if (typeof status === 'string' && status.trim()) {
+      const normalized = status.trim()
+      const statusLabel =
+        normalized === 'permitted'
+          ? 'מותרת'
+          : normalized === 'forbidden'
+          ? 'אסורה'
+          : normalized
+      return {
+        parkingValueDisplay: statusLabel,
+        parkingUnitLabel: 'סטטוס',
+      }
+    }
+
+    if (typeof primaryParkingRequirement.value === 'number') {
+      value = primaryParkingRequirement.value.toLocaleString()
+      unit =
+        primaryParkingRequirement.unit === 'spaces'
+          ? 'מקומות'
+          : primaryParkingRequirement.unit || 'מ״ר'
+      return { parkingValueDisplay: value, parkingUnitLabel: unit }
+    }
+
+    if (typeof primaryParkingRequirement.area_sqm === 'number') {
+      value = primaryParkingRequirement.area_sqm.toLocaleString()
+      return { parkingValueDisplay: value, parkingUnitLabel: unit }
+    }
+
+    const stringValue =
+      typeof primaryParkingRequirement.value === 'string'
+        ? primaryParkingRequirement.value.trim()
+        : ''
+
+    if (stringValue) {
+      return { parkingValueDisplay: stringValue, parkingUnitLabel: '' }
+    }
+
+    const rawText =
+      typeof primaryParkingRequirement.raw_text === 'string'
+        ? primaryParkingRequirement.raw_text.trim()
+        : ''
+
+    if (rawText) {
+      return { parkingValueDisplay: rawText, parkingUnitLabel: '' }
+    }
+
+    return { parkingValueDisplay: value, parkingUnitLabel: unit }
+  }, [primaryParkingRequirement])
+
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
 }, [
@@ -2328,11 +2388,13 @@ useDedupedEffect(() => {
                       )}
 
                       {/* Parking */}
-                      {calculatedRights.building_privileges?.parking_requirements && calculatedRights.building_privileges.parking_requirements.length > 0 && (
+                      {parkingRequirements.length > 0 && (
                         <div className="p-3 border rounded-lg">
                           <div className="text-sm font-medium text-muted-foreground">חניה</div>
-                          <div className="text-xl font-bold">{calculatedRights.building_privileges.parking_requirements[0]?.area_sqm || '—'}</div>
-                          <div className="text-sm text-muted-foreground">מ״ר</div>
+                          <div className="text-xl font-bold">{parkingValueDisplay}</div>
+                          {parkingUnitLabel && (
+                            <div className="text-sm text-muted-foreground">{parkingUnitLabel}</div>
+                          )}
                         </div>
                       )}
 

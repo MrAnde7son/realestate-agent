@@ -52,7 +52,7 @@ const newAssetSchema = z.object({
   rentEstimate: z.number().optional()
 })
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
   const token = cookies().get('access_token')?.value
   let search = ''

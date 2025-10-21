@@ -18,6 +18,7 @@ _DEFAULT_MAX_NEW_ASSETS = int(os.getenv("DATA_PIPELINE_AUTO_ASSET_LIMIT", "10"))
 class AddressCandidate:
     location: LocationQuery
     source: str
+    scope_type: str = "address"
     raw_address: Optional[str] = None
 
     @property
@@ -25,20 +26,40 @@ class AddressCandidate:
         return self.location.street
 
     @property
-    def number(self) -> int:
-        # LocationQuery ensures numeric normalization; type ignore for mypy-less env
-        return int(self.location.house_number or 0)  # type: ignore[arg-type]
+    def number(self) -> Optional[int]:
+        return self.location.house_number
 
     @property
     def city(self) -> str:
         return self.location.city
 
-    def key(self) -> Tuple[str, str, int]:
+    def key(self) -> Tuple[str, ...]:
+        if self.scope_type == "parcel":
+            return (
+                "parcel",
+                _normalize_text(self.location.city).lower(),
+                _normalize_text(self.location.block).lower(),
+                _normalize_text(self.location.parcel).lower(),
+                _normalize_text(self.location.subparcel).lower(),
+            )
         return (
+            "address",
             _normalize_text(self.location.city).lower(),
             _normalize_text(self.location.street).lower(),
-            int(self.location.house_number or 0),  # type: ignore[arg-type]
+            int(self.location.house_number or 0),
         )
+
+
+@dataclass(frozen=True)
+class CandidateComponents:
+    scope_type: str
+    street: str = ""
+    number: Optional[int] = None
+    city: str = ""
+    raw_address: Optional[str] = None
+    block: Optional[str] = None
+    parcel: Optional[str] = None
+    subparcel: Optional[str] = None
 
 
 def auto_expand_related_assets(
@@ -92,7 +113,7 @@ def auto_expand_related_assets(
     ]
 
     candidates: List[AddressCandidate] = []
-    seen_candidate_keys: set[Tuple[str, str, int]] = set()
+    seen_candidate_keys: set[Tuple[str, ...]] = set()
     for source_name, payload in datasets:
         for candidate in _extract_candidates(payload, source_name, fallback_city=fallback_city):
             key = candidate.key()
@@ -108,7 +129,7 @@ def auto_expand_related_assets(
         return []
 
     created_asset_ids: List[int] = []
-    created_keys: set[Tuple[str, str, int]] = {_candidate_key_from_asset(base_asset)}
+    created_keys: set[Tuple[str, ...]] = set(_candidate_keys_from_asset(base_asset))
 
     for candidate in candidates:
         if len(created_asset_ids) >= max_assets:
@@ -135,27 +156,59 @@ def auto_expand_related_assets(
 
         try:
             with transaction.atomic():
-                new_asset = Asset.objects.create(
-                    scope_type="address",
-                    city=candidate.location.city,
-                    street=candidate.location.street,
-                    number=candidate.location.house_number,
-                    normalized_address=_format_normalized_address(
-                        candidate.location.street,
-                        int(candidate.location.house_number or 0),
-                        candidate.location.city,
-                    ),
-                    status="pending",
-                    meta={
-                        "auto_created": True,
-                        "auto_created_from": asset_id,
-                        "source": candidate.source,
-                        "raw_address": candidate.raw_address,
-                        "auto_created_at": timezone.now().isoformat(),
-                    },
-                    created_by=user,
-                    last_updated_by=user,
-                )
+                if candidate.scope_type == "parcel":
+                    new_asset = Asset.objects.create(
+                        scope_type="parcel",
+                        city=candidate.location.city or fallback_city,
+                        block=candidate.location.block,
+                        parcel=candidate.location.parcel,
+                        subparcel=candidate.location.subparcel,
+                        normalized_address=_format_parcel_label(
+                            candidate.location.block,
+                            candidate.location.parcel,
+                            candidate.location.subparcel,
+                            candidate.location.city or fallback_city,
+                        ),
+                        status="pending",
+                        meta={
+                            "auto_created": True,
+                            "auto_created_from": asset_id,
+                            "source": candidate.source,
+                            "raw_address": candidate.raw_address,
+                            "scope_type": "parcel",
+                            "location_hint": candidate.location.to_dict(),
+                            "auto_created_at": timezone.now().isoformat(),
+                        },
+                        created_by=user,
+                        last_updated_by=user,
+                    )
+                else:
+                    new_asset = Asset.objects.create(
+                        scope_type="address",
+                        city=candidate.location.city or fallback_city,
+                        street=candidate.location.street,
+                        number=candidate.location.house_number,
+                        block=candidate.location.block,
+                        parcel=candidate.location.parcel,
+                        subparcel=candidate.location.subparcel,
+                        normalized_address=_format_normalized_address(
+                            candidate.location.street,
+                            int(candidate.location.house_number or 0),
+                            candidate.location.city or fallback_city,
+                        ),
+                        status="pending",
+                        meta={
+                            "auto_created": True,
+                            "auto_created_from": asset_id,
+                            "source": candidate.source,
+                            "raw_address": candidate.raw_address,
+                            "scope_type": "address",
+                            "location_hint": candidate.location.to_dict(),
+                            "auto_created_at": timezone.now().isoformat(),
+                        },
+                        created_by=user,
+                        last_updated_by=user,
+                    )
         except Exception as exc:  # pragma: no cover - defensive persistence
             logger.warning(
                 "Failed to auto-create asset for %s %s %s: %s",
@@ -167,32 +220,47 @@ def auto_expand_related_assets(
             continue
 
         created_asset_ids.append(new_asset.id)
-        created_keys.add(key)
+        created_keys.update(_candidate_keys_from_asset(new_asset))
         _trigger_pipeline_for_asset(new_asset.id)
 
     return created_asset_ids
 
 
-def _candidate_key_from_asset(asset: Any) -> Tuple[str, str, int]:
-    location = LocationQuery(
-        city=getattr(asset, "city", ""),
-        street=getattr(asset, "street", ""),
-        house_number=getattr(asset, "number", None),
-    )
+def _candidate_keys_from_asset(asset: Any) -> List[Tuple[str, ...]]:
+    city = _normalize_text(getattr(asset, "city", "")).lower()
+    street = _normalize_text(getattr(asset, "street", "")).lower()
+    block = _normalize_text(getattr(asset, "block", "")).lower()
+    parcel = _normalize_text(getattr(asset, "parcel", "")).lower()
+    subparcel = _normalize_text(getattr(asset, "subparcel", "")).lower()
+
     try:
-        number = int(location.house_number or 0)  # type: ignore[arg-type]
+        number = int(getattr(asset, "number", 0) or 0)
     except Exception:
         number = 0
-    return (
-        _normalize_text(location.city).lower(),
-        _normalize_text(location.street).lower(),
-        number,
-    )
+
+    keys: List[Tuple[str, ...]] = []
+    if street or number:
+        keys.append(("address", city, street, number))
+    if block or parcel:
+        keys.append(("parcel", city, block, parcel, subparcel))
+    return keys
 
 
 def _asset_exists(candidate: AddressCandidate, AssetModel: Any) -> bool:
     try:
-        return AssetModel.objects.filter(
+        queryset = AssetModel.objects.all()
+        if candidate.scope_type == "parcel":
+            if candidate.location.block:
+                queryset = queryset.filter(block__iexact=candidate.location.block.strip())
+            if candidate.location.parcel:
+                queryset = queryset.filter(parcel__iexact=candidate.location.parcel.strip())
+            if candidate.location.subparcel:
+                queryset = queryset.filter(subparcel__iexact=candidate.location.subparcel.strip())
+            if candidate.city:
+                queryset = queryset.filter(city__iexact=candidate.city.strip())
+            return queryset.exists()
+
+        return queryset.filter(
             street__iexact=candidate.street.strip(),
             number=candidate.number,
             city__iexact=candidate.city.strip(),
@@ -204,29 +272,28 @@ def _asset_exists(candidate: AddressCandidate, AssetModel: Any) -> bool:
 def _extract_candidates(
     payload: Any,
     source: str,
-    *,
     fallback_city: str = "",
 ) -> Iterator[AddressCandidate]:
     if not payload:
         return
 
     for mapping in _iter_mappings(payload):
-        address = _extract_address_components(mapping, fallback_city=fallback_city)
-        if not address:
+        components = _extract_address_components(mapping, fallback_city=fallback_city)
+        if not components:
             continue
-        street, number, city, raw_address, block, parcel, subparcel = address
         candidate_location = LocationQuery(
-            street=street,
-            house_number=number,
-            city=city,
-            block=block,
-            parcel=parcel,
-            subparcel=subparcel,
+            street=components.street,
+            house_number=components.number,
+            city=components.city,
+            block=components.block,
+            parcel=components.parcel,
+            subparcel=components.subparcel,
         )
         yield AddressCandidate(
             location=candidate_location,
             source=source,
-            raw_address=raw_address,
+            scope_type=components.scope_type,
+            raw_address=components.raw_address,
         )
 
 
@@ -280,9 +347,8 @@ _ADDRESS_TOKENS = {
 
 def _extract_address_components(
     mapping: Dict[str, Any],
-    *,
     fallback_city: str = "",
-) -> Optional[Tuple[str, int, str, Optional[str], Optional[str], Optional[str], Optional[str]]]:
+) -> Optional[CandidateComponents]:
     street_value = _find_first_by_token(mapping, _STREET_TOKENS)
     number_value = _find_first_by_token(mapping, _NUMBER_TOKENS)
     city_value = _find_first_by_token(mapping, _CITY_TOKENS) or fallback_city
@@ -294,31 +360,49 @@ def _extract_address_components(
     street = _normalize_text(street_value)
     city = _normalize_text(city_value) or _normalize_text(fallback_city)
     number = _normalize_number(number_value)
+    block = _normalize_text(block_value) or None
+    parcel = _normalize_text(parcel_value) or None
+    subparcel = _normalize_text(subparcel_value) or None
 
     if street and number and city:
-        return (
-            street,
-            number,
-            city,
-            _normalize_text(address_value) or None,
-            _normalize_text(block_value) or None,
-            _normalize_text(parcel_value) or None,
-            _normalize_text(subparcel_value) or None,
+        return CandidateComponents(
+            scope_type="address",
+            street=street,
+            number=number,
+            city=city,
+            raw_address=_normalize_text(address_value) or None,
+            block=block,
+            parcel=parcel,
+            subparcel=subparcel,
         )
 
+    parsed: Optional[Tuple[str, int, str]] = None
     if isinstance(address_value, str):
         parsed = _parse_address_string(address_value, fallback_city=fallback_city)
-        if parsed:
-            street, number, city = parsed
-            return (
-                street,
-                number,
-                city,
-                address_value.strip(),
-                _normalize_text(block_value) or None,
-                _normalize_text(parcel_value) or None,
-                _normalize_text(subparcel_value) or None,
-            )
+    if parsed:
+        street, number, city = parsed
+        return CandidateComponents(
+            scope_type="address",
+            street=street,
+            number=number,
+            city=city,
+            raw_address=address_value.strip(),
+            block=block,
+            parcel=parcel,
+            subparcel=subparcel,
+        )
+
+    if block and parcel and city:
+        return CandidateComponents(
+            scope_type="parcel",
+            street=street,
+            number=number,
+            city=city,
+            raw_address=_normalize_text(address_value) or None,
+            block=block,
+            parcel=parcel,
+            subparcel=subparcel,
+        )
 
     return None
 
@@ -346,7 +430,7 @@ def _find_in_structure(obj: Any, token_set: set[str]) -> Optional[Any]:
     return None
 
 
-def _parse_address_string(address: str, *, fallback_city: str = "") -> Optional[Tuple[str, int, str]]:
+def _parse_address_string(address: str, fallback_city: str = "") -> Optional[Tuple[str, int, str]]:
     if not address or not isinstance(address, str):
         return None
     cleaned = address.replace(",", " ").strip()
@@ -364,6 +448,15 @@ def _parse_address_string(address: str, *, fallback_city: str = "") -> Optional[
 
 def _normalize_number(value: Any) -> Optional[int]:
     if value in (None, "", []):
+        return None
+    if isinstance(value, dict):
+        flattened = _normalize_text(value)
+        return _normalize_number(flattened)
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            number = _normalize_number(item)
+            if number is not None:
+                return number
         return None
     if isinstance(value, (int, float)):
         if value <= 0:
@@ -384,6 +477,23 @@ def _normalize_number(value: Any) -> Optional[int]:
 def _normalize_text(value: Any) -> str:
     if value is None:
         return ""
+    if isinstance(value, dict):
+        for key in ("text", "value", "name", "desc", "description", "label"):
+            if key in value:
+                normalized = _normalize_text(value[key])
+                if normalized:
+                    return normalized
+        for val in value.values():
+            normalized = _normalize_text(val)
+            if normalized:
+                return normalized
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            normalized = _normalize_text(item)
+            if normalized:
+                return normalized
+        return ""
     if isinstance(value, (int, float)):
         return str(value).strip()
     if isinstance(value, str):
@@ -397,6 +507,28 @@ def _normalize_token(token: str) -> str:
 
 def _format_normalized_address(street: str, number: int, city: str) -> str:
     parts = [_normalize_text(street), str(number)]
+    city_norm = _normalize_text(city)
+    if city_norm:
+        parts.append(city_norm)
+    return " ".join(part for part in parts if part)
+
+
+def _format_parcel_label(
+    block: Optional[str],
+    parcel: Optional[str],
+    subparcel: Optional[str],
+    city: str,
+) -> str:
+    parts: List[str] = []
+    block_norm = _normalize_text(block)
+    parcel_norm = _normalize_text(parcel)
+    subparcel_norm = _normalize_text(subparcel)
+    if block_norm:
+        parts.append(f"Block {block_norm}")
+    if parcel_norm:
+        parts.append(f"Parcel {parcel_norm}")
+    if subparcel_norm:
+        parts.append(f"Subparcel {subparcel_norm}")
     city_norm = _normalize_text(city)
     if city_norm:
         parts.append(city_norm)

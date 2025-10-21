@@ -1961,14 +1961,16 @@ def _normalize_permit_document_fields(permit: Dict[str, Any], source: str, fallb
     source_key = source.lower()
     if source_key == 'handasa':
         meta = permit.get('meta') if isinstance(permit.get('meta'), dict) else dict(permit)
-        external_id = (
+        external_id_raw = (
             permit.get('external_id')
             or permit.get('permission_num')
             or permit.get('request_num')
             or meta.get('UniqueID')
         )
-        if external_id:
-            external_id = str(_normalize_identifier(external_id))
+        if external_id_raw:
+            external_id = str(external_id_raw).strip()
+            if external_id.startswith("{") and external_id.endswith("}"):
+                external_id = external_id[1:-1]
         else:
             external_id = f"handasa_{fallback_index}"
 

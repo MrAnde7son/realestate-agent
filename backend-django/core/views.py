@@ -1585,7 +1585,7 @@ def asset_detail(request, asset_id):
 
 
 
-def _filter_sort_paginate_appraisals(entries, *, search=None, source_filter=None,
+def _filter_sort_paginate_appraisals(entries, search=None, source_filter=None,
                                      status_filter=None, ordering='-date', limit=25,
                                      offset=0, allow_status=False):
     try:
@@ -3297,7 +3297,7 @@ def asset_listings(request, asset_id):
         except Asset.DoesNotExist:
             return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        def parse_int(value, default=None, *, minimum=None, maximum=None):
+        def parse_int(value, default=None, minimum=None, maximum=None):
             if value in (None, ''):
                 return default
             try:

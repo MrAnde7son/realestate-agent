@@ -465,7 +465,7 @@ export default function AssetsTable({
   onAddNew,
   viewMode = 'table',
   onViewModeChange,
-  bulkActions = []
+  bulkActions = [],
   manualPagination = false,
   paginationState,
   onPaginationChange,

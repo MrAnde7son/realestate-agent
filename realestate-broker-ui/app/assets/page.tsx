@@ -36,6 +36,7 @@ import {
   Search,
   Trash2,
   Download,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
@@ -500,8 +501,45 @@ export default function AssetsPage() {
   };
 
   // Bulk actions
-  const handleBulkDelete = async () => {
+  type BulkActionHelpers = { clearSelection: () => void };
+  type BulkActionResponseData = {
+    success?: number;
+    failed?: number;
+    notFound?: number;
+    message?: string;
+    results?: Array<{ assetId: number; status: string }>;
+  };
+
+  const summarizeBulkAction = (label: string, data?: BulkActionResponseData) => {
+    if (!data) return `${label} הושלמה`;
+    if (data.message) return data.message;
+    const success = data.success ?? 0;
+    const failed = data.failed ?? 0;
+    const notFound = data.notFound ?? 0;
+    const parts: string[] = [];
+    if (success) parts.push(`${success} הצליחו`);
+    if (failed) parts.push(`${failed} נכשלו`);
+    if (notFound) parts.push(`${notFound} לא נמצאו`);
+    if (parts.length === 0) {
+      return `${label} הושלמה`;
+    }
+    return `${label}: ${parts.join(" · ")}`;
+  };
+
+  const getSuccessfulIds = (data?: BulkActionResponseData) => {
+    if (!data || !Array.isArray(data.results)) return [] as number[];
+    return data.results.filter(result => result.status === "success").map(result => result.assetId);
+  };
+
+  const handleBulkDelete = async (selectedAssets: Asset[], { clearSelection }: BulkActionHelpers) => {
+    if (!selectedAssets.length) return;
+
     if (!isAuthenticated) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "עליך להתחבר כדי למחוק נכסים",
+        variant: "destructive",
+      });
       router.push("/auth?redirect=" + encodeURIComponent("/assets"));
       return;
     }
@@ -517,7 +555,7 @@ export default function AssetsPage() {
 
     const confirmed = await confirm({
       title: "מחיקת נכסים נבחרים",
-      description: "האם אתה בטוח שברצונך למחוק את הנכסים הנבחרים? פעולה זו לא ניתנת לביטול.",
+      description: `האם אתה בטוח שברצונך למחוק ${selectedAssets.length} נכסים? פעולה זו לא ניתנת לביטול.`,
       confirmText: "מחק הכל",
       cancelText: "ביטול",
       variant: "destructive",
@@ -525,19 +563,148 @@ export default function AssetsPage() {
 
     if (!confirmed) return;
 
-    // This would be implemented with actual bulk delete API
-    toast({
-      title: "פונקציונליות במפתח",
-      description: "מחיקה מרובה תהיה זמינה בקרוב",
-    });
+    const assetIds = selectedAssets.map(asset => asset.id);
+
+    try {
+      const response = await apiClient.request<BulkActionResponseData>("/api/assets/bulk-action", {
+        method: "POST",
+        body: JSON.stringify({ action: "delete", assetIds }),
+      });
+
+      if (response.ok) {
+        const successfulIds = getSuccessfulIds(response.data);
+        if (successfulIds.length > 0) {
+          setAssets(prev => prev.filter(asset => !successfulIds.includes(asset.id)));
+        }
+        toast({
+          title: "מחיקה מרובה",
+          description: summarizeBulkAction("מחיקה", response.data),
+          variant: response.data && (response.data.failed || response.data.notFound) ? "default" : "success",
+        });
+        clearSelection();
+      } else {
+        toast({
+          title: "שגיאה במחיקה מרובה",
+          description: response.error || "הפעולה נכשלה",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error performing bulk delete:", error);
+      toast({
+        title: "שגיאה במחיקה מרובה",
+        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleBulkExport = () => {
-    // This would trigger export of selected assets
+  const handleBulkSync = async (selectedAssets: Asset[], { clearSelection }: BulkActionHelpers) => {
+    if (!selectedAssets.length) return;
+
+    if (!isAuthenticated) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "עליך להתחבר כדי לבצע סנכרון נתונים",
+        variant: "destructive",
+      });
+      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+      return;
+    }
+
+    const assetIds = selectedAssets.map(asset => asset.id);
+
+    try {
+      const response = await apiClient.request<BulkActionResponseData>("/api/assets/bulk-action", {
+        method: "POST",
+        body: JSON.stringify({ action: "sync", assetIds }),
+      });
+
+      if (response.ok) {
+        const successfulIds = getSuccessfulIds(response.data);
+        if (successfulIds.length > 0) {
+          setAssets(prev =>
+            prev.map(asset =>
+              successfulIds.includes(asset.id)
+                ? { ...asset, assetStatus: "syncing" }
+                : asset
+            )
+          );
+        }
+        toast({
+          title: "סנכרון נתונים",
+          description: summarizeBulkAction("סנכרון", response.data),
+          variant: response.data && (response.data.failed || response.data.notFound) ? "default" : "success",
+        });
+        clearSelection();
+      } else {
+        toast({
+          title: "שגיאה בסנכרון",
+          description: response.error || "הפעולה נכשלה",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error performing bulk sync:", error);
+      toast({
+        title: "שגיאה בסנכרון",
+        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkCreateReports = async (selectedAssets: Asset[], { clearSelection }: BulkActionHelpers) => {
+    if (!selectedAssets.length) return;
+
+    if (!isAuthenticated) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "עליך להתחבר כדי ליצור דוחות",
+        variant: "destructive",
+      });
+      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+      return;
+    }
+
+    const assetIds = selectedAssets.map(asset => asset.id);
+
+    try {
+      const response = await apiClient.request<BulkActionResponseData>("/api/assets/bulk-action", {
+        method: "POST",
+        body: JSON.stringify({ action: "create_report", assetIds }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "יצירת דוחות",
+          description: summarizeBulkAction("יצירת דוחות", response.data),
+          variant: response.data && (response.data.failed || response.data.notFound) ? "default" : "success",
+        });
+        clearSelection();
+      } else {
+        toast({
+          title: "שגיאה ביצירת דוחות",
+          description: response.error || "הפעולה נכשלה",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error creating bulk reports:", error);
+      toast({
+        title: "שגיאה ביצירת דוחות",
+        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkExport = (selectedAssets: Asset[], { clearSelection }: BulkActionHelpers) => {
     toast({
       title: "ייצוא מרובה",
-      description: "ייצוא נכסים נבחרים החל",
+      description: `ייצוא ${selectedAssets.length} נכסים נבחרים החל`,
     });
+    clearSelection();
   };
 
   const newAssetSchema = z
@@ -1436,6 +1603,16 @@ export default function AssetsPage() {
                         },
                       ]
                     : []),
+                  {
+                    label: "סנכרן נתונים",
+                    action: handleBulkSync,
+                    icon: <RefreshCw className="h-4 w-4" />,
+                  },
+                  {
+                    label: "צור דוחות",
+                    action: handleBulkCreateReports,
+                    icon: <FileText className="h-4 w-4" />,
+                  },
                   {
                     label: "ייצא נבחרים",
                     action: handleBulkExport,

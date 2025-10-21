@@ -6,7 +6,7 @@ import os
 import secrets
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 from pathlib import Path
 
 from django.http import JsonResponse, FileResponse, Http404
@@ -991,6 +991,249 @@ def reports(request):
         return Response(
             {"error": "Report generation failed", "details": str(e)}, status=500
         )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def assets_bulk_action(request):
+    """Perform bulk actions on multiple assets."""
+
+    data = parse_json(request)
+    if not data:
+        return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+
+    action = data.get("action")
+    asset_ids = data.get("assetIds") or data.get("asset_ids")
+
+    if not action or not isinstance(asset_ids, list) or not asset_ids:
+        return Response(
+            {"error": "action and assetIds are required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        requested_ids = [int(asset_id) for asset_id in asset_ids]
+    except (TypeError, ValueError):
+        return Response({"error": "assetIds must be integers"}, status=400)
+
+    assets_map = {
+        asset.id: asset
+        for asset in Asset.objects.filter(id__in=requested_ids).select_related("created_by")
+    }
+
+    if not assets_map:
+        return Response(
+            {"error": "No assets found for provided IDs"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    user = request.user
+
+    results: list[dict[str, Any]] = []
+    success_count = 0
+    not_found_count = 0
+
+    if action == "delete":
+        if not (
+            getattr(user, "role", None) == User.Role.ADMIN
+            or getattr(user, "is_superuser", False)
+        ):
+            return Response(
+                {"error": "Admin privileges required to delete assets"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        for asset_id in requested_ids:
+            asset = assets_map.get(asset_id)
+            if not asset:
+                not_found_count += 1
+                results.append({"assetId": asset_id, "status": "not_found"})
+                continue
+
+            try:
+                deleted = asset.delete_asset()
+                if deleted:
+                    success_count += 1
+                    results.append({"assetId": asset_id, "status": "success"})
+                else:
+                    results.append(
+                        {
+                            "assetId": asset_id,
+                            "status": "failed",
+                            "error": "Failed to delete asset",
+                        }
+                    )
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception("Error deleting asset %s: %s", asset_id, exc)
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+
+        message = f"Deleted {success_count} of {len(requested_ids)} assets"
+
+    elif action == "sync":
+        from django.conf import settings
+
+        celery_enabled = bool(getattr(settings, "CELERY_BROKER_URL", None))
+
+        try:
+            from .tasks import run_data_pipeline
+        except Exception as exc:  # pragma: no cover - import safety
+            logger.exception("Failed to import run_data_pipeline: %s", exc)
+            return Response(
+                {"error": "Sync is not available"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        for asset_id in requested_ids:
+            asset = assets_map.get(asset_id)
+            if not asset:
+                not_found_count += 1
+                results.append({"assetId": asset_id, "status": "not_found"})
+                continue
+
+            try:
+                address = asset.address
+                if not address:
+                    raise ValueError("Asset is missing address information")
+
+                asset.status = "syncing"
+                asset.last_sync_started_at = timezone.now()
+                asset.save(update_fields=["status", "last_sync_started_at"])
+
+                job_id = None
+                if celery_enabled:
+                    result = run_data_pipeline.delay(asset.id, max_pages=1)
+                    job_id = getattr(result, "id", None)
+                else:
+                    import threading
+
+                    def run_sync_async(asset_pk: int) -> None:
+                        try:
+                            run_data_pipeline(asset_pk, max_pages=1)
+                            logger.info(
+                                "Background asset sync completed for asset %s", asset_pk
+                            )
+                        except Exception as err:  # pragma: no cover - defensive
+                            logger.error(
+                                "Background asset sync failed for asset %s: %s",
+                                asset_pk,
+                                err,
+                            )
+                            try:
+                                asset_obj = Asset.objects.get(id=asset_pk)
+                                asset_obj.status = "failed"
+                                asset_obj.last_enrich_error = str(err)
+                                asset_obj.save(update_fields=["status", "last_enrich_error"])
+                            except Exception as save_error:
+                                logger.error("Failed to update asset status: %s", save_error)
+
+                    thread = threading.Thread(
+                        target=run_sync_async, args=(asset.id,), daemon=True
+                    )
+                    thread.start()
+
+                success_count += 1
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "success",
+                        "jobId": job_id,
+                    }
+                )
+            except Exception as exc:
+                logger.error("Failed to start sync for asset %s: %s", asset_id, exc)
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+
+        message = f"Sync started for {success_count} of {len(requested_ids)} assets"
+
+    elif action in {"create_report", "report"}:
+        sections = data.get("sections") or DEFAULT_REPORT_SECTIONS
+
+        for asset_id in requested_ids:
+            asset = assets_map.get(asset_id)
+            if not asset:
+                not_found_count += 1
+                results.append({"assetId": asset_id, "status": "not_found"})
+                continue
+
+            try:
+                track("report_request", user=user, asset_id=asset_id)
+                report = report_service.create_report(asset_id, sections)
+                if not report:
+                    raise RuntimeError("Failed to create report")
+
+                if not report_service.generate_pdf(report):
+                    raise RuntimeError("PDF generation failed")
+
+                _update_onboarding(user, "generate_first_report")
+                track("report_success", user=user, asset_id=asset_id)
+                track_feature_usage(
+                    "report_generation",
+                    user=user,
+                    asset_id=asset_id,
+                    meta={"bulk": True},
+                )
+
+                success_count += 1
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "success",
+                        "reportId": report.id,
+                        "filename": report.filename,
+                    }
+                )
+            except Exception as exc:
+                track(
+                    "report_fail",
+                    user=user,
+                    asset_id=asset_id,
+                    error_code=str(exc),
+                )
+                logger.exception("Report generation failed for asset %s", asset_id)
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+
+        message = f"Generated reports for {success_count} of {len(requested_ids)} assets"
+
+    else:
+        return Response({"error": "Unsupported action"}, status=400)
+
+    failed_count = len(requested_ids) - success_count - not_found_count
+
+    response_data = {
+        "action": action,
+        "total": len(requested_ids),
+        "success": success_count,
+        "failed": failed_count,
+        "notFound": not_found_count,
+        "results": results,
+        "message": message,
+    }
+
+    status_code = (
+        status.HTTP_200_OK
+        if success_count == len(requested_ids)
+        else status.HTTP_207_MULTI_STATUS
+    )
+
+    return Response(response_data, status=status_code)
 
 
 def report_file(request, filename):

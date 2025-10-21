@@ -266,6 +266,13 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
   ]
 }
 
+type AssetsTableBulkAction = {
+  label: string
+  action: (selectedAssets: Asset[], helpers: { clearSelection: () => void }) => void | Promise<void>
+  icon?: React.ReactNode
+  disabled?: boolean
+}
+
 interface AssetsTableProps {
   data?: Asset[]
   loading?: boolean
@@ -389,12 +396,7 @@ interface AssetsTableProps {
   onAddNew?: () => void
   viewMode?: 'table' | 'cards' | 'map'
   onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
-  bulkActions?: Array<{
-    label: string
-    action: () => void
-    icon?: React.ReactNode
-    disabled?: boolean
-  }>
+  bulkActions?: AssetsTableBulkAction[]
 }
 
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
@@ -455,7 +457,8 @@ export default function AssetsTable({
   onRefresh,
   onAddNew,
   viewMode = 'table',
-  onViewModeChange
+  onViewModeChange,
+  bulkActions = []
 }: AssetsTableProps){
   const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
@@ -571,7 +574,7 @@ export default function AssetsTable({
   const table = useReactTable({
     data,
     columns,
-    state: { 
+    state: {
       rowSelection,
       columnVisibility,
       columnSizing
@@ -585,6 +588,11 @@ export default function AssetsTable({
     onColumnSizingChange: handleColumnSizingChange,
     getCoreRowModel: getCoreRowModel()
   })
+
+  const clearSelection = React.useCallback(() => {
+    setRowSelection({})
+    table.resetRowSelection()
+  }, [table])
 
   // Store table instance in ref
   React.useEffect(() => {
@@ -600,7 +608,24 @@ export default function AssetsTable({
     exportAssetsCsv(selected, table.getVisibleLeafColumns(), trackFeatureUsage)
   }
 
-  const anySelected = table.getSelectedRowModel().rows.length > 0
+  const selectedAssets = React.useMemo(
+    () => {
+      void rowSelection
+      return table.getSelectedRowModel().rows.map(row => row.original)
+    },
+    [table, rowSelection]
+  )
+
+  const toolbarBulkActions = React.useMemo(
+    () =>
+      (bulkActions || []).map(action => ({
+        label: action.label,
+        icon: action.icon,
+        disabled: action.disabled,
+        action: () => action.action(selectedAssets, { clearSelection })
+      })),
+    [bulkActions, selectedAssets, clearSelection]
+  )
 
   // Prepare columns for toolbar
   const toolbarColumns = table.getAllColumns()
@@ -837,6 +862,7 @@ export default function AssetsTable({
             onRefresh={onRefresh || (() => {})}
             onAddNew={onAddNew}
             loading={loading}
+            bulkActions={toolbarBulkActions}
             statusFilters={filters?.status ? {
               value: filters.status.value,
               onChange: (value: string) => {

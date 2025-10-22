@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc g++ libpq-dev supervisor \
+    gcc g++ libpq-dev \
     libnss3 libatk-bridge2.0-0 libxcb1 libxcomposite1 libxdamage1 libxfixes3 \
     libxrender1 libxtst6 libxi6 libdbus-1-3 libxrandr2 libasound2 \
     libatk1.0-0 libgtk-3-0 libdrm2 libgbm1 \
@@ -21,10 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the Django project
 COPY . .
 
-# Supervisor config + boot script
-COPY deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN chmod +x /app/deploy/boot.sh
-
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app
@@ -34,5 +30,5 @@ USER app
 EXPOSE 8000
 
 
-# Run: migrate -> supervisor (gunicorn + celery)
-CMD ["/app/deploy/boot.sh"]
+# Launch gunicorn directly for the backend-only image
+CMD ["gunicorn", "broker_backend.wsgi:application", "--bind", "0.0.0.0:8000"]

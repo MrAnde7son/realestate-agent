@@ -79,8 +79,9 @@ services:
   # Celery Worker
   celery-worker:
     build:
-      context: ./backend-django
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: orchestration/Dockerfile.celery
+      target: celery-worker
     environment:
       - DEBUG=true
       - SECRET_KEY=django-insecure-development-secret-key-change-in-production-2024
@@ -109,15 +110,15 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./backend-django:/app
-      - media_volume:/app/media
-    command: celery -A broker_backend worker --loglevel=info
+      - ./:/app
+      - media_volume:/app/backend-django/media
 
   # Celery Beat (Scheduler)
   celery-beat:
     build:
-      context: ./backend-django
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: orchestration/Dockerfile.celery
+      target: celery-beat
     environment:
       - DEBUG=true
       - SECRET_KEY=django-insecure-development-secret-key-change-in-production-2024
@@ -146,9 +147,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./backend-django:/app
-      - media_volume:/app/media
-    command: celery -A broker_backend beat --loglevel=info
+      - ./:/app
+      - media_volume:/app/backend-django/media
 
   # Frontend UI
   frontend:

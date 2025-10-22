@@ -25,6 +25,13 @@ export interface Contact {
   phone: string;
   email: string;
   equity: number | null;
+  city: string;
+  streets: string;
+  asset_type: string;
+  area_min: number | null;
+  area_max: number | null;
+  floor: string;
+  notes: string;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -64,6 +71,13 @@ export interface CreateContactData {
   phone?: string;
   email?: string;
   equity?: number | null;
+  city?: string;
+  streets?: string;
+  asset_type?: string;
+  area_min?: number | null;
+  area_max?: number | null;
+  floor?: string;
+  notes?: string;
   tags?: string[];
 }
 
@@ -119,12 +133,27 @@ const API_BASE = '/api/crm';
 export class CrmApi {
   private static normalizeContact(contact: any): Contact {
     const equityValue = contact?.equity;
+    const areaMinValue = contact?.area_min;
+    const areaMaxValue = contact?.area_max;
     return {
       ...contact,
       equity:
         equityValue === null || equityValue === undefined || equityValue === ''
           ? null
           : Number(equityValue),
+      area_min:
+        areaMinValue === null || areaMinValue === undefined || areaMinValue === ''
+          ? null
+          : Number(areaMinValue),
+      area_max:
+        areaMaxValue === null || areaMaxValue === undefined || areaMaxValue === ''
+          ? null
+          : Number(areaMaxValue),
+      city: contact?.city ?? '',
+      streets: contact?.streets ?? '',
+      asset_type: contact?.asset_type ?? '',
+      floor: contact?.floor ?? '',
+      notes: contact?.notes ?? '',
       tags: contact?.tags ?? [],
     } as Contact;
   }

@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
 }))
-const mockAssetsTable = vi.fn(({
+const mockAssetsTable = vi.fn(({ 
   data,
   loading,
   onAddNew,
@@ -110,7 +110,7 @@ describe('AssetsPage', () => {
 
     // Default successful fetch mock
     ;(global.fetch as any).mockImplementation((url: string, opts?: any) => {
-      if (url === '/api/assets') {
+      if (url.startsWith('/api/assets')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -121,7 +121,7 @@ describe('AssetsPage', () => {
                 price: 3000000,
                 city: 'תל אביב',
                 type: 'דירה',
-                assetStatus: 'active'
+                assetStatus: 'done'
               },
               {
                 id: 'asset2',
@@ -131,7 +131,26 @@ describe('AssetsPage', () => {
                 type: 'בית',
                 assetStatus: 'pending'
               }
-            ]
+            ],
+            pagination: {
+              page: 1,
+              page_size: 25,
+              total: 2,
+              total_pages: 1,
+              has_next: false,
+              has_previous: false
+            },
+            filters: {
+              cities: ['תל אביב'],
+              types: ['דירה', 'בית'],
+              neighborhoods: [],
+              zonings: [],
+              blocks: [],
+              parcels: [],
+              buildingTypes: ['דירה', 'בית'],
+              rooms: [3],
+              statusCounts: { done: 1, pending: 1 }
+            }
           })
         })
       }
@@ -152,6 +171,12 @@ describe('AssetsPage', () => {
       expect(screen.getByTestId('assets-table')).toBeInTheDocument()
       expect(screen.getByText('2 assets')).toBeInTheDocument()
     })
+
+    const lastCall = mockAssetsTable.mock.calls[mockAssetsTable.mock.calls.length - 1][0]
+    expect(lastCall.manualPagination).toBe(true)
+    expect(lastCall.paginationState).toEqual({ pageIndex: 0, pageSize: 25 })
+    expect(lastCall.totalCount).toBe(2)
+    expect(lastCall.pageSizeOptions).toEqual([10, 25, 50, 100])
   })
 
   it('shows loading state initially', async () => {
@@ -287,8 +312,32 @@ describe('AssetsPage', () => {
           })
         })
       }
-      if (url === '/api/assets') {
-        return Promise.resolve({ ok: true, json: async () => ({ rows: [] }) })
+      if (url.startsWith('/api/assets')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            rows: [],
+            pagination: {
+              page: 1,
+              page_size: 25,
+              total: 0,
+              total_pages: 1,
+              has_next: false,
+              has_previous: false
+            },
+            filters: {
+              cities: [],
+              types: [],
+              neighborhoods: [],
+              zonings: [],
+              blocks: [],
+              parcels: [],
+              buildingTypes: [],
+              rooms: [],
+              statusCounts: {}
+            }
+          })
+        })
       }
       return Promise.resolve({ ok: true, json: async () => [] })
     })
@@ -354,36 +403,16 @@ describe('AssetsPage', () => {
       key === 'city' ? 'חיפה' : null
     )
     mockUseSearchParams.toString.mockReturnValue('city=חיפה')
-    ;(global.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        rows: [
-          {
-            id: 'asset1',
-            address: 'Haifa Street 1',
-            price: 3000000,
-            city: 'חיפה',
-            type: 'דירה',
-            assetStatus: 'active'
-          },
-          {
-            id: 'asset2',
-            address: 'Tel Aviv Street 2',
-            price: 4200000,
-            city: 'תל אביב',
-            type: 'בית',
-            assetStatus: 'pending'
-          }
-        ]
-      })
-    })
 
     await act(async () => {
       render(<AssetsPage />, { wrapper: TestWrapper })
     })
 
     await waitFor(() => {
-      expect(screen.getByText('1 assets')).toBeInTheDocument()
+      const calls = (global.fetch as any).mock.calls
+        .map(([url]: any[]) => url)
+        .filter((url: string) => url.startsWith('/api/assets'))
+      expect(calls[0]).toContain('city=%D7%97%D7%99%D7%A4%D7%94')
     })
   })
 
@@ -398,7 +427,10 @@ describe('AssetsPage', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('1 assets')).toBeInTheDocument()
+      const calls = (global.fetch as any).mock.calls
+        .map(([url]: any[]) => url)
+        .filter((url: string) => url.startsWith('/api/assets'))
+      expect(calls[0]).toContain('type=%D7%93%D7%99%D7%A8%D7%94')
     })
   })
 
@@ -413,7 +445,10 @@ describe('AssetsPage', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('1 assets')).toBeInTheDocument()
+      const calls = (global.fetch as any).mock.calls
+        .map(([url]: any[]) => url)
+        .filter((url: string) => url.startsWith('/api/assets'))
+      expect(calls[0]).toContain('search=Another')
     })
   })
 
@@ -531,10 +566,31 @@ describe('AssetsPage', () => {
     const callCounts: Record<string, number> = {}
     ;(global.fetch as any).mockImplementation((url: string) => {
       callCounts[url] = (callCounts[url] ?? 0) + 1
-      if (url === '/api/assets') {
+      if (url.startsWith('/api/assets')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ rows: [] })
+          json: async () => ({
+            rows: [],
+            pagination: {
+              page: 1,
+              page_size: 25,
+              total: 0,
+              total_pages: 1,
+              has_next: false,
+              has_previous: false
+            },
+            filters: {
+              cities: [],
+              types: [],
+              neighborhoods: [],
+              zonings: [],
+              blocks: [],
+              parcels: [],
+              buildingTypes: [],
+              rooms: [],
+              statusCounts: {}
+            }
+          })
         })
       }
       return Promise.resolve({ ok: true, json: async () => ({}) })
@@ -550,7 +606,9 @@ describe('AssetsPage', () => {
     })
 
     await waitFor(() => {
-      expect(callCounts['/api/assets']).toBe(1)
+      const assetCalls = Object.entries(callCounts).filter(([key]) => key.startsWith('/api/assets'))
+      expect(assetCalls.length).toBe(1)
+      expect(assetCalls[0][1]).toBe(1)
     })
   })
 })

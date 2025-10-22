@@ -918,7 +918,7 @@ export default function TableToolbar({
         {bulkActions.length > 0 && selectedCount > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="min-h-[44px]">
                 <span className="hidden sm:inline">פעולות ({selectedCount})</span>
                 <span className="sm:hidden">({selectedCount})</span>
               </Button>

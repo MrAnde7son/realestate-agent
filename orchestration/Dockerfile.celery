@@ -8,13 +8,12 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies required for Django, Celery, Playwright and geo/GIS collectors
+# Install system dependencies required for Celery tasks and collectors
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     g++ \
     libpq-dev \
-    supervisor \
     curl \
     wget \
     gnupg \
@@ -56,16 +55,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libspatialindex-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Chrome for Selenium
+# Install Chrome for Selenium-based collectors
 RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies for backend + pipeline + collectors
+# Install Python dependencies shared across backend/orchestration/collectors
 COPY requirements-production.txt /tmp/requirements-production.txt
-# Copy all referenced requirement files so nested -r directives resolve during install
 COPY backend-django/requirements.txt /tmp/backend-django/requirements.txt
 COPY db/requirements.txt /tmp/db/requirements.txt
 COPY orchestration/requirements.txt /tmp/orchestration/requirements.txt
@@ -82,24 +80,19 @@ RUN python -m pip install --upgrade pip \
 RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
     && python -m playwright install chromium
 
-# Copy the full repository so orchestration/collector modules are available to Django
+# Copy the entire repository so workers have access to orchestration modules
 COPY . /app
-
-# Prepare supervisor configuration and boot script
-RUN mkdir -p /etc/supervisor/conf.d \
-    && cp backend-django/deploy/supervisord.conf /etc/supervisor/conf.d/supervisord.conf \
-    && chmod +x backend-django/deploy/boot.sh
 
 # Ensure runtime user has access to application files and Playwright browsers
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app "$PLAYWRIGHT_BROWSERS_PATH"
 
 USER app
-
-# Keep the full repository on the PYTHONPATH for Django, orchestration, and collectors
 ENV PYTHONPATH=/app:/app/backend-django
-WORKDIR /app
+WORKDIR /app/backend-django
 
-EXPOSE 8000
+FROM base AS celery-worker
+CMD ["celery", "-A", "broker_backend", "worker", "-l", "info", "-c", "2"]
 
-CMD ["backend-django/deploy/boot.sh"]
+FROM base AS celery-beat
+CMD ["celery", "-A", "broker_backend", "beat", "-l", "info"]

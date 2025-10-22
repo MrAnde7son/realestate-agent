@@ -39,6 +39,39 @@ class Contact(models.Model):
         null=True,
         help_text="Optional equity amount to support mortgage insights",
     )
+    city = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Preferred city for requested assets",
+    )
+    streets = models.TextField(
+        blank=True,
+        help_text="Preferred streets or neighbourhoods for requested assets",
+    )
+    asset_type = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Preferred asset type (e.g. דירה, פנטהאוז)",
+    )
+    area_min = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="Minimum desired asset area in square meters",
+    )
+    area_max = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="Maximum desired asset area in square meters",
+    )
+    floor = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Preferred floor or range",
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about the client's preferences",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -67,7 +100,19 @@ class Contact(models.Model):
             # Track changes for existing contact
             old_contact = Contact.objects.get(pk=self.pk)
             changed_fields = []
-            for field in ['name', 'email', 'phone', 'tags']:
+            for field in [
+                'name',
+                'email',
+                'phone',
+                'tags',
+                'city',
+                'streets',
+                'asset_type',
+                'area_min',
+                'area_max',
+                'floor',
+                'notes',
+            ]:
                 if getattr(old_contact, field) != getattr(self, field):
                     changed_fields.append(field)
             

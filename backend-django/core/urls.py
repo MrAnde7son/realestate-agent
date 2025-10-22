@@ -65,6 +65,7 @@ urlpatterns = [
     path('assets/<int:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
     path('assets/<int:asset_id>/listings/', views.asset_listings, name='asset_listings'),
     path('assets/<int:asset_id>/sync/', views.sync_asset, name='sync_asset'),
+    path('assets/bulk-action/', views.assets_bulk_action, name='assets_bulk_action'),
     path('dashboard/market-data/', views.dashboard_market_data, name='dashboard_market_data'),
 
     # Document management endpoints

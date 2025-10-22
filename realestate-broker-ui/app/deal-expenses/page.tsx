@@ -874,7 +874,7 @@ export default function DealExpensesPage() {
               {/* Asset Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  בחר נכס קיים (אופציונלי)
+                  בחר נכס קיים
                 </Label>
                 <div className="relative">
                   {selectedAsset ? (

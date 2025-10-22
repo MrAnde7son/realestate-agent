@@ -16,6 +16,8 @@ class ContactEquityAPITests(TestCase):
             password="password123",
             email="agent@example.com",
         )
+        self.user.role = "broker"
+        self.user.save(update_fields=["role"])
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
@@ -59,3 +61,38 @@ class ContactEquityAPITests(TestCase):
 
         contact.refresh_from_db()
         self.assertIsNone(contact.equity)
+
+    def test_create_contact_with_preference_fields(self):
+        """Creating a contact should persist optional preference fields."""
+
+        payload = {
+            "name": "דנה חיפוש",
+            "email": "dana@example.com",
+            "city": "תל אביב",
+            "streets": "נחלת בנימין, רוטשילד",
+            "asset_type": "דירה",
+            "area_min": 70,
+            "area_max": 120,
+            "floor": "3-5",
+            "notes": "מחפשת דירה מוארת עם מעלית וחניה",
+        }
+
+        response = self.client.post("/api/crm/contacts/", payload, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["city"], payload["city"])
+        self.assertEqual(response.data["streets"], payload["streets"])
+        self.assertEqual(response.data["asset_type"], payload["asset_type"])
+        self.assertEqual(response.data["area_min"], payload["area_min"])
+        self.assertEqual(response.data["area_max"], payload["area_max"])
+        self.assertEqual(response.data["floor"], payload["floor"])
+        self.assertEqual(response.data["notes"], payload["notes"])
+
+        contact = Contact.objects.get(id=response.data["id"])
+        self.assertEqual(contact.city, payload["city"])
+        self.assertEqual(contact.streets, payload["streets"])
+        self.assertEqual(contact.asset_type, payload["asset_type"])
+        self.assertEqual(contact.area_min, payload["area_min"])
+        self.assertEqual(contact.area_max, payload["area_max"])
+        self.assertEqual(contact.floor, payload["floor"])
+        self.assertEqual(contact.notes, payload["notes"])

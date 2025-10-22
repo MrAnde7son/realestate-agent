@@ -458,7 +458,6 @@ export default function TableToolbar({
               value={filter.value.min ?? ''}
               placeholder={filter.minPlaceholder ?? ''}
               step={filter.step}
-              dir="ltr"
               inputMode="numeric"
               className="text-left"
               onChange={(e) => {
@@ -475,7 +474,6 @@ export default function TableToolbar({
               value={filter.value.max ?? ''}
               placeholder={filter.maxPlaceholder ?? ''}
               step={filter.step}
-              dir="ltr"
               inputMode="numeric"
               className="text-left"
               onChange={(e) => {
@@ -558,7 +556,7 @@ export default function TableToolbar({
           })()}
           {filter.options?.map((option) => (
             <SelectItem key={option.value} value={option.value}>
-              <span className="flex justify-between gap-2 rtl:flex-row-reverse">
+              <span className="flex justify-between gap-2">
                 <span>{option.label}</span>
                 {option.count !== undefined && (
                   <span className="text-xs text-muted-foreground">{option.count}</span>
@@ -590,7 +588,7 @@ export default function TableToolbar({
         <div className="lg:flex-1">
           <div
             data-testid="quick-filters-container"
-            className="flex w-full flex-wrap items-center gap-2 pb-1 rtl:flex-row-reverse lg:pb-0"
+            className="flex w-full flex-wrap items-center gap-2 pb-1 lg:pb-0"
           >
             {userAssetsQuickFilter && (
               <Button
@@ -924,7 +922,7 @@ export default function TableToolbar({
 
                     {/* My Assets Checkbox - Prominent at top */}
                     {userAssetsAdditionalFilter && (
-                      <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border rtl:flex-row-reverse rtl:space-x-reverse">
+                      <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border rtl:space-x-reverse">
                         <input
                           type="checkbox"
                           id="my-assets-checkbox"
@@ -1231,10 +1229,10 @@ export default function TableToolbar({
 
         <div
           data-testid="toolbar-actions-container"
-          className="flex w-full flex-wrap items-center gap-2 justify-start rtl:flex-row-reverse lg:w-auto lg:justify-end"
+          className="flex w-full flex-wrap items-center gap-2 justify-start lg:w-auto lg:justify-end"
         >
         {/* View mode toggle */}
-        <div className="flex items-center gap-2 rtl:flex-row-reverse" dir="rtl">
+        <div className="flex items-center gap-2">
           <Button
             variant={viewMode === 'table' ? 'default' : 'outline'}
             size="sm"
@@ -1299,7 +1297,7 @@ export default function TableToolbar({
             <div className="max-h-60 overflow-y-auto">
               {/* Quick actions */}
               <div className="p-2 border-b bg-muted/30">
-                <div className="flex gap-2 rtl:flex-row-reverse">
+                <div className="flex gap-2">
                   <Button
                     variant="ghost"
                     size="sm"

@@ -210,7 +210,7 @@ services:
     sync: false
   region: oregon
   dockerContext: .
-  dockerfilePath: ./Dockerfile
+  dockerfilePath: ./orchestration/Dockerfile.celery
   autoDeployTrigger: commit
   previews:
     generation: manual

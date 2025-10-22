@@ -1,190 +1,225 @@
-version: '3.8'
+version: '3.9'
+
+x-backend-environment: &backend-env
+  DJANGO_SETTINGS_MODULE: broker_backend.settings
+  DEBUG: ${DEBUG:-false}
+  SECRET_KEY: ${SECRET_KEY:-change-me}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-backend,localhost,127.0.0.1}
+  USE_POSTGRES: ${USE_POSTGRES:-true}
+  DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@postgres:5432/realestate}
+  POSTGRES_DB: ${POSTGRES_DB:-realestate}
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  USE_CELERY: ${USE_CELERY:-true}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
+  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+  LLM_DEFAULT_PROVIDER: ${LLM_DEFAULT_PROVIDER:-gemini}
+  LLM_ALLOW_OVERRIDE: ${LLM_ALLOW_OVERRIDE:-true}
+  GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+  GOOGLE_MODEL: ${GOOGLE_MODEL:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: ${GEMINI_MODEL:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  RESEND_FROM: ${RESEND_FROM:-"RealEstate Agent <no-reply@nadlaner.com>"}
+  RESEND_REPLY_TO: ${RESEND_REPLY_TO:-support@nadlaner.com}
+  RESEND_SANDBOX: ${RESEND_SANDBOX:-false}
+  EMAIL_FALLBACK_TO_CONSOLE: ${EMAIL_FALLBACK_TO_CONSOLE:-false}
+  RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+  RESEND_ATTACHMENT_LIMIT_BYTES: ${RESEND_ATTACHMENT_LIMIT_BYTES:-20971520}
+  EMAIL_FROM: ${EMAIL_FROM:-}
+  TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+  TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+  TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+  ALERT_DEFAULT_EMAIL: ${ALERT_DEFAULT_EMAIL:-}
+  ALERT_DEFAULT_WHATSAPP_TO: ${ALERT_DEFAULT_WHATSAPP_TO:-}
+  SUPPORT_SLACK_WEBHOOK: ${SUPPORT_SLACK_WEBHOOK:-}
+  REPORTS_DIR: ${REPORTS_DIR:-}
+  HANDASA_TIMEOUT: ${HANDASA_TIMEOUT:-90}
+  HANDASA_RETRIES: ${HANDASA_RETRIES:-0}
+  HANDASA_RETRY_DELAY: ${HANDASA_RETRY_DELAY:-1.0}
+  GOV_TIMEOUT: ${GOV_TIMEOUT:-90}
+  GOV_RETRIES: ${GOV_RETRIES:-0}
+  GOV_RAMI_TIMEOUT: ${GOV_RAMI_TIMEOUT:-90}
+  GOV_RAMI_RETRIES: ${GOV_RAMI_RETRIES:-0}
+  GIS_TIMEOUT: ${GIS_TIMEOUT:-90}
+  GIS_RETRIES: ${GIS_RETRIES:-0}
+  GOVMAP_TIMEOUT: ${GOVMAP_TIMEOUT:-90}
+  GOVMAP_RETRIES: ${GOVMAP_RETRIES:-0}
+  MAVAT_TIMEOUT: ${MAVAT_TIMEOUT:-90}
+  MAVAT_RETRIES: ${MAVAT_RETRIES:-0}
+  YAD2_TIMEOUT: ${YAD2_TIMEOUT:-90}
+  YAD2_RETRIES: ${YAD2_RETRIES:-0}
+  ENABLE_TRACING: ${ENABLE_TRACING:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  METRICS_PORT: ${METRICS_PORT:-9000}
+  DOWNSTREAM_API_KEY: ${DOWNSTREAM_API_KEY:-}
+
+x-mcp-common: &mcp-common
+  build:
+    context: .
+    dockerfile: Dockerfile.mcp
+  restart: unless-stopped
+  environment:
+    PYTHONUNBUFFERED: '1'
+    PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    DOWNSTREAM_API_KEY: ${DOWNSTREAM_API_KEY:-}
+  depends_on:
+    redis:
+      condition: service_healthy
+  networks:
+    - internal
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: realestate
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-realestate}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
-  # Redis for Celery
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
-  # Django Backend
   backend:
     build:
       context: ./backend-django
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
-      - DEBUG=true
-      - SECRET_KEY=django-insecure-development-secret-key-change-in-production-2024
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,testserver
-      - USE_POSTGRES=true
-      - POSTGRES_DB=realestate
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/realestate
-      - USE_CELERY=true
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - BACKEND_URL=http://localhost:8000
-      - FRONTEND_URL=http://localhost:3000
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - RESEND_API_KEY=${RESEND_API_KEY:-}
-      - RESEND_FROM=${RESEND_FROM:-"RealEstate Agent <no-reply@nadlaner.com>"}
-      - RESEND_REPLY_TO=${RESEND_REPLY_TO:-support@nadlaner.com}
-      - RESEND_SANDBOX=${RESEND_SANDBOX:-false}
-      - EMAIL_FALLBACK_TO_CONSOLE=${EMAIL_FALLBACK_TO_CONSOLE:-false}
-      - RESEND_WEBHOOK_SECRET=${RESEND_WEBHOOK_SECRET:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-    ports:
-      - "8000:8000"
+      <<: *backend-env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./backend-django:/app
-      - media_volume:/app/media
-    command: >
-      sh -c "
-        python manage.py migrate &&
-        python manage.py runserver 0.0.0.0:8000
-      "
+      - media_volume:/app/backend-django/media
+      - reports_volume:/app/backend-django/reports
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin/login/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - internal
 
-  # Celery Worker
   celery-worker:
     build:
       context: .
       dockerfile: orchestration/Dockerfile.celery
       target: celery-worker
+    restart: unless-stopped
     environment:
-      - DEBUG=true
-      - SECRET_KEY=django-insecure-development-secret-key-change-in-production-2024
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,testserver
-      - USE_POSTGRES=true
-      - POSTGRES_DB=realestate
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/realestate
-      - USE_CELERY=true
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - RESEND_API_KEY=${RESEND_API_KEY:-}
-      - RESEND_FROM=${RESEND_FROM:-"RealEstate Agent <no-reply@nadlaner.com>"}
-      - RESEND_REPLY_TO=${RESEND_REPLY_TO:-support@nadlaner.com}
-      - RESEND_SANDBOX=${RESEND_SANDBOX:-false}
-      - EMAIL_FALLBACK_TO_CONSOLE=${EMAIL_FALLBACK_TO_CONSOLE:-false}
-      - RESEND_WEBHOOK_SECRET=${RESEND_WEBHOOK_SECRET:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      <<: *backend-env
     depends_on:
-      postgres:
+      backend:
         condition: service_healthy
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     volumes:
-      - ./:/app
       - media_volume:/app/backend-django/media
+      - reports_volume:/app/backend-django/reports
+    networks:
+      - internal
 
-  # Celery Beat (Scheduler)
   celery-beat:
     build:
       context: .
       dockerfile: orchestration/Dockerfile.celery
       target: celery-beat
+    restart: unless-stopped
     environment:
-      - DEBUG=true
-      - SECRET_KEY=django-insecure-development-secret-key-change-in-production-2024
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,testserver
-      - USE_POSTGRES=true
-      - POSTGRES_DB=realestate
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/realestate
-      - USE_CELERY=true
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - RESEND_API_KEY=${RESEND_API_KEY:-}
-      - RESEND_FROM=${RESEND_FROM:-"RealEstate Agent <no-reply@nadlaner.com>"}
-      - RESEND_REPLY_TO=${RESEND_REPLY_TO:-support@nadlaner.com}
-      - RESEND_SANDBOX=${RESEND_SANDBOX:-false}
-      - EMAIL_FALLBACK_TO_CONSOLE=${EMAIL_FALLBACK_TO_CONSOLE:-false}
-      - RESEND_WEBHOOK_SECRET=${RESEND_WEBHOOK_SECRET:-}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      <<: *backend-env
     depends_on:
-      postgres:
+      backend:
         condition: service_healthy
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     volumes:
-      - ./:/app
       - media_volume:/app/backend-django/media
+      - reports_volume:/app/backend-django/reports
+    networks:
+      - internal
 
-  # Frontend UI
   frontend:
     build:
       context: ./realestate-broker-ui
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
-      - BACKEND_URL=http://localhost:8000
-      - NEXT_PUBLIC_MCP_YAD2_URL=http://localhost:8001
-      - NEXT_PUBLIC_MCP_GOV_URL=http://localhost:8002
-      - NEXT_PUBLIC_MCP_GIS_URL=http://localhost:8003
-      - NEXT_PUBLIC_MCP_MAVAT_URL=http://localhost:8004
+      NODE_ENV: production
+      BACKEND_URL: ${FRONTEND_BACKEND_URL:-http://backend:8000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_VERSION: ${NEXT_PUBLIC_APP_VERSION:-local}
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
+      NEXT_PUBLIC_ENABLE_ANALYTICS: ${NEXT_PUBLIC_ENABLE_ANALYTICS:-false}
+      NEXT_PUBLIC_ENABLE_ALERTS: ${NEXT_PUBLIC_ENABLE_ALERTS:-true}
+      NEXT_PUBLIC_ENABLE_MORTGAGE: ${NEXT_PUBLIC_ENABLE_MORTGAGE:-true}
+      NEXT_PUBLIC_DEBUG: ${NEXT_PUBLIC_DEBUG:-false}
+      NEXT_PUBLIC_MCP_YAD2_URL: ${NEXT_PUBLIC_MCP_YAD2_URL:-http://localhost:8001}
+      NEXT_PUBLIC_MCP_GOV_URL: ${NEXT_PUBLIC_MCP_GOV_URL:-http://localhost:8002}
+      NEXT_PUBLIC_MCP_GIS_URL: ${NEXT_PUBLIC_MCP_GIS_URL:-http://localhost:8003}
+      NEXT_PUBLIC_MCP_MAVAT_URL: ${NEXT_PUBLIC_MCP_MAVAT_URL:-http://localhost:8004}
+      NEXT_PUBLIC_MCP_GOVMAP_URL: ${NEXT_PUBLIC_MCP_GOVMAP_URL:-http://localhost:8005}
+      NEXT_PUBLIC_MCP_HANDASA_URL: ${NEXT_PUBLIC_MCP_HANDASA_URL:-http://localhost:8006}
+    command: >-
+      sh -c "pnpm build && pnpm start -- --hostname 0.0.0.0 --port 3000"
     ports:
       - "3000:3000"
     depends_on:
-      - backend
-    volumes:
-      - ./realestate-broker-ui:/app
-      - /app/node_modules
-      - /app/.next
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
 
-  # MCP Servers
-  # Yad2 MCP Server
   yad2-mcp:
+    <<: *mcp-common
     build:
       context: .
       dockerfile: Dockerfile.mcp
-    environment:
-      - MCP_YAD2_PORT=8001
+      args:
+        REQUIREMENTS_FILE: yad2/requirements.txt
+    command: python -m yad2.mcp.server
     ports:
       - "8001:8001"
     volumes:
-      - ./yad2:/app/yad2
-      - ./orchestration:/app/orchestration
-      - ./utils:/app/utils
-      - ./tests:/app/tests
       - yad2_data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -192,22 +227,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    command: python -m yad2.mcp.server
 
-  # RAMI MCP Server
-  rami-mcp:
+  gov-mcp:
+    <<: *mcp-common
     build:
       context: .
       dockerfile: Dockerfile.mcp
-    environment:
-      - MCP_GOV_PORT=8002
+      args:
+        REQUIREMENTS_FILE: gov/requirements.txt
+    command: python -m gov.mcp.server
     ports:
       - "8002:8002"
     volumes:
-      - ./gov:/app/gov
-      - ./orchestration:/app/orchestration
-      - ./utils:/app/utils
-      - ./tests:/app/tests
       - gov_data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
@@ -215,22 +246,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    command: python -m gov.mcp.server
 
-  # GIS MCP Server
   gis-mcp:
+    <<: *mcp-common
     build:
       context: .
       dockerfile: Dockerfile.mcp
-    environment:
-      - MCP_GIS_PORT=8003
+      args:
+        REQUIREMENTS_FILE: gis/requirements.txt
+    command: python -m gis.mcp.server
     ports:
       - "8003:8003"
     volumes:
-      - ./gis:/app/gis
-      - ./orchestration:/app/orchestration
-      - ./utils:/app/utils
-      - ./tests:/app/tests
       - gis_data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
@@ -238,22 +265,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    command: python -m gis.mcp.server
 
-  # Government Data MCP Server
-  gov-mcp:
+  mavat-mcp:
+    <<: *mcp-common
     build:
       context: .
       dockerfile: Dockerfile.mcp
-    environment:
-      - MCP_MAVAT_PORT=8004
+      args:
+        REQUIREMENTS_FILE: mavat/requirements.txt
+    command: python -m mavat.mcp.server
     ports:
       - "8004:8004"
     volumes:
-      - ./mavat:/app/mavat
-      - ./orchestration:/app/orchestration
-      - ./utils:/app/utils
-      - ./tests:/app/tests
       - mavat_data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
@@ -261,12 +284,69 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    command: python -m mavat.mcp.server
+
+  govmap-mcp:
+    <<: *mcp-common
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+      args:
+        REQUIREMENTS_FILE: govmap/requirements.txt
+    command: python -m govmap.mcp.server
+    ports:
+      - "8005:8005"
+    volumes:
+      - govmap_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  handasa-mcp:
+    <<: *mcp-common
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+      args:
+        REQUIREMENTS_FILE: handasa/requirements.txt
+    command: python -m handasa.mcp.server
+    ports:
+      - "8006:8006"
+    volumes:
+      - handasa_data:/app/data
+    environment:
+      PYTHONUNBUFFERED: '1'
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      DOWNSTREAM_API_KEY: ${DOWNSTREAM_API_KEY:-}
+      HANDASA_TIMEOUT: ${HANDASA_TIMEOUT:-90}
+      HANDASA_RETRIES: ${HANDASA_RETRIES:-0}
+      HANDASA_RETRY_DELAY: ${HANDASA_RETRY_DELAY:-1.0}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
 
 volumes:
   postgres_data:
+  redis_data:
   media_volume:
+  reports_volume:
   yad2_data:
   gov_data:
   gis_data:
   mavat_data:
+  govmap_data:
+  handasa_data:
+
+networks:
+  internal:
+    driver: bridge

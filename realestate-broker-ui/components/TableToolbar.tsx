@@ -582,311 +582,319 @@ export default function TableToolbar({
         />
       </div>
 
-      {/* Quick filters */}
-      <div className="flex flex-wrap items-center gap-2 rtl:flex-row-reverse" dir="rtl">
-        {userAssetsQuickFilter && (
-          <Button
-            type="button"
-            variant={userAssetsActive ? 'default' : 'outline'}
-            size="sm"
-            className="h-10 rounded-full px-4"
-            aria-pressed={userAssetsActive}
-            onClick={() => {
-              const nextValue = userAssetsActive ? 'all' : 'mine';
-              if (onAdditionalFilterChange) {
-                onAdditionalFilterChange('userAssets', nextValue);
-              } else {
-                userAssetsQuickFilter.onChange(nextValue);
-                trackFeatureUsage('filter', undefined, { filter_type: 'userAssets', value: nextValue });
-              }
-            }}
+      {/* Quick filters and toolbar actions */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between" dir="rtl">
+        <div className="lg:flex-1">
+          <div
+            data-testid="quick-filters-container"
+            className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1 rtl:flex-row-reverse lg:flex-wrap lg:overflow-visible lg:pb-0"
           >
-            הנכסים שלי
-          </Button>
-        )}
-
-        {rentalSaleFilter && (
-          <DropdownMenu open={rentalSaleMenuOpen} onOpenChange={setRentalSaleMenuOpen}>
-            <DropdownMenuTrigger asChild>
+            {userAssetsQuickFilter && (
               <Button
                 type="button"
-                variant={rentalSaleFilter.value !== 'all' ? 'default' : 'outline'}
+                variant={userAssetsActive ? 'default' : 'outline'}
                 size="sm"
-                className="h-10 rounded-full px-4 flex items-center gap-2"
-              >
-                <span>{rentalSaleSelectedLabel}</span>
-                <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
-              <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג עיסקה</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup
-                value={rentalSaleFilter.value}
-                onValueChange={(value) => {
+                className="h-10 rounded-full px-4 flex-shrink-0"
+                aria-pressed={userAssetsActive}
+                onClick={() => {
+                  const nextValue = userAssetsActive ? 'all' : 'mine';
                   if (onAdditionalFilterChange) {
-                    onAdditionalFilterChange('rentalSale', value);
+                    onAdditionalFilterChange('userAssets', nextValue);
                   } else {
-                    rentalSaleFilter.onChange(value);
-                    trackFeatureUsage('filter', undefined, { filter_type: 'rentalSale', value });
+                    userAssetsQuickFilter.onChange(nextValue);
+                    trackFeatureUsage('filter', undefined, { filter_type: 'userAssets', value: nextValue });
                   }
                 }}
               >
-                <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
-                {rentalSaleFilter.options.map(option => (
-                  <DropdownMenuRadioItem key={option.value} value={option.value}>
-                    {option.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
-        {(priceMinFilter || priceMaxFilter) && (
-          <Popover open={pricePopoverOpen} onOpenChange={setPricePopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant={priceHasValue ? 'default' : 'outline'}
-                size="sm"
-                className="h-10 rounded-full px-4 flex items-center gap-2"
-              >
-                <span>{priceButtonText}</span>
-                <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                הנכסים שלי
               </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              {...QUICK_FILTER_POPOVER_PROPS}
-              className={QUICK_FILTER_POPOVER_CLASSNAME}
-              style={{ direction: "rtl" }}
-            >
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  {priceMinFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="quick-price-min" className="text-xs text-muted-foreground">
-                        מחיר מינימלי
-                      </Label>
-                      <Input
-                        id="quick-price-min"
-                        type="number"
-                        inputMode="numeric"
-                        dir="ltr"
-                        className="text-left"
-                        value={priceMinFilter.value ?? ''}
-                        placeholder={priceMinFilter.placeholder ?? '₪'}
-                        onChange={(event) => {
-                          const parsed = event.target.value ? Number(event.target.value) : undefined;
-                          priceMinFilter.onChange(parsed);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: priceMinFilter.analyticsKey ?? 'price_min',
-                            value: parsed ?? 'clear',
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-                  {priceMaxFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="quick-price-max" className="text-xs text-muted-foreground">
-                        מחיר מקסימלי
-                      </Label>
-                      <Input
-                        id="quick-price-max"
-                        type="number"
-                        inputMode="numeric"
-                        dir="ltr"
-                        className="text-left"
-                        value={priceMaxFilter.value ?? ''}
-                        placeholder={priceMaxFilter.placeholder ?? '₪'}
-                        onChange={(event) => {
-                          const parsed = event.target.value ? Number(event.target.value) : undefined;
-                          priceMaxFilter.onChange(parsed);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
-                            value: parsed ?? 'clear',
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-between gap-2">
+            )}
+
+            {rentalSaleFilter && (
+              <DropdownMenu open={rentalSaleMenuOpen} onOpenChange={setRentalSaleMenuOpen}>
+                <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant={rentalSaleFilter.value !== 'all' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => {
-                      if (priceMinFilter) {
-                        priceMinFilter.onChange(undefined);
-                        trackFeatureUsage('filter', undefined, {
-                          filter_type: priceMinFilter.analyticsKey ?? 'price_min',
-                          value: 'clear',
-                        });
-                      }
-                      if (priceMaxFilter) {
-                        priceMaxFilter.onChange(undefined);
-                        trackFeatureUsage('filter', undefined, {
-                          filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
-                          value: 'clear',
-                        });
+                    className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                  >
+                    <span>{rentalSaleSelectedLabel}</span>
+                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג עיסקה</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={rentalSaleFilter.value}
+                    onValueChange={(value) => {
+                      if (onAdditionalFilterChange) {
+                        onAdditionalFilterChange('rentalSale', value);
+                      } else {
+                        rentalSaleFilter.onChange(value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'rentalSale', value });
                       }
                     }}
                   >
-                    נקה
-                  </Button>
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setPricePopoverOpen(false)}>
-                    סגור
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
+                    <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
+                    {rentalSaleFilter.options.map(option => (
+                      <DropdownMenuRadioItem key={option.value} value={option.value}>
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
-        {(areaMinFilter || areaMaxFilter) && (
-          <Popover open={areaPopoverOpen} onOpenChange={setAreaPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant={areaHasValue ? 'default' : 'outline'}
-                size="sm"
-                className="h-10 rounded-full px-4 flex items-center gap-2"
-              >
-                <span>{areaButtonText}</span>
-                <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              {...QUICK_FILTER_POPOVER_PROPS}
-              className={QUICK_FILTER_POPOVER_CLASSNAME}
-              style={{ direction: "rtl" }}
-            >
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  {areaMinFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="quick-area-min" className="text-xs text-muted-foreground">
-                        שטח מינימלי
-                      </Label>
-                      <Input
-                        id="quick-area-min"
-                        type="number"
-                        inputMode="numeric"
-                        dir="ltr"
-                        className="text-left"
-                        value={areaMinFilter.value ?? ''}
-                        placeholder={areaMinFilter.placeholder ?? 'מ"ר'}
-                        onChange={(event) => {
-                          const parsed = event.target.value ? Number(event.target.value) : undefined;
-                          areaMinFilter.onChange(parsed);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: areaMinFilter.analyticsKey ?? 'area_min',
-                            value: parsed ?? 'clear',
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-                  {areaMaxFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="quick-area-max" className="text-xs text-muted-foreground">
-                        שטח מקסימלי
-                      </Label>
-                      <Input
-                        id="quick-area-max"
-                        type="number"
-                        inputMode="numeric"
-                        dir="ltr"
-                        className="text-left"
-                        value={areaMaxFilter.value ?? ''}
-                        placeholder={areaMaxFilter.placeholder ?? 'מ"ר'}
-                        onChange={(event) => {
-                          const parsed = event.target.value ? Number(event.target.value) : undefined;
-                          areaMaxFilter.onChange(parsed);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: areaMaxFilter.analyticsKey ?? 'area_max',
-                            value: parsed ?? 'clear',
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-between gap-2">
+            {(priceMinFilter || priceMaxFilter) && (
+              <Popover open={pricePopoverOpen} onOpenChange={setPricePopoverOpen}>
+                <PopoverTrigger asChild>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant={priceHasValue ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => {
-                      if (areaMinFilter) {
-                        areaMinFilter.onChange(undefined);
-                        trackFeatureUsage('filter', undefined, {
-                          filter_type: areaMinFilter.analyticsKey ?? 'area_min',
-                          value: 'clear',
-                        });
-                      }
-                      if (areaMaxFilter) {
-                        areaMaxFilter.onChange(undefined);
-                        trackFeatureUsage('filter', undefined, {
-                          filter_type: areaMaxFilter.analyticsKey ?? 'area_max',
-                          value: 'clear',
-                        });
-                      }
+                    className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                  >
+                    <span>{priceButtonText}</span>
+                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  {...QUICK_FILTER_POPOVER_PROPS}
+                  className={QUICK_FILTER_POPOVER_CLASSNAME}
+                  style={{ direction: "rtl" }}
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {priceMinFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="quick-price-min" className="text-xs text-muted-foreground">
+                            מחיר מינימלי
+                          </Label>
+                          <Input
+                            id="quick-price-min"
+                            type="number"
+                            inputMode="numeric"
+                            dir="ltr"
+                            className="text-left"
+                            value={priceMinFilter.value ?? ''}
+                            placeholder={priceMinFilter.placeholder ?? '₪'}
+                            onChange={(event) => {
+                              const parsed = event.target.value ? Number(event.target.value) : undefined;
+                              priceMinFilter.onChange(parsed);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: priceMinFilter.analyticsKey ?? 'price_min',
+                                value: parsed ?? 'clear',
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+                      {priceMaxFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="quick-price-max" className="text-xs text-muted-foreground">
+                            מחיר מקסימלי
+                          </Label>
+                          <Input
+                            id="quick-price-max"
+                            type="number"
+                            inputMode="numeric"
+                            dir="ltr"
+                            className="text-left"
+                            value={priceMaxFilter.value ?? ''}
+                            placeholder={priceMaxFilter.placeholder ?? '₪'}
+                            onChange={(event) => {
+                              const parsed = event.target.value ? Number(event.target.value) : undefined;
+                              priceMaxFilter.onChange(parsed);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
+                                value: parsed ?? 'clear',
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (priceMinFilter) {
+                            priceMinFilter.onChange(undefined);
+                            trackFeatureUsage('filter', undefined, {
+                              filter_type: priceMinFilter.analyticsKey ?? 'price_min',
+                              value: 'clear',
+                            });
+                          }
+                          if (priceMaxFilter) {
+                            priceMaxFilter.onChange(undefined);
+                            trackFeatureUsage('filter', undefined, {
+                              filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
+                              value: 'clear',
+                            });
+                          }
+                        }}
+                      >
+                        נקה
+                      </Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setPricePopoverOpen(false)}>
+                        סגור
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {(areaMinFilter || areaMaxFilter) && (
+              <Popover open={areaPopoverOpen} onOpenChange={setAreaPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={areaHasValue ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                  >
+                    <span>{areaButtonText}</span>
+                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  {...QUICK_FILTER_POPOVER_PROPS}
+                  className={QUICK_FILTER_POPOVER_CLASSNAME}
+                  style={{ direction: "rtl" }}
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {areaMinFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="quick-area-min" className="text-xs text-muted-foreground">
+                            שטח מינימלי
+                          </Label>
+                          <Input
+                            id="quick-area-min"
+                            type="number"
+                            inputMode="numeric"
+                            dir="ltr"
+                            className="text-left"
+                            value={areaMinFilter.value ?? ''}
+                            placeholder={areaMinFilter.placeholder ?? 'מ"ר'}
+                            onChange={(event) => {
+                              const parsed = event.target.value ? Number(event.target.value) : undefined;
+                              areaMinFilter.onChange(parsed);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: areaMinFilter.analyticsKey ?? 'area_min',
+                                value: parsed ?? 'clear',
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+                      {areaMaxFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="quick-area-max" className="text-xs text-muted-foreground">
+                            שטח מקסימלי
+                          </Label>
+                          <Input
+                            id="quick-area-max"
+                            type="number"
+                            inputMode="numeric"
+                            dir="ltr"
+                            className="text-left"
+                            value={areaMaxFilter.value ?? ''}
+                            placeholder={areaMaxFilter.placeholder ?? 'מ"ר'}
+                            onChange={(event) => {
+                              const parsed = event.target.value ? Number(event.target.value) : undefined;
+                              areaMaxFilter.onChange(parsed);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: areaMaxFilter.analyticsKey ?? 'area_max',
+                                value: parsed ?? 'clear',
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (areaMinFilter) {
+                            areaMinFilter.onChange(undefined);
+                            trackFeatureUsage('filter', undefined, {
+                              filter_type: areaMinFilter.analyticsKey ?? 'area_min',
+                              value: 'clear',
+                            });
+                          }
+                          if (areaMaxFilter) {
+                            areaMaxFilter.onChange(undefined);
+                            trackFeatureUsage('filter', undefined, {
+                              filter_type: areaMaxFilter.analyticsKey ?? 'area_max',
+                              value: 'clear',
+                            });
+                          }
+                        }}
+                      >
+                        נקה
+                      </Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setAreaPopoverOpen(false)}>
+                        סגור
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {typeFilter && typeFilter.options.length > 0 && (
+              <DropdownMenu open={typeMenuOpen} onOpenChange={setTypeMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={typeHasValue ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                  >
+                    <span>{typeButtonText}</span>
+                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג נכס</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={typeFilter.value}
+                    onValueChange={(value) => {
+                      typeFilter.onChange(value);
+                      trackFeatureUsage('filter', undefined, {
+                        filter_type: typeFilter.analyticsKey ?? 'type',
+                        value,
+                      });
                     }}
                   >
-                    נקה
-                  </Button>
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setAreaPopoverOpen(false)}>
-                    סגור
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
+                    <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
+                    {typeFilter.options.map(option => (
+                      <DropdownMenuRadioItem key={option} value={option}>
+                        {option}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
 
-        {typeFilter && typeFilter.options.length > 0 && (
-          <DropdownMenu open={typeMenuOpen} onOpenChange={setTypeMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant={typeHasValue ? 'default' : 'outline'}
-                size="sm"
-                className="h-10 rounded-full px-4 flex items-center gap-2"
-              >
-                <span>{typeButtonText}</span>
-                <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
-              <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג נכס</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup
-                value={typeFilter.value}
-                onValueChange={(value) => {
-                  typeFilter.onChange(value);
-                  trackFeatureUsage('filter', undefined, {
-                    filter_type: typeFilter.analyticsKey ?? 'type',
-                    value,
-                  });
-                }}
-              >
-                <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
-                {typeFilter.options.map(option => (
-                  <DropdownMenuRadioItem key={option} value={option}>
-                    {option}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-
-      {/* Single row - All toolbar actions */}
-      <div className="flex flex-wrap items-center gap-2 rtl:flex-row-reverse" dir="rtl">
+        <div
+          data-testid="toolbar-actions-container"
+          className="flex w-full flex-wrap items-center gap-2 justify-start rtl:flex-row-reverse lg:w-auto lg:justify-end"
+        >
         {/* Filter toggle */}
         <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
           <SheetTrigger asChild>
@@ -1421,6 +1429,7 @@ export default function TableToolbar({
             <span className="hidden sm:inline">הוסף חדש</span>
           </Button>
         )}
+      </div>
       </div>
 
       {/* Bottom row - Status and info */}

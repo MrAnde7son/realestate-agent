@@ -117,6 +117,24 @@ describe("TableToolbar quick filters", () => {
     expect(screen.getByRole("button", { name: "סוג נכס" })).toBeInTheDocument();
   });
 
+  it("arranges quick filters in a scrollable row on small screens", () => {
+    renderToolbar();
+
+    const container = screen.getByTestId("quick-filters-container");
+
+    expect(container).toHaveClass("overflow-x-auto");
+    expect(container).toHaveClass("min-w-0");
+  });
+
+  it("keeps toolbar actions grouped in a wrapping container", () => {
+    renderToolbar();
+
+    const container = screen.getByTestId("toolbar-actions-container");
+
+    expect(container).toHaveClass("flex-wrap");
+    expect(container).toHaveClass("w-full");
+  });
+
   it("toggles the my assets quick filter", () => {
     const { props } = renderToolbar();
 

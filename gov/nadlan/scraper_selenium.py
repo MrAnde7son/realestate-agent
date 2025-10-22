@@ -30,19 +30,25 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 
 from .exceptions import NadlanAPIError
 from .models import Deal
 from .cache import DealCache, IncrementalDealCollector
+
+import random
+from selenium.webdriver.common.action_chains import ActionChains
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,70 +80,52 @@ class NadlanDealsScraper:
         else:
             self.cache = None
             self.incremental_collector = None
-    
+        
     def _init_driver(self):
         """Initialize the Selenium WebDriver with headless-safe, stealthy settings."""
         if self.driver is not None:
             return
 
-        from selenium import webdriver
-        from selenium.webdriver.chrome.service import Service
-        from webdriver_manager.chrome import ChromeDriverManager
-        import os
-        import tempfile
-
-        # Persist cookies/consent between runs
         user_data_dir = os.path.join(tempfile.gettempdir(), "nadlan_chrome_profile")
         os.makedirs(user_data_dir, exist_ok=True)
 
         options = webdriver.ChromeOptions()
 
-        # Use new headless; don’t set a fake/old UA. Let ChromeDriver pick a matching UA.
         if self.headless:
             options.add_argument("--headless=new")
-
-        # DO NOT block images/CSS; the app may depend on them
-        # options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})  # <-- leave disabled
-
-        # Make the browser look normal
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--window-size=1366,768")
         options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--disable-features=Translate")        # remove oddities
-        options.add_argument("--user-data-dir=" + user_data_dir)    # persist cookies/consent
-        options.add_argument("--lang=he-IL")                        # UI language
-
-        # Improve headless WebGL/canvas fidelity
+        options.add_argument("--disable-features=Translate")
+        options.add_argument("--user-data-dir=" + user_data_dir)
+        options.add_argument("--lang=he-IL")
         options.add_argument("--use-gl=swiftshader")
         options.add_argument("--enable-webgl")
         options.add_argument("--ignore-gpu-blocklist")
-
-        # Avoid first-run noise
         options.add_argument("--no-first-run")
         options.add_argument("--no-default-browser-check")
+        # These help some sites bind mouse events properly under headless
+        options.add_argument("--enable-features=NetworkService,NetworkServiceInProcess")
+        options.set_capability("goog:loggingPrefs", {"performance": "ALL"})  # <-- enables self.driver.get_log('performance')
 
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
 
-        # PageLoadStrategy "eager" can help with flaky SPA loads
         try:
             driver.execute_cdp_cmd("Page.setWebLifecycleState", {"state": "active"})
         except Exception:
             pass
 
-        # --- Stealth hardening via CDP ---
+        # --- Stealth hardening via CDP (unchanged from your version, kept for completeness) ---
         try:
-            # Timezone + locale + languages
             driver.execute_cdp_cmd("Emulation.setTimezoneOverride", {"timezoneId": "Asia/Jerusalem"})
             driver.execute_cdp_cmd("Emulation.setLocaleOverride", {"locale": "he-IL"})
             driver.execute_cdp_cmd("Network.setUserAgentOverride", {
-                # Use current UA but add Accept-Language header
                 "userAgent": driver.execute_script("return navigator.userAgent"),
                 "acceptLanguage": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
                 "platform": "MacIntel"
             })
-            # Mask webdriver and align platform/vendor
             driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
                 "source": """
                     Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
@@ -145,11 +133,10 @@ class NadlanDealsScraper:
                     Object.defineProperty(navigator, 'language', {get: () => 'he-IL'});
                     Object.defineProperty(navigator, 'languages', {get: () => ['he-IL','he','en-US','en']});
                     Object.defineProperty(navigator, 'vendor', {get: () => 'Google Inc.'});
-                    // WebGL vendor/renderer spoof to match headful-like entropy
                     const getParameter = WebGLRenderingContext.prototype.getParameter;
                     WebGLRenderingContext.prototype.getParameter = function(param){
-                    if (param === 37445) return 'Google Inc.';           // UNMASKED_VENDOR_WEBGL
-                    if (param === 37446) return 'ANGLE (Apple, Apple GPU)'; // UNMASKED_RENDERER_WEBGL
+                    if (param === 37445) return 'Google Inc.';
+                    if (param === 37446) return 'ANGLE (Apple, Apple GPU)';
                     return getParameter.call(this, param);
                     };
                 """
@@ -157,17 +144,14 @@ class NadlanDealsScraper:
         except Exception as e:
             logger.debug(f"CDP stealth setup failed: {e}")
 
-        # Performance logs may be flaky in headless; don't fail the run if not available
         try:
             driver.execute_cdp_cmd("Network.enable", {})
             driver.execute_cdp_cmd("Runtime.enable", {})
         except Exception as e:
             logger.debug(f"Could not enable Network/Runtime: {e}")
 
-        # Slightly longer script timeouts for SPAs
         driver.set_page_load_timeout(self.timeout)
         driver.set_script_timeout(max(self.timeout, 60))
-
         self.driver = driver
 
     def _wait_for_deals_api_call(self, timeout: int = 30) -> bool:
@@ -1339,7 +1323,7 @@ class NadlanDealsScraper:
         return info
 
 if __name__ == "__main__":
-    scraper = NadlanDealsScraper()
+    scraper = NadlanDealsScraper(headless=True)
     deals = scraper.get_deals_by_address("הירקון 319 תל אביב", max_age_days=365 * 10)
     for deal in deals:
         print(f"{deal.address} - ₪{deal.deal_amount:,.0f}")

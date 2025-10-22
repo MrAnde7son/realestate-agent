@@ -5,6 +5,8 @@ import { AuthProvider } from '@/lib/auth-context'
 import { AnalyticsProvider } from '@/components/analytics-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { ConfirmProvider } from '@/hooks/use-confirm'
 import './globals.css'
 

@@ -72,6 +72,7 @@ COPY govmap/requirements.txt /tmp/govmap/requirements.txt
 COPY gis/requirements.txt /tmp/gis/requirements.txt
 COPY yad2/requirements.txt /tmp/yad2/requirements.txt
 COPY mavat/requirements.txt /tmp/mavat/requirements.txt
+COPY handasa/requirements.txt /tmp/handasa/requirements.txt
 RUN python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r /tmp/requirements-production.txt
 

@@ -22,6 +22,12 @@
 # Yad2 Real Estate Module
 -r yad2/requirements.txt
 
+# Mavat Planning Module
+-r mavat/requirements.txt
+
+# Handasa Engineering Portal Module
+-r handasa/requirements.txt
+
 # Additional Global Dependencies
 # =============================
 

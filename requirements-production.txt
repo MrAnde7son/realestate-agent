@@ -7,3 +7,4 @@
 -r gis/requirements.txt
 -r yad2/requirements.txt
 -r mavat/requirements.txt
+-r handasa/requirements.txt

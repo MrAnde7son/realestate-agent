@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import TableToolbar from "./TableToolbar";
 
 vi.mock("@/hooks/useAnalytics", () => ({
@@ -117,6 +117,25 @@ describe("TableToolbar quick filters", () => {
     expect(screen.getByRole("button", { name: "סוג נכס" })).toBeInTheDocument();
   });
 
+  it("keeps the my assets toggle as the first quick filter", () => {
+    renderToolbar();
+
+    const container = screen.getByTestId("quick-filters-container");
+    const buttons = within(container).getAllByRole("button");
+
+    expect(buttons[0]).toHaveAccessibleName("הנכסים שלי");
+  });
+
+  it("places the full filters trigger directly after the quick filters", () => {
+    renderToolbar();
+
+    const container = screen.getByTestId("quick-filters-container");
+    const filterButton = within(container).getByRole("button", { name: "סינון" });
+
+    expect(filterButton).toBeInTheDocument();
+    expect(filterButton.className).toContain("rounded-full");
+  });
+
   it("arranges quick filters in a scrollable row on small screens", () => {
     renderToolbar();
 
@@ -133,6 +152,18 @@ describe("TableToolbar quick filters", () => {
 
     expect(container).toHaveClass("flex-wrap");
     expect(container).toHaveClass("w-full");
+  });
+
+  it("renders rounded view mode toggle buttons", () => {
+    renderToolbar();
+
+    const tableToggle = screen.getByLabelText("תצוגת טבלה");
+    const cardsToggle = screen.getByLabelText("תצוגת כרטיסים");
+    const mapToggle = screen.getByLabelText("תצוגת מפה");
+
+    expect(tableToggle.className).toContain("rounded-full");
+    expect(cardsToggle.className).toContain("rounded-full");
+    expect(mapToggle.className).toContain("rounded-full");
   });
 
   it("toggles the my assets quick filter", () => {

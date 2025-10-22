@@ -888,6 +888,341 @@ export default function TableToolbar({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0">
+                  <Filter className="h-4 w-4" />
+                  <span className="hidden sm:inline">סינון</span>
+                  {hasActiveFilters && (
+                    <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                      !
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+                <SheetContent className="w-80" side="right">
+                  <SheetHeader>
+                    <SheetTitle>אפשרויות סינון</SheetTitle>
+                  </SheetHeader>
+                  <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
+                    <div className="flex items-center justify-between rtl:flex-row-reverse">
+                      {hasActiveFilters && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearAllFilters}
+                          className="h-8 rounded-full px-3"
+                        >
+                          <X className="h-3 w-3 me-1" />
+                          נקה הכל
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* My Assets Checkbox - Prominent at top */}
+                    {userAssetsAdditionalFilter && (
+                      <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border rtl:flex-row-reverse rtl:space-x-reverse">
+                        <input
+                          type="checkbox"
+                          id="my-assets-checkbox"
+                          checked={userAssetsAdditionalFilter?.value === 'mine'}
+                          onChange={(e) => {
+                            const value = e.target.checked ? 'mine' : 'all';
+                            onAdditionalFilterChange?.('userAssets', value);
+                            trackFeatureUsage('filter', undefined, { filter_type: 'my_assets', value });
+                          }}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="my-assets-checkbox" className="text-sm font-medium cursor-pointer">
+                          נכסים שלי בלבד
+                        </Label>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {cityFilter && (cityFilter.alwaysVisible || cityFilter.options.length > 0) && (
+                        <div className="space-y-1">
+                          <Label htmlFor="city-filter" className="text-sm">
+                            {cityFilter.label ?? 'עיר'}
+                          </Label>
+                          <Select
+                            value={cityFilter.value}
+                            onValueChange={(value) => {
+                              cityFilter.onChange(value);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: cityFilter.analyticsKey ?? 'city',
+                                value,
+                              });
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={cityFilter.placeholder ?? 'כל הערים'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cityFilter.showAllOption !== false && (
+                                <SelectItem value="all">{cityFilter.allLabel ?? 'כל הערים'}</SelectItem>
+                              )}
+                              {cityFilter.options.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {typeFilter && (typeFilter.alwaysVisible || typeFilter.options.length > 0) && (
+                        <div className="space-y-1">
+                          <Label htmlFor="type-filter" className="text-sm">
+                            {typeFilter.label ?? 'סוג נכס'}
+                          </Label>
+                          <Select
+                            value={typeFilter.value}
+                            onValueChange={(value) => {
+                              typeFilter.onChange(value);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: typeFilter.analyticsKey ?? 'type',
+                                value,
+                              });
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={typeFilter.placeholder ?? 'כל הסוגים'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {typeFilter.showAllOption !== false && (
+                                <SelectItem value="all">{typeFilter.allLabel ?? 'כל הסוגים'}</SelectItem>
+                              )}
+                              {typeFilter.options.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {priceMinFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="price-min" className="text-sm">
+                            {priceMinFilter.label ?? 'מחיר מינימלי'}
+                          </Label>
+                          <Input
+                            id="price-min"
+                            type="number"
+                            placeholder={priceMinFilter.placeholder ?? '₪'}
+                            value={priceMinFilter.value ?? ""}
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="text-left"
+                            onChange={(e) => {
+                              const value = e.target.value ? Number(e.target.value) : undefined;
+                              priceMinFilter.onChange(value);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: priceMinFilter.analyticsKey ?? 'price_min',
+                                value,
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {priceMaxFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="price-max" className="text-sm">
+                            {priceMaxFilter.label ?? 'מחיר מקסימלי'}
+                          </Label>
+                          <Input
+                            id="price-max"
+                            type="number"
+                            placeholder={priceMaxFilter.placeholder ?? '₪'}
+                            value={priceMaxFilter.value ?? ""}
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="text-left"
+                            onChange={(e) => {
+                              const value = e.target.value ? Number(e.target.value) : undefined;
+                              priceMaxFilter.onChange(value);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
+                                value,
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {pricePerSqmMinFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="price-per-sqm-min" className="text-sm">
+                            {pricePerSqmMinFilter.label ?? 'מחיר למ"ר מינימלי'}
+                          </Label>
+                          <Input
+                            id="price-per-sqm-min"
+                            type="number"
+                            placeholder={pricePerSqmMinFilter.placeholder ?? '₪/מ²'}
+                            value={pricePerSqmMinFilter.value ?? ""}
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="text-left"
+                            onChange={(e) => {
+                              const value = e.target.value ? Number(e.target.value) : undefined;
+                              pricePerSqmMinFilter.onChange(value);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: pricePerSqmMinFilter.analyticsKey ?? 'price_per_sqm_min',
+                                value,
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {pricePerSqmMaxFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="price-per-sqm-max" className="text-sm">
+                            {pricePerSqmMaxFilter.label ?? 'מחיר למ"ר מקסימלי'}
+                          </Label>
+                          <Input
+                            id="price-per-sqm-max"
+                            type="number"
+                            placeholder={pricePerSqmMaxFilter.placeholder ?? '₪/מ²'}
+                            value={pricePerSqmMaxFilter.value ?? ""}
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="text-left"
+                            onChange={(e) => {
+                              const value = e.target.value ? Number(e.target.value) : undefined;
+                              pricePerSqmMaxFilter.onChange(value);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: pricePerSqmMaxFilter.analyticsKey ?? 'price_per_sqm_max',
+                                value,
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {remainingRightsMinFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="remaining-rights-min" className="text-sm">
+                            {remainingRightsMinFilter.label ?? 'יתרת זכויות מינימלית'}
+                          </Label>
+                          <Input
+                            id="remaining-rights-min"
+                            type="number"
+                            placeholder={remainingRightsMinFilter.placeholder ?? 'מ²'}
+                            value={remainingRightsMinFilter.value ?? ""}
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="text-left"
+                            onChange={(e) => {
+                              const value = e.target.value ? Number(e.target.value) : undefined;
+                              remainingRightsMinFilter.onChange(value);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: remainingRightsMinFilter.analyticsKey ?? 'remaining_rights_min',
+                                value,
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {remainingRightsMaxFilter && (
+                        <div className="space-y-1">
+                          <Label htmlFor="remaining-rights-max" className="text-sm">
+                            {remainingRightsMaxFilter.label ?? 'יתרת זכויות מקסימלית'}
+                          </Label>
+                          <Input
+                            id="remaining-rights-max"
+                            type="number"
+                            placeholder={remainingRightsMaxFilter.placeholder ?? 'מ²'}
+                            value={remainingRightsMaxFilter.value ?? ""}
+                            dir="ltr"
+                            inputMode="numeric"
+                            className="text-left"
+                            onChange={(e) => {
+                              const value = e.target.value ? Number(e.target.value) : undefined;
+                              remainingRightsMaxFilter.onChange(value);
+                              trackFeatureUsage('filter', undefined, {
+                                filter_type: remainingRightsMaxFilter.analyticsKey ?? 'remaining_rights_max',
+                                value,
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Additional filters */}
+                      {additionalFilters
+                        .filter((filter) => filter.key !== 'userAssets')
+                        .map((filter) => (
+                          <div key={filter.key} className="space-y-1">
+                            <Label className="text-sm">{filter.label}</Label>
+                            {renderAdditionalFilterControl(filter)}
+                          </div>
+                        ))}
+                    </div>
+
+                    {/* Status filters */}
+                    {statusFilters && (
+                      <div className="space-y-1">
+                        <Label className="text-sm">סטטוס</Label>
+                        <Select value={statusFilters.value} onValueChange={statusFilters.onChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="כל הסטטוסים" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">כל הסטטוסים</SelectItem>
+                            {statusFilters.options.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                                {option.count !== undefined && (
+                                  <span className="me-2 rtl:ms-2 rtl:me-0 text-muted-foreground">({option.count})</span>
+                                )}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Date range filter */}
+                    {dateRange && (
+                      <div className="space-y-1">
+                        <Label className="text-sm">טווח תאריכים</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">מ-</Label>
+                            <Input
+                              type="date"
+                              value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
+                              onChange={(e) => {
+                                const date = e.target.value ? new Date(e.target.value) : undefined;
+                                dateRange.onChange(date, dateRange.to);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">עד</Label>
+                            <Input
+                              type="date"
+                              value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
+                              onChange={(e) => {
+                                const date = e.target.value ? new Date(e.target.value) : undefined;
+                                dateRange.onChange(dateRange.from, date);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+
           </div>
         </div>
 
@@ -895,367 +1230,35 @@ export default function TableToolbar({
           data-testid="toolbar-actions-container"
           className="flex w-full flex-wrap items-center gap-2 justify-start rtl:flex-row-reverse lg:w-auto lg:justify-end"
         >
-        {/* Filter toggle */}
-        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="min-h-[44px]">
-              <Filter className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
-              <span className="hidden sm:inline">סינון</span>
-              {hasActiveFilters && (
-                <Badge variant="secondary" className="me-2 rtl:ms-2 rtl:me-0 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                  !
-                </Badge>
-              )}
-            </Button>
-          </SheetTrigger>
-            <SheetContent className="w-80" side="right">
-              <SheetHeader>
-                <SheetTitle>אפשרויות סינון</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-3 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
-                <div className="flex items-center justify-between rtl:flex-row-reverse">
-                  {hasActiveFilters && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearAllFilters}
-                      className="h-8 px-2"
-                    >
-                      <X className="h-3 w-3 me-1" />
-                      נקה הכל
-                    </Button>
-                  )}
-                </div>
-
-                {/* My Assets Checkbox - Prominent at top */}
-                {userAssetsAdditionalFilter && (
-                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border rtl:flex-row-reverse rtl:space-x-reverse">
-                    <input
-                      type="checkbox"
-                      id="my-assets-checkbox"
-                      checked={userAssetsAdditionalFilter?.value === 'mine'}
-                      onChange={(e) => {
-                        const value = e.target.checked ? 'mine' : 'all';
-                        onAdditionalFilterChange?.('userAssets', value);
-                        trackFeatureUsage('filter', undefined, { filter_type: 'my_assets', value });
-                      }}
-                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                    />
-                    <Label htmlFor="my-assets-checkbox" className="text-sm font-medium cursor-pointer">
-                      נכסים שלי בלבד
-                    </Label>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2">
-                  {cityFilter && (cityFilter.alwaysVisible || cityFilter.options.length > 0) && (
-                    <div className="space-y-1">
-                      <Label htmlFor="city-filter" className="text-sm">
-                        {cityFilter.label ?? 'עיר'}
-                      </Label>
-                      <Select
-                        value={cityFilter.value}
-                        onValueChange={(value) => {
-                          cityFilter.onChange(value);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: cityFilter.analyticsKey ?? 'city',
-                            value,
-                          });
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={cityFilter.placeholder ?? 'כל הערים'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {cityFilter.showAllOption !== false && (
-                            <SelectItem value="all">{cityFilter.allLabel ?? 'כל הערים'}</SelectItem>
-                          )}
-                          {cityFilter.options.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {typeFilter && (typeFilter.alwaysVisible || typeFilter.options.length > 0) && (
-                    <div className="space-y-1">
-                      <Label htmlFor="type-filter" className="text-sm">
-                        {typeFilter.label ?? 'סוג נכס'}
-                      </Label>
-                      <Select
-                        value={typeFilter.value}
-                        onValueChange={(value) => {
-                          typeFilter.onChange(value);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: typeFilter.analyticsKey ?? 'type',
-                            value,
-                          });
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={typeFilter.placeholder ?? 'כל הסוגים'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {typeFilter.showAllOption !== false && (
-                            <SelectItem value="all">{typeFilter.allLabel ?? 'כל הסוגים'}</SelectItem>
-                          )}
-                          {typeFilter.options.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {priceMinFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="price-min" className="text-sm">
-                        {priceMinFilter.label ?? 'מחיר מינימלי'}
-                      </Label>
-                      <Input
-                        id="price-min"
-                        type="number"
-                        placeholder={priceMinFilter.placeholder ?? '₪'}
-                        value={priceMinFilter.value ?? ""}
-                        dir="ltr"
-                        inputMode="numeric"
-                        className="text-left"
-                        onChange={(e) => {
-                          const value = e.target.value ? Number(e.target.value) : undefined;
-                          priceMinFilter.onChange(value);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: priceMinFilter.analyticsKey ?? 'price_min',
-                            value,
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {priceMaxFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="price-max" className="text-sm">
-                        {priceMaxFilter.label ?? 'מחיר מקסימלי'}
-                      </Label>
-                      <Input
-                        id="price-max"
-                        type="number"
-                        placeholder={priceMaxFilter.placeholder ?? '₪'}
-                        value={priceMaxFilter.value ?? ""}
-                        dir="ltr"
-                        inputMode="numeric"
-                        className="text-left"
-                        onChange={(e) => {
-                          const value = e.target.value ? Number(e.target.value) : undefined;
-                          priceMaxFilter.onChange(value);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: priceMaxFilter.analyticsKey ?? 'price_max',
-                            value,
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {pricePerSqmMinFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="price-per-sqm-min" className="text-sm">
-                        {pricePerSqmMinFilter.label ?? 'מחיר למ"ר מינימלי'}
-                      </Label>
-                      <Input
-                        id="price-per-sqm-min"
-                        type="number"
-                        placeholder={pricePerSqmMinFilter.placeholder ?? '₪/מ²'}
-                        value={pricePerSqmMinFilter.value ?? ""}
-                        dir="ltr"
-                        inputMode="numeric"
-                        className="text-left"
-                        onChange={(e) => {
-                          const value = e.target.value ? Number(e.target.value) : undefined;
-                          pricePerSqmMinFilter.onChange(value);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: pricePerSqmMinFilter.analyticsKey ?? 'price_per_sqm_min',
-                            value,
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {pricePerSqmMaxFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="price-per-sqm-max" className="text-sm">
-                        {pricePerSqmMaxFilter.label ?? 'מחיר למ"ר מקסימלי'}
-                      </Label>
-                      <Input
-                        id="price-per-sqm-max"
-                        type="number"
-                        placeholder={pricePerSqmMaxFilter.placeholder ?? '₪/מ²'}
-                        value={pricePerSqmMaxFilter.value ?? ""}
-                        dir="ltr"
-                        inputMode="numeric"
-                        className="text-left"
-                        onChange={(e) => {
-                          const value = e.target.value ? Number(e.target.value) : undefined;
-                          pricePerSqmMaxFilter.onChange(value);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: pricePerSqmMaxFilter.analyticsKey ?? 'price_per_sqm_max',
-                            value,
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {remainingRightsMinFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="remaining-rights-min" className="text-sm">
-                        {remainingRightsMinFilter.label ?? 'יתרת זכויות מינימלית'}
-                      </Label>
-                      <Input
-                        id="remaining-rights-min"
-                        type="number"
-                        placeholder={remainingRightsMinFilter.placeholder ?? 'מ²'}
-                        value={remainingRightsMinFilter.value ?? ""}
-                        dir="ltr"
-                        inputMode="numeric"
-                        className="text-left"
-                        onChange={(e) => {
-                          const value = e.target.value ? Number(e.target.value) : undefined;
-                          remainingRightsMinFilter.onChange(value);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: remainingRightsMinFilter.analyticsKey ?? 'remaining_rights_min',
-                            value,
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {remainingRightsMaxFilter && (
-                    <div className="space-y-1">
-                      <Label htmlFor="remaining-rights-max" className="text-sm">
-                        {remainingRightsMaxFilter.label ?? 'יתרת זכויות מקסימלית'}
-                      </Label>
-                      <Input
-                        id="remaining-rights-max"
-                        type="number"
-                        placeholder={remainingRightsMaxFilter.placeholder ?? 'מ²'}
-                        value={remainingRightsMaxFilter.value ?? ""}
-                        dir="ltr"
-                        inputMode="numeric"
-                        className="text-left"
-                        onChange={(e) => {
-                          const value = e.target.value ? Number(e.target.value) : undefined;
-                          remainingRightsMaxFilter.onChange(value);
-                          trackFeatureUsage('filter', undefined, {
-                            filter_type: remainingRightsMaxFilter.analyticsKey ?? 'remaining_rights_max',
-                            value,
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Additional filters */}
-                  {additionalFilters
-                    .filter((filter) => filter.key !== 'userAssets')
-                    .map((filter) => (
-                      <div key={filter.key} className="space-y-1">
-                        <Label className="text-sm">{filter.label}</Label>
-                        {renderAdditionalFilterControl(filter)}
-                      </div>
-                    ))}
-                </div>
-
-                {/* Status filters */}
-                {statusFilters && (
-                  <div className="space-y-1">
-                    <Label className="text-sm">סטטוס</Label>
-                    <Select value={statusFilters.value} onValueChange={statusFilters.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="כל הסטטוסים" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">כל הסטטוסים</SelectItem>
-                        {statusFilters.options.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                            {option.count !== undefined && (
-                              <span className="me-2 rtl:ms-2 rtl:me-0 text-muted-foreground">({option.count})</span>
-                            )}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Date range filter */}
-                {dateRange && (
-                  <div className="space-y-1">
-                    <Label className="text-sm">טווח תאריכים</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">מ-</Label>
-                        <Input
-                          type="date"
-                          value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
-                          onChange={(e) => {
-                            const date = e.target.value ? new Date(e.target.value) : undefined;
-                            dateRange.onChange(date, dateRange.to);
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">עד</Label>
-                        <Input
-                          type="date"
-                          value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
-                          onChange={(e) => {
-                            const date = e.target.value ? new Date(e.target.value) : undefined;
-                            dateRange.onChange(dateRange.from, date);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </SheetContent>
-          </Sheet>
-
         {/* View mode toggle */}
-        <div className="flex items-center border rounded-md rtl:flex-row-reverse" dir="rtl">
+        <div className="flex items-center gap-2 rtl:flex-row-reverse" dir="rtl">
           <Button
-            variant={viewMode === 'table' ? 'default' : 'ghost'}
+            variant={viewMode === 'table' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('table')}
-            className="rtl:rounded-l-none rtl:rounded-r-none min-h-[44px] min-w-[44px]"
+            className="h-10 w-10 rounded-full flex items-center justify-center"
             title="תצוגת טבלה"
+            aria-label="תצוגת טבלה"
           >
             <List className="h-4 w-4" />
           </Button>
           <Button
-            variant={viewMode === 'cards' ? 'default' : 'ghost'}
+            variant={viewMode === 'cards' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('cards')}
-            className="rounded-none border-x min-h-[44px] min-w-[44px]"
+            className="h-10 w-10 rounded-full flex items-center justify-center"
             title="תצוגת כרטיסים"
+            aria-label="תצוגת כרטיסים"
           >
             <Grid3X3 className="h-4 w-4" />
           </Button>
           <Button
-            variant={viewMode === 'map' ? 'default' : 'ghost'}
+            variant={viewMode === 'map' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('map')}
-            className="rtl:rounded-r-none rtl:rounded-l-none min-h-[44px] min-w-[44px]"
+            className="h-10 w-10 rounded-full flex items-center justify-center"
             title="תצוגת מפה"
+            aria-label="תצוגת מפה"
           >
             <Map className="h-4 w-4" />
           </Button>
@@ -1264,8 +1267,12 @@ export default function TableToolbar({
         {/* Column selection */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="min-h-[44px]">
-              <Settings className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+            >
+              <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">עמודות</span>
             </Button>
           </DropdownMenuTrigger>
@@ -1360,7 +1367,11 @@ export default function TableToolbar({
         {bulkActions.length > 0 && selectedCount > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="min-h-[44px]">
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+              >
                 <span className="hidden sm:inline">פעולות ({selectedCount})</span>
                 <span className="sm:hidden">({selectedCount})</span>
               </Button>
@@ -1386,8 +1397,12 @@ export default function TableToolbar({
         {/* Export dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="min-h-[44px]">
-              <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+            >
+              <Download className="h-4 w-4" />
               <span className="hidden sm:inline">ייצוא</span>
             </Button>
           </DropdownMenuTrigger>
@@ -1416,16 +1431,20 @@ export default function TableToolbar({
           size="sm"
           onClick={onRefresh}
           disabled={loading}
-          className="min-h-[44px]"
+          className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
         >
-          <RefreshCw className={`h-4 w-4 me-2 rtl:ms-2 rtl:me-0 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
         </Button>
 
         {/* Add new */}
         {onAddNew && (
-          <Button onClick={onAddNew} size="sm" className="min-h-[44px]">
-            <Plus className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
+          <Button
+            onClick={onAddNew}
+            size="sm"
+            className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+          >
+            <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">הוסף חדש</span>
           </Button>
         )}

@@ -30,6 +30,13 @@ export function ContactForm({
     phone: initialData?.phone || '',
     email: initialData?.email || '',
     equity: initialData?.equity ?? null,
+    city: initialData?.city || '',
+    streets: initialData?.streets || '',
+    asset_type: initialData?.asset_type || '',
+    area_min: initialData?.area_min ?? null,
+    area_max: initialData?.area_max ?? null,
+    floor: initialData?.floor || '',
+    notes: initialData?.notes || '',
     tags: initialData?.tags || [],
   });
   const [newTag, setNewTag] = useState('');
@@ -114,6 +121,101 @@ export function ContactForm({
         />
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="city">עיר מועדפת</Label>
+        <Input
+          id="city"
+          value={formData.city || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+          placeholder="לדוגמה: תל אביב"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="streets">רחוב/ים מועדפים</Label>
+        <Textarea
+          id="streets"
+          value={formData.streets || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, streets: e.target.value }))}
+          placeholder="הזן רחובות או אזורים מועדפים (מופרד בפסיקים)"
+          rows={3}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="asset_type">סוג נכס מועדף</Label>
+        <Input
+          id="asset_type"
+          value={formData.asset_type || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, asset_type: e.target.value }))}
+          placeholder="לדוגמה: דירה, פנטהאוז, דופלקס"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="area_min">מינימום מ&quot;ר</Label>
+          <Input
+            id="area_min"
+            type="number"
+            min={0}
+            value={formData.area_min ?? ''}
+            dir="ltr"
+            inputMode="numeric"
+            className="text-left"
+            onChange={(e) => {
+              const value = e.target.value;
+              setFormData(prev => ({
+                ...prev,
+                area_min: value === '' ? null : Number(value),
+              }));
+            }}
+            placeholder="לדוגמה: 70"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="area_max">מקסימום מ&quot;ר</Label>
+          <Input
+            id="area_max"
+            type="number"
+            min={0}
+            value={formData.area_max ?? ''}
+            dir="ltr"
+            inputMode="numeric"
+            className="text-left"
+            onChange={(e) => {
+              const value = e.target.value;
+              setFormData(prev => ({
+                ...prev,
+                area_max: value === '' ? null : Number(value),
+              }));
+            }}
+            placeholder="לדוגמה: 120"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="floor">קומה מבוקשת</Label>
+        <Input
+          id="floor"
+          value={formData.floor || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, floor: e.target.value }))}
+          placeholder="לדוגמה: 3-5, קרקע, פנטהאוז"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="notes">הערות נוספות</Label>
+        <Textarea
+          id="notes"
+          value={formData.notes || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+          placeholder="כל מידע נוסף שיעזור להבין את הצרכים של הלקוח"
+          rows={4}
+        />
+      </div>
+
       <AssetSelector
         selectedAssetId={selectedAsset?.id}
         onAssetSelect={setSelectedAsset}
@@ -121,7 +223,7 @@ export function ContactForm({
       />
 
       <div className="space-y-2">
-        <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
+        <Label htmlFor="equity">הון עצמי</Label>
         <Input
           id="equity"
           type="number"

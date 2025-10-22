@@ -69,6 +69,13 @@ class ContactSerializer(serializers.ModelSerializer):
         allow_null=True,
         coerce_to_string=False
     )
+    city = serializers.CharField(required=False, allow_blank=True, default="")
+    streets = serializers.CharField(required=False, allow_blank=True, default="")
+    asset_type = serializers.CharField(required=False, allow_blank=True, default="")
+    area_min = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    area_max = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    floor = serializers.CharField(required=False, allow_blank=True, default="")
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
 
     class Meta:
         model = Contact
@@ -78,6 +85,13 @@ class ContactSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "equity",
+            "city",
+            "streets",
+            "asset_type",
+            "area_min",
+            "area_max",
+            "floor",
+            "notes",
             "tags",
             "created_at",
             "updated_at",

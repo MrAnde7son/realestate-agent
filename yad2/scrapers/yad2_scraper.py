@@ -12,6 +12,9 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from bs4 import BeautifulSoup
+
+from yad2.core.models import Contact
+
 try:
     from urllib.parse import urljoin
 except ImportError:
@@ -61,7 +64,7 @@ class Yad2Scraper:
     # ------------------------------------------------------------------
     # API helpers
     # ------------------------------------------------------------------
-    def fetch_map_listings(self, zoom: Optional[int] = None, **overrides) -> List[RealEstateListing]:
+    def fetch_map_listings(self, zoom: Optional[int] = None, pull_contacts = False, **overrides) -> List[RealEstateListing]:
         """
         Fetch active listings via Yad2's public map feed API.
 
@@ -147,11 +150,37 @@ class Yad2Scraper:
                     listings.append(listing)
 
             logger.info("Fetched %s listings from Yad2 map endpoint", len(listings))
+
+            if pull_contacts:
+                for listing in listings:
+                    if listing.url and not listing.contact_info:
+                        try:
+                            contact_info = self.fetch_contact_info(listing.url)
+                        except Exception as e:
+                            logger.error("Failed to fetch contact info for listing: %s", listing.url)
+                            contact_info = None
+                        listing.contact_info = contact_info
+                        time.sleep(0.5)  # Be polite
             self.listings = listings
             return listings
         except Exception as exc:
             logger.error("Error fetching map listings: %s", exc)
             return []
+
+    def fetch_contact_info(self, listing_url: str) -> Optional[Contact]:
+        token = listing_url.split("/")[-1]
+        url = f"{self.api_base_url}/realestate-item/{token}/customer"
+        response = self.session.get(url, timeout=30)
+        if response.status_code != 200:
+            raise Exception(f"Failed to fetch contact details: {response.status_code}")
+
+        payload = response.json()
+
+        result = payload.get("data")
+
+
+        return Contact(**result)
+
 
     def get_property_types(self):
         """Get all property type codes with names."""
@@ -373,7 +402,7 @@ class Yad2Scraper:
             property_details = additional.get("property") or {}
             listing.property_type = property_details.get("text") or property_details.get("name") or marker.get("propertyType")
             listing.rooms = additional.get("roomsCount") or marker.get("rooms")
-            listing.size = additional.get("squareMeter") or marker.get("size")
+            listing.total_size = additional.get("squareMeter") or marker.get("size")
 
             metadata = marker.get("metaData") or {}
             if listing.size is None:
@@ -385,6 +414,10 @@ class Yad2Scraper:
             for image in metadata.get("images") or []:
                 if image and image not in listing.images:
                     listing.images.append(image)
+
+            video = metadata.get("video")
+            if video:
+                listing.video = video
 
             price = marker.get("price")
             if price in (0, "0", 0.0):
@@ -837,5 +870,5 @@ class Yad2Scraper:
 if __name__ == "__main__":
     search_params =  { 'city': 5000, 'neighborhood': 203, "topArea": 2, "area": 1, "zoom": 15}
     scraper = Yad2Scraper(search_params)
-    deals = scraper.fetch_map_listings()
+    deals = scraper.fetch_map_listings(pull_contacts=True)
     print(deals)

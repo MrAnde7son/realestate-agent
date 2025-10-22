@@ -606,7 +606,7 @@ export default function TableToolbar({
                 <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48" dir="rtl">
+            <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
               <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג עסקה</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup
@@ -644,7 +644,7 @@ export default function TableToolbar({
                 <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80" dir="rtl">
+            <PopoverContent align="end" className="w-80" style={{ direction: "rtl" }}>
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-2">
                   {priceMinFilter && (
@@ -742,7 +742,7 @@ export default function TableToolbar({
                 <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80" dir="rtl">
+            <PopoverContent align="end" className="w-80" style={{ direction: "rtl" }}>
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-2">
                   {areaMinFilter && (
@@ -840,7 +840,7 @@ export default function TableToolbar({
                 <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48" dir="rtl">
+            <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
               <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג נכס</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup

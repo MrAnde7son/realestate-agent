@@ -50,6 +50,16 @@ export type AdditionalFilterValue =
   | { min?: number; max?: number }
   | { from?: string; to?: string };
 
+const QUICK_FILTER_POPOVER_PROPS = {
+  align: "end" as const,
+  side: "bottom" as const,
+  sideOffset: 12,
+  collisionPadding: 16,
+};
+
+const QUICK_FILTER_POPOVER_CLASSNAME =
+  "w-[calc(100vw-2rem)] max-w-sm sm:w-80 rtl:text-right";
+
 interface FilterOptionOption {
   value: string;
   label: string;
@@ -644,7 +654,11 @@ export default function TableToolbar({
                 <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80" style={{ direction: "rtl" }}>
+            <PopoverContent
+              {...QUICK_FILTER_POPOVER_PROPS}
+              className={QUICK_FILTER_POPOVER_CLASSNAME}
+              style={{ direction: "rtl" }}
+            >
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-2">
                   {priceMinFilter && (
@@ -742,7 +756,11 @@ export default function TableToolbar({
                 <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80" style={{ direction: "rtl" }}>
+            <PopoverContent
+              {...QUICK_FILTER_POPOVER_PROPS}
+              className={QUICK_FILTER_POPOVER_CLASSNAME}
+              style={{ direction: "rtl" }}
+            >
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-2">
                   {areaMinFilter && (

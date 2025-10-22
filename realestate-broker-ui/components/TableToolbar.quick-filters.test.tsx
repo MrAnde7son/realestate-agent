@@ -150,6 +150,22 @@ describe("TableToolbar quick filters", () => {
     expect(filters.priceMax.onChange).toHaveBeenCalledWith(3200000);
   });
 
+  it("places the price popover below the trigger without covering nearby controls", () => {
+    renderToolbar();
+
+    fireEvent.click(screen.getByRole("button", { name: "מחיר" }));
+
+    const popover = screen.getByLabelText("מחיר מינימלי").closest("[data-state]");
+
+    expect(popover).not.toBeNull();
+
+    const element = popover as HTMLElement;
+
+    expect(element).toHaveAttribute("data-side", "bottom");
+    expect(element).toHaveAttribute("data-align", "end");
+    expect(element).toHaveClass("max-w-sm");
+  });
+
   it("updates area range from the quick filter popover", () => {
     const filters = createFilters();
 
@@ -162,6 +178,22 @@ describe("TableToolbar quick filters", () => {
 
     fireEvent.change(screen.getByLabelText("שטח מקסימלי"), { target: { value: "120" } });
     expect(filters.areaMax.onChange).toHaveBeenCalledWith(120);
+  });
+
+  it("places the area popover below the trigger without covering nearby controls", () => {
+    renderToolbar();
+
+    fireEvent.click(screen.getByRole("button", { name: "שטח" }));
+
+    const popover = screen.getByLabelText("שטח מינימלי").closest("[data-state]");
+
+    expect(popover).not.toBeNull();
+
+    const element = popover as HTMLElement;
+
+    expect(element).toHaveAttribute("data-side", "bottom");
+    expect(element).toHaveAttribute("data-align", "end");
+    expect(element).toHaveClass("max-w-sm");
   });
 
   it("supports quick type selection", () => {

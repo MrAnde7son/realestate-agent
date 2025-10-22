@@ -58,7 +58,7 @@ const QUICK_FILTER_POPOVER_PROPS = {
 };
 
 const QUICK_FILTER_POPOVER_CLASSNAME =
-  "w-[calc(100vw-2rem)] max-w-sm sm:w-80 rtl:text-right";
+  "w-[calc(100vw-2rem)] max-w-sm sm:w-80 rtl:text-right bg-background text-foreground";
 
 interface FilterOptionOption {
   value: string;
@@ -353,11 +353,13 @@ export default function TableToolbar({
   const typeHasValue = typeFilter && typeFilter.value !== 'all';
   const typeButtonText = typeHasValue ? `סוג נכס: ${typeFilter?.value}` : 'סוג נכס';
 
+  const rentalSaleDefaultLabel = 'סוג עיסקה';
+
   const rentalSaleSelectedLabel = (() => {
-    if (!rentalSaleFilter || rentalSaleFilter.value === 'all') return 'השכרה או מכירה';
+    if (!rentalSaleFilter || rentalSaleFilter.value === 'all') return rentalSaleDefaultLabel;
     return (
       rentalSaleFilter.options.find(option => option.value === rentalSaleFilter.value)?.label ||
-      'השכרה או מכירה'
+      rentalSaleDefaultLabel
     );
   })();
 
@@ -617,7 +619,7 @@ export default function TableToolbar({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
-              <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג עסקה</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג עיסקה</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup
                 value={rentalSaleFilter.value}

@@ -111,7 +111,7 @@ describe("TableToolbar quick filters", () => {
     renderToolbar();
 
     expect(screen.getByRole("button", { name: "הנכסים שלי" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "השכרה או מכירה" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "סוג עיסקה" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "מחיר" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "שטח" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "סוג נכס" })).toBeInTheDocument();
@@ -128,7 +128,7 @@ describe("TableToolbar quick filters", () => {
   it("allows choosing rental or sale directly", () => {
     const { props } = renderToolbar();
 
-    const trigger = screen.getByRole("button", { name: "השכרה או מכירה" });
+    const trigger = screen.getByRole("button", { name: "סוג עיסקה" });
     openDropdownMenu(trigger);
     const rentalOption = screen.getByRole("menuitemradio", { name: "השכרה" });
     fireEvent.click(rentalOption);
@@ -164,6 +164,7 @@ describe("TableToolbar quick filters", () => {
     expect(element).toHaveAttribute("data-side", "bottom");
     expect(element).toHaveAttribute("data-align", "end");
     expect(element).toHaveClass("max-w-sm");
+    expect(element).toHaveClass("bg-background");
   });
 
   it("updates area range from the quick filter popover", () => {
@@ -194,6 +195,7 @@ describe("TableToolbar quick filters", () => {
     expect(element).toHaveAttribute("data-side", "bottom");
     expect(element).toHaveAttribute("data-align", "end");
     expect(element).toHaveClass("max-w-sm");
+    expect(element).toHaveClass("bg-background");
   });
 
   it("supports quick type selection", () => {

@@ -136,13 +136,13 @@ describe("TableToolbar quick filters", () => {
     expect(filterButton.className).toContain("rounded-full");
   });
 
-  it("arranges quick filters in a scrollable row on small screens", () => {
+  it("arranges quick filters in a responsive wrapping row on small screens", () => {
     renderToolbar();
 
     const container = screen.getByTestId("quick-filters-container");
 
-    expect(container).toHaveClass("overflow-x-auto");
-    expect(container).toHaveClass("min-w-0");
+    expect(container).toHaveClass("flex-wrap");
+    expect(container).toHaveClass("w-full");
   });
 
   it("keeps toolbar actions grouped in a wrapping container", () => {

@@ -60,6 +60,9 @@ const QUICK_FILTER_POPOVER_PROPS = {
 const QUICK_FILTER_POPOVER_CLASSNAME =
   "w-[calc(100vw-2rem)] max-w-sm sm:w-80 rtl:text-right bg-background text-foreground";
 
+const TOOLBAR_PILL_BUTTON_CLASSES =
+  "min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0";
+
 interface FilterOptionOption {
   value: string;
   label: string;
@@ -587,14 +590,14 @@ export default function TableToolbar({
         <div className="lg:flex-1">
           <div
             data-testid="quick-filters-container"
-            className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1 rtl:flex-row-reverse lg:flex-wrap lg:overflow-visible lg:pb-0"
+            className="flex w-full flex-wrap items-center gap-2 pb-1 rtl:flex-row-reverse lg:pb-0"
           >
             {userAssetsQuickFilter && (
               <Button
                 type="button"
                 variant={userAssetsActive ? 'default' : 'outline'}
                 size="sm"
-                className="h-10 rounded-full px-4 flex-shrink-0"
+                className={TOOLBAR_PILL_BUTTON_CLASSES}
                 aria-pressed={userAssetsActive}
                 onClick={() => {
                   const nextValue = userAssetsActive ? 'all' : 'mine';
@@ -617,7 +620,7 @@ export default function TableToolbar({
                     type="button"
                     variant={rentalSaleFilter.value !== 'all' ? 'default' : 'outline'}
                     size="sm"
-                    className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                    className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
                     <span>{rentalSaleSelectedLabel}</span>
                     <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
@@ -655,7 +658,7 @@ export default function TableToolbar({
                     type="button"
                     variant={priceHasValue ? 'default' : 'outline'}
                     size="sm"
-                    className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                    className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
                     <span>{priceButtonText}</span>
                     <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
@@ -757,7 +760,7 @@ export default function TableToolbar({
                     type="button"
                     variant={areaHasValue ? 'default' : 'outline'}
                     size="sm"
-                    className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                    className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
                     <span>{areaButtonText}</span>
                     <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
@@ -859,7 +862,7 @@ export default function TableToolbar({
                     type="button"
                     variant={typeHasValue ? 'default' : 'outline'}
                     size="sm"
-                    className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                    className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
                     <span>{typeButtonText}</span>
                     <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
@@ -890,7 +893,7 @@ export default function TableToolbar({
             )}
             <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10 rounded-full px-4 flex items-center gap-2 flex-shrink-0">
+                <Button variant="outline" size="sm" className={TOOLBAR_PILL_BUTTON_CLASSES}>
                   <Filter className="h-4 w-4" />
                   <span className="hidden sm:inline">סינון</span>
                   {hasActiveFilters && (
@@ -1270,7 +1273,7 @@ export default function TableToolbar({
             <Button
               variant="outline"
               size="sm"
-              className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+              className={TOOLBAR_PILL_BUTTON_CLASSES}
             >
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">עמודות</span>
@@ -1370,7 +1373,7 @@ export default function TableToolbar({
               <Button
                 variant="outline"
                 size="sm"
-                className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                className={TOOLBAR_PILL_BUTTON_CLASSES}
               >
                 <span className="hidden sm:inline">פעולות ({selectedCount})</span>
                 <span className="sm:hidden">({selectedCount})</span>
@@ -1400,7 +1403,7 @@ export default function TableToolbar({
             <Button
               variant="outline"
               size="sm"
-              className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+              className={TOOLBAR_PILL_BUTTON_CLASSES}
             >
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">ייצוא</span>
@@ -1431,7 +1434,7 @@ export default function TableToolbar({
           size="sm"
           onClick={onRefresh}
           disabled={loading}
-          className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+          className={TOOLBAR_PILL_BUTTON_CLASSES}
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
@@ -1442,7 +1445,7 @@ export default function TableToolbar({
           <Button
             onClick={onAddNew}
             size="sm"
-            className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+            className={TOOLBAR_PILL_BUTTON_CLASSES}
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">הוסף חדש</span>

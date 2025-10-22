@@ -60,4 +60,75 @@ describe('AssetsTable', () => {
     expect(selected[0].id).toBe(1)
     expect(typeof helpers.clearSelection).toBe('function')
   })
+
+  it('renders quick filter buttons and triggers callbacks', async () => {
+    const onStatusChange = vi.fn()
+    const onRiskChange = vi.fn()
+    const onDocumentsChange = vi.fn()
+
+    render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City' } as any]}
+        filters={{
+          city: { value: 'all', onChange: vi.fn(), options: [] },
+          type: { value: 'all', onChange: vi.fn(), options: [] },
+          priceMin: { value: undefined, onChange: vi.fn() },
+          priceMax: { value: undefined, onChange: vi.fn() },
+          status: {
+            value: 'all',
+            onChange: onStatusChange,
+            options: [{ value: 'done', label: 'מוכן', count: 2 }],
+          },
+          risk: {
+            value: 'all',
+            onChange: onRiskChange,
+            options: [
+              { value: 'flagged', label: 'עם דגלי סיכון' },
+              { value: 'clean', label: 'ללא דגלי סיכון' },
+            ],
+          },
+          documents: {
+            value: 'all',
+            onChange: onDocumentsChange,
+            options: [
+              { value: 'with', label: 'עם מסמכים' },
+              { value: 'without', label: 'ללא מסמכים' },
+            ],
+          },
+          rentalSale: {
+            value: 'all',
+            onChange: vi.fn(),
+            options: [
+              { value: 'rental', label: 'השכרה' },
+              { value: 'sale', label: 'מכירה' },
+            ],
+          },
+          userAssets: {
+            value: 'all',
+            onChange: vi.fn(),
+            options: [
+              { value: 'mine', label: 'נכסים שלי' },
+              { value: 'others', label: 'נכסים של אחרים' },
+            ],
+          },
+        }}
+      />
+    )
+
+    const riskButton = await screen.findByRole('button', { name: 'עם דגלי סיכון' })
+    expect(riskButton).toBeInTheDocument()
+
+    fireEvent.click(riskButton)
+    expect(onRiskChange).toHaveBeenCalledWith('flagged')
+
+    expect(screen.getByRole('button', { name: /כל הסטטוסים/ })).toBeInTheDocument()
+
+    const statusButton = screen.getByRole('button', { name: /מוכן/ })
+    fireEvent.click(statusButton)
+    expect(onStatusChange).toHaveBeenCalledWith('done')
+
+    const documentsButton = screen.getByRole('button', { name: 'עם מסמכים' })
+    fireEvent.click(documentsButton)
+    expect(onDocumentsChange).toHaveBeenCalledWith('with')
+  })
 })

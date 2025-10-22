@@ -104,6 +104,33 @@ export type AdditionalFilterConfig =
   | NumberRangeAdditionalFilter
   | DateRangeAdditionalFilter;
 
+const QUICK_FILTER_KEYS = ["risk", "documents", "rentalSale", "userAssets"] as const;
+type QuickFilterKey = (typeof QUICK_FILTER_KEYS)[number];
+
+const QUICK_FILTER_DEFAULT_LABELS: Record<QuickFilterKey | "status", string> = {
+  status: "כל הסטטוסים",
+  risk: "כל רמות הסיכון",
+  documents: "עם או בלי מסמכים",
+  rentalSale: "השכרה או מכירה",
+  userAssets: "כל הנכסים",
+};
+
+type QuickFilterGroup = {
+  key: string;
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string; count?: number }>;
+  onSelect: (value: string) => void;
+};
+
+const quickFilterKeySet = new Set<string>(QUICK_FILTER_KEYS);
+
+const isQuickFilterKey = (key: string): key is QuickFilterKey => quickFilterKeySet.has(key);
+
+const isSelectAdditionalFilter = (
+  filter: AdditionalFilterConfig
+): filter is SelectAdditionalFilter => filter.type === undefined || filter.type === "select";
+
 interface SelectFilterConfig {
   value: string;
   onChange: (value: string) => void;
@@ -273,6 +300,70 @@ export default function TableToolbar({
     (statusFilters && statusFilters.value !== 'all') ||
     (dateRange && (dateRange.from || dateRange.to)) ||
     (userAssetsFilter?.value === 'mine');
+
+  const quickSelectFilters = React.useMemo(
+    () =>
+      additionalFilters.filter(
+        (filter): filter is SelectAdditionalFilter =>
+          isSelectAdditionalFilter(filter) && isQuickFilterKey(filter.key)
+      ),
+    [additionalFilters]
+  );
+
+  const quickFilterGroups = React.useMemo<QuickFilterGroup[]>(() => {
+    const groups: QuickFilterGroup[] = [];
+
+    if (statusFilters && statusFilters.options?.length) {
+      const hasAllOption = statusFilters.options.some(option => option.value === 'all');
+      const statusOptions = hasAllOption
+        ? statusFilters.options
+        : [
+            {
+              value: 'all',
+              label: QUICK_FILTER_DEFAULT_LABELS.status,
+              count: totalCount,
+            },
+            ...statusFilters.options,
+          ];
+
+      groups.push({
+        key: 'status',
+        label: 'סטטוס',
+        value: statusFilters.value,
+        options: statusOptions,
+        onSelect: (value: string) => {
+          statusFilters.onChange(value);
+          trackFeatureUsage('filter', undefined, { filter_type: 'status', value });
+        },
+      });
+    }
+
+    quickSelectFilters.forEach(filter => {
+      const defaultValue = filter.defaultValue ?? 'all';
+      const hasDefault = filter.options?.some(option => option.value === defaultValue);
+      const options = hasDefault
+        ? filter.options ?? []
+        : [
+            {
+              value: defaultValue,
+              label: QUICK_FILTER_DEFAULT_LABELS[filter.key as QuickFilterKey] ?? 'הכל',
+            },
+            ...(filter.options ?? []),
+          ];
+
+      groups.push({
+        key: filter.key,
+        label: filter.label,
+        value: filter.value,
+        options,
+        onSelect: (value: string) => {
+          onAdditionalFilterChange?.(filter.key, value);
+        },
+      });
+    });
+
+    return groups;
+  }, [quickSelectFilters, statusFilters, totalCount, trackFeatureUsage, onAdditionalFilterChange]);
 
   const clearAllFilters = () => {
     if (cityFilter) {
@@ -450,6 +541,35 @@ export default function TableToolbar({
           dir="rtl"
         />
       </div>
+
+      {quickFilterGroups.length > 0 && (
+        <div className="flex flex-col gap-2" dir="rtl">
+          <span className="text-xs font-medium text-muted-foreground">מסננים מהירים</span>
+          <div className="flex flex-wrap gap-2 rtl:flex-row-reverse">
+            {quickFilterGroups.map(group =>
+              group.options.map(option => {
+                const isActive = group.value === option.value;
+                return (
+                  <Button
+                    key={`${group.key}-${option.value}`}
+                    type="button"
+                    variant={isActive ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-full px-4 min-h-[36px] whitespace-nowrap"
+                    aria-pressed={isActive}
+                    onClick={() => group.onSelect(option.value)}
+                  >
+                    <span>{option.label}</span>
+                    {option.count !== undefined && (
+                      <span className="text-xs ms-2 text-muted-foreground">{option.count}</span>
+                    )}
+                  </Button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Single row - All toolbar actions */}
       <div className="flex flex-wrap items-center gap-2 rtl:flex-row-reverse" dir="rtl">

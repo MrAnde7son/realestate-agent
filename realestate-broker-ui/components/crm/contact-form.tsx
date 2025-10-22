@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,6 +41,41 @@ export function ContactForm({
   });
   const [newTag, setNewTag] = useState('');
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const cityDatalistId = useId();
+
+  const fetchCitySuggestions = useCallback(async (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setCitySuggestions([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `https://data.gov.il/api/3/action/datastore_search?resource_id=d4901968-dad3-4845-a9b0-a57d027f11ab&q=${encodeURIComponent(
+          trimmed
+        )}&limit=5`
+      );
+      const json = await res.json();
+      const records = json.result?.records || [];
+      setCitySuggestions(
+        Array.from(
+          new Set(
+            records
+              .map(
+                (item: any) =>
+                  (item['שם_ישוב'] || item['שם ישוב'] || item.city || item.name || '')
+                    .toString()
+                    .trim()
+              )
+              .filter(Boolean)
+          )
+        ) as string[]
+      );
+    } catch (error) {
+      console.error('Failed to fetch city suggestions', error);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,10 +160,20 @@ export function ContactForm({
         <Label htmlFor="city">עיר מועדפת</Label>
         <Input
           id="city"
+          list={cityDatalistId}
           value={formData.city || ''}
-          onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+          onChange={(e) => {
+            const value = e.target.value;
+            setFormData(prev => ({ ...prev, city: value }));
+            void fetchCitySuggestions(value);
+          }}
           placeholder="לדוגמה: תל אביב"
         />
+        <datalist id={cityDatalistId}>
+          {citySuggestions.map(city => (
+            <option key={city} value={city} />
+          ))}
+        </datalist>
       </div>
 
       <div className="space-y-2">

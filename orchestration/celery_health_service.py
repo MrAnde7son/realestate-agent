@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 
 LOGGER = logging.getLogger("orchestration.celery_worker")
 _logging_configured = False
+_DJANGO_DIR: Optional[Path] = None
 
 
 def _configure_logging() -> None:
@@ -38,22 +39,74 @@ _worker_lock = threading.Lock()
 app = FastAPI(title="Celery Worker Health", version="1.0.0")
 
 
-def _get_django_dir() -> Path:
-    """Return the Django project directory configured for the worker."""
+def _iter_candidate_roots() -> list[Path]:
+    """Return directories that may contain the Django project."""
 
-    try:
-        django_dir = Path(os.environ["DJANGO_DIR"]).resolve()
-    except KeyError as exc:
-        raise RuntimeError(
-            "DJANGO_DIR environment variable must be set for Celery worker"
-        ) from exc
+    script_dir = Path(__file__).resolve().parent
+    cwd = Path.cwd().resolve()
+    roots: list[Path] = []
+    seen: set[Path] = set()
 
-    LOGGER.debug("Using Django directory from DJANGO_DIR=%s", django_dir)
-    return django_dir
+    for base in (script_dir, cwd):
+        for candidate in (base, *base.parents):
+            candidate = candidate.resolve()
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            roots.append(candidate)
+
+    return roots
+
+
+def _candidate_django_dirs() -> list[Path]:
+    """Generate potential Django project directories from search roots."""
+
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+
+    for root in _iter_candidate_roots():
+        for candidate in (root, root / "backend-django"):
+            candidate = candidate.resolve()
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            candidates.append(candidate)
+
+    return candidates
+
+
+def _resolve_django_dir() -> Path:
+    """Locate the Django project directory for the Celery worker."""
+
+    global _DJANGO_DIR
+
+    if _DJANGO_DIR is not None:
+        return _DJANGO_DIR
+
+    env_dir = os.environ.get("DJANGO_DIR")
+    if env_dir:
+        candidate = Path(env_dir).expanduser().resolve()
+        if not (candidate / "manage.py").is_file():
+            raise RuntimeError(
+                f"DJANGO_DIR={candidate} does not contain manage.py"
+            )
+        LOGGER.debug("Using Django directory from DJANGO_DIR=%s", candidate)
+        _DJANGO_DIR = candidate
+        return _DJANGO_DIR
+
+    for candidate in _candidate_django_dirs():
+        if (candidate / "manage.py").is_file():
+            LOGGER.debug("Auto-discovered Django directory at %s", candidate)
+            _DJANGO_DIR = candidate
+            return _DJANGO_DIR
+
+    raise RuntimeError(
+        "Unable to locate Django project directory; set DJANGO_DIR to override"
+    )
 
 
 def _spawn_worker() -> subprocess.Popen[bytes]:
-    django_dir = _get_django_dir()
+    django_dir = _resolve_django_dir()
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
 

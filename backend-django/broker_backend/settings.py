@@ -180,13 +180,14 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https:\/\/realestate-agent.*\.vercel\.app$",
-    r"^https:\/\/*nadlaner\.com$",
+    r"^https:\/\/.*\.?nadlaner\.com$"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     'https://app.nadlaner.com',
     'https://nadlaner.com',
     'https://api.nadlaner.com',
+    "https://realestate-agent*.vercel.app",
 ]
 
 # REST Framework settings

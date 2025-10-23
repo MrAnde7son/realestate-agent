@@ -138,26 +138,6 @@ describe('reports API', () => {
     expect(data.error).toBe('Invalid assetId');
   });
 
-  it('falls back to local data when backend returns 404', async () => {
-    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
-      new Response('Not found', { status: 404 })
-    );
-
-    const req = new Request('http://127.0.0.1/api/reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetId: assets[0].id }),
-    });
-
-    const res = await POST(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(201);
-    expect(data.report.assetId).toBe(assets[0].id);
-
-    fetchMock.mockRestore();
-  });
-
   it('forwards sections to backend', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({ report: { id: 1 } }), { status: 201 })

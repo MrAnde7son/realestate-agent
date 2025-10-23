@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AssetDetailPage from './page'
+import AssetDetailPageClient from './AssetDetailPageClient'
 import { useRouter } from 'next/navigation'
 
 const mockUseAuth = {
@@ -136,9 +137,18 @@ describe('AssetDetailPage', () => {
     }) as any
   })
 
+  it('resolves params promise in server wrapper', async () => {
+    const element = await AssetDetailPage({ params: Promise.resolve({ id: 'server-test' }) })
+
+    expect(React.isValidElement(element)).toBe(true)
+    if (React.isValidElement(element)) {
+      expect(element.props.assetId).toBe('server-test')
+    }
+  })
+
   it('shows error message when message creation fails', async () => {
     await act(async () => {
-      render(<AssetDetailPage params={{ id: '1' }} />)
+      render(<AssetDetailPageClient assetId="1" />)
     })
 
     await waitFor(() => {
@@ -162,7 +172,7 @@ describe('AssetDetailPage', () => {
 
   it('renders placeholders for missing optional fields', async () => {
     await act(async () => {
-      render(<AssetDetailPage params={{ id: '2' }} />)
+      render(<AssetDetailPageClient assetId="2" />)
     })
 
     await waitFor(() => {
@@ -226,7 +236,7 @@ describe('AssetDetailPage', () => {
     await act(async () => {
       render(
         <React.StrictMode>
-          <AssetDetailPage params={{ id: '1' }} />
+          <AssetDetailPageClient assetId="1" />
         </React.StrictMode>
       )
     })

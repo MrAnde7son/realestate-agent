@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const API_BASE_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     // Get the authorization header from the request
     const authHeader = request.headers.get('authorization');

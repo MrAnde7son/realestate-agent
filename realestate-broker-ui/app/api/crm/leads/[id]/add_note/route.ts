@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {
@@ -17,7 +18,7 @@ export async function POST(
     const body = await request.json();
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/leads/${params.id}/add_note/`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads/${id}/add_note/`, {
       method: 'POST',
       headers: {
         'Authorization': token,

@@ -7,7 +7,8 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 export async function POST(req: Request) {
   try {
-    const token = cookies().get('access_token')?.value
+    const cookieStore = await cookies()
+    const token = cookieStore.get('access_token')?.value
     const tokenValidation = validateToken(token)
 
     if (!tokenValidation.isValid) {

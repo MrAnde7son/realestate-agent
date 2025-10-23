@@ -6,9 +6,9 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 export async function GET(
   req: Request,
-  { params }: { params: { filename: string } }
+  { params }: { params: Promise<{ filename: string }> }
 ) {
-  const { filename } = params;
+  const { filename } = await params;
   try {
     const res = await fetch(`${BACKEND_URL}/api/reports/file/${filename}`, { cache: 'no-store' });
     if (res.ok) {

@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params
+  const { id } = await params
   try {
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
     console.log('Share message request for asset:', id, 'Backend URL:', backendUrl)

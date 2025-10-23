@@ -8,7 +8,8 @@ async function fetchFromBackend(endpoint: string, options: RequestInit = {}, req
   const url = `${BACKEND_URL}${endpoint}`
   
   // Try to get token from cookies first (server-side)
-  let token = cookies().get('access_token')?.value
+  const cookieStore = await cookies()
+  let token = cookieStore.get('access_token')?.value
   
   // If no token in cookies, try to get from request headers (client-side)
   if (!token && req) {
@@ -35,7 +36,7 @@ async function fetchFromBackend(endpoint: string, options: RequestInit = {}, req
     fullUrl: url,
     hasToken: !!token,
     tokenLength: token?.length || 0,
-    allCookies: cookies().getAll().map(c => c.name)
+    allCookies: cookieStore.getAll().map(c => c.name)
   })
   
   const defaultOptions: RequestInit = {

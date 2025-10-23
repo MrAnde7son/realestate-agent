@@ -1,13 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = Number(params.id)
+  const { id: rawId } = await params
+  const id = Number(rawId)
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
   const baseUrl = `${backendUrl}/api/assets/${id}/permits/`
-  const searchParams = request.nextUrl.searchParams.toString()
+  const searchParams = new URL(request.url).searchParams.toString()
   const permitsEndpoint = searchParams ? `${baseUrl}?${searchParams}` : baseUrl
 
   try {

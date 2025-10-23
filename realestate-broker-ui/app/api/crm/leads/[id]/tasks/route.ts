@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {
@@ -14,12 +15,11 @@ export async function GET(
       );
     }
 
-    const { id } = params;
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
     const url = new URL(`/api/crm/leads/${id}/tasks/`, backendUrl);
-    
+
     // Forward query parameters
-    const searchParams = request.nextUrl.searchParams;
+    const searchParams = new URL(request.url).searchParams;
     searchParams.forEach((value, key) => {
       url.searchParams.append(key, value);
     });

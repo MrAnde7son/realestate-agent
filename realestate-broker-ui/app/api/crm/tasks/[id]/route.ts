@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {
@@ -14,7 +15,6 @@ export async function GET(
       );
     }
 
-    const { id } = params;
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
     const response = await fetch(`${backendUrl}/api/crm/tasks/${id}/`, {
@@ -42,10 +42,11 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {
@@ -55,7 +56,6 @@ export async function PATCH(
       );
     }
 
-    const { id } = params;
     const body = await request.json();
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
@@ -85,10 +85,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {
@@ -98,7 +99,6 @@ export async function DELETE(
       );
     }
 
-    const { id } = params;
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
     const response = await fetch(`${backendUrl}/api/crm/tasks/${id}/`, {

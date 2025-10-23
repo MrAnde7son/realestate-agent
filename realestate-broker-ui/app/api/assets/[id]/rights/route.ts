@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params
+  const { id } = await params
   const numericId = Number(id)
 
   try {

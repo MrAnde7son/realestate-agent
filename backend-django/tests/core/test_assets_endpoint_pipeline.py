@@ -12,13 +12,13 @@ class DummyTask:
         self.calls = []
         self.job_id = "job-123"
 
-    def delay(self, asset_id, max_pages=1):
-        self.calls.append((asset_id, max_pages))
+    def delay(self, asset_id):
+        self.calls.append((asset_id))
         return type("AsyncResult", (), {"id": self.job_id})()
 
-    def __call__(self, asset_id, max_pages=1):
+    def __call__(self, asset_id):
         """Called when run_data_pipeline is called directly (not as Celery task)"""
-        self.calls.append((asset_id, max_pages))
+        self.calls.append((asset_id))
         return []
 
 

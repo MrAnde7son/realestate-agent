@@ -14,8 +14,8 @@ class DummyTask:
         self.calls = []
         self.job_id = "bulk-job"
 
-    def delay(self, asset_id, max_pages=1):
-        self.calls.append((asset_id, max_pages))
+    def delay(self, asset_id):
+        self.calls.append((asset_id))
         return type("AsyncResult", (), {"id": self.job_id})()
 
 

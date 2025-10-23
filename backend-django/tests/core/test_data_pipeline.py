@@ -24,7 +24,6 @@ class FakeYad2Collector(Yad2Collector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        max_pages: int = 1,
     ):
         listing = RealEstateListing()
         listing.title = "test"

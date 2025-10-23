@@ -9,7 +9,7 @@ from django.core.cache import cache
 
 
 class DummyTask:
-    def delay(self, asset_id, max_pages=1):
+    def delay(self, asset_id):
         pass
 
 

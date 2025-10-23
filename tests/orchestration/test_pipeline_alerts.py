@@ -51,8 +51,6 @@ def test_pipeline_sends_alerts(monkeypatch):
         def collect(
             self,
             location,
-            *,
-            max_pages=1,
         ):
             return [types.SimpleNamespace(
                 title="t", price=1, address="Fake 1", rooms=1,

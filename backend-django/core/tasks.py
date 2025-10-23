@@ -99,7 +99,7 @@ def send_notification_email(
 
 
 @shared_task(bind=True)
-def collect_asset_data(self, asset_id: int, max_pages: int = 1) -> Dict[str, Any]:
+def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
     """Collect raw payloads for an asset without further processing."""
     from .models import Asset
 
@@ -267,7 +267,6 @@ def collect_asset_data(self, asset_id: int, max_pages: int = 1) -> Dict[str, Any
                 "yad2",
                 pipeline.yad2.collect,
                 location,
-                max_pages=max_pages,
                 timeout=pipeline.TIMEOUTS.get("yad2"),
                 retries=pipeline.RETRIES.get("yad2", 0),
                 asset_id=asset_id,
@@ -281,7 +280,6 @@ def collect_asset_data(self, asset_id: int, max_pages: int = 1) -> Dict[str, Any
 
         state: Dict[str, Any] = {
             "asset_id": asset_id,
-            "max_pages": max_pages,
             "location": _serialize_location(location),
             "block": block,
             "parcel": parcel,
@@ -302,7 +300,6 @@ def collect_asset_data(self, asset_id: int, max_pages: int = 1) -> Dict[str, Any
 
         return {
             "asset_id": asset_id,
-            "max_pages": max_pages,
             "listing_count": len(listings_payload),
             "collect_summary": collect_summary,
         }
@@ -514,9 +511,9 @@ def link_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @shared_task(bind=True)
-def run_data_pipeline(self, asset_id: int, max_pages: int = 1):
+def run_data_pipeline(self, asset_id: int):
     workflow = chain(
-        collect_asset_data.s(asset_id=asset_id, max_pages=max_pages),
+        collect_asset_data.s(asset_id=asset_id),
         normalize_asset_data.s(),
         persist_asset_data.s(),
         link_asset_data.s(),

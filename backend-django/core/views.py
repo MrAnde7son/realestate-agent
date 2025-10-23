@@ -1111,14 +1111,14 @@ def assets_bulk_action(request):
 
                 job_id = None
                 if celery_enabled:
-                    result = run_data_pipeline.delay(asset.id, max_pages=1)
+                    result = run_data_pipeline.delay(asset.id)
                     job_id = getattr(result, "id", None)
                 else:
                     import threading
 
                     def run_sync_async(asset_pk: int) -> None:
                         try:
-                            run_data_pipeline(asset_pk, max_pages=1)
+                            run_data_pipeline(asset_pk)
                             logger.info(
                                 "Background asset sync completed for asset %s", asset_pk
                             )
@@ -3741,7 +3741,7 @@ def sync_asset(request, asset_id):
         if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
             # Use Celery task
             from .tasks import run_data_pipeline
-            result = run_data_pipeline.delay(asset_id, max_pages=1)
+            result = run_data_pipeline.delay(asset_id)
             job_id = result.id
             logger.info("Enqueued asset sync task with job ID: %s", job_id)
             message = f"סנכרון נתונים התחיל עבור {address} {house_number} (מזהה נכס: {asset_id}, מזהה משימה: {job_id})"
@@ -3752,7 +3752,7 @@ def sync_asset(request, asset_id):
             def run_sync_async():
                 try:
                     from .tasks import run_data_pipeline
-                    run_data_pipeline(asset_id, max_pages=1)
+                    run_data_pipeline(asset_id)
                     logger.info("Background asset sync completed for asset %s", asset_id)
                 except Exception as e:
                     logger.error("Background asset sync failed for asset %s: %s", asset_id, e)

@@ -307,7 +307,7 @@ class TestAssetCreationWithPlanLimits:
         self.client.force_authenticate(user=self.user)
         
         # Try to create another asset
-        response = self.client.post('', 
+        response = self.client.post('/api/assets', 
             json.dumps({
                 'scope': {
                     'type': 'address',

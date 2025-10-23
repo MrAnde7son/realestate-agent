@@ -50,7 +50,7 @@ class CrmFrontendSmokeTests(TestCase):
     
     def test_crm_main_page_accessible(self):
         """Test that CRM main API is accessible"""
-        response = self.client.get('/api/crm')
+        response = self.client.get('/api/crm/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_asset_page_with_crm_tab(self):

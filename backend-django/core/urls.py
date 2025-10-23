@@ -69,6 +69,7 @@ urlpatterns = [
 
     # Asset enrichment endpoints
     path('assets/', include((asset_urlpatterns, 'assets'))),
+    path('assets', views.assets),
     path(
         'dashboard/market-data',
         views.dashboard_market_data,

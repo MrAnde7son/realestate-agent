@@ -94,8 +94,6 @@ from .analytics import track, track_search, track_feature_usage
 from .services.asset_links import (
     asset_documents_all,
     asset_transactions_all,
-    asset_permits_all,
-    asset_plans_all,
     asset_listings_all,
 )
 

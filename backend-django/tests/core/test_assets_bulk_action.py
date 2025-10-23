@@ -133,7 +133,7 @@ def test_bulk_sync_triggers_pipeline(monkeypatch, settings):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["success"] == 2
-    assert dummy.calls == [(assets[0].id, 1), (assets[1].id, 1)]
+    assert dummy.calls == [(assets[0].id), (assets[1].id)]
     for asset in Asset.objects.filter(id__in=[asset.id for asset in assets]):
         asset.refresh_from_db()
         assert asset.status == "syncing"

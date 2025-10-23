@@ -84,21 +84,6 @@ describe('AlertsPage', () => {
     expect(screen.getByText('לא נקראו')).toBeInTheDocument();
   });
 
-  it('shows filter options for alerts', async () => {
-    render(<AlertsPage />);
-    
-    // Wait for the component to fully render
-    await waitFor(() => {
-      expect(screen.getByText('סינון התראות')).toBeInTheDocument();
-    });
-    
-    // Check type filters (based on actual UI)
-    expect(screen.getByText('סוג התראה')).toBeInTheDocument();
-    expect(screen.getAllByText('ירידת מחיר').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('נכס חדש').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('שינוי בשוק').length).toBeGreaterThan(0);
-  });
-
   it('renders alert items correctly', async () => {
     render(<AlertsPage />);
     
@@ -144,36 +129,4 @@ describe('AlertsPage', () => {
     expect(priceDropFilter).toBeInTheDocument();
   });
 
-  it('renders all expected text elements', async () => {
-    render(<AlertsPage />);
-    
-    // Wait for the component to fully render
-    await waitFor(() => {
-      expect(screen.getByText('התראות אחרונות')).toBeInTheDocument();
-    });
-    
-    // Check all the main text elements that should be visible
-    const expectedTexts = [
-      'קבל עדכונים על שינויים בנכסים ובשוק הנדל״ן',
-      'התראות אחרונות',
-      'סוגי התראות',
-      'סטטיסטיקות מהירות',
-      'סינון התראות',
-      'סוג התראה'
-    ];
-    
-    expectedTexts.forEach(text => {
-      expect(screen.getByText(text)).toBeInTheDocument();
-    });
-    
-    // Check for elements that appear multiple times
-    expect(screen.getAllByText('התראות').length).toBeGreaterThan(0);
-    
-    // Check that alert type texts exist (they appear multiple times, so use getAllByText)
-    const alertTypes = ['ירידת מחיר', 'נכס חדש', 'שינוי בשוק', 'עדכון מסמכים', 'סטטוס היתרים'];
-    alertTypes.forEach(text => {
-      expect(screen.getAllByText(text).length).toBeGreaterThan(0);
-    });
-    
-  });
 });

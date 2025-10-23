@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import jsPDF from 'jspdf';
 import fs from 'fs';
 import path from 'path';
-import { mockReports, type Report } from '@/lib/reports';
+import { type Report } from '@/lib/reports';
 import { assets } from '@/lib/data';
 import { validateToken } from '@/lib/token-utils';
 
@@ -33,17 +33,16 @@ export async function GET(req: Request) {
     if (res.ok) {
       const data = await res.json();
       const backendReports = data.reports || [];
-      return NextResponse.json({ reports: [...backendReports, ...mockReports] });
+      return NextResponse.json({ reports: [...backendReports] });
     }
   } catch (err) {
     console.error('Backend reports fetch failed:', err);
   }
-  return NextResponse.json({ reports: mockReports });
+  return NextResponse.json({ reports: [] });
 }
 
 export async function DELETE(req: Request) {
   try {
-    // Get authentication token
     const cookieStore = await cookies();
     const token = cookieStore.get('access_token')?.value;
     
@@ -99,44 +98,17 @@ export async function DELETE(req: Request) {
         console.log('Backend delete success:', data);
         return NextResponse.json(data, { status: res.status });
       } else {
-        // If backend doesn't have the report, try to delete from local reports
-        console.log('Backend report not found, trying local deletion');
-        const localReportIndex = mockReports.findIndex(r => r.id === reportId);
-        if (localReportIndex !== -1) {
-          // Remove from local reports
-          const deletedReport = mockReports.splice(localReportIndex, 1)[0];
-          console.log('Deleted local report:', deletedReport);
-          return NextResponse.json({ 
-            message: `Report ${reportId} deleted successfully from local storage`,
-            deletedReport 
-          }, { status: 200 });
-        } else {
-          // Report not found in either backend or local
-          return NextResponse.json({ error: 'Report not found' }, { status: 404 });
-        }
+        return NextResponse.json({ error: 'Failed to delete report' }, { status: res.status });
       }
-          } catch (err) {
-        console.error('Error connecting to backend for delete:', err);
-        // If backend is unavailable, try local deletion
-        console.log('Backend unavailable, trying local deletion');
-        const localReportIndex = mockReports.findIndex(r => r.id === reportId);
-        if (localReportIndex !== -1) {
-          // Remove from local reports
-          const deletedReport = mockReports.splice(localReportIndex, 1)[0];
-          console.log('Deleted local report:', deletedReport);
-          return NextResponse.json({ 
-            message: `Report ${reportId} deleted successfully from local storage`,
-            deletedReport 
-          }, { status: 200 });
-        } else {
-          return NextResponse.json({ error: 'Report not found' }, { status: 404 });
-        }
-      }
+    } catch (err) {
+      console.error('Error deleting report:', err);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
   } catch (err) {
-    console.error('Error in DELETE handler:', err);
+    console.error('Error deleting report:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+} 
 
 export async function POST(req: Request) {
   let assetId: number;
@@ -196,184 +168,7 @@ export async function POST(req: Request) {
       }
     }
   } catch (err) {
-    console.error('Error connecting to backend:', err);
-    // Only fall back to local generation if backend is completely unreachable
-    console.log('Backend completely unreachable, falling back to local generation');
-  }
-
-  // Generate report locally as fallback
-  try {
-    console.log('Falling back to local asset data for assetId:', assetId);
-    const asset = assets.find(l => l.id === assetId);
-    if (!asset) {
-      console.error('Asset not found in local data:', assetId);
-      return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
-    }
-    console.log('Found local asset:', asset.address);
-
-    const id = mockReports.length + 1;
-    const filename = `r${id}.pdf`; // Generate PDF reports
-    console.log('Current working directory:', process.cwd());
-    console.log('Attempting to create directory for reports');
-    // Use path relative to the project root so it works in any environment
-    const dir = path.join(process.cwd(), 'public', 'reports');
-    console.log('Reports directory path:', dir);
-    fs.mkdirSync(dir, { recursive: true });
-    const filePath = path.join(dir, filename);
-    console.log('File path:', filePath);
-
-    // Create a rich PDF report with multiple pages (one per tab)
-    const doc = new jsPDF();
-    
-    // Page 1: General Analysis
-    doc.setFontSize(20);
-    doc.text('Asset Report - General Analysis', 105, 30, { align: 'center' });
-    
-    // Asset Details Section
-    doc.setFontSize(14);
-    doc.text('Asset Details', 20, 60);
-    doc.setFontSize(12);
-    let y = 80;
-    doc.text(`Address: ${asset.address}`, 20, y); y += 10;
-    doc.text(`City: ${asset.city || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Neighborhood: ${asset.neighborhood || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Type: ${asset.type || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Price: ₪${asset.price?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Bedrooms: ${asset.bedrooms || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Bathrooms: ${asset.bathrooms || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Area: ${asset.area ?? 'N/A'} sqm`, 20, y); y += 10;
-    doc.text(`Price per sqm: ₪${asset.pricePerSqmDisplay?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
-    
-    // Financial Analysis Section
-    y += 20;
-    doc.setFontSize(14);
-    doc.text('Financial Analysis', 20, y); y += 15;
-    doc.setFontSize(12);
-    doc.text(`Model Price: ₪${asset.modelPrice?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Price Gap: ${asset.priceGapPct || 'N/A'}%`, 20, y); y += 10;
-    doc.text(`Rent Estimate: ₪${asset.rentEstimate?.toLocaleString('he-IL') || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Annual Return: ${asset.capRatePct || 'N/A'}%`, 20, y); y += 10;
-    doc.text(`Competition (1km): ${asset.competition1km || 'N/A'}`, 20, y); y += 10;
-    
-    // Investment Recommendation
-    y += 20;
-    doc.setFontSize(14);
-    doc.text('Investment Recommendation', 20, y); y += 15;
-    doc.setFontSize(12);
-    const confidence = asset.confidencePct || 0;
-    const capRate = asset.capRatePct || 0;
-    const priceGap = asset.priceGapPct || 0;
-    const overallScore = Math.round((confidence + (capRate * 20) + (priceGap < 0 ? 100 + priceGap : 100 - priceGap)) / 3);
-    doc.text(`Overall Score: ${overallScore}/100`, 20, y); y += 10;
-    
-    let recommendation = 'Asset at fair market price';
-    if (priceGap < -10) {
-      recommendation = 'Asset at attractive price below market';
-    } else if (priceGap > 10) {
-      recommendation = 'Asset expensive relative to market';
-    }
-    doc.text(`Recommendation: ${recommendation}`, 20, y);
-    
-    // Page 2: Plans and Rights
-    doc.addPage();
-    doc.setFontSize(20);
-    doc.text('Plans and Building Rights', 105, 30, { align: 'center' });
-    
-    y = 60;
-    doc.setFontSize(14);
-    doc.text('Local and Detailed Plans', 20, y); y += 15;
-    doc.setFontSize(12);
-    doc.text(`Current Plan: ${asset.program || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Zoning: ${asset.zoning || 'N/A'}`, 20, y); y += 10;
-    doc.text(`Remaining Rights: +${asset.remainingRightsSqm || 'N/A'} sqm`, 20, y); y += 10;
-    doc.text(`Main Building Rights: ${asset.area ?? 'N/A'} sqm`, 20, y); y += 10;
-    
-    y += 20;
-    doc.setFontSize(14);
-    doc.text('Building Rights Details', 20, y); y += 15;
-    doc.setFontSize(12);
-    doc.text(`Remaining Rights: ${asset.remainingRightsSqm || 'N/A'} sqm`, 20, y); y += 10;
-    const rightsPercentage = asset.remainingRightsSqm && asset.area ? Math.round((asset.remainingRightsSqm / asset.area) * 100) : 0;
-    doc.text(`Additional Rights Percentage: ${rightsPercentage}%`, 20, y); y += 10;
-    const rightsValue = asset.pricePerSqmDisplay && asset.remainingRightsSqm ? Math.round((asset.pricePerSqmDisplay * asset.remainingRightsSqm * 0.7) / 1000) : 0;
-    doc.text(`Estimated Rights Value: ₪${rightsValue}K`, 20, y);
-    
-    // Page 3: Environment
-    doc.addPage();
-    doc.setFontSize(20);
-    doc.text('Environmental Information', 105, 30, { align: 'center' });
-    
-    y = 60;
-    doc.setFontSize(14);
-    doc.text('Environmental Data', 20, y); y += 15;
-    doc.setFontSize(12);
-    doc.text(`Noise Level: ${asset.noiseLevel || 'N/A'}/5`, 20, y); y += 10;
-    doc.text(`Public Areas ≤300m: Yes`, 20, y); y += 10;
-    doc.text(`Antenna Distance: ${asset.antennaDistanceM ? `${asset.antennaDistanceM}m` : 'N/A'}`, 20, y); y += 10;
-    
-    y += 20;
-    doc.setFontSize(14);
-    doc.text('Risk Factors', 20, y); y += 15;
-    doc.setFontSize(12);
-    if (asset.riskFlags && asset.riskFlags.length > 0) {
-      asset.riskFlags.forEach(flag => {
-        doc.text(`• ${flag}`, 20, y); y += 10;
-      });
-    } else {
-      doc.text('No special risks', 20, y);
-    }
-    
-    // Page 4: Documents and Summary
-    doc.addPage();
-    doc.setFontSize(20);
-    doc.text('Documents and Summary', 105, 30, { align: 'center' });
-    
-    y = 60;
-    doc.setFontSize(14);
-    doc.text('Available Documents', 20, y); y += 15;
-    doc.setFontSize(12);
-    if (asset.documents && asset.documents.length > 0) {
-      asset.documents.forEach(docItem => {
-        doc.text(`• ${docItem.name} (${docItem.type || 'N/A'})`, 20, y); y += 10;
-      });
-    } else {
-      doc.text('No documents available', 20, y);
-    }
-    
-    // Contact Info
-    y += 20;
-    doc.setFontSize(14);
-    doc.text('Contact Information', 20, y); y += 15;
-    doc.setFontSize(12);
-    if (asset.contactInfo) {
-      doc.text(`Agent: ${asset.contactInfo.agent}`, 20, y); y += 10;
-      doc.text(`Phone: ${asset.contactInfo.phone}`, 20, y); y += 10;
-      doc.text(`Email: ${asset.contactInfo.email}`, 20, y);
-    } else {
-      doc.text('N/A', 20, y);
-    }
-    
-    // Footer
-    doc.setFontSize(10);
-    doc.text(`Report generated on: ${new Date().toLocaleString('he-IL')}`, 105, 280, { align: 'center' });
-    
-    // Save the PDF
-    const pdfBuffer = doc.output('arraybuffer');
-    fs.writeFileSync(filePath, Buffer.from(pdfBuffer));
-
-    const report: Report = {
-      id,
-      assetId,
-      address: asset.address,
-      filename,
-      createdAt: new Date().toISOString(),
-      url: `/api/reports/file/${filename}`,
-    };
-    mockReports.push(report);
-    return NextResponse.json({ report }, { status: 201 });
-  } catch (err) {
-    console.error('Error in local fallback:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: 'Local report generation failed', details: errorMessage }, { status: 500 });
+    console.error('Error generating report:', err);
+    return NextResponse.json({ error: 'Backend report generation failed', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
   }
 }

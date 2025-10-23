@@ -10,7 +10,8 @@ export async function GET(
 ) {
   try {
     const assetId = params.id
-    let token = cookies().get('access_token')?.value
+    const cookieStore = await cookies()
+    let token = cookieStore.get('access_token')?.value
 
     if (!token) {
       const authHeader = request.headers.get('authorization')

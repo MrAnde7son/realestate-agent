@@ -9,7 +9,7 @@ async function getMe() {
   try {
     // Get the access token from cookies (similar to middleware)
     const { cookies } = await import('next/headers');
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('access_token')?.value;
     
     if (!accessToken) {
@@ -38,7 +38,7 @@ async function getAnalytics() {
   try {
     // Get the access token from cookies
     const { cookies } = await import('next/headers');
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('access_token')?.value;
     
     if (!accessToken) {

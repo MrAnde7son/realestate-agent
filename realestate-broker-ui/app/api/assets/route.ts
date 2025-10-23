@@ -54,7 +54,8 @@ const newAssetSchema = z.object({
 
 export async function GET(request: Request) {
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-  const token = cookies().get('access_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('access_token')?.value
   let search = ''
   if (request?.url) {
     try {
@@ -91,7 +92,8 @@ export async function GET(request: Request) {
 export async function DELETE(req: Request) {
   try {
     // Get authentication token
-    const token = cookies().get('access_token')?.value
+    const cookieStore = await cookies()
+    const token = cookieStore.get('access_token')?.value
     
     // Validate token
     const tokenValidation = validateToken(token)
@@ -154,9 +156,10 @@ export async function DELETE(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    
+
     // Get authentication token
-    const token = cookies().get('access_token')?.value
+    const cookieStore = await cookies()
+    const token = cookieStore.get('access_token')?.value
     
     // Validate token
     const tokenValidation = validateToken(token)

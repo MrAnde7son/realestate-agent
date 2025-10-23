@@ -7,7 +7,8 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 export async function GET(request: NextRequest) {
   try {
     // Get authentication token
-    let token = cookies().get('access_token')?.value
+    const cookieStore = await cookies()
+    let token = cookieStore.get('access_token')?.value
     
     // If no token in cookies, try to get from request headers
     if (!token) {

@@ -20,7 +20,8 @@ export async function POST(
       console.log(`Syncing asset ${id} with backend: ${BACKEND_URL}/api/assets/${id}/sync/`)
       
       // Get authentication token from cookies
-      const token = cookies().get('access_token')?.value
+      const cookieStore = await cookies()
+      const token = cookieStore.get('access_token')?.value
       
       const resp = await fetch(`${BACKEND_URL}/api/assets/${id}/sync/`, {
         method: 'POST',

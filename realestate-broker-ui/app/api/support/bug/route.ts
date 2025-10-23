@@ -20,7 +20,6 @@ export async function POST(req: Request) {
   const res = await fetch(`${process.env.BACKEND_URL}/api/support/bug`, {
     method: 'POST',
     headers: {
-      "Content-Type": "application/json",
       ...(token && { Authorization: `Bearer ${token}` }),
     },
     body: form,

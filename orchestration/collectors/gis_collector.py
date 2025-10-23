@@ -33,7 +33,7 @@ class GISCollector(BaseCollector):
         number = query.house_number if query.house_number is not None else 0
 
         # Handle block/parcel-only queries
-        if block and parcel and str(block).strip() and str(parcel).strip() and not search_street:
+        if block and parcel and not search_street:
             logger.info(f"Processing block/parcel-only query: {block}/{parcel}")
             return self._collect_by_block_parcel(block, parcel)
 
@@ -178,5 +178,5 @@ class GISCollector(BaseCollector):
 
 if __name__ == "__main__":
     gis_collector = GISCollector()
-    data = gis_collector.collect(LocationQuery(block="6638", parcel="402"))
+    data = gis_collector.collect(LocationQuery(block=6638, parcel=402))
     print(data)

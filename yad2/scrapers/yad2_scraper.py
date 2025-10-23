@@ -5,6 +5,7 @@ Yad2 Scraper
 
 Enhanced Yad2 scraper with dynamic parameter support and comprehensive data extraction.
 """
+from enum import Enum
 import logging
 import requests
 import json
@@ -23,6 +24,11 @@ except ImportError:
 from yad2.core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
 
 logger = logging.getLogger(__name__)
+
+class ListingType(Enum):
+    SALE = "sale"
+    RENT = "rent" 
+    ALL = "all"
 
 class Yad2Scraper:
     """Enhanced Yad2 scraper with dynamic parameter support."""
@@ -64,108 +70,119 @@ class Yad2Scraper:
     # ------------------------------------------------------------------
     # API helpers
     # ------------------------------------------------------------------
-    def fetch_map_listings(self, zoom: Optional[int] = None, pull_contacts = False, **overrides) -> List[RealEstateListing]:
+    def fetch_listings(self, zoom: Optional[int] = None, listing_type: ListingType = "all", pull_contacts = False, **overrides) -> List[RealEstateListing]:
         """
         Fetch active listings via Yad2's public map feed API.
 
         Args:
             zoom: Optional zoom level (defaults to 15).
+            listing_type: Listing type (sale, rent, all)
+            pull_contacts: Whether to pull contact info for the listings
             **overrides: Explicit parameters (city, neighborhood, property, etc.)
 
         Returns:
             List of :class:`RealEstateListing` instances.
         """
-        try:
-            url = f"{self.api_base_url}/realestate-feed/forsale/map"
-            active = self.search_params.get_active_parameters()
+        active = self.search_params.get_active_parameters()
 
-            allowed_params = {
-                "topArea",
-                "area",
-                "city",
-                "neighborhood",
-                "street",
-                "property",
-                "dealType",
-                "priceOnly",
-                "exclusive",
-                "minPrice",
-                "maxPrice",
-                "rooms",
-                "minRooms",
-                "maxRooms",
-                "minSize",
-                "maxSize",
-            }
+        allowed_params = {
+            "topArea",
+            "area",
+            "city",
+            "neighborhood",
+            "street",
+            "property",
+            "dealType",
+            "priceOnly",
+            "exclusive",
+            "minPrice",
+            "maxPrice",
+            "rooms",
+            "minRooms",
+            "maxRooms",
+            "minSize",
+            "maxSize",
+        }
 
-            params: Dict[str, Any] = {}
+        params: Dict[str, Any] = {}
 
-            def _choose_value(key: str) -> Optional[Any]:
-                if key in overrides and overrides[key] is not None:
-                    return overrides[key]
-                return active.get(key)
+        def _choose_value(key: str) -> Optional[Any]:
+            if key in overrides and overrides[key] is not None:
+                return overrides[key]
+            return active.get(key)
 
-            for key in allowed_params:
-                value = _choose_value(key)
-                if value is None:
-                    continue
-                if key == "property" and isinstance(value, (list, tuple, set)):
-                    params[key] = ",".join(str(v) for v in value if v is not None)
-                else:
-                    params[key] = value
+        for key in allowed_params:
+            value = _choose_value(key)
+            if value is None:
+                continue
+            if key == "property" and isinstance(value, (list, tuple, set)):
+                params[key] = ",".join(str(v) for v in value if v is not None)
+            else:
+                params[key] = value
 
-            zoom_value = overrides.get("zoom")
-            if zoom_value is None:
-                zoom_value = zoom if zoom is not None else active.get("zoom")
-            params["zoom"] = zoom_value if zoom_value is not None else 15
+        zoom_value = overrides.get("zoom")
+        if zoom_value is None:
+            zoom_value = zoom if zoom is not None else active.get("zoom")
+        params["zoom"] = zoom_value if zoom_value is not None else 15
 
-            logger.info("Fetching map listings with params: %s", params)
-            response = self.session.get(url, params=params, timeout=30)
-            if response.status_code != 200:
-                logger.warning("Failed to fetch map listings: %s", response.status_code)
-                return []
+        if listing_type == ListingType.SALE:
+            urls = [f"{self.api_base_url}/realestate-feed/forsale/map"]
+        elif listing_type == ListingType.RENT:
+            urls = [f"{self.api_base_url}/realestate-feed/rent/map"]
+        else:
+            urls = [f"{self.api_base_url}/realestate-feed/forsale/map", f"{self.api_base_url}/realestate-feed/rent/map"]
 
+        listings: List[RealEstateListing] = []
+        for url in urls:
+            current_listing_type = ListingType(url.split("/")[-2].replace("for", ""))
             try:
-                payload = response.json()
-            except json.JSONDecodeError:
-                logger.error("Failed to decode map listings response as JSON")
-                return []
+                logger.info("Fetching map listings with params: %s", params)
+                response = self.session.get(url, params=params, timeout=30)
+                if response.status_code != 200:
+                    logger.warning("Failed to fetch map listings: %s", response.status_code)
+                    continue
 
-            listings: List[RealEstateListing] = []
+                try:
+                    payload = response.json()
+                except json.JSONDecodeError:
+                    logger.error("Failed to decode map listings response as JSON")
+                    continue
 
-            result = payload.get("data")
-            for marker in result.get("markers", []) or []:
-                listing = self._convert_map_marker(marker, marker_type="yad2")
-                if listing:
-                    listings.append(listing)
 
-            for marker in result.get("yad1Markers", []) or []:
-                listing = self._convert_map_marker(marker, marker_type="yad1")
-                if listing:
-                    listings.append(listing)
+                result = payload.get("data")
+                for marker in result.get("markers", []) or []:
+                    listing = self._convert_map_marker(marker, marker_type="yad2", listing_type=current_listing_type)
+                    if listing:
+                        listings.append(listing)
 
-            for marker in result.get("agencyPromotions", []) or []:
-                listing = self._convert_map_marker(marker, marker_type="yad2")
-                if listing:
-                    listings.append(listing)
+                for marker in result.get("yad1Markers", []) or []:
+                    listing = self._convert_map_marker(marker, marker_type="yad1", listing_type=current_listing_type)
+                    if listing:
+                        listings.append(listing)
 
-            logger.info("Fetched %s listings from Yad2 map endpoint", len(listings))
+                for marker in result.get("agencyPromotions", []) or []:
+                    listing = self._convert_map_marker(marker, marker_type="yad2", listing_type=current_listing_type)
+                    if listing:
+                        listings.append(listing)
 
-            if pull_contacts:
-                for listing in listings:
-                    if listing.url and not listing.contact_info:
-                        try:
-                            contact_info = self.fetch_contact_info(listing.url)
-                        except Exception as e:
-                            logger.error("Failed to fetch contact info for listing: %s", listing.url)
-                            contact_info = None
-                        listing.contact_info = contact_info
-                        time.sleep(0.5)  # Be polite
-            self.listings = listings
-            return listings
-        except Exception as exc:
-            logger.error("Error fetching map listings: %s", exc)
-            return []
+                logger.info("Fetched %s listings from Yad2 map endpoint", len(listings))
+
+                if pull_contacts:
+                    for listing in listings:
+                        if listing.url and not listing.contact_info:
+                            try:
+                                contact_info = self.fetch_contact_info(listing.url)
+                            except Exception as e:
+                                logger.error("Failed to fetch contact info for listing: %s; %s", listing.url, e)
+                                contact_info = None
+                            listing.contact_info = contact_info
+                            time.sleep(0.5)  # Be polite
+            except Exception as exc:
+                logger.error("Error fetching map listings: %s", exc)
+                continue    
+
+        self.listings = listings
+        return listings
 
     def fetch_contact_info(self, listing_url: str) -> Optional[Contact]:
         token = listing_url.split("/")[-1]
@@ -344,7 +361,7 @@ class Yad2Scraper:
             logger.error("Error fetching latest deals: {}".format(e))
             return []
 
-    def _convert_map_marker(self, marker: Dict[str, Any], marker_type: str = "yad2") -> Optional[RealEstateListing]:
+    def _convert_map_marker(self, marker: Dict[str, Any], marker_type: str = "yad2", listing_type: ListingType = ListingType.RENT) -> Optional[RealEstateListing]:
         """Convert a map marker response entry into a :class:`RealEstateListing`."""
 
         if not marker:
@@ -352,6 +369,7 @@ class Yad2Scraper:
 
         try:
             listing = RealEstateListing()
+            listing.listing_type = listing_type.value
 
             address = marker.get("address") or {}
             city = self._extract_nested_text(address, "city")
@@ -870,5 +888,5 @@ class Yad2Scraper:
 if __name__ == "__main__":
     search_params =  { 'city': 5000, 'neighborhood': 203, "topArea": 2, "area": 1, "zoom": 15}
     scraper = Yad2Scraper(search_params)
-    deals = scraper.fetch_map_listings(pull_contacts=True)
+    deals = scraper.fetch_listings()
     print(deals)

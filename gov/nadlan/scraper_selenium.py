@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-nadlan/scraper.py
------------------
 
 Simple scraper for retrieving real-estate transaction history from nadlan.gov.il.
 
@@ -86,9 +84,6 @@ class NadlanDealsScraper:
         if self.driver is not None:
             return
 
-        user_data_dir = os.path.join(tempfile.gettempdir(), "nadlan_chrome_profile")
-        os.makedirs(user_data_dir, exist_ok=True)
-
         options = webdriver.ChromeOptions()
 
         if self.headless:
@@ -98,7 +93,7 @@ class NadlanDealsScraper:
         options.add_argument("--window-size=1366,768")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-features=Translate")
-        options.add_argument("--user-data-dir=" + user_data_dir)
+        options.add_argument(f"--user-data-dir={tempfile.mkdtemp(prefix='chrome_profile_')}")
         options.add_argument("--lang=he-IL")
         options.add_argument("--use-gl=swiftshader")
         options.add_argument("--enable-webgl")

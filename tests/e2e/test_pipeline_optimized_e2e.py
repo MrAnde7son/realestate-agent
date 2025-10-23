@@ -85,7 +85,7 @@ def test_mavat_collector_formats_results_without_network_calls():
     client = FakeMavatClient(plans)
     collector = MavatCollector(client=client)
 
-    formatted = collector.collect(LocationQuery(block="6336", city="Tel Aviv"))
+    formatted = collector.collect(LocationQuery(block=6336, city="Tel Aviv"))
 
     assert formatted == [
         {
@@ -333,7 +333,7 @@ def test_pipeline_combines_collector_results_with_stubs():
     listings = [FakeListing(title="Sunny flat", address="רוזוב 14 תל אביב", listing_id="TLV-1")]
     pipeline = _build_pipeline(session, listings)
 
-    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block="6336", parcel="7")
+    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block=6336, parcel=7)
     results = pipeline.run(location=location, max_pages=1)
 
     # Listing plus enrichment payloads from the collectors

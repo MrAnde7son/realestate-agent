@@ -47,8 +47,8 @@ class GovCollector(BaseCollector):
         """
 
         query = ensure_location_query(location)
-        block = (query.block or "").strip()
-        parcel = (query.parcel or "").strip()
+        block = query.block
+        parcel = query.parcel
         address = query.formatted or query.street or query.city
 
         return {
@@ -82,7 +82,7 @@ class GovCollector(BaseCollector):
         """Validate the parameters for government data collection."""
 
         location = ensure_location_query(kwargs.get("location"))
-        return bool(str(location.block or "").strip())
+        return bool(location.block)
 
 if __name__ == "__main__":
     # Example with fully optimized collector
@@ -96,7 +96,6 @@ if __name__ == "__main__":
     
     # Test the optimized collection
     result = collector.collect(
-        block="6336", 
         location=LocationQuery("תל אביב-יפו", "רוזוב", 4),
         max_age_days=180  # Override to 180 days for this specific request
     )
@@ -109,7 +108,6 @@ if __name__ == "__main__":
     import time
     start_time = time.time()
     result2 = collector.collect(
-        block="6336", 
         location=LocationQuery("תל אביב-יפו", "רוזוב", 4)
     )
     cache_time = time.time() - start_time

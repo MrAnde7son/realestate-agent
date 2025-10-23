@@ -94,7 +94,7 @@ def test_get_search_summary_and_save(tmp_path):
     assert data["total_listings"] == 1
 
 
-def test_fetch_map_listings_converts_markers(monkeypatch):
+def test_fetch_listings_converts_markers(monkeypatch):
     payload = {
         "data": {
         "markers": [
@@ -144,7 +144,7 @@ def test_fetch_map_listings_converts_markers(monkeypatch):
         lambda url, params, timeout: DummyResponse(),
     )
 
-    listings = scraper.fetch_map_listings()
+    listings = scraper.fetch_listings()
     assert len(listings) == 1
     listing = listings[0]
 

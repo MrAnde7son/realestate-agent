@@ -37,7 +37,7 @@ class HandasaCollector(BaseCollector):
             kwargs.get("location"),
         )
         block = location.block
-        return bool(str(block or "").strip())
+        return bool(block)
 
 
 __all__ = ["HandasaCollector"]
@@ -45,5 +45,5 @@ __all__ = ["HandasaCollector"]
 
 if __name__ == "__main__":
     collector = HandasaCollector()
-    result = collector.collect("6952", "127")
+    result = collector.collect(LocationQuery(block=6952, parcel=127))
     print(result)

@@ -15,11 +15,11 @@ if "x" in result and "y" in result:
     print("Parcel data:", result["api_data"].get("parcel", "Not available"))
 """
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from orchestration.collectors.base_collector import BaseCollector
 from govmap.api_client import GovMapClient
-from orchestration.location import LocationQuery, ensure_location_query
+from orchestration.location import LocationQuery
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class GovMapCollector(BaseCollector):
         address = location.formatted or location.street or location.city
 
         # Determine search query based on input
-        if block and parcel and block.strip() and parcel.strip() and not address:
+        if block and parcel and not address:
             # Block/parcel-only query
             search_query = f"גוש {block} חלקה {parcel}"
             logger.info(f"Processing block/parcel-only query in GovMap: {block}/{parcel}")
@@ -170,6 +170,6 @@ if __name__ == "__main__":
     from orchestration.location import LocationQuery
 
     collector = GovMapCollector()
-    result = collector.collect(block="7793", parcel="102")
+    result = collector.collect(LocationQuery(block=7793, parcel=102))
     print("Address:", result["address"])
     print("result:", result)

@@ -514,7 +514,6 @@ class TelAvivGS:
                                 self._logger.info(f"Privilege page option {opt} appears to be blank ({text_length} chars), skipping")
                                 consecutive_empty += 1
                                 # Remove the empty file
-                                import os
                                 if os.path.exists(dest_path):
                                     os.remove(dest_path)
                                 continue

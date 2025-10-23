@@ -24,7 +24,7 @@ from .fakes import FakeDecisiveClient, FakeNadlanScraper
 
 # Test data
 TEST_ADDRESS = "רוזוב 14 תל אביב"
-TEST_LOCATION = LocationQuery(street="רוזוב", house_number=14, city="תל אביב", block="6336", parcel="7")
+TEST_LOCATION = LocationQuery(street="רוזוב", house_number=14, city="תל אביב", block=6336, parcel=7)
 
 # Configure logging
 logging.basicConfig(

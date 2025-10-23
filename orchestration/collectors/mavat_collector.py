@@ -39,7 +39,7 @@ class MavatCollector(BaseCollector):
             A list of plan summaries in consistent format.
         """
         query = ensure_location_query(location)
-        block = (query.block or "").strip()
+        block = query.block
         city = query.city
         if not block:
             raise ValueError("MavatCollector requires a block number")
@@ -73,9 +73,9 @@ class MavatCollector(BaseCollector):
             kwargs.get("location"),
         )
         block = query.block
-        return bool(str(block or "").strip())
+        return bool(block)
 
 if __name__ == '__main__':
     collector = MavatCollector()
-    result = collector.collect(block=6336)
+    result = collector.collect(LocationQuery(block=6336))
     print(result)

@@ -96,7 +96,7 @@ class TestMavatCollectorErrorHandling:
                 collector = MavatCollector(client=mock_client)
                 
                 # Should return empty list on error, not raise exception
-                result = collector.collect(LocationQuery(block="666", parcel="1"))
+                result = collector.collect(LocationQuery(block=666, parcel=1))
                 assert result == []
         except Exception as e:
             pytest.fail(f"Collect method error handling test failed: {e}")

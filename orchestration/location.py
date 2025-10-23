@@ -18,9 +18,9 @@ class LocationQuery:
     city: str = ""
     street: str = ""
     house_number: Optional[int] = None
-    block: Optional[str] = None
-    parcel: Optional[str] = None
-    subparcel: Optional[str] = None
+    block: Optional[int] = None
+    parcel: Optional[int] = None
+    subparcel: Optional[int] = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "city", (self.city or "").strip())
@@ -32,11 +32,6 @@ class LocationQuery:
         if not number:
             number = None
         object.__setattr__(self, "house_number", number)
-
-        for field_name in ("block", "parcel", "subparcel"):
-            value = getattr(self, field_name)
-            normalized = (value or "").strip() or None
-            object.__setattr__(self, field_name, normalized)
 
     @property
     def street_with_number(self) -> str:

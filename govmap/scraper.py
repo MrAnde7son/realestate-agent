@@ -2,9 +2,6 @@
 """
 A super-light "scraper" for the public GovMap autocomplete endpoint.
 Use this when you want address/POI/neighborhood suggestions without the JS SDK.
-
-You already call this pattern in gov/nadlan/scraper.py; this class wraps it in a
-reusable component so other modules can depend on it directly.
 """
 from typing import Any, Dict, List
 import requests

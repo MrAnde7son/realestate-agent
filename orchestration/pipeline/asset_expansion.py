@@ -269,11 +269,11 @@ def _asset_exists(candidate: AddressCandidate, AssetModel: Any) -> bool:
         queryset = AssetModel.objects.all()
         if candidate.scope_type == "parcel":
             if candidate.location.block:
-                queryset = queryset.filter(block__iexact=candidate.location.block.strip())
+                queryset = queryset.filter(block__iexact=candidate.location.block)
             if candidate.location.parcel:
-                queryset = queryset.filter(parcel__iexact=candidate.location.parcel.strip())
+                queryset = queryset.filter(parcel__iexact=candidate.location.parcel)
             if candidate.location.subparcel:
-                queryset = queryset.filter(subparcel__iexact=candidate.location.subparcel.strip())
+                queryset = queryset.filter(subparcel__iexact=candidate.location.subparcel)
             if candidate.city:
                 queryset = queryset.filter(city__iexact=candidate.city.strip())
             return queryset.exists()

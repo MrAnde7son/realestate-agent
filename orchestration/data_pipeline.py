@@ -224,7 +224,7 @@ class DataPipeline:
                 duration = time.perf_counter() - start_time
                 COLLECTOR_LATENCY.labels(source=source).observe(duration)
                 logger.info(
-                    f"📊 {source.upper()} collector completed",
+                    f"📊 {source} collector completed",
                     extra={
                         "asset_id": asset_id,
                         "collector": source,
@@ -306,7 +306,6 @@ class DataPipeline:
     def run(
         self,
         location: Optional[LocationQuery] = None,
-        max_pages: int = 1,
         asset_id: Optional[int] = None,
     ) -> List[Any]:
         """Run the pipeline for a given location.
@@ -315,8 +314,6 @@ class DataPipeline:
         ----------
         location: Optional[LocationQuery]
             Structured location query. When ``None`` an empty query is assumed.
-        max_pages: int
-            Number of result pages to pull from Yad2.
         asset_id: Optional[int]
             Existing asset identifier being enriched (if any).
 
@@ -326,25 +323,18 @@ class DataPipeline:
         """
 
         location = ensure_location_query(location)
-        initial_block = (location.block or "").strip()
-        initial_parcel = (location.parcel or "").strip()
-        initial_subparcel = (location.subparcel or "").strip()
+        initial_block = location.block
+        initial_parcel = location.parcel
+        initial_subparcel = location.subparcel
         street_with_number = location.street_with_number
         full_address = location.formatted
 
-        logger.info(
-            "🚀 Starting data pipeline for %s (max_pages=%s)",
-            full_address or street_with_number or location.city,
-            max_pages,
-        )
+        logger.info(f"🚀 Starting data pipeline for {location.formatted}")
         start_time = time.perf_counter()
 
         # Prepare attributes for OpenTelemetry (only include non-None values)
         span_attributes = {
-            "city": location.city,
-            "street": location.street,
-            "full_address": full_address,
-            "max_pages": max_pages,
+            "location": location,
         }
         # Only add house_number if it's not None
         if location.house_number is not None:
@@ -610,7 +600,6 @@ class DataPipeline:
                     "yad2",
                     self.yad2.collect,
                     location,
-                    max_pages=max_pages,
                     timeout=self.TIMEOUTS.get("yad2"),
                     retries=self.RETRIES.get("yad2", 0),
                     asset_id=asset_id,

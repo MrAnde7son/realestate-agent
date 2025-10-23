@@ -20,7 +20,7 @@ class RamiCollector(BaseCollector):
     ) -> List[Dict[str, Any]]:
         """Collect RAMI plans for a given block (block) and parcel (parcel)."""
         query = ensure_location_query(location)
-        block = (query.block or "").strip()
+        block = query.block
         if not block:
             raise ValueError("RamiCollector requires a block number")
         try:
@@ -49,10 +49,9 @@ class RamiCollector(BaseCollector):
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for RAMI data collection."""
         query = ensure_location_query(kwargs.get("location"))
-        block = (query.block or "").strip()
-        return bool(block)
+        return bool(query.block)
 
 if __name__ == "__main__":
     client = RamiCollector()
-    plans = client.collect(block="6336")
+    plans = client.collect(LocationQuery(block=6336))
     print(plans)

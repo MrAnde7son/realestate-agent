@@ -116,13 +116,13 @@ def collect_asset_data(self, asset_id: int, max_pages: int = 1) -> Dict[str, Any
     asset.save(update_fields=["status", "last_enrich_error"])
 
     pipeline = DataPipeline()
-    block = asset.block or ""
-    parcel = asset.parcel or ""
-    subparcel = asset.subparcel or ""
+    block = asset.block
+    parcel = asset.parcel
+    subparcel = asset.subparcel
     location = LocationQuery(
-        city=asset.city or "",
-        street=asset.street or "",
-        house_number=asset.number or None,
+        city=asset.city,
+        street=asset.street,
+        house_number=asset.number,
         block=block,
         parcel=parcel,
         subparcel=subparcel,
@@ -147,8 +147,6 @@ def collect_asset_data(self, asset_id: int, max_pages: int = 1) -> Dict[str, Any
                 timeout=pipeline.TIMEOUTS.get("govmap"),
                 retries=pipeline.RETRIES.get("govmap", 0),
                 asset_id=asset_id,
-                block=block,
-                parcel=parcel,
             )
             collect_summary["govmap"] = True
             if "x" in govmap_data and "y" in govmap_data:

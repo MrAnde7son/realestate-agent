@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { validateToken } from '@/lib/token-utils'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     let token = cookies().get('access_token')?.value
 

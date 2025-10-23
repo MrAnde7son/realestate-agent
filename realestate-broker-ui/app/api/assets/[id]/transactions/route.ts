@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params
+  const { id } = await params
   const numericId = Number(id)
   const baseUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/transactions/`
-  const searchParams = request.nextUrl.searchParams.toString()
+  const searchParams = new URL(request.url).searchParams.toString()
   const backendUrl = searchParams ? `${baseUrl}?${searchParams}` : baseUrl
 
   try {

@@ -103,16 +103,16 @@ class FakeGovMapCollector(GovMapCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        block: Optional[str] = None,
-        parcel: Optional[str] = None,
+        block: Optional[int] = None,
+        parcel: Optional[int] = None,
     ):
         query = location or LocationQuery(street="Fake", house_number=1, city="תל אביב")
         return {
             "address": query.formatted or "Fake st 1",
             "x": 183162.21989007457,
             "y": 667055.4977532875,
-            "block": "1",
-            "parcel": "2",
+            "block": 1,
+            "parcel": 2,
             "api_data": {
                 "autocomplete": {
                     "resultsCount": 1,

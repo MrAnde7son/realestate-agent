@@ -301,8 +301,8 @@ class MavatAPIClient:
         district: Optional[str] = None,
         plan_area: Optional[str] = None,
         street: Optional[str] = None,
-        block: Optional[str] = None,
-        parcel: Optional[str] = None,
+        block: Optional[int] = None,
+        parcel: Optional[int] = None,
         block_number: Optional[str] = None,
         parcel_number: Optional[str] = None,
         status: Optional[str] = None,
@@ -536,4 +536,4 @@ class MavatAPIClient:
 
 if __name__ == "__main__":
     client = MavatAPIClient()
-    print(client.search_plans(block_number="6638", parcel_number="96"))
+    print(client.search_plans(block_number=6638, parcel_number=96))

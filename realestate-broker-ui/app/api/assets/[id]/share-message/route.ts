@@ -17,7 +17,7 @@ export async function POST(
       // ignore missing body
     }
     
-    const response = await fetch(`${backendUrl}/api/assets/${id}/share-message/`, {
+    const response = await fetch(`${backendUrl}/api/assets/${id}/share-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ language }),

@@ -31,7 +31,7 @@ def test_assets_post_triggers_pipeline(monkeypatch):
         "number": 5,
     }
     request = factory.post(
-        "/api/assets/", data=json.dumps(payload), content_type="application/json"
+        "/api/assets", data=json.dumps(payload), content_type="application/json"
     )
 
     dummy_asset = type("Asset", (), {"id": 1})()
@@ -66,7 +66,7 @@ def test_assets_delete_requires_admin_user():
         role="broker",
     )
     request = factory.delete(
-        "/api/assets/", data=json.dumps({"assetId": asset.id}), content_type="application/json"
+        "/api/assets", data=json.dumps({"assetId": asset.id}), content_type="application/json"
     )
     force_authenticate(request, user=user)
 
@@ -89,7 +89,7 @@ def test_assets_delete_removes_asset_for_admin():
         is_staff=True,
     )
     request = factory.delete(
-        "/api/assets/", data=json.dumps({"assetId": asset.id}), content_type="application/json"
+        "/api/assets", data=json.dumps({"assetId": asset.id}), content_type="application/json"
     )
     force_authenticate(request, user=admin_user)
 

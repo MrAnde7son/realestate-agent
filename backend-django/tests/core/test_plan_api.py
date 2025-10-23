@@ -113,7 +113,7 @@ class TestPlanAPIEndpoints:
         
         # Authenticate and make request
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/api/plans/info/')
+        response = self.client.get('/api/plans/info')
         
         assert response.status_code == status.HTTP_200_OK
         
@@ -130,13 +130,13 @@ class TestPlanAPIEndpoints:
 
     def test_user_plan_info_unauthenticated(self):
         """Test getting user plan info when not authenticated"""
-        response = self.client.get('/api/plans/info/')
+        response = self.client.get('/api/plans/info')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_user_plan_info_no_plan(self):
         """Test getting user plan info when user has no plan"""
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/api/plans/info/')
+        response = self.client.get('/api/plans/info')
         
         assert response.status_code == status.HTTP_200_OK
         
@@ -146,7 +146,7 @@ class TestPlanAPIEndpoints:
 
     def test_plan_types_list(self):
         """Test getting list of available plan types"""
-        response = self.client.get('/api/plans/types/')
+        response = self.client.get('/api/plans/types')
         
         assert response.status_code == status.HTTP_200_OK
         
@@ -179,7 +179,7 @@ class TestPlanAPIEndpoints:
         self.client.force_authenticate(user=self.user)
         
         # Upgrade to basic plan
-        response = self.client.post('/api/plans/upgrade/', 
+        response = self.client.post('/api/plans/upgrade', 
             json.dumps({'plan_name': 'basic'}),
             content_type='application/json'
         )
@@ -197,7 +197,7 @@ class TestPlanAPIEndpoints:
         """Test upgrading to invalid plan"""
         self.client.force_authenticate(user=self.user)
 
-        response = self.client.post('/api/plans/upgrade/',
+        response = self.client.post('/api/plans/upgrade',
             json.dumps({'plan_name': 'nonexistent'}),
             content_type='application/json'
         )
@@ -219,7 +219,7 @@ class TestPlanAPIEndpoints:
         
         self.client.force_authenticate(user=self.user)
         
-        response = self.client.post('/api/plans/upgrade/', 
+        response = self.client.post('/api/plans/upgrade', 
             json.dumps({'plan_name': 'basic'}),
             content_type='application/json'
         )
@@ -232,7 +232,7 @@ class TestPlanAPIEndpoints:
 
     def test_upgrade_plan_unauthenticated(self):
         """Test upgrading plan when not authenticated"""
-        response = self.client.post('/api/plans/upgrade/', {
+        response = self.client.post('/api/plans/upgrade', {
             'plan_name': 'basic'
         })
         
@@ -242,7 +242,7 @@ class TestPlanAPIEndpoints:
         """Test upgrading plan without plan_name parameter"""
         self.client.force_authenticate(user=self.user)
         
-        response = self.client.post('/api/plans/upgrade/', {})
+        response = self.client.post('/api/plans/upgrade', {})
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         
@@ -307,7 +307,7 @@ class TestAssetCreationWithPlanLimits:
         self.client.force_authenticate(user=self.user)
         
         # Try to create another asset
-        response = self.client.post('/api/assets/', 
+        response = self.client.post('', 
             json.dumps({
                 'scope': {
                     'type': 'address',
@@ -352,7 +352,7 @@ class TestAssetCreationWithPlanLimits:
         self.client.force_authenticate(user=self.user)
         
         # Try to create another asset
-        response = self.client.post('/api/assets/', 
+        response = self.client.post('/api/assets', 
             json.dumps({
                 'scope': {
                     'type': 'address',
@@ -400,7 +400,7 @@ class TestAssetCreationWithPlanLimits:
         self.client.force_authenticate(user=self.user)
         
         # Try to create another asset
-        response = self.client.post('/api/assets/', 
+        response = self.client.post('/api/assets', 
             json.dumps({
                 'scope': {
                     'type': 'address',
@@ -422,7 +422,7 @@ class TestAssetCreationWithPlanLimits:
         self.client.force_authenticate(user=self.user)
         
         # Create a single asset (should work and assign free plan)
-        response = self.client.post('/api/assets/', 
+        response = self.client.post('/api/assets', 
             json.dumps({
                 'scope': {
                     'type': 'address',
@@ -479,7 +479,7 @@ class TestPlanAPIEdgeCases:
         )
         
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/api/plans/info/')
+        response = self.client.get('/api/plans/info')
         
         # Should assign default plan since current plan is inactive
         assert response.status_code == status.HTTP_200_OK
@@ -497,7 +497,7 @@ class TestPlanAPIEdgeCases:
             is_active=False
         )
         
-        response = self.client.get('/api/plans/types/')
+        response = self.client.get('/api/plans/types')
         
         assert response.status_code == status.HTTP_200_OK
         
@@ -519,7 +519,7 @@ class TestPlanAPIEdgeCases:
         
         self.client.force_authenticate(user=self.user)
         
-        response = self.client.post('/api/plans/upgrade/',
+        response = self.client.post('/api/plans/upgrade',
             json.dumps({'plan_name': 'inactive'}),
             content_type='application/json'
         )
@@ -559,7 +559,7 @@ class TestPlanAPIEdgeCases:
         )
         
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/api/plans/info/')
+        response = self.client.get('/api/plans/info')
         
         assert response.status_code == status.HTTP_200_OK
         

@@ -31,7 +31,7 @@ class ContactEquityAPITests(TestCase):
             "equity": 350000.50,
         }
 
-        response = self.client.post("/api/crm/contacts/", payload, format="json")
+        response = self.client.post("/api/crm/contacts", payload, format="json")
 
         self.assertEqual(response.status_code, 201)
         self.assertIn("equity", response.data)
@@ -51,7 +51,7 @@ class ContactEquityAPITests(TestCase):
         )
 
         response = self.client.patch(
-            f"/api/crm/contacts/{contact.id}/",
+            f"/api/crm/contacts/{contact.id}",
             {"equity": None},
             format="json",
         )
@@ -77,7 +77,7 @@ class ContactEquityAPITests(TestCase):
             "notes": "מחפשת דירה מוארת עם מעלית וחניה",
         }
 
-        response = self.client.post("/api/crm/contacts/", payload, format="json")
+        response = self.client.post("/api/crm/contacts", payload, format="json")
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["city"], payload["city"])

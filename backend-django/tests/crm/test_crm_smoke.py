@@ -59,7 +59,7 @@ class CrmSmokeTests(TestCase):
             'tags': ['VIP', 'משקיע']
         }
         
-        response = self.client.post('/api/crm/contacts/', data, format='json')
+        response = self.client.post('/api/crm/contacts', data, format='json')
         if response.status_code != status.HTTP_201_CREATED:
             print(f"Response status: {response.status_code}")
             print(f"Response data: {response.data}")
@@ -79,7 +79,7 @@ class CrmSmokeTests(TestCase):
             'email': 'rut@example.com'
         }
         
-        response = self.client.post('/api/crm/contacts/', data)
+        response = self.client.post('/api/crm/contacts', data)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_contact_access_ownership(self):
@@ -91,12 +91,12 @@ class CrmSmokeTests(TestCase):
         )
         
         # Owner can access
-        response = self.client.get(f'/api/crm/contacts/{contact.id}/')
+        response = self.client.get(f'/api/crm/contacts/{contact.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Other user cannot access
         self.client.force_authenticate(user=self.other_user)
-        response = self.client.get(f'/api/crm/contacts/{contact.id}/')
+        response = self.client.get(f'/api/crm/contacts/{contact.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_lead_creation_success(self):
@@ -113,7 +113,7 @@ class CrmSmokeTests(TestCase):
             'status': 'new'
         }
         
-        response = self.client.post('/api/crm/leads/', data)
+        response = self.client.post('/api/crm/leads', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         lead = Lead.objects.get(contact=contact, asset=self.asset)
@@ -133,7 +133,7 @@ class CrmSmokeTests(TestCase):
             'asset_id': self.asset.id
         }
         
-        response = self.client.post('/api/crm/leads/', data)
+        response = self.client.post('/api/crm/leads', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('contact_id_write', str(response.data))
     
@@ -150,7 +150,7 @@ class CrmSmokeTests(TestCase):
             'asset_id': 99999  # Non-existent asset
         }
         
-        response = self.client.post('/api/crm/leads/', data)
+        response = self.client.post('/api/crm/leads', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('Asset not found', str(response.data))
     
@@ -169,7 +169,7 @@ class CrmSmokeTests(TestCase):
         )
         
         data = {'status': 'contacted'}
-        response = self.client.post(f'/api/crm/leads/{lead.id}/set_status/', data)
+        response = self.client.post(f'/api/crm/leads/{lead.id}/set_status', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         lead.refresh_from_db()
@@ -190,7 +190,7 @@ class CrmSmokeTests(TestCase):
         )
         
         data = {'status': 'invalid_status'}
-        response = self.client.post(f'/api/crm/leads/{lead.id}/set_status/', data)
+        response = self.client.post(f'/api/crm/leads/{lead.id}/set_status', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
     def test_lead_note_addition_success(self):
@@ -208,7 +208,7 @@ class CrmSmokeTests(TestCase):
         )
         
         data = {'text': 'נפגשנו, ביקשה דוח ממותג'}
-        response = self.client.post(f'/api/crm/leads/{lead.id}/add_note/', data)
+        response = self.client.post(f'/api/crm/leads/{lead.id}/add_note', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         lead.refresh_from_db()
@@ -230,7 +230,7 @@ class CrmSmokeTests(TestCase):
         )
         
         data = {'text': ''}
-        response = self.client.post(f'/api/crm/leads/{lead.id}/add_note/', data)
+        response = self.client.post(f'/api/crm/leads/{lead.id}/add_note', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         # Check for the custom message
         response_text = str(response.data)
@@ -262,7 +262,7 @@ class CrmSmokeTests(TestCase):
             status='contacted'
         )
         
-        response = self.client.get(f'/api/crm/leads/by_asset/?asset_id={self.asset.id}')
+        response = self.client.get(f'/api/crm/leads/by_asset?asset_id={self.asset.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
     
@@ -283,13 +283,13 @@ class CrmSmokeTests(TestCase):
         )
         
         # Search by name
-        response = self.client.get('/api/crm/contacts/search/?q=רות')
+        response = self.client.get('/api/crm/contacts/search?q=רות')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['name'], 'רות כהן')
         
         # Search by email
-        response = self.client.get('/api/crm/contacts/search/?q=david@example.com')
+        response = self.client.get('/api/crm/contacts/search?q=david@example.com')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['name'], 'דוד לוי')
@@ -308,7 +308,7 @@ class CrmSmokeTests(TestCase):
             status='interested'
         )
         
-        response = self.client.post(f'/api/crm/leads/{lead.id}/send_report/')
+        response = self.client.post(f'/api/crm/leads/{lead.id}/send_report')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('message', response.data)
         self.assertIn('contact_email', response.data)
@@ -329,7 +329,7 @@ class CrmSmokeTests(TestCase):
             status='interested'
         )
         
-        response = self.client.post(f'/api/crm/leads/{lead.id}/send_report/')
+        response = self.client.post(f'/api/crm/leads/{lead.id}/send_report')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Should still succeed but with no email
         self.assertIn('message', response.data)
@@ -356,7 +356,7 @@ class CrmSmokeTests(TestCase):
             'status': 'contacted'
         }
         
-        response = self.client.post('/api/crm/leads/', data)
+        response = self.client.post('/api/crm/leads', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         # Should fail due to unique constraint
     
@@ -367,7 +367,7 @@ class CrmSmokeTests(TestCase):
             'name': 'רות כהן',
             'email': 'rut@example.com'
         }
-        response1 = self.client.post('/api/crm/contacts/', data1, format='json')
+        response1 = self.client.post('/api/crm/contacts', data1, format='json')
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
         
         # Try to create another contact with same email for same owner
@@ -376,7 +376,7 @@ class CrmSmokeTests(TestCase):
             'email': 'rut@example.com'
         }
         
-        response2 = self.client.post('/api/crm/contacts/', data2, format='json')
+        response2 = self.client.post('/api/crm/contacts', data2, format='json')
         self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
         
         # But different owner can have same email
@@ -386,7 +386,7 @@ class CrmSmokeTests(TestCase):
             'name': 'רות כהן אחרת',
             'email': 'rut@example.com'
         }
-        response3 = self.client.post('/api/crm/contacts/', data3, format='json')
+        response3 = self.client.post('/api/crm/contacts', data3, format='json')
         self.assertEqual(response3.status_code, status.HTTP_201_CREATED)
         
         # Switch back to original user

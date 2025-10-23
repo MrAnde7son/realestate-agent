@@ -32,6 +32,7 @@ class RealEstateListing:
         self.date_posted = kwargs.get('date_posted')
         self.coordinates = kwargs.get('coordinates')
         self.listing_type = kwargs.get('listing_type')
+        self.recent_deal = kwargs.get('recent_deal')
         self.scraped_at = datetime.now().isoformat()
         self.meta = {}
     
@@ -56,6 +57,7 @@ class RealEstateListing:
             'date_posted': self.date_posted,
             'coordinates': self.coordinates,
             'listing_type': self.listing_type,
+            'recent_deal': self.recent_deal,
             'scraped_at': self.scraped_at,
             'meta': self.meta,
         }

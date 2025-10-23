@@ -181,7 +181,7 @@ export function useDashboardData() {
         }> = []
         
         try {
-          const marketDataRes = await api.get('/api/dashboard/market-data/')
+          const marketDataRes = await api.get('/api/dashboard/market-data')
           if (marketDataRes.ok && marketDataRes.data?.marketData) {
             marketData = marketDataRes.data.marketData.map((item: any) => ({
               month: item.month,

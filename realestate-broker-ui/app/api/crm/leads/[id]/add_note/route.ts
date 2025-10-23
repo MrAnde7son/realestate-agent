@@ -18,7 +18,7 @@ export async function POST(
     const body = await request.json();
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/leads/${id}/add_note/`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads/${id}/add_note`, {
       method: 'POST',
       headers: {
         'Authorization': token,

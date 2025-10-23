@@ -46,7 +46,7 @@
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/login/",
+              "raw": "{{baseUrl}}/auth/login",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login", ""]
             }
@@ -68,7 +68,7 @@
               "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"username\": \"newuser\",\n  \"first_name\": \"New\",\n  \"last_name\": \"User\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/register/",
+              "raw": "{{baseUrl}}/auth/register",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "register", ""]
             }
@@ -90,7 +90,7 @@
               "raw": "{\n  \"refresh\": \"your-refresh-token-here\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/refresh/",
+              "raw": "{{baseUrl}}/auth/refresh",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "refresh", ""]
             }
@@ -102,7 +102,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/auth/profile/",
+              "raw": "{{baseUrl}}/auth/profile",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "profile", ""]
             }
@@ -124,7 +124,7 @@
               "raw": "{\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Name\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/auth/update-profile/",
+              "raw": "{{baseUrl}}/auth/update-profile",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "update-profile", ""]
             }
@@ -136,7 +136,7 @@
           "request": {
             "method": "POST",
             "url": {
-              "raw": "{{baseUrl}}/auth/logout/",
+              "raw": "{{baseUrl}}/auth/logout",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "logout", ""]
             }
@@ -153,7 +153,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/assets/",
+              "raw": "{{baseUrl}}/assets",
               "host": ["{{baseUrl}}"],
               "path": ["assets", ""]
             }
@@ -165,7 +165,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/assets/1/",
+              "raw": "{{baseUrl}}/assets/1",
               "host": ["{{baseUrl}}"],
               "path": ["assets", "1", ""]
             }
@@ -187,7 +187,7 @@
               "raw": "{\n  \"address\": \"123 Main St\",\n  \"street\": \"Main St\",\n  \"number\": 123,\n  \"city\": \"Tel Aviv\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/assets/",
+              "raw": "{{baseUrl}}/assets",
               "host": ["{{baseUrl}}"],
               "path": ["assets", ""]
             }
@@ -209,7 +209,7 @@
               "raw": "{\n  \"address\": \"123 Main St, Updated\",\n  \"city\": \"Jerusalem\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/assets/1/",
+              "raw": "{{baseUrl}}/assets/1",
               "host": ["{{baseUrl}}"],
               "path": ["assets", "1", ""]
             }
@@ -221,7 +221,7 @@
           "request": {
             "method": "DELETE",
             "url": {
-              "raw": "{{baseUrl}}/assets/1/",
+              "raw": "{{baseUrl}}/assets/1",
               "host": ["{{baseUrl}}"],
               "path": ["assets", "1", ""]
             }
@@ -233,7 +233,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/assets/stats/",
+              "raw": "{{baseUrl}}/assets/stats",
               "host": ["{{baseUrl}}"],
               "path": ["assets", "stats", ""]
             }
@@ -250,7 +250,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/permits/",
+              "raw": "{{baseUrl}}/permits",
               "host": ["{{baseUrl}}"],
               "path": ["permits", ""]
             }
@@ -262,7 +262,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/permits/1/",
+              "raw": "{{baseUrl}}/permits/1",
               "host": ["{{baseUrl}}"],
               "path": ["permits", "1", ""]
             }
@@ -284,7 +284,7 @@
               "raw": "{\n  \"permit_number\": \"PERMIT-001\",\n  \"status\": \"active\",\n  \"description\": \"Building permit for new construction\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/permits/",
+              "raw": "{{baseUrl}}/permits",
               "host": ["{{baseUrl}}"],
               "path": ["permits", ""]
             }
@@ -301,7 +301,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/plans/",
+              "raw": "{{baseUrl}}/plans",
               "host": ["{{baseUrl}}"],
               "path": ["plans", ""]
             }
@@ -313,7 +313,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/plans/1/",
+              "raw": "{{baseUrl}}/plans/1",
               "host": ["{{baseUrl}}"],
               "path": ["plans", "1", ""]
             }
@@ -335,7 +335,7 @@
               "raw": "{\n  \"plan_number\": \"PLAN-001\",\n  \"title\": \"Urban Development Plan\",\n  \"status\": \"approved\",\n  \"description\": \"Comprehensive urban development plan\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/plans/",
+              "raw": "{{baseUrl}}/plans",
               "host": ["{{baseUrl}}"],
               "path": ["plans", ""]
             }
@@ -381,7 +381,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/alerts/",
+              "raw": "{{baseUrl}}/alerts",
               "host": ["{{baseUrl}}"],
               "path": ["alerts", ""]
             }
@@ -403,7 +403,7 @@
               "raw": "{\n  \"name\": \"Price Alert\",\n  \"condition\": \"price > 1000000\",\n  \"enabled\": true\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/alerts/",
+              "raw": "{{baseUrl}}/alerts",
               "host": ["{{baseUrl}}"],
               "path": ["alerts", ""]
             }

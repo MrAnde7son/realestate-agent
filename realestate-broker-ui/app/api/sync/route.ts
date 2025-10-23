@@ -11,11 +11,8 @@ export async function POST(req: Request){
       return NextResponse.json({ error: 'כתובת נדרשת' }, { status: 400 })
     }
     
-    // Try backend first
     try {
-      console.log('Attempting to sync with backend:', `${BACKEND_URL}/api/sync-address/`)
-      
-      const resp = await fetch(`${BACKEND_URL}/api/sync-address/`, {
+      const resp = await fetch(`${BACKEND_URL}/api/sync-address`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),

@@ -64,7 +64,7 @@ export async function POST(
 
   try {
     const backendResponse = await fetch(
-      `${backendUrl}/api/assets/${id}/documents/upload/`,
+      `${backendUrl}/api/assets/${id}/documents/upload`,
       {
         method: 'POST',
         body: backendFormData,

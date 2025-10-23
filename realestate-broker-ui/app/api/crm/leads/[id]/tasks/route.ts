@@ -16,7 +16,7 @@ export async function GET(
     }
 
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
-    const url = new URL(`/api/crm/leads/${id}/tasks/`, backendUrl);
+    const url = new URL(`/api/crm/leads/${id}/tasks`, backendUrl);
 
     // Forward query parameters
     const searchParams = new URL(request.url).searchParams;

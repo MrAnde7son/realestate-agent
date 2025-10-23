@@ -34,7 +34,7 @@ vi.mock('next/link', () => ({
 // Mock fetch for analytics calls
 global.fetch = vi.fn().mockImplementation((url, options) => {
   // Mock analytics API calls
-  if (typeof url === 'string' && url.includes('/api/analytics/')) {
+  if (typeof url === 'string' && url.includes('/api/analytics')) {
     return Promise.resolve({
       ok: true,
       status: 200,

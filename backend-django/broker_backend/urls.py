@@ -7,11 +7,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
     path('api/crm/', include('crm.urls')),
-    path('assets/', include('core.urls_assets')),
     path(
-        'r/<str:token>',
+        'r/<str:token>/',
         core_views.asset_share_read_only,
         name='asset_share_read_only',
     ),
-    path('webhooks/resend', resend_webhook, name='resend_webhook'),
+    path('webhooks/resend/', resend_webhook, name='resend_webhook'),
 ]

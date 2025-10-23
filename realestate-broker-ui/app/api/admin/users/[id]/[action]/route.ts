@@ -11,7 +11,7 @@ export async function POST(
     const { id, action } = await context.params
     const authHeader = request.headers.get('authorization') ?? undefined
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/${action}/`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/${action}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

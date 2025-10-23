@@ -158,15 +158,15 @@ class CrmPermissionsTests(TestCase):
         
         # Test user can access their own contact
         self.client.force_authenticate(user=self.user)
-        response = self.client.get(f'/api/crm/contacts/{contact.id}/')
+        response = self.client.get(f'/api/crm/contacts/{contact.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test user cannot access other user's contact
-        response = self.client.get(f'/api/crm/contacts/{other_contact.id}/')
+        response = self.client.get(f'/api/crm/contacts/{other_contact.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Test user can list only their own contacts
-        response = self.client.get('/api/crm/contacts/')
+        response = self.client.get('/api/crm/contacts')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['id'], contact.id)
@@ -201,15 +201,15 @@ class CrmPermissionsTests(TestCase):
         
         # Test user can access their own lead
         self.client.force_authenticate(user=self.user)
-        response = self.client.get(f'/api/crm/leads/{lead.id}/')
+        response = self.client.get(f'/api/crm/leads/{lead.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test user cannot access other user's lead
-        response = self.client.get(f'/api/crm/leads/{other_lead.id}/')
+        response = self.client.get(f'/api/crm/leads/{other_lead.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Test user can list only their own leads
-        response = self.client.get('/api/crm/leads/')
+        response = self.client.get('/api/crm/leads')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['id'], lead.id)
@@ -224,7 +224,7 @@ class CrmPermissionsTests(TestCase):
             'email': 'rut@example.com'
         }
         
-        response = self.client.post('/api/crm/contacts/', data)
+        response = self.client.post('/api/crm/contacts', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Verify contact was created with correct owner
@@ -238,7 +238,7 @@ class CrmPermissionsTests(TestCase):
             'email': 'rut@example.com'
         }
         
-        response = self.client.post('/api/crm/contacts/', data)
+        response = self.client.post('/api/crm/contacts', data)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_lead_creation_permissions(self):
@@ -266,7 +266,7 @@ class CrmPermissionsTests(TestCase):
             'status': 'new'
         }
         
-        response = self.client.post('/api/crm/leads/', data)
+        response = self.client.post('/api/crm/leads', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Test user cannot create lead with other user's contact
@@ -276,7 +276,7 @@ class CrmPermissionsTests(TestCase):
             'status': 'new'
         }
         
-        response = self.client.post('/api/crm/leads/', data)
+        response = self.client.post('/api/crm/leads', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('No permission on this contact', str(response.data))
     
@@ -304,7 +304,7 @@ class CrmPermissionsTests(TestCase):
             'email': 'rut@example.com'
         }
         
-        response = self.client.put(f'/api/crm/contacts/{contact.id}/', data)
+        response = self.client.put(f'/api/crm/contacts/{contact.id}', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test user cannot update other user's contact
@@ -313,7 +313,7 @@ class CrmPermissionsTests(TestCase):
             'email': 'david@example.com'
         }
         
-        response = self.client.put(f'/api/crm/contacts/{other_contact.id}/', data)
+        response = self.client.put(f'/api/crm/contacts/{other_contact.id}', data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_contact_delete_permissions(self):
@@ -335,14 +335,14 @@ class CrmPermissionsTests(TestCase):
         # Test user can delete their own contact
         self.client.force_authenticate(user=self.user)
         
-        response = self.client.delete(f'/api/crm/contacts/{contact.id}/')
+        response = self.client.delete(f'/api/crm/contacts/{contact.id}')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify contact was deleted
         self.assertFalse(Contact.objects.filter(id=contact.id).exists())
         
         # Test user cannot delete other user's contact
-        response = self.client.delete(f'/api/crm/contacts/{other_contact.id}/')
+        response = self.client.delete(f'/api/crm/contacts/{other_contact.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Verify other contact still exists
@@ -385,7 +385,7 @@ class CrmPermissionsTests(TestCase):
             'status': 'contacted'
         }
         
-        response = self.client.put(f'/api/crm/leads/{lead.id}/', data)
+        response = self.client.put(f'/api/crm/leads/{lead.id}', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test user cannot update other user's lead
@@ -395,7 +395,7 @@ class CrmPermissionsTests(TestCase):
             'status': 'contacted'
         }
         
-        response = self.client.put(f'/api/crm/leads/{other_lead.id}/', data)
+        response = self.client.put(f'/api/crm/leads/{other_lead.id}', data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_lead_delete_permissions(self):
@@ -429,14 +429,14 @@ class CrmPermissionsTests(TestCase):
         # Test user can delete their own lead
         self.client.force_authenticate(user=self.user)
         
-        response = self.client.delete(f'/api/crm/leads/{lead.id}/')
+        response = self.client.delete(f'/api/crm/leads/{lead.id}')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify lead was deleted
         self.assertFalse(Lead.objects.filter(id=lead.id).exists())
         
         # Test user cannot delete other user's lead
-        response = self.client.delete(f'/api/crm/leads/{other_lead.id}/')
+        response = self.client.delete(f'/api/crm/leads/{other_lead.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Verify other lead still exists
@@ -474,28 +474,28 @@ class CrmPermissionsTests(TestCase):
         self.client.force_authenticate(user=self.user)
         
         # Test set_status
-        response = self.client.post(f'/api/crm/leads/{lead.id}/set_status/', {'status': 'contacted'})
+        response = self.client.post(f'/api/crm/leads/{lead.id}/set_status', {'status': 'contacted'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test add_note
-        response = self.client.post(f'/api/crm/leads/{lead.id}/add_note/', {'text': 'Test note'})
+        response = self.client.post(f'/api/crm/leads/{lead.id}/add_note', {'text': 'Test note'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test send_report
-        response = self.client.post(f'/api/crm/leads/{lead.id}/send_report/')
+        response = self.client.post(f'/api/crm/leads/{lead.id}/send_report')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test user cannot perform actions on other user's lead
         # Test set_status
-        response = self.client.post(f'/api/crm/leads/{other_lead.id}/set_status/', {'status': 'contacted'})
+        response = self.client.post(f'/api/crm/leads/{other_lead.id}/set_status', {'status': 'contacted'})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Test add_note
-        response = self.client.post(f'/api/crm/leads/{other_lead.id}/add_note/', {'text': 'Test note'})
+        response = self.client.post(f'/api/crm/leads/{other_lead.id}/add_note', {'text': 'Test note'})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Test send_report
-        response = self.client.post(f'/api/crm/leads/{other_lead.id}/send_report/')
+        response = self.client.post(f'/api/crm/leads/{other_lead.id}/send_report')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_permissions_with_multiple_users(self):
@@ -526,13 +526,13 @@ class CrmPermissionsTests(TestCase):
             self.client.force_authenticate(user=user)
             
             # Test user can access their own contact
-            response = self.client.get(f'/api/crm/contacts/{contacts[i].id}/')
+            response = self.client.get(f'/api/crm/contacts/{contacts[i].id}')
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             
             # Test user cannot access other users' contacts
             for j, other_contact in enumerate(contacts):
                 if i != j:
-                    response = self.client.get(f'/api/crm/contacts/{other_contact.id}/')
+                    response = self.client.get(f'/api/crm/contacts/{other_contact.id}')
                     self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_permissions_with_anonymous_user(self):
@@ -545,7 +545,7 @@ class CrmPermissionsTests(TestCase):
         )
         
         # Test anonymous user cannot access contacts
-        response = self.client.get(f'/api/crm/contacts/{contact.id}/')
+        response = self.client.get(f'/api/crm/contacts/{contact.id}')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         
         # Test anonymous user cannot create contacts
@@ -554,7 +554,7 @@ class CrmPermissionsTests(TestCase):
             'email': 'david@example.com'
         }
         
-        response = self.client.post('/api/crm/contacts/', data)
+        response = self.client.post('/api/crm/contacts', data)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_permissions_with_superuser(self):
@@ -576,7 +576,7 @@ class CrmPermissionsTests(TestCase):
         # Test superuser can access any contact
         self.client.force_authenticate(user=superuser)
         
-        response = self.client.get(f'/api/crm/contacts/{contact.id}/')
+        response = self.client.get(f'/api/crm/contacts/{contact.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test superuser can create contacts
@@ -585,5 +585,5 @@ class CrmPermissionsTests(TestCase):
             'email': 'david@example.com'
         }
         
-        response = self.client.post('/api/crm/contacts/', data)
+        response = self.client.post('/api/crm/contacts', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

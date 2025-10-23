@@ -5,12 +5,12 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 export async function GET(_request: Request) {
   try {
     // Forward the request to Django backend
-    const response = await fetch(`${BACKEND_URL}/api/dashboard/market-data/`, {
+    const response = await fetch(`${BACKEND_URL}/api/dashboard/market-data`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-      cache: 'no-store', // Disable caching
+      cache: 'no-store',
     })
 
     if (!response.ok) {
@@ -21,7 +21,6 @@ export async function GET(_request: Request) {
     }
 
     const data = await response.json()
-    console.log('Dashboard market data from Django:', JSON.stringify(data, null, 2))
     return NextResponse.json(data)
   } catch (error) {
     console.error('Dashboard market data API error:', error)

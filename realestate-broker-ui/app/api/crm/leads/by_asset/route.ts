@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/leads/by_asset/?asset_id=${assetId}`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads/by_asset?asset_id=${assetId}`, {
       method: 'GET',
       headers: {
         'Authorization': token,

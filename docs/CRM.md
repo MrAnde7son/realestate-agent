@@ -104,7 +104,7 @@ GET /api/crm/contacts/
 ```json
 {
   "count": 150,
-  "next": "http://localhost:8000/api/crm/contacts/?page=2",
+  "next": "http://localhost:8000/api/crm/contacts?page=2",
   "previous": null,
   "results": [
     {
@@ -161,7 +161,7 @@ GET /api/crm/leads/
 ```json
 {
   "count": 75,
-  "next": "http://localhost:8000/api/crm/leads/?page=2",
+  "next": "http://localhost:8000/api/crm/leads?page=2",
   "previous": null,
   "results": [
     {
@@ -414,7 +414,7 @@ Include CRM URLs in main URL configuration:
 ```python
 urlpatterns = [
     # ... other patterns
-    path('api/crm/', include('crm.urls')),
+    path('api/crm', include('crm.urls')),
 ]
 ```
 

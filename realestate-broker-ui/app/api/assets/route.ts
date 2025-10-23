@@ -130,7 +130,7 @@ export async function DELETE(req: Request) {
         headers.Authorization = `Bearer ${token}`
       }
 
-      const res = await fetch(`${BACKEND_URL}/api/assets/`, {
+      const res = await fetch(`${BACKEND_URL}/api/assets`, {
         method: 'DELETE',
         headers,
         body: JSON.stringify({ assetId }),
@@ -247,7 +247,7 @@ export async function POST(req: Request) {
 
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
     try {
-      const backendResponse = await fetch(`${backendUrl}/api/assets/`, {
+      const backendResponse = await fetch(`${backendUrl}/api/assets`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

@@ -175,7 +175,7 @@ export class RealEstateAPIClient {
 
   // Authentication methods
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await this.makeRequest<LoginResponse>('POST', '/auth/login/', credentials);
+    const response = await this.makeRequest<LoginResponse>('POST', '/auth/login', credentials);
     
     if (response.access) {
       this.setToken(response.access);
@@ -185,11 +185,11 @@ export class RealEstateAPIClient {
   }
 
   async register(userData: RegisterRequest): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('POST', '/auth/register/', userData);
+    return this.makeRequest<APIResponse>('POST', '/auth/register', userData);
   }
 
   async refreshToken(refreshToken: string): Promise<LoginResponse> {
-    const response = await this.makeRequest<LoginResponse>('POST', '/auth/refresh/', { refresh: refreshToken });
+    const response = await this.makeRequest<LoginResponse>('POST', '/auth/refresh', { refresh: refreshToken });
     
     if (response.access) {
       this.setToken(response.access);
@@ -203,107 +203,107 @@ export class RealEstateAPIClient {
       ? { refresh_token: refreshToken }
       : {};
 
-    return this.makeRequest<APIResponse>('POST', '/auth/logout/', payload);
+    return this.makeRequest<APIResponse>('POST', '/auth/logout', payload);
   }
 
   async getProfile(): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('GET', '/auth/profile/');
+    return this.makeRequest<APIResponse>('GET', '/auth/profile');
   }
 
   async updateProfile(data: Record<string, any>): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('PUT', '/auth/update-profile/', data);
+    return this.makeRequest<APIResponse>('PUT', '/auth/update-profile', data);
   }
 
   // Asset methods
   async getAssets(params?: Record<string, string>): Promise<APIResponse<Asset[]>> {
-    return this.makeRequest<APIResponse<Asset[]>>('GET', '/assets/', undefined, params);
+    return this.makeRequest<APIResponse<Asset[]>>('GET', '/assets', undefined, params);
   }
 
   async getAsset(assetId: number): Promise<Asset> {
-    return this.makeRequest<Asset>('GET', `/assets/${assetId}/`);
+    return this.makeRequest<Asset>('GET', `/assets/${assetId}`);
   }
 
   async createAsset(data: Partial<Asset>): Promise<Asset> {
-    return this.makeRequest<Asset>('POST', '/assets/', data);
+    return this.makeRequest<Asset>('POST', '/assets', data);
   }
 
   async updateAsset(assetId: number, data: Partial<Asset>): Promise<Asset> {
-    return this.makeRequest<Asset>('PUT', `/assets/${assetId}/`, data);
+    return this.makeRequest<Asset>('PUT', `/assets/${assetId}`, data);
   }
 
   async deleteAsset(assetId: number): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('DELETE', `/assets/${assetId}/`);
+    return this.makeRequest<APIResponse>('DELETE', `/assets/${assetId}`);
   }
 
   async getAssetStats(): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('GET', '/assets/stats/');
+    return this.makeRequest<APIResponse>('GET', '/assets/stats');
   }
 
   // Permit methods
   async getPermits(params?: Record<string, string>): Promise<APIResponse<Permit[]>> {
-    return this.makeRequest<APIResponse<Permit[]>>('GET', '/permits/', undefined, params);
+    return this.makeRequest<APIResponse<Permit[]>>('GET', '/permits', undefined, params);
   }
 
   async getPermit(permitId: number): Promise<Permit> {
-    return this.makeRequest<Permit>('GET', `/permits/${permitId}/`);
+    return this.makeRequest<Permit>('GET', `/permits/${permitId}`);
   }
 
   async createPermit(data: Partial<Permit>): Promise<Permit> {
-    return this.makeRequest<Permit>('POST', '/permits/', data);
+    return this.makeRequest<Permit>('POST', '/permits', data);
   }
 
   async updatePermit(permitId: number, data: Partial<Permit>): Promise<Permit> {
-    return this.makeRequest<Permit>('PUT', `/permits/${permitId}/`, data);
+    return this.makeRequest<Permit>('PUT', `/permits/${permitId}`, data);
   }
 
   async deletePermit(permitId: number): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('DELETE', `/permits/${permitId}/`);
+    return this.makeRequest<APIResponse>('DELETE', `/permits/${permitId}`);
   }
 
   // Plan methods
   async getPlans(params?: Record<string, string>): Promise<APIResponse<Plan[]>> {
-    return this.makeRequest<APIResponse<Plan[]>>('GET', '/plans/', undefined, params);
+    return this.makeRequest<APIResponse<Plan[]>>('GET', '/plans', undefined, params);
   }
 
   async getPlan(planId: number): Promise<Plan> {
-    return this.makeRequest<Plan>('GET', `/plans/${planId}/`);
+    return this.makeRequest<Plan>('GET', `/plans/${planId}`);
   }
 
   async createPlan(data: Partial<Plan>): Promise<Plan> {
-    return this.makeRequest<Plan>('POST', '/plans/', data);
+    return this.makeRequest<Plan>('POST', '/plans', data);
   }
 
   async updatePlan(planId: number, data: Partial<Plan>): Promise<Plan> {
-    return this.makeRequest<Plan>('PUT', `/plans/${planId}/`, data);
+    return this.makeRequest<Plan>('PUT', `/plans/${planId}`, data);
   }
 
   async deletePlan(planId: number): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('DELETE', `/plans/${planId}/`);
+    return this.makeRequest<APIResponse>('DELETE', `/plans/${planId}`);
   }
 
   // Additional methods
   async analyzeMortgage(data: Record<string, any>): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('POST', '/mortgage-analyze/', data);
+    return this.makeRequest<APIResponse>('POST', '/mortgage-analyze', data);
   }
 
   async syncAddress(data: Record<string, any>): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('POST', '/sync-address/', data);
+    return this.makeRequest<APIResponse>('POST', '/sync-address', data);
   }
 
   async getTabu(params?: Record<string, string>): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('GET', '/tabu/', undefined, params);
+    return this.makeRequest<APIResponse>('GET', '/tabu', undefined, params);
   }
 
   async getReports(params?: Record<string, string>): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('GET', '/reports/', undefined, params);
+    return this.makeRequest<APIResponse>('GET', '/reports', undefined, params);
   }
 
   async getAlerts(): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('GET', '/alerts/');
+    return this.makeRequest<APIResponse>('GET', '/alerts');
   }
 
   async createAlert(data: Record<string, any>): Promise<APIResponse> {
-    return this.makeRequest<APIResponse>('POST', '/alerts/', data);
+    return this.makeRequest<APIResponse>('POST', '/alerts', data);
   }
 
   async getAnalyticsTimeseries(params?: Record<string, string>): Promise<APIResponse> {

@@ -18,7 +18,7 @@ export async function GET() {
     return response
   }
 
-  const res = await fetch(`${BACKEND_URL}/api/settings/`, {
+  const res = await fetch(`${BACKEND_URL}/api/settings`, {
     headers: { Authorization: `Bearer ${token}` }
   })
   const data = await res.json().catch(() => ({}))
@@ -45,7 +45,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const res = await fetch(`${BACKEND_URL}/api/settings/`, {
+  const res = await fetch(`${BACKEND_URL}/api/settings`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',

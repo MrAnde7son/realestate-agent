@@ -92,7 +92,7 @@ class RealEstateAPIClient:
             Login response with access and refresh tokens
         """
         data = {"email": email, "password": password}
-        response = self._make_request("POST", "/auth/login/", json=data)
+        response = self._make_request("POST", "/auth/login", json=data)
         
         # Set token if provided
         if "access" in response:
@@ -119,7 +119,7 @@ class RealEstateAPIClient:
             "username": username,
             **kwargs
         }
-        return self._make_request("POST", "/auth/register/", json=data)
+        return self._make_request("POST", "/auth/register", json=data)
     
     def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
         """
@@ -132,7 +132,7 @@ class RealEstateAPIClient:
             New access and refresh tokens
         """
         data = {"refresh": refresh_token}
-        response = self._make_request("POST", "/auth/refresh/", json=data)
+        response = self._make_request("POST", "/auth/refresh", json=data)
         
         # Update token if provided
         if "access" in response:
@@ -143,11 +143,11 @@ class RealEstateAPIClient:
     def logout(self, refresh_token: Optional[str] = None) -> Dict[str, Any]:
         """Logout the current user."""
         payload = {"refresh_token": refresh_token} if refresh_token else {}
-        return self._make_request("POST", "/auth/logout/", json=payload)
+        return self._make_request("POST", "/auth/logout", json=payload)
     
     def get_profile(self) -> Dict[str, Any]:
         """Get current user profile."""
-        return self._make_request("GET", "/auth/profile/")
+        return self._make_request("GET", "/auth/profile")
     
     def update_profile(self, **kwargs) -> Dict[str, Any]:
         """
@@ -159,7 +159,7 @@ class RealEstateAPIClient:
         Returns:
             Updated profile data
         """
-        return self._make_request("PUT", "/auth/update-profile/", json=kwargs)
+        return self._make_request("PUT", "/auth/update-profile", json=kwargs)
     
     # Asset methods
     def get_assets(self, **params) -> Dict[str, Any]:
@@ -172,7 +172,7 @@ class RealEstateAPIClient:
         Returns:
             List of assets
         """
-        return self._make_request("GET", "/assets/", params=params)
+        return self._make_request("GET", "/assets", params=params)
     
     def get_asset(self, asset_id: int) -> Dict[str, Any]:
         """
@@ -184,7 +184,7 @@ class RealEstateAPIClient:
         Returns:
             Asset data
         """
-        return self._make_request("GET", f"/assets/{asset_id}/")
+        return self._make_request("GET", f"/assets/{asset_id}")
     
     def create_asset(self, **data) -> Dict[str, Any]:
         """
@@ -196,7 +196,7 @@ class RealEstateAPIClient:
         Returns:
             Created asset data
         """
-        return self._make_request("POST", "/assets/", json=data)
+        return self._make_request("POST", "/assets", json=data)
     
     def update_asset(self, asset_id: int, **data) -> Dict[str, Any]:
         """
@@ -209,7 +209,7 @@ class RealEstateAPIClient:
         Returns:
             Updated asset data
         """
-        return self._make_request("PUT", f"/assets/{asset_id}/", json=data)
+        return self._make_request("PUT", f"/assets/{asset_id}", json=data)
     
     def delete_asset(self, asset_id: int) -> Dict[str, Any]:
         """
@@ -221,78 +221,78 @@ class RealEstateAPIClient:
         Returns:
             Deletion confirmation
         """
-        return self._make_request("DELETE", f"/assets/{asset_id}/")
+        return self._make_request("DELETE", f"/assets/{asset_id}")
     
     def get_asset_stats(self) -> Dict[str, Any]:
         """Get asset statistics."""
-        return self._make_request("GET", "/assets/stats/")
+        return self._make_request("GET", "/assets/stats")
     
     # Permit methods
     def get_permits(self, **params) -> Dict[str, Any]:
         """Get list of permits."""
-        return self._make_request("GET", "/permits/", params=params)
+        return self._make_request("GET", "/permits", params=params)
     
     def get_permit(self, permit_id: int) -> Dict[str, Any]:
         """Get permit by ID."""
-        return self._make_request("GET", f"/permits/{permit_id}/")
+        return self._make_request("GET", f"/permits/{permit_id}")
     
     def create_permit(self, **data) -> Dict[str, Any]:
         """Create a new permit."""
-        return self._make_request("POST", "/permits/", json=data)
+        return self._make_request("POST", "/permits", json=data)
     
     def update_permit(self, permit_id: int, **data) -> Dict[str, Any]:
         """Update a permit."""
-        return self._make_request("PUT", f"/permits/{permit_id}/", json=data)
+        return self._make_request("PUT", f"/permits/{permit_id}", json=data)
     
     def delete_permit(self, permit_id: int) -> Dict[str, Any]:
         """Delete a permit."""
-        return self._make_request("DELETE", f"/permits/{permit_id}/")
+        return self._make_request("DELETE", f"/permits/{permit_id}")
     
     # Plan methods
     def get_plans(self, **params) -> Dict[str, Any]:
         """Get list of plans."""
-        return self._make_request("GET", "/plans/", params=params)
+        return self._make_request("GET", "/plans", params=params)
     
     def get_plan(self, plan_id: int) -> Dict[str, Any]:
         """Get plan by ID."""
-        return self._make_request("GET", f"/plans/{plan_id}/")
+        return self._make_request("GET", f"/plans/{plan_id}")
     
     def create_plan(self, **data) -> Dict[str, Any]:
         """Create a new plan."""
-        return self._make_request("POST", "/plans/", json=data)
+        return self._make_request("POST", "/plans", json=data)
     
     def update_plan(self, plan_id: int, **data) -> Dict[str, Any]:
         """Update a plan."""
-        return self._make_request("PUT", f"/plans/{plan_id}/", json=data)
+        return self._make_request("PUT", f"/plans/{plan_id}", json=data)
     
     def delete_plan(self, plan_id: int) -> Dict[str, Any]:
         """Delete a plan."""
-        return self._make_request("DELETE", f"/plans/{plan_id}/")
+        return self._make_request("DELETE", f"/plans/{plan_id}")
     
     # Additional methods
     def analyze_mortgage(self, **data) -> Dict[str, Any]:
         """Analyze mortgage data."""
-        return self._make_request("POST", "/mortgage-analyze/", json=data)
+        return self._make_request("POST", "/mortgage-analyze", json=data)
     
     def sync_address(self, **data) -> Dict[str, Any]:
         """Sync address data."""
-        return self._make_request("POST", "/sync-address/", json=data)
+        return self._make_request("POST", "/sync-address", json=data)
     
     def get_tabu(self, **params) -> Dict[str, Any]:
         """Get tabu information."""
-        return self._make_request("GET", "/tabu/", params=params)
+        return self._make_request("GET", "/tabu", params=params)
     
     def get_reports(self, **params) -> Dict[str, Any]:
         """Get reports."""
-        return self._make_request("GET", "/reports/", params=params)
+        return self._make_request("GET", "/reports", params=params)
     
     def get_alerts(self) -> Dict[str, Any]:
         """Get alerts."""
-        return self._make_request("GET", "/alerts/")
+        return self._make_request("GET", "/alerts")
     
     def create_alert(self, **data) -> Dict[str, Any]:
         """Create an alert."""
-        return self._make_request("POST", "/alerts/", json=data)
+        return self._make_request("POST", "/alerts", json=data)
     
     def get_analytics_timeseries(self, **params) -> Dict[str, Any]:
         """Get analytics timeseries data."""

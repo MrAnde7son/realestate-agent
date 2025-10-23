@@ -200,6 +200,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_ROUTER_TRAILING_SLASH': ''
 }
 
 SPECTACULAR_SETTINGS = {
@@ -277,7 +278,7 @@ GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 # }
 
 # URL Settings
-APPEND_SLASH = True
+APPEND_SLASH = False
 
 USE_X_FORWARDED_HOST = True
 

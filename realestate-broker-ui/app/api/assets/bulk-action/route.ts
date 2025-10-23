@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/assets/bulk-action/`, {
+    const response = await fetch(`${BACKEND_URL}/api/assets/bulk-action`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

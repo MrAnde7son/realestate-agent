@@ -25,7 +25,7 @@ def test_bulk_action_requires_authentication():
     asset = Asset.objects.create(scope_type="address", city="City", street="Main", number=1)
 
     request = factory.post(
-        "/api/assets/bulk-action/",
+        "/api/assets/bulk-action",
         data=json.dumps({"action": "sync", "assetIds": [asset.id]}),
         content_type="application/json",
     )
@@ -48,7 +48,7 @@ def test_bulk_delete_requires_admin():
     )
 
     request = factory.post(
-        "/api/assets/bulk-action/",
+        "/api/assets/bulk-action",
         data=json.dumps({"action": "delete", "assetIds": [asset.id]}),
         content_type="application/json",
     )
@@ -78,7 +78,7 @@ def test_bulk_delete_removes_assets_for_admin():
     )
 
     request = factory.post(
-        "/api/assets/bulk-action/",
+        "/api/assets/bulk-action",
         data=json.dumps({
             "action": "delete",
             "assetIds": [asset.id for asset in assets],
@@ -120,7 +120,7 @@ def test_bulk_sync_triggers_pipeline(monkeypatch, settings):
     monkeypatch.setattr("core.tasks.run_data_pipeline", dummy)
 
     request = factory.post(
-        "/api/assets/bulk-action/",
+        "/api/assets/bulk-action",
         data=json.dumps({
             "action": "sync",
             "assetIds": [asset.id for asset in assets],
@@ -173,7 +173,7 @@ def test_bulk_report_generation(monkeypatch):
     monkeypatch.setattr(views.report_service, "generate_pdf", fake_generate)
 
     request = factory.post(
-        "/api/assets/bulk-action/",
+        "/api/assets/bulk-action",
         data=json.dumps({
             "action": "create_report",
             "assetIds": [asset.id for asset in assets],

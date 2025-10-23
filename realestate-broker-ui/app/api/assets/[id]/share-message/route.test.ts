@@ -37,7 +37,7 @@ describe('/api/assets/[id]/share-message', () => {
     expect(res.status).toBe(200)
     expect(data.message).toBe('msg')
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:8000/api/assets/1/share-message/',
+      'http://127.0.0.1:8000/api/assets/1/share-message',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

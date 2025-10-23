@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     }
 
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
-    const url = new URL('/api/crm/tasks/', backendUrl);
+    const url = new URL('/api/crm/tasks', backendUrl);
     
     // Forward query parameters
     const searchParams = new URL(request.url).searchParams;
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/tasks/`, {
+    const response = await fetch(`${backendUrl}/api/crm/tasks`, {
       method: 'POST',
       headers: {
         'Authorization': token,

@@ -1204,8 +1204,8 @@ class Document(models.Model):
         """Return the API URL to download the document."""
         asset_id = self.asset_id or self.assets.values_list("id", flat=True).first()
         if asset_id:
-            return f"/api/assets/{asset_id}/documents/{self.id}/download/"
-        return f"/api/documents/{self.id}/download/"
+            return f"/api/assets/{asset_id}/documents/{self.id}/download"
+        return f"/api/documents/{self.id}/download"
     
     @property
     def is_downloadable(self):

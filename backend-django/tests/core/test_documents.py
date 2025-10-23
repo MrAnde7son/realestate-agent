@@ -78,7 +78,7 @@ class DocumentModelTest(TestCase):
             mime_type='application/pdf'
         )
         
-        expected_url = f"/api/assets/{self.asset.id}/documents/{document.id}/download/"
+        expected_url = f"/api/assets/{self.asset.id}/documents/{document.id}/download"
         self.assertEqual(document.file_url, expected_url)
 
 

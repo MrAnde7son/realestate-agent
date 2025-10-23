@@ -24,7 +24,7 @@ export async function GET(req: Request) {
       return response;
     }
     
-    const res = await fetch(`${BACKEND_URL}/api/reports/`, { 
+    const res = await fetch(`${BACKEND_URL}/api/reports`, { 
       cache: 'no-store',
       headers: {
         ...(token && { Authorization: `Bearer ${token}` })
@@ -83,7 +83,7 @@ export async function DELETE(req: Request) {
 
     // Try to connect to backend first
     try {
-      const res = await fetch(`${BACKEND_URL}/api/reports/`, {
+      const res = await fetch(`${BACKEND_URL}/api/reports`, {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json',
@@ -165,7 +165,7 @@ export async function POST(req: Request) {
     const cookieStore = await cookies();
     const token = cookieStore.get('access_token')?.value;
     console.log('Attempting to connect to backend at:', BACKEND_URL);
-    const res = await fetch(`${BACKEND_URL}/api/reports/`, {
+    const res = await fetch(`${BACKEND_URL}/api/reports`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

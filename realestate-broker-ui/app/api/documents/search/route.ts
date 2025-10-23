@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     
     // Forward the request to Django backend
-    const backendUrl = `${BACKEND_URL}/api/documents/search/?${searchParams.toString()}`
+    const backendUrl = `${BACKEND_URL}/api/documents/search?${searchParams.toString()}`
     
     const response = await fetch(backendUrl, {
       method: 'GET',

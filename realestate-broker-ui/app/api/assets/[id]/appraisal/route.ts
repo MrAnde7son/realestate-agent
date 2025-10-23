@@ -10,7 +10,7 @@ export async function GET(
   try {
     // Fetch from backend
     const backendResponse = await fetch(
-      `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/appraisal/`
+      `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/appraisal`
     );
 
     if (backendResponse.ok) {

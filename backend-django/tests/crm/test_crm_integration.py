@@ -49,7 +49,7 @@ class CrmIntegrationTests(TestCase):
             'tags': ['VIP', 'משקיע']
         }
         
-        response = self.client.post('/api/crm/contacts/', contact_data)
+        response = self.client.post('/api/crm/contacts', contact_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         contact_id = response.data['id']
         
@@ -60,20 +60,20 @@ class CrmIntegrationTests(TestCase):
             'status': 'new'
         }
         
-        response = self.client.post('/api/crm/leads/', lead_data)
+        response = self.client.post('/api/crm/leads', lead_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         lead_id = response.data['id']
         
         # 3. Update lead status
-        response = self.client.post(f'/api/crm/leads/{lead_id}/set_status/', {'status': 'contacted'})
+        response = self.client.post(f'/api/crm/leads/{lead_id}/set_status', {'status': 'contacted'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 4. Add notes
-        response = self.client.post(f'/api/crm/leads/{lead_id}/add_note/', {'text': 'נפגשנו, ביקשה דוח ממותג'})
+        response = self.client.post(f'/api/crm/leads/{lead_id}/add_note', {'text': 'נפגשנו, ביקשה דוח ממותג'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 5. Send report
-        response = self.client.post(f'/api/crm/leads/{lead_id}/send_report/')
+        response = self.client.post(f'/api/crm/leads/{lead_id}/send_report')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 6. Verify final state
@@ -145,21 +145,21 @@ class CrmIntegrationTests(TestCase):
         ]
         
         for data in contacts_data:
-            response = self.client.post('/api/crm/contacts/', data)
+            response = self.client.post('/api/crm/contacts', data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Test search by name
-        response = self.client.get('/api/crm/contacts/search/?q=כהן')
+        response = self.client.get('/api/crm/contacts/search?q=כהן')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)  # רות כהן and יוסי כהן
         
         # Test search by email
-        response = self.client.get('/api/crm/contacts/search/?q=david@example.com')
+        response = self.client.get('/api/crm/contacts/search?q=david@example.com')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         
         # Test search by tag
-        response = self.client.get('/api/crm/contacts/search/?q=VIP')
+        response = self.client.get('/api/crm/contacts/search?q=VIP')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)  # רות כהן and שרה גולד
     
@@ -192,7 +192,7 @@ class CrmIntegrationTests(TestCase):
             self.assertEqual(lead.status, from_status)
             
             # Update to next status
-            response = self.client.post(f'/api/crm/leads/{lead.id}/set_status/', {'status': to_status})
+            response = self.client.post(f'/api/crm/leads/{lead.id}/set_status', {'status': to_status})
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             
             # Verify status was updated
@@ -224,7 +224,7 @@ class CrmIntegrationTests(TestCase):
         ]
         
         for note_text in notes:
-            response = self.client.post(f'/api/crm/leads/{lead.id}/add_note/', {'text': note_text})
+            response = self.client.post(f'/api/crm/leads/{lead.id}/add_note', {'text': note_text})
             self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify all notes were added in correct order
@@ -246,7 +246,7 @@ class CrmIntegrationTests(TestCase):
         lead_ids = []
         for contact_data in contacts:
             # Create contact
-            response = self.client.post('/api/crm/contacts/', contact_data)
+            response = self.client.post('/api/crm/contacts', contact_data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             contact_id = response.data['id']
             
@@ -257,12 +257,12 @@ class CrmIntegrationTests(TestCase):
                 'status': 'new'
             }
             
-            response = self.client.post('/api/crm/leads/', lead_data)
+            response = self.client.post('/api/crm/leads', lead_data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             lead_ids.append(response.data['id'])
         
         # Test getting all leads for asset
-        response = self.client.get(f'/api/crm/leads/by_asset/?asset_id={self.asset.id}')
+        response = self.client.get(f'/api/crm/leads/by_asset?asset_id={self.asset.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 3)
         
@@ -281,7 +281,7 @@ class CrmIntegrationTests(TestCase):
             'tags': ['VIP', 'משקיע']
         }
         
-        response = self.client.post('/api/crm/contacts/', contact_data)
+        response = self.client.post('/api/crm/contacts', contact_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         contact_id = response.data['id']
         
@@ -304,11 +304,11 @@ class CrmIntegrationTests(TestCase):
                 'status': 'new'
             }
             
-            response = self.client.post('/api/crm/leads/', lead_data)
+            response = self.client.post('/api/crm/leads', lead_data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Test getting all leads for contact
-        response = self.client.get(f'/api/crm/contacts/{contact_id}/leads/')
+        response = self.client.get(f'/api/crm/contacts/{contact_id}/leads')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 3)
         
@@ -344,11 +344,11 @@ class CrmIntegrationTests(TestCase):
         self.client.force_authenticate(user=other_user)
         
         # Other user should not be able to access contact
-        response = self.client.get(f'/api/crm/contacts/{contact.id}/')
+        response = self.client.get(f'/api/crm/contacts/{contact.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Other user should not be able to access lead
-        response = self.client.get(f'/api/crm/leads/{lead.id}/')
+        response = self.client.get(f'/api/crm/leads/{lead.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Other user should not be able to create lead with contact from first user
@@ -358,7 +358,7 @@ class CrmIntegrationTests(TestCase):
             'status': 'new'
         }
         
-        response = self.client.post('/api/crm/leads/', lead_data)
+        response = self.client.post('/api/crm/leads', lead_data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
     def test_crm_data_consistency_integration(self):
@@ -382,7 +382,7 @@ class CrmIntegrationTests(TestCase):
         contact.save()
         
         # Verify lead still shows updated contact name
-        response = self.client.get(f'/api/crm/leads/{lead.id}/')
+        response = self.client.get(f'/api/crm/leads/{lead.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['contact']['name'], 'רות כהן-לוי')
         
@@ -390,7 +390,7 @@ class CrmIntegrationTests(TestCase):
         contact.delete()
         
         # Verify lead is also deleted (CASCADE)
-        response = self.client.get(f'/api/crm/leads/{lead.id}/')
+        response = self.client.get(f'/api/crm/leads/{lead.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_crm_performance_integration(self):
@@ -415,16 +415,16 @@ class CrmIntegrationTests(TestCase):
             leads.append(lead)
         
         # Test pagination
-        response = self.client.get('/api/crm/contacts/?page=1&page_size=25')
+        response = self.client.get('/api/crm/contacts?page=1&page_size=25')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 25)
         
         # Test search performance
-        response = self.client.get('/api/crm/contacts/search/?q=Contact 1')
+        response = self.client.get('/api/crm/contacts/search?q=Contact 1')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreater(len(response.data), 0)
         
         # Test leads filtering
-        response = self.client.get('/api/crm/leads/?status=new')
+        response = self.client.get('/api/crm/leads?status=new')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 50)

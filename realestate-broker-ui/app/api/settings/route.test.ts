@@ -40,7 +40,7 @@ describe('/api/settings', () => {
       json: async () => settings
     } as any)
     const res = await GET()
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/settings/'), expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/settings'), expect.objectContaining({
       headers: { Authorization: expect.stringMatching(/^Bearer eyJ/) }
     }))
     const data = await res.json()
@@ -60,7 +60,7 @@ describe('/api/settings', () => {
     })
     const res = await PUT(req)
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/settings/'),
+      expect.stringContaining('/api/settings'),
       expect.objectContaining({
         method: 'PUT',
         body: JSON.stringify({ language: 'he' })

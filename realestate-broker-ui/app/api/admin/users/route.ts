@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const authHeader = request.headers.get('authorization');
     
     // Forward the request to Django backend
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/?${queryString}`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users?${queryString}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get('authorization');
     
     // Forward the request to Django backend
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

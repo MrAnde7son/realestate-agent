@@ -6,7 +6,7 @@ export async function GET(
 ) {
   const { id } = await params
   const numericId = Number(id)
-  const baseUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/transactions/`
+  const baseUrl = `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/assets/${numericId}/transactions`
   const searchParams = new URL(request.url).searchParams.toString()
   const backendUrl = searchParams ? `${baseUrl}?${searchParams}` : baseUrl
 

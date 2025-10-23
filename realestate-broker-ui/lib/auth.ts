@@ -173,14 +173,14 @@ class AuthAPI {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/auth/login/', {
+    return this.request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     })
   }
 
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/auth/register/', {
+    return this.request<AuthResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(credentials),
     })
@@ -190,18 +190,18 @@ class AuthAPI {
     const refreshToken = this.getRefreshToken()
     const body = refreshToken ? { refresh_token: refreshToken } : {}
 
-    return this.request<{ message: string }>('/auth/logout/', {
+    return this.request<{ message: string }>('/auth/logout', {
       method: 'POST',
       body: JSON.stringify(body),
     })
   }
 
   async getProfile(): Promise<{ user: User }> {
-    return this.request<{ user: User }>('/auth/profile/')
+    return this.request<{ user: User }>('/auth/profile')
   }
 
   async updateProfile(data: ProfileUpdateData): Promise<{ user: User }> {
-    return this.request<{ user: User }>('/auth/update-profile/', {
+    return this.request<{ user: User }>('/auth/update-profile', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
@@ -209,35 +209,35 @@ class AuthAPI {
 
 
   async googleLogin(redirectTo?: string): Promise<{ auth_url: string }> {
-    const url = redirectTo ? `/auth/google/login/?redirect=${encodeURIComponent(redirectTo)}` : '/auth/google/login/'
+    const url = redirectTo ? `/auth/google/login?redirect=${encodeURIComponent(redirectTo)}` : '/auth/google/login'
     return this.request<{ auth_url: string }>(url)
   }
 
   async googleCallback(code: string): Promise<AuthResponse> {
-    return this.request<AuthResponse>(`/auth/google/callback/?code=${code}`)
+    return this.request<AuthResponse>(`/auth/google/callback?code=${code}`)
   }
 
   async changePassword(data: ChangePasswordData): Promise<{ message: string }> {
-    return this.request<{ message: string }>('/auth/change-password/', {
+    return this.request<{ message: string }>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
   async getOnboardingStatus(): Promise<OnboardingStatus> {
-    return this.request<OnboardingStatus>('/onboarding-status/')
+    return this.request<OnboardingStatus>('/onboarding-status')
   }
 
   async getPlanInfo(): Promise<PlanInfo> {
-    return this.request<PlanInfo>('/plans/info/')
+    return this.request<PlanInfo>('/plans/info')
   }
 
   async getPlanTypes(): Promise<{ plans: PlanType[] }> {
-    return this.request<{ plans: PlanType[] }>('/plans/types/')
+    return this.request<{ plans: PlanType[] }>('/plans/types')
   }
 
   async upgradePlan(planName: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>('/plans/upgrade/', {
+    return this.request<{ message: string }>('/plans/upgrade', {
       method: 'POST',
       body: JSON.stringify({ plan_name: planName }),
     })

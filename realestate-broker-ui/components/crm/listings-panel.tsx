@@ -238,7 +238,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
         params.set('ordering', ordering)
       }
 
-      const response = await api.get(`/api/assets/${assetId}/listings/?${params.toString()}`)
+      const response = await api.get(`/api/assets/${assetId}/listings?${params.toString()}`)
 
       if (!response.ok) {
         throw new Error(response.error || 'Failed to fetch listings')

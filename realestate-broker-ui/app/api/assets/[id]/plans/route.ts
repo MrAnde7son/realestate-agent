@@ -8,7 +8,7 @@ export async function GET(
 
   try {
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-    const baseUrl = `${backendUrl}/api/assets/${id}/plans/`
+    const baseUrl = `${backendUrl}/api/assets/${id}/plans`
     const searchParams = new URL(request.url).searchParams.toString()
     const url = searchParams ? `${baseUrl}?${searchParams}` : baseUrl
 

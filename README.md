@@ -239,12 +239,12 @@ The platform includes a comprehensive CRM system for managing clients and leads:
 - **Quick Actions**: Fast access to common CRM operations
 
 #### CRM API Endpoints
-- `GET /api/crm/contacts/` - List contacts with pagination and search
-- `POST /api/crm/contacts/` - Create new contact
-- `GET /api/crm/leads/` - List leads with filtering
-- `POST /api/crm/leads/` - Create new lead
-- `PATCH /api/crm/leads/{id}/status/` - Update lead status
-- `POST /api/crm/leads/{id}/notes/` - Add lead note
+- `GET /api/crm/contacts` - List contacts with pagination and search
+- `POST /api/crm/contacts` - Create new contact
+- `GET /api/crm/leads` - List leads with filtering
+- `POST /api/crm/leads` - Create new lead
+- `PATCH /api/crm/leads/{id}/status` - Update lead status
+- `POST /api/crm/leads/{id}/notes` - Add lead note
 
 ### 4️⃣ MCP Servers for LLM Integration
 

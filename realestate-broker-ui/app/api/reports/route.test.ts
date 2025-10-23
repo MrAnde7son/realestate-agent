@@ -170,7 +170,7 @@ describe('reports API', () => {
     })
     await POST(req)
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/reports/'),
+      expect.stringContaining('/api/reports'),
       expect.objectContaining({
         body: JSON.stringify({ assetId: assets[0].id, sections: ['summary'] }),
       })

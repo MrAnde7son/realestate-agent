@@ -10,13 +10,11 @@ import {
   CardContent,
   CardDescription,
   CardBody,
-  CardFooter,
 } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import DataBadge from '@/components/DataBadge'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -50,7 +48,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
-const ALL_SECTIONS = ['summary','permits','plans','environment','comparables','mortgage','appendix']
+const ALL_SECTIONS = ['summary','permits','plans','environment', 'rights','comparables','mortgage','appendix']
 
 const mapFilterValues = (values?: Array<string | { value?: string; key?: string; id?: string }>) => {
   if (!values) return []
@@ -540,121 +538,6 @@ React.useEffect(() => {
     }
   }
 
-  // Combine all document sources into a unified list
-  const getAllDocuments = () => {
-    const allDocs: any[] = []
-    
-    // Helper function to translate document types to Hebrew
-    const translateDocumentType = (type: string) => {
-      const translations: Record<string, string> = {
-        'tabu': 'נסח טאבו',
-        'condo_plan': 'תשריט בית משותף',
-        'appraisal_decisive': 'שומה החלטית',
-        'appraisal_rmi': 'שומת רמ״י',
-        'permit': 'היתר בנייה',
-        'rights': 'זכויות',
-        'plan': 'תכנית',
-        'other': 'אחר'
-      }
-      return translations[type] || type
-    }
-    
-    // Helper function to translate sources to Hebrew
-    const translateSource = (source: string) => {
-      const translations: Record<string, string> = {
-        'user_upload': 'העלאה ידנית',
-        'gis': 'מערכת מידע גיאוגרפית',
-        'gis_permit': 'מערכת מידע גיאוגרפית',
-        'gis_rights': 'מערכת מידע גיאוגרפית',
-        'handasa': 'תיק בניין',
-        'rami': 'רמ״י',
-        'rami_plan': 'רמ״י',
-        'mavat': 'מבת',
-        'gov': 'ממשלתי',
-        'tabu': 'טאבו',
-        'tabu_upload': 'טאבו',
-        'meta_migration': 'העברה מנתונים קיימים',
-        'yad2': 'יד2',
-        'nadlan': 'נדלן',
-        'pipeline': 'צינור נתונים',
-        'external': 'מקור חיצוני',
-        'unknown': 'מקומי',
-      }
-      return source && translations[source.toLowerCase()] || source
-    }
-    
-    // 1. User-uploaded documents from asset.documents
-    if (asset?.documents) {
-      allDocs.push(...asset.documents.map((doc: any) => ({
-        ...doc,
-        type: translateDocumentType(doc.type || doc.document_type),
-        source: translateSource(doc.source || 'user_upload'),
-        category: 'מסמכים שהועלו ידנית'
-      })))
-    } else {
-      console.log('No asset.documents found')
-    }
-    
-    // 2. Permits (normalized)
-    if (permitsData.items && permitsData.items.length > 0) {
-      allDocs.push(...permitsData.items.map((permit) => ({
-        id: `permit_${permit.permitNumber || permit.id}`,
-        title: permit.title || `היתר בנייה ${permit.permitNumber || permit.id}`,
-        type: translateDocumentType('permit'),
-        url: permit.handasaLink || permit.externalUrl,
-        source: translateSource(permit.source || 'GIS'),
-        category: 'היתרי בנייה',
-        date: permit.approvalDate,
-        description: permit.description || permit.requestType,
-        external_id: permit.permitNumber || permit.id
-      })))
-    }
-    
-    // 3. Plans
-    if (plansData.items && plansData.items.length > 0) {
-      allDocs.push(...plansData.items.map((plan: any) => ({
-        id: `plan_${plan.id}`,
-        title: plan.title || plan.description || `תכנית ${plan.plan_number}`,
-        type: translateDocumentType('plan'),
-        url: plan.file_url,
-        source: translateSource(plan.source === 'rami' ? 'RAMI' : plan.source === 'mavat' ? 'Mavat' : 'Local'),
-        category: plan.source === 'rami' ? 'תכניות רמ״י' : plan.source === 'mavat' ? 'תכניות מנהל התיכנון' : 'תכניות מקומיות',
-        status: plan.status,
-        external_id: plan.plan_number
-      })))
-    }
-    
-    // 5. Decisive appraisals
-    if (decisiveAppraisals && decisiveAppraisals.length > 0) {
-      allDocs.push(...decisiveAppraisals.map((appraisal: any) => ({
-        id: `decisive_${appraisal.id}`,
-        title: `שומה החלטית ${appraisal.id}`,
-        type: translateDocumentType('appraisal_decisive'),
-        url: appraisal.url,
-        source: translateSource('Gov'),
-        category: 'שומות מכריעות',
-        date: appraisal.date,
-        external_id: appraisal.id
-      })))
-    }
-    
-    // 6. RAMI appraisals
-    if (ramiAppraisals && ramiAppraisals.length > 0) {
-      allDocs.push(...ramiAppraisals.map((appraisal: any) => ({
-        id: `rami_appraisal_${appraisal.id}`,
-        title: `שומת רמ״י ${appraisal.id}`,
-        type: translateDocumentType('appraisal_rmi'),
-        url: appraisal.url,
-        source: translateSource('RAMI'),
-        category: 'שומות רמ״י',
-        date: appraisal.date,
-        external_id: appraisal.id
-      })))
-    }
-    
-    return allDocs
-  }
-
   const formatPercent = (value?: number, digits = 0) =>
     value !== undefined && value !== null
       ? `${value.toFixed(digits)}%`
@@ -779,45 +662,6 @@ React.useEffect(() => {
       setRightsLoading(false)
     }
   }, [id])
-
-  const rightsDocOptions = React.useMemo(() => {
-    const entries = new Map<string, { title: string; url?: string }>()
-    rightsRows.forEach(row => {
-      const docId = row?.document_id ? String(row.document_id) : null
-      if (!docId) return
-      if (!entries.has(docId)) {
-        entries.set(docId, {
-          title: row.document_title || `מסמך ${docId}`,
-          url: row.document_url
-        })
-      }
-    })
-    return Array.from(entries.entries()).map(([value, info]) => ({ value, ...info }))
-  }, [rightsRows])
-
-  const filteredRights = React.useMemo(() => {
-    const searchTerm = rightsSearch.trim().toLowerCase()
-    return rightsRows.filter(row => {
-      const docId = row?.document_id ? String(row.document_id) : ''
-      const matchesDoc = rightsDocFilter === 'all' || rightsDocFilter === docId
-      if (!matchesDoc) return false
-      if (!searchTerm) return true
-      const field = (row?.field || '').toLowerCase()
-      const value = (row?.value || '').toLowerCase()
-      const description = (row?.description || '').toLowerCase()
-      const rawText = (row?.raw_text || '').toLowerCase()
-      const lineType = (row?.line_type || '').toLowerCase()
-      const text = (row?.text || '').toLowerCase()
-      return (
-        field.includes(searchTerm) ||
-        value.includes(searchTerm) ||
-        description.includes(searchTerm) ||
-        rawText.includes(searchTerm) ||
-        lineType.includes(searchTerm) ||
-        text.includes(searchTerm)
-      )
-    })
-  }, [rightsRows, rightsDocFilter, rightsSearch])
 
   // Load documents organized by category
   const loadDocumentsTable = React.useCallback(async () => {
@@ -1331,19 +1175,6 @@ useDedupedEffect(() => {
       </DashboardLayout>
     )
   }
-
-  const manualDocs =
-    asset?.documents?.filter(
-      (d: any) => d.type === 'tabu' || d.type === 'condo_plan' || d.type === 'contract' || d.type === 'deed' || d.type === 'other'
-    ) ?? []
-  const permitDocs =
-    asset?.documents?.filter((d: any) => d.type === 'permit') ?? []
-  const rightsDocs =
-    asset?.documents?.filter((d: any) => d.type === 'rights' || d.type === 'plan') ?? []
-  const decisiveDocs =
-    asset?.documents?.filter((d: any) => d.type === 'appraisal_decisive' || (d.type === 'appraisal' && d.source === 'מנהל התכנון')) ?? []
-  const rmiDocs =
-    asset?.documents?.filter((d: any) => d.type === 'appraisal_rmi' || (d.type === 'appraisal' && d.source === 'RAMI')) ?? []
 
   const handleGenerateReport = async (selected: string[]) => {
     if (!id) return

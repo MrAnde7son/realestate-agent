@@ -21,7 +21,7 @@ def make_request(factory):
         "number": 5,
     }
     return factory.post(
-        "/api/assets/", data=json.dumps(payload), content_type="application/json"
+        "/api/assets", data=json.dumps(payload), content_type="application/json"
     )
 
 

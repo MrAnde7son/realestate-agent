@@ -9,8 +9,8 @@ export async function GET(
 
   try {
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-    console.log(`Fetching rights from: ${backendUrl}/api/assets/${numericId}/rights/`)
-    const backendResponse = await fetch(`${backendUrl}/api/assets/${numericId}/rights/`, {
+    console.log(`Fetching rights from: ${backendUrl}/api/assets/${numericId}/rights`)
+    const backendResponse = await fetch(`${backendUrl}/api/assets/${numericId}/rights`, {
       cache: 'no-store',
       headers: {
         'Cache-Control': 'no-cache'

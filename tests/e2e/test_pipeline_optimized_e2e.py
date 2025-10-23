@@ -48,7 +48,7 @@ class StubYad2Collector(Yad2Collector):
         self.listings = list(listings or [])
         self.fetch_calls: List[tuple[str, int]] = []
 
-    def _fetch_listings(self, address: str, max_pages: int):
+    def _fetch_listings(self, address: str, max_pages: int = 1):
         self.fetch_calls.append((address, max_pages))
         return list(self.listings)
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/Card'
@@ -136,6 +136,8 @@ export default function DealExpensesPage() {
     constructionCost: number
   }>(null)
 
+  const resultsRef = useRef<HTMLDivElement | null>(null)
+
   useEffect(() => {
     fetch('/api/vat')
       .then(res => res.json())
@@ -187,6 +189,12 @@ export default function DealExpensesPage() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showAssetDropdown])
+
+  useEffect(() => {
+    if (result) {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [result])
 
   async function loadAssets() {
     setLoadingAssets(true)
@@ -830,10 +838,17 @@ export default function DealExpensesPage() {
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader 
-          heading="מחשבון הוצאות עסקה" 
+        <DashboardHeader
+          heading="מחשבון הוצאות עסקה"
           text="חישוב מדויק של כל העלויות הכרוכות ברכישת נכס"
         />
+
+        <div className="mb-6 flex justify-center sm:justify-end">
+          <Button onClick={calculate} size="lg" className="w-full sm:w-auto">
+            <Receipt className="h-5 w-5 ms-2" />
+            חשב הוצאות
+          </Button>
+        </div>
 
         {/* VAT Rate Display */}
         <Card className="mb-6">
@@ -1505,14 +1520,6 @@ export default function DealExpensesPage() {
           </CardContent>
         </Card>
 
-        {/* Calculate Button */}
-        <div className="flex justify-center mt-8">
-          <Button onClick={calculate} size="lg" className="px-8">
-            <Receipt className="h-5 w-5 ms-2" />
-            חשב הוצאות
-          </Button>
-        </div>
-
         {/* Export Buttons */}
         {result && (
           <div className="flex justify-center gap-4 mt-4">
@@ -1529,7 +1536,8 @@ export default function DealExpensesPage() {
 
         {/* Results */}
         {result && (
-          <Card className="mt-8">
+          <div ref={resultsRef} className="mt-8">
+            <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
@@ -1657,7 +1665,8 @@ export default function DealExpensesPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         )}
       </DashboardShell>
     </DashboardLayout>

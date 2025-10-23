@@ -68,7 +68,7 @@ urlpatterns = [
     path('support/consultation', vs.support_consultation),
 
     # Asset enrichment endpoints
-    path('assets/', include((asset_urlpatterns, 'assets'))),
+    path('assets', include((asset_urlpatterns, 'assets'))),
     path(
         'dashboard/market-data',
         views.dashboard_market_data,

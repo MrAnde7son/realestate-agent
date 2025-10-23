@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 
   // Assets endpoint is open to everyone - no authentication required
   try {
-    const res = await fetch(`${backendUrl}/api/assets/${search}`, {
+    const res = await fetch(`${backendUrl}/api/assets${search ? `/${search}` : ''}`, {
       headers: {
         ...(token && { Authorization: `Bearer ${token}` })
       }

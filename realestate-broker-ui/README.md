@@ -277,7 +277,7 @@ const response = await fetch(`${API_BASE}/api/assets?city=5000&max_price=8000000
 const assets = await response.json();
 
 // Get property details
-const property = await fetch(`${API_BASE}/api/assets/${id}/`);
+const property = await fetch(`${API_BASE}/api/assets/${id}`);
 ```
 
 #### Alert Management

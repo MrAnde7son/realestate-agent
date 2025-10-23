@@ -76,7 +76,7 @@ def test_api_endpoints():
         return False
     
     # Test assets endpoint (should return empty list or 401)
-    assets_url = f"{API_BASE_URL}/api/assets/"
+    assets_url = f"{API_BASE_URL}/api/assets"
     try:
         response = requests.get(assets_url, timeout=10)
         if response.status_code in [200, 401, 403]:  # 401/403 is expected without auth

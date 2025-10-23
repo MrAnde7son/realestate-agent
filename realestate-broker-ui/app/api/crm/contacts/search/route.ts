@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/contacts/search/?q=${encodeURIComponent(query)}`, {
+    const response = await fetch(`${backendUrl}/api/crm/contacts/search?q=${encodeURIComponent(query)}`, {
       method: 'GET',
       headers: {
         'Authorization': token,

@@ -85,7 +85,7 @@ describe('AssetDetailPage', () => {
           })
         })
       }
-      if (url === '/api/documents/by_category/?asset_id=1') {
+      if (url === '/api/documents/by_category?asset_id=1') {
         return Promise.resolve({
           ok: true,
           json: async () => ({})
@@ -224,7 +224,7 @@ describe('AssetDetailPage', () => {
           json: async () => ({ calculated_rights: null, tabu_data: [], gis_rights: [], detailed_rights: [] })
         })
       }
-      if (url === '/api/documents/by_category/?asset_id=1') {
+      if (url === '/api/documents/by_category?asset_id=1') {
         return Promise.resolve({ ok: true, json: async () => ({}) })
       }
       if (url === '/api/settings') {

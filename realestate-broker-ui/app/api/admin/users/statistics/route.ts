@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const authHeader = request.headers.get('authorization');
     
     // Forward the request to Django backend
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/statistics/`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/statistics`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

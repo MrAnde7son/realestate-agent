@@ -1057,6 +1057,18 @@ class Report(models.Model):
         self.status = "failed"
         self.error_message = error_message
         self.save()
+    
+    def delete_report(self):
+        """Delete the report file and database record."""
+        try:
+            if os.path.exists(self.file_path):
+                os.remove(self.file_path)
+
+            self.delete()
+            return True
+        except Exception as e:
+            logger.error("Error deleting report %s: %s", self.id, e)
+            return False
 
 
 class Document(models.Model):
@@ -1204,8 +1216,8 @@ class Document(models.Model):
         """Return the API URL to download the document."""
         asset_id = self.asset_id or self.assets.values_list("id", flat=True).first()
         if asset_id:
-            return f"/api/assets/{asset_id}/documents/{self.id}/download/"
-        return f"/api/documents/{self.id}/download/"
+            return f"/api/assets/{asset_id}/documents/{self.id}/download"
+        return f"/api/documents/{self.id}/download"
     
     @property
     def is_downloadable(self):

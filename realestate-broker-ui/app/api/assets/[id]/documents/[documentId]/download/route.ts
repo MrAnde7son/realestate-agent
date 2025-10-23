@@ -30,7 +30,7 @@ export async function GET(
 
   try {
     const backendResponse = await fetch(
-      `${backendUrl}/api/assets/${id}/documents/${documentId}/download/`,
+      `${backendUrl}/api/assets/${id}/documents/${documentId}/download`,
       {
         method: 'GET',
         headers: {

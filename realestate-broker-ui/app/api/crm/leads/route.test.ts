@@ -30,7 +30,7 @@ describe('/api/crm/leads route', () => {
     const response = await GET(request)
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://backend/api/crm/leads/',
+      'http://backend/api/crm/leads',
       expect.objectContaining({
         method: 'GET',
         headers: expect.objectContaining({ Authorization: token })

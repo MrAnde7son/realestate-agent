@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/leads/`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads`, {
       method: 'GET',
       headers: {
         'Authorization': token,
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/leads/`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads`, {
       method: 'POST',
       headers: {
         'Authorization': token,

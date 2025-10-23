@@ -12,13 +12,13 @@ class DummyTask:
         self.calls = []
         self.job_id = "job-123"
 
-    def delay(self, asset_id, max_pages=1):
-        self.calls.append((asset_id, max_pages))
+    def delay(self, asset_id):
+        self.calls.append((asset_id))
         return type("AsyncResult", (), {"id": self.job_id})()
 
-    def __call__(self, asset_id, max_pages=1):
+    def __call__(self, asset_id):
         """Called when run_data_pipeline is called directly (not as Celery task)"""
-        self.calls.append((asset_id, max_pages))
+        self.calls.append((asset_id))
         return []
 
 
@@ -31,7 +31,7 @@ def test_assets_post_triggers_pipeline(monkeypatch):
         "number": 5,
     }
     request = factory.post(
-        "/api/assets/", data=json.dumps(payload), content_type="application/json"
+        "/api/assets", data=json.dumps(payload), content_type="application/json"
     )
 
     dummy_asset = type("Asset", (), {"id": 1})()
@@ -48,7 +48,7 @@ def test_assets_post_triggers_pipeline(monkeypatch):
 
     assert response.status_code == 201
     # Ensure the Celery task was called with the new asset ID
-    assert dummy.calls == [(dummy_asset.id, 1)]
+    assert dummy.calls == [(dummy_asset.id)]
     # For DRF Response, access data directly instead of parsing content
     data = response.data
     # Now that Celery is mocked as available, job_id should be returned
@@ -66,7 +66,7 @@ def test_assets_delete_requires_admin_user():
         role="broker",
     )
     request = factory.delete(
-        "/api/assets/", data=json.dumps({"assetId": asset.id}), content_type="application/json"
+        "/api/assets", data=json.dumps({"assetId": asset.id}), content_type="application/json"
     )
     force_authenticate(request, user=user)
 
@@ -89,7 +89,7 @@ def test_assets_delete_removes_asset_for_admin():
         is_staff=True,
     )
     request = factory.delete(
-        "/api/assets/", data=json.dumps({"assetId": asset.id}), content_type="application/json"
+        "/api/assets", data=json.dumps({"assetId": asset.id}), content_type="application/json"
     )
     force_authenticate(request, user=admin_user)
 

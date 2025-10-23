@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get('authorization');
     
     // Forward the request to Django backend
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/bulk_action/`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/bulk_action`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

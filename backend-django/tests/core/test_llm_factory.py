@@ -13,7 +13,7 @@ from core.llm.providers.gemini import GeminiAdapter
 def test_create_llm_client_uses_google_api_key(monkeypatch):
     captured = {}
 
-    def fake_configure(*, api_key):
+    def fake_configure(api_key):
         captured["api_key"] = api_key
 
     monkeypatch.setattr("google.generativeai.configure", fake_configure)

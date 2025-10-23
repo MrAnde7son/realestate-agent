@@ -1,22 +1,90 @@
 import logging
+import os
+import pickle
 from datetime import timedelta
-from typing import Any, Dict, Optional
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, Dict, List, Optional
 
-from celery import shared_task
+from celery import chain, shared_task
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+
+from govmap.api_client import itm_to_wgs84
+from orchestration.data_pipeline import DataPipeline
+from orchestration.location import LocationQuery
+from orchestration.pipeline import (
+    auto_expand_related_assets,
+    create_asset_snapshot,
+    update_asset_with_collected_data,
+)
+from orchestration.pipeline.listings import _normalize_listings, _object_to_payload
 
 from .analytics import track
 from .email import send_email
 
 logger = logging.getLogger(__name__)
 
+_PIPELINE_STATE_DIR = Path(settings.BASE_DIR) / "tmp" / "pipeline_state"
+_PIPELINE_STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _state_path(asset_id: int) -> Path:
+    return _PIPELINE_STATE_DIR / f"asset_{asset_id}.pkl"
+
+
+def _save_state(asset_id: int, state: Dict[str, Any]) -> None:
+    path = _state_path(asset_id)
+    tmp_path = path.with_suffix(".tmp")
+    with tmp_path.open("wb") as fh:
+        pickle.dump(state, fh)
+    os.replace(tmp_path, path)
+
+
+def _load_state(asset_id: int) -> Dict[str, Any]:
+    path = _state_path(asset_id)
+    if not path.exists():
+        raise FileNotFoundError(f"Pipeline state missing for asset {asset_id}")
+    with path.open("rb") as fh:
+        return pickle.load(fh)
+
+
+def _clear_state(asset_id: int) -> None:
+    path = _state_path(asset_id)
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def _mark_asset_failed(asset_id: int, error_message: str) -> None:
+    from .models import Asset
+
+    truncated = (error_message or "")[:512]
+    Asset.objects.filter(id=asset_id).update(
+        status="failed",
+        last_enrich_error=truncated,
+    )
+    track("asset_sync_fail", asset_id=asset_id, error_code=truncated)
+
+
+def _serialize_location(location: LocationQuery) -> Dict[str, Any]:
+    return {
+        "city": location.city,
+        "street": location.street,
+        "house_number": location.house_number,
+        "block": location.block,
+        "parcel": location.parcel,
+        "subparcel": location.subparcel,
+    }
+
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def send_notification_email(
     self,
     subject: str,
-    to: list[str],
+    to: List[str],
     text: str = "",
     html: Optional[str] = None,
     extra: Optional[Dict[str, Any]] = None,
@@ -30,62 +98,427 @@ def send_notification_email(
         raise self.retry(exc=exc)
 
 
-@shared_task
-def run_data_pipeline(asset_id: int, max_pages: int = 1):
-    """Run the high-level data pipeline for a newly added asset.
-
-    Looks up the asset's address information and feeds it into
-    :class:`orchestration.data_pipeline.DataPipeline`. The pipeline
-    persists all collected records to the SQLAlchemy database and
-    returns the created ``Listing`` IDs.
-    """
-    # Lazy import to avoid import errors during Django startup
-    try:
-        from orchestration.data_pipeline import DataPipeline
-    except ImportError as e:
-        logger.error("Failed to import orchestration module: %s", e)
-        logger.error("Make sure the orchestration module is available in the Python path")
-        raise ImportError("Orchestration module is required but not available") from e
+@shared_task(bind=True)
+def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
+    """Collect raw payloads for an asset without further processing."""
+    from .models import Asset
 
     try:
-        from .models import Asset
-
         asset = Asset.objects.get(id=asset_id)
-    except Exception:
+    except Asset.DoesNotExist:
         logger.error("Asset %s not found", asset_id)
-        return []
+        return {"asset_id": asset_id, "halt": True}
 
-    # Mark asset as enriching
+    _clear_state(asset_id)
+
     asset.status = "enriching"
     asset.last_enrich_error = None
     asset.save(update_fields=["status", "last_enrich_error"])
 
     pipeline = DataPipeline()
-    street = asset.street or ""
-    city = asset.city or ""
-    house_number = asset.number or 0
-    block = asset.block or ""
-    parcel = asset.parcel or ""
-    logger.info("Starting data pipeline for asset %s", asset_id)
+    block = asset.block
+    parcel = asset.parcel
+    subparcel = asset.subparcel
+    location = LocationQuery(
+        city=asset.city,
+        street=asset.street,
+        house_number=asset.number,
+        block=block,
+        parcel=parcel,
+        subparcel=subparcel,
+    )
+
+    collect_summary: Dict[str, Any] = {}
+    govmap_data: Dict[str, Any] = {}
+    gis_data: Dict[str, Any] = {}
+    handasa_archive: List[Dict[str, Any]] = []
+    gov_data: Dict[str, Any] = {"decisive": [], "transactions": []}
+    plans: List[Dict[str, Any]] = []
+    mavat_plans: List[Dict[str, Any]] = []
+    listings_payload: List[Dict[str, Any]] = []
+    x_itm = y_itm = lon_wgs84 = lat_wgs84 = None
+
     try:
-        result = pipeline.run(city, street, house_number, max_pages=max_pages, asset_id=asset_id, block=block, parcel=parcel)
-        track('asset_sync', asset_id=asset_id)
-        asset.status = "done"
-        asset.last_enriched_at = timezone.now()
-        asset.save(update_fields=["status", "last_enriched_at", "last_enrich_error"])
-        logger.info(
-            "Data pipeline completed for asset %s with %s listings",
-            asset_id,
-            len(result) if hasattr(result, '__len__') else result,
-        )
-        return result
-    except Exception as e:
-        track('asset_sync_fail', asset_id=asset_id, error_code=str(e))
-        asset.status = "failed"
-        asset.last_enrich_error = str(e)
-        asset.save(update_fields=["status", "last_enrich_error"])
-        logger.exception("Data pipeline failed for asset %s", asset_id)
+        try:
+            govmap_data = pipeline._collect_with_observability(
+                "govmap",
+                pipeline.govmap.collect,
+                location=location,
+                timeout=pipeline.TIMEOUTS.get("govmap"),
+                retries=pipeline.RETRIES.get("govmap", 0),
+                asset_id=asset_id,
+            )
+            collect_summary["govmap"] = True
+            if "x" in govmap_data and "y" in govmap_data:
+                x_itm = govmap_data.get("x")
+                y_itm = govmap_data.get("y")
+                try:
+                    lon_wgs84, lat_wgs84 = itm_to_wgs84(x_itm, y_itm)
+                except Exception:
+                    lon_wgs84 = lat_wgs84 = None
+            parcel_api = govmap_data.get("api_data", {}).get("parcel", {})
+            if parcel_api:
+                parcel_props = parcel_api.get("properties", {})
+                block = parcel_props.get("gushnumber", block)
+                parcel = parcel_props.get("parcelnumber", parcel)
+                location = LocationQuery(
+                    city=location.city,
+                    street=location.street,
+                    house_number=location.house_number,
+                    block=block,
+                    parcel=parcel,
+                    subparcel=subparcel,
+                )
+        except Exception as exc:  # noqa: BLE001
+            collect_summary["govmap"] = False
+            govmap_data = {}
+            logger.warning("GovMap collection failed for asset %s: %s", asset_id, exc)
+
+        try:
+            gis_data = pipeline._collect_with_observability(
+                "gis",
+                pipeline.gis.collect,
+                location=location,
+                timeout=pipeline.TIMEOUTS.get("gis"),
+                retries=pipeline.RETRIES.get("gis", 0),
+                asset_id=asset_id,
+            )
+            collect_summary["gis"] = True
+            if gis_data.get("block") and gis_data.get("parcel"):
+                block = gis_data.get("block", block)
+                parcel = gis_data.get("parcel", parcel)
+                location = LocationQuery(
+                    city=location.city,
+                    street=location.street,
+                    house_number=location.house_number,
+                    block=block,
+                    parcel=parcel,
+                    subparcel=subparcel,
+                )
+        except Exception as exc:  # noqa: BLE001
+            collect_summary["gis"] = False
+            gis_data = {}
+            logger.warning("GIS collection failed for asset %s: %s", asset_id, exc)
+
+        if block:
+            try:
+                handasa_archive = pipeline._collect_with_observability(
+                    "handasa",
+                    pipeline.handasa.collect,
+                    location=location,
+                    timeout=pipeline.TIMEOUTS.get("handasa"),
+                    retries=pipeline.RETRIES.get("handasa", 0),
+                    asset_id=asset_id,
+                )
+                collect_summary["handasa"] = len(handasa_archive)
+            except Exception as exc:  # noqa: BLE001
+                collect_summary["handasa"] = 0
+                handasa_archive = []
+                logger.warning("Handasa collection failed for asset %s: %s", asset_id, exc)
+
+        if block and parcel:
+            try:
+                gov_data = pipeline._collect_with_observability(
+                    "gov",
+                    pipeline.gov.collect,
+                    location=location,
+                    timeout=pipeline.TIMEOUTS.get("gov"),
+                    retries=pipeline.RETRIES.get("gov", 0),
+                    asset_id=asset_id,
+                )
+                collect_summary["gov"] = True
+            except Exception as exc:  # noqa: BLE001
+                collect_summary["gov"] = False
+                gov_data = {"decisive": [], "transactions": []}
+                logger.warning("Government collection failed for asset %s: %s", asset_id, exc)
+
+            try:
+                plans = pipeline._collect_with_observability(
+                    "gov_rami",
+                    pipeline.rami.collect,
+                    location=location,
+                    timeout=pipeline.TIMEOUTS.get("gov_rami"),
+                    retries=pipeline.RETRIES.get("gov_rami", 0),
+                    asset_id=asset_id,
+                )
+                collect_summary["gov_rami"] = len(plans)
+            except Exception as exc:  # noqa: BLE001
+                collect_summary["gov_rami"] = 0
+                plans = []
+                logger.warning("RAMI collection failed for asset %s: %s", asset_id, exc)
+
+            try:
+                mavat_plans = pipeline._collect_with_observability(
+                    "mavat",
+                    pipeline.mavat.collect,
+                    location=location,
+                    timeout=pipeline.TIMEOUTS.get("mavat"),
+                    retries=pipeline.RETRIES.get("mavat", 0),
+                    asset_id=asset_id,
+                )
+                collect_summary["mavat"] = len(mavat_plans)
+            except Exception as exc:  # noqa: BLE001
+                collect_summary["mavat"] = 0
+                mavat_plans = []
+                logger.warning("Mavat collection failed for asset %s: %s", asset_id, exc)
+
+        try:
+            listings = pipeline._collect_with_observability(
+                "yad2",
+                pipeline.yad2.collect,
+                location,
+                timeout=pipeline.TIMEOUTS.get("yad2"),
+                retries=pipeline.RETRIES.get("yad2", 0),
+                asset_id=asset_id,
+            )
+            listings_payload = [_object_to_payload(item) for item in listings or []]
+            collect_summary["yad2"] = len(listings_payload)
+        except Exception as exc:  # noqa: BLE001
+            collect_summary["yad2"] = 0
+            listings_payload = []
+            logger.warning("Yad2 collection failed for asset %s: %s", asset_id, exc)
+
+        state: Dict[str, Any] = {
+            "asset_id": asset_id,
+            "location": _serialize_location(location),
+            "block": block,
+            "parcel": parcel,
+            "subparcel": subparcel,
+            "govmap_data": govmap_data,
+            "gis_data": gis_data,
+            "gov_data": gov_data,
+            "plans": plans,
+            "mavat_plans": mavat_plans,
+            "handasa_archive": handasa_archive,
+            "listings_raw": listings_payload,
+            "x_itm": x_itm,
+            "y_itm": y_itm,
+            "lon_wgs84": lon_wgs84,
+            "lat_wgs84": lat_wgs84,
+        }
+        _save_state(asset_id, state)
+
+        return {
+            "asset_id": asset_id,
+            "listing_count": len(listings_payload),
+            "collect_summary": collect_summary,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Collection stage failed for asset %s", asset_id)
+        _mark_asset_failed(asset_id, str(exc))
+        _clear_state(asset_id)
         raise
+
+
+@shared_task
+def normalize_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
+    if previous.get("halt"):
+        return previous
+
+    asset_id = previous["asset_id"]
+
+    try:
+        state = _load_state(asset_id)
+    except FileNotFoundError:
+        previous["halt"] = True
+        return previous
+
+    normalized = _normalize_listings(state.get("listings_raw", []))
+    state["listings_normalized"] = normalized
+    _save_state(asset_id, state)
+
+    previous["normalized_listings"] = len(normalized)
+    return previous
+
+
+def _append_result(results: List[Dict[str, Any]], source: str, data: Any) -> None:
+    if data:
+        results.append({"source": source, "data": data})
+
+
+@shared_task
+def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
+    if previous.get("halt"):
+        return previous
+
+    asset_id = previous["asset_id"]
+
+    try:
+        state = _load_state(asset_id)
+    except FileNotFoundError:
+        previous["halt"] = True
+        return previous
+
+    pipeline = DataPipeline()
+    session = pipeline.session or (pipeline.db.get_session() if pipeline.db else None)
+    if session is None:
+        raise RuntimeError("Data pipeline database session unavailable")
+
+    govmap_data = state.get("govmap_data", {})
+    gis_data = state.get("gis_data", {})
+    gov_data = state.get("gov_data", {"decisive": [], "transactions": []})
+    plans = state.get("plans", [])
+    mavat_plans = state.get("mavat_plans", [])
+    handasa_archive = state.get("handasa_archive", [])
+    listings_raw = state.get("listings_raw", [])
+    listings_normalized = state.get("listings_normalized", [])
+
+    results: List[Dict[str, Any]] = []
+    persisted = 0
+
+    try:
+        for payload in listings_raw:
+            listing_obj = SimpleNamespace(**payload)
+            db_listing = pipeline._store_listing(session, listing_obj)
+            persisted += 1
+
+            autocomplete = govmap_data.get("api_data", {}).get("autocomplete")
+            if autocomplete:
+                pipeline._add_source_record(session, db_listing.id, "govmap_autocomplete", autocomplete)
+
+            parcel_api = govmap_data.get("api_data", {}).get("parcel")
+            if parcel_api:
+                pipeline._add_source_record(session, db_listing.id, "govmap_parcel", parcel_api)
+
+            if gis_data:
+                pipeline._add_source_record(session, db_listing.id, "gis", gis_data)
+
+            decisive = gov_data.get("decisive")
+            if decisive:
+                pipeline._add_source_record(session, db_listing.id, "gov_decisive", decisive)
+
+            transactions = gov_data.get("transactions")
+            if transactions:
+                pipeline._add_source_record(session, db_listing.id, "gov_transactions", transactions)
+                pipeline._add_transactions(session, db_listing.id, transactions)
+
+            if plans:
+                pipeline._add_source_record(session, db_listing.id, "gov_rami", plans)
+
+            if mavat_plans:
+                pipeline._add_source_record(session, db_listing.id, "mavat", mavat_plans)
+
+            if handasa_archive:
+                pipeline._add_source_record(session, db_listing.id, "handasa", handasa_archive)
+
+        session.commit()
+    except Exception as exc:  # noqa: BLE001
+        session.rollback()
+        logger.exception("Persistence stage failed for asset %s", asset_id)
+        _mark_asset_failed(asset_id, str(exc))
+        _clear_state(asset_id)
+        raise
+    finally:
+        if pipeline.session is None and session is not None:
+            session.close()
+
+    try:
+        update_asset_with_collected_data(
+            asset_id,
+            state.get("block", ""),
+            state.get("parcel", ""),
+            govmap_data.get("api_data", {}).get("autocomplete", {}),
+            govmap_data,
+            gis_data,
+            gov_data,
+            plans,
+            mavat_plans,
+            handasa_archive,
+            listings_normalized,
+            state.get("x_itm"),
+            state.get("y_itm"),
+            state.get("lon_wgs84"),
+            state.get("lat_wgs84"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Asset update failed for asset %s", asset_id)
+        _mark_asset_failed(asset_id, str(exc))
+        _clear_state(asset_id)
+        raise
+
+    for normalized_listing in listings_normalized:
+        _append_result(results, "listing", normalized_listing)
+    _append_result(results, "govmap", govmap_data)
+    _append_result(results, "gis", gis_data)
+    _append_result(results, "gov_decisive", gov_data.get("decisive"))
+    _append_result(results, "gov_transactions", gov_data.get("transactions"))
+    _append_result(results, "gov_rami", plans)
+    _append_result(results, "mavat", mavat_plans)
+    _append_result(results, "handasa", handasa_archive)
+
+    state["results"] = results
+    _save_state(asset_id, state)
+
+    previous["persisted_listings"] = persisted
+    previous["result_sources"] = len(results)
+    return previous
+
+
+@shared_task
+def link_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
+    if previous.get("halt"):
+        return previous
+
+    asset_id = previous["asset_id"]
+
+    try:
+        state = _load_state(asset_id)
+    except FileNotFoundError:
+        previous["halt"] = True
+        return previous
+
+    try:
+        results = state.get("results", [])
+        if results:
+            create_asset_snapshot(asset_id, results)
+
+        auto_created_assets = auto_expand_related_assets(
+            asset_id,
+            listings=state.get("listings_normalized"),
+            govmap_data=state.get("govmap_data"),
+            gis_data=state.get("gis_data"),
+            gov_data=state.get("gov_data"),
+            plans=state.get("plans"),
+            mavat_plans=state.get("mavat_plans"),
+            handasa_archive=state.get("handasa_archive"),
+        )
+
+        from .models import Asset
+
+        Asset.objects.filter(id=asset_id).update(
+            status="done",
+            last_enriched_at=timezone.now(),
+            last_enrich_error=None,
+        )
+
+        track("asset_sync", asset_id=asset_id)
+
+        try:
+            evaluate_alerts_for_asset.delay(asset_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to enqueue alert evaluation for asset %s: %s", asset_id, exc)
+
+        previous["linked_assets"] = len(auto_created_assets or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Link stage failed for asset %s", asset_id)
+        _mark_asset_failed(asset_id, str(exc))
+        _clear_state(asset_id)
+        raise
+    finally:
+        _clear_state(asset_id)
+
+    return previous
+
+
+@shared_task(bind=True)
+def run_data_pipeline(self, asset_id: int):
+    workflow = chain(
+        collect_asset_data.s(asset_id=asset_id),
+        normalize_asset_data.s(),
+        persist_asset_data.s(),
+        link_asset_data.s(),
+    )
+    raise self.replace(workflow)
 
 
 @shared_task
@@ -659,4 +1092,3 @@ def alerts_daily_digest():
             
         except Exception as e:
             logger.error("Failed to send daily digest for user %s: %s", user_id, e)
-

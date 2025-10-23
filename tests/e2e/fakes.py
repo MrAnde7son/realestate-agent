@@ -20,7 +20,7 @@ class FakeNadlanScraper:
     a predictable list of deal-like objects.
     """
 
-    def __init__(self, deals: Sequence[object] | None = None, *, fail: bool = False) -> None:
+    def __init__(self, deals: Sequence[object] | None = None, fail: bool = False) -> None:
         self._deals = list(deals or [])
         self.fail = fail
         self.calls: List[str] = []
@@ -50,7 +50,7 @@ class FakeDecisiveClient:
             else:
                 self._appraisals.append(DecisiveAppraisal(**appraisal))
 
-    def fetch_appraisals(self, *, block: str = "", plot: str = "", max_pages: int = 1) -> List[DecisiveAppraisal]:
+    def fetch_appraisals(self, block: str = "", plot: str = "", max_pages: int = 1) -> List[DecisiveAppraisal]:
         self.calls.append((block, plot, max_pages))
         if self.fail:
             raise RuntimeError("forced decisive failure")

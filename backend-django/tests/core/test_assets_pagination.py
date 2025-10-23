@@ -18,7 +18,7 @@ class AssetsPaginationTests(TestCase):
             cls.asset_ids.append(asset.id)
 
     def test_default_pagination_returns_first_page(self):
-        response = self.client.get("/api/assets/")
+        response = self.client.get("/api/assets")
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -34,7 +34,7 @@ class AssetsPaginationTests(TestCase):
         self.assertFalse(pagination["has_previous"])
 
     def test_custom_page_and_size(self):
-        response = self.client.get("/api/assets/", {"page": 2, "pageSize": 10})
+        response = self.client.get("/api/assets", {"page": 2, "pageSize": 10})
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -57,7 +57,7 @@ class AssetsPaginationTests(TestCase):
 
     def test_filters_and_metadata(self):
         response = self.client.get(
-            "/api/assets/",
+            "/api/assets",
             {"city": "CityA", "status": "done", "pageSize": 100},
         )
         self.assertEqual(response.status_code, 200)
@@ -79,7 +79,7 @@ class AssetsPaginationTests(TestCase):
         self.assertEqual(status_counts.get("pending"), 15)
 
     def test_page_size_capped_to_maximum(self):
-        response = self.client.get("/api/assets/", {"pageSize": MAX_ASSET_PAGE_SIZE * 5})
+        response = self.client.get("/api/assets", {"pageSize": MAX_ASSET_PAGE_SIZE * 5})
         self.assertEqual(response.status_code, 200)
 
         data = response.json()

@@ -15,11 +15,11 @@ if "x" in result and "y" in result:
     print("Parcel data:", result["api_data"].get("parcel", "Not available"))
 """
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from orchestration.collectors.base_collector import BaseCollector
 from govmap.api_client import GovMapClient
-from orchestration.location import LocationQuery, ensure_location_query
+from orchestration.location import LocationQuery
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,6 @@ class GovMapCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        block: Optional[str] = None,
-        parcel: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Collect data from GovMap using address autocomplete and parcel data.
 
@@ -51,11 +49,12 @@ class GovMapCollector(BaseCollector):
             Parcel number for block/parcel-only queries
         """
 
-        query = ensure_location_query(location)
-        address = query.formatted or query.street or query.city
+        block = location.block
+        parcel = location.parcel
+        address = location.formatted or location.street or location.city
 
         # Determine search query based on input
-        if block and parcel and block.strip() and parcel.strip() and not address:
+        if block and parcel and not address:
             # Block/parcel-only query
             search_query = f"גוש {block} חלקה {parcel}"
             logger.info(f"Processing block/parcel-only query in GovMap: {block}/{parcel}")
@@ -119,7 +118,7 @@ class GovMapCollector(BaseCollector):
                                         corrected_number = first_addr.get("house_number")
                                         
                                         # Check if the corrected address is similar to the original search
-                                        original_street = query.street.lower() if query.street else ""
+                                        original_street = location.street.lower() if location.street else ""
                                         corrected_street_lower = corrected_street.lower()
                                         
                                         # Only update if there's some similarity or if the original search was very generic
@@ -171,7 +170,6 @@ if __name__ == "__main__":
     from orchestration.location import LocationQuery
 
     collector = GovMapCollector()
-    result = collector.collect(block="7793", parcel="102")
+    result = collector.collect(LocationQuery(block=7793, parcel=102))
     print("Address:", result["address"])
     print("result:", result)
-

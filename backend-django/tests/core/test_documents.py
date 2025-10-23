@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from core.models import Asset, Document
 from core.storage import document_storage
-from orchestration.data_pipeline import _create_documents_from_permits
+from orchestration.pipeline.asset_enrichment import _create_documents_from_permits
 
 User = get_user_model()
 
@@ -78,7 +78,7 @@ class DocumentModelTest(TestCase):
             mime_type='application/pdf'
         )
         
-        expected_url = f"/api/assets/{self.asset.id}/documents/{document.id}/download/"
+        expected_url = f"/api/assets/{self.asset.id}/documents/{document.id}/download"
         self.assertEqual(document.file_url, expected_url)
 
 

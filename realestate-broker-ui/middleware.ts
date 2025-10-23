@@ -18,11 +18,11 @@ export async function middleware(request: NextRequest) {
   
   // Check if the route requires authentication
   const isProtectedRoute = protectedRoutes.some(route => 
-    pathname === route || pathname.startsWith(route + '/')
+    pathname === route || pathname.startsWith(route)
   )
   
   // Check if the route is the auth page
-  const isAuthRoute = pathname === '/auth' || pathname.startsWith('/auth/')
+  const isAuthRoute = pathname === '/auth' || pathname.startsWith('/auth')
   
   // Get the token from cookies
   const accessToken = request.cookies.get('access_token')?.value

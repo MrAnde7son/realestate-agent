@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from orchestration.collectors.base_collector import BaseCollector
 from mavat.scrapers.mavat_selenium_client import MavatSeleniumClient
+from orchestration.location import LocationQuery, ensure_location_query
 
 
 class MavatCollector(BaseCollector):
@@ -18,9 +19,7 @@ class MavatCollector(BaseCollector):
 
     def collect(
         self,
-        block: str,
-        parcel: Optional[str] = None,
-        city: Optional[str] = None,
+        location: Optional[LocationQuery] = None,
         limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Collect Mavat plans for a given block/parcel.
@@ -30,12 +29,7 @@ class MavatCollector(BaseCollector):
         
         Parameters
         ----------
-        block: str
-            Block number for cadastral search.
-        parcel: str
-            Parcel number for cadastral search.
-        city: str, optional
-            City name for additional context.
+        location: LocationQuery
         limit: int, optional
             Maximum number of plans to return. Defaults to no explicit limit.
             
@@ -44,6 +38,12 @@ class MavatCollector(BaseCollector):
         List[Dict[str, Any]]
             A list of plan summaries in consistent format.
         """
+        query = ensure_location_query(location)
+        block = query.block
+        city = query.city
+        if not block:
+            raise ValueError("MavatCollector requires a block number")
+
         try:
             # Block search is enough for mavat to cover larger area
             with self.client as client:
@@ -69,10 +69,13 @@ class MavatCollector(BaseCollector):
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for Mavat collection."""
-        required_params = ['block', 'parcel']
-        return all(param in kwargs for param in required_params)
+        query = ensure_location_query(
+            kwargs.get("location"),
+        )
+        block = query.block
+        return bool(block)
 
 if __name__ == '__main__':
     collector = MavatCollector()
-    result = collector.collect(block=6336)
+    result = collector.collect(LocationQuery(block=6336))
     print(result)

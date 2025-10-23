@@ -1,112 +1,149 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from django.http import HttpResponse
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularSwaggerView,
+    SpectacularRedocView,
+)
 from drf_spectacular.renderers import OpenApiYamlRenderer
-from drf_spectacular.openapi import AutoSchema
 
 from . import views
 from . import views_analytics as va
 from . import views_support as vs
-from . import views_documents as vd
+from .urls_assets import urlpatterns as asset_urlpatterns
 from .admin_views import AdminUserViewSet
 from .api import (
+    DocumentViewSet,
     PermitViewSet,
     PlanViewSet,
-    DocumentViewSet,
     estimate_build_cost,
     get_cost_options,
 )
 
+
 class OpenApiYamlView(SpectacularAPIView):
     """Custom view to serve OpenAPI spec in YAML format."""
+
     renderer_classes = [OpenApiYamlRenderer]
 
-router = DefaultRouter()
+
+router = DefaultRouter(trailing_slash=False)
 router.register(r'permits', PermitViewSet)
 router.register(r'plans', PlanViewSet)
 router.register(r'documents', DocumentViewSet)
 
 # Admin router for user management
-admin_router = DefaultRouter()
+admin_router = DefaultRouter(trailing_slash=False)
 admin_router.register(r'admin/users', AdminUserViewSet, basename='admin-users')
 
 urlpatterns = [
     # Core endpoints
-    path('mortgage-analyze/', views.mortgage_analyze, name='mortgage_analyze'),
-    path('sync-address/', views.sync_address, name='sync_address'),
-    path('tabu/', views.tabu, name='tabu'),
-    path('reports/', views.reports, name='reports'),
-    path('reports/file/<str:filename>', views.report_file, name='report_file'),
-    path('settings/', views.user_settings, name='user_settings'),
-    path('alerts/', views.alerts, name='alerts'),
-    path('alert-events/', views.alert_events, name='alert_events'),
-    path('alert-test/', views.alert_test, name='alert_test'),
+    path('mortgage-analyze', views.mortgage_analyze, name='mortgage_analyze'),
+    path('sync-address', views.sync_address, name='sync_address'),
+    path('tabu', views.tabu, name='tabu'),
+    path('reports', views.reports, name='reports'),
+    path(
+        'reports/file/<str:filename>',
+        views.report_file,
+        name='report_file',
+    ),
+    path('settings', views.user_settings, name='user_settings'),
+    path('alerts', views.alerts, name='alerts'),
+    path('alert-events', views.alert_events, name='alert_events'),
+    path('alert-test', views.alert_test, name='alert_test'),
     path('analytics/timeseries', va.analytics_timeseries),
     path('analytics/top-failures', va.analytics_top_failures),
     path('analytics/track', va.analytics_track),
     path('analytics/page-view', va.analytics_page_view),
     path('analytics/session-end', va.analytics_session_end),
-    path('onboarding-status/', views.onboarding_status, name='onboarding_status'),
-    path('connect-payment/', views.connect_payment, name='connect_payment'),
-    path('demo/start/', views.demo_start, name='demo_start'),
+    path(
+        'onboarding-status',
+        views.onboarding_status,
+        name='onboarding_status',
+    ),
+    path('connect-payment', views.connect_payment, name='connect_payment'),
+    path('demo/start', views.demo_start, name='demo_start'),
     path('support/contact', vs.support_contact),
     path('support/bug', vs.support_bug),
     path('support/consultation', vs.support_consultation),
-    
-    # Asset enrichment endpoints
-    path('assets/', views.assets, name='assets'),
-    path('assets/<int:asset_id>/', views.asset_detail, name='asset_detail'),
-    path('assets/<int:asset_id>/appraisal/', views.asset_appraisal, name='asset_appraisal'),
-    path('assets/<int:asset_id>/transactions/', views.asset_transactions, name='asset_transactions'),
-    path('assets/<int:asset_id>/permits/', views.asset_permits, name='asset_permits'),
-    path('assets/<int:asset_id>/plans/', views.asset_plans, name='asset_plans'),
-    path('assets/<int:asset_id>/rights/', vd.AssetRightsView.as_view(), name='asset_rights'),
-    path('assets/<int:asset_id>/share-message/', views.asset_share_message, name='asset_share_message'),
-    path('assets/<int:asset_id>/listings/', views.asset_listings, name='asset_listings'),
-    path('assets/<int:asset_id>/sync/', views.sync_asset, name='sync_asset'),
-    path('assets/bulk-action/', views.assets_bulk_action, name='assets_bulk_action'),
-    path('dashboard/market-data/', views.dashboard_market_data, name='dashboard_market_data'),
 
-    # Document management endpoints
-    path('assets/<int:asset_id>/documents/', vd.DocumentListView.as_view(), name='asset_documents'),
-    path('assets/<int:asset_id>/documents/upload/', vd.DocumentUploadView.as_view(), name='document_upload'),
-    path('assets/<int:asset_id>/documents/<int:document_id>/', vd.DocumentDetailView.as_view(), name='document_detail'),
-    path('assets/<int:asset_id>/documents/<int:document_id>/download/', vd.DocumentDownloadView.as_view(), name='document_download'),
-    path('assets/<int:asset_id>/documents/migrate-meta/', vd.create_document_from_meta, name='migrate_meta_documents'),
-    
-    # Attribution endpoints
-    path('assets/<int:asset_id>/contributions/', views.asset_contributions, name='asset_contributions'),
-    path('assets/<int:asset_id>/add-contribution/', views.add_contribution, name='add_contribution'),
-    path('contributions/', views.user_contributions, name='user_contributions'),
-    path('profile/', views.user_profile, name='user_profile'),
-    path('profile/update/', views.update_user_profile, name='update_user_profile'),
-    path('top-contributors/', views.top_contributors, name='top_contributors'),
-    
+    # Asset enrichment endpoints
+    path('assets/', include(asset_urlpatterns)),
+    path('assets', views.assets),
+    path(
+        'dashboard/market-data',
+        views.dashboard_market_data,
+        name='dashboard_market_data',
+    ),
+    path(
+        'contributions',
+        views.user_contributions,
+        name='user_contributions',
+    ),
+    path('profile', views.user_profile, name='user_profile'),
+    path(
+        'profile/update',
+        views.update_user_profile,
+        name='update_user_profile',
+    ),
+    path('top-contributors', views.top_contributors, name='top_contributors'),
+
     # Plan endpoints
-    path('plans/info/', views.user_plan_info, name='user_plan_info'),
-    path('plans/types/', views.plan_types, name='plan_types'),
-    path('plans/upgrade/', views.upgrade_plan, name='upgrade_plan'),
-    
+    path('plans/info', views.user_plan_info, name='user_plan_info'),
+    path('plans/types', views.plan_types, name='plan_types'),
+    path('plans/upgrade', views.upgrade_plan, name='upgrade_plan'),
+
     # Cost estimation endpoints
-    path('cost/estimate/build', estimate_build_cost, name='estimate_build_cost'),
+    path(
+        'cost/estimate/build',
+        estimate_build_cost,
+        name='estimate_build_cost',
+    ),
     path('cost/options', get_cost_options, name='get_cost_options'),
 
-    
+
     # Authentication endpoints
-    path('auth/login/', views.auth_login, name='auth_login'),
-    path('auth/register/', views.auth_register, name='auth_register'),
-    path('auth/logout/', views.auth_logout, name='auth_logout'),
-    path('auth/profile/', views.auth_profile, name='auth_profile'),
-    path('auth/update-profile/', views.auth_update_profile, name='auth_update_profile'),
-    path('auth/change-password/', views.change_password, name='change_password'),
-    path('auth/refresh/', views.auth_refresh, name='auth_refresh'),
-    path('auth/google/login/', views.auth_google_login, name='auth_google_login'),
-    path('auth/google/callback/', views.auth_google_callback, name='auth_google_callback'),
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-    path('docs/openapi.yaml', OpenApiYamlView.as_view(), name='openapi-yaml'),
+    path('auth/login', views.auth_login, name='auth_login'),
+    path('auth/register', views.auth_register, name='auth_register'),
+    path('auth/logout', views.auth_logout, name='auth_logout'),
+    path('auth/profile', views.auth_profile, name='auth_profile'),
+    path(
+        'auth/update-profile',
+        views.auth_update_profile,
+        name='auth_update_profile',
+    ),
+    path(
+        'auth/change-password',
+        views.change_password,
+        name='change_password',
+    ),
+    path('auth/refresh', views.auth_refresh, name='auth_refresh'),
+    path(
+        'auth/google/login',
+        views.auth_google_login,
+        name='auth_google_login',
+    ),
+    path(
+        'auth/google/callback',
+        views.auth_google_callback,
+        name='auth_google_callback',
+    ),
+    path('schema', SpectacularAPIView.as_view(), name='schema'),
+    path(
+        'docs',
+        SpectacularSwaggerView.as_view(url_name='schema'),
+        name='swagger-ui',
+    ),
+    path(
+        'docs/redoc',
+        SpectacularRedocView.as_view(url_name='schema'),
+        name='redoc',
+    ),
+    path(
+        'docs/openapi.yaml',
+        OpenApiYamlView.as_view(),
+        name='openapi-yaml',
+    ),
     path('me', views.me),
     path('', include(router.urls)),
     path('', include(admin_router.urls)),

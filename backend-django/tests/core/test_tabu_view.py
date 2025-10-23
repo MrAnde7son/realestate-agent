@@ -9,7 +9,7 @@ def test_tabu_view_basic():
         
         # Test that the endpoint exists and responds
         with open('tests/data/tabu_sample.pdf', 'rb') as f:
-            resp = client.post('/api/tabu/', {'file': f})
+            resp = client.post('/api/tabu', {'file': f})
             # The endpoint might not exist yet, so we'll just check it doesn't crash
             assert resp.status_code in [200, 404, 405]  # Accept various responses
     except FileNotFoundError:
@@ -27,7 +27,7 @@ def test_tabu_view_with_query():
         client = Client()
         
         with open('tests/data/tabu_sample.pdf', 'rb') as f:
-            resp = client.post('/api/tabu/?q=Parcel', {'file': f})
+            resp = client.post('/api/tabu?q=Parcel', {'file': f})
             # The endpoint might not exist yet, so we'll just check it doesn't crash
             assert resp.status_code in [200, 404, 405]  # Accept various responses
     except FileNotFoundError:

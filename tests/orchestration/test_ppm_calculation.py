@@ -6,7 +6,7 @@ Test the improved PPM-based model price calculation.
 
 import pytest
 from unittest.mock import Mock
-from orchestration.data_pipeline import _calculate_market_metrics
+from orchestration.pipeline.asset_enrichment import _calculate_market_metrics
 
 
 class TestPPMModelPriceCalculation:

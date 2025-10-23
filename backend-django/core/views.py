@@ -94,8 +94,6 @@ from .analytics import track, track_search, track_feature_usage
 from .services.asset_links import (
     asset_documents_all,
     asset_transactions_all,
-    asset_permits_all,
-    asset_plans_all,
     asset_listings_all,
 )
 
@@ -1111,14 +1109,14 @@ def assets_bulk_action(request):
 
                 job_id = None
                 if celery_enabled:
-                    result = run_data_pipeline.delay(asset.id, max_pages=1)
+                    result = run_data_pipeline.delay(asset.id)
                     job_id = getattr(result, "id", None)
                 else:
                     import threading
 
                     def run_sync_async(asset_pk: int) -> None:
                         try:
-                            run_data_pipeline(asset_pk, max_pages=1)
+                            run_data_pipeline(asset_pk)
                             logger.info(
                                 "Background asset sync completed for asset %s", asset_pk
                             )
@@ -2080,7 +2078,7 @@ def asset_detail(request, asset_id):
 
 
 
-def _filter_sort_paginate_appraisals(entries, *, search=None, source_filter=None,
+def _filter_sort_paginate_appraisals(entries, search=None, source_filter=None,
                                      status_filter=None, ordering='-date', limit=25,
                                      offset=0, allow_status=False):
     try:
@@ -3741,7 +3739,7 @@ def sync_asset(request, asset_id):
         if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
             # Use Celery task
             from .tasks import run_data_pipeline
-            result = run_data_pipeline.delay(asset_id, max_pages=1)
+            result = run_data_pipeline.delay(asset_id)
             job_id = result.id
             logger.info("Enqueued asset sync task with job ID: %s", job_id)
             message = f"סנכרון נתונים התחיל עבור {address} {house_number} (מזהה נכס: {asset_id}, מזהה משימה: {job_id})"
@@ -3752,7 +3750,7 @@ def sync_asset(request, asset_id):
             def run_sync_async():
                 try:
                     from .tasks import run_data_pipeline
-                    run_data_pipeline(asset_id, max_pages=1)
+                    run_data_pipeline(asset_id)
                     logger.info("Background asset sync completed for asset %s", asset_id)
                 except Exception as e:
                     logger.error("Background asset sync failed for asset %s: %s", asset_id, e)
@@ -3792,7 +3790,7 @@ def asset_listings(request, asset_id):
         except Asset.DoesNotExist:
             return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        def parse_int(value, default=None, *, minimum=None, maximum=None):
+        def parse_int(value, default=None, minimum=None, maximum=None):
             if value in (None, ''):
                 return default
             try:

@@ -34,8 +34,6 @@ class GovCollector(BaseCollector):
 
     def collect(
         self,
-        block: str,
-        parcel: Optional[str] = None,
         location: Optional[LocationQuery] = None,
         max_age_days: Optional[int] = None,
         force_refresh: bool = False,
@@ -43,14 +41,14 @@ class GovCollector(BaseCollector):
         """Collect government data for a given block/parcel and location.
 
         Args:
-            block: Block number for decisive appraisals
-            parcel: Parcel number (optional)
             location: Location query for transaction history
             max_age_days: Override default max age for transactions (optional)
             force_refresh: Force refresh even if cache is available (optional)
         """
 
         query = ensure_location_query(location)
+        block = query.block
+        parcel = query.parcel
         address = query.formatted or query.street or query.city
 
         return {
@@ -83,12 +81,8 @@ class GovCollector(BaseCollector):
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for government data collection."""
 
-        location = kwargs.get("location")
-        return (
-            bool(kwargs.get('block'))
-            and isinstance(location, LocationQuery)
-            and not location.is_empty()
-        )
+        location = ensure_location_query(kwargs.get("location"))
+        return bool(location.block)
 
 if __name__ == "__main__":
     # Example with fully optimized collector
@@ -102,7 +96,6 @@ if __name__ == "__main__":
     
     # Test the optimized collection
     result = collector.collect(
-        block="6336", 
         location=LocationQuery("תל אביב-יפו", "רוזוב", 4),
         max_age_days=180  # Override to 180 days for this specific request
     )
@@ -115,7 +108,6 @@ if __name__ == "__main__":
     import time
     start_time = time.time()
     result2 = collector.collect(
-        block="6336", 
         location=LocationQuery("תל אביב-יפו", "רוזוב", 4)
     )
     cache_time = time.time() - start_time

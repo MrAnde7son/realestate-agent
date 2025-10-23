@@ -49,7 +49,7 @@ class CrmAnalyticsTests(TestCase):
             'tags': ['VIP', 'משקיע']
         }
         
-        response = self.client.post('/api/crm/contacts/', data)
+        response = self.client.post('/api/crm/contacts', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Verify event was tracked
@@ -70,7 +70,7 @@ class CrmAnalyticsTests(TestCase):
             'tags': ['VIP']
         }
         
-        response = self.client.post('/api/crm/contacts/', data)
+        response = self.client.post('/api/crm/contacts', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Verify event was tracked
@@ -97,7 +97,7 @@ class CrmAnalyticsTests(TestCase):
             'status': 'new'
         }
         
-        response = self.client.post('/api/crm/leads/', data)
+        response = self.client.post('/api/crm/leads', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Verify event was tracked
@@ -126,7 +126,7 @@ class CrmAnalyticsTests(TestCase):
         
         # Change status
         data = {'status': 'contacted'}
-        response = self.client.post(f'/api/crm/leads/{lead.id}/set_status/', data)
+        response = self.client.post(f'/api/crm/leads/{lead.id}/set_status', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
@@ -158,7 +158,7 @@ class CrmAnalyticsTests(TestCase):
         )
         
         # Send report
-        response = self.client.post(f'/api/crm/leads/{lead.id}/send_report/')
+        response = self.client.post(f'/api/crm/leads/{lead.id}/send_report')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
@@ -225,7 +225,7 @@ class CrmAnalyticsTests(TestCase):
         
         # Add note
         data = {'text': 'נפגשנו, ביקשה דוח ממותג'}
-        response = self.client.post(f'/api/crm/leads/{lead.id}/add_note/', data)
+        response = self.client.post(f'/api/crm/leads/{lead.id}/add_note', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
@@ -256,7 +256,7 @@ class CrmAnalyticsTests(TestCase):
             'tags': ['VIP', 'משקיע']
         }
         
-        response = self.client.put(f'/api/crm/contacts/{contact.id}/', data)
+        response = self.client.put(f'/api/crm/contacts/{contact.id}', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
@@ -286,7 +286,7 @@ class CrmAnalyticsTests(TestCase):
         )
         
         # Delete lead
-        response = self.client.delete(f'/api/crm/leads/{lead.id}/')
+        response = self.client.delete(f'/api/crm/leads/{lead.id}')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify event was tracked
@@ -315,7 +315,7 @@ class CrmAnalyticsTests(TestCase):
         )
         
         # Delete contact
-        response = self.client.delete(f'/api/crm/contacts/{contact.id}/')
+        response = self.client.delete(f'/api/crm/contacts/{contact.id}')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify event was tracked
@@ -346,7 +346,7 @@ class CrmAnalyticsTests(TestCase):
         )
         
         # Search contacts
-        response = self.client.get('/api/crm/contacts/search/?q=רות')
+        response = self.client.get('/api/crm/contacts/search?q=רות')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
@@ -379,7 +379,7 @@ class CrmAnalyticsTests(TestCase):
         )
         
         # Export contacts
-        response = self.client.get('/api/crm/contacts/export/')
+        response = self.client.get('/api/crm/contacts/export')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify event was tracked
@@ -406,7 +406,7 @@ class CrmAnalyticsTests(TestCase):
                 'tags': ['VIP']
             }
             
-            response = self.client.post('/api/crm/contacts/', data)
+            response = self.client.post('/api/crm/contacts', data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             
             # Verify event structure
@@ -430,7 +430,7 @@ class CrmAnalyticsTests(TestCase):
                 'email': 'rut@example.com'
             }
             
-            response = self.client.post('/api/crm/contacts/', data)
+            response = self.client.post('/api/crm/contacts', data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             
             # Verify contact was created
@@ -448,7 +448,7 @@ class CrmAnalyticsTests(TestCase):
             ]
             
             for data in contacts_data:
-                response = self.client.post('/api/crm/contacts/', data)
+                response = self.client.post('/api/crm/contacts', data)
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             
             # Verify all events were tracked

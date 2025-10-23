@@ -7,11 +7,11 @@ from .views import (
     ContactInteractionViewSet,
 )
 
-router = DefaultRouter()
-router.register(r"contacts", ContactViewSet, basename="contacts")
-router.register(r"leads", LeadViewSet, basename="leads")
-router.register(r"tasks", ContactTaskViewSet, basename="contact-tasks")
-router.register(r"meetings", ContactMeetingViewSet, basename="contact-meetings")
-router.register(r"interactions", ContactInteractionViewSet, basename="contact-interactions")
+router = DefaultRouter(trailing_slash=False)
+router.register("contacts", ContactViewSet, basename="contacts")
+router.register("leads", LeadViewSet, basename="leads")
+router.register("tasks", ContactTaskViewSet, basename="contact-tasks")
+router.register("meetings", ContactMeetingViewSet, basename="contact-meetings")
+router.register("interactions", ContactInteractionViewSet, basename="contact-interactions")
 
 urlpatterns = router.urls

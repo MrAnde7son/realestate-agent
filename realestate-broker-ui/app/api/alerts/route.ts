@@ -29,16 +29,6 @@ async function fetchFromBackend(endpoint: string, options: RequestInit = {}, req
     })
   }
   
-  // Debug logging
-  console.log('🔍 Alerts API - Backend request:', {
-    backendUrl: BACKEND_URL,
-    endpoint,
-    fullUrl: url,
-    hasToken: !!token,
-    tokenLength: token?.length || 0,
-    allCookies: cookieStore.getAll().map(c => c.name)
-  })
-  
   const defaultOptions: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
@@ -50,15 +40,6 @@ async function fetchFromBackend(endpoint: string, options: RequestInit = {}, req
   
   const response = await fetch(url, { ...defaultOptions, ...options })
   
-  // Debug logging for response
-  console.log('🔍 Alerts API - Backend response:', {
-    url,
-    status: response.status,
-    statusText: response.statusText,
-    contentType: response.headers.get('content-type'),
-    ok: response.ok
-  })
-  
   return response
 }
 
@@ -67,9 +48,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const since = searchParams.get('since')
     
-    let endpoint = '/api/alerts/'
+    let endpoint = '/api/alerts'
     if (since) {
-      endpoint = `/api/alert-events/?since=${since}`
+      endpoint = `/api/alert-events?since=${since}`
     }
     
     const response = await fetchFromBackend(endpoint)
@@ -110,7 +91,7 @@ export async function POST(req: Request) {
     
     // Check if this is a test request
     if (body.test) {
-      const response = await fetchFromBackend('/api/alert-test/', {
+      const response = await fetchFromBackend('/api/alert-test', {
         method: 'POST',
         body: JSON.stringify({}),
       })
@@ -128,7 +109,7 @@ export async function POST(req: Request) {
     }
     
     // Create new alert rule
-    const response = await fetchFromBackend('/api/alerts/', {
+    const response = await fetchFromBackend('/api/alerts', {
       method: 'POST',
       body: JSON.stringify(body),
     })
@@ -161,7 +142,7 @@ export async function PUT(req: Request) {
     
     const body = await req.json()
     
-    const response = await fetchFromBackend(`/api/alerts/?id=${ruleId}`, {
+    const response = await fetchFromBackend(`/api/alerts?id=${ruleId}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }, req)
@@ -227,7 +208,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'ruleId required' }, { status: 400 })
     }
     
-    const response = await fetchFromBackend(`/api/alerts/?ruleId=${ruleId}`, {
+    const response = await fetchFromBackend(`/api/alerts?ruleId=${ruleId}`, {
       method: 'DELETE',
     }, req)
     

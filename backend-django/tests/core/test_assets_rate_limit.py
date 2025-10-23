@@ -9,7 +9,7 @@ from django.core.cache import cache
 
 
 class DummyTask:
-    def delay(self, asset_id, max_pages=1):
+    def delay(self, asset_id):
         pass
 
 
@@ -21,7 +21,7 @@ def make_request(factory):
         "number": 5,
     }
     return factory.post(
-        "/api/assets/", data=json.dumps(payload), content_type="application/json"
+        "/api/assets", data=json.dumps(payload), content_type="application/json"
     )
 
 

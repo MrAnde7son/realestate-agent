@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const backendUrl = `${BACKEND_URL}/api/documents/table/?${searchParams.toString()}`
+    const backendUrl = `${BACKEND_URL}/api/documents/table?${searchParams.toString()}`
 
     const response = await fetch(backendUrl, {
       method: 'GET',

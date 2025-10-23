@@ -23,7 +23,7 @@ def test_user_settings_get_and_update():
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
 
     # Check default settings
-    resp = client.get("/api/settings/")
+    resp = client.get("/api/settings")
     assert resp.status_code == 200
     data = resp.json()
     assert data["timezone"] == "UTC"
@@ -37,7 +37,7 @@ def test_user_settings_get_and_update():
         "notify_email": False,
         "report_sections": ["summary", "plans"],
     }
-    resp = client.put("/api/settings/", payload, format="json")
+    resp = client.put("/api/settings", payload, format="json")
     assert resp.status_code == 200
 
     user.refresh_from_db()

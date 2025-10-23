@@ -10,7 +10,7 @@ export async function GET(
     const { id } = await params;
     const authHeader = request.headers.get('authorization');
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -46,7 +46,7 @@ export async function PUT(
     const body = await request.json();
     const authHeader = request.headers.get('authorization');
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -83,7 +83,7 @@ export async function PATCH(
     const body = await request.json();
     const authHeader = request.headers.get('authorization');
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -119,7 +119,7 @@ export async function DELETE(
     const { id } = await params;
     const authHeader = request.headers.get('authorization');
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

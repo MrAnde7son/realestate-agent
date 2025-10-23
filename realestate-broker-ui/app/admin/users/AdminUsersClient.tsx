@@ -140,7 +140,7 @@ export default function AdminUsersClient() {
       if (roleFilter && roleFilter !== 'all') params.append('role', roleFilter);
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       
-      const response = await api.get(`/api/admin/users/?${params.toString()}`);
+      const response = await api.get(`/api/admin/users?${params.toString()}`);
       
       if (response.ok) {
         setUsers(response.data.results || []);
@@ -166,7 +166,7 @@ export default function AdminUsersClient() {
 
   const loadStatistics = useCallback(async () => {
     try {
-      const response = await api.get('/api/admin/users/statistics/');
+      const response = await api.get('/api/admin/users/statistics');
       if (response.ok) {
         setStatistics(response.data);
       }
@@ -182,7 +182,7 @@ export default function AdminUsersClient() {
 
   const handleCreateUser = async (userData: any) => {
     try {
-      const response = await api.post('/api/admin/users/', userData);
+      const response = await api.post('/api/admin/users', userData);
       if (response.ok) {
         toast({
           title: 'הצלחה',
@@ -211,7 +211,7 @@ export default function AdminUsersClient() {
     if (!editingUser) return;
     
     try {
-      const response = await api.patch(`/api/admin/users/${editingUser.id}/`, userData);
+      const response = await api.patch(`/api/admin/users/${editingUser.id}`, userData);
       if (response.ok) {
         toast({
           title: 'הצלחה',
@@ -240,7 +240,7 @@ export default function AdminUsersClient() {
   const handleToggleUserStatus = async (user: User) => {
     try {
       const action = user.is_active ? 'deactivate' : 'activate';
-      const response = await api.post(`/api/admin/users/${user.id}/${action}/`);
+      const response = await api.post(`/api/admin/users/${user.id}/${action}`);
       
       if (response.ok) {
         toast({
@@ -267,7 +267,7 @@ export default function AdminUsersClient() {
 
   const handleResetPassword = async (user: User) => {
     try {
-      const response = await api.post(`/api/admin/users/${user.id}/reset_password/`);
+      const response = await api.post(`/api/admin/users/${user.id}/reset_password`);
       if (response.ok) {
         toast({
           title: 'הצלחה',
@@ -295,7 +295,7 @@ export default function AdminUsersClient() {
     }
     
     try {
-      const response = await api.delete(`/api/admin/users/${user.id}/`);
+      const response = await api.delete(`/api/admin/users/${user.id}`);
       if (response.ok) {
         toast({
           title: 'הצלחה',

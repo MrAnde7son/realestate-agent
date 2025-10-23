@@ -149,7 +149,7 @@ class AdminUserViewSetTest(APITestCase):
     def test_admin_permission_required(self):
         """Test that only admin users can access the viewset."""
         # Test without authentication
-        response = self.client.get('/api/admin/users/')
+        response = self.client.get('/api/admin/users')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         
         # Test with regular user token
@@ -157,13 +157,13 @@ class AdminUserViewSetTest(APITestCase):
         regular_token = str(refresh.access_token)
         
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {regular_token}')
-        response = self.client.get('/api/admin/users/')
+        response = self.client.get('/api/admin/users')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
     
     def test_list_users_as_admin(self):
         """Test listing users as admin."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
-        response = self.client.get('/api/admin/users/')
+        response = self.client.get('/api/admin/users')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
@@ -184,7 +184,7 @@ class AdminUserViewSetTest(APITestCase):
             'is_active': True
         }
         
-        response = self.client.post('/api/admin/users/', user_data)
+        response = self.client.post('/api/admin/users', user_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
         # Verify user was created
@@ -204,7 +204,7 @@ class AdminUserViewSetTest(APITestCase):
             'is_active': False
         }
         
-        response = self.client.patch(f'/api/admin/users/{self.regular_user.id}/', update_data)
+        response = self.client.patch(f'/api/admin/users/{self.regular_user.id}', update_data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify user was updated
@@ -218,7 +218,7 @@ class AdminUserViewSetTest(APITestCase):
         """Test deactivating a user."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
-        response = self.client.post(f'/api/admin/users/{self.regular_user.id}/deactivate/')
+        response = self.client.post(f'/api/admin/users/{self.regular_user.id}/deactivate')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         self.regular_user.refresh_from_db()
@@ -232,7 +232,7 @@ class AdminUserViewSetTest(APITestCase):
         
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
-        response = self.client.post(f'/api/admin/users/{self.regular_user.id}/activate/')
+        response = self.client.post(f'/api/admin/users/{self.regular_user.id}/activate')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         self.regular_user.refresh_from_db()
@@ -242,7 +242,7 @@ class AdminUserViewSetTest(APITestCase):
         """Test resetting user password."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
-        response = self.client.post(f'/api/admin/users/{self.regular_user.id}/reset_password/')
+        response = self.client.post(f'/api/admin/users/{self.regular_user.id}/reset_password')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         self.assertIn('new_password', response.data)
@@ -256,7 +256,7 @@ class AdminUserViewSetTest(APITestCase):
         """Test user statistics endpoint."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
-        response = self.client.get('/api/admin/users/statistics/')
+        response = self.client.get('/api/admin/users/statistics')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         data = response.data
@@ -272,13 +272,13 @@ class AdminUserViewSetTest(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
         # Search by username
-        response = self.client.get('/api/admin/users/?search=test_admin')
+        response = self.client.get('/api/admin/users?search=test_admin')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['username'], 'test_admin')
         
         # Search by email
-        response = self.client.get('/api/admin/users/?search=test_regular@example.com')
+        response = self.client.get('/api/admin/users?search=test_regular@example.com')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['email'], 'test_regular@example.com')
@@ -287,7 +287,7 @@ class AdminUserViewSetTest(APITestCase):
         """Test filtering users by role."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
-        response = self.client.get('/api/admin/users/?role=broker')
+        response = self.client.get('/api/admin/users?role=broker')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['role'], 'broker')
@@ -296,7 +296,7 @@ class AdminUserViewSetTest(APITestCase):
         """Test filtering users by status."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
-        response = self.client.get('/api/admin/users/?status=active')
+        response = self.client.get('/api/admin/users?status=active')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 4)  # All users are active
         
@@ -304,11 +304,11 @@ class AdminUserViewSetTest(APITestCase):
         self.regular_user.is_active = False
         self.regular_user.save()
         
-        response = self.client.get('/api/admin/users/?status=active')
+        response = self.client.get('/api/admin/users?status=active')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 3)  # One user deactivated
         
-        response = self.client.get('/api/admin/users/?status=inactive')
+        response = self.client.get('/api/admin/users?status=inactive')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
     
@@ -316,7 +316,7 @@ class AdminUserViewSetTest(APITestCase):
         """Test that admin cannot delete themselves."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
         
-        response = self.client.delete(f'/api/admin/users/{self.admin_user.id}/')
+        response = self.client.delete(f'/api/admin/users/{self.admin_user.id}')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('You cannot delete your own account', str(response.data))
 

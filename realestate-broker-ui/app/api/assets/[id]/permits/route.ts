@@ -7,7 +7,7 @@ export async function GET(
   const { id: rawId } = await params
   const id = Number(rawId)
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-  const baseUrl = `${backendUrl}/api/assets/${id}/permits/`
+  const baseUrl = `${backendUrl}/api/assets/${id}/permits`
   const searchParams = new URL(request.url).searchParams.toString()
   const permitsEndpoint = searchParams ? `${baseUrl}?${searchParams}` : baseUrl
 

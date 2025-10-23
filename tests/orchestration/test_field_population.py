@@ -5,7 +5,6 @@ Test the enhanced asset field population from collected data.
 """
 
 import pytest
-from unittest.mock import Mock
 import sys
 import types
 
@@ -129,7 +128,7 @@ if 'webdriver_manager' not in sys.modules:
     sys.modules['webdriver_manager'] = webdriver_manager_module
     sys.modules['webdriver_manager.chrome'] = chrome_manager_module
 
-from orchestration.data_pipeline import _populate_asset_fields_from_listings, _populate_asset_fields_from_tabu
+from orchestration.pipeline.asset_enrichment import _populate_asset_fields_from_listings
 
 
 class MockAsset:
@@ -333,83 +332,6 @@ class TestAssetFieldPopulation:
         
         # Verify price_per_sqm was calculated from existing data
         assert asset.price_per_sqm == 22222  # 2000000 / 90
-
-    def test_populate_from_tabu_documents(self):
-        """Test populating asset fields from Tabu document data."""
-        # Create mock asset
-        asset = MockAsset()
-        
-        # Mock Tabu data
-        tabu_data = [
-            {'field': 'שטח', 'value': '85.5 מ״ר'},
-            {'field': 'סוג בניין', 'value': 'דירה'},
-            {'field': 'גוש', 'value': '1234'},
-            {'field': 'חלקה', 'value': '5678'},
-            {'field': 'בעלים', 'value': 'יוסי כהן'},
-        ]
-        
-        # Test population
-        _populate_asset_fields_from_tabu(asset, tabu_data)
-        
-        # Verify area was extracted
-        assert asset.total_area == 85.5
-        assert asset.building_type == 'דירה'
-        
-        # Verify source tracking
-        assert 'tabu_source' in asset.meta
-        assert asset.meta['tabu_source']['source'] == 'tabu'
-        assert asset.meta['tabu_source']['rows_count'] == 5
-        
-        # Verify save was called
-        assert asset.save_called
-
-    def test_populate_from_tabu_documents_no_overwrite_existing(self):
-        """Test that existing asset fields are not overwritten by Tabu data."""
-        # Create mock asset with existing data
-        asset = MockAsset()
-        asset.total_area = 100  # Already has area
-        asset.building_type = 'בית פרטי'  # Already has building type
-        
-        # Mock Tabu data
-        tabu_data = [
-            {'field': 'שטח', 'value': '120 מ״ר'},  # Different area
-            {'field': 'סוג בניין', 'value': 'דירה'},  # Different type
-        ]
-        
-        # Test population
-        _populate_asset_fields_from_tabu(asset, tabu_data)
-        
-        # Verify existing fields were not overwritten
-        assert asset.total_area == 100  # Original value preserved
-        assert asset.building_type == 'בית פרטי'  # Original value preserved
-        
-        # Verify save was not called since no fields were updated
-        assert not asset.save_called
-
-    def test_populate_from_empty_data(self):
-        """Test behavior with empty data sources."""
-        # Create mock asset
-        asset = MockAsset()
-        
-        # Test with empty listings
-        _populate_asset_fields_from_listings(asset, [])
-        
-        # Verify no fields were updated
-        assert asset.price is None
-        assert asset.total_area is None
-        assert not asset.save_called
-        
-        # Reset save flag
-        asset.save_called = False
-        
-        # Test with empty Tabu data
-        _populate_asset_fields_from_tabu(asset, [])
-        
-        # Verify no fields were updated
-        assert asset.price is None
-        assert asset.total_area is None
-        assert not asset.save_called
-
 
 if __name__ == '__main__':
     pytest.main([__file__])

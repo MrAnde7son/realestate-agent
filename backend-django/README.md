@@ -222,7 +222,7 @@ Get current Bank of Israel interest rate.
 
 ### 🏠 assets API
 
-#### `GET /api/assets/`
+#### `GET /api/assets`
 List property assets with filtering and pagination.
 
 **Parameters:**
@@ -232,18 +232,18 @@ List property assets with filtering and pagination.
 - `rooms` - Number of rooms
 - `page` - Page number for pagination
 
-#### `GET /api/assets/{id}/`
+#### `GET /api/assets/{id}`
 Get detailed information for a specific asset.
 
-#### `GET /api/assets/{id}/appraisal/`
+#### `GET /api/assets/{id}/appraisal`
 Get appraisal analysis for a property (comparable transactions, market analysis).
 
-#### `GET /api/assets/{id}/rights/`
+#### `GET /api/assets/{id}/rights`
 Get building rights information for a property.
 
 ### 🔄 Sync API
 
-#### `POST /api/sync/`
+#### `POST /api/sync`
 Trigger manual synchronization of property data.
 
 ## 🔧 Development

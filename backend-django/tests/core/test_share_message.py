@@ -25,7 +25,7 @@ def test_asset_share_message_fallback_no_openai():
     )
     client = Client()
     resp = client.post(
-        f'/api/assets/{asset.id}/share-message/',
+        f'/api/assets/{asset.id}/share-message',
         data=json.dumps({'language': 'he'}),
         content_type='application/json',
     )

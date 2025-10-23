@@ -12,12 +12,12 @@ The Real Estate API provides a comprehensive REST API for managing real estate a
 
 To view documentation for non-local environments, update the base URL accordingly (e.g., \`https://staging.nadlaner.com\` or \`https://api.nadlaner.com\`).
 
-- **Swagger UI (local)**: `http://localhost:8000/api/docs/` - Interactive API explorer
-- **Swagger UI (staging)**: `https://staging.nadlaner.com/api/docs/` - Staging environment
-- **Swagger UI (production)**: `https://api.nadlaner.com/api/docs/` - Production environment
-- **ReDoc (local)**: `http://localhost:8000/api/docs/redoc/` - Clean, responsive documentation
-- **ReDoc (staging)**: `https://staging.nadlaner.com/api/docs/redoc/` - Staging environment
-- **ReDoc (production)**: `https://api.nadlaner.com/api/docs/redoc/` - Production environment
+- **Swagger UI (local)**: `http://localhost:8000/api/docs` - Interactive API explorer
+- **Swagger UI (staging)**: `https://staging.nadlaner.com/api/docs` - Staging environment
+- **Swagger UI (production)**: `https://api.nadlaner.com/api/docs` - Production environment
+- **ReDoc (local)**: `http://localhost:8000/api/docs/redoc` - Clean, responsive documentation
+- **ReDoc (staging)**: `https://staging.nadlaner.com/api/docs/redoc` - Staging environment
+- **ReDoc (production)**: `https://api.nadlaner.com/api/docs/redoc` - Production environment
 - **OpenAPI YAML (local)**: `http://localhost:8000/api/docs/openapi.yaml` - Raw specification
 - **OpenAPI YAML (staging)**: `https://staging.nadlaner.com/api/docs/openapi.yaml`
 - **OpenAPI YAML (production)**: `https://api.nadlaner.com/api/docs/openapi.yaml`
@@ -27,53 +27,53 @@ To view documentation for non-local environments, update the base URL accordingl
 The API is organized into the following main categories:
 
 #### Authentication
-- `POST /api/auth/login/` - User login
-- `POST /api/auth/register/` - User registration
-- `POST /api/auth/logout/` - User logout
-- `GET /api/auth/profile/` - Get user profile
-- `PUT /api/auth/update-profile/` - Update user profile
-- `POST /api/auth/refresh/` - Refresh JWT token
-- `GET /api/auth/google/login/` - Google OAuth login
-- `GET /api/auth/google/callback/` - Google OAuth callback
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/profile` - Get user profile
+- `PUT /api/auth/update-profile` - Update user profile
+- `POST /api/auth/refresh` - Refresh JWT token
+- `GET /api/auth/google/login` - Google OAuth login
+- `GET /api/auth/google/callback` - Google OAuth callback
 
 #### Assets
-- `GET /api/assets/` - List all assets
-- `POST /api/assets/` - Create new asset
-- `GET /api/assets/{id}/` - Get asset details
-- `PUT /api/assets/{id}/` - Update asset
-- `PATCH /api/assets/{id}/` - Partially update asset
-- `DELETE /api/assets/{id}/` - Delete asset
-- `GET /api/assets/stats/` - Get asset statistics
+- `GET /api/assets` - List all assets
+- `POST /api/assets` - Create new asset
+- `GET /api/assets/{id}` - Get asset details
+- `PUT /api/assets/{id}` - Update asset
+- `PATCH /api/assets/{id}` - Partially update asset
+- `DELETE /api/assets/{id}` - Delete asset
+- `GET /api/assets/stats` - Get asset statistics
 
 #### Permits
-- `GET /api/permits/` - List all permits
-- `POST /api/permits/` - Create new permit
-- `GET /api/permits/{id}/` - Get permit details
-- `PUT /api/permits/{id}/` - Update permit
-- `PATCH /api/permits/{id}/` - Partially update permit
-- `DELETE /api/permits/{id}/` - Delete permit
+- `GET /api/permits` - List all permits
+- `POST /api/permits` - Create new permit
+- `GET /api/permits/{id}` - Get permit details
+- `PUT /api/permits/{id}` - Update permit
+- `PATCH /api/permits/{id}` - Partially update permit
+- `DELETE /api/permits/{id}` - Delete permit
 
 #### Plans
-- `GET /api/plans/` - List all plans
-- `POST /api/plans/` - Create new plan
-- `GET /api/plans/{id}/` - Get plan details
-- `PUT /api/plans/{id}/` - Update plan
-- `PATCH /api/plans/{id}/` - Partially update plan
-- `DELETE /api/plans/{id}/` - Delete plan
+- `GET /api/plans` - List all plans
+- `POST /api/plans` - Create new plan
+- `GET /api/plans/{id}` - Get plan details
+- `PUT /api/plans/{id}` - Update plan
+- `PATCH /api/plans/{id}` - Partially update plan
+- `DELETE /api/plans/{id}` - Delete plan
 
 #### Additional Endpoints
-- `POST /api/mortgage-analyze/` - Mortgage analysis
-- `POST /api/sync-address/` - Address synchronization
-- `GET /api/tabu/` - Tabu information
-- `GET /api/reports/` - Generate reports
-- `GET /api/alerts/` - Alert management
+- `POST /api/mortgage-analyze` - Mortgage analysis
+- `POST /api/sync-address` - Address synchronization
+- `GET /api/tabu` - Tabu information
+- `GET /api/reports` - Generate reports
+- `GET /api/alerts` - Alert management
 - `GET /api/analytics/timeseries` - Analytics data
 
 ## Generated SDKs
 
 ### Python SDK
 
-**Location**: `client/python/`
+**Location**: `client/python`
 
 **Installation**:
 ```bash
@@ -112,7 +112,7 @@ except Exception as e:
 
 ### TypeScript SDK
 
-**Location**: `client/typescript/`
+**Location**: `client/typescript`
 
 **Installation**:
 ```bash
@@ -149,7 +149,7 @@ try {
 
 ### Postman Collection
 
-**Location**: `client/postman/`
+**Location**: `client/postman`
 
 **Import Instructions**:
 1. Open Postman
@@ -220,10 +220,10 @@ This will test:
 
 The API uses JWT (JSON Web Token) authentication:
 
-1. **Login**: `POST /api/auth/login/` with email/password
+1. **Login**: `POST /api/auth/login` with email/password
 2. **Get Token**: Response includes `access` and `refresh` tokens
 3. **Use Token**: Include `Authorization: Bearer <access_token>` header
-4. **Refresh Token**: Use `POST /api/auth/refresh/` when access token expires
+4. **Refresh Token**: Use `POST /api/auth/refresh` when access token expires
 
 ## Error Handling
 
@@ -293,6 +293,6 @@ When adding new API endpoints:
 ## Support
 
 For API support and questions:
-- Check the interactive documentation at `/api/docs/`
+- Check the interactive documentation at `/api/docs`
 - Review the generated SDK examples
 - Contact the development team

@@ -138,7 +138,6 @@ class Yad2Collector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        max_pages: int = 1,
     ) -> List[RealEstateListing]:
         """Collect Yad2 listings for a given location.
 
@@ -147,8 +146,6 @@ class Yad2Collector(BaseCollector):
         location: Optional[LocationQuery]
             Structured location information. When ``None`` an empty query is
             assumed.
-        max_pages: int
-            Number of result pages to scrape from Yad2.
         """
 
         query = ensure_location_query(location)
@@ -156,9 +153,9 @@ class Yad2Collector(BaseCollector):
         if not address:
             return []
 
-        return self._fetch_listings(address, max_pages)
+        return self._fetch_listings(address)
 
-    def _fetch_listings(self, address: str, max_pages: int) -> List[RealEstateListing]:
+    def _fetch_listings(self, address: str) -> List[RealEstateListing]:
         """Fetch Yad2 listings for a given address."""
         listings = []
         try:
@@ -169,11 +166,11 @@ class Yad2Collector(BaseCollector):
                 if search_params:
                     self.client.set_search_parameters(**search_params)
 
-            map_listings = self.client.fetch_map_listings()
+            map_listings = self.client.fetch_listings()
             if map_listings:
                 listings.extend(map_listings)
             else:
-                listings.extend(self.client.scrape_all_pages(max_pages=max_pages, delay=0))
+                listings.extend(self.client.scrape_all_pages(delay=0))
 
             listings.extend(self.client.fetch_latest_deals())
 

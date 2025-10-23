@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pytest
 
@@ -37,7 +37,7 @@ class FakeMavatClient:
     def __exit__(self, exc_type, exc, tb):
         return False
 
-    def search_plans(self, *, block: str, city: str | None = None, **_):
+    def search_plans(self, block: str, city: str | None = None, **_):
         self.calls.append({"block": block, "city": city})
         return list(self._plans)
 
@@ -48,8 +48,8 @@ class StubYad2Collector(Yad2Collector):
         self.listings = list(listings or [])
         self.fetch_calls: List[tuple[str, int]] = []
 
-    def _fetch_listings(self, address: str, max_pages: int):
-        self.fetch_calls.append((address, max_pages))
+    def _fetch_listings(self, address: str):
+        self.fetch_calls.append((address))
         return list(self.listings)
 
 
@@ -85,7 +85,7 @@ def test_mavat_collector_formats_results_without_network_calls():
     client = FakeMavatClient(plans)
     collector = MavatCollector(client=client)
 
-    formatted = collector.collect(block="6336", city="Tel Aviv")
+    formatted = collector.collect(LocationQuery(block=6336, city="Tel Aviv"))
 
     assert formatted == [
         {
@@ -107,7 +107,7 @@ def test_mavat_collector_formats_results_without_network_calls():
             "status_date": "2024-02-01",
         },
     ]
-    assert client.calls == [{"block": "6336", "city": "Tel Aviv"}]
+    assert client.calls == [{"block": 6336, "city": "Tel Aviv"}]
 
 
 def test_yad2_collector_uses_location_query():
@@ -119,10 +119,10 @@ def test_yad2_collector_uses_location_query():
     collector = StubYad2Collector([listing])
     location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
 
-    listings = collector.collect(location, max_pages=2)
+    listings = collector.collect(location)
 
     assert [l.listing_id for l in listings] == ["TLV-1"]
-    assert collector.fetch_calls == [("רוזוב תל אביב", 2)]
+    assert collector.fetch_calls == [("רוזוב תל אביב")]
 
 
 def test_yad2_prepare_location_parameters_prefers_matching_city():
@@ -224,10 +224,10 @@ class StubGISCollector:
         self.payload = payload
         self.calls: List[Dict[str, Any]] = []
 
-    def collect(self, *, location=None, block=None, parcel=None, **kwargs):
+    def collect(self, location=None, **kwargs):
         self.calls.append({
-            "block": block,
-            "parcel": parcel,
+            "block": getattr(location, "block", None),
+            "parcel": getattr(location, "parcel", None),
             "street": getattr(location, "street", None),
         })
         return dict(self.payload)
@@ -238,7 +238,7 @@ class StubGovMapCollector:
         self.payload = payload
         self.calls: List[Dict[str, Any]] = []
 
-    def collect(self, *, location=None, block=None, parcel=None, **kwargs):
+    def collect(self, location=None, block=None, parcel=None, **kwargs):
         self.calls.append({
             "block": block,
             "parcel": parcel,
@@ -252,8 +252,15 @@ class StubGovCollector:
         self.payload = payload
         self.calls: List[Any] = []
 
-    def collect(self, block, parcel, location, **kwargs):
-        self.calls.append((block, parcel, location.street))
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
+        location = location or LocationQuery()
+        self.calls.append(
+            (
+                getattr(location, "block", None),
+                getattr(location, "parcel", None),
+                getattr(location, "street", None),
+            )
+        )
         return dict(self.payload)
 
 
@@ -262,8 +269,9 @@ class StubRamiCollector:
         self.plans = plans
         self.calls: List[Any] = []
 
-    def collect(self, *, block=None, parcel=None, **kwargs):
-        self.calls.append((block, parcel))
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
+        location = location or LocationQuery()
+        self.calls.append((location.block, location.parcel))
         return list(self.plans)
 
 
@@ -272,8 +280,9 @@ class StubMavatCollector:
         self.plans = plans
         self.calls: List[Any] = []
 
-    def collect(self, *, block=None, parcel=None, city=None, **kwargs):
-        self.calls.append((block, parcel, city))
+    def collect(self, location: Optional[LocationQuery] = None, **kwargs):
+        location = location or LocationQuery()
+        self.calls.append((location.block, location.parcel, location.city))
         return list(self.plans)
 
 
@@ -324,7 +333,8 @@ def test_pipeline_combines_collector_results_with_stubs():
     listings = [FakeListing(title="Sunny flat", address="רוזוב 14 תל אביב", listing_id="TLV-1")]
     pipeline = _build_pipeline(session, listings)
 
-    results = pipeline.run(city="תל אביב", street="רוזוב", house_number=14, max_pages=1)
+    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block=6336, parcel=7)
+    results = pipeline.run(location=location)
 
     # Listing plus enrichment payloads from the collectors
     sources = [
@@ -340,7 +350,8 @@ def test_pipeline_handles_empty_listing_results():
     session = FakeSession()
     pipeline = _build_pipeline(session, listings=[])
 
-    results = pipeline.run(city="תל אביב", street="רוזוב", house_number=14, max_pages=1)
+    location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
+    results = pipeline.run(location=location)
 
     assert all(isinstance(entry, dict) for entry in results)
     assert {entry["source"] for entry in results} == {

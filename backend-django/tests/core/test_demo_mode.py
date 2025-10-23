@@ -14,7 +14,7 @@ from core.tasks import cleanup_demo_data
 @pytest.mark.django_db
 def test_demo_start_creates_demo_user_and_assets():
     factory = RequestFactory()
-    request = factory.post("/api/demo/start/")
+    request = factory.post("/api/demo/start")
     response = views.demo_start(request)
     assert response.status_code == 200
     data = response.data
@@ -32,11 +32,11 @@ def test_demo_start_creates_demo_user_and_assets():
 def test_demo_start_populates_assets_endpoint():
     factory = RequestFactory()
     # Start demo and seed assets
-    request = factory.post("/api/demo/start/")
+    request = factory.post("/api/demo/start")
     views.demo_start(request)
 
     # Fetch assets list via public endpoint
-    get_request = factory.get("/api/assets/")
+    get_request = factory.get("/api/assets")
     response = views.assets(get_request)
     assert response.status_code == 200
     data = response.data

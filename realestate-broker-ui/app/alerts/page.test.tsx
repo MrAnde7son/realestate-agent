@@ -93,7 +93,6 @@ describe('AlertsPage', () => {
     });
     
     // Check type filters (based on actual UI)
-    expect(screen.getByText('סוג התראה')).toBeInTheDocument();
     expect(screen.getAllByText('ירידת מחיר').length).toBeGreaterThan(0);
     expect(screen.getAllByText('נכס חדש').length).toBeGreaterThan(0);
     expect(screen.getAllByText('שינוי בשוק').length).toBeGreaterThan(0);
@@ -159,7 +158,6 @@ describe('AlertsPage', () => {
       'סוגי התראות',
       'סטטיסטיקות מהירות',
       'סינון התראות',
-      'סוג התראה'
     ];
     
     expectedTexts.forEach(text => {

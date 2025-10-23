@@ -21,19 +21,19 @@ class GISCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
-        block: Optional[str] = None,
-        parcel: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Geocode and collect GIS data for a given address or block/parcel."""
 
         query = ensure_location_query(location)
+        block = query.block
+        parcel = query.parcel
         street = query.street
         city = query.city
         search_street = (street or query.formatted or "").strip()
         number = query.house_number if query.house_number is not None else 0
 
         # Handle block/parcel-only queries
-        if block and parcel and str(block).strip() and str(parcel).strip() and not search_street:
+        if block and parcel and not search_street:
             logger.info(f"Processing block/parcel-only query: {block}/{parcel}")
             return self._collect_by_block_parcel(block, parcel)
 
@@ -162,10 +162,10 @@ class GISCollector(BaseCollector):
     def validate_parameters(self, **kwargs) -> bool:
         """Validate the parameters for GIS collection."""
 
-        location = kwargs.get("location")
-        block = kwargs.get("block")
-        parcel = kwargs.get("parcel")
-        
+        location = ensure_location_query(kwargs.get("location"))
+        block = location.block
+        parcel = location.parcel
+
         # Valid if we have a location with street, or block/parcel
         if isinstance(location, LocationQuery) and bool(location.street):
             return True
@@ -178,5 +178,5 @@ class GISCollector(BaseCollector):
 
 if __name__ == "__main__":
     gis_collector = GISCollector()
-    data = gis_collector.collect(block="6638", parcel="402")
+    data = gis_collector.collect(LocationQuery(block=6638, parcel=402))
     print(data)

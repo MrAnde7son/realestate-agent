@@ -164,7 +164,7 @@ export default function AuthPage() {
                       id="email"
                       type="email"
                       placeholder="הכנס את הדוא״ל שלך"
-                      className="ps-10"
+                      className="ps-10 pe-10"
                       {...loginForm.register('email')}
                     />
                   </div>

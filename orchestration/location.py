@@ -18,6 +18,9 @@ class LocationQuery:
     city: str = ""
     street: str = ""
     house_number: Optional[int] = None
+    block: Optional[int] = None
+    parcel: Optional[int] = None
+    subparcel: Optional[int] = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "city", (self.city or "").strip())
@@ -62,6 +65,9 @@ class LocationQuery:
             "city": self.city or None,
             "street": self.street or None,
             "house_number": self.house_number,
+            "block": self.block,
+            "parcel": self.parcel,
+            "subparcel": self.subparcel,
         }
 
 
@@ -71,9 +77,26 @@ def ensure_location_query(
     city: str = "",
     street: str = "",
     house_number: Optional[int] = None,
+    block: Optional[int] = None,
+    parcel: Optional[int] = None,
+    subparcel: Optional[int] = None,
 ) -> LocationQuery:
     """Return a :class:`LocationQuery` from either an instance or components."""
 
     if isinstance(location, LocationQuery):
-        return location
-    return LocationQuery(city=city, street=street, house_number=house_number)
+        return LocationQuery(
+            city=city or location.city,
+            street=street or location.street,
+            house_number=house_number if house_number is not None else location.house_number,
+            block=block or location.block,
+            parcel=parcel or location.parcel,
+            subparcel=subparcel or location.subparcel,
+        )
+    return LocationQuery(
+        city=city,
+        street=street,
+        house_number=house_number,
+        block=block,
+        parcel=parcel,
+        subparcel=subparcel,
+    )

@@ -67,7 +67,7 @@ def test_gov_collector_combines_transactions_and_decisive_data():
     assert [entry["deal_amount"] for entry in result["transactions"]] == [2_800_000, 3_100_000]
     assert [entry["title"] for entry in result["decisive"]] == ["תכנית א", "תכנית ב"]
     assert scraper.calls == ["רוזוב 14 תל אביב"]
-    assert decisive_client.calls == [("6336", "", 1)]
+    assert decisive_client.calls == [(6336, "", 1)]
 
 
 def test_gov_collector_handles_external_failures_gracefully():

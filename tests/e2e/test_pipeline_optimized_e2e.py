@@ -107,7 +107,7 @@ def test_mavat_collector_formats_results_without_network_calls():
             "status_date": "2024-02-01",
         },
     ]
-    assert client.calls == [{"block": "6336", "city": "Tel Aviv"}]
+    assert client.calls == [{"block": 6336, "city": "Tel Aviv"}]
 
 
 def test_yad2_collector_uses_location_query():
@@ -119,7 +119,7 @@ def test_yad2_collector_uses_location_query():
     collector = StubYad2Collector([listing])
     location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
 
-    listings = collector.collect(location, max_pages=2)
+    listings = collector.collect(location)
 
     assert [l.listing_id for l in listings] == ["TLV-1"]
     assert collector.fetch_calls == [("רוזוב תל אביב", 2)]
@@ -334,7 +334,7 @@ def test_pipeline_combines_collector_results_with_stubs():
     pipeline = _build_pipeline(session, listings)
 
     location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14, block=6336, parcel=7)
-    results = pipeline.run(location=location, max_pages=1)
+    results = pipeline.run(location=location)
 
     # Listing plus enrichment payloads from the collectors
     sources = [
@@ -351,7 +351,7 @@ def test_pipeline_handles_empty_listing_results():
     pipeline = _build_pipeline(session, listings=[])
 
     location = LocationQuery(city="תל אביב", street="רוזוב", house_number=14)
-    results = pipeline.run(location=location, max_pages=1)
+    results = pipeline.run(location=location)
 
     assert all(isinstance(entry, dict) for entry in results)
     assert {entry["source"] for entry in results} == {

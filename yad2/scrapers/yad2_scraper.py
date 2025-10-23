@@ -560,6 +560,7 @@ class Yad2Scraper:
         listing.floor = deal_entry.get("floor")
         listing.size = deal_entry.get("buildingMR")
         listing.date_posted = deal_entry.get("saleDate")
+        listing.recent_deal = True
 
         # Preserve supporting data for downstream consumers.
         listing.meta.update({

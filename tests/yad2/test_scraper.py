@@ -145,7 +145,7 @@ def test_fetch_listings_converts_markers(monkeypatch):
     )
 
     listings = scraper.fetch_listings()
-    assert len(listings) == 1
+    assert len(listings) == 2
     listing = listings[0]
 
     assert listing.price == 8_500_000

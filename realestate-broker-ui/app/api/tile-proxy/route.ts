@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 // Supported tile services configuration
 const TILE_SERVICES = {
@@ -16,7 +16,7 @@ const TILE_SERVICES = {
   }
 } as const
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 }
 
 // Handle preflight requests
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS(_request: Request) {
   return new NextResponse(null, {
     status: 200,
     headers: {

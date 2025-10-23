@@ -11,7 +11,8 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 export async function GET(req: Request) {
   try {
-    const token = cookies().get('access_token')?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get('access_token')?.value;
     
     // Validate token
     const tokenValidation = validateToken(token);
@@ -43,7 +44,8 @@ export async function GET(req: Request) {
 export async function DELETE(req: Request) {
   try {
     // Get authentication token
-    const token = cookies().get('access_token')?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get('access_token')?.value;
     
     // Validate token
     const tokenValidation = validateToken(token);
@@ -160,7 +162,8 @@ export async function POST(req: Request) {
 
   // Try to connect to backend first
   try {
-    const token = cookies().get('access_token')?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get('access_token')?.value;
     console.log('Attempting to connect to backend at:', BACKEND_URL);
     const res = await fetch(`${BACKEND_URL}/api/reports/`, {
       method: 'POST',

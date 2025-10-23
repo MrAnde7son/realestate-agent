@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const API_BASE_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get('authorization');
-    
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${params.id}/`, {
+
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -37,14 +38,15 @@ export async function GET(
 }
 
 export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const authHeader = request.headers.get('authorization');
-    
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${params.id}/`, {
+
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -73,14 +75,15 @@ export async function PUT(
 }
 
 export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const authHeader = request.headers.get('authorization');
-    
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${params.id}/`, {
+
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -109,13 +112,14 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get('authorization');
-    
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${params.id}/`, {
+
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}/`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

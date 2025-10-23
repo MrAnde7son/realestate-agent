@@ -328,13 +328,13 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-                <Button
+                {/* <Button
                   onClick={() => router.push("/demo")}
                   variant="outline"
                   className="w-full sm:w-auto"
                 >
                   נסה הדגמה
-                </Button>
+                </Button> */}
                 <Button
                   onClick={() => router.push("/auth")}
                   className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"

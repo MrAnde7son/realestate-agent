@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { validateToken } from '@/lib/token-utils'
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params
+  const { id } = await params
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
   // Get authentication token
-  let token = cookies().get('access_token')?.value
+  const cookieStore = await cookies()
+  let token = cookieStore.get('access_token')?.value
   
   // If no token in cookies, try to get from request headers
   if (!token) {

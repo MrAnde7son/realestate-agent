@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { validateToken } from '@/lib/token-utils'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const assetId = params.id
-    let token = cookies().get('access_token')?.value
+    const { id: assetId } = await params
+    const cookieStore = await cookies()
+    let token = cookieStore.get('access_token')?.value
 
     if (!token) {
       const authHeader = request.headers.get('authorization')

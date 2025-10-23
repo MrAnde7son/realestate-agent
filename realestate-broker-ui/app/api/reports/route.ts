@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import jsPDF from 'jspdf';
-import fs from 'fs';
-import path from 'path';
-import { type Report } from '@/lib/reports';
-import { assets } from '@/lib/data';
 import { validateToken } from '@/lib/token-utils';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';

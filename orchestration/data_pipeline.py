@@ -113,7 +113,7 @@ class DataPipeline:
         "gov": float(os.getenv("GOV_TIMEOUT", "60")),
         "govmap": float(os.getenv("GOVMAP_TIMEOUT", "60")),
         "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
-        "mavat": float(os.getenv("MAVAT_TIMEOUT", "60")),
+        "mavat": float(os.getenv("MAVAT_TIMEOUT", "0.5")),
         "handasa": float(os.getenv("HANDASA_TIMEOUT", "90")),
     }
     RETRIES = {
@@ -375,8 +375,6 @@ class DataPipeline:
                     timeout=self.TIMEOUTS.get("govmap"),
                     retries=self.RETRIES.get("govmap", 0),
                     asset_id=asset_id,
-                    block=block,
-                    parcel=parcel,
                 )
                 track("collector_success", source="govmap")
                 

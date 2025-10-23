@@ -54,10 +54,10 @@ def test_collect_applies_location_parameters(location_payload):
 
     collector = Yad2Collector(client=mock_client)
     location = LocationQuery(street="הברזל", house_number=32, city="תל אביב")
-    result = collector.collect(location, max_pages=2)
+    result = collector.collect(location)
 
     assert result == ["listing"]
     mock_client.set_search_parameters.assert_called_once_with(
         city=5000, topArea=2, area=1, neighborhood=203, street="123"
     )
-    mock_client.scrape_all_pages.assert_called_once_with(max_pages=2, delay=0)
+    mock_client.scrape_all_pages.assert_called_once_with(delay=0)

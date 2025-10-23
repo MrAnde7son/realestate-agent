@@ -530,13 +530,24 @@ React.useEffect(() => {
     if (!docUrl) {
       e.preventDefault()
       alert('קישור לא זמין')
-    } else if (!docUrl.startsWith('http')) {
-      // For relative URLs, construct the full URL
+      return
+    }
+
+    if (!docUrl.startsWith('http')) {
       e.preventDefault()
-      const fullUrl = docUrl.startsWith('/') 
-        ? `${window.location.origin}${docUrl}`
-        : `${window.location.origin}/${docUrl}`
-      window.open(fullUrl, '_blank')
+
+      const backendBase = (process.env.BACKEND_URL || '').trim()
+      const baseForRelative = backendBase || window.location.origin
+
+      try {
+        const normalizedBase = baseForRelative.endsWith('/') ? baseForRelative : `${baseForRelative}/`
+        const resolvedUrl = new URL(docUrl, normalizedBase).toString()
+        window.open(resolvedUrl, '_blank')
+      } catch (error) {
+        const normalizedPath = docUrl.startsWith('/') ? docUrl : `/${docUrl}`
+        window.open(`${baseForRelative}${normalizedPath}`, '_blank')
+      }
+      return
     }
   }
 
@@ -1195,9 +1206,13 @@ useDedupedEffect(() => {
 }, [activeTab, loadPlans])
 
 useDedupedEffect(() => {
-  if (!id) return
-  loadRightsData()
-}, [id, loadRightsData])
+  setRightsRows([])
+  setCalculatedRights(null)
+  setRightsError(null)
+  setRightsLoading(false)
+  setRightsDocFilter('all')
+  setRightsSearch('')
+}, [id])
 
 useDedupedEffect(() => {
   if (activeTab !== 'rights') return

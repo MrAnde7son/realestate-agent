@@ -10,10 +10,12 @@ const mockUseAuth = {
   user: { id: '1', onboarding_flags: {} },
 }
 
+const searchParamsGetMock = vi.fn((key: string) => null)
+
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(),
   useSearchParams: vi.fn(() => ({
-    get: vi.fn((key: string) => key === 'tab' ? null : null)
+    get: searchParamsGetMock
   }))
 }))
 vi.mock('@/lib/auth-context', () => ({
@@ -49,6 +51,7 @@ describe('AssetDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     ;(useRouter as any).mockReturnValue(mockUseRouter)
+    searchParamsGetMock.mockImplementation((key: string) => null)
     // Stub alert for tests
     // @ts-ignore
     global.alert = vi.fn()
@@ -181,6 +184,104 @@ describe('AssetDetailPage', () => {
 
     expect(document.body.textContent).not.toContain('undefined')
     expect(document.body.textContent).not.toContain('NaN')
+  })
+
+  it('loads rights data only after the rights tab is activated', async () => {
+    const callCounts: Record<string, number> = {}
+
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      callCounts[url] = (callCounts[url] ?? 0) + 1
+
+      if (url === '/api/assets/1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: '1',
+            address: 'Test Street 1',
+            city: 'Tel Aviv',
+            type: 'house',
+            area: 80,
+            price: 1000000,
+            pricePerSqm: 12500,
+            documents: [],
+          })
+        })
+      }
+      if (url === '/api/assets/1/rights') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            calculated_rights: null,
+            tabu_data: [],
+            gis_rights: [],
+            detailed_rights: [],
+          })
+        })
+      }
+      if (url === '/api/assets/1/appraisal') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ comps: [], appraisal: null, decisive_appraisals: [], rami_appraisals: [] })
+        })
+      }
+      if (url === '/api/assets/1/transactions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ transactions: [], market_analysis: null })
+        })
+      }
+      if (url === '/api/assets/1/permits') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ permits: [] })
+        })
+      }
+      if (url === '/api/assets/1/plans') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ plans: [] })
+        })
+      }
+      if (url === '/api/documents/by_category/?asset_id=1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({})
+        })
+      }
+      if (url === '/api/settings') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ report_sections: ['summary', 'plans'] })
+        })
+      }
+      if (url === '/api/assets/1/share-message') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ details: 'Quota exceeded' })
+        })
+      }
+      return Promise.reject(new Error(`Unhandled fetch call: ${url}`))
+    })
+
+    let currentTab: string | null = null
+    searchParamsGetMock.mockImplementation((key: string) => (key === 'tab' ? currentTab : null))
+
+    const { rerender } = render(<AssetDetailPageClient assetId="1" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
+    })
+
+    expect(callCounts['/api/assets/1/rights']).toBeUndefined()
+
+    currentTab = 'rights'
+    await act(async () => {
+      rerender(<AssetDetailPageClient assetId="1" />)
+    })
+
+    await waitFor(() => {
+      expect(callCounts['/api/assets/1/rights']).toBe(1)
+    })
   })
 
   it('avoids duplicate backend fetches when rendered in StrictMode', async () => {

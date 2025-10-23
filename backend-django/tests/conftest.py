@@ -22,6 +22,7 @@ if "selenium" not in sys.modules:
     webdriver_module.__path__ = []  # mark as package
     common_module = ModuleType("selenium.webdriver.common")
     common_module.__path__ = []
+    action_chains_module = ModuleType("selenium.webdriver.common.action_chains")
     by_module = ModuleType("selenium.webdriver.common.by")
     keys_module = ModuleType("selenium.webdriver.common.keys")
     selenium_common_module = ModuleType("selenium.common")
@@ -90,7 +91,23 @@ if "selenium" not in sys.modules:
 
     sys.modules["selenium"] = selenium_module
     sys.modules["selenium.webdriver"] = webdriver_module
+    class _DummyActionChains:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def move_to_element(self, *args, **kwargs):
+            return self
+
+        def click(self, *args, **kwargs):
+            return self
+
+        def perform(self, *args, **kwargs):
+            return None
+
+    action_chains_module.ActionChains = _DummyActionChains
+
     sys.modules["selenium.webdriver.common"] = common_module
+    sys.modules["selenium.webdriver.common.action_chains"] = action_chains_module
     sys.modules["selenium.webdriver.common.by"] = by_module
     sys.modules["selenium.webdriver.common.keys"] = keys_module
     sys.modules["selenium.webdriver.chrome"] = chrome_module

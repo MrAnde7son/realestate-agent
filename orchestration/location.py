@@ -77,9 +77,9 @@ def ensure_location_query(
     city: str = "",
     street: str = "",
     house_number: Optional[int] = None,
-    block: Optional[str] = None,
-    parcel: Optional[str] = None,
-    subparcel: Optional[str] = None,
+    block: Optional[int] = None,
+    parcel: Optional[int] = None,
+    subparcel: Optional[int] = None,
 ) -> LocationQuery:
     """Return a :class:`LocationQuery` from either an instance or components."""
 

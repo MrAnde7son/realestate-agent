@@ -532,9 +532,9 @@ def _format_normalized_address(street: str, number: int, city: str) -> str:
 
 
 def _format_parcel_label(
-    block: Optional[str],
-    parcel: Optional[str],
-    subparcel: Optional[str],
+    block: Optional[int],
+    parcel: Optional[int],
+    subparcel: Optional[int],
     city: str,
 ) -> str:
     parts: List[str] = []

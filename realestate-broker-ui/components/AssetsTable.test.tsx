@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { describe, it, expect, vi } from 'vitest'
 import AssetsTable from './AssetsTable'
@@ -59,5 +59,24 @@ describe('AssetsTable', () => {
     expect(selected).toHaveLength(1)
     expect(selected[0].id).toBe(1)
     expect(typeof helpers.clearSelection).toBe('function')
+  })
+
+  it('shows a table body loading skeleton while keeping headers visible', async () => {
+    render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City' } as any]}
+        loading
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
+    })
+
+    const loadingBody = await screen.findByTestId('assets-table-loading-body')
+    expect(loadingBody).toHaveAttribute('aria-busy', 'true')
+
+    const loadingRows = within(loadingBody).getAllByRole('row')
+    expect(loadingRows.length).toBeGreaterThan(0)
   })
 })

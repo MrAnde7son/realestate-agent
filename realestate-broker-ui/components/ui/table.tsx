@@ -107,8 +107,8 @@ export function THead({ children, className }: { children: React.ReactNode, clas
   return <TableHeader className={className}>{children}</TableHeader>
 }
 
-export function TBody({ children }: { children: React.ReactNode }) {
-  return <TableBody>{children}</TableBody>
+export function TBody({ children, ...props }: { children: React.ReactNode } & React.ComponentProps<'tbody'>) {
+  return <TableBody {...props}>{children}</TableBody>
 }
 
 export function TR({ children, className, ...props }: React.ComponentProps<'tr'>) {

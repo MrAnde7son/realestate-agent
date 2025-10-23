@@ -241,17 +241,17 @@ export default function MortgageAnalyzePage() {
               
               <div>
                 <label className="block text-sm font-medium mb-2">סכום הלוואה</label>
-                <div className="relative">
-                  <Input 
-                    type="number" 
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
                     value={input.loanAmount}
                     readOnly
-                    className="bg-muted pe-10"
-                    placeholder="2,800,000" 
+                    className="bg-muted text-right flex-1"
+                    placeholder="2,800,000"
                   />
-                  <div className="absolute start-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
                     מחושב אוטומטית
-                  </div>
+                  </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {fmtCurrency(input.propertyValue)} - {fmtCurrency(userEquity)} = {fmtCurrency(input.loanAmount)}

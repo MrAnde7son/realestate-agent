@@ -6,7 +6,8 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 export async function GET(request: Request) {
   try {
-    let token = cookies().get('access_token')?.value
+    const cookieStore = await cookies()
+    let token = cookieStore.get('access_token')?.value
 
     if (!token) {
       const authHeader = request.headers.get('authorization')

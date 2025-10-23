@@ -5,7 +5,8 @@ import { validateToken } from '@/lib/token-utils'
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 export async function GET() {
-  const token = cookies().get('access_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('access_token')?.value
   
   // Validate token
   const tokenValidation = validateToken(token)
@@ -25,7 +26,8 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const token = cookies().get('access_token')?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get('access_token')?.value
   
   // Validate token
   const tokenValidation = validateToken(token)

@@ -11,6 +11,7 @@ import { Trash2, Download, Bell, Eye, Settings, Search, Plus } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import TableToolbar, { AdditionalFilterValue, AdditionalFilterConfig } from './TableToolbar'
@@ -977,8 +978,25 @@ export default function AssetsTable({
                     ))}
                   </TR>
                 </THead>
-                <TBody>
-                  {table.getRowModel().rows.length === 0 ? (
+                <TBody
+                  data-testid={loading ? 'assets-table-loading-body' : undefined}
+                  aria-busy={loading ? 'true' : undefined}
+                >
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <TR key={`loading-${index}`} className="animate-pulse">
+                        <TD colSpan={table.getFlatHeaders().length} className="py-6">
+                          <div className="flex items-center gap-4">
+                            <Skeleton className="h-4 w-4 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-3 w-1/2" />
+                            </div>
+                          </div>
+                        </TD>
+                      </TR>
+                    ))
+                  ) : table.getRowModel().rows.length === 0 ? (
                     <TR>
                       <TD colSpan={table.getFlatHeaders().length} className="text-center py-12">
                         <div className="flex flex-col items-center justify-center space-y-4">
@@ -1004,9 +1022,9 @@ export default function AssetsTable({
                     </TR>
                   ) : (
                     table.getRowModel().rows.map(row=>(
-                      <TR 
-                        key={row.id} 
-                        className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
+                      <TR
+                        key={row.id}
+                        className="clickable-row focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         onClick={() => handleRowClick(row.original)}
                         tabIndex={0}
                         role="button"
@@ -1044,7 +1062,19 @@ export default function AssetsTable({
       {/* Card view - show when viewMode is 'cards' */}
       {viewMode === 'cards' && (
         <div className="space-y-2">
-          {data.length === 0 ? (
+          {loading ? (
+            Array.from({ length: 3 }).map((_, index) => (
+              <div key={`card-skeleton-${index}`} className="p-4 border rounded-lg space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <div className="flex space-x-2 rtl:space-x-reverse">
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-12" />
+                </div>
+              </div>
+            ))
+          ) : data.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
                 <Search className="h-8 w-8 text-muted-foreground" />

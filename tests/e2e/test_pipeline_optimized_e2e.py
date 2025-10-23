@@ -122,7 +122,7 @@ def test_yad2_collector_uses_location_query():
     listings = collector.collect(location)
 
     assert [l.listing_id for l in listings] == ["TLV-1"]
-    assert collector.fetch_calls == [("רוזוב תל אביב", 2)]
+    assert collector.fetch_calls == [("רוזוב תל אביב", 1)]
 
 
 def test_yad2_prepare_location_parameters_prefers_matching_city():

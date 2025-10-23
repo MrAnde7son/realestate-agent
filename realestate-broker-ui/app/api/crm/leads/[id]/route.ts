@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {
@@ -16,7 +17,7 @@ export async function GET(
 
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/leads/${params.id}/`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads/${id}/`, {
       method: 'GET',
       headers: {
         'Authorization': token,
@@ -41,10 +42,11 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {
@@ -57,7 +59,7 @@ export async function PATCH(
     const body = await request.json();
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/leads/${params.id}/`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads/${id}/`, {
       method: 'PATCH',
       headers: {
         'Authorization': token,
@@ -83,10 +85,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {
@@ -98,7 +101,7 @@ export async function DELETE(
 
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    const response = await fetch(`${backendUrl}/api/crm/leads/${params.id}/`, {
+    const response = await fetch(`${backendUrl}/api/crm/leads/${id}/`, {
       method: 'DELETE',
       headers: {
         'Authorization': token,

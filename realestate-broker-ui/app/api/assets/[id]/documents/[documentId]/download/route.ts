@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { validateToken } from '@/lib/token-utils'
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string; documentId: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string; documentId: string }> }
 ) {
-  const { id, documentId } = params
+  const { id, documentId } = await params
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
   // Get authentication token

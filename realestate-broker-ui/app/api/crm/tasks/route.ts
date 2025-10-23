@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const token = request.headers.get('authorization');
     
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const url = new URL('/api/crm/tasks/', backendUrl);
     
     // Forward query parameters
-    const searchParams = request.nextUrl.searchParams;
+    const searchParams = new URL(request.url).searchParams;
     searchParams.forEach((value, key) => {
       url.searchParams.append(key, value);
     });
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const token = request.headers.get('authorization');
     

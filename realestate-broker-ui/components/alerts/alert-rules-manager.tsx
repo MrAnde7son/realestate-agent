@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,15 +45,30 @@ interface AlertRulesManagerProps {
   assetId?: number
   editingRule?: AlertRule | null
   onRuleSaved?: () => void
+  autoCreateNewRule?: boolean
+  onAutoCreateHandled?: () => void
 }
 
-export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }: AlertRulesManagerProps) {
+export default function AlertRulesManager({
+  assetId,
+  editingRule,
+  onRuleSaved,
+  autoCreateNewRule,
+  onAutoCreateHandled
+}: AlertRulesManagerProps) {
   const { refreshUser } = useAuth()
   const [rules, setRules] = useState<AlertRule[]>([])
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
   const [assets, setAssets] = useState<Asset[]>([])
   const [assetsLoading, setAssetsLoading] = useState(false)
+  const [hasUserInteracted, setHasUserInteracted] = useState(false)
+  const hasUserInteractedRef = useRef(false)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+
+  useEffect(() => {
+    hasUserInteractedRef.current = hasUserInteracted
+  }, [hasUserInteracted])
 
   // Helper functions for translation
   const translateTriggerType = (type: string) => {
@@ -65,6 +80,8 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
   }
 
   useEffect(() => {
+    setHasUserInteracted(false)
+    setInitialLoadComplete(false)
     if (editingRule) {
       // When editing, only show the specific rule being edited
       const frontendRule: AlertRule = {
@@ -78,6 +95,8 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
         active: editingRule.active
       }
       setRules([frontendRule])
+      setLoading(false)
+      setInitialLoadComplete(true)
     } else {
       // When not editing, load all rules
       loadRules()
@@ -89,14 +108,20 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
     try {
       setLoading(true)
       const response = await api.get('/api/alerts')
-      if (response.ok) {
+      if (response.ok && !hasUserInteractedRef.current) {
         setRules(response.data?.rules || [])
       }
     } catch (error) {
       console.error('Failed to load alert rules:', error)
     } finally {
       setLoading(false)
+      setInitialLoadComplete(true)
     }
+  }
+
+  const getDefaultParams = (type: AlertType) => {
+    const defaults = ALERT_DEFAULT_PARAMS[type as keyof typeof ALERT_DEFAULT_PARAMS]
+    return defaults ? { ...defaults } : {}
   }
 
   const loadAssets = async () => {
@@ -118,54 +143,57 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
     return assets.find(asset => asset.id === assetId) || null
   }
 
-  const addRule = () => {
+  const addRule = useCallback(() => {
+    const defaultType = ALERT_TYPES.PRICE_DROP
     const newRule: AlertRule = {
-      trigger_type: ALERT_TYPES.PRICE_DROP,
-      params: ALERT_DEFAULT_PARAMS[ALERT_TYPES.PRICE_DROP],
+      trigger_type: defaultType,
+      params: getDefaultParams(defaultType),
       channels: [ALERT_CHANNELS.EMAIL],
       frequency: ALERT_FREQUENCIES.IMMEDIATE,
       scope: assetId ? ALERT_SCOPES.ASSET : ALERT_SCOPES.GLOBAL,
-      asset: assetId, // Backend expects 'asset', not 'asset_id'
+      asset: assetId,
       active: true
     }
-    setRules([...rules, newRule])
-  }
+    setRules(prevRules => [...prevRules, newRule])
+    setHasUserInteracted(true)
+  }, [assetId])
 
   const updateRule = (index: number, updates: Partial<AlertRule>) => {
-    const updatedRules = [...rules]
-    updatedRules[index] = { ...updatedRules[index], ...updates }
-    
-    // Update params when trigger type changes
-    if (updates.trigger_type) {
-      updatedRules[index].params = ALERT_DEFAULT_PARAMS[updates.trigger_type as keyof typeof ALERT_DEFAULT_PARAMS] || {}
-    }
-    
-    // Update scope and asset when scope changes
-    if (updates.scope) {
-      if (updates.scope === ALERT_SCOPES.ASSET) {
-        // If changing to asset scope, keep current asset or set to first available
-        updatedRules[index].asset = updatedRules[index].asset || (assets.length > 0 ? assets[0].id : undefined)
-      } else {
-        // If changing to global scope, clear asset
-        updatedRules[index].asset = undefined
+    setHasUserInteracted(true)
+    setRules(prevRules => {
+      const updatedRules = [...prevRules]
+      const currentRule = { ...updatedRules[index], ...updates }
+
+      if (updates.trigger_type) {
+        currentRule.params = getDefaultParams(updates.trigger_type as AlertType)
       }
-    }
-    
-    // Update scope when asset changes
-    if (updates.asset !== undefined) {
-      if (updates.asset) {
-        updatedRules[index].scope = ALERT_SCOPES.ASSET
-      } else {
-        updatedRules[index].scope = ALERT_SCOPES.GLOBAL
+
+      if (updates.scope) {
+        if (updates.scope === ALERT_SCOPES.ASSET) {
+          currentRule.asset = currentRule.asset || assetId || (assets.length > 0 ? assets[0].id : undefined)
+        } else {
+          currentRule.asset = undefined
+        }
       }
-    }
-    
-    setRules(updatedRules)
+
+      if (updates.asset !== undefined) {
+        if (updates.asset) {
+          currentRule.scope = ALERT_SCOPES.ASSET
+          currentRule.asset = updates.asset
+        } else {
+          currentRule.scope = ALERT_SCOPES.GLOBAL
+          currentRule.asset = undefined
+        }
+      }
+
+      updatedRules[index] = currentRule
+      return updatedRules
+    })
   }
 
   const removeRule = (index: number) => {
-    const updatedRules = rules.filter((_, i) => i !== index)
-    setRules(updatedRules)
+    setHasUserInteracted(true)
+    setRules(prevRules => prevRules.filter((_, i) => i !== index))
   }
 
   const saveRule = async (rule: AlertRule, index: number) => {
@@ -222,6 +250,15 @@ export default function AlertRulesManager({ assetId, editingRule, onRuleSaved }:
       setTesting(false)
     }
   }
+
+  useEffect(() => {
+    if (!autoCreateNewRule || editingRule || !initialLoadComplete) {
+      return
+    }
+
+    addRule()
+    onAutoCreateHandled?.()
+  }, [addRule, autoCreateNewRule, editingRule, initialLoadComplete, onAutoCreateHandled])
 
   const renderParameterInput = (rule: AlertRule, paramKey: string, paramConfig: any) => {
     const value = rule.params[paramKey] || paramConfig.min || 0

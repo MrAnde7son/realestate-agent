@@ -83,6 +83,7 @@ export default function AlertsPage() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [alertRulesModalOpen, setAlertRulesModalOpen] = useState(false)
   const [editingRule, setEditingRule] = useState<AlertRule | null>(null)
+  const [shouldAutoCreateRule, setShouldAutoCreateRule] = useState(false)
 
   // Fetch alerts from API
   const fetchAlerts = async () => {
@@ -160,7 +161,14 @@ export default function AlertsPage() {
   }
 
   const handleEditRule = (rule: AlertRule) => {
+    setShouldAutoCreateRule(false)
     setEditingRule(rule)
+    setAlertRulesModalOpen(true)
+  }
+
+  const handleCreateRuleClick = () => {
+    setEditingRule(null)
+    setShouldAutoCreateRule(true)
     setAlertRulesModalOpen(true)
   }
 
@@ -187,6 +195,7 @@ export default function AlertsPage() {
     // Refresh alert rules after saving
     fetchAlerts()
     setEditingRule(null)
+    setShouldAutoCreateRule(false)
   }
 
   const filteredAlerts = alertsData.filter(alert => {
@@ -260,8 +269,8 @@ export default function AlertsPage() {
           text="קבל עדכונים על שינויים בנכסים ובשוק הנדל״ן"
         >
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button 
-              onClick={() => setAlertRulesModalOpen(true)} 
+            <Button
+              onClick={handleCreateRuleClick}
               className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 ms-2" />
@@ -285,8 +294,8 @@ export default function AlertsPage() {
               <CardHeader>
                 <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <span>כללי התראות ({alertRules.length})</span>
-                  <Button 
-                    onClick={() => setAlertRulesModalOpen(true)} 
+                  <Button
+                    onClick={handleCreateRuleClick}
                     size="sm"
                     variant="outline"
                   >
@@ -678,6 +687,7 @@ export default function AlertsPage() {
           setAlertRulesModalOpen(open)
           if (!open) {
             setEditingRule(null)
+            setShouldAutoCreateRule(false)
           }
         }}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
@@ -688,9 +698,11 @@ export default function AlertsPage() {
               </DialogTitle>
             </DialogHeader>
             <div className="mt-4">
-              <AlertRulesManager 
+              <AlertRulesManager
                 editingRule={editingRule as any}
                 onRuleSaved={handleRuleSaved}
+                autoCreateNewRule={shouldAutoCreateRule}
+                onAutoCreateHandled={() => setShouldAutoCreateRule(false)}
               />
             </div>
           </DialogContent>

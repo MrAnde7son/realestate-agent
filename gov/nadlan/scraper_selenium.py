@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import tempfile
 import time
 from datetime import datetime, timedelta
@@ -44,8 +43,6 @@ from .exceptions import NadlanAPIError
 from .models import Deal
 from .cache import DealCache, IncrementalDealCollector
 
-import random
-from selenium.webdriver.common.action_chains import ActionChains
 
 
 logger = logging.getLogger(__name__)

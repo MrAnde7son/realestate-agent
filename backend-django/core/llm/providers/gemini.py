@@ -16,7 +16,7 @@ class GeminiAdapter(LLMClient):
     def __init__(self) -> None:
         api_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY
         if not api_key:
-            raise ValueError("GEMINI_API_KEY is not configured")
+            raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY is not configured")
         genai.configure(api_key=api_key)
         self.model_name = (
             settings.GEMINI_MODEL

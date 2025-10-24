@@ -52,6 +52,17 @@ describe('app/api/imports/[batchId] route handlers', () => {
     expect(response.status).toBe(200)
   })
 
+  it('uses the first batch id when multiple values provided', async () => {
+    const request = new NextRequest('http://localhost/api/imports/123')
+
+    const response = await GET(request, { params: { batchId: ['123', '456'] } })
+
+    const fetchMock = globalThis.fetch as unknown as ViMock
+    const [url] = fetchMock.mock.calls[0]
+    expect(String(url)).toBe('http://127.0.0.1:8000/api/imports/123')
+    expect(response.status).toBe(200)
+  })
+
   it('forwards POST payloads without authorization when the token is missing', async () => {
     cookiesMock.mockReturnValue({
       get: vi.fn().mockReturnValue(undefined),
@@ -76,5 +87,25 @@ describe('app/api/imports/[batchId] route handlers', () => {
     })
     expect(await response.json()).toEqual({ status: 'ok' })
     expect(response.status).toBe(200)
+  })
+
+  it('returns 400 when batch id is missing on GET', async () => {
+    const request = new NextRequest('http://localhost/api/imports/')
+
+    const response = await GET(request, { params: {} })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Missing batch identifier' })
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when batch id is missing on POST', async () => {
+    const request = new NextRequest('http://localhost/api/imports/', { method: 'POST' })
+
+    const response = await POST(request, { params: {} })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Missing batch identifier' })
+    expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 })

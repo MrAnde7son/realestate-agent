@@ -3,13 +3,25 @@ import { cookies } from 'next/headers'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { batchId: string } },
-) {
-  const { batchId } = params
+type RouteContext = { params: Record<string, string | string[]> }
+
+function extractBatchId(context: RouteContext): string {
+  const raw = context.params?.batchId
+
+  if (Array.isArray(raw)) {
+    return raw[0] ?? ''
+  }
+
+  return raw ?? ''
+}
+
+export async function GET(request: NextRequest, context: unknown) {
+  const batchId = extractBatchId(context as RouteContext)
+  if (!batchId) {
+    return NextResponse.json({ error: 'Missing batch identifier' }, { status: 400 })
+  }
   try {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const token = cookieStore.get('access_token')?.value
     const url = new URL(`${BACKEND_URL}/api/imports/${batchId}`)
     const response = await fetch(url, {
@@ -35,13 +47,13 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { batchId: string } },
-) {
-  const { batchId } = params
+export async function POST(request: NextRequest, context: unknown) {
+  const batchId = extractBatchId(context as RouteContext)
+  if (!batchId) {
+    return NextResponse.json({ error: 'Missing batch identifier' }, { status: 400 })
+  }
   try {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const token = cookieStore.get('access_token')?.value
     const body = await request.json().catch(() => ({}))
 

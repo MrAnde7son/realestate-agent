@@ -21,11 +21,14 @@ export type Asset = {
   pricePerSqmDisplay?: number | null;
   description?: string | null;
   images?: string[];
+  photos?: string[];
   features?: string[] | null;
   contactInfo?: {
     agent?: string | null;
     phone?: string | null;
     email?: string | null;
+    name?: string | null;
+    brokerPhone?: string | null;
   } | null;
   block?: string | null;
   parcel?: string | null;
@@ -71,6 +74,29 @@ export type Asset = {
   assetStatus?: string | null;
   documents?: any[];
   assetId?: number | null;
+  primaryListing?: {
+    id?: string | number | null;
+    source?: string | null;
+    title?: string | null;
+    listingType?: string | null;
+    contactName?: string | null;
+    contactPhone?: string | null;
+    contactInfo?: {
+      name?: string | null;
+      phone?: string | null;
+      brokerPhone?: string | null;
+      email?: string | null;
+    } | null;
+    recentDeal?: boolean | null;
+    photos?: string[];
+    videoUrl?: string | null;
+    url?: string | null;
+  } | null;
+  listingType?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  recentDeal?: boolean | null;
+  videoUrl?: string | null;
   
   // GIS Collector Data Fields
   parcelArea?: number | null;
@@ -204,6 +230,136 @@ export function determineAssetType(asset: any): string | null {
 }
 
 export function normalizeFromBackend(row: any): Asset {
+  const ensureStringArray = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+      : [];
+
+  const normalizeListing = (listing: any) => {
+    if (!listing || typeof listing !== 'object') {
+      return null;
+    }
+
+    const rawContact = listing.contactInfo ?? listing.contact_info;
+    const baseContact =
+      rawContact && typeof rawContact === 'object'
+        ? { ...rawContact }
+        : {};
+
+    const contactName =
+      listing.contactName ?? listing.contact_name ?? baseContact.name ?? null;
+    const contactPhone =
+      listing.contactPhone ??
+      listing.contact_phone ??
+      baseContact.phone ??
+      baseContact.brokerPhone ??
+      null;
+
+    if (contactName != null) {
+      baseContact.name = contactName;
+    }
+    if (contactPhone != null) {
+      baseContact.phone = contactPhone;
+    }
+
+    const listingContactInfo = Object.values(baseContact).some(
+      value => value != null && value !== ''
+    )
+      ? baseContact
+      : null;
+
+    const photos = Array.from(
+      new Set([
+        ...ensureStringArray(listing.photos),
+        ...ensureStringArray(listing.images),
+      ])
+    );
+
+    const videoUrl =
+      listing.videoUrl ?? listing.video_url ?? listing.video ?? null;
+
+    let recentDeal: boolean | null = null;
+    if (typeof listing.recentDeal === 'boolean') {
+      recentDeal = listing.recentDeal;
+    } else if (typeof listing.recent_deal === 'boolean') {
+      recentDeal = listing.recent_deal;
+    }
+
+    return {
+      id: listing.id ?? listing.external_id ?? null,
+      source: listing.source ?? null,
+      title: listing.title ?? null,
+      listingType: listing.listingType ?? listing.listing_type ?? null,
+      contactName: contactName ?? null,
+      contactPhone: contactPhone ?? null,
+      contactInfo: listingContactInfo,
+      recentDeal,
+      photos,
+      videoUrl,
+      url: listing.url ?? null,
+    };
+  };
+
+  const primaryListing = normalizeListing(row.primaryListing ?? row.primary_listing);
+
+  const rawContactInfo = row.contactInfo ?? row.contact_info;
+  const baseContactInfo =
+    rawContactInfo && typeof rawContactInfo === 'object'
+      ? { ...rawContactInfo }
+      : {};
+
+  const listingType =
+    row.listingType ?? row.listing_type ?? primaryListing?.listingType ?? null;
+
+  const contactName =
+    row.contactName ??
+    row.contact_name ??
+    primaryListing?.contactName ??
+    baseContactInfo.name ??
+    null;
+
+  const contactPhone =
+    row.contactPhone ??
+    row.contact_phone ??
+    primaryListing?.contactPhone ??
+    baseContactInfo.phone ??
+    baseContactInfo.brokerPhone ??
+    null;
+
+  const recentDeal =
+    row.recentDeal ?? row.recent_deal ?? primaryListing?.recentDeal ?? null;
+
+  const videoUrl =
+    row.videoUrl ?? row.video_url ?? primaryListing?.videoUrl ?? null;
+
+  if (contactName != null) {
+    baseContactInfo.name = contactName;
+  }
+  if (contactPhone != null) {
+    baseContactInfo.phone = contactPhone;
+  }
+  if (
+    baseContactInfo.brokerPhone == null &&
+    primaryListing?.contactInfo?.brokerPhone
+  ) {
+    baseContactInfo.brokerPhone = primaryListing.contactInfo.brokerPhone;
+  }
+  if (baseContactInfo.email == null && primaryListing?.contactInfo?.email) {
+    baseContactInfo.email = primaryListing.contactInfo.email;
+  }
+
+  const hasContactInfo = Object.values(baseContactInfo).some(
+    value => value != null && value !== ''
+  );
+
+  const images = Array.from(
+    new Set([
+      ...ensureStringArray(row.images),
+      ...ensureStringArray(row.photos),
+      ...(primaryListing?.photos ?? []),
+    ])
+  );
+
   return {
     id: Number(row.id ?? row.assetId ?? row.external_id),
     address: row.address ?? null,
@@ -226,9 +382,10 @@ export function normalizeFromBackend(row: any): Asset {
     pricePerSqm: row.price_per_sqm ?? null,
     pricePerSqmDisplay: row.pricePerSqmDisplay ?? row.price_per_sqm_display ?? null,
     description: row.description ?? null,
-    images: row.images ?? row.photos ?? [],
+    images,
+    photos: images,
     features: row.features ?? null,
-    contactInfo: row.contactInfo ?? row.contact_info ?? null,
+    contactInfo: hasContactInfo ? baseContactInfo : null,
     block: row.block ?? null,
     parcel: row.parcel ?? null,
     subparcel: row.subparcel ?? null,
@@ -273,6 +430,12 @@ export function normalizeFromBackend(row: any): Asset {
     assetStatus: row.assetStatus ?? row.asset_status ?? row.status ?? null,
     documents: Array.isArray(row.documents) ? row.documents : (row.meta?.documents || []),
     assetId: row.assetId ?? row.asset_id ?? null,
+    primaryListing,
+    listingType,
+    contactName,
+    contactPhone,
+    recentDeal,
+    videoUrl,
     
     // GIS Collector Data Fields
     parcelArea: row.parcelArea ?? row.parcel_area ?? null,

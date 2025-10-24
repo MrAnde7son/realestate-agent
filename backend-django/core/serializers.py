@@ -27,8 +27,8 @@ from .services.asset_links import (
     asset_transactions_all,
     asset_permits_all,
     asset_plans_all,
-    asset_listings_all,
 )
+from .utils.listings import normalize_listing_from_model
 
 User = get_user_model()
 
@@ -114,6 +114,19 @@ class AssetSerializer(MetaSerializerMixin):
     buildingCoveragePct = serializers.FloatField(source='building_coverage_pct', read_only=True)
     heightAnalysis = serializers.JSONField(source='height_analysis', read_only=True)
     setbackAnalysis = serializers.JSONField(source='setback_analysis', read_only=True)
+    primary_listing = serializers.SerializerMethodField()
+    primaryListing = serializers.SerializerMethodField()
+    listing_type = serializers.SerializerMethodField()
+    listingType = serializers.SerializerMethodField()
+    contact_name = serializers.SerializerMethodField()
+    contactName = serializers.SerializerMethodField()
+    contact_phone = serializers.SerializerMethodField()
+    contactPhone = serializers.SerializerMethodField()
+    recent_deal = serializers.SerializerMethodField()
+    recentDeal = serializers.SerializerMethodField()
+    video_url = serializers.SerializerMethodField()
+    videoUrl = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
 
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
@@ -157,7 +170,7 @@ class AssetSerializer(MetaSerializerMixin):
     def get_documents(self, obj):
         """Get documents from both Document model and meta field."""
         documents = []
-        
+
         # Get documents from Document model (legacy + M2M)
         for doc in asset_documents_all(obj):
             documents.append({
@@ -185,8 +198,112 @@ class AssetSerializer(MetaSerializerMixin):
                 # Use 'id' field for meta documents since they don't have 'external_id'
                 if not any(d.get('external_id') == doc.get('id') for d in documents):
                     documents.append(doc)
-        
+
         return documents
+
+    def _listing_sort_key(self, listing):
+        fetched_at = getattr(listing, "fetched_at", None)
+        if not fetched_at:
+            return float("-inf")
+        try:
+            return fetched_at.timestamp()
+        except (AttributeError, OSError, OverflowError, ValueError):  # pragma: no cover - safety
+            return float("-inf")
+
+    def _get_primary_listing_instance(self, obj):
+        if hasattr(obj, "_primary_listing_instance_cache"):
+            return obj._primary_listing_instance_cache
+
+        if (
+            hasattr(obj, "_prefetched_objects_cache")
+            and obj._prefetched_objects_cache.get("listings_m2m") is not None
+        ):
+            listings = list(obj._prefetched_objects_cache["listings_m2m"])
+        else:
+            listings = list(obj.listings_m2m.all())
+
+        listings.sort(key=self._listing_sort_key, reverse=True)
+        primary = listings[0] if listings else None
+        obj._primary_listing_instance_cache = primary
+        return primary
+
+    def _get_primary_listing_data(self, obj):
+        if hasattr(obj, "_primary_listing_data_cache"):
+            return obj._primary_listing_data_cache
+
+        listing = self._get_primary_listing_instance(obj)
+        if not listing:
+            obj._primary_listing_data_cache = None
+            return None
+
+        data = normalize_listing_from_model(listing)
+        obj._primary_listing_data_cache = data
+        return data
+
+    def get_primaryListing(self, obj):
+        return self._get_primary_listing_data(obj)
+
+    def get_primary_listing(self, obj):
+        return self._get_primary_listing_data(obj)
+
+    def _get_primary_value(self, obj, *keys):
+        data = self._get_primary_listing_data(obj)
+        if not data:
+            return None
+        for key in keys:
+            value = data.get(key)
+            if value not in (None, ""):
+                return value
+        return None
+
+    def get_listingType(self, obj):
+        value = self._get_primary_value(obj, "listingType", "listing_type")
+        return value
+
+    def get_listing_type(self, obj):
+        return self.get_listingType(obj)
+
+    def get_contactName(self, obj):
+        direct = self._get_primary_value(obj, "contactName", "contact_name")
+        if direct:
+            return direct
+        info = self._get_primary_value(obj, "contactInfo", "contact_info") or {}
+        return (info or {}).get("name") if isinstance(info, dict) else None
+
+    def get_contact_name(self, obj):
+        return self.get_contactName(obj)
+
+    def get_contactPhone(self, obj):
+        direct = self._get_primary_value(obj, "contactPhone", "contact_phone")
+        if direct:
+            return direct
+        info = self._get_primary_value(obj, "contactInfo", "contact_info") or {}
+        if isinstance(info, dict):
+            return info.get("phone") or info.get("brokerPhone")
+        return None
+
+    def get_contact_phone(self, obj):
+        return self.get_contactPhone(obj)
+
+    def get_recentDeal(self, obj):
+        value = self._get_primary_value(obj, "recentDeal", "recent_deal")
+        return bool(value) if value is not None else None
+
+    def get_recent_deal(self, obj):
+        return self.get_recentDeal(obj)
+
+    def get_videoUrl(self, obj):
+        return self._get_primary_value(obj, "videoUrl", "video_url", "video")
+
+    def get_video_url(self, obj):
+        return self.get_videoUrl(obj)
+
+    def get_photos(self, obj):
+        data = self._get_primary_listing_data(obj)
+        if not data:
+            return []
+        photos = data.get("photos") or data.get("images") or []
+        return photos or []
     
     class Meta:
         model = Asset
@@ -204,6 +321,9 @@ class AssetSerializer(MetaSerializerMixin):
             'buildingCoveragePct','heightAnalysis','setbackAnalysis',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'last_enriched_at', 'created_at', 'meta', 'documents',
+            'primary_listing', 'primaryListing', 'listing_type', 'listingType',
+            'contact_name', 'contactName', 'contact_phone', 'contactPhone',
+            'recent_deal', 'recentDeal', 'video_url', 'videoUrl', 'photos',
             # GIS Collector Data Fields
             'parcel_area', 'parcel_registered_area', 'parcel_status', 'parcel_accuracy',
             'block_area', 'block_registered_area', 'block_total_parcels', 'block_status', 'block_last_update',

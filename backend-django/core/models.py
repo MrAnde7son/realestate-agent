@@ -421,6 +421,26 @@ class Asset(models.Model):
     lat = models.FloatField(blank=True, null=True)
     lon = models.FloatField(blank=True, null=True)
     normalized_address = models.CharField(max_length=500, blank=True, null=True)
+    external_source = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        choices=[("nadlan_one", "Nadlan One")],
+        help_text="Origin of the asset in external systems",
+    )
+    external_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="External identifier from the source system",
+    )
+    import_batch_id = models.UUIDField(
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Identifier for the bulk import batch",
+    )
 
     # Additional real estate fields
     building_type = models.CharField(
@@ -551,6 +571,7 @@ class Asset(models.Model):
             models.Index(fields=["area"]),
             models.Index(fields=["rooms"]),
             models.Index(fields=["zoning"]),
+            models.Index(fields=["external_source", "external_id"]),
             # Planning and Legal Analysis fields indexes
             models.Index(fields=["rights_usage_pct"]),
             models.Index(fields=["urban_renewal_potential"]),

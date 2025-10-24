@@ -36,12 +36,14 @@ import {
   Trash2,
   Download,
   FileText,
+  DownloadCloud,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
 import { selectOnboardingState, getCompletionPct } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
+import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
 import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -82,6 +84,7 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [nadlanImportOpen, setNadlanImportOpen] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
   const [totalCount, setTotalCount] = useState(0);
@@ -1499,6 +1502,17 @@ export default function AssetsPage() {
                   handleProtectedAction("add-asset");
                 }
               }}
+              extraActions={
+                <Button
+                  onClick={() => setNadlanImportOpen(true)}
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+                >
+                  <DownloadCloud className="h-4 w-4" />
+                  ייבוא מנדל&quot;ן ONE
+                </Button>
+              }
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               bulkActions={[
@@ -1546,6 +1560,12 @@ export default function AssetsPage() {
             error={planLimitError}
           />
         )}
+
+        <ImportDialogNadlanOne
+          open={nadlanImportOpen}
+          onOpenChange={setNadlanImportOpen}
+          mode="properties"
+        />
 
       </div>
     </DashboardLayout>

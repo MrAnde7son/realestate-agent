@@ -39,14 +39,14 @@ class AssetListingsUiTests(TestCase):
         rows = response.json()["rows"]
         asset_row = next(row for row in rows if row["id"] == self.asset_rent.id)
 
-        self.assertEqual(asset_row.get("listingType"), "rent")
-        self.assertEqual(asset_row.get("contactName"), "Dana")
-        self.assertEqual(asset_row.get("contactPhone"), "050-1234567")
-        self.assertTrue(asset_row.get("recentDeal"))
-        self.assertEqual(asset_row.get("videoUrl"), "http://example.com/video.mp4")
+        self.assertEqual(asset_row.get("listing_type"), "rent")
+        self.assertEqual(asset_row.get("contact_name"), "Dana")
+        self.assertEqual(asset_row.get("contact_phone"), "050-1234567")
+        self.assertTrue(asset_row.get("recent_deal"))
+        self.assertEqual(asset_row.get("video_url"), "http://example.com/video.mp4")
         self.assertIn("http://example.com/photo.jpg", asset_row.get("photos", []))
 
-        primary = asset_row.get("primaryListing")
+        primary = asset_row.get("primary_listing")
         self.assertIsNotNone(primary)
         self.assertEqual(primary.get("listing_type"), "rent")
         self.assertTrue(primary.get("recent_deal"))

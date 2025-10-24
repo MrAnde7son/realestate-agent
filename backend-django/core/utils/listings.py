@@ -189,8 +189,9 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
             date_posted = fetched_at.isoformat()
 
     normalized_contact_info = {
-        "name": contact_name or contact_info.get("name"),
-        "phone": contact_phone or contact_info.get("phone"),
+        "name": contact_name or contact_info.get("name") or contact_info.get("agent"),
+        "agent": contact_info.get("agent") or contact_name,
+        "phone": contact_phone or contact_info.get("phone") or contact_info.get("brokerPhone"),
         "brokerPhone": contact_info.get("brokerPhone"),
         "email": contact_info.get("email"),
     }
@@ -214,17 +215,11 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
         "floor": raw.get("floor"),
         "features": raw.get("features", []),
         "listing_type": listing_type,
-        "listingType": listing_type,
         "contact_name": contact_name,
-        "contactName": contact_name,
         "contact_phone": contact_phone,
-        "contactPhone": contact_phone,
         "contact_info": normalized_contact_info,
-        "contactInfo": normalized_contact_info,
         "recent_deal": recent_deal,
-        "recentDeal": recent_deal,
         "video_url": video_url,
-        "videoUrl": video_url,
         "video": video_url,
     }
     return normalized
@@ -265,8 +260,9 @@ def normalize_listing_from_meta(meta_listing: Dict[str, Any], idx: int) -> Dict[
     recent_deal = bool(meta_listing.get("recent_deal") or meta_listing.get("recentDeal"))
 
     normalized_contact_info = {
-        "name": contact_name or contact_info.get("name"),
-        "phone": contact_phone or contact_info.get("phone"),
+        "name": contact_name or contact_info.get("name") or contact_info.get("agent"),
+        "agent": contact_info.get("agent") or contact_name,
+        "phone": contact_phone or contact_info.get("phone") or contact_info.get("brokerPhone"),
         "brokerPhone": contact_info.get("brokerPhone"),
         "email": contact_info.get("email"),
     }
@@ -290,17 +286,11 @@ def normalize_listing_from_meta(meta_listing: Dict[str, Any], idx: int) -> Dict[
         "floor": meta_listing.get("floor"),
         "features": meta_listing.get("features", []),
         "listing_type": listing_type,
-        "listingType": listing_type,
         "contact_name": contact_name,
-        "contactName": contact_name,
         "contact_phone": contact_phone,
-        "contactPhone": contact_phone,
         "contact_info": normalized_contact_info,
-        "contactInfo": normalized_contact_info,
         "recent_deal": recent_deal,
-        "recentDeal": recent_deal,
         "video_url": video_url,
-        "videoUrl": video_url,
         "video": video_url,
     }
     return normalized

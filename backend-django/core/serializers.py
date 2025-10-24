@@ -115,17 +115,11 @@ class AssetSerializer(MetaSerializerMixin):
     heightAnalysis = serializers.JSONField(source='height_analysis', read_only=True)
     setbackAnalysis = serializers.JSONField(source='setback_analysis', read_only=True)
     primary_listing = serializers.SerializerMethodField()
-    primaryListing = serializers.SerializerMethodField()
     listing_type = serializers.SerializerMethodField()
-    listingType = serializers.SerializerMethodField()
     contact_name = serializers.SerializerMethodField()
-    contactName = serializers.SerializerMethodField()
     contact_phone = serializers.SerializerMethodField()
-    contactPhone = serializers.SerializerMethodField()
     recent_deal = serializers.SerializerMethodField()
-    recentDeal = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
-    videoUrl = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
 
     def get_address(self, obj):
@@ -240,9 +234,6 @@ class AssetSerializer(MetaSerializerMixin):
         obj._primary_listing_data_cache = data
         return data
 
-    def get_primaryListing(self, obj):
-        return self._get_primary_listing_data(obj)
-
     def get_primary_listing(self, obj):
         return self._get_primary_listing_data(obj)
 
@@ -256,47 +247,31 @@ class AssetSerializer(MetaSerializerMixin):
                 return value
         return None
 
-    def get_listingType(self, obj):
-        value = self._get_primary_value(obj, "listingType", "listing_type")
-        return value
-
     def get_listing_type(self, obj):
-        return self.get_listingType(obj)
-
-    def get_contactName(self, obj):
-        direct = self._get_primary_value(obj, "contactName", "contact_name")
-        if direct:
-            return direct
-        info = self._get_primary_value(obj, "contactInfo", "contact_info") or {}
-        return (info or {}).get("name") if isinstance(info, dict) else None
+        return self._get_primary_value(obj, "listing_type", "listingType")
 
     def get_contact_name(self, obj):
-        return self.get_contactName(obj)
-
-    def get_contactPhone(self, obj):
-        direct = self._get_primary_value(obj, "contactPhone", "contact_phone")
+        direct = self._get_primary_value(obj, "contact_name", "contactName")
         if direct:
             return direct
-        info = self._get_primary_value(obj, "contactInfo", "contact_info") or {}
+        info = self._get_primary_value(obj, "contact_info", "contactInfo") or {}
+        return (info or {}).get("name") if isinstance(info, dict) else None
+
+    def get_contact_phone(self, obj):
+        direct = self._get_primary_value(obj, "contact_phone", "contactPhone")
+        if direct:
+            return direct
+        info = self._get_primary_value(obj, "contact_info", "contactInfo") or {}
         if isinstance(info, dict):
             return info.get("phone") or info.get("brokerPhone")
         return None
 
-    def get_contact_phone(self, obj):
-        return self.get_contactPhone(obj)
-
-    def get_recentDeal(self, obj):
-        value = self._get_primary_value(obj, "recentDeal", "recent_deal")
+    def get_recent_deal(self, obj):
+        value = self._get_primary_value(obj, "recent_deal", "recentDeal")
         return bool(value) if value is not None else None
 
-    def get_recent_deal(self, obj):
-        return self.get_recentDeal(obj)
-
-    def get_videoUrl(self, obj):
-        return self._get_primary_value(obj, "videoUrl", "video_url", "video")
-
     def get_video_url(self, obj):
-        return self.get_videoUrl(obj)
+        return self._get_primary_value(obj, "video_url", "video", "videoUrl")
 
     def get_photos(self, obj):
         data = self._get_primary_listing_data(obj)
@@ -321,9 +296,9 @@ class AssetSerializer(MetaSerializerMixin):
             'buildingCoveragePct','heightAnalysis','setbackAnalysis',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'last_enriched_at', 'created_at', 'meta', 'documents',
-            'primary_listing', 'primaryListing', 'listing_type', 'listingType',
-            'contact_name', 'contactName', 'contact_phone', 'contactPhone',
-            'recent_deal', 'recentDeal', 'video_url', 'videoUrl', 'photos',
+            'primary_listing', 'listing_type',
+            'contact_name', 'contact_phone',
+            'recent_deal', 'video_url', 'photos',
             # GIS Collector Data Fields
             'parcel_area', 'parcel_registered_area', 'parcel_status', 'parcel_accuracy',
             'block_area', 'block_registered_area', 'block_total_parcels', 'block_status', 'block_last_update',

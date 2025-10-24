@@ -3,9 +3,10 @@ import { cookies } from 'next/headers'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
-type ImportBatchRouteParams = { params: { batchId: string } }
-
-export async function GET(request: NextRequest, { params }: ImportBatchRouteParams) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { batchId: string } },
+) {
   const { batchId } = params
   try {
     const cookieStore = cookies()
@@ -34,7 +35,10 @@ export async function GET(request: NextRequest, { params }: ImportBatchRoutePara
   }
 }
 
-export async function POST(request: NextRequest, { params }: ImportBatchRouteParams) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { batchId: string } },
+) {
   const { batchId } = params
   try {
     const cookieStore = cookies()

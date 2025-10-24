@@ -781,8 +781,24 @@ class ListingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Listing
         fields = [
-            'id', 'source', 'external_id', 'title', 'url', 'raw', 'status', 'price',
-            'rooms', 'area', 'address', 'fetched_at', 'asset_ids', 'assets'
+            'id',
+            'source',
+            'external_id',
+            'title',
+            'url',
+            'raw',
+            'status',
+            'price',
+            'rooms',
+            'area',
+            'address',
+            'listing_type',
+            'contact_name',
+            'contact_phone',
+            'recent_deal',
+            'fetched_at',
+            'asset_ids',
+            'assets',
         ]
 
     def get_assets(self, instance):

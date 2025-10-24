@@ -249,6 +249,23 @@ class DataPipeline:
 
     # ------------------------------------------------------------------
     def _store_listing(self, session, listing: RealEstateListing) -> DBListing:
+        contact_name = getattr(listing, "contact_name", None)
+        contact_phone = getattr(listing, "contact_phone", None)
+        contact_info = getattr(listing, "contact_info", None)
+        if (contact_name is None or contact_phone is None) and contact_info:
+            if hasattr(contact_info, "to_dict"):
+                contact_data = contact_info.to_dict()
+            elif isinstance(contact_info, dict):
+                contact_data = contact_info
+            else:
+                contact_data = {
+                    "name": getattr(contact_info, "name", None),
+                    "phone": getattr(contact_info, "phone", None),
+                    "brokerPhone": getattr(contact_info, "brokerPhone", None),
+                }
+            contact_name = contact_name or contact_data.get("name")
+            contact_phone = contact_phone or contact_data.get("phone") or contact_data.get("brokerPhone")
+
         obj = DBListing(
             title=listing.title,
             price=listing.price,
@@ -260,6 +277,10 @@ class DataPipeline:
             description=listing.description,
             url=listing.url,
             listing_id=listing.listing_id,
+            listing_type=getattr(listing, "listing_type", None),
+            contact_name=contact_name,
+            contact_phone=contact_phone,
+            recent_deal=bool(getattr(listing, "recent_deal", False)),
         )
         if listing.coordinates:
             try:

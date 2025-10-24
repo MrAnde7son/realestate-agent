@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -26,6 +36,10 @@ class Listing(Base):
     listing_id = Column(String(100), unique=True, index=True)
     latitude = Column(Float)
     longitude = Column(Float)
+    listing_type = Column(String(50))
+    contact_name = Column(String(255))
+    contact_phone = Column(String(50))
+    recent_deal = Column(Boolean, default=False)
     scraped_at = Column(DateTime, default=datetime.utcnow)
 
     sources = relationship("SourceRecord", back_populates="listing", cascade="all, delete-orphan")

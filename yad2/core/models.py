@@ -7,6 +7,7 @@ Data classes and models for real estate assets and related entities.
 """
 
 from datetime import datetime
+from typing import Any, Dict
 
 
 class RealEstateListing:
@@ -25,6 +26,9 @@ class RealEstateListing:
         self.images = kwargs.get('images', [])
         self.video = kwargs.get('video')
         self.documents = kwargs.get('documents', [])
+        self.contact_name = kwargs.get('contact_name')
+        self.contact_phone = kwargs.get('contact_phone')
+        self._contact_info = None
         self.contact_info = kwargs.get('contact_info')
         self.features = kwargs.get('features', {})
         self.url = kwargs.get('url')
@@ -35,9 +39,51 @@ class RealEstateListing:
         self.recent_deal = kwargs.get('recent_deal')
         self.scraped_at = datetime.now().isoformat()
         self.meta = {}
+
+    @staticmethod
+    def _coerce_contact_info(contact_info: Any) -> Dict[str, Any]:
+        """Return a plain dictionary representation of contact information."""
+
+        if contact_info is None:
+            return {}
+        if isinstance(contact_info, dict):
+            return contact_info
+        if hasattr(contact_info, "to_dict"):
+            try:
+                data = contact_info.to_dict()
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+
+        data = {
+            'name': getattr(contact_info, 'name', None),
+            'phone': getattr(contact_info, 'phone', None),
+            'brokerPhone': getattr(contact_info, 'brokerPhone', None),
+        }
+        return {k: v for k, v in data.items() if v is not None}
+
+    @property
+    def contact_info(self) -> Any:
+        return self._contact_info
+
+    @contact_info.setter
+    def contact_info(self, value: Any) -> None:
+        self._contact_info = value
+        if value is None:
+            return
+        contact_dict = self._coerce_contact_info(value)
+        if getattr(self, "contact_name", None) is None:
+            self.contact_name = contact_dict.get('name')
+        if getattr(self, "contact_phone", None) is None:
+            self.contact_phone = contact_dict.get('phone') or contact_dict.get('brokerPhone')
     
     def to_dict(self):
         """Convert to dictionary."""
+        contact_info = self._coerce_contact_info(self.contact_info)
+        contact_name = self.contact_name or contact_info.get('name')
+        contact_phone = self.contact_phone or contact_info.get('phone') or contact_info.get('brokerPhone')
+
         return {
             'title': self.title,
             'price': self.price,
@@ -50,14 +96,16 @@ class RealEstateListing:
             'images': self.images,
             'video': self.video,
             'documents': self.documents,
-            'contact_info': self.contact_info,
+            'contact_info': contact_info or None,
+            'contact_name': contact_name,
+            'contact_phone': contact_phone,
             'features': self.features,
             'url': self.url,
             'listing_id': self.listing_id,
             'date_posted': self.date_posted,
             'coordinates': self.coordinates,
             'listing_type': self.listing_type,
-            'recent_deal': self.recent_deal,
+            'recent_deal': bool(self.recent_deal) if self.recent_deal is not None else False,
             'scraped_at': self.scraped_at,
             'meta': self.meta,
         }

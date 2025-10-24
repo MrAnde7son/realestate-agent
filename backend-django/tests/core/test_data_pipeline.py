@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from db.database import SQLAlchemyDatabase
+from db.models import Listing as DBListing
 from orchestration.collectors import (
     GISCollector,
     GovCollector,
@@ -14,7 +15,7 @@ from orchestration.collectors import (
 )
 from orchestration.data_pipeline import DataPipeline
 from orchestration.location import LocationQuery
-from yad2.core.models import RealEstateListing
+from yad2.core.models import Contact, RealEstateListing
 
 
 class FakeYad2Collector(Yad2Collector):
@@ -37,6 +38,9 @@ class FakeYad2Collector(Yad2Collector):
         listing.url = "http://example.com"
         listing.listing_id = "123"
         listing.coordinates = (1.0, 2.0)
+        listing.listing_type = "rent"
+        listing.contact_info = Contact(name="Test Seller", phone="052-0000000")
+        listing.recent_deal = True
         return [listing]
 
 
@@ -220,6 +224,26 @@ def test_data_pipeline_integration():
     # Verify Mavat data is included
     mavat_found = any('mavat' in str(result) for result in results)
     assert mavat_found, "Mavat data should be included in results"
+
+    listing_results = [r for r in results if isinstance(r, RealEstateListing)]
+    assert listing_results
+    assert listing_results[0].contact_name == "Test Seller"
+    assert listing_results[0].contact_phone == "052-0000000"
+    assert listing_results[0].listing_type == "rent"
+    assert listing_results[0].recent_deal is True
+
+    # Listing data persisted with enriched fields
+    session = db.get_session()
+    try:
+        stored_listings = session.query(DBListing).all()
+        assert len(stored_listings) == 1
+        stored_listing = stored_listings[0]
+        assert stored_listing.listing_type == "rent"
+        assert stored_listing.contact_name == "Test Seller"
+        assert stored_listing.contact_phone == "052-0000000"
+        assert stored_listing.recent_deal is True
+    finally:
+        session.close()
 
 
 def test_calculate_market_metrics_skips_invalid_listings():

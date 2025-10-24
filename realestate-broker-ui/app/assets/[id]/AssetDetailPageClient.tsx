@@ -60,7 +60,7 @@ const normalizeProvider = (value: string | null | undefined): SupportedLLMProvid
 }
 
 const DEFAULT_LLM_PROVIDER: SupportedLLMProvider =
-  normalizeProvider(process.env.NEXT_PUBLIC_LLM_DEFAULT_PROVIDER) ?? 'gemini'
+  normalizeProvider(process.env.LLM_DEFAULT_PROVIDER) ?? 'gemini'
 
 const ALL_SECTIONS = ['summary','permits','plans','environment', 'rights','comparables','mortgage','appendix']
 

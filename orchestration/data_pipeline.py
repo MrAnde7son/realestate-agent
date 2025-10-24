@@ -266,6 +266,20 @@ class DataPipeline:
             contact_name = contact_name or contact_data.get("name")
             contact_phone = contact_phone or contact_data.get("phone") or contact_data.get("brokerPhone")
 
+        photos_data: List[str] = []
+        raw_photos = getattr(listing, "images", None)
+        if raw_photos:
+            if isinstance(raw_photos, (list, tuple)):
+                photos_data = [photo for photo in raw_photos if photo]
+            else:
+                photos_data = [raw_photos]
+
+        raw_video = getattr(listing, "video", None)
+        if isinstance(raw_video, dict):
+            video_url = raw_video.get("url") or raw_video.get("src")
+        else:
+            video_url = raw_video
+
         obj = DBListing(
             title=listing.title,
             price=listing.price,
@@ -281,6 +295,8 @@ class DataPipeline:
             contact_name=contact_name,
             contact_phone=contact_phone,
             recent_deal=bool(getattr(listing, "recent_deal", False)),
+            photos=photos_data,
+            video_url=video_url,
         )
         if listing.coordinates:
             try:

@@ -40,6 +40,8 @@ class Listing(Base):
     contact_name = Column(String(255))
     contact_phone = Column(String(50))
     recent_deal = Column(Boolean, default=False)
+    photos = Column(JSON, default=list)
+    video_url = Column(String(500))
     scraped_at = Column(DateTime, default=datetime.utcnow)
 
     sources = relationship("SourceRecord", back_populates="listing", cascade="all, delete-orphan")

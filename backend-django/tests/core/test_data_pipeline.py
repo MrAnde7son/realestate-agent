@@ -41,6 +41,11 @@ class FakeYad2Collector(Yad2Collector):
         listing.listing_type = "rent"
         listing.contact_info = Contact(name="Test Seller", phone="052-0000000")
         listing.recent_deal = True
+        listing.images = [
+            "http://example.com/photo1.jpg",
+            "http://example.com/photo2.jpg",
+        ]
+        listing.video = "http://example.com/video.mp4"
         return [listing]
 
 
@@ -231,6 +236,11 @@ def test_data_pipeline_integration():
     assert listing_results[0].contact_phone == "052-0000000"
     assert listing_results[0].listing_type == "rent"
     assert listing_results[0].recent_deal is True
+    assert listing_results[0].images == [
+        "http://example.com/photo1.jpg",
+        "http://example.com/photo2.jpg",
+    ]
+    assert listing_results[0].video == "http://example.com/video.mp4"
 
     # Listing data persisted with enriched fields
     session = db.get_session()
@@ -242,6 +252,11 @@ def test_data_pipeline_integration():
         assert stored_listing.contact_name == "Test Seller"
         assert stored_listing.contact_phone == "052-0000000"
         assert stored_listing.recent_deal is True
+        assert stored_listing.photos == [
+            "http://example.com/photo1.jpg",
+            "http://example.com/photo2.jpg",
+        ]
+        assert stored_listing.video_url == "http://example.com/video.mp4"
     finally:
         session.close()
 

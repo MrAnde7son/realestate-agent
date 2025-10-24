@@ -84,6 +84,18 @@ class RealEstateListing:
         contact_name = self.contact_name or contact_info.get('name')
         contact_phone = self.contact_phone or contact_info.get('phone') or contact_info.get('brokerPhone')
 
+        images = getattr(self, "images", None)
+        if images in (None, ""):
+            images_list = []
+        elif isinstance(images, (list, tuple, set)):
+            images_list = [img for img in images if img]
+        else:
+            images_list = [images]
+
+        video_value = getattr(self, "video", None)
+        if isinstance(video_value, dict):
+            video_value = video_value.get("url") or video_value.get("src")
+
         return {
             'title': self.title,
             'price': self.price,
@@ -93,8 +105,9 @@ class RealEstateListing:
             'size': self.size,
             'property_type': self.property_type,
             'description': self.description,
-            'images': self.images,
-            'video': self.video,
+            'images': images_list,
+            'photos': images_list,
+            'video': video_value,
             'documents': self.documents,
             'contact_info': contact_info or None,
             'contact_name': contact_name,
@@ -120,6 +133,7 @@ class RealEstateListing:
     
     def __repr__(self):
         return self.__str__()
+
 
 
 class Contact:

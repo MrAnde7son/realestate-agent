@@ -796,6 +796,8 @@ class ListingSerializer(serializers.ModelSerializer):
             'contact_name',
             'contact_phone',
             'recent_deal',
+            'photos',
+            'video_url',
             'fetched_at',
             'asset_ids',
             'assets',

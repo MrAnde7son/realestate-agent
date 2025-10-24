@@ -111,7 +111,18 @@ class ListingAdmin(admin.ModelAdmin):
         "contact_name",
         "contact_phone",
         "recent_deal",
+        "photos_count",
+        "has_video",
         "fetched_at",
     )
     search_fields = ("external_id", "title", "address")
     list_filter = ("source", "status")
+
+    @admin.display(description="Photos")
+    def photos_count(self, obj):
+        photos = obj.photos or []
+        return len(photos)
+
+    @admin.display(boolean=True, description="Video")
+    def has_video(self, obj):
+        return bool(obj.video_url)

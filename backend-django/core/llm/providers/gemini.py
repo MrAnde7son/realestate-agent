@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from google.api_core.client_options import ClientOptions
 import google.generativeai as genai
 from django.conf import settings
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -17,7 +18,7 @@ class GeminiAdapter(LLMClient):
         api_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY
         if not api_key:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY is not configured")
-        genai.configure(api_key=api_key)
+        genai.configure(api_key=api_key, client_options=ClientOptions(api_endpoint="https://us-generativelanguage.googleapis.com"))
         self.model_name = settings.GEMINI_MODEL
 
     def _get_model(

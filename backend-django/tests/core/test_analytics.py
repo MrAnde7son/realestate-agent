@@ -37,7 +37,7 @@ def create_test_events():
     # Track page views
     track_page_view(
         session_id='test_session_1',
-        page_path='/assets',
+        page_path='/api/assets',
         user=user,
         page_title='Assets Page',
         load_time=1.5,
@@ -47,7 +47,7 @@ def create_test_events():
     
     track_page_view(
         session_id='test_session_2',
-        page_path='/assets/1',
+        page_path='/api/assets/1',
         user=user,
         page_title='Asset Detail',
         load_time=2.1,

@@ -31,6 +31,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "api.nadlaner.com" },
       { protocol: "https", hostname: "backend-django-2cpe.onrender.com" },
+      { protocol: "https", hostname: "cdn.yad2.treedis.com" },
       { protocol: "http", hostname: "127.0.0.1" },
       { protocol: "http", hostname: "localhost" },
     ],

@@ -7,7 +7,7 @@ from core.llm.providers.gemini import GeminiAdapter
 from core.llm.types import ChatMessage
 
 
-@override_settings(GEMINI_API_KEY="test-key", GEMINI_MODEL="gemini-1.5-pro")
+@override_settings(GEMINI_API_KEY="test-key", GEMINI_MODEL="gemini-2.5-flash")
 @pytest.mark.asyncio
 async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
     captured = {}

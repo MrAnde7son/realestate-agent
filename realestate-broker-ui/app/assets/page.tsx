@@ -1109,7 +1109,7 @@ export default function AssetsPage() {
 
   const rentalSaleFilterOptions = React.useMemo(
     () => [
-      { value: "rental", label: "השכרה" },
+      { value: "rent", label: "השכרה" },
       { value: "sale", label: "מכירה" },
     ],
     []

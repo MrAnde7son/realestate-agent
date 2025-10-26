@@ -29,7 +29,7 @@ from .serializers import (
     ContactMeetingSerializer,
     ContactInteractionSerializer,
 )
-from .permissions import HasCrmAccess, IsOwnerContact
+from .permissions import HasCrmAccess, IsOwnerContact, has_global_crm_access
 from .analytics import (
     track_crm_search, track_crm_export, track_crm_dashboard_view,
     track_crm_contact_lead_association, track_crm_bulk_action,
@@ -60,10 +60,11 @@ class ContactViewSet(viewsets.ModelViewSet):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        """Return contacts owned by the current user, or all contacts for superusers."""
-        if self.request.user.is_superuser:
+        """Return contacts owned by the current user, unless the user has global CRM access."""
+        user = self.request.user
+        if has_global_crm_access(user):
             return Contact.objects.all().order_by("-updated_at")
-        return Contact.objects.filter(owner=self.request.user).order_by("-updated_at")
+        return Contact.objects.filter(owner=user).order_by("-updated_at")
 
     def perform_create(self, serializer):
         """Set the owner when creating a contact."""

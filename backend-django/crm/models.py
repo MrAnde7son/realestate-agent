@@ -22,16 +22,36 @@ def track_event(event_name: str, user_id: int, properties: dict):
 
 class Contact(models.Model):
     """Contact model for CRM - represents a client/contact."""
-    
+
     owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         related_name="contacts"
     )
     name = models.CharField(max_length=200, help_text="Contact full name")
     phone = models.CharField(max_length=30, blank=True, help_text="Phone number")
     email = models.EmailField(blank=True, help_text="Email address")
     tags = models.JSONField(default=list, blank=True, help_text="Tags like ['משקיע', 'VIP']")
+    external_source = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        choices=[("nadlan_one", "Nadlan One")],
+        help_text="External system source identifier",
+    )
+    external_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="External system primary key",
+    )
+    import_batch_id = models.UUIDField(
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Batch identifier used during bulk import",
+    )
     equity = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -80,6 +100,7 @@ class Contact(models.Model):
             models.Index(fields=["owner", "name"]),
             models.Index(fields=["name"]),
             models.Index(fields=["email"]),
+            models.Index(fields=["external_source", "external_id"]),
         ]
         # Soft unique constraint - only enforce if email exists
         constraints = [
@@ -87,7 +108,17 @@ class Contact(models.Model):
                 fields=['owner', 'email'],
                 condition=models.Q(email__isnull=False) & ~models.Q(email=''),
                 name='unique_owner_email'
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["external_source", "external_id"],
+                condition=(
+                    models.Q(external_source__isnull=False)
+                    & ~models.Q(external_source="")
+                    & models.Q(external_id__isnull=False)
+                    & ~models.Q(external_id="")
+                ),
+                name="unique_contact_external_id",
+            ),
         ]
 
     def __str__(self):

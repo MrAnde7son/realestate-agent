@@ -201,6 +201,7 @@ interface TableToolbarProps {
   onRefresh: () => void;
   onAddNew?: () => void;
   loading?: boolean;
+  extraActions?: React.ReactNode;
 
   // Additional filters
   additionalFilters?: AdditionalFilterConfig[];
@@ -245,6 +246,7 @@ export default function TableToolbar({
   onRefresh,
   onAddNew,
   loading = false,
+  extraActions,
   additionalFilters = [],
   onAdditionalFilterChange,
   bulkActions = [],
@@ -1494,6 +1496,8 @@ export default function TableToolbar({
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
         </Button>
+
+        {extraActions}
 
         {/* Add new */}
         {onAddNew && (

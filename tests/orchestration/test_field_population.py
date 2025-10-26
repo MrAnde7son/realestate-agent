@@ -235,6 +235,28 @@ class TestAssetFieldPopulation:
 
         assert asset.is_commercial is True
 
+    def test_sets_commercial_flag_from_ad_type(self):
+        asset = MockAsset()
+        asset.normalized_address = "דרך בן גוריון 1, בני ברק"
+
+        listings = [
+            {
+                'price': 4500,
+                'address': 'דרך בן גוריון 1, בני ברק',
+                'ad_type': 'commercial',
+                'meta': {
+                    'ad_type': 'commercial',
+                    'raw': {
+                        'adType': 'commercial',
+                    },
+                },
+            }
+        ]
+
+        _populate_asset_fields_from_listings(asset, listings)
+
+        assert asset.is_commercial is True
+
     def test_populate_from_yad2_listings_street_match(self):
         """Test that street matching is not supported - only exact matches work."""
         # Create mock asset

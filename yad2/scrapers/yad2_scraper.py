@@ -71,7 +71,7 @@ class Yad2Scraper:
     # ------------------------------------------------------------------
     # API helpers
     # ------------------------------------------------------------------
-    def fetch_listings(self, zoom: Optional[int] = None, listing_type: ListingType = "all", pull_contacts = False, **overrides) -> List[RealEstateListing]:
+    def fetch_listings(self, zoom: Optional[int] = None, listing_type: ListingType = ListingType.ALL, pull_contacts = False, **overrides) -> List[RealEstateListing]:
         """
         Fetch active listings via Yad2's public map feed API.
 
@@ -178,7 +178,20 @@ class Yad2Scraper:
                     for listing in listings:
                         if listing.url and not listing.contact_info:
                             try:
-                                contact_info = self.fetch_contact_info(listing.url)
+                                token = listing.url.split("/")[-1]
+                            except Exception as e:
+                                logger.error("Failed to extract token from listing URL: %s; %s", listing.url, e)
+                                continue
+
+                            # seems like integers are irrelevant
+                            try:
+                                if int(token):
+                                    continue
+                            except Exception as e:
+                                pass
+
+                            try:
+                                contact_info = self.fetch_contact_info(token)
                             except Exception as e:
                                 logger.error("Failed to fetch contact info for listing: %s; %s", listing.url, e)
                                 contact_info = None
@@ -191,8 +204,7 @@ class Yad2Scraper:
         self.listings = listings
         return listings
 
-    def fetch_contact_info(self, listing_url: str) -> Optional[Contact]:
-        token = listing_url.split("/")[-1]
+    def fetch_contact_info(self, token: str) -> Optional[Contact]:
         url = f"{self.api_base_url}/realestate-item/{token}/customer"
         response = self.session.get(url, timeout=30)
         if response.status_code != 200:
@@ -896,5 +908,5 @@ class Yad2Scraper:
 if __name__ == "__main__":
     search_params =  { 'city': 5000, 'neighborhood': 203, "topArea": 2, "area": 1, "zoom": 15}
     scraper = Yad2Scraper(search_params)
-    deals = scraper.fetch_listings()
+    deals = scraper.fetch_listings(listing_type=ListingType.COMMERCIAL, pull_contacts=True)
     print(deals)

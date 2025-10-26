@@ -13,8 +13,10 @@ from core.llm.providers.gemini import GeminiAdapter
 def test_create_llm_client_uses_google_api_key(monkeypatch):
     captured = {}
 
-    def fake_configure(api_key):
+    def fake_configure(api_key, **kwargs):
         captured["api_key"] = api_key
+        if "client_options" in kwargs:
+            captured["client_options"] = kwargs["client_options"]
 
     monkeypatch.setattr("google.generativeai.configure", fake_configure)
 
@@ -22,4 +24,8 @@ def test_create_llm_client_uses_google_api_key(monkeypatch):
 
     assert isinstance(client, GeminiAdapter)
     assert captured["api_key"] == "google-key"
-    assert client.model_name == "gemini-1.5-pro"
+    assert (
+        captured["client_options"].api_endpoint
+        == "https://us-generativelanguage.googleapis.com"
+    )
+    assert client.model_name is None

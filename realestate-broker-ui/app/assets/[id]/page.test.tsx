@@ -10,10 +10,13 @@ const mockUseAuth = {
   user: { id: '1', onboarding_flags: {} },
 }
 
+const searchParamsGetMock = vi.fn<(key: string) => string | null>(() => null)
+const trackFeatureUsageMock = vi.fn()
+
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(),
   useSearchParams: vi.fn(() => ({
-    get: vi.fn((key: string) => key === 'tab' ? null : null)
+    get: searchParamsGetMock
   }))
 }))
 vi.mock('@/lib/auth-context', () => ({
@@ -27,7 +30,7 @@ vi.mock('@/components/ui/page-loader', () => ({
 }))
 vi.mock('@/hooks/useAnalytics', () => ({
   useAnalytics: () => ({
-    trackFeatureUsage: vi.fn()
+    trackFeatureUsage: trackFeatureUsageMock
   })
 }))
 vi.mock('@/components/OnboardingProgress', () => ({
@@ -41,18 +44,22 @@ vi.mock('@/components/DataBadge', () => ({
 }))
 
 describe('AssetDetailPage', () => {
-  const mockUseRouter = { 
+  const mockUseRouter = {
     push: vi.fn(),
     replace: vi.fn()
   }
+  let lastShareMessagePayload: any = null
 
   beforeEach(() => {
     vi.clearAllMocks()
+    lastShareMessagePayload = null
+    searchParamsGetMock.mockImplementation(() => null)
+    trackFeatureUsageMock.mockReset()
     ;(useRouter as any).mockReturnValue(mockUseRouter)
     // Stub alert for tests
     // @ts-ignore
     global.alert = vi.fn()
-    global.fetch = vi.fn((url: string) => {
+    global.fetch = vi.fn((url: string, options?: RequestInit) => {
       if (url === '/api/assets/1') {
         return Promise.resolve({
           ok: true,
@@ -98,6 +105,16 @@ describe('AssetDetailPage', () => {
         })
       }
       if (url === '/api/assets/1/share-message') {
+        const rawBody = options?.body
+        if (typeof rawBody === 'string') {
+          lastShareMessagePayload = JSON.parse(rawBody)
+        } else if (rawBody instanceof URLSearchParams) {
+          lastShareMessagePayload = Object.fromEntries(rawBody.entries())
+        } else if (rawBody && typeof rawBody === 'object') {
+          lastShareMessagePayload = rawBody
+        } else {
+          lastShareMessagePayload = rawBody ?? null
+        }
         return Promise.resolve({
           ok: false,
           json: async () => ({ details: 'Quota exceeded' })
@@ -167,6 +184,35 @@ describe('AssetDetailPage', () => {
 
     await waitFor(() => {
       expect(global.alert).toHaveBeenCalledWith('Quota exceeded')
+      expect(lastShareMessagePayload).toEqual({ language: 'he', provider: 'gemini' })
+    })
+  })
+
+  it('passes provider from search params when creating a share message', async () => {
+    searchParamsGetMock.mockImplementation((key: string) =>
+      key === 'provider' ? 'openai' : null
+    )
+
+    await act(async () => {
+      render(<AssetDetailPageClient assetId="1" />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
+    })
+
+    const button = screen.getByText('צור הודעת פרסום')
+    await act(async () => {
+      fireEvent.click(button)
+    })
+
+    const createButton = await screen.findByText('צור הודעה')
+    await act(async () => {
+      fireEvent.click(createButton)
+    })
+
+    await waitFor(() => {
+      expect(lastShareMessagePayload).toEqual({ language: 'he', provider: 'openai' })
     })
   })
 

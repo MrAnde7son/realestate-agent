@@ -970,17 +970,17 @@ def _create_alert_message(rule, event) -> str:
         return f"""נדלנר: ירידת מחיר בנכס שלך
 {asset.normalized_address or f"{asset.street} {asset.number}, {asset.city}"}
 מחיר: {payload['price_old']:,} → {payload['price_new']:,} ({payload['drop_pct']}%↓)
-צפה בנכס: /assets/{asset.id}"""
+צפה בנכס: /api/assets/{asset.id}"""
     
     elif rule.trigger_type == 'NEW_LISTING':
         return f"""נדלנר: נכס חדש באזור ששמרת
 {payload.get('address', '')} • {payload.get('rooms', '')} חדרים • {payload.get('area', '')} מ"ר • {payload.get('price', ''):,}₪
-פתח: /assets/{asset.id}"""
+פתח: /api/assets/{asset.id}"""
     
     elif rule.trigger_type == 'MARKET_TREND':
         return f"""נדלנר: שינוי מגמה באזור {asset.neighborhood or asset.city}
 מחיר ממוצע למ"ר: {payload['ppsqm_old']:,} → {payload['ppsqm_new']:,} ({payload['delta_pct']}%)
-פרטים: /assets/{asset.id}"""
+פרטים: /api/assets/{asset.id}"""
     
     elif rule.trigger_type == 'DOCS_UPDATE':
         return f"""נדלנר: עדכון מסמכים לנכס {asset.normalized_address or f"{asset.street} {asset.number}, {asset.city}"}
@@ -990,12 +990,12 @@ def _create_alert_message(rule, event) -> str:
     elif rule.trigger_type == 'PERMIT_STATUS':
         return f"""נדלנר: סטטוס היתרים עודכן
 {payload.get('permit_name', 'היתר בנייה')}: {payload.get('status_old', '')} → {payload.get('status_new', '')}
-לצפייה: /assets/{asset.id}"""
+לצפייה: /api/assets/{asset.id}"""
     
     else:
         return f"""נדלנר: התראה חדשה
 {asset.normalized_address or f"{asset.street} {asset.number}, {asset.city}"}
-פרטים: /assets/{asset.id}"""
+פרטים: /api/assets/{asset.id}"""
 
 
 @shared_task

@@ -48,6 +48,20 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
+const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai'] as const
+type SupportedLLMProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number]
+
+const normalizeProvider = (value: string | null | undefined): SupportedLLMProvider | null => {
+  if (!value) return null
+  const normalized = value.toLowerCase()
+  return (SUPPORTED_LLM_PROVIDERS as readonly string[]).includes(normalized)
+    ? (normalized as SupportedLLMProvider)
+    : null
+}
+
+const DEFAULT_LLM_PROVIDER: SupportedLLMProvider =
+  normalizeProvider(process.env.LLM_DEFAULT_PROVIDER) ?? 'gemini'
+
 const ALL_SECTIONS = ['summary','permits','plans','environment', 'rights','comparables','mortgage','appendix']
 
 const mapFilterValues = (values?: Array<string | { value?: string; key?: string; id?: string }>) => {
@@ -302,6 +316,16 @@ React.useEffect(() => {
 }, [documentsSorting])
   const router = useRouter()
   const searchParams = useSearchParams()
+  const provider = useMemo<SupportedLLMProvider>(() => {
+    const providerKeys = ['provider', 'llm_provider', 'llm-provider']
+    for (const key of providerKeys) {
+      const normalized = normalizeProvider(searchParams.get(key))
+      if (normalized) {
+        return normalized
+      }
+    }
+    return DEFAULT_LLM_PROVIDER
+  }, [searchParams])
   const id = assetId
   const { user, isAuthenticated } = useAuth()
   const canViewCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
@@ -1212,17 +1236,18 @@ useDedupedEffect(() => {
       const res = await fetch(`/api/assets/${id}/share-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language })
+        body: JSON.stringify({ language, provider })
       })
       if (res.ok) {
         const data = await res.json()
         setShareMessage(data.text)
         setShareUrl(data.share_url)
-        
+
         // Track marketing message creation
         trackFeatureUsage('marketing_message', parseInt(id), {
           message_type: 'share_message',
-          language: language
+          language: language,
+          provider
         })
       } else {
         const errorData = await res.json().catch(() => ({}))

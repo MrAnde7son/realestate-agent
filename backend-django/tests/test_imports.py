@@ -33,7 +33,7 @@ def test_process_customers_creates_contact(django_user_model):
 
     contact = Contact.objects.get(external_id="CUST-1")
     assert contact.owner == user
-    assert contact.phone == "+972501234567"
+    assert contact.phone == "0501234567"
     assert contact.external_source == "nadlan_one"
     assert contact.import_batch_id == batch.id
     assert results["summary"]["processed"] == 1

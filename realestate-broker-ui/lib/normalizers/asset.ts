@@ -78,8 +78,16 @@ export type Asset = {
     id?: string | number | null;
     source?: string | null;
     title?: string | null;
+    price?: number | null;
+    address?: string | null;
+    rooms?: number | null;
+    roomsDisplay?: string | null;
+    size?: number | null;
+    propertyType?: string | null;
     listingType?: string | null;
     adType?: string | null;
+    description?: string | null;
+    floor?: string | number | null;
     contactName?: string | null;
     contactPhone?: string | null;
     contactInfo?: {
@@ -92,6 +100,8 @@ export type Asset = {
     photos?: string[];
     videoUrl?: string | null;
     url?: string | null;
+    features?: string[] | null;
+    datePosted?: string | null;
   } | null;
   listingType?: string | null;
   adType?: string | null;
@@ -237,6 +247,109 @@ export function normalizeFromBackend(row: any): Asset {
       ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
       : [];
 
+  const parseNumeric = (input: unknown): number | null => {
+    if (input === null || input === undefined) {
+      return null;
+    }
+    if (typeof input === 'number') {
+      return Number.isFinite(input) ? input : null;
+    }
+    if (typeof input === 'bigint') {
+      return Number(input);
+    }
+    if (typeof input === 'string') {
+      const trimmed = input.trim();
+      if (!trimmed) {
+        return null;
+      }
+      const normalized = trimmed.replace(/[^0-9.\-]/g, '');
+      if (!normalized) {
+        return null;
+      }
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
+  const coerceString = (value: unknown): string | null => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : null;
+    }
+    if (typeof value === 'number' || typeof value === 'bigint') {
+      return String(value);
+    }
+    return null;
+  };
+
+  const sanitizeRoomsDisplay = (rooms: number | null, display: unknown): string | null => {
+    if (typeof display === 'string') {
+      const trimmed = display.trim();
+      if (trimmed.length) {
+        return trimmed;
+      }
+    }
+    if (rooms === null || rooms === undefined || Number.isNaN(rooms)) {
+      return null;
+    }
+    const numericRooms = Number(rooms);
+    if (!Number.isFinite(numericRooms)) {
+      return null;
+    }
+    const formatted = Number.isInteger(numericRooms)
+      ? numericRooms.toString()
+      : Number(numericRooms.toFixed(1)).toString();
+    return `${formatted} חדרים`;
+  };
+
+  const sanitizeFeatures = (value: unknown): string[] => {
+    return Array.from(
+      new Set(
+        ensureStringArray(value).map(feature => feature.trim()).filter(Boolean)
+      )
+    );
+  };
+
+  const coerceFloorValue = (value: unknown): string | number | null => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : null;
+    }
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    return null;
+  };
+
+  const coerceDateString = (value: unknown): string | null => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value.toISOString();
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : null;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const epochMillis = value > 1e12 ? value : value * 1000;
+      const date = new Date(epochMillis);
+      return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    }
+    return null;
+  };
+
   const normalizeListing = (listing: any) => {
     if (!listing || typeof listing !== 'object') {
       return null;
@@ -287,19 +400,112 @@ export function normalizeFromBackend(row: any): Asset {
       recentDeal = listing.recent_deal;
     }
 
+    const price =
+      parseNumeric(
+        listing.price ??
+        listing.listing_price ??
+        listing.priceValue ??
+        listing.price_value
+      );
+
+    const size =
+      parseNumeric(
+        listing.size ??
+        listing.area ??
+        listing.squareMeters ??
+        listing.square_meters
+      );
+
+    const rooms =
+      parseNumeric(
+        listing.rooms ??
+        listing.rooms_count ??
+        listing.roomsCount
+      );
+
+    const roomsDisplay = sanitizeRoomsDisplay(
+      rooms,
+      listing.roomsDisplay ?? listing.rooms_display ?? listing.roomsText ?? listing.rooms_text
+    );
+
+    const propertyType =
+      coerceString(listing.propertyType ?? listing.property_type);
+
+    const description =
+      coerceString(
+        listing.description ??
+        listing.details ??
+        listing.about ??
+        listing.text ??
+        listing.body
+      );
+
+    const floor = coerceFloorValue(
+      listing.floor ??
+      listing.floorDisplay ??
+      listing.floor_display ??
+      listing.floorLabel ??
+      listing.floor_label
+    );
+
+    const features = sanitizeFeatures(
+      listing.features ??
+      listing.features_list ??
+      listing.feature_list ??
+      listing.tags
+    );
+
+    const datePosted = coerceDateString(
+      listing.datePosted ??
+      listing.date_posted ??
+      listing.postedAt ??
+      listing.posted_at ??
+      listing.scrapedAt ??
+      listing.scraped_at ??
+      listing.fetched_at
+    );
+
+    const address =
+      coerceString(
+        listing.address ??
+        listing.location ??
+        listing.fullAddress ??
+        listing.full_address
+      );
+
+    const title =
+      coerceString(
+        listing.title ??
+        listing.heading ??
+        listing.headline ??
+        listing.name
+      );
+
+    const url = coerceString(listing.url ?? listing.link ?? listing.listingUrl ?? listing.listing_url);
+
     return {
       id: listing.id ?? listing.external_id ?? null,
-      source: listing.source ?? null,
-      title: listing.title ?? null,
+      source: coerceString(listing.source) ?? null,
+      title,
+      price,
+      address,
+      rooms: rooms ?? null,
+      roomsDisplay: roomsDisplay ?? null,
+      size,
+      propertyType,
       listingType: listing.listingType ?? listing.listing_type ?? null,
       adType: listing.adType ?? listing.ad_type ?? null,
+      description,
+      floor,
       contactName: contactName ?? null,
       contactPhone: contactPhone ?? null,
       contactInfo: listingContactInfo,
       recentDeal,
       photos,
       videoUrl,
-      url: listing.url ?? null,
+      url,
+      features: features.length ? features : null,
+      datePosted,
     };
   };
 
@@ -366,40 +572,113 @@ export function normalizeFromBackend(row: any): Asset {
     ])
   );
 
+  const priceValue =
+    parseNumeric(row.price ?? row.price_value ?? row.priceValue) ??
+    primaryListing?.price ??
+    null;
+
+  const pricePerSqmDirect = parseNumeric(
+    row.pricePerSqm ??
+    row.price_per_sqm ??
+    row.pricePerSqmDisplay ??
+    row.price_per_sqm_display
+  );
+
+  const rowAreaCandidate = row.area ?? row.netSqm ?? row.net_sqm;
+  const areaValue = parseNumeric(rowAreaCandidate) ?? primaryListing?.size ?? null;
+
+  const computedPricePerSqm =
+    pricePerSqmDirect ??
+    (priceValue != null && areaValue
+      ? Math.round(priceValue / areaValue)
+      : null);
+
+  const descriptionValue =
+    coerceString(row.description ?? row.summary ?? row.details) ??
+    primaryListing?.description ??
+    null;
+
+  const rowRoomsCandidate = row.rooms ?? row.rooms_count ?? row.roomsCount;
+  const normalizedRowRooms = parseNumeric(rowRoomsCandidate);
+  const normalizedBedrooms = parseNumeric(row.bedrooms ?? row.bedrooms_count ?? row.bedroomsCount);
+  const roomsValue =
+    normalizedRowRooms ??
+    normalizedBedrooms ??
+    primaryListing?.rooms ??
+    null;
+
+  const listingFloor = primaryListing?.floor;
+  const floorValue =
+    row.floor ??
+    parseNumeric(row.floorNumber ?? row.floor_number) ??
+    (typeof listingFloor === 'number'
+      ? listingFloor
+      : parseNumeric(listingFloor));
+
+  const buildingTypeValue =
+    coerceString(row.buildingType ?? row.building_type) ??
+    primaryListing?.propertyType ??
+    null;
+
+  const addressValue =
+    coerceString(row.address) ??
+    primaryListing?.address ??
+    null;
+
+  const normalizedAddressValue =
+    coerceString(row.normalizedAddress ?? row.normalized_address) ??
+    addressValue;
+
+  const combinedFeatures = (() => {
+    const base = ensureStringArray(row.features);
+    const listing = Array.isArray(primaryListing?.features)
+      ? primaryListing?.features ?? []
+      : [];
+    const merged = [...base, ...listing].map(feature => (typeof feature === 'string' ? feature.trim() : '')).filter(Boolean);
+    return merged.length ? Array.from(new Set(merged)) : null;
+  })();
+
+  const typeValue = determineAssetType(row) ?? primaryListing?.propertyType ?? null;
+
+  const bedroomsValue =
+    row.bedrooms != null
+      ? parseNumeric(row.bedrooms)
+      : normalizedBedrooms;
+
   return {
     id: Number(row.id ?? row.assetId ?? row.external_id),
-    address: row.address ?? null,
+    address: addressValue ?? null,
     city: row.city ?? null,
     neighborhood: row.neighborhood ?? null,
     street: row.street ?? null,
     number: row.number ?? null,
     apartment: row.apartment ?? null,
-    type: determineAssetType(row),
-    bedrooms: row.bedrooms ?? null,
-    rooms: row.rooms ?? row.bedrooms ?? null,
+    type: typeValue,
+    bedrooms: bedroomsValue ?? null,
+    rooms: roomsValue ?? null,
     bathrooms: row.bathrooms ?? null,
-    area: row.area ?? row.netSqm ?? null,
+    area: areaValue ?? null,
     totalArea: row.totalArea ?? row.totalSqm ?? null,
     subparcelArea: row.subparcelArea ?? row.subparcel_area ?? null,
     builtArea: row.builtArea ?? row.built_area ?? null,
     balconyArea: row.balconyArea ?? row.balcony_area ?? null,
     parkingSpaces: row.parkingSpaces ?? row.parking_spaces ?? null,
-    price: row.price ?? null,
-    pricePerSqm: row.price_per_sqm ?? null,
-    pricePerSqmDisplay: row.pricePerSqmDisplay ?? row.price_per_sqm_display ?? null,
-    description: row.description ?? null,
+    price: priceValue,
+    pricePerSqm: computedPricePerSqm,
+    pricePerSqmDisplay: pricePerSqmDirect ?? computedPricePerSqm,
+    description: descriptionValue,
     images,
     photos: images,
-    features: row.features ?? null,
+    features: combinedFeatures,
     contactInfo: hasContactInfo ? baseContactInfo : null,
     block: row.block ?? null,
     parcel: row.parcel ?? null,
     subparcel: row.subparcel ?? null,
     lat: row.lat ?? null,
     lon: row.lon ?? null,
-    normalizedAddress: row.normalizedAddress ?? row.normalized_address ?? null,
-    buildingType: row.buildingType ?? row.building_type ?? null,
-    floor: row.floor ?? null,
+    normalizedAddress: normalizedAddressValue ?? null,
+    buildingType: buildingTypeValue,
+    floor: floorValue ?? null,
     totalFloors: row.totalFloors ?? row.total_floors ?? null,
     storageRoom: row.storageRoom ?? row.storage_room ?? null,
     elevator: row.elevator ?? null,

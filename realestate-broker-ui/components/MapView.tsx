@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, MapPin, Search, Layers, Settings, ArrowLeft, List } from 'lucide-react'
-import maplibregl, { Marker } from 'maplibre-gl'
+import { Loader2, MapPin, Search, Layers, ArrowLeft } from 'lucide-react'
+import maplibregl from 'maplibre-gl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -10,7 +10,8 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { MapLayerService, LayerConfig } from '@/lib/map-layer-service'
 import type { Asset } from '@/lib/normalizers/asset'
-import { validateCoordinates, areCoordinatesMissing } from '@/lib/coordinate-utils'
+import { normalizeToLonLat } from '@/lib/geo/transform'
+import 'maplibre-gl/dist/maplibre-gl.css'
 
 interface MapViewProps {
   assets: Asset[]
@@ -34,38 +35,25 @@ interface GeocodingResult {
   }
 }
 
+
 class GeocodingService {
   private apiKey: string | undefined
-
-  constructor() {
-    this.apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-  }
+  constructor() { this.apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }
 
   async searchPlaces(query: string): Promise<GeocodingResult[]> {
-    if (!this.apiKey) {
-      // Mock service for development
-      return this.getMockResults(query)
-    }
-
+    if (!this.apiKey) return this.getMockResults(query)
     try {
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${this.apiKey}&language=he&region=il`
       )
       const data = await response.json()
-      
       if (data.status === 'OK') {
         return data.predictions.map((prediction: any) => ({
           place_id: prediction.place_id,
           formatted_address: prediction.description,
-          geometry: {
-            location: {
-              lat: 0, // Will be filled by geocodeAddress
-              lng: 0
-            }
-          }
+          geometry: { location: { lat: 0, lng: 0 } }
         }))
       }
-      
       return []
     } catch (error) {
       console.error('Error searching places:', error)
@@ -74,31 +62,20 @@ class GeocodingService {
   }
 
   async geocodeAddress(address: string): Promise<GeocodingResult | null> {
-    if (!this.apiKey) {
-      // Mock service for development
-      return this.getMockGeocodeResult(address)
-    }
-
+    if (!this.apiKey) return this.getMockGeocodeResult(address)
     try {
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${this.apiKey}&language=he&region=il`
       )
       const data = await response.json()
-      
       if (data.status === 'OK' && data.results.length > 0) {
         const result = data.results[0]
         return {
           place_id: result.place_id,
           formatted_address: result.formatted_address,
-          geometry: {
-            location: {
-              lat: result.geometry.location.lat,
-              lng: result.geometry.location.lng
-            }
-          }
+          geometry: { location: { lat: result.geometry.location.lat, lng: result.geometry.location.lng } }
         }
       }
-      
       return null
     } catch (error) {
       console.error('Error geocoding address:', error)
@@ -114,23 +91,14 @@ class GeocodingService {
       { place_id: '4', formatted_address: 'באר שבע, ישראל', geometry: { location: { lat: 31.2518, lng: 34.7915 } } },
       { place_id: '5', formatted_address: 'נתניה, ישראל', geometry: { location: { lat: 32.3215, lng: 34.8532 } } }
     ]
-    
-    return mockResults.filter(result => 
-      result.formatted_address.toLowerCase().includes(query.toLowerCase())
-    )
+    return mockResults.filter(r => r.formatted_address.toLowerCase().includes(query.toLowerCase()))
   }
 
   private getMockGeocodeResult(address: string): GeocodingResult | null {
-    // Simple mock that returns Tel Aviv for any address
     return {
       place_id: 'mock-1',
       formatted_address: address,
-      geometry: {
-        location: {
-          lat: 32.0853,
-          lng: 34.7818
-        }
-      }
+      geometry: { location: { lat: 32.0853, lng: 34.7818 } }
     }
   }
 }
@@ -146,12 +114,16 @@ export default function MapView({
   onBackToTable
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<any>(null)
+  const map = useRef<maplibregl.Map | null>(null)
+  function getMapOrThrow(): maplibregl.Map {
+    const m = map.current
+    if (!m) throw new Error('Map not initialized')
+    return m
+  }
   const layerService = useRef<MapLayerService | null>(null)
   const geocodingService = useRef<GeocodingService | null>(null)
-  const draw = useRef<any>(null)
-  const drawInitialized = useRef<boolean>(false)
-  
+  const markersRef = useRef<Record<string | number, maplibregl.Marker>>({})
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<GeocodingResult[]>([])
@@ -159,118 +131,83 @@ export default function MapView({
   const [layers, setLayers] = useState<LayerConfig[]>([])
   const [showLayerControls, setShowLayerControls] = useState(false)
 
-  // Initialize services
-  useEffect(() => {
-    geocodingService.current = new GeocodingService()
-  }, [])
+  useEffect(() => { geocodingService.current = new GeocodingService() }, [])
 
-  // Add asset markers to map
   const addAssetMarkers = useCallback(() => {
     if (!map.current || !assets.length) return
 
+    const m = getMapOrThrow()
     console.log('MapView: Adding markers for', assets.length, 'assets')
     console.log('MapView: Map center:', map.current.getCenter())
     console.log('MapView: Map zoom:', map.current.getZoom())
 
-    // Remove existing markers
-    const existingMarkers = document.querySelectorAll('.asset-marker')
-    existingMarkers.forEach(marker => marker.remove())
+    // Remove existing markers properly
+    Object.values(markersRef.current).forEach(m => m.remove())
+    markersRef.current = {}
 
-    let validMarkersCount = 0
+    const normalizedPoints: Array<{ lon: number; lat: number; asset: Asset; src: string }> = [];
 
-    // Add new markers
     assets.forEach((asset, index) => {
-      // Skip assets with no coordinates (null/undefined) - this is normal
-      if (areCoordinatesMissing(asset.lat, asset.lon)) {
-        console.log(`Asset ${asset.id} (${asset.address}) has missing coordinates`)
-        return
-      }
-
-      // Validate and convert coordinates using the coordinate utility
-      const coords = validateCoordinates(asset.lat, asset.lon)
-      
-      if (!coords) {
-        console.warn(`Invalid coordinates for asset ${asset.id}: lat=${asset.lat}, lon=${asset.lon}`)
-        return
-      }
-
-      const { lat, lon } = coords
-      console.log(`Adding marker for asset ${asset.id} at coordinates: ${lat}, ${lon}`)
-
-      const markerEl = document.createElement('div')
-      markerEl.className = 'asset-marker'
-      markerEl.style.cssText = `
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: #ef4444;
-        border: 4px solid white;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-        z-index: 1000;
-      `
-      markerEl.innerHTML = `<span>${index + 1}</span>`
-
-      markerEl.addEventListener('click', () => {
-        onAssetClick(asset)
-      })
-
-      markerEl.addEventListener('mouseenter', () => {
-        markerEl.style.transform = 'scale(1.1)'
-        markerEl.style.transition = 'transform 0.2s'
-        markerEl.title = asset.address || `Asset ${asset.id}`
-      })
-
-      markerEl.addEventListener('mouseleave', () => {
-        markerEl.style.transform = 'scale(1)'
-      })
-
-      const marker = new Marker(markerEl)
-        .setLngLat([lon, lat])
-        .addTo(map.current)
-      
-      console.log(`Marker added for asset ${asset.id} at [${lon}, ${lat}]`)
-      
-      validMarkersCount++
-    })
-
-    console.log(`MapView: Marker summary - Total: ${assets.length}, Valid: ${validMarkersCount}`)
+      const pt = normalizeToLonLat({
+        lon: asset.lon,
+        lat: asset.lat,
+        // ITM from your GIS
+        x: (asset as any)?.gisCoordinates?.x,
+        y: (asset as any)?.gisCoordinates?.y,
+        // govmap: try both 3857 & explicit lon/lat if present
+        x_itm: (asset as any)?.govmap_data?.coordinates?.x_itm ?? (asset as any)?.govmap_data?.coordinates?.x,
+        y_itm: (asset as any)?.govmap_data?.coordinates?.y_itm ?? (asset as any)?.govmap_data?.coordinates?.y,
+        // also pass through the whole govmap blob for lon_wgs84/lat_wgs84 autodetect
+        govmap_data: (asset as any)?.govmap_data,
+      });
     
-    // If we have valid markers, center the map on them
-    if (validMarkersCount > 0) {
-      const validAssets = assets.filter(asset => {
-        if (areCoordinatesMissing(asset.lat, asset.lon)) return false
-        const coords = validateCoordinates(asset.lat, asset.lon)
-        return coords !== null
-      })
-      
-      if (validAssets.length > 0) {
-        const coordinates = validAssets.map(asset => {
-          const coords = validateCoordinates(asset.lat, asset.lon)!
-          return [coords.lon, coords.lat] as [number, number]
-        })
-        
-        // Calculate bounds
-        const lons = coordinates.map(c => c[0])
-        const lats = coordinates.map(c => c[1])
-        const bounds = [
-          [Math.min(...lons), Math.min(...lats)],
-          [Math.max(...lons), Math.max(...lats)]
-        ] as [[number, number], [number, number]]
-        
-        console.log('MapView: Coordinates:', coordinates)
-        console.log('MapView: Bounds:', bounds)
-        console.log('MapView: Min/Max lons:', Math.min(...lons), Math.max(...lons))
-        console.log('MapView: Min/Max lats:', Math.min(...lats), Math.max(...lats))
-        
-        map.current.fitBounds(bounds, { padding: 50 })
+      if (!pt) {
+        console.warn(`Skip asset ${asset.id}: cannot normalize coords`, asset);
+        return;
       }
+    
+      const { lat, lon, source } = pt as any;
+      normalizedPoints.push({ lon, lat, asset, src: source });
+    
+      const markerEl = document.createElement('div');
+      markerEl.className = 'asset-marker';
+      markerEl.style.cssText = `
+        width: 40px; height: 40px; border-radius: 50%; background-color: #ef4444;
+        border: 4px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        color: white; font-weight: bold; font-size: 14px; z-index: 1000;
+      `;
+      markerEl.innerHTML = `<span>${index + 1}</span>`;
+      markerEl.title = `${asset.address ?? asset.id} • ${source}`;
+    
+      markerEl.addEventListener('click', () => onAssetClick(asset));
+      markerEl.addEventListener('mouseenter', () => {
+        markerEl.style.transform = 'scale(1.1)';
+        markerEl.style.transition = 'transform 0.2s';
+      });
+      markerEl.addEventListener('mouseleave', () => (markerEl.style.transform = 'scale(1)'));
+    
+      const marker = new maplibregl.Marker({ element: markerEl })
+      .setLngLat([lon, lat])
+      .addTo(m)
+      markersRef.current[asset.id] = marker
+      console.log(`Marker added for asset ${asset.id} at [${lon}, ${lat}] (src=${source})`);
+    });
+    
+    console.log(`MapView: Marker summary - Total: ${assets.length}, Valid: ${normalizedPoints.length}`);
+    
+    // Fit bounds using the normalized points
+    if (normalizedPoints.length > 0) {
+      const lons = normalizedPoints.map(p => p.lon);
+      const lats = normalizedPoints.map(p => p.lat);
+      const bounds: [[number, number], [number, number]] = [
+        [Math.min(...lons), Math.min(...lats)],
+        [Math.max(...lons), Math.max(...lats)],
+      ];
+      console.log(
+        `Bounds (lon): ${bounds[0][0]} ${bounds[1][0]}  (lat): ${bounds[0][1]} ${bounds[1][1]}`
+      );
+      map.current.fitBounds(bounds, { padding: 50 });
     }
   }, [assets, onAssetClick])
 
@@ -285,93 +222,52 @@ export default function MapView({
           style: {
             version: 8,
             sources: {
-              'osm': {
+              osm: {
                 type: 'raster',
                 tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
                 tileSize: 256,
-                attribution: '© OpenStreetMap contributors'
-              }
+                attribution: '© OpenStreetMap contributors',
+              },
             },
-            layers: [
-              {
-                id: 'osm',
-                type: 'raster',
-                source: 'osm'
-              }
-            ]
+            layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
           },
           center,
           zoom,
-          attributionControl: false
+          attributionControl: false,
+          // Keep the viewport in/near Israel to avoid fly-outs
+          maxBounds: [
+            [33.0, 28.5], // SW
+            [36.5, 34.5], // NE
+          ],
         })
 
         // Initialize layer service
         layerService.current = new MapLayerService(map.current)
-        
+
         map.current.on('load', async () => {
           setLoading(false)
-          
-          // Load all layers only after map style is fully loaded
+
           try {
             if (layerService.current) {
               await layerService.current.loadAllLayers()
               setLayers(layerService.current.getAllLayers())
             }
-          } catch (error) {
-            console.warn('Error loading layers:', error)
+          } catch (err) {
+            console.warn('Error loading layers:', err)
           }
 
-          // Add asset markers
           addAssetMarkers()
-          
-          // Initialize drawing tools only after map is fully loaded and only once
-          // Temporarily disabled due to MapLibre GL compatibility issues
-          /*
-          if (!drawInitialized.current) {
-            const MapboxDraw = (await import('@mapbox/mapbox-gl-draw')).default
-            
-            // Check if draw control already exists
-            const existingDrawControl = map.current.getContainer().querySelector('.mapbox-gl-draw')
-            if (!existingDrawControl) {
-              draw.current = new MapboxDraw({
-                displayControlsDefault: false,
-                controls: {
-                  polygon: true,
-                  line_string: true,
-                  point: true,
-                  trash: true
-                }
-              })
-              
-              try {
-                map.current.addControl(draw.current)
-                drawInitialized.current = true
-              } catch (error) {
-                console.warn('Error adding draw control:', error)
-              }
-            }
-          }
-          */
         })
 
         map.current.on('error', (e: any) => {
-          // Suppress tile loading errors as they're not critical
-          if (e.error && e.error.message && e.error.message.includes('could not be decoded')) {
+          if (e.error?.message?.includes('could not be decoded')) {
             console.warn('Tile loading error (non-critical):', e.error.message)
             return
           }
-          
-          // Suppress Mapbox Draw compatibility errors
-          if (e.error && e.error.message && e.error.message.includes('Expression name must be a string')) {
-            console.warn('Mapbox Draw compatibility error (non-critical):', e.error.message)
-            return
-          }
-          
           console.error('Map error:', e)
           setError('שגיאה בטעינת המפה')
           setLoading(false)
         })
-
       } catch (err) {
         console.error('Error initializing map:', err)
         setError('שגיאה בטעינת המפה')
@@ -382,92 +278,53 @@ export default function MapView({
     initializeMap()
 
     return () => {
-      if (map.current) {
-        // Clean up drawing tools first
-        if (draw.current) {
-          try {
-            // Check if the draw control is actually added to the map
-            const drawControl = map.current.getContainer().querySelector('.mapbox-gl-draw')
-            if (drawControl) {
-              // Remove draw control sources before removing the control
-              const drawSources = ['mapbox-gl-draw-cold', 'mapbox-gl-draw-hot']
-              drawSources.forEach(sourceId => {
-                if (map.current.getSource(sourceId)) {
-                  map.current.removeSource(sourceId)
-                }
-              })
-              
-              map.current.removeControl(draw.current)
-            }
-          } catch (error) {
-            console.warn('Error removing draw control:', error)
-          }
+      if (!map.current) return
+
+      // Remove markers
+      Object.values(markersRef.current).forEach(m => m.remove())
+      markersRef.current = {}
+
+      // Destroy layer service
+      layerService.current?.destroy()
+
+      try {
+        const style = map.current.getStyle()
+        if (style?.layers) {
+          const layerIds = style.layers.map((l: any) => l.id).reverse()
+          layerIds.forEach((id: string) => {
+            if (map.current!.getLayer(id)) map.current!.removeLayer(id)
+          })
         }
-        
-        // Clean up layer service
-        if (layerService.current) {
-          layerService.current.destroy()
+        if (style?.sources) {
+          Object.keys(style.sources).forEach(srcId => {
+            if (map.current!.getSource(srcId)) map.current!.removeSource(srcId)
+          })
         }
-        
-        // Remove all layers and sources before removing the map
-        try {
-          const style = map.current.getStyle()
-          if (style && style.layers) {
-            // Remove all layers first (in reverse order to avoid dependency issues)
-            const layerIds = style.layers.map((layer: any) => layer.id).reverse()
-            layerIds.forEach((layerId: string) => {
-              if (map.current.getLayer(layerId)) {
-                map.current.removeLayer(layerId)
-              }
-            })
-          }
-          
-          // Then remove all sources
-          if (style && style.sources) {
-            Object.keys(style.sources).forEach(sourceId => {
-              if (map.current.getSource(sourceId)) {
-                map.current.removeSource(sourceId)
-              }
-            })
-          }
-        } catch (error) {
-          console.warn('Error cleaning up layers and sources:', error)
-        }
-        
-        // Remove the map
-        try {
-          map.current.remove()
-        } catch (error) {
-          console.warn('Error removing map:', error)
-        }
-        
-        // Reset refs
-        map.current = null
-        layerService.current = null
-        geocodingService.current = null
-        draw.current = null
-        drawInitialized.current = false
+      } catch (err) {
+        console.warn('Error cleaning up layers/sources:', err)
       }
+
+      try {
+        map.current.remove()
+      } catch (err) {
+        console.warn('Error removing map:', err)
+      }
+
+      map.current = null
+      layerService.current = null
+      geocodingService.current = null
     }
   }, [center, zoom, addAssetMarkers])
 
   // Update markers when assets change
   useEffect(() => {
-    if (map.current) {
-      addAssetMarkers()
-    }
+    if (map.current) addAssetMarkers()
   }, [addAssetMarkers])
 
-  // Handle search
+  // Search handlers
   const handleSearch = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setSearchResults([])
-      setShowSearchResults(false)
-      return
-    }
-
+    if (!query.trim()) { setSearchResults([]); setShowSearchResults(false); return }
     if (!geocodingService.current) return
-
     try {
       const results = await geocodingService.current.searchPlaces(query)
       setSearchResults(results)
@@ -477,19 +334,13 @@ export default function MapView({
     }
   }, [])
 
-  // Debounced search
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      handleSearch(searchValue)
-    }, 300)
-
+    const timeoutId = setTimeout(() => { handleSearch(searchValue) }, 300)
     return () => clearTimeout(timeoutId)
   }, [searchValue, handleSearch])
 
-  // Handle search result selection
   const handleSearchResultClick = useCallback(async (result: GeocodingResult) => {
     if (!map.current || !geocodingService.current) return
-
     try {
       const geocoded = await geocodingService.current.geocodeAddress(result.formatted_address)
       if (geocoded) {
@@ -502,59 +353,35 @@ export default function MapView({
     } catch (error) {
       console.error('Error geocoding result:', error)
     }
-    
     setShowSearchResults(false)
   }, [onSearchChange])
 
-  // Toggle layer visibility
+  // Layer controls
   const toggleLayer = useCallback((layerId: string) => {
     if (!layerService.current) return
-    
     layerService.current.toggleLayer(layerId)
     setLayers([...layerService.current.getAllLayers()])
   }, [])
 
-  // Set layer opacity
   const setLayerOpacity = useCallback((layerId: string, opacity: number) => {
     if (!layerService.current) return
-    
     layerService.current.setLayerOpacity(layerId, opacity)
     setLayers([...layerService.current.getAllLayers()])
   }, [])
 
-  // Export map snapshot
+  // Export map snapshot (unchanged)
   const exportMapSnapshot = useCallback(async (options: { layers?: string[], withOrthophoto?: boolean } = {}) => {
-    if (!map.current) {
-      throw new Error('Map not initialized')
-    }
-
+    if (!map.current) throw new Error('Map not initialized')
     try {
-      // Ensure required layers are visible
-      if (options.layers) {
-        options.layers.forEach(layerId => {
-          if (layerService.current) {
-            layerService.current.setLayerVisibility(layerId, true)
-          }
-        })
-      }
-
+      if (options.layers) options.layers.forEach(id => layerService.current?.setLayerVisibility(id, true))
       if (options.withOrthophoto) {
-        // Enable orthophoto layer
-        if (layerService.current) {
-          layerService.current.setLayerVisibility('jerusalem-ortho-2025', true)
-          layerService.current.setLayerVisibility('telaviv-ortho', true)
-          layerService.current.setLayerVisibility('haifa-ortho-2023', true)
-        }
+        layerService.current?.setLayerVisibility('jerusalem-ortho-2025', true)
+        layerService.current?.setLayerVisibility('telaviv-ortho', true)
+        layerService.current?.setLayerVisibility('haifa-ortho-2023', true)
       }
-
-      // Wait for layers to load
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // Get map canvas
+      await new Promise(res => setTimeout(res, 1000))
       const canvas = map.current.getCanvas()
-      const dataURL = canvas.toDataURL('image/png')
-      
-      return dataURL
+      return canvas.toDataURL('image/png')
     } catch (error) {
       console.error('Error exporting map snapshot:', error)
       throw error
@@ -563,10 +390,7 @@ export default function MapView({
 
   if (error) {
     return (
-      <div 
-        className="flex items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground" style={{ height }}>
         <div className="text-center">
           <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p>{error}</p>
@@ -586,7 +410,7 @@ export default function MapView({
         </div>
       )}
 
-      {/* Back to Table Button */}
+      {/* Back to Table */}
       {onBackToTable && (
         <div className="absolute top-4 start-4 z-20">
           <Button
@@ -613,8 +437,6 @@ export default function MapView({
             className="pe-10 bg-white/90 backdrop-blur-sm"
             onFocus={() => setShowSearchResults(true)}
           />
-          
-          {/* Search Results */}
           {showSearchResults && searchResults.length > 0 && (
             <div className="absolute top-full start-0 end-0 mt-1 bg-white rounded-md shadow-lg border z-30 max-h-60 overflow-y-auto">
               {searchResults.map((result) => (

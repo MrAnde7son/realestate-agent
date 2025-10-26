@@ -100,6 +100,30 @@ class PlanAdmin(admin.ModelAdmin):
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
     inlines = [AssetListingInline]
-    list_display = ("source", "external_id", "status", "price", "rooms", "area", "fetched_at")
+    list_display = (
+        "source",
+        "external_id",
+        "status",
+        "listing_type",
+        "ad_type",
+        "price",
+        "rooms",
+        "area",
+        "contact_name",
+        "contact_phone",
+        "recent_deal",
+        "photos_count",
+        "has_video",
+        "fetched_at",
+    )
     search_fields = ("external_id", "title", "address")
-    list_filter = ("source", "status")
+    list_filter = ("source", "status", "listing_type", "ad_type")
+
+    @admin.display(description="Photos")
+    def photos_count(self, obj):
+        photos = obj.photos or []
+        return len(photos)
+
+    @admin.display(boolean=True, description="Video")
+    def has_video(self, obj):
+        return bool(obj.video_url)

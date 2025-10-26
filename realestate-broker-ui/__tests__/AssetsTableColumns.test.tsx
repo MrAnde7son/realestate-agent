@@ -49,6 +49,11 @@ describe('AssetsTable default columns', () => {
       expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
     })
 
+    expect(screen.getByRole('columnheader', { name: 'סוג עסקה' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'סוג מפרסם' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'איש קשר' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'עסקה אחרונה' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'וידאו' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: '₪' })).toBeInTheDocument()
 
     expect(screen.queryByRole('columnheader', { name: 'ייעוד' })).not.toBeInTheDocument()

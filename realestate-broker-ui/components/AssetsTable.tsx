@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye, Settings, Search, Plus } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Settings, Search, Plus, Phone, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -70,6 +70,22 @@ function exportAssetsCsv(assets: Asset[], visibleColumns?: any[], trackFeatureUs
   document.body.removeChild(link)
 }
 
+const formatListingTypeLabel = (value?: string | null) => {
+  if (!value) return '—'
+  const normalized = value.toLowerCase()
+  if (normalized === 'rent') return 'השכרה'
+  if (normalized === 'sale') return 'מכירה'
+  return value
+}
+
+const formatAdTypeLabel = (value?: string | null) => {
+  if (!value) return '—'
+  const normalized = value.toLowerCase()
+  if (normalized === 'private') return 'פרטי'
+  if (normalized === 'broker' || normalized === 'agency' || normalized === 'agent') return 'מתווך'
+  return value
+}
+
 function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset) => void, onOpenAlert?: (assetId: number) => void): ColumnDef<Asset>[] {
   return [
   {
@@ -130,6 +146,95 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         </div>
       </div>
     )
+  },
+  {
+    header: 'סוג עסקה',
+    id: 'listingType',
+    accessorFn: row => row.listingType ?? row.primaryListing?.listingType ?? null,
+    cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <Badge>{formatListingTypeLabel(value)}</Badge>
+    },
+  },
+  {
+    header: 'סוג מפרסם',
+    id: 'adType',
+    accessorFn: row => row.adType ?? row.primaryListing?.adType ?? null,
+    cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <Badge>{formatAdTypeLabel(value)}</Badge>
+    },
+  },
+  {
+    header: 'איש קשר',
+    id: 'contact',
+    cell: ({ row }) => {
+      const name = row.original.contactName ?? row.original.primaryListing?.contactName ?? row.original.contactInfo?.name ?? null
+      const phone =
+        row.original.contactPhone ??
+        row.original.primaryListing?.contactPhone ??
+        row.original.contactInfo?.phone ??
+        row.original.contactInfo?.brokerPhone ??
+        null
+
+      if (!name && !phone) {
+        return <span>—</span>
+      }
+
+      const sanitizedPhone = phone ? phone.replace(/[^+\d]/g, '') : ''
+
+      return (
+        <div className="flex flex-col gap-1 text-xs">
+          {name && <span className="font-medium text-foreground">{name}</span>}
+          {phone && (
+            <a
+              href={sanitizedPhone ? `tel:${sanitizedPhone}` : undefined}
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+              onClick={event => event.stopPropagation()}
+            >
+              <Phone className="h-3 w-3" />
+              <span dir="ltr">{phone}</span>
+            </a>
+          )}
+        </div>
+      )
+    },
+  },
+  {
+    header: 'עסקה אחרונה',
+    id: 'recentDeal',
+    accessorFn: row => row.recentDeal ?? row.primaryListing?.recentDeal ?? null,
+    cell: info => {
+      const value = info.getValue() as boolean | null | undefined
+      if (value === null || value === undefined) {
+        return <Badge variant="neutral">—</Badge>
+      }
+      return <Badge variant={value ? 'success' : 'neutral'}>{value ? 'כן' : 'לא'}</Badge>
+    },
+  },
+  {
+    header: 'וידאו',
+    id: 'videoUrl',
+    cell: ({ row }) => {
+      const videoUrl = row.original.videoUrl ?? row.original.primaryListing?.videoUrl
+      if (!videoUrl) {
+        return <span>—</span>
+      }
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={event => {
+            event.stopPropagation()
+            window.open(videoUrl, '_blank', 'noopener')
+          }}
+          className="me-0"
+          aria-label="פתח וידאו"
+        >
+          <Play className="h-4 w-4" />
+        </Button>
+      )
+    },
   },
   { header:'₪', accessorKey:'price', cell: info => {
       const v = info.getValue() as number | null | undefined
@@ -327,6 +432,11 @@ interface AssetsTableProps {
       options: Array<{ value: string; label: string; count?: number }>
     }
     rentalSale?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    adType?: {
       value: string
       onChange: (value: string) => void
       options: Array<{ value: string; label: string }>
@@ -751,6 +861,16 @@ export default function AssetsTable({
       })
     }
 
+    if (filters.adType) {
+      items.push({
+        key: 'adType',
+        label: 'סוג מפרסם',
+        type: 'select',
+        value: filters.adType.value,
+        options: (filters.adType.options || []).map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
     if (filters.userAssets) {
       items.push({
         key: 'userAssets',
@@ -843,6 +963,10 @@ export default function AssetsTable({
       case 'rentalSale':
         filters.rentalSale?.onChange(value)
         track('rentalSale', value)
+        break
+      case 'adType':
+        filters.adType?.onChange(value)
+        track('adType', value)
         break
       case 'userAssets':
         filters.userAssets?.onChange(value)

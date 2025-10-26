@@ -79,4 +79,32 @@ describe('AssetsTable', () => {
     const loadingRows = within(loadingBody).getAllByRole('row')
     expect(loadingRows.length).toBeGreaterThan(0)
   })
+
+  it('renders listing metadata columns when provided', async () => {
+    render(
+      <AssetsTable
+        data={[
+          {
+            id: 1,
+            address: 'Asset 1',
+            listingType: 'rent',
+            adType: 'private',
+            contactName: 'Dana',
+            contactPhone: '050-1234567',
+            recentDeal: true,
+            videoUrl: 'http://example.com/video.mp4',
+          } as any,
+        ]}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('השכרה')).toBeInTheDocument()
+    })
+    expect(screen.getByText('פרטי')).toBeInTheDocument()
+    expect(screen.getByText('Dana')).toBeInTheDocument()
+    expect(screen.getByText('050-1234567')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'פתח וידאו' })).toBeInTheDocument()
+    expect(screen.getAllByText('כן')[0]).toBeInTheDocument()
+  })
 })

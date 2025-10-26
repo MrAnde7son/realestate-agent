@@ -29,6 +29,7 @@ from .services.asset_links import (
     asset_plans_all,
 )
 from .utils.listings import normalize_listing_from_model
+from .utils.listings import normalize_listing_from_model
 
 User = get_user_model()
 

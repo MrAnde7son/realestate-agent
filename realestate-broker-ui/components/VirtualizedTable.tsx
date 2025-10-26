@@ -191,7 +191,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       const value = info.getValue() as number | undefined
       return <Badge>{!!value ? `${value}%` : '—'}</Badge>
     } },
-  { header:'שכ"ד', accessorKey:'rentEstimate', enableHiding: true, cell: info => {
+  { header:'שכ"ד מוערך', accessorKey:'rentEstimate', enableHiding: true, cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
     } },

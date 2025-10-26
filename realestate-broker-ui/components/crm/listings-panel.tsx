@@ -671,7 +671,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                       <TableHead className="text-start rtl:text-start">כותרת</TableHead>
                       <TableHead className="text-start rtl:text-start">סוג עסקה</TableHead>
                       <TableHead className="text-start rtl:text-start">איש קשר</TableHead>
-                      <TableHead className="text-start rtl:text-start">עסקה אחרונה</TableHead>
+                      <TableHead className="text-start rtl:text-start">נמכר לאחרונה</TableHead>
                       <TableHead className="text-start rtl:text-start">וידאו</TableHead>
                       <TableHead className="text-start rtl:text-start">
                         <button

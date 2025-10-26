@@ -309,7 +309,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       const value = info.getValue() as number | undefined
       return <Badge>{!!value ? `${value}%` : '—'}</Badge>
     } },
-  { header:'שכ"ד', accessorKey:'rentEstimate', cell: info => {
+  { header:'שכ"ד מוערך', accessorKey:'rentEstimate', cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
     } },
@@ -524,20 +524,19 @@ const DEFAULT_VISIBLE_COLUMNS = new Set([
   'select',
   'address',
   'price',
-  'pricePerSqm',
   'modelPrice',
+  'contact',
   'rentEstimate',
-  'domPercentile',
-  'riskFlags',
-  'assetStatus',
   'actions'
 ])
 
 const ALL_COLUMN_IDS = [
   'select',
   'address',
+  'assetStatus',
   'price',
   'pricePerSqm',
+  'riskFlags',
   'deltaVsAreaPct',
   'domPercentile',
   'competition1km',
@@ -555,7 +554,8 @@ const ALL_COLUMN_IDS = [
   'priceGapPct',
   'confidencePct',
   'capRatePct',
-  'actions'
+  'actions',
+  'videoUrl'
 ] as const
 
 const DEFAULT_COLUMN_VISIBILITY = ALL_COLUMN_IDS.reduce<Record<string, boolean>>((acc, columnId) => {

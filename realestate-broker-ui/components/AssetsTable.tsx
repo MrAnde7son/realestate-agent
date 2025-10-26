@@ -540,7 +540,6 @@ const DEFAULT_VISIBLE_COLUMNS = new Set([
   'address',
   'price',
   'modelPrice',
-  'contact',
   'rentEstimate',
   'actions'
 ])
@@ -549,6 +548,9 @@ const ALL_COLUMN_IDS = [
   'select',
   'address',
   'assetStatus',
+  'recentDeal',
+  'adType',
+  'contact',
   'price',
   'pricePerSqm',
   'riskFlags',

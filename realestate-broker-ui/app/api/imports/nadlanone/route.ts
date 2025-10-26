@@ -1,20 +1,24 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { getAccessToken } from '../../_utils/get-access-token'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('access_token')?.value
+    const token = await getAccessToken(request)
     const incoming = await request.formData()
     const outgoing = new FormData()
 
     incoming.forEach((value, key) => {
       if (typeof value === 'string') {
         outgoing.append(key, value)
-      } else if (value instanceof File) {
-        outgoing.append(key, value, value.name)
+        return
+      }
+
+      if (typeof value === 'object' && value !== null) {
+        const blob = value as Blob & { name?: string }
+        const filename = typeof blob.name === 'string' && blob.name ? blob.name : undefined
+        outgoing.append(key, blob, filename)
       }
     })
 

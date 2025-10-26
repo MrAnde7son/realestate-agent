@@ -231,7 +231,7 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
             className="flex items-center gap-2"
           >
             <DownloadCloud className="h-4 w-4" />
-            ייבוא לקוחות מ-Nadlan One
+            ייבוא לקוחות מנדל&quot;ן וואן
           </Button>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>

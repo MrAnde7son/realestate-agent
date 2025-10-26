@@ -115,7 +115,7 @@ export default function ImportHistoryPage() {
       <div className="container mx-auto p-4 sm:p-6 space-y-6" dir="rtl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold">היסטוריית ייבוא מנדל&quot;ן ONE</h1>
+            <h1 className="text-2xl font-bold">היסטוריית ייבוא מנדל&quot;ן וואן</h1>
             <p className="text-sm text-muted-foreground">עקבו אחר ייבוא הלקוחות והנכסים ודלו את דוחות הסיכום.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

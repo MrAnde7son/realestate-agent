@@ -1510,7 +1510,7 @@ export default function AssetsPage() {
                   className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
                 >
                   <DownloadCloud className="h-4 w-4" />
-                  ייבוא מנדל&quot;ן ONE
+                  ייבוא מנדל&quot;ן וואן
                 </Button>
               }
               viewMode={viewMode}

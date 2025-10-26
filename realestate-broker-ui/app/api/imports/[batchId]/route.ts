@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { getAccessToken } from '../../_utils/get-access-token'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 
@@ -21,8 +21,7 @@ export async function GET(request: NextRequest, context: unknown) {
     return NextResponse.json({ error: 'Missing batch identifier' }, { status: 400 })
   }
   try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('access_token')?.value
+    const token = await getAccessToken(request)
     const url = new URL(`${BACKEND_URL}/api/imports/${batchId}`)
     const response = await fetch(url, {
       headers: {
@@ -53,8 +52,7 @@ export async function POST(request: NextRequest, context: unknown) {
     return NextResponse.json({ error: 'Missing batch identifier' }, { status: 400 })
   }
   try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('access_token')?.value
+    const token = await getAccessToken(request)
     const body = await request.json().catch(() => ({}))
 
     const response = await fetch(`${BACKEND_URL}/api/imports/${batchId}`, {

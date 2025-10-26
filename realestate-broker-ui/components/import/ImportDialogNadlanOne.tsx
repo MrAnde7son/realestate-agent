@@ -94,10 +94,14 @@ export function ImportDialogNadlanOne({ open, onOpenChange, mode }: ImportDialog
       const poll = async () => {
         if (cancelled) return;
         try {
+          const accessToken = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
           const response = await fetch(`/api/imports/${id}`, {
             method: "GET",
             credentials: "include",
             cache: "no-store",
+            headers: {
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
           });
           if (!response.ok) {
             throw new Error("שגיאה בבדיקת סטטוס הייבוא");
@@ -164,6 +168,7 @@ export function ImportDialogNadlanOne({ open, onOpenChange, mode }: ImportDialog
     formData.append("dry_run", dryRun ? "true" : "false");
     formData.append("conflict_policy", conflictPolicy);
     formData.append("enable_linking", enableLinking ? "true" : "false");
+    const accessToken = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     if (customersFile) {
       formData.append("customers_csv", customersFile, customersFile.name);
     }
@@ -176,6 +181,9 @@ export function ImportDialogNadlanOne({ open, onOpenChange, mode }: ImportDialog
         method: "POST",
         body: formData,
         credentials: "include",
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -192,11 +200,13 @@ export function ImportDialogNadlanOne({ open, onOpenChange, mode }: ImportDialog
   const handleCancel = async () => {
     if (!batchId) return;
     try {
+      const accessToken = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
       const response = await fetch(`/api/imports/${batchId}`, {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({ action: "cancel" }),
       });
@@ -231,9 +241,9 @@ export function ImportDialogNadlanOne({ open, onOpenChange, mode }: ImportDialog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl" dir="rtl">
         <DialogHeader>
-          <DialogTitle>ייבוא נתונים מנדל&quot;ן ONE</DialogTitle>
+          <DialogTitle>ייבוא נתונים מנדל&quot;ן וואן</DialogTitle>
           <DialogDescription>
-            העלו קובצי CSV מיוצאים ממערכת נדל&quot;ן ONE ונבצע ייבוא חכם של {mode === "customers" ? "לקוחות" : "נכסים"} לתוך Nadlaner.
+            העלו קובצי CSV מיוצאים ממערכת נדל&quot;ן וואן ונבצע ייבוא חכם של {mode === "customers" ? "לקוחות" : "נכסים"} לתוך Nadlaner.
           </DialogDescription>
         </DialogHeader>
 

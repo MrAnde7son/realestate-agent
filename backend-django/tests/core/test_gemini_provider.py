@@ -12,8 +12,10 @@ from core.llm.types import ChatMessage
 async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
     captured = {}
 
-    def fake_configure(api_key):
+    def fake_configure(api_key, **kwargs):
         captured["configured_key"] = api_key
+        if "client_options" in kwargs:
+            captured["client_options"] = kwargs["client_options"]
 
     class FakeChatSession:
         async def send_message_async(self, content):
@@ -21,7 +23,12 @@ async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
             return types.SimpleNamespace(text="ok")
 
     class FakeModel:
-        def __init__(self, model_name, generation_config=None, system_instruction=None):
+        def __init__(
+            self,
+            model_name,
+            generation_config=None,
+            system_instruction=None,
+        ):
             captured["model_name"] = model_name
             captured["generation_config"] = generation_config
             captured["system_instruction"] = system_instruction
@@ -31,7 +38,14 @@ async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
             return FakeChatSession()
 
     monkeypatch.setattr("google.generativeai.configure", fake_configure)
-    monkeypatch.setattr("google.generativeai.GenerativeModel", lambda **kwargs: FakeModel(**kwargs))
+
+    def fake_model_factory(**kwargs):
+        return FakeModel(**kwargs)
+
+    monkeypatch.setattr(
+        "google.generativeai.GenerativeModel",
+        fake_model_factory,
+    )
 
     adapter = GeminiAdapter()
 
@@ -47,11 +61,17 @@ async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
 
     assert result == "ok"
     assert captured["configured_key"] == "test-key"
-    assert captured["model_name"] == "gemini-1.5-pro"
+    assert captured["model_name"] == "gemini-2.5-flash"
     assert captured["generation_config"] is None
-    assert captured["system_instruction"] == "You are helpful.\n\nFollow the brief."
+    assert captured["system_instruction"] == (
+        "You are helpful.\n\nFollow the brief."
+    )
     assert captured["history"] == [
         {"role": "user", "parts": ["Hello"]},
         {"role": "model", "parts": ["Hi"]},
     ]
     assert captured["sent_message"] == "Write message"
+    assert (
+        captured["client_options"].api_endpoint
+        == "https://us-generativelanguage.googleapis.com"
+    )

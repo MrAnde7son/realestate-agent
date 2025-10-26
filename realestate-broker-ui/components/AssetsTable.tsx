@@ -395,6 +395,14 @@ type AssetsTableBulkAction = {
   disabled?: boolean
 }
 
+type NumberRangeFilterConfig = {
+  value: { min?: number; max?: number }
+  onChange: (value: { min?: number; max?: number }) => void
+  minPlaceholder?: string
+  maxPlaceholder?: string
+  step?: number
+}
+
 interface AssetsTableProps {
   data?: Asset[]
   loading?: boolean
@@ -482,6 +490,16 @@ interface AssetsTableProps {
       value: number | undefined
       onChange: (value: number | undefined) => void
     }
+    bedrooms?: NumberRangeFilterConfig
+    bathrooms?: NumberRangeFilterConfig
+    totalFloors?: NumberRangeFilterConfig
+    totalArea?: NumberRangeFilterConfig
+    balconyArea?: NumberRangeFilterConfig
+    parkingSpaces?: NumberRangeFilterConfig
+    yearBuilt?: NumberRangeFilterConfig
+    rentEstimate?: NumberRangeFilterConfig
+    priceGapPct?: NumberRangeFilterConfig
+    capRatePct?: NumberRangeFilterConfig
     rooms?: {
       value: string
       onChange: (value: string) => void
@@ -517,6 +535,31 @@ interface AssetsTableProps {
       value: string
       onChange: (value: string) => void
       options: string[]
+    }
+    renovated?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    furnished?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    airConditioning?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    storageRoom?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    hasElevator?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
     }
   }
   onRefresh?: () => void
@@ -930,6 +973,136 @@ export default function AssetsTable({
       })
     }
 
+    if (filters.bedrooms) {
+      items.push({
+        key: 'bedrooms',
+        label: 'חדרי שינה',
+        type: 'number-range',
+        value: filters.bedrooms.value,
+        minPlaceholder: filters.bedrooms.minPlaceholder,
+        maxPlaceholder: filters.bedrooms.maxPlaceholder,
+        step: filters.bedrooms.step,
+        analyticsKey: 'bedrooms'
+      })
+    }
+
+    if (filters.bathrooms) {
+      items.push({
+        key: 'bathrooms',
+        label: 'חדרי רחצה',
+        type: 'number-range',
+        value: filters.bathrooms.value,
+        minPlaceholder: filters.bathrooms.minPlaceholder,
+        maxPlaceholder: filters.bathrooms.maxPlaceholder,
+        step: filters.bathrooms.step,
+        analyticsKey: 'bathrooms'
+      })
+    }
+
+    if (filters.totalFloors) {
+      items.push({
+        key: 'totalFloors',
+        label: 'קומות בבניין',
+        type: 'number-range',
+        value: filters.totalFloors.value,
+        minPlaceholder: filters.totalFloors.minPlaceholder,
+        maxPlaceholder: filters.totalFloors.maxPlaceholder,
+        step: filters.totalFloors.step,
+        analyticsKey: 'total_floors'
+      })
+    }
+
+    if (filters.totalArea) {
+      items.push({
+        key: 'totalArea',
+        label: 'שטח כולל',
+        type: 'number-range',
+        value: filters.totalArea.value,
+        minPlaceholder: filters.totalArea.minPlaceholder,
+        maxPlaceholder: filters.totalArea.maxPlaceholder,
+        step: filters.totalArea.step,
+        analyticsKey: 'total_area'
+      })
+    }
+
+    if (filters.balconyArea) {
+      items.push({
+        key: 'balconyArea',
+        label: 'שטח מרפסות',
+        type: 'number-range',
+        value: filters.balconyArea.value,
+        minPlaceholder: filters.balconyArea.minPlaceholder,
+        maxPlaceholder: filters.balconyArea.maxPlaceholder,
+        step: filters.balconyArea.step,
+        analyticsKey: 'balcony_area'
+      })
+    }
+
+    if (filters.parkingSpaces) {
+      items.push({
+        key: 'parkingSpaces',
+        label: 'חניות',
+        type: 'number-range',
+        value: filters.parkingSpaces.value,
+        minPlaceholder: filters.parkingSpaces.minPlaceholder,
+        maxPlaceholder: filters.parkingSpaces.maxPlaceholder,
+        step: filters.parkingSpaces.step,
+        analyticsKey: 'parking_spaces'
+      })
+    }
+
+    if (filters.yearBuilt) {
+      items.push({
+        key: 'yearBuilt',
+        label: 'שנת בנייה',
+        type: 'number-range',
+        value: filters.yearBuilt.value,
+        minPlaceholder: filters.yearBuilt.minPlaceholder,
+        maxPlaceholder: filters.yearBuilt.maxPlaceholder,
+        step: filters.yearBuilt.step,
+        analyticsKey: 'year_built'
+      })
+    }
+
+    if (filters.rentEstimate) {
+      items.push({
+        key: 'rentEstimate',
+        label: 'שכירות משוערת',
+        type: 'number-range',
+        value: filters.rentEstimate.value,
+        minPlaceholder: filters.rentEstimate.minPlaceholder,
+        maxPlaceholder: filters.rentEstimate.maxPlaceholder,
+        step: filters.rentEstimate.step,
+        analyticsKey: 'rent_estimate'
+      })
+    }
+
+    if (filters.priceGapPct) {
+      items.push({
+        key: 'priceGapPct',
+        label: 'פער מחיר %',
+        type: 'number-range',
+        value: filters.priceGapPct.value,
+        minPlaceholder: filters.priceGapPct.minPlaceholder,
+        maxPlaceholder: filters.priceGapPct.maxPlaceholder,
+        step: filters.priceGapPct.step,
+        analyticsKey: 'price_gap_pct'
+      })
+    }
+
+    if (filters.capRatePct) {
+      items.push({
+        key: 'capRatePct',
+        label: 'תשואה %',
+        type: 'number-range',
+        value: filters.capRatePct.value,
+        minPlaceholder: filters.capRatePct.minPlaceholder,
+        maxPlaceholder: filters.capRatePct.maxPlaceholder,
+        step: filters.capRatePct.step,
+        analyticsKey: 'cap_rate_pct'
+      })
+    }
+
     if (filters.block) {
       items.push({
         key: 'block',
@@ -950,69 +1123,201 @@ export default function AssetsTable({
       })
     }
 
+    if (filters.renovated) {
+      items.push({
+        key: 'renovated',
+        label: 'שיפוץ',
+        type: 'select',
+        value: filters.renovated.value,
+        options: (filters.renovated.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'renovated'
+      })
+    }
+
+    if (filters.furnished) {
+      items.push({
+        key: 'furnished',
+        label: 'ריהוט',
+        type: 'select',
+        value: filters.furnished.value,
+        options: (filters.furnished.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'furnished'
+      })
+    }
+
+    if (filters.airConditioning) {
+      items.push({
+        key: 'airConditioning',
+        label: 'מיזוג אוויר',
+        type: 'select',
+        value: filters.airConditioning.value,
+        options: (filters.airConditioning.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'air_conditioning'
+      })
+    }
+
+    if (filters.storageRoom) {
+      items.push({
+        key: 'storageRoom',
+        label: 'מחסן',
+        type: 'select',
+        value: filters.storageRoom.value,
+        options: (filters.storageRoom.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'storage_room'
+      })
+    }
+
+    if (filters.hasElevator) {
+      items.push({
+        key: 'hasElevator',
+        label: 'מעלית',
+        type: 'select',
+        value: filters.hasElevator.value,
+        options: (filters.hasElevator.options || []).map(option => ({ value: option.value, label: option.label })),
+        analyticsKey: 'elevator'
+      })
+    }
+
     return items
   }, [filters])
 
   const handleAdditionalFilterChange = React.useCallback((key: string, value: AdditionalFilterValue) => {
-    if (typeof value !== 'string') {
-      return
-    }
     if (!filters) return
-    const track = (filterType: string, filterValue: string) => {
+
+    const trackString = (filterType: string, filterValue: string) => {
       trackFeatureUsage('filter', undefined, { filter_type: filterType, value: filterValue })
     }
 
-    switch (key) {
-      case 'neighborhood':
-        filters.neighborhood?.onChange(value)
-        track('neighborhood', value)
-        break
-      case 'zoning':
-        filters.zoning?.onChange(value)
-        track('zoning', value)
-        break
-      case 'risk':
-        filters.risk?.onChange(value)
-        track('risk', value)
-        break
-      case 'documents':
-        filters.documents?.onChange(value)
-        track('documents', value)
-        break
-      case 'rentalSale':
-        filters.rentalSale?.onChange(value)
-        track('rentalSale', value)
-        break
-      case 'adType':
-        filters.adType?.onChange(value)
-        track('adType', value)
-        break
-      case 'userAssets':
-        filters.userAssets?.onChange(value)
-        track('userAssets', value)
-        break
-      case 'buildingType':
-        filters.buildingType?.onChange(value)
-        track('buildingType', value)
-        break
-      case 'rooms':
-        filters.rooms?.onChange(value)
-        track('rooms', value)
-        break
-      case 'features':
-        filters.features?.onChange(value)
-        track('features', value)
-        break
-      case 'block':
-        filters.block?.onChange(value)
-        track('block', value)
-        break
-      case 'parcel':
-        filters.parcel?.onChange(value)
-        track('parcel', value)
-        break
-      default:
-        break
+    const trackRange = (filterType: string, range: { min?: number; max?: number }) => {
+      trackFeatureUsage('filter', undefined, {
+        filter_type: filterType,
+        min: range.min ?? 'any',
+        max: range.max ?? 'any',
+      })
+    }
+
+    if (typeof value === 'string') {
+      switch (key) {
+        case 'neighborhood':
+          filters.neighborhood?.onChange(value)
+          trackString('neighborhood', value)
+          break
+        case 'zoning':
+          filters.zoning?.onChange(value)
+          trackString('zoning', value)
+          break
+        case 'risk':
+          filters.risk?.onChange(value)
+          trackString('risk', value)
+          break
+        case 'documents':
+          filters.documents?.onChange(value)
+          trackString('documents', value)
+          break
+        case 'rentalSale':
+          filters.rentalSale?.onChange(value)
+          trackString('rentalSale', value)
+          break
+        case 'adType':
+          filters.adType?.onChange(value)
+          trackString('adType', value)
+          break
+        case 'userAssets':
+          filters.userAssets?.onChange(value)
+          trackString('userAssets', value)
+          break
+        case 'buildingType':
+          filters.buildingType?.onChange(value)
+          trackString('buildingType', value)
+          break
+        case 'rooms':
+          filters.rooms?.onChange(value)
+          trackString('rooms', value)
+          break
+        case 'features':
+          filters.features?.onChange(value)
+          trackString('features', value)
+          break
+        case 'block':
+          filters.block?.onChange(value)
+          trackString('block', value)
+          break
+        case 'parcel':
+          filters.parcel?.onChange(value)
+          trackString('parcel', value)
+          break
+        case 'renovated':
+          filters.renovated?.onChange(value)
+          trackString('renovated', value)
+          break
+        case 'furnished':
+          filters.furnished?.onChange(value)
+          trackString('furnished', value)
+          break
+        case 'airConditioning':
+          filters.airConditioning?.onChange(value)
+          trackString('air_conditioning', value)
+          break
+        case 'storageRoom':
+          filters.storageRoom?.onChange(value)
+          trackString('storage_room', value)
+          break
+        case 'hasElevator':
+          filters.hasElevator?.onChange(value)
+          trackString('elevator', value)
+          break
+        default:
+          break
+      }
+      return
+    }
+
+    if (value && typeof value === 'object') {
+      const rangeValue = value as { min?: number; max?: number }
+      switch (key) {
+        case 'bedrooms':
+          filters.bedrooms?.onChange(rangeValue)
+          trackRange('bedrooms', rangeValue)
+          break
+        case 'bathrooms':
+          filters.bathrooms?.onChange(rangeValue)
+          trackRange('bathrooms', rangeValue)
+          break
+        case 'totalFloors':
+          filters.totalFloors?.onChange(rangeValue)
+          trackRange('total_floors', rangeValue)
+          break
+        case 'totalArea':
+          filters.totalArea?.onChange(rangeValue)
+          trackRange('total_area', rangeValue)
+          break
+        case 'balconyArea':
+          filters.balconyArea?.onChange(rangeValue)
+          trackRange('balcony_area', rangeValue)
+          break
+        case 'parkingSpaces':
+          filters.parkingSpaces?.onChange(rangeValue)
+          trackRange('parking_spaces', rangeValue)
+          break
+        case 'yearBuilt':
+          filters.yearBuilt?.onChange(rangeValue)
+          trackRange('year_built', rangeValue)
+          break
+        case 'rentEstimate':
+          filters.rentEstimate?.onChange(rangeValue)
+          trackRange('rent_estimate', rangeValue)
+          break
+        case 'priceGapPct':
+          filters.priceGapPct?.onChange(rangeValue)
+          trackRange('price_gap_pct', rangeValue)
+          break
+        case 'capRatePct':
+          filters.capRatePct?.onChange(rangeValue)
+          trackRange('cap_rate_pct', rangeValue)
+          break
+        default:
+          break
+      }
     }
   }, [filters, trackFeatureUsage])
 

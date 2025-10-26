@@ -201,7 +201,7 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     },
   },
   {
-    header: 'עסקה אחרונה',
+    header: 'נמכר לאחרונה',
     id: 'recentDeal',
     accessorFn: row => row.recentDeal ?? row.primaryListing?.recentDeal ?? null,
     cell: info => {

@@ -5,7 +5,7 @@
 import React from 'react'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { vi } from 'vitest'
+import { beforeEach, vi, describe, expect, it} from 'vitest'
 
 import AssetsTable from '@/components/AssetsTable'
 import type { Asset } from '@/lib/normalizers/asset'
@@ -51,7 +51,7 @@ describe('AssetsTable default columns', () => {
 
     expect(screen.getByRole('columnheader', { name: 'סוג עסקה' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'איש קשר' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'עסקה אחרונה' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'נמכר לאחרונה' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'וידאו' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: '₪' })).toBeInTheDocument()
 

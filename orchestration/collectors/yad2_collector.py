@@ -166,7 +166,7 @@ class Yad2Collector(BaseCollector):
                 if search_params:
                     self.client.set_search_parameters(**search_params)
 
-            map_listings = self.client.fetch_listings()
+            map_listings = self.client.fetch_listings(pull_contacts=True)
             if map_listings:
                 listings.extend(map_listings)
             else:

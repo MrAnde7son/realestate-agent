@@ -426,6 +426,7 @@ class Asset(models.Model):
     building_type = models.CharField(
         max_length=50, blank=True, null=True
     )  # דירה, בית פרטי, etc.
+    is_commercial = models.BooleanField(default=False, help_text="האם הנכס מסחרי")
     floor = models.IntegerField(blank=True, null=True)
     apartment = models.CharField(max_length=20, blank=True, null=True)
     total_floors = models.IntegerField(blank=True, null=True)

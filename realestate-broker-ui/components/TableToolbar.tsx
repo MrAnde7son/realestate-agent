@@ -162,6 +162,11 @@ interface TableToolbarFilters {
     onChange: (value: string) => void;
     options: Array<{ value: string; label: string }>;
   };
+  commercial?: {
+    value: string;
+    onChange: (value: string) => void;
+    options: Array<{ value: string; label: string }>;
+  };
   userAssets?: {
     value: string;
     onChange: (value: string) => void;
@@ -267,12 +272,14 @@ export default function TableToolbar({
   const remainingRightsMaxFilter = filters?.remainingRightsMax;
   const rentalSaleFilter = filters?.rentalSale;
   const adTypeFilter = filters?.adType;
+  const commercialFilter = filters?.commercial;
   const userAssetsQuickFilter = filters?.userAssets;
   const [pricePopoverOpen, setPricePopoverOpen] = useState(false);
   const [areaPopoverOpen, setAreaPopoverOpen] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [rentalSaleMenuOpen, setRentalSaleMenuOpen] = useState(false);
   const [adTypeMenuOpen, setAdTypeMenuOpen] = useState(false);
+  const [commercialMenuOpen, setCommercialMenuOpen] = useState(false);
 
   // Handle hydration mismatch
   React.useEffect(() => {
@@ -383,6 +390,16 @@ export default function TableToolbar({
     );
   })();
 
+  const commercialDefaultLabel = 'ייעוד נכס';
+
+  const commercialSelectedLabel = (() => {
+    if (!commercialFilter || commercialFilter.value === 'all') return commercialDefaultLabel;
+    return (
+      commercialFilter.options.find(option => option.value === commercialFilter.value)?.label ||
+      commercialDefaultLabel
+    );
+  })();
+
   const userAssetsValue = userAssetsQuickFilter?.value ?? userAssetsAdditionalFilter?.value;
   const userAssetsActive = Boolean(userAssetsValue && userAssetsValue !== 'all');
 
@@ -415,6 +432,7 @@ export default function TableToolbar({
     (remainingRightsMaxFilter && remainingRightsMaxFilter.value !== undefined) ||
     (rentalSaleFilter && rentalSaleFilter.value !== 'all') ||
     (adTypeFilter && adTypeFilter.value !== 'all') ||
+    (commercialFilter && commercialFilter.value !== 'all') ||
     additionalFiltersActive ||
     (statusFilters && statusFilters.value !== 'all') ||
     (dateRange && (dateRange.from || dateRange.to)) ||
@@ -456,6 +474,7 @@ export default function TableToolbar({
     if (!onAdditionalFilterChange) {
       rentalSaleFilter?.onChange('all');
       adTypeFilter?.onChange('all');
+      commercialFilter?.onChange('all');
       userAssetsQuickFilter?.onChange('all');
     }
   };
@@ -697,6 +716,44 @@ export default function TableToolbar({
                   >
                     <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
                     {adTypeFilter.options.map(option => (
+                      <DropdownMenuRadioItem key={option.value} value={option.value}>
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {commercialFilter && (
+              <DropdownMenu open={commercialMenuOpen} onOpenChange={setCommercialMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={commercialFilter.value !== 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    className={TOOLBAR_PILL_BUTTON_CLASSES}
+                  >
+                    <span>{commercialSelectedLabel}</span>
+                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">בחר ייעוד נכס</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={commercialFilter.value}
+                    onValueChange={(value) => {
+                      if (onAdditionalFilterChange) {
+                        onAdditionalFilterChange('commercial', value);
+                      } else {
+                        commercialFilter.onChange(value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'commercial', value });
+                      }
+                    }}
+                  >
+                    <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
+                    {commercialFilter.options.map(option => (
                       <DropdownMenuRadioItem key={option.value} value={option.value}>
                         {option.label}
                       </DropdownMenuRadioItem>

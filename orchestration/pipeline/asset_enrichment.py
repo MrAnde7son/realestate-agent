@@ -1138,11 +1138,59 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                         return raw_neighborhood.strip()
 
         return None
-    
+
+    def _is_listing_commercial(listing_data):
+        if not isinstance(listing_data, dict):
+            return False
+
+        def _normalize(value):
+            if isinstance(value, str):
+                return value.strip().lower()
+            return None
+
+        listing_type_value = (
+            listing_data.get('listing_type')
+            or listing_data.get('listingType')
+        )
+        if _normalize(listing_type_value) == 'commercial':
+            return True
+
+        meta = listing_data.get('meta')
+        if isinstance(meta, dict):
+            category_candidate = meta.get('category_id') or meta.get('categoryId')
+            if category_candidate is not None and str(category_candidate).strip() == '2':
+                return True
+
+            raw_meta = meta.get('raw')
+            if isinstance(raw_meta, dict):
+                category_raw = raw_meta.get('categoryId')
+                if category_raw is not None and str(category_raw).strip() == '2':
+                    return True
+
+                raw_listing_type = raw_meta.get('listingType')
+                if _normalize(raw_listing_type) == 'commercial':
+                    return True
+
+        return False
+
     # Find the best listing to use as the primary source
     # Priority: exact address match > same street > any listing
     best_listing = None
-    
+
+    update_fields = set()
+
+    is_commercial_listing = any(
+        _is_listing_commercial(listing) for listing in normalized_listings if isinstance(listing, dict)
+    )
+
+    if getattr(asset, 'is_commercial', None) is not None:
+        if asset.is_commercial != is_commercial_listing:
+            asset.is_commercial = is_commercial_listing
+            update_fields.add('is_commercial')
+    else:
+        asset.is_commercial = is_commercial_listing
+        update_fields.add('is_commercial')
+
     # Try to find exact address match first
     if asset.normalized_address:
         asset_address = asset.normalized_address.lower()
@@ -1166,10 +1214,12 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                 break
     
     if not best_listing:
+        if update_fields:
+            asset.save(update_fields=list(update_fields))
+            logger.info('[ASSET_FIELDS] Updated asset %s fields: %s', asset.id, list(update_fields))
         return
-    
+
     # Populate asset fields from the best listing
-    update_fields = set()
 
     if not asset.neighborhood:
         listing_neighborhood = _extract_listing_neighborhood(best_listing)

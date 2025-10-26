@@ -148,6 +148,7 @@ class MockAsset:
         self.neighborhood = None
         self.meta = {}
         self.save_called = False
+        self.is_commercial = False
     
     def save(self, update_fields=None):
         self.save_called = True
@@ -210,9 +211,29 @@ class TestAssetFieldPopulation:
         assert asset.meta['primary_listing_source']['source'] == 'yad2'
         assert asset.meta['primary_listing_source']['listing_id'] == '12345'
         assert asset.meta['primary_listing_source']['address'] == 'רחוב הרצל 15, תל אביב'
-        
+
         # Verify save was called
         assert asset.save_called
+
+    def test_sets_commercial_flag_from_listings(self):
+        asset = MockAsset()
+        asset.normalized_address = "דרך השלום 10, תל אביב"
+
+        listings = [
+            {
+                'price': 100000,
+                'area': 40,
+                'address': 'דרך השלום 10, תל אביב',
+                'listing_type': 'commercial',
+                'meta': {
+                    'category_id': 2,
+                },
+            }
+        ]
+
+        _populate_asset_fields_from_listings(asset, listings)
+
+        assert asset.is_commercial is True
 
     def test_populate_from_yad2_listings_street_match(self):
         """Test that street matching is not supported - only exact matches work."""

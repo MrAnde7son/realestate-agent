@@ -37,6 +37,7 @@ export type Asset = {
   lon?: number | null;
   normalizedAddress?: string | null;
   buildingType?: string | null;
+  isCommercial?: boolean | null;
   floor?: number | null;
   totalFloors?: number | null;
   storageRoom?: boolean | null;
@@ -523,6 +524,31 @@ export function normalizeFromBackend(row: any): Asset {
   const adType =
     row.adType ?? row.ad_type ?? primaryListing?.adType ?? null;
 
+  const normalizedListingTypeValue =
+    typeof listingType === 'string' ? listingType.toLowerCase() : null;
+  const primaryListingTypeValue =
+    typeof primaryListing?.listingType === 'string'
+      ? primaryListing.listingType.toLowerCase()
+      : null;
+
+  const rawIsCommercial = (row as any).isCommercial ?? (row as any).is_commercial;
+  let isCommercial: boolean | null = null;
+  if (typeof rawIsCommercial === 'boolean') {
+    isCommercial = rawIsCommercial;
+  } else if (typeof rawIsCommercial === 'string') {
+    const normalized = rawIsCommercial.trim().toLowerCase();
+    if (normalized === 'true') {
+      isCommercial = true;
+    } else if (normalized === 'false') {
+      isCommercial = false;
+    }
+  } else if (
+    normalizedListingTypeValue === 'commercial' ||
+    primaryListingTypeValue === 'commercial'
+  ) {
+    isCommercial = true;
+  }
+
   const contactName =
     row.contactName ??
     row.contact_name ??
@@ -678,6 +704,7 @@ export function normalizeFromBackend(row: any): Asset {
     lon: row.lon ?? null,
     normalizedAddress: normalizedAddressValue ?? null,
     buildingType: buildingTypeValue,
+    isCommercial,
     floor: floorValue ?? null,
     totalFloors: row.totalFloors ?? row.total_floors ?? null,
     storageRoom: row.storageRoom ?? row.storage_room ?? null,

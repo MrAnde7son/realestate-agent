@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 class ListingType(Enum):
     SALE = "sale"
-    RENT = "rent" 
+    RENT = "rent"
+    COMMERCIAL = "commercial"
     ALL = "all"
 
 class Yad2Scraper:
@@ -129,8 +130,14 @@ class Yad2Scraper:
             urls = [f"{self.api_base_url}/realestate-feed/forsale/map"]
         elif listing_type == ListingType.RENT:
             urls = [f"{self.api_base_url}/realestate-feed/rent/map"]
+        elif listing_type == ListingType.COMMERCIAL:
+            urls = [f"{self.api_base_url}/realestate-feed/commercial/map"]
         else:
-            urls = [f"{self.api_base_url}/realestate-feed/forsale/map", f"{self.api_base_url}/realestate-feed/rent/map"]
+            urls = [
+                f"{self.api_base_url}/realestate-feed/forsale/map",
+                f"{self.api_base_url}/realestate-feed/rent/map",
+                f"{self.api_base_url}/realestate-feed/commercial/map",
+            ]
 
         listings: List[RealEstateListing] = []
         for url in urls:

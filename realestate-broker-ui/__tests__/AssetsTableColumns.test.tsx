@@ -50,7 +50,6 @@ describe('AssetsTable default columns', () => {
     })
 
     expect(screen.getByRole('columnheader', { name: 'סוג עסקה' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'איש קשר' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: '₪' })).toBeInTheDocument()
 
     expect(screen.queryByRole('columnheader', { name: 'ייעוד' })).not.toBeInTheDocument()

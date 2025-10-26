@@ -1671,6 +1671,19 @@ def _parse_optional_number(value, cast_type=float):
         return None
 
 
+def _parse_bool(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    value_str = str(value).strip().lower()
+    if value_str in {"1", "true", "yes", "on"}:
+        return True
+    if value_str in {"0", "false", "no", "off"}:
+        return False
+    return None
+
+
 def _apply_asset_filters(queryset, params, user):
     search = params.get("search")
     if search:
@@ -1844,6 +1857,12 @@ def _apply_asset_filters(queryset, params, user):
             queryset = queryset.filter(balcony_area__gt=0)
         elif features_filter == "storage":
             queryset = queryset.filter(storage_room=True)
+        elif features_filter == "air_conditioning":
+            queryset = queryset.filter(air_conditioning=True)
+        elif features_filter == "furnished":
+            queryset = queryset.filter(furnished=True)
+        elif features_filter == "renovated":
+            queryset = queryset.filter(renovated=True)
 
     price_per_sqm_min = _parse_optional_number(params.get("pricePerSqmMin"), int)
     if price_per_sqm_min is not None:
@@ -1868,6 +1887,106 @@ def _apply_asset_filters(queryset, params, user):
     parcel_filter = params.get("parcel")
     if parcel_filter and parcel_filter != "all":
         queryset = queryset.filter(parcel__iexact=parcel_filter)
+
+    bedrooms_min = _parse_optional_number(params.get("bedroomsMin"), int)
+    if bedrooms_min is not None:
+        queryset = queryset.filter(bedrooms__gte=bedrooms_min)
+
+    bedrooms_max = _parse_optional_number(params.get("bedroomsMax"), int)
+    if bedrooms_max is not None:
+        queryset = queryset.filter(bedrooms__lte=bedrooms_max)
+
+    bathrooms_min = _parse_optional_number(params.get("bathroomsMin"), int)
+    if bathrooms_min is not None:
+        queryset = queryset.filter(bathrooms__gte=bathrooms_min)
+
+    bathrooms_max = _parse_optional_number(params.get("bathroomsMax"), int)
+    if bathrooms_max is not None:
+        queryset = queryset.filter(bathrooms__lte=bathrooms_max)
+
+    total_floors_min = _parse_optional_number(params.get("totalFloorsMin"), int)
+    if total_floors_min is not None:
+        queryset = queryset.filter(total_floors__gte=total_floors_min)
+
+    total_floors_max = _parse_optional_number(params.get("totalFloorsMax"), int)
+    if total_floors_max is not None:
+        queryset = queryset.filter(total_floors__lte=total_floors_max)
+
+    total_area_min = _parse_optional_number(params.get("totalAreaMin"))
+    if total_area_min is not None:
+        queryset = queryset.filter(total_area__gte=total_area_min)
+
+    total_area_max = _parse_optional_number(params.get("totalAreaMax"))
+    if total_area_max is not None:
+        queryset = queryset.filter(total_area__lte=total_area_max)
+
+    balcony_area_min = _parse_optional_number(params.get("balconyAreaMin"))
+    if balcony_area_min is not None:
+        queryset = queryset.filter(balcony_area__gte=balcony_area_min)
+
+    balcony_area_max = _parse_optional_number(params.get("balconyAreaMax"))
+    if balcony_area_max is not None:
+        queryset = queryset.filter(balcony_area__lte=balcony_area_max)
+
+    parking_spaces_min = _parse_optional_number(params.get("parkingSpacesMin"), int)
+    if parking_spaces_min is not None:
+        queryset = queryset.filter(parking_spaces__gte=parking_spaces_min)
+
+    parking_spaces_max = _parse_optional_number(params.get("parkingSpacesMax"), int)
+    if parking_spaces_max is not None:
+        queryset = queryset.filter(parking_spaces__lte=parking_spaces_max)
+
+    year_built_min = _parse_optional_number(params.get("yearBuiltMin"), int)
+    if year_built_min is not None:
+        queryset = queryset.filter(year_built__gte=year_built_min)
+
+    year_built_max = _parse_optional_number(params.get("yearBuiltMax"), int)
+    if year_built_max is not None:
+        queryset = queryset.filter(year_built__lte=year_built_max)
+
+    rent_estimate_min = _parse_optional_number(params.get("rentEstimateMin"), int)
+    if rent_estimate_min is not None:
+        queryset = queryset.filter(rent_estimate__gte=rent_estimate_min)
+
+    rent_estimate_max = _parse_optional_number(params.get("rentEstimateMax"), int)
+    if rent_estimate_max is not None:
+        queryset = queryset.filter(rent_estimate__lte=rent_estimate_max)
+
+    price_gap_pct_min = _parse_optional_number(params.get("priceGapPctMin"))
+    if price_gap_pct_min is not None:
+        queryset = queryset.filter(price_gap_pct__gte=price_gap_pct_min)
+
+    price_gap_pct_max = _parse_optional_number(params.get("priceGapPctMax"))
+    if price_gap_pct_max is not None:
+        queryset = queryset.filter(price_gap_pct__lte=price_gap_pct_max)
+
+    cap_rate_pct_min = _parse_optional_number(params.get("capRatePctMin"))
+    if cap_rate_pct_min is not None:
+        queryset = queryset.filter(cap_rate_pct__gte=cap_rate_pct_min)
+
+    cap_rate_pct_max = _parse_optional_number(params.get("capRatePctMax"))
+    if cap_rate_pct_max is not None:
+        queryset = queryset.filter(cap_rate_pct__lte=cap_rate_pct_max)
+
+    renovated_filter = _parse_bool(params.get("renovated"))
+    if renovated_filter is not None:
+        queryset = queryset.filter(renovated=renovated_filter)
+
+    furnished_filter = _parse_bool(params.get("furnished"))
+    if furnished_filter is not None:
+        queryset = queryset.filter(furnished=furnished_filter)
+
+    air_conditioning_filter = _parse_bool(params.get("airConditioning"))
+    if air_conditioning_filter is not None:
+        queryset = queryset.filter(air_conditioning=air_conditioning_filter)
+
+    storage_room_filter = _parse_bool(params.get("storageRoom"))
+    if storage_room_filter is not None:
+        queryset = queryset.filter(storage_room=storage_room_filter)
+
+    elevator_filter = _parse_bool(params.get("hasElevator"))
+    if elevator_filter is not None:
+        queryset = queryset.filter(elevator=elevator_filter)
 
     return queryset.distinct()
 
@@ -1918,6 +2037,36 @@ def _get_asset_filter_metadata():
         }
     )
 
+    numeric_ranges = base_qs.aggregate(
+        bedrooms_min=Min("bedrooms"),
+        bedrooms_max=Max("bedrooms"),
+        bathrooms_min=Min("bathrooms"),
+        bathrooms_max=Max("bathrooms"),
+        total_floors_min=Min("total_floors"),
+        total_floors_max=Max("total_floors"),
+        parking_spaces_min=Min("parking_spaces"),
+        parking_spaces_max=Max("parking_spaces"),
+        balcony_area_min=Min("balcony_area"),
+        balcony_area_max=Max("balcony_area"),
+        total_area_min=Min("total_area"),
+        total_area_max=Max("total_area"),
+        year_built_min=Min("year_built"),
+        year_built_max=Max("year_built"),
+        rent_estimate_min=Min("rent_estimate"),
+        rent_estimate_max=Max("rent_estimate"),
+        price_gap_pct_min=Min("price_gap_pct"),
+        price_gap_pct_max=Max("price_gap_pct"),
+        cap_rate_pct_min=Min("cap_rate_pct"),
+        cap_rate_pct_max=Max("cap_rate_pct"),
+    )
+
+    def _range_dict(min_key, max_key):
+        min_value = numeric_ranges.get(min_key)
+        max_value = numeric_ranges.get(max_key)
+        if min_value is None and max_value is None:
+            return {"min": None, "max": None}
+        return {"min": min_value, "max": max_value}
+
     return {
         "cities": sorted(set(_distinct("city"))),
         "types": sorted(property_types),
@@ -1929,6 +2078,51 @@ def _get_asset_filter_metadata():
         "rooms": room_values,
         "statusCounts": status_counts,
         "listingAdTypes": listing_ad_types,
+        "bedroomCounts": sorted(
+            {
+                value
+                for value in base_qs.order_by().values_list("bedrooms", flat=True).distinct()
+                if value is not None
+            }
+        ),
+        "bathroomCounts": sorted(
+            {
+                value
+                for value in base_qs.order_by().values_list("bathrooms", flat=True).distinct()
+                if value is not None
+            }
+        ),
+        "totalFloorCounts": sorted(
+            {
+                value
+                for value in base_qs.order_by().values_list("total_floors", flat=True).distinct()
+                if value is not None
+            }
+        ),
+        "parkingSpaceCounts": sorted(
+            {
+                value
+                for value in base_qs.order_by().values_list("parking_spaces", flat=True).distinct()
+                if value is not None
+            }
+        ),
+        "balconyAreas": sorted(
+            {
+                value
+                for value in base_qs.order_by().values_list("balcony_area", flat=True).distinct()
+                if value is not None
+            }
+        ),
+        "totalAreaRange": _range_dict("total_area_min", "total_area_max"),
+        "yearBuiltRange": _range_dict("year_built_min", "year_built_max"),
+        "rentEstimateRange": _range_dict("rent_estimate_min", "rent_estimate_max"),
+        "priceGapPctRange": _range_dict("price_gap_pct_min", "price_gap_pct_max"),
+        "capRatePctRange": _range_dict("cap_rate_pct_min", "cap_rate_pct_max"),
+        "bedroomRange": _range_dict("bedrooms_min", "bedrooms_max"),
+        "bathroomRange": _range_dict("bathrooms_min", "bathrooms_max"),
+        "totalFloorRange": _range_dict("total_floors_min", "total_floors_max"),
+        "parkingSpaceRange": _range_dict("parking_spaces_min", "parking_spaces_max"),
+        "balconyAreaRange": _range_dict("balcony_area_min", "balcony_area_max"),
     }
 
 

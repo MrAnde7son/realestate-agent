@@ -76,6 +76,21 @@ type AssetFilterMetadata = {
   buildingTypes: string[];
   rooms: number[];
   statusCounts: Record<string, number>;
+  bedroomCounts: number[];
+  bathroomCounts: number[];
+  totalFloorCounts: number[];
+  parkingSpaceCounts: number[];
+  balconyAreas: number[];
+  totalAreaRange: { min: number | null; max: number | null };
+  yearBuiltRange: { min: number | null; max: number | null };
+  rentEstimateRange: { min: number | null; max: number | null };
+  priceGapPctRange: { min: number | null; max: number | null };
+  capRatePctRange: { min: number | null; max: number | null };
+  bedroomRange: { min: number | null; max: number | null };
+  bathroomRange: { min: number | null; max: number | null };
+  totalFloorRange: { min: number | null; max: number | null };
+  parkingSpaceRange: { min: number | null; max: number | null };
+  balconyAreaRange: { min: number | null; max: number | null };
 };
 
 export default function AssetsPage() {
@@ -95,6 +110,21 @@ export default function AssetsPage() {
     buildingTypes: [],
     rooms: [],
     statusCounts: {},
+    bedroomCounts: [],
+    bathroomCounts: [],
+    totalFloorCounts: [],
+    parkingSpaceCounts: [],
+    balconyAreas: [],
+    totalAreaRange: { min: null, max: null },
+    yearBuiltRange: { min: null, max: null },
+    rentEstimateRange: { min: null, max: null },
+    priceGapPctRange: { min: null, max: null },
+    capRatePctRange: { min: null, max: null },
+    bedroomRange: { min: null, max: null },
+    bathroomRange: { min: null, max: null },
+    totalFloorRange: { min: null, max: null },
+    parkingSpaceRange: { min: null, max: null },
+    balconyAreaRange: { min: null, max: null },
   });
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
@@ -135,6 +165,86 @@ export default function AssetsPage() {
     const val = searchParams.get("areaMax");
     return val ? Number(val) : undefined;
   });
+  const [bedroomsMin, setBedroomsMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("bedroomsMin");
+    return val ? Number(val) : undefined;
+  });
+  const [bedroomsMax, setBedroomsMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("bedroomsMax");
+    return val ? Number(val) : undefined;
+  });
+  const [bathroomsMin, setBathroomsMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("bathroomsMin");
+    return val ? Number(val) : undefined;
+  });
+  const [bathroomsMax, setBathroomsMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("bathroomsMax");
+    return val ? Number(val) : undefined;
+  });
+  const [totalFloorsMin, setTotalFloorsMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("totalFloorsMin");
+    return val ? Number(val) : undefined;
+  });
+  const [totalFloorsMax, setTotalFloorsMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("totalFloorsMax");
+    return val ? Number(val) : undefined;
+  });
+  const [totalAreaMin, setTotalAreaMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("totalAreaMin");
+    return val ? Number(val) : undefined;
+  });
+  const [totalAreaMax, setTotalAreaMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("totalAreaMax");
+    return val ? Number(val) : undefined;
+  });
+  const [balconyAreaMin, setBalconyAreaMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("balconyAreaMin");
+    return val ? Number(val) : undefined;
+  });
+  const [balconyAreaMax, setBalconyAreaMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("balconyAreaMax");
+    return val ? Number(val) : undefined;
+  });
+  const [parkingSpacesMin, setParkingSpacesMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("parkingSpacesMin");
+    return val ? Number(val) : undefined;
+  });
+  const [parkingSpacesMax, setParkingSpacesMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("parkingSpacesMax");
+    return val ? Number(val) : undefined;
+  });
+  const [yearBuiltMin, setYearBuiltMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("yearBuiltMin");
+    return val ? Number(val) : undefined;
+  });
+  const [yearBuiltMax, setYearBuiltMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("yearBuiltMax");
+    return val ? Number(val) : undefined;
+  });
+  const [rentEstimateMin, setRentEstimateMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("rentEstimateMin");
+    return val ? Number(val) : undefined;
+  });
+  const [rentEstimateMax, setRentEstimateMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("rentEstimateMax");
+    return val ? Number(val) : undefined;
+  });
+  const [priceGapPctMin, setPriceGapPctMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("priceGapPctMin");
+    return val ? Number(val) : undefined;
+  });
+  const [priceGapPctMax, setPriceGapPctMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("priceGapPctMax");
+    return val ? Number(val) : undefined;
+  });
+  const [capRatePctMin, setCapRatePctMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("capRatePctMin");
+    return val ? Number(val) : undefined;
+  });
+  const [capRatePctMax, setCapRatePctMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("capRatePctMax");
+    return val ? Number(val) : undefined;
+  });
   const [roomsFilter, setRoomsFilter] = useState<string>(() => searchParams.get("rooms") ?? "all");
   const [featuresFilter, setFeaturesFilter] = useState<string>(() => searchParams.get("features") ?? "all");
   const [pricePerSqmMin, setPricePerSqmMin] = useState<number | undefined>(() => {
@@ -155,6 +265,26 @@ export default function AssetsPage() {
   });
   const [blockFilter, setBlockFilter] = useState<string>(() => searchParams.get("block") ?? "all");
   const [parcelFilter, setParcelFilter] = useState<string>(() => searchParams.get("parcel") ?? "all");
+  const [renovatedFilter, setRenovatedFilter] = useState<string>(() => {
+    const value = searchParams.get("renovated");
+    return value ?? "all";
+  });
+  const [furnishedFilter, setFurnishedFilter] = useState<string>(() => {
+    const value = searchParams.get("furnished");
+    return value ?? "all";
+  });
+  const [airConditioningFilter, setAirConditioningFilter] = useState<string>(() => {
+    const value = searchParams.get("airConditioning");
+    return value ?? "all";
+  });
+  const [storageRoomFilter, setStorageRoomFilter] = useState<string>(() => {
+    const value = searchParams.get("storageRoom");
+    return value ?? "all";
+  });
+  const [hasElevatorFilter, setHasElevatorFilter] = useState<string>(() => {
+    const value = searchParams.get("hasElevator");
+    return value ?? "all";
+  });
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
   const { user, isAuthenticated, refreshUser } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -267,6 +397,46 @@ export default function AssetsPage() {
     setAreaMin(areaMinVal ? Number(areaMinVal) : undefined);
     const areaMaxVal = searchParams.get("areaMax");
     setAreaMax(areaMaxVal ? Number(areaMaxVal) : undefined);
+    const bedroomsMinVal = searchParams.get("bedroomsMin");
+    setBedroomsMin(bedroomsMinVal ? Number(bedroomsMinVal) : undefined);
+    const bedroomsMaxVal = searchParams.get("bedroomsMax");
+    setBedroomsMax(bedroomsMaxVal ? Number(bedroomsMaxVal) : undefined);
+    const bathroomsMinVal = searchParams.get("bathroomsMin");
+    setBathroomsMin(bathroomsMinVal ? Number(bathroomsMinVal) : undefined);
+    const bathroomsMaxVal = searchParams.get("bathroomsMax");
+    setBathroomsMax(bathroomsMaxVal ? Number(bathroomsMaxVal) : undefined);
+    const totalFloorsMinVal = searchParams.get("totalFloorsMin");
+    setTotalFloorsMin(totalFloorsMinVal ? Number(totalFloorsMinVal) : undefined);
+    const totalFloorsMaxVal = searchParams.get("totalFloorsMax");
+    setTotalFloorsMax(totalFloorsMaxVal ? Number(totalFloorsMaxVal) : undefined);
+    const totalAreaMinVal = searchParams.get("totalAreaMin");
+    setTotalAreaMin(totalAreaMinVal ? Number(totalAreaMinVal) : undefined);
+    const totalAreaMaxVal = searchParams.get("totalAreaMax");
+    setTotalAreaMax(totalAreaMaxVal ? Number(totalAreaMaxVal) : undefined);
+    const balconyAreaMinVal = searchParams.get("balconyAreaMin");
+    setBalconyAreaMin(balconyAreaMinVal ? Number(balconyAreaMinVal) : undefined);
+    const balconyAreaMaxVal = searchParams.get("balconyAreaMax");
+    setBalconyAreaMax(balconyAreaMaxVal ? Number(balconyAreaMaxVal) : undefined);
+    const parkingSpacesMinVal = searchParams.get("parkingSpacesMin");
+    setParkingSpacesMin(parkingSpacesMinVal ? Number(parkingSpacesMinVal) : undefined);
+    const parkingSpacesMaxVal = searchParams.get("parkingSpacesMax");
+    setParkingSpacesMax(parkingSpacesMaxVal ? Number(parkingSpacesMaxVal) : undefined);
+    const yearBuiltMinVal = searchParams.get("yearBuiltMin");
+    setYearBuiltMin(yearBuiltMinVal ? Number(yearBuiltMinVal) : undefined);
+    const yearBuiltMaxVal = searchParams.get("yearBuiltMax");
+    setYearBuiltMax(yearBuiltMaxVal ? Number(yearBuiltMaxVal) : undefined);
+    const rentEstimateMinVal = searchParams.get("rentEstimateMin");
+    setRentEstimateMin(rentEstimateMinVal ? Number(rentEstimateMinVal) : undefined);
+    const rentEstimateMaxVal = searchParams.get("rentEstimateMax");
+    setRentEstimateMax(rentEstimateMaxVal ? Number(rentEstimateMaxVal) : undefined);
+    const priceGapPctMinVal = searchParams.get("priceGapPctMin");
+    setPriceGapPctMin(priceGapPctMinVal ? Number(priceGapPctMinVal) : undefined);
+    const priceGapPctMaxVal = searchParams.get("priceGapPctMax");
+    setPriceGapPctMax(priceGapPctMaxVal ? Number(priceGapPctMaxVal) : undefined);
+    const capRatePctMinVal = searchParams.get("capRatePctMin");
+    setCapRatePctMin(capRatePctMinVal ? Number(capRatePctMinVal) : undefined);
+    const capRatePctMaxVal = searchParams.get("capRatePctMax");
+    setCapRatePctMax(capRatePctMaxVal ? Number(capRatePctMaxVal) : undefined);
     setRoomsFilter(searchParams.get("rooms") ?? "all");
     setFeaturesFilter(searchParams.get("features") ?? "all");
     const pricePerSqmMinVal = searchParams.get("pricePerSqmMin");
@@ -279,6 +449,11 @@ export default function AssetsPage() {
     setRemainingRightsMax(remainingRightsMaxVal ? Number(remainingRightsMaxVal) : undefined);
     setBlockFilter(searchParams.get("block") ?? "all");
     setParcelFilter(searchParams.get("parcel") ?? "all");
+    setRenovatedFilter(searchParams.get("renovated") ?? "all");
+    setFurnishedFilter(searchParams.get("furnished") ?? "all");
+    setAirConditioningFilter(searchParams.get("airConditioning") ?? "all");
+    setStorageRoomFilter(searchParams.get("storageRoom") ?? "all");
+    setHasElevatorFilter(searchParams.get("hasElevator") ?? "all");
     const pageParam = searchParams.get("page");
     const pageSizeParam = searchParams.get("pageSize");
     setPagination(prev => {
@@ -386,6 +561,106 @@ export default function AssetsPage() {
     } else {
       params.delete("areaMax");
     }
+    if (bedroomsMin !== undefined) {
+      params.set("bedroomsMin", bedroomsMin.toString());
+    } else {
+      params.delete("bedroomsMin");
+    }
+    if (bedroomsMax !== undefined) {
+      params.set("bedroomsMax", bedroomsMax.toString());
+    } else {
+      params.delete("bedroomsMax");
+    }
+    if (bathroomsMin !== undefined) {
+      params.set("bathroomsMin", bathroomsMin.toString());
+    } else {
+      params.delete("bathroomsMin");
+    }
+    if (bathroomsMax !== undefined) {
+      params.set("bathroomsMax", bathroomsMax.toString());
+    } else {
+      params.delete("bathroomsMax");
+    }
+    if (totalFloorsMin !== undefined) {
+      params.set("totalFloorsMin", totalFloorsMin.toString());
+    } else {
+      params.delete("totalFloorsMin");
+    }
+    if (totalFloorsMax !== undefined) {
+      params.set("totalFloorsMax", totalFloorsMax.toString());
+    } else {
+      params.delete("totalFloorsMax");
+    }
+    if (totalAreaMin !== undefined) {
+      params.set("totalAreaMin", totalAreaMin.toString());
+    } else {
+      params.delete("totalAreaMin");
+    }
+    if (totalAreaMax !== undefined) {
+      params.set("totalAreaMax", totalAreaMax.toString());
+    } else {
+      params.delete("totalAreaMax");
+    }
+    if (balconyAreaMin !== undefined) {
+      params.set("balconyAreaMin", balconyAreaMin.toString());
+    } else {
+      params.delete("balconyAreaMin");
+    }
+    if (balconyAreaMax !== undefined) {
+      params.set("balconyAreaMax", balconyAreaMax.toString());
+    } else {
+      params.delete("balconyAreaMax");
+    }
+    if (parkingSpacesMin !== undefined) {
+      params.set("parkingSpacesMin", parkingSpacesMin.toString());
+    } else {
+      params.delete("parkingSpacesMin");
+    }
+    if (parkingSpacesMax !== undefined) {
+      params.set("parkingSpacesMax", parkingSpacesMax.toString());
+    } else {
+      params.delete("parkingSpacesMax");
+    }
+    if (yearBuiltMin !== undefined) {
+      params.set("yearBuiltMin", yearBuiltMin.toString());
+    } else {
+      params.delete("yearBuiltMin");
+    }
+    if (yearBuiltMax !== undefined) {
+      params.set("yearBuiltMax", yearBuiltMax.toString());
+    } else {
+      params.delete("yearBuiltMax");
+    }
+    if (rentEstimateMin !== undefined) {
+      params.set("rentEstimateMin", rentEstimateMin.toString());
+    } else {
+      params.delete("rentEstimateMin");
+    }
+    if (rentEstimateMax !== undefined) {
+      params.set("rentEstimateMax", rentEstimateMax.toString());
+    } else {
+      params.delete("rentEstimateMax");
+    }
+    if (priceGapPctMin !== undefined) {
+      params.set("priceGapPctMin", priceGapPctMin.toString());
+    } else {
+      params.delete("priceGapPctMin");
+    }
+    if (priceGapPctMax !== undefined) {
+      params.set("priceGapPctMax", priceGapPctMax.toString());
+    } else {
+      params.delete("priceGapPctMax");
+    }
+    if (capRatePctMin !== undefined) {
+      params.set("capRatePctMin", capRatePctMin.toString());
+    } else {
+      params.delete("capRatePctMin");
+    }
+    if (capRatePctMax !== undefined) {
+      params.set("capRatePctMax", capRatePctMax.toString());
+    } else {
+      params.delete("capRatePctMax");
+    }
     if (roomsFilter && roomsFilter !== "all") {
       params.set("rooms", roomsFilter);
     } else {
@@ -426,6 +701,31 @@ export default function AssetsPage() {
     } else {
       params.delete("parcel");
     }
+    if (renovatedFilter && renovatedFilter !== "all") {
+      params.set("renovated", renovatedFilter);
+    } else {
+      params.delete("renovated");
+    }
+    if (furnishedFilter && furnishedFilter !== "all") {
+      params.set("furnished", furnishedFilter);
+    } else {
+      params.delete("furnished");
+    }
+    if (airConditioningFilter && airConditioningFilter !== "all") {
+      params.set("airConditioning", airConditioningFilter);
+    } else {
+      params.delete("airConditioning");
+    }
+    if (storageRoomFilter && storageRoomFilter !== "all") {
+      params.set("storageRoom", storageRoomFilter);
+    } else {
+      params.delete("storageRoom");
+    }
+    if (hasElevatorFilter && hasElevatorFilter !== "all") {
+      params.set("hasElevator", hasElevatorFilter);
+    } else {
+      params.delete("hasElevator");
+    }
     if (pagination.pageIndex > 0) {
       params.set("page", String(pagination.pageIndex + 1));
     } else {
@@ -462,6 +762,26 @@ export default function AssetsPage() {
     floorMax,
     areaMin,
     areaMax,
+    bedroomsMin,
+    bedroomsMax,
+    bathroomsMin,
+    bathroomsMax,
+    totalFloorsMin,
+    totalFloorsMax,
+    totalAreaMin,
+    totalAreaMax,
+    balconyAreaMin,
+    balconyAreaMax,
+    parkingSpacesMin,
+    parkingSpacesMax,
+    yearBuiltMin,
+    yearBuiltMax,
+    rentEstimateMin,
+    rentEstimateMax,
+    priceGapPctMin,
+    priceGapPctMax,
+    capRatePctMin,
+    capRatePctMax,
     roomsFilter,
     featuresFilter,
     pricePerSqmMin,
@@ -470,6 +790,11 @@ export default function AssetsPage() {
     remainingRightsMax,
     blockFilter,
     parcelFilter,
+    renovatedFilter,
+    furnishedFilter,
+    airConditioningFilter,
+    storageRoomFilter,
+    hasElevatorFilter,
     pagination.pageIndex,
     pagination.pageSize,
     router,
@@ -498,6 +823,26 @@ export default function AssetsPage() {
     floorMax,
     areaMin,
     areaMax,
+    bedroomsMin,
+    bedroomsMax,
+    bathroomsMin,
+    bathroomsMax,
+    totalFloorsMin,
+    totalFloorsMax,
+    totalAreaMin,
+    totalAreaMax,
+    balconyAreaMin,
+    balconyAreaMax,
+    parkingSpacesMin,
+    parkingSpacesMax,
+    yearBuiltMin,
+    yearBuiltMax,
+    rentEstimateMin,
+    rentEstimateMax,
+    priceGapPctMin,
+    priceGapPctMax,
+    capRatePctMin,
+    capRatePctMax,
     roomsFilter,
     featuresFilter,
     pricePerSqmMin,
@@ -506,6 +851,11 @@ export default function AssetsPage() {
     remainingRightsMax,
     blockFilter,
     parcelFilter,
+    renovatedFilter,
+    furnishedFilter,
+    airConditioningFilter,
+    storageRoomFilter,
+    hasElevatorFilter,
   ]);
 
   // Function to fetch assets
@@ -543,6 +893,26 @@ export default function AssetsPage() {
       if (floorMax != null) params.set("floorMax", String(floorMax));
       if (areaMin != null) params.set("areaMin", String(areaMin));
       if (areaMax != null) params.set("areaMax", String(areaMax));
+      if (bedroomsMin != null) params.set("bedroomsMin", String(bedroomsMin));
+      if (bedroomsMax != null) params.set("bedroomsMax", String(bedroomsMax));
+      if (bathroomsMin != null) params.set("bathroomsMin", String(bathroomsMin));
+      if (bathroomsMax != null) params.set("bathroomsMax", String(bathroomsMax));
+      if (totalFloorsMin != null) params.set("totalFloorsMin", String(totalFloorsMin));
+      if (totalFloorsMax != null) params.set("totalFloorsMax", String(totalFloorsMax));
+      if (totalAreaMin != null) params.set("totalAreaMin", String(totalAreaMin));
+      if (totalAreaMax != null) params.set("totalAreaMax", String(totalAreaMax));
+      if (balconyAreaMin != null) params.set("balconyAreaMin", String(balconyAreaMin));
+      if (balconyAreaMax != null) params.set("balconyAreaMax", String(balconyAreaMax));
+      if (parkingSpacesMin != null) params.set("parkingSpacesMin", String(parkingSpacesMin));
+      if (parkingSpacesMax != null) params.set("parkingSpacesMax", String(parkingSpacesMax));
+      if (yearBuiltMin != null) params.set("yearBuiltMin", String(yearBuiltMin));
+      if (yearBuiltMax != null) params.set("yearBuiltMax", String(yearBuiltMax));
+      if (rentEstimateMin != null) params.set("rentEstimateMin", String(rentEstimateMin));
+      if (rentEstimateMax != null) params.set("rentEstimateMax", String(rentEstimateMax));
+      if (priceGapPctMin != null) params.set("priceGapPctMin", String(priceGapPctMin));
+      if (priceGapPctMax != null) params.set("priceGapPctMax", String(priceGapPctMax));
+      if (capRatePctMin != null) params.set("capRatePctMin", String(capRatePctMin));
+      if (capRatePctMax != null) params.set("capRatePctMax", String(capRatePctMax));
       if (roomsFilter && roomsFilter !== "all") params.set("rooms", roomsFilter);
       if (featuresFilter && featuresFilter !== "all") params.set("features", featuresFilter);
       if (pricePerSqmMin != null) params.set("pricePerSqmMin", String(pricePerSqmMin));
@@ -551,6 +921,11 @@ export default function AssetsPage() {
       if (remainingRightsMax != null) params.set("remainingRightsMax", String(remainingRightsMax));
       if (blockFilter && blockFilter !== "all") params.set("block", blockFilter);
       if (parcelFilter && parcelFilter !== "all") params.set("parcel", parcelFilter);
+      if (renovatedFilter && renovatedFilter !== "all") params.set("renovated", renovatedFilter);
+      if (furnishedFilter && furnishedFilter !== "all") params.set("furnished", furnishedFilter);
+      if (airConditioningFilter && airConditioningFilter !== "all") params.set("airConditioning", airConditioningFilter);
+      if (storageRoomFilter && storageRoomFilter !== "all") params.set("storageRoom", storageRoomFilter);
+      if (hasElevatorFilter && hasElevatorFilter !== "all") params.set("hasElevator", hasElevatorFilter);
 
       const query = params.toString();
       const endpoint = query ? `/api/assets?${query}` : "/api/assets";
@@ -581,6 +956,21 @@ export default function AssetsPage() {
             buildingTypes: filters.buildingTypes ?? [],
             rooms: filters.rooms ?? [],
             statusCounts: filters.statusCounts ?? {},
+            bedroomCounts: filters.bedroomCounts ?? [],
+            bathroomCounts: filters.bathroomCounts ?? [],
+            totalFloorCounts: filters.totalFloorCounts ?? [],
+            parkingSpaceCounts: filters.parkingSpaceCounts ?? [],
+            balconyAreas: filters.balconyAreas ?? [],
+            totalAreaRange: filters.totalAreaRange ?? { min: null, max: null },
+            yearBuiltRange: filters.yearBuiltRange ?? { min: null, max: null },
+            rentEstimateRange: filters.rentEstimateRange ?? { min: null, max: null },
+            priceGapPctRange: filters.priceGapPctRange ?? { min: null, max: null },
+            capRatePctRange: filters.capRatePctRange ?? { min: null, max: null },
+            bedroomRange: filters.bedroomRange ?? { min: null, max: null },
+            bathroomRange: filters.bathroomRange ?? { min: null, max: null },
+            totalFloorRange: filters.totalFloorRange ?? { min: null, max: null },
+            parkingSpaceRange: filters.parkingSpaceRange ?? { min: null, max: null },
+            balconyAreaRange: filters.balconyAreaRange ?? { min: null, max: null },
           });
         }
 
@@ -640,6 +1030,26 @@ export default function AssetsPage() {
     floorMax,
     areaMin,
     areaMax,
+    bedroomsMin,
+    bedroomsMax,
+    bathroomsMin,
+    bathroomsMax,
+    totalFloorsMin,
+    totalFloorsMax,
+    totalAreaMin,
+    totalAreaMax,
+    balconyAreaMin,
+    balconyAreaMax,
+    parkingSpacesMin,
+    parkingSpacesMax,
+    yearBuiltMin,
+    yearBuiltMax,
+    rentEstimateMin,
+    rentEstimateMax,
+    priceGapPctMin,
+    priceGapPctMax,
+    capRatePctMin,
+    capRatePctMax,
     roomsFilter,
     featuresFilter,
     pricePerSqmMin,
@@ -648,6 +1058,11 @@ export default function AssetsPage() {
     remainingRightsMax,
     blockFilter,
     parcelFilter,
+    renovatedFilter,
+    furnishedFilter,
+    airConditioningFilter,
+    storageRoomFilter,
+    hasElevatorFilter,
   ]);
 
   const handleDeleteAsset = async (assetId: number) => {
@@ -1159,6 +1574,9 @@ export default function AssetsPage() {
       { value: "parking", label: "חניה" },
       { value: "balcony", label: "מרפסת" },
       { value: "storage", label: "מחסן" },
+      { value: "air_conditioning", label: "מיזוג אוויר" },
+      { value: "furnished", label: "מרוהט" },
+      { value: "renovated", label: "משופץ" },
     ],
     []
   );
@@ -1504,6 +1922,99 @@ export default function AssetsPage() {
                   value: areaMax,
                   onChange: setAreaMax
                 },
+                bedrooms: {
+                  value: { min: bedroomsMin, max: bedroomsMax },
+                  onChange: ({ min, max }) => {
+                    setBedroomsMin(min);
+                    setBedroomsMax(max);
+                  },
+                  minPlaceholder: filterMetadata.bedroomRange.min != null ? `${filterMetadata.bedroomRange.min}` : 'מינ חדרי שינה',
+                  maxPlaceholder: filterMetadata.bedroomRange.max != null ? `${filterMetadata.bedroomRange.max}` : 'מקס חדרי שינה',
+                },
+                bathrooms: {
+                  value: { min: bathroomsMin, max: bathroomsMax },
+                  onChange: ({ min, max }) => {
+                    setBathroomsMin(min);
+                    setBathroomsMax(max);
+                  },
+                  minPlaceholder: filterMetadata.bathroomRange.min != null ? `${filterMetadata.bathroomRange.min}` : 'מינ חדרי רחצה',
+                  maxPlaceholder: filterMetadata.bathroomRange.max != null ? `${filterMetadata.bathroomRange.max}` : 'מקס חדרי רחצה',
+                },
+                totalFloors: {
+                  value: { min: totalFloorsMin, max: totalFloorsMax },
+                  onChange: ({ min, max }) => {
+                    setTotalFloorsMin(min);
+                    setTotalFloorsMax(max);
+                  },
+                  minPlaceholder: filterMetadata.totalFloorRange.min != null ? `${filterMetadata.totalFloorRange.min}` : 'מינ קומות בבניין',
+                  maxPlaceholder: filterMetadata.totalFloorRange.max != null ? `${filterMetadata.totalFloorRange.max}` : 'מקס קומות בבניין',
+                },
+                totalArea: {
+                  value: { min: totalAreaMin, max: totalAreaMax },
+                  onChange: ({ min, max }) => {
+                    setTotalAreaMin(min);
+                    setTotalAreaMax(max);
+                  },
+                  minPlaceholder: filterMetadata.totalAreaRange.min != null ? `${filterMetadata.totalAreaRange.min}` : 'מינ שטח כולל',
+                  maxPlaceholder: filterMetadata.totalAreaRange.max != null ? `${filterMetadata.totalAreaRange.max}` : 'מקס שטח כולל',
+                },
+                balconyArea: {
+                  value: { min: balconyAreaMin, max: balconyAreaMax },
+                  onChange: ({ min, max }) => {
+                    setBalconyAreaMin(min);
+                    setBalconyAreaMax(max);
+                  },
+                  minPlaceholder: filterMetadata.balconyAreaRange.min != null ? `${filterMetadata.balconyAreaRange.min}` : 'מינ שטח מרפסת',
+                  maxPlaceholder: filterMetadata.balconyAreaRange.max != null ? `${filterMetadata.balconyAreaRange.max}` : 'מקס שטח מרפסת',
+                },
+                parkingSpaces: {
+                  value: { min: parkingSpacesMin, max: parkingSpacesMax },
+                  onChange: ({ min, max }) => {
+                    setParkingSpacesMin(min);
+                    setParkingSpacesMax(max);
+                  },
+                  minPlaceholder: filterMetadata.parkingSpaceRange.min != null ? `${filterMetadata.parkingSpaceRange.min}` : 'מינ חניות',
+                  maxPlaceholder: filterMetadata.parkingSpaceRange.max != null ? `${filterMetadata.parkingSpaceRange.max}` : 'מקס חניות',
+                },
+                yearBuilt: {
+                  value: { min: yearBuiltMin, max: yearBuiltMax },
+                  onChange: ({ min, max }) => {
+                    setYearBuiltMin(min);
+                    setYearBuiltMax(max);
+                  },
+                  minPlaceholder: filterMetadata.yearBuiltRange.min != null ? `${filterMetadata.yearBuiltRange.min}` : 'משנת',
+                  maxPlaceholder: filterMetadata.yearBuiltRange.max != null ? `${filterMetadata.yearBuiltRange.max}` : 'עד שנת',
+                  step: 1,
+                },
+                rentEstimate: {
+                  value: { min: rentEstimateMin, max: rentEstimateMax },
+                  onChange: ({ min, max }) => {
+                    setRentEstimateMin(min);
+                    setRentEstimateMax(max);
+                  },
+                  minPlaceholder: filterMetadata.rentEstimateRange.min != null ? `${filterMetadata.rentEstimateRange.min}` : 'שכירות מינ',
+                  maxPlaceholder: filterMetadata.rentEstimateRange.max != null ? `${filterMetadata.rentEstimateRange.max}` : 'שכירות מקס',
+                },
+                priceGapPct: {
+                  value: { min: priceGapPctMin, max: priceGapPctMax },
+                  onChange: ({ min, max }) => {
+                    setPriceGapPctMin(min);
+                    setPriceGapPctMax(max);
+                  },
+                  minPlaceholder: filterMetadata.priceGapPctRange.min != null ? `${filterMetadata.priceGapPctRange.min}` : 'פער מינ %',
+                  maxPlaceholder: filterMetadata.priceGapPctRange.max != null ? `${filterMetadata.priceGapPctRange.max}` : 'פער מקס %',
+                  step: 0.5,
+                },
+                capRatePct: {
+                  value: { min: capRatePctMin, max: capRatePctMax },
+                  onChange: ({ min, max }) => {
+                    setCapRatePctMin(min);
+                    setCapRatePctMax(max);
+                  },
+                  minPlaceholder: filterMetadata.capRatePctRange.min != null ? `${filterMetadata.capRatePctRange.min}` : 'תשואה מינ %',
+                  maxPlaceholder: filterMetadata.capRatePctRange.max != null ? `${filterMetadata.capRatePctRange.max}` : 'תשואה מקס %',
+                  step: 0.1,
+                },
                 rooms: {
                   value: roomsFilter,
                   onChange: setRoomsFilter,
@@ -1513,7 +2024,52 @@ export default function AssetsPage() {
                   value: featuresFilter,
                   onChange: setFeaturesFilter,
                   options: featuresFilterOptions
-                }
+                },
+                renovated: {
+                  value: renovatedFilter,
+                  onChange: setRenovatedFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'משופץ' },
+                    { value: 'false', label: 'לא משופץ' },
+                  ]
+                },
+                furnished: {
+                  value: furnishedFilter,
+                  onChange: setFurnishedFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'מרוהט' },
+                    { value: 'false', label: 'לא מרוהט' },
+                  ]
+                },
+                airConditioning: {
+                  value: airConditioningFilter,
+                  onChange: setAirConditioningFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'עם מיזוג' },
+                    { value: 'false', label: 'ללא מיזוג' },
+                  ]
+                },
+                storageRoom: {
+                  value: storageRoomFilter,
+                  onChange: setStorageRoomFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'עם מחסן' },
+                    { value: 'false', label: 'ללא מחסן' },
+                  ]
+                },
+                hasElevator: {
+                  value: hasElevatorFilter,
+                  onChange: setHasElevatorFilter,
+                  options: [
+                    { value: 'all', label: 'הכל' },
+                    { value: 'true', label: 'עם מעלית' },
+                    { value: 'false', label: 'ללא מעלית' },
+                  ]
+                },
               }}
               onRefresh={fetchAssets}
               onAddNew={() => {

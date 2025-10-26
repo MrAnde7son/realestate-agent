@@ -1008,6 +1008,10 @@ export default function AssetsTable({
         filters.adType?.onChange(value)
         track('adType', value)
         break
+      case 'commercial':
+        filters.commercial?.onChange(value)
+        track('commercial', value)
+        break
       case 'userAssets':
         filters.userAssets?.onChange(value)
         track('userAssets', value)

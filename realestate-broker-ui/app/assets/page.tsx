@@ -14,25 +14,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/Card";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import {
-  Plus,
   RefreshCw,
-  Search,
   Trash2,
   Download,
   FileText,
@@ -40,10 +29,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
-import { selectOnboardingState, getCompletionPct } from "@/onboarding/selectors";
+import { selectOnboardingState, isOnboardingComplete } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
+
 import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -1170,7 +1160,9 @@ export default function AssetsPage() {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
-        {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
+        {isAuthenticated && user?.onboarding_flags && !isOnboardingComplete(onboardingState) && (
+          <OnboardingProgress state={onboardingState} />
+        )}
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -1586,12 +1578,12 @@ export default function AssetsPage() {
         )}
 
         <ImportDialogNadlanOne
-          open={nadlanImportOpen}
-          onOpenChange={setNadlanImportOpen}
-          mode="properties"
+            open={nadlanImportOpen}
+            onOpenChange={setNadlanImportOpen}
+            mode="properties"
         />
 
-      </div>
+              </div>
     </DashboardLayout>
   );
 }

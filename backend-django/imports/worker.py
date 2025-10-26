@@ -49,21 +49,6 @@ def _read_csv(file_field) -> Iterable[Dict[str, str]]:
     return list(reader)
 
 
-def normalize_phone(raw: Optional[str]) -> Optional[str]:
-    if not raw:
-        return None
-    digits = "".join(ch for ch in raw if ch.isdigit() or ch == "+")
-    if not digits:
-        return None
-    if digits.startswith("+"):
-        return digits
-    if digits.startswith("00"):
-        return "+" + digits[2:]
-    if digits.startswith("0"):
-        return "+972" + digits[1:]
-    return "+972" + digits if digits.isdigit() else digits
-
-
 def parse_price(val: Optional[str]) -> Optional[int]:
     if val is None:
         return None
@@ -86,41 +71,6 @@ def parse_date(val: Optional[str]) -> Optional[datetime]:
         return parser.parse(val, dayfirst=True)
     except Exception:
         return None
-
-
-def _normalize_type(value: Optional[str]) -> Optional[str]:
-    if not value:
-        return None
-    mapping = {
-        "דירה": "APARTMENT",
-        "בית פרטי": "HOUSE",
-        "פנטהאוז": "PENTHOUSE",
-        "דופלקס": "DUPLEX",
-        "דו משפחתי": "DUPLEX",
-        "קוטג'": "COTTAGE",
-        "קוטג": "COTTAGE",
-        "דירת גן": "GARDEN_APARTMENT",
-        "משרדים": "OFFICE",
-        "חנות": "SHOP",
-    }
-    value = value.strip()
-    return mapping.get(value, value.upper())
-
-
-def _normalize_evacuation(value: Optional[str]) -> Optional[str]:
-    if not value:
-        return None
-    normalized = value.strip().lower()
-    if not normalized:
-        return None
-    if any(word in normalized for word in ["מידי", "מיידי", "immediate"]):
-        return "IMMEDIATE"
-    if normalized in {"לא ידוע", "לא ידועה", "unknown"}:
-        return "UNKNOWN"
-    parsed_date = parse_date(value)
-    if parsed_date:
-        return parsed_date.date().isoformat()
-    return value
 
 
 def _split_tags(raw: Optional[str]) -> List[str]:
@@ -156,9 +106,9 @@ def _create_or_update_contact(batch: ImportBatch, row: Dict[str, str], dry_run: 
     customer_id = row.get("CustomerID")
     name = row.get("DisplayName") or ""
     phones = [
-        normalize_phone(row.get("PrimaryPhone")),
-        normalize_phone(row.get("Phone1")),
-        normalize_phone(row.get("Phone2")),
+        row.get("PrimaryPhone"),
+        row.get("Phone1"),
+        row.get("Phone2"),
     ]
     phones = [p for p in phones if p]
     if not customer_id or (not name and not phones):
@@ -239,9 +189,9 @@ def _create_or_update_asset(batch: ImportBatch, row: Dict[str, str], dry_run: bo
     identifier = _asset_identifier(row)
     property_id = row.get("PropertyID")
     phones = [
-        normalize_phone(row.get("Phone1")),
-        normalize_phone(row.get("Phone2")),
-        normalize_phone(row.get("Phone3")),
+        row.get("Phone1"),
+        row.get("Phone2"),
+        row.get("Phone3"),
     ]
     phones = [p for p in phones if p]
     has_address = any(row.get(key) for key in ["City", "Street", "Neighborhood", "NumHouse"])
@@ -249,8 +199,8 @@ def _create_or_update_asset(batch: ImportBatch, row: Dict[str, str], dry_run: bo
         return identifier, ImportResult(identifier, "property", "error", "Missing required fields"), None
 
     price = parse_price(row.get("Price"))
-    normalized_type = _normalize_type(row.get("Type"))
-    evacuation = _normalize_evacuation(row.get("Evacuation"))
+    normalized_type = row.get("Type")
+    evacuation = row.get("Evacuation")
 
     address_parts = [row.get("Street"), row.get("NumHouse"), row.get("City")]
     normalized_address = " ".join(str(part).strip() for part in address_parts if part)
@@ -358,7 +308,7 @@ def _link_assets_to_contacts(batch: ImportBatch, contacts: List[Contact], assets
             phone_to_contact[contact.phone] = contact
         for tag in contact.tags or []:
             # allow additional phone tags stored as digits
-            normalized_tag_phone = normalize_phone(tag)
+            normalized_tag_phone = tag
             if normalized_tag_phone:
                 phone_to_contact.setdefault(normalized_tag_phone, contact)
 

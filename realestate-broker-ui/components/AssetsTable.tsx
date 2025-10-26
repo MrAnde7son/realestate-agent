@@ -119,7 +119,22 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       <div className="flex gap-3 items-start">
         {/* Image preview */}
         {row.original.images && row.original.images.length > 0 && (
-          <div className="flex-shrink-0">
+          <div
+            className="flex-shrink-0"
+            onClick={event => event.stopPropagation()}
+            onMouseDown={event => event.stopPropagation()}
+            onTouchStart={event => event.stopPropagation()}
+            onKeyDown={event => {
+              if (
+                event.key === 'Enter' ||
+                event.key === ' ' ||
+                event.key === 'Spacebar' ||
+                event.key === 'Space'
+              ) {
+                event.stopPropagation()
+              }
+            }}
+          >
             <ImageGallery 
               images={row.original.images} 
               size="sm" 

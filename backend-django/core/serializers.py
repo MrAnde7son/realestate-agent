@@ -165,6 +165,9 @@ class AssetSerializer(MetaSerializerMixin):
     
     def get_documents(self, obj):
         """Get documents from both Document model and meta field."""
+        if not self.context.get("include_documents", True):
+            return []
+
         documents = []
 
         # Get documents from Document model (legacy + M2M)

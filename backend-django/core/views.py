@@ -1953,7 +1953,11 @@ def _get_assets_list(request):
         except (EmptyPage, PageNotAnInteger):
             page_obj = paginator.page(1)
 
-        serializer = AssetSerializer(page_obj.object_list, many=True)
+        serializer = AssetSerializer(
+            page_obj.object_list,
+            many=True,
+            context={"include_documents": False},
+        )
 
         return Response(
             {

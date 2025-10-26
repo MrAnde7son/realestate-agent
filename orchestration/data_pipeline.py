@@ -292,6 +292,7 @@ class DataPipeline:
             url=listing.url,
             listing_id=listing.listing_id,
             listing_type=getattr(listing, "listing_type", None),
+            ad_type=getattr(listing, "ad_type", None),
             contact_name=contact_name,
             contact_phone=contact_phone,
             recent_deal=bool(getattr(listing, "recent_deal", False)),

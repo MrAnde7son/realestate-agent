@@ -14,6 +14,7 @@ def test_real_estate_listing_to_dict_and_str():
     listing.video = 'http://example.com/video.mp4'
     listing.contact_info = Contact(name='Dana', phone='050-1234567')
     listing.listing_type = 'sale'
+    listing.ad_type = 'private'
     listing.recent_deal = True
 
     data = listing.to_dict()
@@ -29,6 +30,7 @@ def test_real_estate_listing_to_dict_and_str():
     assert data['contact_phone'] == '050-1234567'
     assert data['contact_info']['name'] == 'Dana'
     assert data['listing_type'] == 'sale'
+    assert data['ad_type'] == 'private'
     assert data['recent_deal'] is True
     # ensure scraped_at is isoformat
     datetime.fromisoformat(data['scraped_at'])

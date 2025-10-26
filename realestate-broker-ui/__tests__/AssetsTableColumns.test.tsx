@@ -50,6 +50,7 @@ describe('AssetsTable default columns', () => {
     })
 
     expect(screen.getByRole('columnheader', { name: 'סוג עסקה' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'סוג מפרסם' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'איש קשר' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'נמכר לאחרונה' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'וידאו' })).toBeInTheDocument()

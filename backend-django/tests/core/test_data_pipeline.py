@@ -39,6 +39,7 @@ class FakeYad2Collector(Yad2Collector):
         listing.listing_id = "123"
         listing.coordinates = (1.0, 2.0)
         listing.listing_type = "rent"
+        listing.ad_type = "private"
         listing.contact_info = Contact(name="Test Seller", phone="052-0000000")
         listing.recent_deal = True
         listing.images = [
@@ -235,6 +236,7 @@ def test_data_pipeline_integration():
     assert listing_results[0].contact_name == "Test Seller"
     assert listing_results[0].contact_phone == "052-0000000"
     assert listing_results[0].listing_type == "rent"
+    assert listing_results[0].ad_type == "private"
     assert listing_results[0].recent_deal is True
     assert listing_results[0].images == [
         "http://example.com/photo1.jpg",
@@ -249,6 +251,7 @@ def test_data_pipeline_integration():
         assert len(stored_listings) == 1
         stored_listing = stored_listings[0]
         assert stored_listing.listing_type == "rent"
+        assert stored_listing.ad_type == "private"
         assert stored_listing.contact_name == "Test Seller"
         assert stored_listing.contact_phone == "052-0000000"
         assert stored_listing.recent_deal is True

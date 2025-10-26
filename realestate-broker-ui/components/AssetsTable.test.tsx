@@ -88,6 +88,7 @@ describe('AssetsTable', () => {
             id: 1,
             address: 'Asset 1',
             listingType: 'rent',
+            adType: 'private',
             contactName: 'Dana',
             contactPhone: '050-1234567',
             recentDeal: true,
@@ -100,6 +101,7 @@ describe('AssetsTable', () => {
     await waitFor(() => {
       expect(screen.getByText('השכרה')).toBeInTheDocument()
     })
+    expect(screen.getByText('פרטי')).toBeInTheDocument()
     expect(screen.getByText('Dana')).toBeInTheDocument()
     expect(screen.getByText('050-1234567')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'פתח וידאו' })).toBeInTheDocument()

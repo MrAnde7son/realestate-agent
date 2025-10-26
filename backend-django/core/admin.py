@@ -105,6 +105,7 @@ class ListingAdmin(admin.ModelAdmin):
         "external_id",
         "status",
         "listing_type",
+        "ad_type",
         "price",
         "rooms",
         "area",
@@ -116,7 +117,7 @@ class ListingAdmin(admin.ModelAdmin):
         "fetched_at",
     )
     search_fields = ("external_id", "title", "address")
-    list_filter = ("source", "status")
+    list_filter = ("source", "status", "listing_type", "ad_type")
 
     @admin.display(description="Photos")
     def photos_count(self, obj):

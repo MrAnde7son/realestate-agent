@@ -67,6 +67,7 @@ def _listing_to_dict(listing: Any) -> Dict[str, Any]:
             "date_posted",
             "coordinates",
             "listing_type",
+            "ad_type",
             "recent_deal",
             "scraped_at",
             "meta",

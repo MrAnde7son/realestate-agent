@@ -79,6 +79,7 @@ export type Asset = {
     source?: string | null;
     title?: string | null;
     listingType?: string | null;
+    adType?: string | null;
     contactName?: string | null;
     contactPhone?: string | null;
     contactInfo?: {
@@ -93,6 +94,7 @@ export type Asset = {
     url?: string | null;
   } | null;
   listingType?: string | null;
+  adType?: string | null;
   contactName?: string | null;
   contactPhone?: string | null;
   recentDeal?: boolean | null;
@@ -290,6 +292,7 @@ export function normalizeFromBackend(row: any): Asset {
       source: listing.source ?? null,
       title: listing.title ?? null,
       listingType: listing.listingType ?? listing.listing_type ?? null,
+      adType: listing.adType ?? listing.ad_type ?? null,
       contactName: contactName ?? null,
       contactPhone: contactPhone ?? null,
       contactInfo: listingContactInfo,
@@ -310,6 +313,9 @@ export function normalizeFromBackend(row: any): Asset {
 
   const listingType =
     row.listingType ?? row.listing_type ?? primaryListing?.listingType ?? null;
+
+  const adType =
+    row.adType ?? row.ad_type ?? primaryListing?.adType ?? null;
 
   const contactName =
     row.contactName ??
@@ -432,6 +438,7 @@ export function normalizeFromBackend(row: any): Asset {
     assetId: row.assetId ?? row.asset_id ?? null,
     primaryListing,
     listingType,
+    adType,
     contactName,
     contactPhone,
     recentDeal,

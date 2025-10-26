@@ -78,6 +78,14 @@ const formatListingTypeLabel = (value?: string | null) => {
   return value
 }
 
+const formatAdTypeLabel = (value?: string | null) => {
+  if (!value) return '—'
+  const normalized = value.toLowerCase()
+  if (normalized === 'private') return 'פרטי'
+  if (normalized === 'broker' || normalized === 'agency' || normalized === 'agent') return 'מתווך'
+  return value
+}
+
 function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset) => void, onOpenAlert?: (assetId: number) => void): ColumnDef<Asset>[] {
   return [
   {
@@ -146,6 +154,15 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
     cell: info => {
       const value = info.getValue() as string | null | undefined
       return <Badge>{formatListingTypeLabel(value)}</Badge>
+    },
+  },
+  {
+    header: 'סוג מפרסם',
+    id: 'adType',
+    accessorFn: row => row.adType ?? row.primaryListing?.adType ?? null,
+    cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <Badge>{formatAdTypeLabel(value)}</Badge>
     },
   },
   {
@@ -415,6 +432,11 @@ interface AssetsTableProps {
       options: Array<{ value: string; label: string; count?: number }>
     }
     rentalSale?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    adType?: {
       value: string
       onChange: (value: string) => void
       options: Array<{ value: string; label: string }>
@@ -839,6 +861,16 @@ export default function AssetsTable({
       })
     }
 
+    if (filters.adType) {
+      items.push({
+        key: 'adType',
+        label: 'סוג מפרסם',
+        type: 'select',
+        value: filters.adType.value,
+        options: (filters.adType.options || []).map(option => ({ value: option.value, label: option.label }))
+      })
+    }
+
     if (filters.userAssets) {
       items.push({
         key: 'userAssets',
@@ -931,6 +963,10 @@ export default function AssetsTable({
       case 'rentalSale':
         filters.rentalSale?.onChange(value)
         track('rentalSale', value)
+        break
+      case 'adType':
+        filters.adType?.onChange(value)
+        track('adType', value)
         break
       case 'userAssets':
         filters.userAssets?.onChange(value)

@@ -1769,6 +1769,36 @@ def _apply_asset_filters(queryset, params, user):
         else:
             queryset = queryset.none()
 
+    ad_type_filter = params.get("adType") or params.get("ad_type")
+    if ad_type_filter and ad_type_filter != "all":
+        normalized_ad_type = (ad_type_filter or "").strip().lower()
+        matching_asset_ids = set(
+            AssetListing.objects.filter(
+                listing__ad_type__iexact=normalized_ad_type
+            ).values_list("asset_id", flat=True)
+        )
+
+        candidate_ids = list(queryset.values_list("id", flat=True))
+        if candidate_ids:
+            for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
+                yad2_listings = asset.get_property_value("yad2_listings", []) or []
+                for listing in yad2_listings:
+                    if not isinstance(listing, dict):
+                        continue
+                    ad_type_value = (
+                        listing.get("ad_type")
+                        or listing.get("adType")
+                        or ""
+                    ).lower()
+                    if ad_type_value == normalized_ad_type:
+                        matching_asset_ids.add(asset.id)
+                        break
+
+        if matching_asset_ids:
+            queryset = queryset.filter(id__in=matching_asset_ids).distinct()
+        else:
+            return queryset.none()
+
     user_assets = params.get("userAssets")
     if user_assets and user_assets != "all":
         if not user or not getattr(user, "is_authenticated", False):
@@ -1878,6 +1908,16 @@ def _get_asset_filter_metadata():
         if row["status"]
     }
 
+    listing_ad_types = sorted(
+        {
+            value
+            for value in AssetListing.objects.order_by()
+            .values_list("listing__ad_type", flat=True)
+            .distinct()
+            if value not in (None, "")
+        }
+    )
+
     return {
         "cities": sorted(set(_distinct("city"))),
         "types": sorted(property_types),
@@ -1888,6 +1928,7 @@ def _get_asset_filter_metadata():
         "buildingTypes": sorted(set(_distinct("building_type"))),
         "rooms": room_values,
         "statusCounts": status_counts,
+        "listingAdTypes": listing_ad_types,
     }
 
 
@@ -3831,6 +3872,11 @@ def asset_listings(request, asset_id):
             or request.GET.get("listingType")
             or "all"
         ).strip().lower()
+        ad_type_filter = (
+            request.GET.get("ad_type")
+            or request.GET.get("adType")
+            or "all"
+        ).strip().lower()
         rooms_filter = (request.GET.get("rooms") or request.GET.get("rooms_filter") or "all").strip()
         min_price = parse_int(request.GET.get("min_price") or request.GET.get("price_min"), None, minimum=0)
         max_price = parse_int(request.GET.get("max_price") or request.GET.get("price_max"), None, minimum=0)
@@ -3874,6 +3920,13 @@ def asset_listings(request, asset_id):
                 if listing.get("listing_type") or listing.get("listingType")
             }
         )
+        ad_types_available = sorted(
+            {
+                listing.get("ad_type") or listing.get("adType")
+                for listing in listings_all
+                if listing.get("ad_type") or listing.get("adType")
+            }
+        )
         rooms_available = sorted(
             {
                 format_rooms_value(listing.get("rooms"))
@@ -3905,6 +3958,10 @@ def asset_listings(request, asset_id):
 
             listing_type_value = (listing.get("listing_type") or listing.get("listingType") or "").lower()
             if listing_type_filter not in ("", "all") and listing_type_value != listing_type_filter:
+                continue
+
+            listing_ad_type = (listing.get("ad_type") or listing.get("adType") or "").lower()
+            if ad_type_filter not in ("", "all") and listing_ad_type != ad_type_filter:
                 continue
 
             if min_price is not None:
@@ -3987,6 +4044,7 @@ def asset_listings(request, asset_id):
                 "source": sources_available,
                 "property_type": property_types_available,
                 "listing_type": listing_types_available,
+                "ad_type": ad_types_available,
                 "rooms": rooms_available,
                 "price": price_meta,
             },

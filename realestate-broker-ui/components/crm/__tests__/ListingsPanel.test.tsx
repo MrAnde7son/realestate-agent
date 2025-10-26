@@ -67,6 +67,8 @@ describe('ListingsPanel', () => {
               address: 'רחוב הבדיקה 1',
               listing_type: listingType,
               listingType,
+              ad_type: listingType === 'sale' ? 'broker' : 'private',
+              adType: listingType === 'sale' ? 'broker' : 'private',
               contact_name: 'Dana',
               contact_phone: '050-1234567',
               recent_deal: listingType === 'rent',
@@ -88,6 +90,7 @@ describe('ListingsPanel', () => {
             source: ['yad2'],
             property_type: ['דירה'],
             listing_type: ['rent', 'sale'],
+            ad_type: ['private', 'broker'],
             rooms: [],
             price: { min: null, max: null }
           }

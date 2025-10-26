@@ -13,6 +13,7 @@ class AssetListingsUiTests(TestCase):
             external_id="rent-1",
             title="דירת 3 חדרים",
             listing_type="rent",
+            ad_type="private",
             contact_name="Dana",
             contact_phone="050-1234567",
             recent_deal=True,
@@ -26,6 +27,7 @@ class AssetListingsUiTests(TestCase):
             external_id="sale-1",
             title="בית פרטי",
             listing_type="sale",
+            ad_type="broker",
             contact_name="Ronen",
             contact_phone="050-7654321",
             recent_deal=False,
@@ -40,6 +42,7 @@ class AssetListingsUiTests(TestCase):
         asset_row = next(row for row in rows if row["id"] == self.asset_rent.id)
 
         self.assertEqual(asset_row.get("listing_type"), "rent")
+        self.assertEqual(asset_row.get("ad_type"), "private")
         self.assertEqual(asset_row.get("contact_name"), "Dana")
         self.assertEqual(asset_row.get("contact_phone"), "050-1234567")
         self.assertTrue(asset_row.get("recent_deal"))
@@ -49,6 +52,7 @@ class AssetListingsUiTests(TestCase):
         primary = asset_row.get("primary_listing")
         self.assertIsNotNone(primary)
         self.assertEqual(primary.get("listing_type"), "rent")
+        self.assertEqual(primary.get("ad_type"), "private")
         self.assertTrue(primary.get("recent_deal"))
         self.assertEqual(primary.get("contact_name"), "Dana")
         self.assertEqual(primary.get("contact_phone"), "050-1234567")
@@ -72,6 +76,7 @@ class AssetListingsUiTests(TestCase):
 
         listing = data["results"][0]
         self.assertEqual(listing.get("listing_type"), "rent")
+        self.assertEqual(listing.get("ad_type"), "private")
         self.assertTrue(listing.get("recent_deal"))
         self.assertEqual(listing.get("contact_name"), "Dana")
         self.assertEqual(listing.get("contact_phone"), "050-1234567")
@@ -84,3 +89,12 @@ class AssetListingsUiTests(TestCase):
 
         listing_filters = data.get("filters", {})
         self.assertIn("rent", listing_filters.get("listing_type", []))
+        self.assertIn("private", listing_filters.get("ad_type", []))
+
+    def test_assets_ad_type_filter_uses_listing_ad_type(self):
+        response = self.client.get("/api/assets", {"adType": "private"})
+        self.assertEqual(response.status_code, 200)
+
+        private_ids = {row["id"] for row in response.json()["rows"]}
+        self.assertIn(self.asset_rent.id, private_ids)
+        self.assertNotIn(self.asset_sale.id, private_ids)

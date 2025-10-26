@@ -37,6 +37,7 @@ class Listing(Base):
     latitude = Column(Float)
     longitude = Column(Float)
     listing_type = Column(String(50))
+    ad_type = Column(String(50))
     contact_name = Column(String(255))
     contact_phone = Column(String(50))
     recent_deal = Column(Boolean, default=False)

@@ -29,6 +29,7 @@ from .services.asset_links import (
     asset_plans_all,
 )
 from .utils.listings import normalize_listing_from_model
+from .utils.listings import normalize_listing_from_model
 
 User = get_user_model()
 
@@ -116,6 +117,7 @@ class AssetSerializer(MetaSerializerMixin):
     setbackAnalysis = serializers.JSONField(source='setback_analysis', read_only=True)
     primary_listing = serializers.SerializerMethodField()
     listing_type = serializers.SerializerMethodField()
+    ad_type = serializers.SerializerMethodField()
     contact_name = serializers.SerializerMethodField()
     contact_phone = serializers.SerializerMethodField()
     recent_deal = serializers.SerializerMethodField()
@@ -250,6 +252,9 @@ class AssetSerializer(MetaSerializerMixin):
     def get_listing_type(self, obj):
         return self._get_primary_value(obj, "listing_type", "listingType")
 
+    def get_ad_type(self, obj):
+        return self._get_primary_value(obj, "ad_type", "adType")
+
     def get_contact_name(self, obj):
         direct = self._get_primary_value(obj, "contact_name", "contactName")
         if direct:
@@ -296,7 +301,7 @@ class AssetSerializer(MetaSerializerMixin):
             'buildingCoveragePct','heightAnalysis','setbackAnalysis',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'last_enriched_at', 'created_at', 'meta', 'documents',
-            'primary_listing', 'listing_type',
+            'primary_listing', 'listing_type', 'ad_type',
             'contact_name', 'contact_phone',
             'recent_deal', 'video_url', 'photos',
             # GIS Collector Data Fields

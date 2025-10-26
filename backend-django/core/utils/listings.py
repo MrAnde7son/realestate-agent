@@ -142,6 +142,7 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
     rooms_value = listing_obj.rooms if listing_obj.rooms is not None else raw.get("rooms")
 
     listing_type = listing_obj.listing_type or raw.get("listing_type") or raw.get("listingType")
+    ad_type = getattr(listing_obj, "ad_type", None) or raw.get("ad_type") or raw.get("adType")
     contact_info_raw = (
         raw.get("contact_info")
         or raw.get("contactInfo")
@@ -215,6 +216,7 @@ def normalize_listing_from_model(listing_obj: Any) -> Dict[str, Any]:
         "floor": raw.get("floor"),
         "features": raw.get("features", []),
         "listing_type": listing_type,
+        "ad_type": ad_type,
         "contact_name": contact_name,
         "contact_phone": contact_phone,
         "contact_info": normalized_contact_info,
@@ -255,6 +257,7 @@ def normalize_listing_from_meta(meta_listing: Dict[str, Any], idx: int) -> Dict[
     )
 
     listing_type = meta_listing.get("listing_type") or meta_listing.get("listingType")
+    ad_type = meta_listing.get("ad_type") or meta_listing.get("adType")
     photos = _merge_photos(meta_listing.get("photos", []), meta_listing.get("images", []))
     video_url = meta_listing.get("video_url") or meta_listing.get("videoUrl") or meta_listing.get("video")
     recent_deal = bool(meta_listing.get("recent_deal") or meta_listing.get("recentDeal"))
@@ -286,6 +289,7 @@ def normalize_listing_from_meta(meta_listing: Dict[str, Any], idx: int) -> Dict[
         "floor": meta_listing.get("floor"),
         "features": meta_listing.get("features", []),
         "listing_type": listing_type,
+        "ad_type": ad_type,
         "contact_name": contact_name,
         "contact_phone": contact_phone,
         "contact_info": normalized_contact_info,

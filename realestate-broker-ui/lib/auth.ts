@@ -246,8 +246,19 @@ class AuthAPI {
   // Token management
   private getCookieDomain(): string {
     if (typeof window === 'undefined') return ''
-    const parts = window.location.hostname.split('.')
-    return parts.length > 2 ? parts.slice(-2).join('.') : parts.join('.')
+    const hostname = window.location.hostname
+    const isLocalhost = hostname === 'localhost' || hostname.endsWith('.localhost')
+    const isIpAddress = /^[\d.:]+$/.test(hostname)
+
+    if (isLocalhost || isIpAddress) {
+      return ''
+    }
+
+    const parts = hostname.split('.').filter(Boolean)
+    if (parts.length <= 2) {
+      return hostname
+    }
+    return parts.slice(-2).join('.')
   }
 
   setTokens(accessToken: string, refreshToken: string): void {
@@ -259,7 +270,12 @@ class AuthAPI {
       // Also set cookies for middleware with proper settings
       const domain = this.getCookieDomain()
       const secure = window.location.protocol === 'https:'
-      const cookieOptions = [`path=/`, `SameSite=Lax`, `domain=${domain}`, secure ? 'secure' : ''].join('; ')
+      const cookieOptions = [
+        'path=/',
+        'SameSite=Lax',
+        domain ? `domain=${domain}` : null,
+        secure ? 'secure' : null,
+      ].filter(Boolean).join('; ')
 
       document.cookie = `access_token=${accessToken}; max-age=3600; ${cookieOptions}`
       document.cookie = `refresh_token=${refreshToken}; max-age=86400; ${cookieOptions}`
@@ -297,9 +313,15 @@ class AuthAPI {
       // Also clear cookies with proper domain and path
       const domain = this.getCookieDomain()
       const secure = window.location.protocol === 'https:'
+      const cookieParts = [
+        'path=/',
+        'expires=Thu, 01 Jan 1970 00:00:00 GMT',
+        domain ? `domain=${domain}` : null,
+        secure ? 'secure' : null,
+      ].filter(Boolean).join('; ')
 
-      document.cookie = `access_token=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${secure ? 'secure;' : ''}`
-      document.cookie = `refresh_token=; path=/; domain=${domain}; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${secure ? 'secure;' : ''}`
+      document.cookie = `access_token=; ${cookieParts}`
+      document.cookie = `refresh_token=; ${cookieParts}`
     }
   }
 

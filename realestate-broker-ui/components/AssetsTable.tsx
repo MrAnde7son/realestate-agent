@@ -564,6 +564,7 @@ interface AssetsTableProps {
   }
   onRefresh?: () => void
   onAddNew?: () => void
+  extraActions?: React.ReactNode
   viewMode?: 'table' | 'cards' | 'map'
   onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
   bulkActions?: AssetsTableBulkAction[]
@@ -634,6 +635,7 @@ export default function AssetsTable({
   filters,
   onRefresh,
   onAddNew,
+  extraActions,
   viewMode = 'table',
   onViewModeChange,
   bulkActions = [],
@@ -1368,6 +1370,7 @@ export default function AssetsTable({
             onRefresh={onRefresh || (() => {})}
             onAddNew={onAddNew}
             loading={loading}
+            extraActions={extraActions}
             bulkActions={toolbarBulkActions}
             statusFilters={filters?.status ? {
               value: filters.status.value,

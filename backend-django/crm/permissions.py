@@ -1,6 +1,14 @@
 from rest_framework.permissions import BasePermission
 
 
+def has_global_crm_access(user) -> bool:
+    """Return True when the user should have unrestricted CRM access."""
+    role = getattr(user, "role", "")
+    if isinstance(role, str):
+        role = role.strip().lower()
+    return user.is_superuser or user.is_staff or role == "admin"
+
+
 class HasCrmAccess(BasePermission):
     """Ensure only brokers and appraisers can access CRM features."""
 
@@ -12,10 +20,13 @@ class HasCrmAccess(BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
 
-        if request.user.is_superuser:
+        if has_global_crm_access(request.user):
             return True
 
-        return getattr(request.user, "role", None) in self.allowed_roles
+        role = getattr(request.user, "role", None)
+        if isinstance(role, str):
+            role = role.strip().lower()
+        return role in self.allowed_roles
 
     def has_object_permission(self, request, view, obj):
         return self.has_permission(request, view)
@@ -27,15 +38,16 @@ class IsOwnerContact(BasePermission):
     def has_object_permission(self, request, view, obj):
         """Check if user has permission to access the object."""
         # Allow superusers to access any object
-        if request.user.is_superuser:
+        user = request.user
+        if has_global_crm_access(user):
             return True
             
         if hasattr(obj, "owner"):
             # Direct contact access
-            return obj.owner_id == request.user.id
+            return obj.owner_id == user.id
         elif hasattr(obj, "contact"):
             # Lead access - check contact ownership
-            return obj.contact.owner_id == request.user.id
+            return obj.contact.owner_id == user.id
         return False
     
     def has_permission(self, request, view):

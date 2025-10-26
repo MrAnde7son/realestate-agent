@@ -189,7 +189,26 @@ export class CrmApi {
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    if (response.status === 204 || response.status === 205) {
+      return undefined as T;
+    }
+
+    const contentLength = response.headers.get('content-length');
+    if (contentLength === '0') {
+      return undefined as T;
+    }
+
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+
+    try {
+      return JSON.parse(text) as T;
+    } catch (error) {
+      console.error('Failed to parse CRM API response', error);
+      throw new Error('Unexpected server response');
+    }
   }
 
   // Contacts API

@@ -7,6 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
     path('api/crm/', include('crm.urls')),
+    path('api/imports/', include('imports.urls')),
     path(
         'r/<str:token>/',
         core_views.asset_share_read_only,

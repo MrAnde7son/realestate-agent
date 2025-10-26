@@ -19,12 +19,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, DownloadCloud } from 'lucide-react';
 import { Contact, CrmApi, CreateContactData } from '@/lib/api/crm';
 import { ContactForm } from '@/components/crm/contact-form';
 import { useToast } from '@/hooks/use-toast';
 import { PageLoader } from '@/components/ui/page-loader';
 import { CommonListProps } from './LeadsList';
+import ImportDialogNadlanOne from '@/components/import/ImportDialogNadlanOne';
 
 type ContactsListProps = CommonListProps;
 
@@ -35,6 +36,7 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Props kept for parity with leads list and future enhancements
@@ -75,6 +77,13 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
 
   useEffect(() => {
     loadContacts();
+  }, [loadContacts]);
+
+  const handleImportDialogChange = useCallback((value: boolean) => {
+    setImportDialogOpen(value);
+    if (!value) {
+      loadContacts();
+    }
   }, [loadContacts]);
 
   const handleCreateContact = async (data: CreateContactData & { selectedAsset?: any }) => {
@@ -215,24 +224,34 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rtl:flex-row-reverse">
         <h2 className="text-2xl font-bold rtl:text-start">לקוחות</h2>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
-              לקוח חדש
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>יצירת לקוח חדש</DialogTitle>
-            </DialogHeader>
-            <ContactForm
-              onSubmit={handleCreateContact}
-              isLoading={isSubmitting}
-              onCancel={() => setIsCreateDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center rtl:flex-row-reverse">
+          <Button
+            variant="outline"
+            onClick={() => setImportDialogOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <DownloadCloud className="h-4 w-4" />
+            ייבוא לקוחות מנדל&quot;ן וואן
+          </Button>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
+                לקוח חדש
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>יצירת לקוח חדש</DialogTitle>
+              </DialogHeader>
+              <ContactForm
+                onSubmit={handleCreateContact}
+                isLoading={isSubmitting}
+                onCancel={() => setIsCreateDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="mb-2">
@@ -336,6 +355,12 @@ export default function ContactsList({ initialQuery = '', initialFilters, onConv
           )}
         </DialogContent>
       </Dialog>
+
+      <ImportDialogNadlanOne
+        open={importDialogOpen}
+        onOpenChange={handleImportDialogChange}
+        mode="customers"
+      />
     </div>
   );
 }

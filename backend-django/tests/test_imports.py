@@ -57,7 +57,7 @@ def test_process_properties_creates_asset_and_links(django_user_model):
 
     customers_csv = (
         "CustomerID,DisplayName,PrimaryPhone\n"
-        "CUST-10,רות לוי,0507654321\n"
+        "CUST-10,רות לוי,050-765-4321\n"
     )
     properties_csv = (
         "PropertyID,City,Street,NumHouse,Phone1,Type,Price\n"

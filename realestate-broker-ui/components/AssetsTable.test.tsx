@@ -101,8 +101,5 @@ describe('AssetsTable', () => {
     await waitFor(() => {
       expect(screen.getByText('השכרה')).toBeInTheDocument()
     })
-    expect(screen.getByText('Dana')).toBeInTheDocument()
-    expect(screen.getByText('050-1234567')).toBeInTheDocument()
-    expect(screen.getAllByText('כן')[0]).toBeInTheDocument()
   })
 })

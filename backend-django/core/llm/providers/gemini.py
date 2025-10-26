@@ -17,8 +17,15 @@ class GeminiAdapter(LLMClient):
     def __init__(self) -> None:
         api_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY
         if not api_key:
-            raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY is not configured")
-        genai.configure(api_key=api_key, client_options=ClientOptions(api_endpoint="https://us-generativelanguage.googleapis.com"))
+            raise ValueError(
+                "GEMINI_API_KEY or GOOGLE_API_KEY is not configured"
+            )
+        genai.configure(
+            api_key=api_key,
+            client_options=ClientOptions(
+                api_endpoint="https://us-generativelanguage.googleapis.com"
+            ),
+        )
         self.model_name = settings.GEMINI_MODEL
 
     def _get_model(
@@ -58,9 +65,13 @@ class GeminiAdapter(LLMClient):
             normalized.append({"role": role, "parts": [message.content]})
 
         if not normalized:
-            raise ValueError("At least one user or assistant message is required")
+            raise ValueError(
+                "At least one user or assistant message is required"
+            )
 
-        system_instruction = "\n\n".join(system_parts) if system_parts else None
+        system_instruction = (
+            "\n\n".join(system_parts) if system_parts else None
+        )
         history = normalized[:-1]
         last_message = normalized[-1]
 
@@ -88,10 +99,16 @@ class GeminiAdapter(LLMClient):
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5))
     async def chat(
-        self, messages: List[ChatMessage], options: Optional[BaseGenOptions] = None
+        self,
+        messages: List[ChatMessage],
+        options: Optional[BaseGenOptions] = None,
     ) -> str:
         opts = options or BaseGenOptions()
-        system_instruction, history, last_message = self._prepare_chat_messages(messages)
+        (
+            system_instruction,
+            history,
+            last_message,
+        ) = self._prepare_chat_messages(messages)
         if last_message["role"] != "user":
             raise ValueError("The last chat message must have role 'user'")
 

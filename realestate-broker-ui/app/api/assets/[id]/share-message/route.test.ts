@@ -27,7 +27,7 @@ describe('/api/assets/[id]/share-message', () => {
       'http://127.0.0.1:3000/api/assets/1/share-message',
       {
         method: 'POST',
-        body: JSON.stringify({ language: 'en' }),
+        body: JSON.stringify({ language: 'en', provider: 'gemini' }),
         headers: { 'Content-Type': 'application/json' }
       }
     )
@@ -41,7 +41,35 @@ describe('/api/assets/[id]/share-message', () => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: 'en' })
+        body: JSON.stringify({ language: 'en', provider: 'gemini' })
+      }
+    )
+  })
+
+  it('omits provider when request does not include one', async () => {
+    ;(global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ message: 'msg' }),
+      text: async () => JSON.stringify({ message: 'msg' })
+    })
+    const req = new NextRequest(
+      'http://127.0.0.1:3000/api/assets/1/share-message',
+      {
+        method: 'POST',
+        body: JSON.stringify({ language: 'he' }),
+        headers: { 'Content-Type': 'application/json' }
+      }
+    )
+    const params = { id: '1' }
+    await POST(req, { params })
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/assets/1/share-message',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: 'he' })
       }
     )
   })

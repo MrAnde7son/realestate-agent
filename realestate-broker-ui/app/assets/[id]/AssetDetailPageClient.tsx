@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
@@ -48,7 +48,242 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
+const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai'] as const
+type SupportedLLMProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number]
+
+const normalizeProvider = (value: string | null | undefined): SupportedLLMProvider | null => {
+  if (!value) return null
+  const normalized = value.toLowerCase()
+  return (SUPPORTED_LLM_PROVIDERS as readonly string[]).includes(normalized)
+    ? (normalized as SupportedLLMProvider)
+    : null
+}
+
+const DEFAULT_LLM_PROVIDER: SupportedLLMProvider =
+  normalizeProvider(process.env.LLM_DEFAULT_PROVIDER) ?? 'gemini'
+
 const ALL_SECTIONS = ['summary','permits','plans','environment', 'rights','comparables','mortgage','appendix']
+
+const formatListingTypeLabel = (value?: string | null) => {
+  if (!value) return '—'
+  const normalized = value.toLowerCase()
+  if (normalized === 'rent') return 'השכרה'
+  if (normalized === 'sale') return 'מכירה'
+  return value
+}
+
+const formatAdTypeLabel = (value?: string | null) => {
+  if (!value) return '—'
+  const normalized = value.toLowerCase()
+  if (normalized === 'private') return 'פרטי'
+  if (normalized === 'broker' || normalized === 'agency' || normalized === 'agent') return 'מתווך'
+  return value
+}
+
+const formatListingSourceLabel = (value?: string | null) => {
+  if (!value) return '—'
+  const normalized = value.toLowerCase()
+  if (normalized === 'yad2') return 'יד2'
+  return value
+}
+
+const sanitizePhoneNumber = (value?: string | null) => (value ? value.replace(/[^+\d]/g, '') : '')
+
+const formatListingRooms = (rooms?: number | null, display?: string | null) => {
+  if (typeof display === 'string') {
+    const trimmed = display.trim()
+    if (trimmed) {
+      if (/^\d+(\.\d+)?$/.test(trimmed)) {
+        return `${trimmed} חדרים`
+      }
+      return trimmed
+    }
+  }
+  if (rooms === null || rooms === undefined || Number.isNaN(rooms)) {
+    return null
+  }
+  const numericRooms = Number(rooms)
+  if (!Number.isFinite(numericRooms)) {
+    return null
+  }
+  const formatted = Number.isInteger(numericRooms)
+    ? numericRooms.toString()
+    : Number(numericRooms.toFixed(1)).toString()
+  return `${formatted} חדרים`
+}
+
+const toNumericOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'bigint') return Number(value)
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    const normalized = trimmed.replace(/[^0-9.\-]/g, '')
+    if (!normalized) return null
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const toStringOrNull = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length ? trimmed : null
+  }
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return String(value)
+  }
+  return null
+}
+
+const ensureStringList = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value
+        .map((item) => (typeof item === 'string' ? item.trim() : null))
+        .filter((item): item is string => Boolean(item && item.length))
+    : []
+
+const extractFeatureLabels = (raw: unknown): string[] => {
+  const collected: string[] = []
+  if (Array.isArray(raw)) {
+    collected.push(...ensureStringList(raw))
+  } else if (raw && typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>
+    if (Array.isArray(obj.tags)) {
+      collected.push(...ensureStringList(obj.tags))
+    }
+    if (Array.isArray(obj.features)) {
+      collected.push(...ensureStringList(obj.features))
+    }
+    if (Array.isArray(obj.amenities)) {
+      collected.push(...ensureStringList(obj.amenities))
+    }
+  }
+  return Array.from(new Set(collected))
+}
+
+const normalizePrimaryListing = (listing: any) => {
+  if (!listing || typeof listing !== 'object') return null
+
+  const contactInfoRaw = listing.contactInfo ?? listing.contact_info
+  const baseContactInfo =
+    contactInfoRaw && typeof contactInfoRaw === 'object' ? { ...contactInfoRaw } : {}
+
+  const contactName =
+    listing.contactName ??
+    listing.contact_name ??
+    baseContactInfo.name ??
+    baseContactInfo.agent ??
+    null
+
+  const contactPhone =
+    listing.contactPhone ??
+    listing.contact_phone ??
+    baseContactInfo.phone ??
+    baseContactInfo.brokerPhone ??
+    null
+
+  if (contactName != null) baseContactInfo.name = contactName
+  if (contactPhone != null) baseContactInfo.phone = contactPhone
+
+  const hasContactInfo = Object.values(baseContactInfo).some(
+    (value) => value !== null && value !== undefined && `${value}`.trim().length > 0
+  )
+
+  const roomsValue = toNumericOrNull(listing.rooms ?? listing.rooms_count ?? listing.roomsCount)
+  const sizeValue = toNumericOrNull(
+    listing.size ?? listing.area ?? listing.squareMeters ?? listing.square_meters
+  )
+  const priceValue = toNumericOrNull(
+    listing.price ?? listing.listing_price ?? listing.priceValue ?? listing.price_value
+  )
+
+  const roomsDisplayValue =
+    toStringOrNull(listing.roomsDisplay ?? listing.rooms_display ?? listing.roomsText ?? listing.rooms_text) ??
+    formatListingRooms(roomsValue ?? undefined, undefined)
+
+  const floorRaw =
+    listing.floor ??
+    listing.floorNumber ??
+    listing.floor_number ??
+    listing.floorDisplay ??
+    listing.floor_display ??
+    listing.floorLabel ??
+    listing.floor_label
+
+  const floorValue =
+    typeof floorRaw === 'number'
+      ? (Number.isFinite(floorRaw) ? floorRaw : null)
+      : toStringOrNull(floorRaw)
+
+  const featureLabels = extractFeatureLabels(listing.features ?? listing.tags)
+
+  const datePosted =
+    listing.datePosted ??
+    listing.date_posted ??
+    listing.postedAt ??
+    listing.posted_at ??
+    listing.scrapedAt ??
+    listing.scraped_at ??
+    listing.fetched_at ??
+    null
+
+  return {
+    id: listing.id ?? listing.external_id ?? null,
+    source: toStringOrNull(listing.source) ?? null,
+    title:
+      toStringOrNull(
+        listing.title ?? listing.heading ?? listing.headline ?? listing.name ?? listing.caption
+      ) ?? null,
+    price: priceValue,
+    address:
+      toStringOrNull(
+        listing.address ?? listing.location ?? listing.fullAddress ?? listing.full_address
+      ) ?? null,
+    rooms: roomsValue ?? null,
+    roomsDisplay: roomsDisplayValue ?? null,
+    size: sizeValue ?? null,
+    propertyType: toStringOrNull(listing.propertyType ?? listing.property_type) ?? null,
+    listingType: listing.listingType ?? listing.listing_type ?? null,
+    adType: listing.adType ?? listing.ad_type ?? listing.seller_type ?? null,
+    description:
+      toStringOrNull(
+        listing.description ??
+          listing.details ??
+          listing.about ??
+          listing.text ??
+          listing.body ??
+          listing.summary
+      ) ?? null,
+    floor: floorValue,
+    contactName: toStringOrNull(contactName),
+    contactPhone: toStringOrNull(contactPhone),
+    contactInfo: hasContactInfo ? baseContactInfo : null,
+    recentDeal:
+      typeof listing.recentDeal === 'boolean'
+        ? listing.recentDeal
+        : typeof listing.recent_deal === 'boolean'
+          ? listing.recent_deal
+          : null,
+    photos: Array.from(
+      new Set([
+        ...ensureStringList(listing.photos),
+        ...ensureStringList(listing.images),
+      ])
+    ),
+    videoUrl:
+      toStringOrNull(listing.videoUrl ?? listing.video_url ?? listing.video ?? listing.videoLink) ??
+      null,
+    url:
+      toStringOrNull(listing.url ?? listing.link ?? listing.listingUrl ?? listing.listing_url) ??
+      null,
+    features: featureLabels.length > 0 ? featureLabels : null,
+    datePosted: datePosted ?? null,
+  }
+}
 
 const mapFilterValues = (values?: Array<string | { value?: string; key?: string; id?: string }>) => {
   if (!values) return []
@@ -176,6 +411,32 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [decisiveSearch, setDecisiveSearch] = useState('')
   const [ramiSearch, setRamiSearch] = useState('')
 
+  const primaryListing = React.useMemo(
+    () => normalizePrimaryListing(asset?.primaryListing ?? asset?.primary_listing),
+    [asset]
+  )
+
+  const listingImages = React.useMemo(() => {
+    const collected: string[] = []
+    const seen = new Set<string>()
+    const appendUnique = (values?: string[] | null) => {
+      if (!Array.isArray(values)) return
+      for (const value of values) {
+        if (typeof value !== 'string') continue
+        const trimmed = value.trim()
+        if (!trimmed || seen.has(trimmed)) continue
+        seen.add(trimmed)
+        collected.push(trimmed)
+      }
+    }
+
+    appendUnique(asset?.images)
+    appendUnique(asset?.photos)
+    appendUnique(primaryListing?.photos)
+
+    return collected
+  }, [asset, primaryListing])
+
   const parkingRequirements = calculatedRights?.building_privileges?.parking_requirements ?? []
   const primaryParkingRequirement = parkingRequirements.length > 0 ? parkingRequirements[0] : null
   const { parkingValueDisplay, parkingUnitLabel } = useMemo(() => {
@@ -302,16 +563,52 @@ React.useEffect(() => {
 }, [documentsSorting])
   const router = useRouter()
   const searchParams = useSearchParams()
+  const provider = useMemo<SupportedLLMProvider>(() => {
+    const providerKeys = ['provider', 'llm_provider', 'llm-provider']
+    for (const key of providerKeys) {
+      const normalized = normalizeProvider(searchParams.get(key))
+      if (normalized) {
+        return normalized
+      }
+    }
+    return DEFAULT_LLM_PROVIDER
+  }, [searchParams])
   const id = assetId
   const { user, isAuthenticated } = useAuth()
   const canViewCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user])
-  const renderValue = (value: React.ReactNode, key: string) => (
-    <span className="flex items-center gap-1">
-      {value ?? '—'}
-      <DataBadge source={asset?._meta?.[key]?.source} fetchedAt={asset?._meta?.[key]?.fetched_at} url={asset?._meta?.[key]?.url} />
-    </span>
+  const resolveMetaEntry = React.useCallback(
+    (key: string) => {
+      const meta = asset?._meta
+      if (!meta || typeof meta !== 'object') {
+        return undefined
+      }
+      const candidates = new Set<string>([key])
+      if (key.includes('primaryListing')) {
+        candidates.add(key.replace('primaryListing', 'primary_listing'))
+      }
+      if (key.includes('.')) {
+        candidates.add(key.replace(/\./g, '_'))
+      }
+      for (const candidate of candidates) {
+        const entry = (meta as Record<string, any>)[candidate]
+        if (entry) {
+          return entry
+        }
+      }
+      return undefined
+    },
+    [asset]
   )
+  const renderValue = (value: React.ReactNode, key: string) => {
+    const metaEntry = resolveMetaEntry(key)
+    return (
+      <span className="flex items-center gap-1">
+        {value ?? '—'}
+        <DataBadge source={metaEntry?.source} fetchedAt={metaEntry?.fetched_at} url={metaEntry?.url} />
+      </span>
+    )
+  }
 
   const toSafeString = (value: unknown): string => {
     if (value === null || value === undefined) return ''
@@ -1176,6 +1473,142 @@ useDedupedEffect(() => {
     )
   }
 
+  const listingTypeValueRaw = firstNonEmpty(primaryListing?.listingType, asset.listingType, asset?.listing_type)
+  const listingTypeValue = listingTypeValueRaw || null
+  const adTypeValueRaw = firstNonEmpty(asset.adType, asset?.ad_type, primaryListing?.adType)
+  const adTypeValue = adTypeValueRaw || null
+  const listingPropertyTypeValueRaw = firstNonEmpty(
+    primaryListing?.propertyType,
+    asset.type,
+    asset?.property_type
+  )
+  const listingPropertyTypeValue = listingPropertyTypeValueRaw || null
+  const contactNameValueRaw = firstNonEmpty(
+    asset.contactName,
+    asset?.contact_name,
+    primaryListing?.contactName,
+    asset.contactInfo?.name,
+    asset?.contact_info?.name,
+    primaryListing?.contactInfo?.name
+  )
+  const contactNameValue = contactNameValueRaw || null
+  const primaryPhoneValueRaw = firstNonEmpty(
+    asset.contactPhone,
+    asset?.contact_phone,
+    primaryListing?.contactPhone,
+    asset.contactInfo?.phone,
+    asset.contactInfo?.brokerPhone,
+    asset?.contact_info?.phone,
+    asset?.contact_info?.brokerPhone,
+    primaryListing?.contactInfo?.phone,
+    primaryListing?.contactInfo?.brokerPhone
+  )
+  const primaryPhoneValue = primaryPhoneValueRaw || null
+  const brokerPhoneCandidate = firstNonEmpty(
+    asset.contactInfo?.brokerPhone,
+    asset?.contact_info?.brokerPhone,
+    primaryListing?.contactInfo?.brokerPhone
+  )
+  const secondaryPhoneValue =
+    brokerPhoneCandidate && brokerPhoneCandidate !== primaryPhoneValueRaw ? brokerPhoneCandidate : null
+  const listingUrlValueRaw = firstNonEmpty(primaryListing?.url, asset?.listingUrl, asset?.listing_url)
+  const listingUrlValue = listingUrlValueRaw || null
+  const listingSourceValueRaw = firstNonEmpty(
+    primaryListing?.source,
+    asset.primarySource,
+    asset?.primary_source
+  )
+  const listingSourceValue = listingSourceValueRaw || null
+  const listingTitleValueRaw = firstNonEmpty(primaryListing?.title)
+  const listingTitleValue = listingTitleValueRaw || null
+  const listingPriceValue = toNumericOrNull(
+    primaryListing?.price ??
+      asset.price ??
+      asset?.price_value ??
+      asset?.priceValue ??
+      asset?.modelPrice ??
+      asset?.model_price ??
+      null
+  )
+  const listingPriceDisplay = listingPriceValue !== null ? formatCurrency(listingPriceValue) : null
+  const listingRoomsValue =
+    toNumericOrNull(
+      primaryListing?.rooms ??
+        asset.rooms ??
+        asset?.rooms_count ??
+        asset?.roomsCount ??
+        asset.bedrooms ??
+        asset?.bedrooms_count ??
+        asset?.bedroomsCount ??
+        null
+    ) ?? null
+  const listingRoomsDisplay = formatListingRooms(listingRoomsValue ?? null, primaryListing?.roomsDisplay ?? null)
+  const listingSizeValue =
+    toNumericOrNull(
+      primaryListing?.size ??
+        asset.area ??
+        asset?.netSqm ??
+        asset?.net_sqm ??
+        asset.totalArea ??
+        asset?.total_area ??
+        null
+    ) ?? null
+  const listingSizeFormatted = listingSizeValue !== null && listingSizeValue !== undefined ? formatNumber(listingSizeValue) : null
+  const listingSizeDisplay = listingSizeFormatted ? `${listingSizeFormatted} מ״ר` : null
+  const listingDatePostedDisplay = formatDateValue(
+    primaryListing?.datePosted ??
+      asset?.datePosted ??
+      asset?.date_posted ??
+      asset?.postedAt ??
+      asset?.posted_at ??
+      null
+  )
+  const listingFloorDisplay = (() => {
+    const floor = primaryListing?.floor ?? asset.floor ?? asset?.floor_number ?? asset?.floorNumber
+    if (floor === null || floor === undefined) return null
+    if (typeof floor === 'number') {
+      if (Number.isNaN(floor)) return null
+      return `קומה ${floor}`
+    }
+    const asString = String(floor).trim()
+    if (!asString) return null
+    if (/^\d+$/.test(asString)) {
+      return `קומה ${asString}`
+    }
+    return asString
+  })()
+  const listingDescriptionValue =
+    typeof primaryListing?.description === 'string'
+      ? primaryListing.description.trim()
+      : ''
+  const primaryListingFeatures = primaryListing?.features
+  const listingFeatures =
+    Array.isArray(primaryListingFeatures)
+      ? primaryListingFeatures
+          .filter((feature): feature is string => typeof feature === 'string' && feature.trim().length > 0)
+          .map((feature) => feature.trim())
+      : []
+  const sanitizedPrimaryPhone = sanitizePhoneNumber(primaryPhoneValue)
+  const sanitizedSecondaryPhone = sanitizePhoneNumber(secondaryPhoneValue)
+  const hasListingDetails = Boolean(
+    listingTypeValue ||
+      adTypeValue ||
+      contactNameValue ||
+      primaryPhoneValue ||
+      secondaryPhoneValue ||
+      listingUrlValue ||
+      listingSourceValue ||
+      listingTitleValue ||
+      listingPriceDisplay ||
+      listingPropertyTypeValue ||
+      listingRoomsDisplay ||
+      listingSizeDisplay ||
+      listingFloorDisplay ||
+      listingDatePostedDisplay ||
+      (listingDescriptionValue && listingDescriptionValue.length > 0) ||
+      listingFeatures.length > 0
+  )
+
   const handleGenerateReport = async (selected: string[]) => {
     if (!id) return
 
@@ -1212,17 +1645,18 @@ useDedupedEffect(() => {
       const res = await fetch(`/api/assets/${id}/share-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language })
+        body: JSON.stringify({ language, provider })
       })
       if (res.ok) {
         const data = await res.json()
         setShareMessage(data.text)
         setShareUrl(data.share_url)
-        
+
         // Track marketing message creation
         trackFeatureUsage('marketing_message', parseInt(id), {
           message_type: 'share_message',
-          language: language
+          language: language,
+          provider
         })
       } else {
         const errorData = await res.json().catch(() => ({}))
@@ -1546,14 +1980,14 @@ useDedupedEffect(() => {
         </div>
 
         {/* Images Gallery */}
-        {asset.images && asset.images.length > 0 && (
+        {listingImages.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>תמונות הנכס</CardTitle>
             </CardHeader>
             <CardContent>
               <ImageGallery 
-                images={asset.images} 
+                images={listingImages} 
                 size="lg" 
                 maxDisplay={4}
                 showThumbnails={true}
@@ -1580,7 +2014,7 @@ useDedupedEffect(() => {
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">יתרת זכויות</div>
               <div className="text-2xl font-bold">
-                {remainingRightsDisplayValue !== null
+                {!!remainingRightsDisplayValue
                   ? `+${formatNumber(remainingRightsDisplayValue)} מ״ר`
                   : '—'}
               </div>
@@ -1590,13 +2024,166 @@ useDedupedEffect(() => {
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">רמת רעש</div>
               <div className="text-2xl font-bold">
-                {asset.noiseLevel !== undefined && asset.noiseLevel !== null
+                {!!asset.noiseLevel
                   ? `${asset.noiseLevel}/5`
                   : '—'}
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {hasListingDetails && (
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle>פרטי מודעה</CardTitle>
+              {listingSourceValue && (
+                <CardDescription>מקור: {formatListingSourceLabel(listingSourceValue)}</CardDescription>
+              )}
+              {listingTitleValue && (
+                <div className="text-sm font-medium text-foreground">{listingTitleValue}</div>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                <div>
+                  <div className="text-sm text-muted-foreground">מחיר מבוקש</div>
+                  <div className="font-medium">
+                    {renderValue(listingPriceDisplay || undefined, 'primaryListing.price')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">סוג נכס</div>
+                  <div className="font-medium">
+                    {renderValue(listingPropertyTypeValue || undefined, 'primaryListing.propertyType')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">סוג עסקה</div>
+                  <div className="font-medium">
+                    {renderValue(
+                      listingTypeValue ? <Badge>{formatListingTypeLabel(listingTypeValue)}</Badge> : undefined,
+                      'listingType'
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">סוג מפרסם</div>
+                  <div className="font-medium">
+                    {renderValue(
+                      adTypeValue ? <Badge>{formatAdTypeLabel(adTypeValue)}</Badge> : undefined,
+                      'adType'
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">חדרים</div>
+                  <div className="font-medium">
+                    {renderValue(listingRoomsDisplay || undefined, 'primaryListing.rooms')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">גודל</div>
+                  <div className="font-medium">
+                    {renderValue(listingSizeDisplay || undefined, 'primaryListing.size')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">קומה</div>
+                  <div className="font-medium">
+                    {renderValue(listingFloorDisplay || undefined, 'primaryListing.floor')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">פורסם ב</div>
+                  <div className="font-medium">
+                    {renderValue(listingDatePostedDisplay || undefined, 'primaryListing.datePosted')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                <div>
+                  <div className="text-sm text-muted-foreground">איש קשר</div>
+                  <div className="font-medium">
+                    {renderValue(contactNameValue || undefined, 'contactName')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">טלפון</div>
+                  <div className="font-medium">
+                    {renderValue(
+                      primaryPhoneValue ? (
+                        <a
+                          href={sanitizedPrimaryPhone ? `tel:${sanitizedPrimaryPhone}` : undefined}
+                          className="inline-flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <Phone className="h-3 w-3" />
+                          <span dir="ltr">{primaryPhoneValue}</span>
+                        </a>
+                      ) : undefined,
+                      'contactPhone'
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">טלפון נוסף</div>
+                  <div className="font-medium">
+                    {renderValue(
+                      secondaryPhoneValue ? (
+                        <a
+                          href={sanitizedSecondaryPhone ? `tel:${sanitizedSecondaryPhone}` : undefined}
+                          className="inline-flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <Phone className="h-3 w-3" />
+                          <span dir="ltr">{secondaryPhoneValue}</span>
+                        </a>
+                      ) : undefined,
+                      'contactInfo.brokerPhone'
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">קישור למודעה</div>
+                  <div className="font-medium">
+                    {renderValue(
+                      listingUrlValue ? (
+                        <Link
+                          href={listingUrlValue}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          צפייה במודעה
+                        </Link>
+                      ) : undefined,
+                      'primaryListing.url'
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {listingDescriptionValue && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">תיאור</div>
+                  <p className="whitespace-pre-line leading-relaxed">{listingDescriptionValue}</p>
+                </div>
+              )}
+
+              {listingFeatures.length > 0 && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">מאפיינים</div>
+                  <div className="flex flex-wrap gap-2">
+                    {listingFeatures.map((feature) => (
+                      <Badge key={feature} variant="outline" className="bg-muted/40">
+                        {feature}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Address Details */}
         <Card>

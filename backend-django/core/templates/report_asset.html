@@ -369,13 +369,23 @@
         </div>
         <div>
           <div class="k">פרטי קשר</div>
-          {% if listing.contactInfo %}
-            <div class="v">{{ listing.contactInfo.agent|default:"" }}</div>
-            <div class="v">{{ listing.contactInfo.phone|default:"" }}</div>
-            <div class="v">{{ listing.contactInfo.email|default:"" }}</div>
-          {% else %}
-            <div class="muted">אין פרטי קשר זמינים</div>
-          {% endif %}
+          {% with contact=listing.contact_info %}
+            {% if contact %}
+              <div class="v">{{ contact.name|default:contact.agent|default:"" }}</div>
+              <div class="v">{{ contact.phone|default:"" }}</div>
+              <div class="v">{{ contact.email|default:"" }}</div>
+            {% else %}
+              {% with contact=listing.contactInfo %}
+                {% if contact %}
+                  <div class="v">{{ contact.name|default:contact.agent|default:"" }}</div>
+                  <div class="v">{{ contact.phone|default:"" }}</div>
+                  <div class="v">{{ contact.email|default:"" }}</div>
+                {% else %}
+                  <div class="muted">אין פרטי קשר זמינים</div>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
+          {% endwith %}
         </div>
       </div>
     </section>

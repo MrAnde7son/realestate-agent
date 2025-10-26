@@ -46,6 +46,14 @@ const createFilters = (): FiltersConfig => ({
       { value: "sale", label: "מכירה" },
     ],
   },
+  adType: {
+    value: "all",
+    onChange: vi.fn(),
+    options: [
+      { value: "private", label: "פרטי" },
+      { value: "broker", label: "מתווך" },
+    ],
+  },
   userAssets: {
     value: "all",
     onChange: vi.fn(),
@@ -112,6 +120,7 @@ describe("TableToolbar quick filters", () => {
 
     expect(screen.getByRole("button", { name: "הנכסים שלי" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "סוג עיסקה" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "סוג מפרסם" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "מחיר" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "שטח" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "סוג נכס" })).toBeInTheDocument();
@@ -183,6 +192,17 @@ describe("TableToolbar quick filters", () => {
     fireEvent.click(rentalOption);
 
     expect(props.onAdditionalFilterChange).toHaveBeenCalledWith("rentalSale", "rental");
+  });
+
+  it("allows choosing advertiser type directly", () => {
+    const { props } = renderToolbar();
+
+    const trigger = screen.getByRole("button", { name: "סוג מפרסם" });
+    openDropdownMenu(trigger);
+    const privateOption = screen.getByRole("menuitemradio", { name: "פרטי" });
+    fireEvent.click(privateOption);
+
+    expect(props.onAdditionalFilterChange).toHaveBeenCalledWith("adType", "private");
   });
 
   it("updates price range from the quick filter popover", () => {

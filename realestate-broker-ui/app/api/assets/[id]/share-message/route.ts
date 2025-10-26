@@ -10,17 +10,27 @@ export async function POST(
     console.log('Share message request for asset:', id, 'Backend URL:', backendUrl)
     
     let language: string | undefined
+    let provider: string | undefined
     try {
       const body = await request.json()
       language = body.language
+      provider = body.provider
     } catch {
       // ignore missing body
     }
-    
+
+    const payload: { language?: string; provider?: string } = {}
+    if (typeof language !== 'undefined') {
+      payload.language = language
+    }
+    if (typeof provider !== 'undefined') {
+      payload.provider = provider
+    }
+
     const response = await fetch(`${backendUrl}/api/assets/${id}/share-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ language }),
+      body: JSON.stringify(payload),
     })
     
     // Check if response is OK

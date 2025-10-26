@@ -27,9 +27,9 @@ LLM_ALLOW_OVERRIDE = os.getenv("LLM_ALLOW_OVERRIDE", "true").lower() == "true"
 
 # Gemini / Google AI Studio
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GOOGLE_MODEL = os.getenv("GOOGLE_MODEL")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or GOOGLE_API_KEY
-GEMINI_MODEL = os.getenv("GEMINI_MODEL") or GOOGLE_MODEL or "gemini-2.5-pro"
+GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-2.5-flash")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash") 
 
 # OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

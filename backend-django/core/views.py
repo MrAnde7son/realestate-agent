@@ -57,6 +57,7 @@ from .models import (
     AlertRule,
     AlertEvent,
     Asset,
+    AssetListing,
     SourceRecord,
     RealEstateTransaction,
     OnboardingProgress,
@@ -95,6 +96,14 @@ from .services.asset_links import (
     asset_documents_all,
     asset_transactions_all,
     asset_listings_all,
+)
+from .utils.listings import (
+    format_rooms_value,
+    normalize_listing_from_meta,
+    normalize_listing_from_model,
+    parse_date_value,
+    parse_float,
+    parse_int,
 )
 
 User = get_user_model()
@@ -1731,12 +1740,64 @@ def _apply_asset_filters(queryset, params, user):
 
     rental_sale = params.get("rentalSale")
     if rental_sale and rental_sale != "all":
-        queryset = queryset.filter(
-            Q(meta__source__icontains="yad2")
-            | Q(meta__sources__contains=["yad2"])
-            | Q(meta__sources__contains=["Yad2"])
-            | Q(meta__sources__contains=["YAD2"])
+        normalized_rental_sale = (rental_sale or "").strip().lower()
+        matching_asset_ids = set(
+            AssetListing.objects.filter(
+                listing__listing_type__iexact=normalized_rental_sale
+            ).values_list("asset_id", flat=True)
         )
+
+        if normalized_rental_sale in {"rent", "sale"}:
+            candidate_ids = list(queryset.values_list("id", flat=True))
+            if candidate_ids:
+                for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
+                    yad2_listings = asset.get_property_value("yad2_listings", []) or []
+                    for listing in yad2_listings:
+                        if not isinstance(listing, dict):
+                            continue
+                        listing_type_value = (
+                            listing.get("listing_type")
+                            or listing.get("listingType")
+                            or ""
+                        ).lower()
+                        if listing_type_value == normalized_rental_sale:
+                            matching_asset_ids.add(asset.id)
+                            break
+
+        if matching_asset_ids:
+            queryset = queryset.filter(id__in=matching_asset_ids).distinct()
+        else:
+            queryset = queryset.none()
+
+    ad_type_filter = params.get("adType") or params.get("ad_type")
+    if ad_type_filter and ad_type_filter != "all":
+        normalized_ad_type = (ad_type_filter or "").strip().lower()
+        matching_asset_ids = set(
+            AssetListing.objects.filter(
+                listing__ad_type__iexact=normalized_ad_type
+            ).values_list("asset_id", flat=True)
+        )
+
+        candidate_ids = list(queryset.values_list("id", flat=True))
+        if candidate_ids:
+            for asset in Asset.objects.filter(id__in=candidate_ids).only("id", "meta"):
+                yad2_listings = asset.get_property_value("yad2_listings", []) or []
+                for listing in yad2_listings:
+                    if not isinstance(listing, dict):
+                        continue
+                    ad_type_value = (
+                        listing.get("ad_type")
+                        or listing.get("adType")
+                        or ""
+                    ).lower()
+                    if ad_type_value == normalized_ad_type:
+                        matching_asset_ids.add(asset.id)
+                        break
+
+        if matching_asset_ids:
+            queryset = queryset.filter(id__in=matching_asset_ids).distinct()
+        else:
+            return queryset.none()
 
     user_assets = params.get("userAssets")
     if user_assets and user_assets != "all":
@@ -1847,6 +1908,16 @@ def _get_asset_filter_metadata():
         if row["status"]
     }
 
+    listing_ad_types = sorted(
+        {
+            value
+            for value in AssetListing.objects.order_by()
+            .values_list("listing__ad_type", flat=True)
+            .distinct()
+            if value not in (None, "")
+        }
+    )
+
     return {
         "cities": sorted(set(_distinct("city"))),
         "types": sorted(property_types),
@@ -1857,6 +1928,7 @@ def _get_asset_filter_metadata():
         "buildingTypes": sorted(set(_distinct("building_type"))),
         "rooms": room_values,
         "statusCounts": status_counts,
+        "listingAdTypes": listing_ad_types,
     }
 
 
@@ -1872,7 +1944,7 @@ def _get_assets_list(request):
     page_size = min(page_size, MAX_ASSET_PAGE_SIZE)
 
     try:
-        queryset = Asset.objects.all().order_by("-created_at")
+        queryset = Asset.objects.all().order_by("-created_at").prefetch_related("listings_m2m")
         queryset = _apply_asset_filters(queryset, params, getattr(request, "user", None))
 
         paginator = Paginator(queryset, page_size)
@@ -1881,7 +1953,11 @@ def _get_assets_list(request):
         except (EmptyPage, PageNotAnInteger):
             page_obj = paginator.page(1)
 
-        serializer = AssetSerializer(page_obj.object_list, many=True)
+        serializer = AssetSerializer(
+            page_obj.object_list,
+            many=True,
+            context={"include_documents": False},
+        )
 
         return Response(
             {
@@ -3790,127 +3866,21 @@ def asset_listings(request, asset_id):
         except Asset.DoesNotExist:
             return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        def parse_int(value, default=None, minimum=None, maximum=None):
-            if value in (None, ''):
-                return default
-            try:
-                parsed = int(value)
-            except (TypeError, ValueError):
-                return default
-            if minimum is not None:
-                parsed = max(minimum, parsed)
-            if maximum is not None:
-                parsed = min(maximum, parsed)
-            return parsed
-
-        def parse_float(value):
-            if value in (None, ""):
-                return None
-            try:
-                return float(value)
-            except (TypeError, ValueError):
-                try:
-                    return float(str(value).replace(",", "."))
-                except (TypeError, ValueError):
-                    return None
-
-        def format_rooms_value(value):
-            numeric = parse_float(value)
-            if numeric is None:
-                return None
-            if numeric.is_integer():
-                return str(int(numeric))
-            formatted = f"{numeric:.2f}".rstrip("0").rstrip(".")
-            return formatted
-
-        def parse_date_value(value):
-            if not value:
-                return None
-            dt = None
-            if isinstance(value, datetime):
-                dt = value
-            elif isinstance(value, str):
-                cleaned = value.strip()
-                if not cleaned:
-                    return None
-                try:
-                    if cleaned.endswith("Z"):
-                        cleaned = cleaned.replace("Z", "+00:00")
-                    dt = datetime.fromisoformat(cleaned)
-                except (ValueError, TypeError):
-                    return None
-            if dt is None:
-                return None
-            if timezone.is_naive(dt):
-                try:
-                    dt = timezone.make_aware(dt, timezone.utc)
-                except Exception:
-                    dt = dt.replace(tzinfo=timezone.utc)
-            else:
-                dt = dt.astimezone(timezone.utc)
-            return dt
-
-        def normalize_listing_from_model(listing_obj):
-            raw = listing_obj.raw or {}
-            price = listing_obj.price if listing_obj.price is not None else raw.get("price")
-            area = listing_obj.area if listing_obj.area is not None else raw.get("area") or raw.get("size")
-            rooms_value = listing_obj.rooms if listing_obj.rooms is not None else raw.get("rooms")
-            date_posted = raw.get("date_posted") or raw.get("scraped_at")
-            if not date_posted and listing_obj.fetched_at:
-                date_posted = listing_obj.fetched_at.isoformat()
-
-            return {
-                "id": f"{listing_obj.source}:{listing_obj.external_id}",
-                "source": listing_obj.source or raw.get("source") or "external",
-                "external_id": listing_obj.external_id,
-                "title": listing_obj.title or raw.get("title") or "",
-                "price": parse_int(price, None),
-                "address": listing_obj.address or raw.get("address") or "",
-                "rooms": parse_float(rooms_value),
-                "rooms_display": format_rooms_value(rooms_value),
-                "size": parse_float(area),
-                "property_type": raw.get("property_type") or listing_obj.raw.get("propertyType"),
-                "url": listing_obj.url or raw.get("url"),
-                "date_posted": date_posted,
-                "images": raw.get("images", []),
-                "description": raw.get("description") or "",
-                "floor": raw.get("floor"),
-                "features": raw.get("features", []),
-            }
-
-        def normalize_listing_from_meta(meta_listing, idx):
-            source = meta_listing.get("source") or "yad2"
-            listing_id = meta_listing.get("listing_id") or meta_listing.get("id")
-            if not listing_id:
-                listing_id = f"{source}_{idx}_{meta_listing.get('url') or meta_listing.get('title') or 'listing'}"
-
-            rooms_value = meta_listing.get("rooms")
-            area = meta_listing.get("area") or meta_listing.get("size")
-
-            return {
-                "id": str(listing_id),
-                "source": source,
-                "external_id": meta_listing.get("external_id"),
-                "title": meta_listing.get("title") or "",
-                "price": parse_int(meta_listing.get("price"), None),
-                "address": meta_listing.get("address") or "",
-                "rooms": parse_float(rooms_value),
-                "rooms_display": format_rooms_value(rooms_value),
-                "size": parse_float(area),
-                "property_type": meta_listing.get("property_type"),
-                "url": meta_listing.get("url"),
-                "date_posted": meta_listing.get("date_posted") or meta_listing.get("scraped_at"),
-                "images": meta_listing.get("images", []),
-                "description": meta_listing.get("description") or "",
-                "floor": meta_listing.get("floor"),
-                "features": meta_listing.get("features", []),
-            }
-
         limit = parse_int(request.GET.get("limit"), 10, minimum=1, maximum=100)
         offset = parse_int(request.GET.get("offset"), 0, minimum=0) or 0
         search = (request.GET.get("search") or "").strip()
         source_filter = (request.GET.get("source") or "all").strip().lower()
         property_type_filter = (request.GET.get("property_type") or "all").strip().lower()
+        listing_type_filter = (
+            request.GET.get("listing_type")
+            or request.GET.get("listingType")
+            or "all"
+        ).strip().lower()
+        ad_type_filter = (
+            request.GET.get("ad_type")
+            or request.GET.get("adType")
+            or "all"
+        ).strip().lower()
         rooms_filter = (request.GET.get("rooms") or request.GET.get("rooms_filter") or "all").strip()
         min_price = parse_int(request.GET.get("min_price") or request.GET.get("price_min"), None, minimum=0)
         max_price = parse_int(request.GET.get("max_price") or request.GET.get("price_max"), None, minimum=0)
@@ -3947,6 +3917,20 @@ def asset_listings(request, asset_id):
         property_types_available = sorted(
             {listing.get("property_type") for listing in listings_all if listing.get("property_type")}
         )
+        listing_types_available = sorted(
+            {
+                listing.get("listing_type") or listing.get("listingType")
+                for listing in listings_all
+                if listing.get("listing_type") or listing.get("listingType")
+            }
+        )
+        ad_types_available = sorted(
+            {
+                listing.get("ad_type") or listing.get("adType")
+                for listing in listings_all
+                if listing.get("ad_type") or listing.get("adType")
+            }
+        )
         rooms_available = sorted(
             {
                 format_rooms_value(listing.get("rooms"))
@@ -3974,6 +3958,14 @@ def asset_listings(request, asset_id):
 
             listing_property_type = (listing.get("property_type") or "").lower()
             if property_type_filter not in ("", "all") and listing_property_type != property_type_filter:
+                continue
+
+            listing_type_value = (listing.get("listing_type") or listing.get("listingType") or "").lower()
+            if listing_type_filter not in ("", "all") and listing_type_value != listing_type_filter:
+                continue
+
+            listing_ad_type = (listing.get("ad_type") or listing.get("adType") or "").lower()
+            if ad_type_filter not in ("", "all") and listing_ad_type != ad_type_filter:
                 continue
 
             if min_price is not None:
@@ -4055,6 +4047,8 @@ def asset_listings(request, asset_id):
             "filters": {
                 "source": sources_available,
                 "property_type": property_types_available,
+                "listing_type": listing_types_available,
+                "ad_type": ad_types_available,
                 "rooms": rooms_available,
                 "price": price_meta,
             },

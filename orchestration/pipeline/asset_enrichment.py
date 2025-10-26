@@ -897,6 +897,17 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                 )
 
                 if DjangoListing is not None:
+                    listing_meta = listing.get('meta') or {}
+                    recent_deal_candidates = (
+                        listing.get('recent_deal'),
+                        listing.get('recentDeal'),
+                        listing_meta.get('recent_deal'),
+                        listing_meta.get('recentDeal'),
+                    )
+                    recent_deal_value = next(
+                        (value for value in recent_deal_candidates if value is not None),
+                        None,
+                    )
                     listing_defaults = {
                         'title': listing.get('title'),
                         'url': listing.get('url'),
@@ -906,6 +917,7 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                         'rooms': listing.get('rooms'),
                         'area': listing.get('area'),
                         'address': listing.get('address'),
+                        'recent_deal': bool(recent_deal_value) if recent_deal_value is not None else False,
                     }
                     try:
                         listing_obj, created_listing = DjangoListing.objects.get_or_create(

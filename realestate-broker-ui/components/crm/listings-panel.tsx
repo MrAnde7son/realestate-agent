@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/Badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ExternalLink, RefreshCw, Loader2, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { ExternalLink, RefreshCw, Loader2, ArrowDown, ArrowUp, ArrowUpDown, Phone, Play } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import TableToolbar, { AdditionalFilterValue } from '@/components/TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
@@ -44,6 +44,29 @@ interface Listing {
   description?: string | null
   floor?: string | number | null
   features?: string[]
+  listing_type?: string | null
+  listingType?: string | null
+  contact_name?: string | null
+  contactName?: string | null
+  contact_phone?: string | null
+  contactPhone?: string | null
+  contact_info?: {
+    name?: string | null
+    phone?: string | null
+    brokerPhone?: string | null
+    email?: string | null
+  } | null
+  contactInfo?: {
+    name?: string | null
+    phone?: string | null
+    brokerPhone?: string | null
+    email?: string | null
+  } | null
+  recent_deal?: boolean | null
+  recentDeal?: boolean | null
+  photos?: string[]
+  video_url?: string | null
+  videoUrl?: string | null
 }
 
 interface ListingsFiltersMeta {
@@ -54,6 +77,7 @@ interface ListingsFiltersMeta {
     min: number | null
     max: number | null
   }
+  listing_type?: string[]
 }
 
 interface ListingsState {
@@ -76,6 +100,7 @@ const DEFAULT_LISTINGS_STATE: ListingsState = {
   filters: {
     source: [],
     property_type: [],
+    listing_type: [],
     rooms: [],
     price: { min: null, max: null },
   },
@@ -110,6 +135,73 @@ const formatSize = (size?: number | null) => {
   return `${Math.round(size)} מ״ר`
 }
 
+const formatListingType = (value?: string | null) => {
+  if (!value) return 'לא צוין'
+  const normalized = value.toLowerCase()
+  if (normalized === 'rent') return 'השכרה'
+  if (normalized === 'sale') return 'מכירה'
+  return value
+}
+
+const normalizeListingResponse = (listing: any): Listing => {
+  if (!listing || typeof listing !== 'object') {
+    return listing
+  }
+
+  const rawContact = listing.contactInfo ?? listing.contact_info
+  const baseContact: Record<string, any> =
+    rawContact && typeof rawContact === 'object' ? { ...rawContact } : {}
+
+  const contactName =
+    listing.contactName ?? listing.contact_name ?? baseContact.name ?? null
+  const contactPhone =
+    listing.contactPhone ??
+    listing.contact_phone ??
+    baseContact.phone ??
+    baseContact.brokerPhone ??
+    null
+
+  if (contactName != null) {
+    baseContact.name = contactName
+  }
+  if (contactPhone != null) {
+    baseContact.phone = contactPhone
+  }
+
+  const photos = Array.from(
+    new Set([
+      ...(Array.isArray(listing.photos) ? listing.photos : []),
+      ...(Array.isArray(listing.images) ? listing.images : []),
+    ])
+  )
+
+  const videoUrl = listing.videoUrl ?? listing.video_url ?? listing.video ?? null
+
+  let recentDeal: boolean | null = null
+  if (typeof listing.recentDeal === 'boolean') {
+    recentDeal = listing.recentDeal
+  } else if (typeof listing.recent_deal === 'boolean') {
+    recentDeal = listing.recent_deal
+  }
+
+  return {
+    ...listing,
+    listingType: listing.listingType ?? listing.listing_type ?? null,
+    listing_type: listing.listingType ?? listing.listing_type ?? null,
+    contactName,
+    contact_name: contactName,
+    contactPhone,
+    contact_phone: contactPhone,
+    contactInfo: Object.keys(baseContact).length > 0 ? baseContact : null,
+    contact_info: Object.keys(baseContact).length > 0 ? baseContact : null,
+    photos,
+    videoUrl,
+    video_url: videoUrl,
+    recentDeal,
+    recent_deal: recentDeal,
+  }
+}
+
 const formatDate = (value?: string | null) => {
   if (!value) return '—'
   const date = new Date(value)
@@ -142,6 +234,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [sourceFilter, setSourceFilter] = useState('all')
   const [propertyTypeFilter, setPropertyTypeFilter] = useState('all')
+  const [listingTypeFilter, setListingTypeFilter] = useState('all')
   const [roomsFilter, setRoomsFilter] = useState('all')
   const [priceMin, setPriceMin] = useState<number | undefined>(undefined)
   const [priceMax, setPriceMax] = useState<number | undefined>(undefined)
@@ -182,6 +275,9 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
         break
       case 'source':
         setSourceFilter(value)
+        break
+      case 'listingType':
+        setListingTypeFilter(value)
         break
       default:
         break
@@ -225,6 +321,9 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
       if (propertyTypeFilter !== 'all') {
         params.set('property_type', propertyTypeFilter)
       }
+      if (listingTypeFilter !== 'all') {
+        params.set('listing_type', listingTypeFilter)
+      }
       if (roomsFilter !== 'all') {
         params.set('rooms', roomsFilter)
       }
@@ -245,7 +344,9 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
       }
 
       const data = response.data ?? {}
-      const items: Listing[] = Array.isArray(data?.results) ? data.results : []
+      const items: Listing[] = Array.isArray(data?.results)
+        ? data.results.map(normalizeListingResponse)
+        : []
       const serverLimit = typeof data?.limit === 'number' && data.limit > 0 ? data.limit : pagination.pageSize
       const serverOffset = typeof data?.offset === 'number' && data.offset >= 0 ? data.offset : pagination.pageIndex * pagination.pageSize
       const sanitizedOrdering = typeof data?.ordering === 'string' && data.ordering ? data.ordering : ordering
@@ -262,6 +363,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
         filters: {
           source: Array.isArray(data?.filters?.source) ? data.filters.source : [],
           property_type: Array.isArray(data?.filters?.property_type) ? data.filters.property_type : [],
+          listing_type: Array.isArray(data?.filters?.listing_type) ? data.filters.listing_type : [],
           rooms: Array.isArray(data?.filters?.rooms) ? data.filters.rooms : [],
           price: {
             min: typeof data?.filters?.price?.min === 'number' ? data.filters.price.min : null,
@@ -306,6 +408,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     priceMin,
     priceMax,
     ordering,
+    listingTypeFilter,
   ])
 
   useDedupedEffect(() => {
@@ -341,6 +444,16 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     return Array.from(derived.values())
   }, [listingsState.filters.rooms, listingsState.items])
 
+  const listingTypeOptions = useMemo(() => {
+    if (!Array.isArray(listingsState.filters.listing_type)) {
+      return [] as Array<{ value: string; label: string }>
+    }
+    return listingsState.filters.listing_type.map(type => ({
+      value: type,
+      label: formatListingType(type),
+    }))
+  }, [listingsState.filters.listing_type])
+
   useEffect(() => {
     if (
       sourceFilter !== 'all' &&
@@ -357,6 +470,14 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
       setPropertyTypeFilter('all')
     }
     if (
+      listingTypeFilter !== 'all' &&
+      Array.isArray(listingsState.filters.listing_type) &&
+      listingsState.filters.listing_type.length > 0 &&
+      !listingsState.filters.listing_type.includes(listingTypeFilter)
+    ) {
+      setListingTypeFilter('all')
+    }
+    if (
       roomsFilter !== 'all' &&
       roomOptions.length > 0 &&
       !roomOptions.some((option) => option.value === roomsFilter)
@@ -366,9 +487,11 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
   }, [
     listingsState.filters.source,
     listingsState.filters.property_type,
+    listingsState.filters.listing_type,
     roomOptions,
     sourceFilter,
     propertyTypeFilter,
+    listingTypeFilter,
     roomsFilter,
   ])
 
@@ -407,6 +530,18 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
       })
     }
 
+    if (listingTypeOptions.length > 0) {
+      filters.push({
+        key: 'listingType',
+        label: 'סוג עסקה',
+        value: listingTypeFilter,
+        options: [
+          { value: 'all', label: 'כל העסקאות' },
+          ...listingTypeOptions,
+        ],
+      })
+    }
+
     if (listingsState.filters.source.length > 0) {
       filters.push({
         key: 'source',
@@ -426,9 +561,11 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
   }, [
     listingsState.filters.property_type,
     listingsState.filters.source,
+    listingTypeOptions,
     roomOptions,
     roomsFilter,
     propertyTypeFilter,
+    listingTypeFilter,
     sourceFilter,
   ])
 
@@ -532,6 +669,10 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-start rtl:text-start">כותרת</TableHead>
+                      <TableHead className="text-start rtl:text-start">סוג עסקה</TableHead>
+                      <TableHead className="text-start rtl:text-start">איש קשר</TableHead>
+                      <TableHead className="text-start rtl:text-start">נמכר לאחרונה</TableHead>
+                      <TableHead className="text-start rtl:text-start">וידאו</TableHead>
                       <TableHead className="text-start rtl:text-start">
                         <button
                           type="button"
@@ -595,6 +736,71 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
                               <p className="text-sm text-muted-foreground">{listing.address}</p>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-start rtl:text-start">
+                          <Badge>{formatListingType(listing.listingType ?? listing.listing_type)}</Badge>
+                        </TableCell>
+                        <TableCell className="text-start rtl:text-start">
+                          {(() => {
+                            const name = listing.contactName ?? listing.contact_name ?? listing.contactInfo?.name ?? listing.contact_info?.name
+                            const phone =
+                              listing.contactPhone ??
+                              listing.contact_phone ??
+                              listing.contactInfo?.phone ??
+                              listing.contactInfo?.brokerPhone ??
+                              listing.contact_info?.phone ??
+                              listing.contact_info?.brokerPhone
+                            if (!name && !phone) {
+                              return <span>—</span>
+                            }
+                            const sanitizedPhone = phone ? phone.replace(/[^+\d]/g, '') : ''
+                            return (
+                              <div className="flex flex-col gap-1 text-xs">
+                                {name && <span className="font-medium text-foreground">{name}</span>}
+                                {phone && (
+                                  <a
+                                    href={sanitizedPhone ? `tel:${sanitizedPhone}` : undefined}
+                                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                                    onClick={event => event.stopPropagation()}
+                                  >
+                                    <Phone className="h-3 w-3" />
+                                    <span dir="ltr">{phone}</span>
+                                  </a>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-start rtl:text-start">
+                          {typeof (listing.recentDeal ?? listing.recent_deal) === 'boolean' ? (
+                            <Badge variant={(listing.recentDeal ?? listing.recent_deal) ? 'success' : 'neutral'}>
+                              {(listing.recentDeal ?? listing.recent_deal) ? 'כן' : 'לא'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="neutral">—</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-start rtl:text-start">
+                          {(() => {
+                            const videoUrl = listing.videoUrl ?? listing.video_url ?? listing.url
+                            if (!videoUrl) {
+                              return <span>—</span>
+                            }
+                          return (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={event => {
+                                event.stopPropagation()
+                                window.open(videoUrl, '_blank', 'noopener')
+                              }}
+                              className="me-0"
+                              aria-label="פתח וידאו"
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          )
+                        })()}
                         </TableCell>
                         <TableCell className="text-start rtl:text-start">
                           <span dir="ltr" className="block text-end font-medium">

@@ -548,15 +548,24 @@ class HebrewPDFGenerator:
         """Draw contact information."""
         x = 450 if self.report_font == "HebrewFont" else 50
 
-        if listing.get("contactInfo"):
-            self.draw_hebrew_label(
-                c, "סוכן", listing.get("contactInfo", {}).get("agent", ""), x, y
-            )
+        contact = listing.get("contact_info") or listing.get("contactInfo") or {}
+        has_contact = any(
+            contact.get(key)
+            for key in ("name", "agent", "phone", "brokerPhone", "email")
+        )
+
+        if has_contact:
+            agent_name = contact.get("name") or contact.get("agent") or ""
+            phone_number = contact.get("phone") or contact.get("brokerPhone") or ""
+            email_value = contact.get("email") or ""
+
+            self.draw_hebrew_label(c, "סוכן", agent_name, x, y)
             y -= 20
-            self.draw_hebrew_label(
-                c, "טלפון", listing.get("contactInfo", {}).get("phone", ""), x, y
-            )
+            self.draw_hebrew_label(c, "טלפון", phone_number, x, y)
             y -= 20
-            self.draw_hebrew_label(
-                c, "אימייל", listing.get("contactInfo", {}).get("email", ""), x, y
-            )
+            self.draw_hebrew_label(c, "אימייל", email_value, x, y)
+        else:
+            if self.report_font == "HebrewFont":
+                c.drawString(x, y, self.reverse_hebrew_text("אין פרטי קשר זמינים"))
+            else:
+                c.drawString(x, y, "No contact information available")

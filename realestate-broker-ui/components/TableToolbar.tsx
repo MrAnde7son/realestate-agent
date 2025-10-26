@@ -157,6 +157,11 @@ interface TableToolbarFilters {
     onChange: (value: string) => void;
     options: Array<{ value: string; label: string }>;
   };
+  adType?: {
+    value: string;
+    onChange: (value: string) => void;
+    options: Array<{ value: string; label: string }>;
+  };
   userAssets?: {
     value: string;
     onChange: (value: string) => void;
@@ -261,11 +266,13 @@ export default function TableToolbar({
   const remainingRightsMinFilter = filters?.remainingRightsMin;
   const remainingRightsMaxFilter = filters?.remainingRightsMax;
   const rentalSaleFilter = filters?.rentalSale;
+  const adTypeFilter = filters?.adType;
   const userAssetsQuickFilter = filters?.userAssets;
   const [pricePopoverOpen, setPricePopoverOpen] = useState(false);
   const [areaPopoverOpen, setAreaPopoverOpen] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [rentalSaleMenuOpen, setRentalSaleMenuOpen] = useState(false);
+  const [adTypeMenuOpen, setAdTypeMenuOpen] = useState(false);
 
   // Handle hydration mismatch
   React.useEffect(() => {
@@ -366,6 +373,16 @@ export default function TableToolbar({
     );
   })();
 
+  const adTypeDefaultLabel = 'סוג מפרסם';
+
+  const adTypeSelectedLabel = (() => {
+    if (!adTypeFilter || adTypeFilter.value === 'all') return adTypeDefaultLabel;
+    return (
+      adTypeFilter.options.find(option => option.value === adTypeFilter.value)?.label ||
+      adTypeDefaultLabel
+    );
+  })();
+
   const userAssetsValue = userAssetsQuickFilter?.value ?? userAssetsAdditionalFilter?.value;
   const userAssetsActive = Boolean(userAssetsValue && userAssetsValue !== 'all');
 
@@ -397,6 +414,7 @@ export default function TableToolbar({
     (remainingRightsMinFilter && remainingRightsMinFilter.value !== undefined) ||
     (remainingRightsMaxFilter && remainingRightsMaxFilter.value !== undefined) ||
     (rentalSaleFilter && rentalSaleFilter.value !== 'all') ||
+    (adTypeFilter && adTypeFilter.value !== 'all') ||
     additionalFiltersActive ||
     (statusFilters && statusFilters.value !== 'all') ||
     (dateRange && (dateRange.from || dateRange.to)) ||
@@ -437,6 +455,7 @@ export default function TableToolbar({
     dateRange?.onChange(undefined, undefined);
     if (!onAdditionalFilterChange) {
       rentalSaleFilter?.onChange('all');
+      adTypeFilter?.onChange('all');
       userAssetsQuickFilter?.onChange('all');
     }
   };
@@ -640,6 +659,44 @@ export default function TableToolbar({
                   >
                     <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
                     {rentalSaleFilter.options.map(option => (
+                      <DropdownMenuRadioItem key={option.value} value={option.value}>
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {adTypeFilter && (
+              <DropdownMenu open={adTypeMenuOpen} onOpenChange={setAdTypeMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={adTypeFilter.value !== 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    className={TOOLBAR_PILL_BUTTON_CLASSES}
+                  >
+                    <span>{adTypeSelectedLabel}</span>
+                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">בחר סוג מפרסם</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={adTypeFilter.value}
+                    onValueChange={(value) => {
+                      if (onAdditionalFilterChange) {
+                        onAdditionalFilterChange('adType', value);
+                      } else {
+                        adTypeFilter.onChange(value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'adType', value });
+                      }
+                    }}
+                  >
+                    <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
+                    {adTypeFilter.options.map(option => (
                       <DropdownMenuRadioItem key={option.value} value={option.value}>
                         {option.label}
                       </DropdownMenuRadioItem>

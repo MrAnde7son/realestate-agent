@@ -751,6 +751,13 @@ class Listing(models.Model):
     rooms = models.FloatField(blank=True, null=True)
     area = models.FloatField(blank=True, null=True)
     address = models.CharField(max_length=300, blank=True, null=True)
+    listing_type = models.CharField(max_length=30, blank=True, null=True)
+    ad_type = models.CharField(max_length=30, blank=True, null=True)
+    contact_name = models.CharField(max_length=255, blank=True, null=True)
+    contact_phone = models.CharField(max_length=50, blank=True, null=True)
+    recent_deal = models.BooleanField(default=False)
+    photos = models.JSONField(default=list, blank=True)
+    video_url = models.URLField(max_length=500, blank=True, null=True)
     fetched_at = models.DateTimeField(auto_now_add=True)
     assets = models.ManyToManyField(
         'Asset',

@@ -56,13 +56,19 @@ def _listing_to_dict(listing: Any) -> Dict[str, Any]:
             "property_type",
             "description",
             "images",
+            "video",
             "documents",
             "contact_info",
+            "contact_name",
+            "contact_phone",
             "features",
             "url",
             "listing_id",
             "date_posted",
             "coordinates",
+            "listing_type",
+            "ad_type",
+            "recent_deal",
             "scraped_at",
             "meta",
         )
@@ -74,6 +80,9 @@ def _listing_to_dict(listing: Any) -> Dict[str, Any]:
             size_value = getattr(listing, "size")
         if size_value not in (None, ""):
             data["area"] = size_value
+
+    if "photos" not in data and data.get("images") is not None:
+        data["photos"] = data.get("images")
 
     return data
 

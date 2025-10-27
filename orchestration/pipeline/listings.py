@@ -25,6 +25,31 @@ def _object_to_payload(obj: Any) -> Dict[str, Any]:
     except TypeError:
         # ``vars`` might fail for certain built-in types – fall back to repr
         pass
+
+    # Preserve contact_info property even though its backing attribute is private
+    # and filtered out by the vars() copy above. This ensures contact details
+    # flow through the pipeline and can populate serializers/filters.
+    try:
+        if "contact_info" not in data and hasattr(obj, "contact_info"):
+            contact_info = getattr(obj, "contact_info")
+            if contact_info is not None:
+                if hasattr(contact_info, "to_dict"):
+                    try:
+                        contact_info = contact_info.to_dict()
+                    except Exception:
+                        # Best-effort: if to_dict fails, leave as-is
+                        pass
+                data["contact_info"] = contact_info
+                # Backfill simple fields when missing
+                if data.get("contact_name") in (None, ""):
+                    if isinstance(contact_info, dict):
+                        data["contact_name"] = contact_info.get("name")
+                if data.get("contact_phone") in (None, ""):
+                    if isinstance(contact_info, dict):
+                        data["contact_phone"] = contact_info.get("phone") or contact_info.get("brokerPhone")
+    except Exception:
+        # Do not let best-effort enrichment break payload building
+        pass
     return data
 
 

@@ -432,7 +432,13 @@ class DataPipeline:
             
             # Extract block and parcel from GovMap data
             if govmap_data.get("api_data", {}).get("parcel"):
-                parcel_props = govmap_data.get("api_data", {}).get("parcel", {}).get('properties', {})
+                parcel_obj = govmap_data.get("api_data", {}).get("parcel", {})
+                # Unwrap Feature if needed, then prefer gushnumber/parcelnumber
+                if isinstance(parcel_obj, dict) and parcel_obj.get("properties"):
+                    parcel_props = parcel_obj.get('properties', {})
+                else:
+                    parcel_props = parcel_obj or {}
+
                 block = parcel_props.get("gushnumber", "")
                 parcel = parcel_props.get("parcelnumber", "")
                 location = LocationQuery(

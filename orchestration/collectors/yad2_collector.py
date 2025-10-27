@@ -163,7 +163,6 @@ class Yad2Collector(BaseCollector):
             location = self.client.fetch_location_autocomplete(address)
             if location:
                 search_params = self._prepare_location_parameters(location)
-                print(search_params)
                 if search_params:
                     self.client.set_search_parameters(**search_params)
 

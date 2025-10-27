@@ -371,8 +371,28 @@ def _extract_address_components(
     number_value = _find_first_by_token(mapping, _NUMBER_TOKENS)
     city_value = _find_first_by_token(mapping, _CITY_TOKENS) or fallback_city
     address_value = _find_first_by_token(mapping, _ADDRESS_TOKENS)
-    block_value = _find_first_by_token(mapping, {"block", "gush", "blocknumber", "block_id"})
-    parcel_value = _find_first_by_token(mapping, {"parcel", "helka", "parcelnumber", "parcel_id"})
+    block_value = (
+        _find_first_by_token(mapping, {"gushnumber", "blocknumber", "block_id"})
+        or _find_first_by_token(mapping, {"gush", "block"})
+    )
+    parcel_value = (
+        _find_first_by_token(mapping, {"parcelnumber", "parcel_id", "helka"})
+        or _find_first_by_token(mapping, {"parcel"})
+    )
+
+    if isinstance(block_value, dict):
+        props = block_value.get("properties") if isinstance(block_value.get("properties"), dict) else None
+        if props and props.get("gushnumber") is not None:
+            block_value = props.get("gushnumber")
+        elif block_value.get("gush") is not None:
+            block_value = block_value.get("gush")
+
+    if isinstance(parcel_value, dict):
+        props = parcel_value.get("properties") if isinstance(parcel_value.get("properties"), dict) else None
+        if props and props.get("parcelnumber") is not None:
+            parcel_value = props.get("parcelnumber")
+        elif parcel_value.get("helka") is not None:
+            parcel_value = parcel_value.get("helka")
     subparcel_value = _find_first_by_token(mapping, {"subparcel", "tathelka", "sub_parcel"})
 
     street = _normalize_text(street_value)

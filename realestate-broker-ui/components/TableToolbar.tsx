@@ -623,6 +623,42 @@ export default function TableToolbar({
         />
       </div>
 
+      {/* Layout controls - View mode (separate from table actions) */}
+      <div className="flex w-full items-center justify-start" dir="rtl">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onViewModeChange('table')}
+            className="h-10 w-10 rounded-full flex items-center justify-center"
+            title="תצוגת טבלה"
+            aria-label="תצוגת טבלה"
+         >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'cards' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onViewModeChange('cards')}
+            className="h-10 w-10 rounded-full flex items-center justify-center"
+            title="תצוגת כרטיסים"
+            aria-label="תצוגת כרטיסים"
+          >
+            <Grid3X3 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'map' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onViewModeChange('map')}
+            className="h-10 w-10 rounded-full flex items-center justify-center"
+            title="תצוגת מפה"
+            aria-label="תצוגת מפה"
+          >
+            <Map className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
       {/* Quick filters and toolbar actions */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between" dir="rtl">
         <div className="lg:flex-1">
@@ -1347,40 +1383,6 @@ export default function TableToolbar({
           data-testid="toolbar-actions-container"
           className="flex w-full flex-wrap items-center gap-2 justify-start lg:w-auto lg:justify-end"
         >
-        {/* View mode toggle */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onViewModeChange('table')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
-            title="תצוגת טבלה"
-            aria-label="תצוגת טבלה"
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'cards' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onViewModeChange('cards')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
-            title="תצוגת כרטיסים"
-            aria-label="תצוגת כרטיסים"
-          >
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'map' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onViewModeChange('map')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
-            title="תצוגת מפה"
-            aria-label="תצוגת מפה"
-          >
-            <Map className="h-4 w-4" />
-          </Button>
-        </div>
-
         {/* Column selection */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

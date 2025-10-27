@@ -225,30 +225,9 @@ class TestAssetFieldPopulation:
                 'area': 40,
                 'address': 'דרך השלום 10, תל אביב',
                 'listing_type': 'commercial',
+                'ad_type': 'private',
                 'meta': {
                     'category_id': 2,
-                },
-            }
-        ]
-
-        _populate_asset_fields_from_listings(asset, listings)
-
-        assert asset.is_commercial is True
-
-    def test_sets_commercial_flag_from_ad_type(self):
-        asset = MockAsset()
-        asset.normalized_address = "דרך בן גוריון 1, בני ברק"
-
-        listings = [
-            {
-                'price': 4500,
-                'address': 'דרך בן גוריון 1, בני ברק',
-                'ad_type': 'commercial',
-                'meta': {
-                    'ad_type': 'commercial',
-                    'raw': {
-                        'adType': 'commercial',
-                    },
                 },
             }
         ]

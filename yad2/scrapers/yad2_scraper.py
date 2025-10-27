@@ -69,6 +69,9 @@ class Yad2Scraper:
         self.contacts_per_run_limit = int(os.getenv("YAD2_CONTACTS_PER_RUN_LIMIT", "50"))
         self.contacts_min_interval_s = float(os.getenv("YAD2_CONTACTS_MIN_INTERVAL_S", "0.5"))
         self.contacts_retries = int(os.getenv("YAD2_CONTACTS_RETRIES", "1"))
+        
+        # Simple in-memory cache for project autocomplete lookups
+        self._project_autocomplete_cache: Dict[str, Dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # API helpers
@@ -254,6 +257,46 @@ class Yad2Scraper:
             raise Exception(f"Contact fetch failed after retries: {last_exception}")
         raise Exception("Contact fetch failed after retries")
 
+
+    def fetch_project_autocomplete(self, phrase: str) -> Optional[Dict[str, Any]]:
+        """Fetch project data from Yad1 developers autocomplete API.
+
+        Args:
+            phrase: Free-text phrase, e.g. projectName.
+
+        Returns:
+            Dict with the best matching project entry or None when not available.
+        """
+        if not phrase:
+            return None
+
+        cached = self._project_autocomplete_cache.get(phrase)
+        if cached is not None:
+            return cached
+
+        try:
+            url = f"{self.api_base_url}/yad1/projects-developers/autocomplete"
+            params = {"phrase": phrase}
+            response = self.session.get(url, params=params, timeout=30)
+            if response.status_code != 200:
+                logger.warning("Failed to fetch project autocomplete: %s", response.status_code)
+                return None
+
+            data = response.json()
+            entries: List[str, Any] = data.get("data", {}).get('projects', [])
+
+            best: Optional[Dict[str, Any]] = None
+            for entry in entries:
+                meta = (entry or {}).get("metaData") or {}
+                if meta.get("projectName") == phrase:
+                    best = entry
+                    break
+
+            self._project_autocomplete_cache[phrase] = best
+            return best
+        except Exception as e:
+            logger.error("Error fetching project autocomplete: %s", e)
+            return None
 
     def get_property_types(self):
         """Get all property type codes with names."""
@@ -564,6 +607,15 @@ class Yad2Scraper:
 
             if marker_type == "yad1":
                 listing.meta["project_id"] = marker.get("projectId")
+                project_name = (marker.get("metaData") or {}).get("projectName")
+                project_entry = self.fetch_project_autocomplete(project_name) if project_name else None
+
+                token = ''
+                if isinstance(project_entry, dict):
+                    token = project_entry.get("token")
+                project_id = marker.get("projectId")
+                listing.listing_id = token or project_id
+                listing.url = f"{self.base_url}/yad1/project/{token}"
 
             return listing
         except Exception as exc:
@@ -943,7 +995,7 @@ class Yad2Scraper:
 
 
 if __name__ == "__main__":
-    search_params =  { 'city': 5000, 'neighborhood': 203, "topArea": 2, "area": 1, "zoom": 15}
+    search_params =  {'limit': 8, 'sortBy': 'saleDate', 'order': 'desc', 'coords': '10.0,10.0', 'city': 5000, 'page': 1}
     scraper = Yad2Scraper(search_params)
-    deals = scraper.fetch_listings(pull_contacts=True)
+    deals = scraper.fetch_listings()
     print(deals)

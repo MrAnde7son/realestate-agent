@@ -1241,18 +1241,29 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         update_fields.add('price')
         logger.debug('[ASSET_FIELDS] Set price from listing: %s', asset.price)
     
-    # Area (prefer area for net area, fallback to total_area)
-    listing_area = best_listing.get('area')
-    if listing_area:
-        if not asset.area:
-            asset.area = listing_area
-            update_fields.add('area')
-            logger.debug('[ASSET_FIELDS] Set area from listing: %s', asset.area)
-        elif not asset.total_area:
-            asset.total_area = listing_area
-            update_fields.add('total_area')
-            logger.debug('[ASSET_FIELDS] Set total_area from listing: %s', asset.total_area)
-    
+    # Area fields: size represents built area (net), total_size represents lot area (gross)
+    listing_net_area = _first_nonempty(
+        best_listing.get('size'),
+        best_listing.get('area'),
+        _safe_get(best_listing.get('meta'), 'size'),
+        _safe_get(best_listing.get('meta'), 'area'),
+        _safe_get(best_listing.get('meta'), 'netSqm'),
+    )
+    if listing_net_area and not asset.area:
+        asset.area = listing_net_area
+        update_fields.add('area')
+        logger.debug('[ASSET_FIELDS] Set area from listing size: %s', asset.area)
+
+    listing_total_area = _first_nonempty(
+        best_listing.get('total_size'),
+        _safe_get(best_listing.get('meta'), 'total_size'),
+        _safe_get(best_listing.get('meta'), 'totalSqm'),
+    )
+    if listing_total_area and not asset.total_area:
+        asset.total_area = listing_total_area
+        update_fields.add('total_area')
+        logger.debug('[ASSET_FIELDS] Set total_area from listing total_size: %s', asset.total_area)
+
     # Calculate price_per_sqm if we have both price and area
     if asset.price and (asset.total_area or asset.area):
         area_to_use = asset.total_area or asset.area

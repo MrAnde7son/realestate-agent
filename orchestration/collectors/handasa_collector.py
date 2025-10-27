@@ -20,6 +20,7 @@ class HandasaCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        **kwargs
     ) -> List[Dict[str, Any]]:
         query = ensure_location_query(location)
         block = query.block
@@ -27,7 +28,7 @@ class HandasaCollector(BaseCollector):
         if not block:
             raise ValueError("HandasaCollector requires a block number")
         try:
-            return self.client.get_archive(block, parcel)
+            return self.client.get_archive(str(block), str(parcel))
         except Exception:
             logger.exception("Failed to fetch Handasa archive for block %s parcel %s", block, parcel)
             raise

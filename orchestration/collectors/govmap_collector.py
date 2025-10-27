@@ -35,6 +35,7 @@ class GovMapCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """Collect data from GovMap using address autocomplete and parcel data.
 

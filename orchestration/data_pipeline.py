@@ -364,8 +364,6 @@ class DataPipeline:
         initial_block = location.block
         initial_parcel = location.parcel
         initial_subparcel = location.subparcel
-        street_with_number = location.street_with_number
-        full_address = location.formatted
 
         logger.info(f"🚀 Starting data pipeline for {location.formatted}")
         start_time = time.perf_counter()
@@ -807,9 +805,10 @@ class DataPipeline:
                 if not session_provided:
                     session.close()
 
-            # Log completion summary
-            execution_time = time.perf_counter() - start_time
-            logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
-            logger.info(f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
-            
+                # Log completion summary
+                execution_time = time.perf_counter() - start_time
+                logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
+                logger.info(
+                    f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
+
             return results

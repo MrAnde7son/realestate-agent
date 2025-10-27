@@ -136,8 +136,9 @@ class Yad2Collector(BaseCollector):
         return params
 
     def collect(
-        self,
-        location: Optional[LocationQuery] = None,
+            self,
+            location: Optional[LocationQuery] = None,
+            **kwargs
     ) -> List[RealEstateListing]:
         """Collect Yad2 listings for a given location.
 

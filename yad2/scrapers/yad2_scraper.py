@@ -908,5 +908,5 @@ class Yad2Scraper:
 if __name__ == "__main__":
     search_params =  { 'city': 5000, 'neighborhood': 203, "topArea": 2, "area": 1, "zoom": 15}
     scraper = Yad2Scraper(search_params)
-    deals = scraper.fetch_listings(listing_type=ListingType.COMMERCIAL, pull_contacts=True)
+    deals = scraper.fetch_listings(pull_contacts=True)
     print(deals)

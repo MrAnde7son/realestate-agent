@@ -108,13 +108,13 @@ class DataPipeline:
     # Per-collector configuration for timeouts and retry counts. These can
     # be overridden via environment variables if needed.
     TIMEOUTS = {
-        "yad2": float(os.getenv("YAD2_TIMEOUT", "60")),
-        "gis": float(os.getenv("GIS_TIMEOUT", "60")),
-        "gov": float(os.getenv("GOV_TIMEOUT", "60")),
-        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "60")),
-        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
-        "mavat": float(os.getenv("MAVAT_TIMEOUT", "60")),
-        "handasa": float(os.getenv("HANDASA_TIMEOUT", "90")),
+        "yad2": float(os.getenv("YAD2_TIMEOUT", "120")),
+        "gis": float(os.getenv("GIS_TIMEOUT", "120")),
+        "gov": float(os.getenv("GOV_TIMEOUT", "120")),
+        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "120")),
+        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "120")),
+        "mavat": float(os.getenv("MAVAT_TIMEOUT", "120")),
+        "handasa": float(os.getenv("HANDASA_TIMEOUT", "120")),
     }
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),

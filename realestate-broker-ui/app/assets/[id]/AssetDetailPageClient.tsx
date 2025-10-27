@@ -1988,9 +1988,10 @@ useDedupedEffect(() => {
             <CardContent>
               <ImageGallery 
                 images={listingImages} 
-                size="lg" 
+                size="md" 
                 maxDisplay={4}
                 showThumbnails={true}
+                className="flex-wrap sm:flex-nowrap overflow-x-auto sm:overflow-visible"
               />
             </CardContent>
           </Card>

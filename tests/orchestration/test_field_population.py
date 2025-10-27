@@ -114,19 +114,7 @@ if 'selenium' not in sys.modules:
     support_ec_module.element_to_be_clickable = _DummyExpectedConditions.element_to_be_clickable
     sys.modules['selenium.webdriver.support.expected_conditions'] = support_ec_module
 
-if 'webdriver_manager' not in sys.modules:
-    webdriver_manager_module = types.ModuleType('webdriver_manager')
-    chrome_manager_module = types.ModuleType('webdriver_manager.chrome')
 
-    class _DummyChromeDriverManager:
-        def install(self):
-            return "/tmp/chromedriver"
-
-    chrome_manager_module.ChromeDriverManager = _DummyChromeDriverManager
-    webdriver_manager_module.chrome = chrome_manager_module
-
-    sys.modules['webdriver_manager'] = webdriver_manager_module
-    sys.modules['webdriver_manager.chrome'] = chrome_manager_module
 
 from orchestration.pipeline.asset_enrichment import _populate_asset_fields_from_listings
 

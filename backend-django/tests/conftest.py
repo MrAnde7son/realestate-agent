@@ -118,19 +118,7 @@ if "selenium" not in sys.modules:
     sys.modules["selenium.common"] = selenium_common_module
     sys.modules["selenium.common.exceptions"] = selenium_common_exceptions_module
 
-if "webdriver_manager" not in sys.modules:
-    webdriver_manager_module = ModuleType("webdriver_manager")
-    chrome_manager_module = ModuleType("webdriver_manager.chrome")
 
-    class _DummyChromeDriverManager:
-        def install(self):
-            return "/tmp/chromedriver"
-
-    chrome_manager_module.ChromeDriverManager = _DummyChromeDriverManager
-    webdriver_manager_module.chrome = chrome_manager_module
-
-    sys.modules["webdriver_manager"] = webdriver_manager_module
-    sys.modules["webdriver_manager.chrome"] = chrome_manager_module
 
 if "pandas" not in sys.modules:
     pandas_module = ModuleType("pandas")

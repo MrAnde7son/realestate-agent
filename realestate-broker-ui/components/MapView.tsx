@@ -169,25 +169,36 @@ export default function MapView({
       const { lat, lon, source } = pt as any;
       normalizedPoints.push({ lon, lat, asset, src: source });
     
-      const markerEl = document.createElement('div');
-      markerEl.className = 'asset-marker';
-      markerEl.style.cssText = `
+      // Use a container element for the marker, and apply hover transforms to a child
+      // so we don't override MapLibre's own transform used for positioning.
+      const markerContainer = document.createElement('div');
+      markerContainer.className = 'asset-marker';
+      markerContainer.style.cssText = `
+        width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+        z-index: 1000;
+      `;
+
+      const innerEl = document.createElement('div');
+      innerEl.style.cssText = `
         width: 40px; height: 40px; border-radius: 50%; background-color: #ef4444;
         border: 4px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         cursor: pointer; display: flex; align-items: center; justify-content: center;
-        color: white; font-weight: bold; font-size: 14px; z-index: 1000;
+        color: white; font-weight: bold; font-size: 14px; transition: transform 0.2s;
       `;
-      markerEl.innerHTML = `<span>${index + 1}</span>`;
-      markerEl.title = `${asset.address ?? asset.id} • ${source}`;
-    
-      markerEl.addEventListener('click', () => onAssetClick(asset));
-      markerEl.addEventListener('mouseenter', () => {
-        markerEl.style.transform = 'scale(1.1)';
-        markerEl.style.transition = 'transform 0.2s';
+      innerEl.innerHTML = `<span>${index + 1}</span>`;
+      innerEl.title = `${asset.address ?? asset.id} • ${source}`;
+
+      markerContainer.appendChild(innerEl);
+
+      markerContainer.addEventListener('click', () => onAssetClick(asset));
+      markerContainer.addEventListener('mouseenter', () => {
+        innerEl.style.transform = 'scale(1.1)';
       });
-      markerEl.addEventListener('mouseleave', () => (markerEl.style.transform = 'scale(1)'));
-    
-      const marker = new maplibregl.Marker({ element: markerEl })
+      markerContainer.addEventListener('mouseleave', () => {
+        innerEl.style.transform = 'scale(1)';
+      });
+
+      const marker = new maplibregl.Marker({ element: markerContainer })
       .setLngLat([lon, lat])
       .addTo(m)
       markersRef.current[asset.id] = marker

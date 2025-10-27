@@ -7,8 +7,7 @@ beautifulsoup4>=4.9.0
 lxml>=4.6.0
 
 # Web Scraping
-selenium>=4.0.0
-webdriver-manager>=3.5.0
+selenium==4.25.0
 scrapy>=2.5.0
 
 # Data Processing

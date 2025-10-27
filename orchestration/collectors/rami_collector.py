@@ -17,6 +17,7 @@ class RamiCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        **kwargs
     ) -> List[Dict[str, Any]]:
         """Collect RAMI plans for a given block (block) and parcel (parcel)."""
         query = ensure_location_query(location)
@@ -25,7 +26,7 @@ class RamiCollector(BaseCollector):
             raise ValueError("RamiCollector requires a block number")
         try:
             # Block search is enough for rami to cover larger area
-            search_params = self.client.create_search_params(block=block)
+            search_params = self.client.create_search_params(block=str(block))
             
             # Fetch plans using the same method as the test
             plans = self.client.fetch_plans(search_params)

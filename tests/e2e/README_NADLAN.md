@@ -165,8 +165,7 @@ python -m pytest tests/e2e/test_nadlan_integration.py -v -s --log-cli-level=DEBU
 
 ### Required Packages
 ```
-selenium>=4.0.0
-webdriver-manager>=3.8.0
+selenium==4.2.5
 beautifulsoup4>=4.9.0
 requests>=2.25.0
 pytest>=6.0.0
@@ -174,7 +173,6 @@ pytest>=6.0.0
 
 ### Browser Requirements
 - Chrome or Chromium browser
-- ChromeDriver (managed by webdriver-manager)
 
 ## CI/CD Integration
 

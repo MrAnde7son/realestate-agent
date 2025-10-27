@@ -58,9 +58,17 @@ class RealEstateListing:
                 pass
 
         data = {
+            'id': getattr(contact_info, 'id', None),
             'name': getattr(contact_info, 'name', None),
             'phone': getattr(contact_info, 'phone', None),
             'brokerPhone': getattr(contact_info, 'brokerPhone', None),
+            'isVirtualPhoneNumber': getattr(contact_info, 'isVirtualPhoneNumber', None),
+            'agencyName': getattr(contact_info, 'agencyName', None),
+            'agencyLogo': getattr(contact_info, 'agencyLogo', None),
+            'brokerAvatar': getattr(contact_info, 'brokerAvatar', None),
+            'agencyAbout': getattr(contact_info, 'agencyAbout', None),
+            'brokers': getattr(contact_info, 'brokers', None),
+            'licenseNumber': getattr(contact_info, 'licenseNumber', None),
         }
         return {k: v for k, v in data.items() if v is not None}
 
@@ -140,22 +148,42 @@ class RealEstateListing:
 
 class Contact:
     def __init__(self, **kwargs):
-        self.brokerPhone: str = kwargs.get('broker_phone')
-        self.id: int = kwargs.get('id')
-        self.name: str = kwargs.get('name')
-        self.name: str = kwargs.get('name')
-        self.phone: str = kwargs.get('phone')
+        def _get(*keys):
+            for key in keys:
+                if key in kwargs and kwargs[key] is not None:
+                    return kwargs[key]
+            return None
+
+        self.id: int = _get('id')
+        self.name: str = _get('name')
+        self.phone: str = _get('phone')
+        self.brokerPhone: str = _get('broker_phone', 'brokerPhone')
+        self.isVirtualPhoneNumber: bool = _get('is_virtual_phone_number', 'isVirtualPhoneNumber')
+        self.agencyName: str = _get('agency_name', 'agencyName')
+        self.agencyLogo: str = _get('agency_logo', 'agencyLogo')
+        self.brokerAvatar: str = _get('broker_avatar', 'brokerAvatar')
+        self.agencyAbout: str = _get('agency_about', 'agencyAbout')
+        brokers = _get('brokers')
+        self.brokers = brokers if brokers is not None else []
+        self.licenseNumber = _get('license_number', 'licenseNumber')
 
     def to_dict(self):
         return {
-            'brokerPhone': self.brokerPhone,
             'id': self.id,
+            'brokerPhone': self.brokerPhone,
             'name': self.name,
             'phone': self.phone,
+            'isVirtualPhoneNumber': self.isVirtualPhoneNumber,
+            'agencyName': self.agencyName,
+            'agencyLogo': self.agencyLogo,
+            'brokerAvatar': self.brokerAvatar,
+            'agencyAbout': self.agencyAbout,
+            'brokers': self.brokers,
+            'licenseNumber': self.licenseNumber,
         }
 
     def __str__(self):
-        return "Contact(name='{}', phome={})".format(
+        return "Contact(name='{}', phone={})".format(
             self.name or 'N/A',
             self.phone or 'N/A'
         )

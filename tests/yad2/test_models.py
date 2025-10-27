@@ -40,3 +40,35 @@ def test_real_estate_listing_to_dict_and_str():
     assert '1200000' in text
     assert 'Main St, Tel Aviv' in text
     assert repr(listing) == text
+
+
+def test_contact_preserves_broker_metadata():
+    brokers = [{'name': 'Agent Smith', 'id': '10596', 'licenseNumber': '31102707'}]
+    contact = Contact(
+        id=6365987,
+        name='Shahar Rabinovich',
+        phone='053-3739795',
+        brokerPhone='053-3739795',
+        isVirtualPhoneNumber=True,
+        agencyName='Yesh Nadlan',
+        agencyLogo='//images.yad2.co.il/logo.jpg',
+        brokerAvatar='https://img.yad2.co.il/avatar.jpg',
+        agencyAbout='About the agency',
+        brokers=brokers,
+        licenseNumber=31102707,
+    )
+
+    contact_dict = contact.to_dict()
+    assert contact_dict['id'] == 6365987
+    assert contact_dict['isVirtualPhoneNumber'] is True
+    assert contact_dict['agencyName'] == 'Yesh Nadlan'
+    assert contact_dict['agencyLogo'] == '//images.yad2.co.il/logo.jpg'
+    assert contact_dict['brokerAvatar'] == 'https://img.yad2.co.il/avatar.jpg'
+    assert contact_dict['agencyAbout'] == 'About the agency'
+    assert contact_dict['brokers'] == brokers
+    assert contact_dict['licenseNumber'] == 31102707
+
+    listing = RealEstateListing(contact_info=contact)
+    listing_dict = listing.to_dict()
+    assert listing_dict['contact_info']['agencyName'] == 'Yesh Nadlan'
+    assert listing_dict['contact_info']['brokers'] == brokers

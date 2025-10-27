@@ -21,6 +21,7 @@ class GISCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """Geocode and collect GIS data for a given address or block/parcel."""
 

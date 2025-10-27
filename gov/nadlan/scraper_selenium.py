@@ -25,7 +25,7 @@ Notes
 """
 
 from __future__ import annotations
-
+import atexit, shutil, os
 import json
 import logging
 import tempfile
@@ -37,7 +37,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+
 
 from .exceptions import NadlanAPIError
 from .models import Deal
@@ -67,6 +68,8 @@ class NadlanDealsScraper:
         self.driver = None
         self.current_search_address = None  # Store the current search address for full address construction
         self.error_modal_encountered = False  # Track if error modal was encountered during scraping
+        self._tmp_profile_dir = None
+
         
         # Initialize cache if enabled
         if self.use_cache:
@@ -75,48 +78,53 @@ class NadlanDealsScraper:
         else:
             self.cache = None
             self.incremental_collector = None
-        
+    
     def _init_driver(self):
-        """Initialize the Selenium WebDriver with headless-safe, stealthy settings."""
+        """Initialize the Selenium WebDriver with headless-safe, Mac ARM-friendly settings."""
         if self.driver is not None:
             return
 
-        options = webdriver.ChromeOptions()
+        # create a unique, throwaway user-data-dir to avoid profile locks across Celery workers
+        self._tmp_profile_dir = tempfile.mkdtemp(prefix="nadlan_chrome_")
+        atexit.register(lambda: shutil.rmtree(self._tmp_profile_dir, ignore_errors=True))
 
+        opts = Options()
         if self.headless:
-            options.add_argument("--headless=new")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--window-size=1366,768")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--disable-features=Translate")
-        options.add_argument(f"--user-data-dir={tempfile.mkdtemp(prefix='chrome_profile_')}")
-        options.add_argument("--lang=he-IL")
-        options.add_argument("--use-gl=swiftshader")
-        options.add_argument("--enable-webgl")
-        options.add_argument("--ignore-gpu-blocklist")
-        options.add_argument("--no-first-run")
-        options.add_argument("--no-default-browser-check")
-        # These help some sites bind mouse events properly under headless
-        options.add_argument("--enable-features=NetworkService,NetworkServiceInProcess")
-        options.set_capability("goog:loggingPrefs", {"performance": "ALL"})  # <-- enables self.driver.get_log('performance')
+            # modern headless mode
+            opts.add_argument("--headless=new")
+        opts.add_argument("--no-sandbox")
+        opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--window-size=1366,768")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_argument("--disable-features=Translate")
+        opts.add_argument("--lang=he-IL")
+        opts.add_argument("--use-gl=swiftshader")
+        opts.add_argument("--enable-webgl")
+        opts.add_argument("--ignore-gpu-blocklist")
+        opts.add_argument("--no-first-run")
+        opts.add_argument("--no-default-browser-check")
+        opts.add_argument("--enable-features=NetworkServiceInProcess")
+        opts.add_argument("--remote-debugging-port=0")                 # let Chrome pick a free port
+        opts.add_argument(f"--user-data-dir={self._tmp_profile_dir}")  # unique profile per run
+        # keep JS heap modest to reduce kill-by-OS under memory pressure
+        opts.add_argument("--js-flags=--max_old_space_size=128")
+        # optional: skip images if you don't need them
+        # opts.add_argument("--blink-settings=imagesEnabled=false")
 
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
+        # capture performance logs if you use self.driver.get_log('performance')
+        opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
-        try:
-            driver.execute_cdp_cmd("Page.setWebLifecycleState", {"state": "active"})
-        except Exception:
-            pass
+        # Let Selenium Manager fetch a matching chromedriver (no webdriver_manager, no explicit path)
+        service = Service()
+        driver = webdriver.Chrome(service=service, options=opts)
 
-        # --- Stealth hardening via CDP (unchanged from your version, kept for completeness) ---
+        # Soft CDP tweaks (best-effort)
         try:
             driver.execute_cdp_cmd("Emulation.setTimezoneOverride", {"timezoneId": "Asia/Jerusalem"})
             driver.execute_cdp_cmd("Emulation.setLocaleOverride", {"locale": "he-IL"})
+            ua = driver.execute_script("return navigator.userAgent")
             driver.execute_cdp_cmd("Network.setUserAgentOverride", {
-                "userAgent": driver.execute_script("return navigator.userAgent"),
-                "acceptLanguage": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-                "platform": "MacIntel"
+                "userAgent": ua, "acceptLanguage": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7", "platform": "MacIntel"
             })
             driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
                 "source": """
@@ -133,18 +141,17 @@ class NadlanDealsScraper:
                     };
                 """
             })
-        except Exception as e:
-            logger.debug(f"CDP stealth setup failed: {e}")
-
-        try:
             driver.execute_cdp_cmd("Network.enable", {})
             driver.execute_cdp_cmd("Runtime.enable", {})
         except Exception as e:
-            logger.debug(f"Could not enable Network/Runtime: {e}")
+            logger.debug(f"CDP setup skipped: {e}")
 
+        # timeouts
         driver.set_page_load_timeout(self.timeout)
         driver.set_script_timeout(max(self.timeout, 60))
+
         self.driver = driver
+
 
     def _wait_for_deals_api_call(self, timeout: int = 30) -> bool:
         """Wait for the deals API call to complete by monitoring network requests."""
@@ -344,14 +351,18 @@ class NadlanDealsScraper:
             logger.debug(f"Error during page load wait: {e}")
     
     def _cleanup_driver(self):
-        """Clean up the Selenium WebDriver."""
-        if self.driver:
-            try:
-                self.driver.quit()
-            except Exception:
-                pass
-            finally:
-                self.driver = None
+        """Clean up Selenium and remove the temp profile dir."""
+        try:
+            if self.driver:
+                try:
+                    self.driver.quit()
+                except Exception:
+                    pass
+        finally:
+            self.driver = None
+            if self._tmp_profile_dir:
+                shutil.rmtree(self._tmp_profile_dir, ignore_errors=True)
+                self._tmp_profile_dir = None
     
     def _extract_city_from_search_address(self, search_address: str) -> str:
         """Extract city name from the search address.
@@ -1315,7 +1326,7 @@ class NadlanDealsScraper:
         return info
 
 if __name__ == "__main__":
-    scraper = NadlanDealsScraper(headless=True)
+    scraper = NadlanDealsScraper(headless=False)
     deals = scraper.get_deals_by_address("הירקון 319 תל אביב", max_age_days=365 * 10)
     for deal in deals:
         print(f"{deal.address} - ₪{deal.deal_amount:,.0f}")

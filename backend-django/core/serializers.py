@@ -110,6 +110,9 @@ class AssetSerializer(MetaSerializerMixin):
     legalRestrictions = serializers.CharField(source='legal_restrictions', read_only=True)
     urbanRenewalPotential = serializers.CharField(source='urban_renewal_potential', read_only=True)
     bettermentLevy = serializers.CharField(source='betterment_levy', read_only=True)
+
+    is_commercial = serializers.BooleanField(read_only=True)
+    isCommercial = serializers.BooleanField(source='is_commercial', read_only=True)
     
     # Enhanced Planning Metrics
     buildingCoveragePct = serializers.FloatField(source='building_coverage_pct', read_only=True)
@@ -303,6 +306,7 @@ class AssetSerializer(MetaSerializerMixin):
             'rightsUsagePct','legalRestrictions','urbanRenewalPotential','bettermentLevy',
             'buildingCoveragePct','heightAnalysis','setbackAnalysis',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
+            'is_commercial', 'isCommercial',
             'last_enriched_at', 'created_at', 'meta', 'documents',
             'primary_listing', 'listing_type', 'ad_type',
             'contact_name', 'contact_phone',

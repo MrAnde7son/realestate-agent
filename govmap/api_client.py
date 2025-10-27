@@ -73,7 +73,6 @@ class GovMapClient:
         autocomplete_url: str = DEFAULT_AUTOCOMPLETE,
         session: Optional[requests.Session] = None,
         timeout: int = 30,
-        *,
         api_token: Optional[str] = None,
         user_token: Optional[str] = None,
         domain: Optional[str] = None,

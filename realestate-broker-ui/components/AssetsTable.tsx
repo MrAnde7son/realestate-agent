@@ -75,6 +75,7 @@ const formatListingTypeLabel = (value?: string | null) => {
   const normalized = value.toLowerCase()
   if (normalized === 'rent') return 'השכרה'
   if (normalized === 'sale') return 'מכירה'
+  if (normalized === 'commercial') return 'מסחרי'
   return value
 }
 
@@ -157,6 +158,14 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
               · {row.original.type ?? '—'} · {row.original.area !== undefined && row.original.area !== null ? `${fmtNumber(row.original.area)} מ"ר` : '—'}
               {row.original.subparcelArea && ` · ${fmtNumber(row.original.subparcelArea)} מ"ר מגרש`}
               {row.original.builtArea && ` · ${fmtNumber(row.original.builtArea)} מ"ר בנוי`}
+              {row.original.isCommercial && (
+                <>
+                  {' · '}
+                  <Badge variant="secondary" className="text-[10px] font-normal px-2 py-0.5">
+                    מסחרי
+                  </Badge>
+                </>
+              )}
           </div>
         </div>
       </div>
@@ -460,6 +469,11 @@ interface AssetsTableProps {
       options: Array<{ value: string; label: string }>
     }
     adType?: {
+      value: string
+      onChange: (value: string) => void
+      options: Array<{ value: string; label: string }>
+    }
+    commercial?: {
       value: string
       onChange: (value: string) => void
       options: Array<{ value: string; label: string }>
@@ -923,19 +937,29 @@ export default function AssetsTable({
       })
     }
 
-    if (filters.adType) {
-      items.push({
-        key: 'adType',
-        label: 'סוג מפרסם',
-        type: 'select',
-        value: filters.adType.value,
-        options: (filters.adType.options || []).map(option => ({ value: option.value, label: option.label }))
-      })
-    }
+      if (filters.adType) {
+        items.push({
+          key: 'adType',
+          label: 'סוג מפרסם',
+          type: 'select',
+          value: filters.adType.value,
+          options: (filters.adType.options || []).map(option => ({ value: option.value, label: option.label }))
+        })
+      }
 
-    if (filters.userAssets) {
-      items.push({
-        key: 'userAssets',
+      if (filters.commercial) {
+        items.push({
+          key: 'commercial',
+          label: 'ייעוד נכס',
+          type: 'select',
+          value: filters.commercial.value,
+          options: (filters.commercial.options || []).map(option => ({ value: option.value, label: option.label }))
+        })
+      }
+
+      if (filters.userAssets) {
+        items.push({
+          key: 'userAssets',
         label: 'נכסים שלי',
         type: 'select',
         value: filters.userAssets.value,
@@ -1221,6 +1245,10 @@ export default function AssetsTable({
         case 'adType':
           filters.adType?.onChange(value)
           trackString('adType', value)
+          break
+        case 'commercial':
+          filters.commercial?.onChange(value)
+          trackString('commercial', value)
           break
         case 'userAssets':
           filters.userAssets?.onChange(value)

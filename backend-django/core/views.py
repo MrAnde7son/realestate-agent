@@ -1812,6 +1812,14 @@ def _apply_asset_filters(queryset, params, user):
         else:
             return queryset.none()
 
+    commercial_filter = params.get("commercial")
+    if commercial_filter == "commercial":
+        queryset = queryset.filter(is_commercial=True)
+    elif commercial_filter == "residential":
+        queryset = queryset.filter(
+            Q(is_commercial=False) | Q(is_commercial__isnull=True)
+        )
+
     user_assets = params.get("userAssets")
     if user_assets and user_assets != "all":
         if not user or not getattr(user, "is_authenticated", False):

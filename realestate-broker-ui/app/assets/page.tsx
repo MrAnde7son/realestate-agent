@@ -140,6 +140,7 @@ export default function AssetsPage() {
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "all");
   const [rentalSaleFilter, setRentalSaleFilter] = useState<string>(() => searchParams.get("rentalSale") ?? "all");
   const [adTypeFilter, setAdTypeFilter] = useState<string>(() => searchParams.get("adType") ?? "all");
+  const [commercialFilter, setCommercialFilter] = useState<string>(() => searchParams.get("commercial") ?? "all");
   const [userAssetsFilter, setUserAssetsFilter] = useState<string>(() => searchParams.get("userAssets") ?? "all");
   const [buildingTypeFilter, setBuildingTypeFilter] = useState<string>(() => searchParams.get("buildingType") ?? "all");
   const [floorMin, setFloorMin] = useState<number | undefined>(() => {
@@ -380,6 +381,7 @@ export default function AssetsPage() {
     setStatusFilter(searchParams.get("status") ?? "all");
     setRentalSaleFilter(searchParams.get("rentalSale") ?? "all");
     setAdTypeFilter(searchParams.get("adType") ?? "all");
+    setCommercialFilter(searchParams.get("commercial") ?? "all");
     setUserAssetsFilter(searchParams.get("userAssets") ?? "all");
     setBuildingTypeFilter(searchParams.get("buildingType") ?? "all");
     const floorMinVal = searchParams.get("floorMin");
@@ -523,6 +525,11 @@ export default function AssetsPage() {
       params.set("adType", adTypeFilter);
     } else {
       params.delete("adType");
+    }
+    if (commercialFilter && commercialFilter !== "all") {
+      params.set("commercial", commercialFilter);
+    } else {
+      params.delete("commercial");
     }
     if (userAssetsFilter && userAssetsFilter !== "all") {
       params.set("userAssets", userAssetsFilter);
@@ -749,6 +756,7 @@ export default function AssetsPage() {
     statusFilter,
     rentalSaleFilter,
     adTypeFilter,
+    commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
     floorMin,
@@ -810,6 +818,7 @@ export default function AssetsPage() {
     statusFilter,
     rentalSaleFilter,
     adTypeFilter,
+    commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
     floorMin,
@@ -880,6 +889,7 @@ export default function AssetsPage() {
       if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
       if (rentalSaleFilter && rentalSaleFilter !== "all") params.set("rentalSale", rentalSaleFilter);
       if (adTypeFilter && adTypeFilter !== "all") params.set("adType", adTypeFilter);
+      if (commercialFilter && commercialFilter !== "all") params.set("commercial", commercialFilter);
       if (userAssetsFilter && userAssetsFilter !== "all") params.set("userAssets", userAssetsFilter);
       if (buildingTypeFilter && buildingTypeFilter !== "all") params.set("buildingType", buildingTypeFilter);
       if (floorMin != null) params.set("floorMin", String(floorMin));
@@ -1017,6 +1027,7 @@ export default function AssetsPage() {
     statusFilter,
     rentalSaleFilter,
     adTypeFilter,
+    commercialFilter,
     userAssetsFilter,
     buildingTypeFilter,
     floorMin,
@@ -1542,6 +1553,14 @@ export default function AssetsPage() {
     []
   );
 
+  const commercialFilterOptions = React.useMemo(
+    () => [
+      { value: "commercial", label: "נכסים מסחריים" },
+      { value: "residential", label: "נכסים למגורים" },
+    ],
+    []
+  );
+
   const userAssetsFilterOptions = React.useMemo(
     () => [
       { value: "mine", label: "נכסים שלי" },
@@ -1890,6 +1909,11 @@ export default function AssetsPage() {
                   value: adTypeFilter,
                   onChange: setAdTypeFilter,
                   options: adTypeFilterOptions
+                },
+                commercial: {
+                  value: commercialFilter,
+                  onChange: setCommercialFilter,
+                  options: commercialFilterOptions
                 },
                 userAssets: {
                   value: userAssetsFilter,

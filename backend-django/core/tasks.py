@@ -12,7 +12,6 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from govmap.api_client import itm_to_wgs84
-from orchestration.data_pipeline import DataPipeline
 from orchestration.location import LocationQuery
 from orchestration.pipeline import (
     auto_expand_related_assets,
@@ -102,6 +101,8 @@ def send_notification_email(
 def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
     """Collect raw payloads for an asset without further processing."""
     from .models import Asset
+    from orchestration.data_pipeline import DataPipeline
+
 
     try:
         asset = Asset.objects.get(id=asset_id)
@@ -158,9 +159,13 @@ def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
                     lon_wgs84 = lat_wgs84 = None
             parcel_api = govmap_data.get("api_data", {}).get("parcel", {})
             if parcel_api:
-                parcel_props = parcel_api.get("properties", {})
-                block = parcel_props.get("gushnumber", block)
-                parcel = parcel_props.get("parcelnumber", parcel)
+                # Unwrap Feature and prefer gushnumber/parcelnumber
+                if isinstance(parcel_api, dict) and parcel_api.get("properties"):
+                    parcel_props = parcel_api.get("properties", {})
+                else:
+                    parcel_props = parcel_api or {}
+                block = parcel_props.get("gushnumber", "")
+                parcel = parcel_props.get("parcelnumber", "")
                 location = LocationQuery(
                     city=location.city,
                     street=location.street,
@@ -338,6 +343,8 @@ def _append_result(results: List[Dict[str, Any]], source: str, data: Any) -> Non
 
 @shared_task
 def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
+    from orchestration.data_pipeline import DataPipeline
+
     if previous.get("halt"):
         return previous
 

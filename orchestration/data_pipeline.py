@@ -108,13 +108,13 @@ class DataPipeline:
     # Per-collector configuration for timeouts and retry counts. These can
     # be overridden via environment variables if needed.
     TIMEOUTS = {
-        "yad2": float(os.getenv("YAD2_TIMEOUT", "30")),
-        "gis": float(os.getenv("GIS_TIMEOUT", "60")),
-        "gov": float(os.getenv("GOV_TIMEOUT", "60")),
-        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "60")),
-        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "60")),
-        "mavat": float(os.getenv("MAVAT_TIMEOUT", "0.5")),
-        "handasa": float(os.getenv("HANDASA_TIMEOUT", "90")),
+        "yad2": float(os.getenv("YAD2_TIMEOUT", "120")),
+        "gis": float(os.getenv("GIS_TIMEOUT", "120")),
+        "gov": float(os.getenv("GOV_TIMEOUT", "120")),
+        "govmap": float(os.getenv("GOVMAP_TIMEOUT", "120")),
+        "gov_rami": float(os.getenv("GOV_RAMI_TIMEOUT", "120")),
+        "mavat": float(os.getenv("MAVAT_TIMEOUT", "120")),
+        "handasa": float(os.getenv("HANDASA_TIMEOUT", "120")),
     }
     RETRIES = {
         "yad2": int(os.getenv("YAD2_RETRIES", "0")),
@@ -364,8 +364,6 @@ class DataPipeline:
         initial_block = location.block
         initial_parcel = location.parcel
         initial_subparcel = location.subparcel
-        street_with_number = location.street_with_number
-        full_address = location.formatted
 
         logger.info(f"🚀 Starting data pipeline for {location.formatted}")
         start_time = time.perf_counter()
@@ -434,7 +432,13 @@ class DataPipeline:
             
             # Extract block and parcel from GovMap data
             if govmap_data.get("api_data", {}).get("parcel"):
-                parcel_props = govmap_data.get("api_data", {}).get("parcel", {}).get('properties', {})
+                parcel_obj = govmap_data.get("api_data", {}).get("parcel", {})
+                # Unwrap Feature if needed, then prefer gushnumber/parcelnumber
+                if isinstance(parcel_obj, dict) and parcel_obj.get("properties"):
+                    parcel_props = parcel_obj.get('properties', {})
+                else:
+                    parcel_props = parcel_obj or {}
+
                 block = parcel_props.get("gushnumber", "")
                 parcel = parcel_props.get("parcelnumber", "")
                 location = LocationQuery(
@@ -807,9 +811,10 @@ class DataPipeline:
                 if not session_provided:
                     session.close()
 
-            # Log completion summary
-            execution_time = time.perf_counter() - start_time
-            logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
-            logger.info(f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
-            
+                # Log completion summary
+                execution_time = time.perf_counter() - start_time
+                logger.info(f"✅ Pipeline completed successfully in {execution_time:.2f}s")
+                logger.info(
+                    f"📊 Processed {len(listings)} listings with data from {len(set(r.get('source', 'yad2') if isinstance(r, dict) else 'yad2' for r in results))} sources")
+
             return results

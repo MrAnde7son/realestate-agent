@@ -136,8 +136,9 @@ class Yad2Collector(BaseCollector):
         return params
 
     def collect(
-        self,
-        location: Optional[LocationQuery] = None,
+            self,
+            location: Optional[LocationQuery] = None,
+            **kwargs
     ) -> List[RealEstateListing]:
         """Collect Yad2 listings for a given location.
 
@@ -162,7 +163,6 @@ class Yad2Collector(BaseCollector):
             location = self.client.fetch_location_autocomplete(address)
             if location:
                 search_params = self._prepare_location_parameters(location)
-                print(search_params)
                 if search_params:
                     self.client.set_search_parameters(**search_params)
 

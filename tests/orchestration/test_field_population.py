@@ -114,19 +114,7 @@ if 'selenium' not in sys.modules:
     support_ec_module.element_to_be_clickable = _DummyExpectedConditions.element_to_be_clickable
     sys.modules['selenium.webdriver.support.expected_conditions'] = support_ec_module
 
-if 'webdriver_manager' not in sys.modules:
-    webdriver_manager_module = types.ModuleType('webdriver_manager')
-    chrome_manager_module = types.ModuleType('webdriver_manager.chrome')
 
-    class _DummyChromeDriverManager:
-        def install(self):
-            return "/tmp/chromedriver"
-
-    chrome_manager_module.ChromeDriverManager = _DummyChromeDriverManager
-    webdriver_manager_module.chrome = chrome_manager_module
-
-    sys.modules['webdriver_manager'] = webdriver_manager_module
-    sys.modules['webdriver_manager.chrome'] = chrome_manager_module
 
 from orchestration.pipeline.asset_enrichment import _populate_asset_fields_from_listings
 
@@ -148,6 +136,7 @@ class MockAsset:
         self.neighborhood = None
         self.meta = {}
         self.save_called = False
+        self.is_commercial = False
     
     def save(self, update_fields=None):
         self.save_called = True
@@ -210,9 +199,30 @@ class TestAssetFieldPopulation:
         assert asset.meta['primary_listing_source']['source'] == 'yad2'
         assert asset.meta['primary_listing_source']['listing_id'] == '12345'
         assert asset.meta['primary_listing_source']['address'] == 'רחוב הרצל 15, תל אביב'
-        
+
         # Verify save was called
         assert asset.save_called
+
+    def test_sets_commercial_flag_from_listings(self):
+        asset = MockAsset()
+        asset.normalized_address = "דרך השלום 10, תל אביב"
+
+        listings = [
+            {
+                'price': 100000,
+                'area': 40,
+                'address': 'דרך השלום 10, תל אביב',
+                'listing_type': 'commercial',
+                'ad_type': 'private',
+                'meta': {
+                    'category_id': 2,
+                },
+            }
+        ]
+
+        _populate_asset_fields_from_listings(asset, listings)
+
+        assert asset.is_commercial is True
 
     def test_populate_from_yad2_listings_street_match(self):
         """Test that street matching is not supported - only exact matches work."""

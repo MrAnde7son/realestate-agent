@@ -918,6 +918,13 @@ def _create_django_records_from_collected_data(asset, govmap_autocomplete_data, 
                         'area': listing.get('area'),
                         'address': listing.get('address'),
                         'recent_deal': bool(recent_deal_value) if recent_deal_value is not None else False,
+                        # Persist commonly used fields for UI/filters
+                        'listing_type': listing.get('listing_type') or listing.get('listingType'),
+                        'ad_type': listing.get('ad_type') or listing.get('adType'),
+                        'contact_name': listing.get('contact_name') or listing.get('contactName') or ((listing.get('contact_info') or {}).get('name') if isinstance(listing.get('contact_info'), dict) else None),
+                        'contact_phone': (listing.get('contact_phone') or listing.get('contactPhone') or ((listing.get('contact_info') or {}).get('phone') if isinstance(listing.get('contact_info'), dict) else None) or ((listing.get('contact_info') or {}).get('brokerPhone') if isinstance(listing.get('contact_info'), dict) else None)),
+                        'photos': listing.get('photos') or listing.get('images') or [],
+                        'video_url': listing.get('video_url') or listing.get('videoUrl') or listing.get('video'),
                     }
                     try:
                         listing_obj, created_listing = DjangoListing.objects.get_or_create(
@@ -1138,11 +1145,59 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                         return raw_neighborhood.strip()
 
         return None
-    
+
+    def _is_listing_commercial(listing_data):
+        if not isinstance(listing_data, dict):
+            return False
+
+        def _normalize(value):
+            if isinstance(value, str):
+                return value.strip().lower()
+            return None
+
+        listing_type_value = (
+            listing_data.get('listing_type')
+            or listing_data.get('listingType')
+        )
+        if _normalize(listing_type_value) == 'commercial':
+            return True
+
+        meta = listing_data.get('meta')
+        if isinstance(meta, dict):
+            category_candidate = meta.get('category_id') or meta.get('categoryId')
+            if category_candidate is not None and str(category_candidate).strip() == '2':
+                return True
+
+            raw_meta = meta.get('raw')
+            if isinstance(raw_meta, dict):
+                category_raw = raw_meta.get('categoryId')
+                if category_raw is not None and str(category_raw).strip() == '2':
+                    return True
+
+                raw_listing_type = raw_meta.get('listingType')
+                if _normalize(raw_listing_type) == 'commercial':
+                    return True
+
+        return False
+
     # Find the best listing to use as the primary source
     # Priority: exact address match > same street > any listing
     best_listing = None
-    
+
+    update_fields = set()
+
+    is_commercial_listing = any(
+        _is_listing_commercial(listing) for listing in normalized_listings if isinstance(listing, dict)
+    )
+
+    if getattr(asset, 'is_commercial', None) is not None:
+        if asset.is_commercial != is_commercial_listing:
+            asset.is_commercial = is_commercial_listing
+            update_fields.add('is_commercial')
+    else:
+        asset.is_commercial = is_commercial_listing
+        update_fields.add('is_commercial')
+
     # Try to find exact address match first
     if asset.normalized_address:
         asset_address = asset.normalized_address.lower()
@@ -1166,10 +1221,12 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                 break
     
     if not best_listing:
+        if update_fields:
+            asset.save(update_fields=list(update_fields))
+            logger.info('[ASSET_FIELDS] Updated asset %s fields: %s', asset.id, list(update_fields))
         return
-    
+
     # Populate asset fields from the best listing
-    update_fields = set()
 
     if not asset.neighborhood:
         listing_neighborhood = _extract_listing_neighborhood(best_listing)
@@ -1241,6 +1298,49 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
             asset.floor = floor_value
         update_fields.add('floor')
     
+    # Contact and listing fields from best listing
+    # Contact name
+    if not getattr(asset, 'contact_name', None):
+        contact_name = (
+            best_listing.get('contact_name')
+            or best_listing.get('contactName')
+            or ((best_listing.get('contact_info') or {}).get('name') if isinstance(best_listing.get('contact_info'), dict) else None)
+        )
+        if contact_name:
+            try:
+                # Asset model may not have contact_name; guard with hasattr
+                if hasattr(asset, 'contact_name'):
+                    asset.contact_name = contact_name
+                    update_fields.add('contact_name')
+            except Exception:
+                pass
+
+    # Contact phone
+    if not getattr(asset, 'contact_phone', None):
+        contact_phone = (
+            best_listing.get('contact_phone')
+            or best_listing.get('contactPhone')
+            or ((best_listing.get('contact_info') or {}).get('phone') if isinstance(best_listing.get('contact_info'), dict) else None)
+            or ((best_listing.get('contact_info') or {}).get('brokerPhone') if isinstance(best_listing.get('contact_info'), dict) else None)
+        )
+        if contact_phone:
+            try:
+                if hasattr(asset, 'contact_phone'):
+                    asset.contact_phone = contact_phone
+                    update_fields.add('contact_phone')
+            except Exception:
+                pass
+
+    # Listing type and ad type for downstream filters
+    listing_type = best_listing.get('listing_type') or best_listing.get('listingType')
+    ad_type = best_listing.get('ad_type') or best_listing.get('adType')
+    if listing_type and hasattr(asset, 'listing_type') and not getattr(asset, 'listing_type', None):
+        asset.listing_type = listing_type
+        update_fields.add('listing_type')
+    if ad_type and hasattr(asset, 'ad_type') and not getattr(asset, 'ad_type', None):
+        asset.ad_type = ad_type
+        update_fields.add('ad_type')
+
     # Store source information in meta
     if not asset.meta:
         asset.meta = {}

@@ -162,6 +162,11 @@ interface TableToolbarFilters {
     onChange: (value: string) => void;
     options: Array<{ value: string; label: string }>;
   };
+  commercial?: {
+    value: string;
+    onChange: (value: string) => void;
+    options: Array<{ value: string; label: string }>;
+  };
   userAssets?: {
     value: string;
     onChange: (value: string) => void;
@@ -269,12 +274,14 @@ export default function TableToolbar({
   const remainingRightsMaxFilter = filters?.remainingRightsMax;
   const rentalSaleFilter = filters?.rentalSale;
   const adTypeFilter = filters?.adType;
+  const commercialFilter = filters?.commercial;
   const userAssetsQuickFilter = filters?.userAssets;
   const [pricePopoverOpen, setPricePopoverOpen] = useState(false);
   const [areaPopoverOpen, setAreaPopoverOpen] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [rentalSaleMenuOpen, setRentalSaleMenuOpen] = useState(false);
   const [adTypeMenuOpen, setAdTypeMenuOpen] = useState(false);
+  const [commercialMenuOpen, setCommercialMenuOpen] = useState(false);
 
   // Handle hydration mismatch
   React.useEffect(() => {
@@ -385,6 +392,16 @@ export default function TableToolbar({
     );
   })();
 
+  const commercialDefaultLabel = 'ייעוד נכס';
+
+  const commercialSelectedLabel = (() => {
+    if (!commercialFilter || commercialFilter.value === 'all') return commercialDefaultLabel;
+    return (
+      commercialFilter.options.find(option => option.value === commercialFilter.value)?.label ||
+      commercialDefaultLabel
+    );
+  })();
+
   const userAssetsValue = userAssetsQuickFilter?.value ?? userAssetsAdditionalFilter?.value;
   const userAssetsActive = Boolean(userAssetsValue && userAssetsValue !== 'all');
 
@@ -417,6 +434,7 @@ export default function TableToolbar({
     (remainingRightsMaxFilter && remainingRightsMaxFilter.value !== undefined) ||
     (rentalSaleFilter && rentalSaleFilter.value !== 'all') ||
     (adTypeFilter && adTypeFilter.value !== 'all') ||
+    (commercialFilter && commercialFilter.value !== 'all') ||
     additionalFiltersActive ||
     (statusFilters && statusFilters.value !== 'all') ||
     (dateRange && (dateRange.from || dateRange.to)) ||
@@ -458,6 +476,7 @@ export default function TableToolbar({
     if (!onAdditionalFilterChange) {
       rentalSaleFilter?.onChange('all');
       adTypeFilter?.onChange('all');
+      commercialFilter?.onChange('all');
       userAssetsQuickFilter?.onChange('all');
     }
   };
@@ -604,6 +623,42 @@ export default function TableToolbar({
         />
       </div>
 
+      {/* Layout controls - View mode (separate from table actions) */}
+      <div className="flex w-full items-center justify-start" dir="rtl">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onViewModeChange('table')}
+            className="h-10 w-10 rounded-full flex items-center justify-center"
+            title="תצוגת טבלה"
+            aria-label="תצוגת טבלה"
+         >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'cards' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onViewModeChange('cards')}
+            className="h-10 w-10 rounded-full flex items-center justify-center"
+            title="תצוגת כרטיסים"
+            aria-label="תצוגת כרטיסים"
+          >
+            <Grid3X3 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'map' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onViewModeChange('map')}
+            className="h-10 w-10 rounded-full flex items-center justify-center"
+            title="תצוגת מפה"
+            aria-label="תצוגת מפה"
+          >
+            <Map className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
       {/* Quick filters and toolbar actions */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between" dir="rtl">
         <div className="lg:flex-1">
@@ -699,6 +754,44 @@ export default function TableToolbar({
                   >
                     <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
                     {adTypeFilter.options.map(option => (
+                      <DropdownMenuRadioItem key={option.value} value={option.value}>
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {commercialFilter && (
+              <DropdownMenu open={commercialMenuOpen} onOpenChange={setCommercialMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={commercialFilter.value !== 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    className={TOOLBAR_PILL_BUTTON_CLASSES}
+                  >
+                    <span>{commercialSelectedLabel}</span>
+                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">בחר ייעוד נכס</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={commercialFilter.value}
+                    onValueChange={(value) => {
+                      if (onAdditionalFilterChange) {
+                        onAdditionalFilterChange('commercial', value);
+                      } else {
+                        commercialFilter.onChange(value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'commercial', value });
+                      }
+                    }}
+                  >
+                    <DropdownMenuRadioItem value="all">הכל</DropdownMenuRadioItem>
+                    {commercialFilter.options.map(option => (
                       <DropdownMenuRadioItem key={option.value} value={option.value}>
                         {option.label}
                       </DropdownMenuRadioItem>
@@ -1290,40 +1383,6 @@ export default function TableToolbar({
           data-testid="toolbar-actions-container"
           className="flex w-full flex-wrap items-center gap-2 justify-start lg:w-auto lg:justify-end"
         >
-        {/* View mode toggle */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onViewModeChange('table')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
-            title="תצוגת טבלה"
-            aria-label="תצוגת טבלה"
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'cards' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onViewModeChange('cards')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
-            title="תצוגת כרטיסים"
-            aria-label="תצוגת כרטיסים"
-          >
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'map' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onViewModeChange('map')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
-            title="תצוגת מפה"
-            aria-label="תצוגת מפה"
-          >
-            <Map className="h-4 w-4" />
-          </Button>
-        </div>
-
         {/* Column selection */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

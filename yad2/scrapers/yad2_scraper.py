@@ -10,16 +10,13 @@ import logging
 import requests
 import json
 import time
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from bs4 import BeautifulSoup
 
 from yad2.core.models import Contact
-
-try:
-    from urllib.parse import urljoin
-except ImportError:
-    from urlparse import urljoin
+from urllib.parse import urljoin
 
 from yad2.core import Yad2SearchParameters, Yad2ParameterReference, RealEstateListing, URLUtils
 
@@ -27,7 +24,8 @@ logger = logging.getLogger(__name__)
 
 class ListingType(Enum):
     SALE = "sale"
-    RENT = "rent" 
+    RENT = "rent"
+    COMMERCIAL = "commercial"
     ALL = "all"
 
 class Yad2Scraper:
@@ -67,10 +65,18 @@ class Yad2Scraper:
         # Parameter reference for validation
         self.param_reference = Yad2ParameterReference()
 
+        # Contact fetching config (rate limit/backoff)
+        self.contacts_per_run_limit = int(os.getenv("YAD2_CONTACTS_PER_RUN_LIMIT", "50"))
+        self.contacts_min_interval_s = float(os.getenv("YAD2_CONTACTS_MIN_INTERVAL_S", "0.5"))
+        self.contacts_retries = int(os.getenv("YAD2_CONTACTS_RETRIES", "1"))
+        
+        # Simple in-memory cache for project autocomplete lookups
+        self._project_autocomplete_cache: Dict[str, Dict[str, Any]] = {}
+
     # ------------------------------------------------------------------
     # API helpers
     # ------------------------------------------------------------------
-    def fetch_listings(self, zoom: Optional[int] = None, listing_type: ListingType = "all", pull_contacts = False, **overrides) -> List[RealEstateListing]:
+    def fetch_listings(self, zoom: Optional[int] = None, listing_type: ListingType = ListingType.ALL, pull_contacts = False, **overrides) -> List[RealEstateListing]:
         """
         Fetch active listings via Yad2's public map feed API.
 
@@ -129,8 +135,14 @@ class Yad2Scraper:
             urls = [f"{self.api_base_url}/realestate-feed/forsale/map"]
         elif listing_type == ListingType.RENT:
             urls = [f"{self.api_base_url}/realestate-feed/rent/map"]
+        elif listing_type == ListingType.COMMERCIAL:
+            urls = [f"{self.api_base_url}/realestate-feed/commercial/map"]
         else:
-            urls = [f"{self.api_base_url}/realestate-feed/forsale/map", f"{self.api_base_url}/realestate-feed/rent/map"]
+            urls = [
+                f"{self.api_base_url}/realestate-feed/forsale/map",
+                f"{self.api_base_url}/realestate-feed/rent/map",
+                f"{self.api_base_url}/realestate-feed/commercial/map",
+            ]
 
         listings: List[RealEstateListing] = []
         for url in urls:
@@ -149,18 +161,18 @@ class Yad2Scraper:
                     continue
 
 
-                result = payload.get("data")
-                for marker in result.get("markers", []) or []:
+                result = payload.get("data", {})
+                for marker in result.get("markers", []):
                     listing = self._convert_map_marker(marker, marker_type="yad2", listing_type=current_listing_type)
                     if listing:
                         listings.append(listing)
 
-                for marker in result.get("yad1Markers", []) or []:
+                for marker in result.get("yad1Markers", []):
                     listing = self._convert_map_marker(marker, marker_type="yad1", listing_type=current_listing_type)
                     if listing:
                         listings.append(listing)
 
-                for marker in result.get("agencyPromotions", []) or []:
+                for marker in result.get("agencyPromotions", []):
                     listing = self._convert_map_marker(marker, marker_type="yad2", listing_type=current_listing_type)
                     if listing:
                         listings.append(listing)
@@ -168,15 +180,47 @@ class Yad2Scraper:
                 logger.info("Fetched %s listings from Yad2 map endpoint", len(listings))
 
                 if pull_contacts:
+                    # Build a deduplicated token map to avoid duplicate requests
+                    token_to_listings: Dict[str, List[RealEstateListing]] = {}
                     for listing in listings:
-                        if listing.url and not listing.contact_info:
+                        if not listing.url or listing.contact_info:
+                            continue
+                        try:
+                            token = listing.url.rstrip("/").split("/")[-1]
+                        except Exception as e:
+                            logger.error("Failed to extract token from listing URL: %s; %s", listing.url, e)
+                            continue
+
+                        # seems like integers are irrelevant
+                        try:
+                            if int(token):
+                                continue
+                        except Exception:
+                            pass
+
+                        token_to_listings.setdefault(token, []).append(listing)
+
+                    tokens = list(token_to_listings.keys())
+                    if not tokens:
+                        logger.info("No contact tokens to fetch for this batch")
+                    else:
+                        limit = self.contacts_per_run_limit
+                        tokens_to_fetch = tokens[:limit]
+                        if len(tokens) > limit:
+                            logger.info("Capping contact fetches at %s of %s tokens", limit, len(tokens))
+
+                        for idx, token in enumerate(tokens_to_fetch, 1):
                             try:
-                                contact_info = self.fetch_contact_info(listing.url)
+                                contact_info = self.fetch_contact_info(token)
                             except Exception as e:
-                                logger.error("Failed to fetch contact info for listing: %s; %s", listing.url, e)
+                                logger.error("Failed to fetch contact info for token %s; %s", token, e)
                                 contact_info = None
-                            listing.contact_info = contact_info
-                            time.sleep(0.5)  # Be polite
+
+                            for listing_item in token_to_listings.get(token, []):
+                                listing_item.contact_info = contact_info
+
+                            # Throttle between requests
+                            time.sleep(self.contacts_min_interval_s)
             except Exception as exc:
                 logger.error("Error fetching map listings: %s", exc)
                 continue    
@@ -184,20 +228,75 @@ class Yad2Scraper:
         self.listings = listings
         return listings
 
-    def fetch_contact_info(self, listing_url: str) -> Optional[Contact]:
-        token = listing_url.split("/")[-1]
+    def fetch_contact_info(self, token: str) -> Optional[Contact]:
         url = f"{self.api_base_url}/realestate-item/{token}/customer"
-        response = self.session.get(url, timeout=30)
-        if response.status_code != 200:
-            raise Exception(f"Failed to fetch contact details: {response.status_code}")
+        last_exception = None
+        for attempt in range(self.contacts_retries):
+            try:
+                response = self.session.get(url, timeout=30)
+                if response.status_code == 200:
+                    payload = response.json()
+                    result = payload.get("data")
+                    return Contact(**result)
+                if response.status_code == 429:
+                    # Rate limited
+                    logger.warning("Rate limited from Yad2 contacts API")
+                    continue
+                if 500 <= response.status_code < 600:
+                    # transient server errors
+                    logger.warning("%s from Yad2 contacts API", response.status_code)
+                    continue
+                # Other status codes considered non-retryable
+                raise Exception(f"Failed to fetch contact details: {response.status_code}")
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                logger.warning("Network error fetching contact: %s", e)
+                continue
+        # Exhausted retries
+        if last_exception:
+            raise Exception(f"Contact fetch failed after retries: {last_exception}")
+        raise Exception("Contact fetch failed after retries")
 
-        payload = response.json()
 
-        result = payload.get("data")
+    def fetch_project_autocomplete(self, phrase: str) -> Optional[Dict[str, Any]]:
+        """Fetch project data from Yad1 developers autocomplete API.
 
+        Args:
+            phrase: Free-text phrase, e.g. projectName.
 
-        return Contact(**result)
+        Returns:
+            Dict with the best matching project entry or None when not available.
+        """
+        if not phrase:
+            return None
 
+        cached = self._project_autocomplete_cache.get(phrase)
+        if cached is not None:
+            return cached
+
+        try:
+            url = f"{self.api_base_url}/yad1/projects-developers/autocomplete"
+            params = {"phrase": phrase}
+            response = self.session.get(url, params=params, timeout=30)
+            if response.status_code != 200:
+                logger.warning("Failed to fetch project autocomplete: %s", response.status_code)
+                return None
+
+            data = response.json()
+            entries: List[str, Any] = data.get("data", {}).get('projects', [])
+
+            best: Optional[Dict[str, Any]] = None
+            for entry in entries:
+                meta = (entry or {}).get("metaData") or {}
+                if meta.get("projectName") == phrase:
+                    best = entry
+                    break
+
+            self._project_autocomplete_cache[phrase] = best
+            return best
+        except Exception as e:
+            logger.error("Error fetching project autocomplete: %s", e)
+            return None
 
     def get_property_types(self):
         """Get all property type codes with names."""
@@ -508,6 +607,15 @@ class Yad2Scraper:
 
             if marker_type == "yad1":
                 listing.meta["project_id"] = marker.get("projectId")
+                project_name = (marker.get("metaData") or {}).get("projectName")
+                project_entry = self.fetch_project_autocomplete(project_name) if project_name else None
+
+                token = ''
+                if isinstance(project_entry, dict):
+                    token = project_entry.get("token")
+                project_id = marker.get("projectId")
+                listing.listing_id = token or project_id
+                listing.url = f"{self.base_url}/yad1/project/{token}"
 
             return listing
         except Exception as exc:
@@ -887,7 +995,7 @@ class Yad2Scraper:
 
 
 if __name__ == "__main__":
-    search_params =  { 'city': 5000, 'neighborhood': 203, "topArea": 2, "area": 1, "zoom": 15}
+    search_params =  {'limit': 8, 'sortBy': 'saleDate', 'order': 'desc', 'coords': '10.0,10.0', 'city': 5000, 'page': 1}
     scraper = Yad2Scraper(search_params)
     deals = scraper.fetch_listings()
     print(deals)

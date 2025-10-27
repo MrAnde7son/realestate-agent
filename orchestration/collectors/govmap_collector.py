@@ -35,6 +35,7 @@ class GovMapCollector(BaseCollector):
     def collect(
         self,
         location: Optional[LocationQuery] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """Collect data from GovMap using address autocomplete and parcel data.
 
@@ -170,6 +171,5 @@ if __name__ == "__main__":
     from orchestration.location import LocationQuery
 
     collector = GovMapCollector()
-    result = collector.collect(LocationQuery(block=7793, parcel=102))
-    print("Address:", result["address"])
+    result = collector.collect(LocationQuery(street="אבן גבירול", house_number=59, city="תל אביב-יפו"))
     print("result:", result)

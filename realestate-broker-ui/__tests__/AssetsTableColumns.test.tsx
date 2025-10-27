@@ -94,4 +94,13 @@ describe('AssetsTable default columns', () => {
     expect(storedPreferences).not.toBeNull()
     expect(JSON.parse(storedPreferences!)).toMatchObject({ zoning: false })
   })
+
+  it('renders commercial indicator when asset is marked as commercial', async () => {
+    const commercialAsset = { ...baseAsset, isCommercial: true } as Asset
+    render(<AssetsTable data={[commercialAsset]} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('מסחרי')).toBeInTheDocument()
+    })
+  })
 })

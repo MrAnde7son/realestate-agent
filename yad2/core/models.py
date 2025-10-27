@@ -112,6 +112,7 @@ class RealEstateListing:
             'rooms': self.rooms,
             'floor': self.floor,
             'size': self.size,
+            'total_size': self.total_size,
             'property_type': self.property_type,
             'description': self.description,
             'images': images_list,

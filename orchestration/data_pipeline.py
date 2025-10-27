@@ -287,6 +287,7 @@ class DataPipeline:
             rooms=listing.rooms,
             floor=listing.floor,
             size=listing.size,
+            total_size=listing.total_size,
             property_type=listing.property_type,
             description=listing.description,
             url=listing.url,

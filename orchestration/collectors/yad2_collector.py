@@ -160,11 +160,9 @@ class Yad2Collector(BaseCollector):
         """Fetch Yad2 listings for a given address."""
         listings = []
         try:
-            location = self.client.fetch_location_autocomplete(address)
-            if location:
-                search_params = self._prepare_location_parameters(location)
-                if search_params:
-                    self.client.set_search_parameters(**search_params)
+            search_params = self.client.fetch_location_autocomplete(address)
+            if search_params:
+                self.client.set_search_parameters(**search_params)
 
             map_listings = self.client.fetch_listings(pull_contacts=True)
             if map_listings:

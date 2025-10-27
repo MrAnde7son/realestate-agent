@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel
@@ -18,14 +19,16 @@ class ChatMessage(BaseModel):
     content: str
 
 
-class LLMClient:
+class LLMClient(ABC):
     provider: LLMProvider
 
+    @abstractmethod
     async def generate_text(
         self, prompt: str, options: Optional[BaseGenOptions] = None
     ) -> str:
         raise NotImplementedError
 
+    @abstractmethod
     async def generate_json(
         self,
         prompt: str,
@@ -34,6 +37,7 @@ class LLMClient:
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
+    @abstractmethod
     async def chat(
         self, messages: List[ChatMessage], options: Optional[BaseGenOptions] = None
     ) -> str:

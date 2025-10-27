@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from abc import abstractmethod
+import logging
 from contextlib import contextmanager
 from typing import Iterator
 
@@ -29,6 +30,8 @@ class Database:
 
 class SQLAlchemyDatabase(Database):
     """SQLAlchemy-backed database implementation."""
+
+    logger = logging.getLogger(__name__)
 
     def __init__(self, database_url=None):
         self.database_url = database_url or os.getenv(
@@ -60,11 +63,11 @@ class SQLAlchemyDatabase(Database):
             # Create session factory
             self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
             
-            print(f"Database initialized successfully: {self.database_url}")
+            self.logger.info("Database initialized successfully: %s", self.database_url)
             return True
             
-        except Exception as e:
-            print(f"Failed to initialize database: {e}")
+        except Exception:
+            self.logger.exception("Failed to initialize database")
             return False
     
     def get_session(self):
@@ -78,10 +81,10 @@ class SQLAlchemyDatabase(Database):
         try:
             from .models import Base
             Base.metadata.create_all(bind=self.engine)
-            print("All tables created successfully")
+            self.logger.info("All tables created successfully")
             return True
-        except Exception as e:
-            print(f"Failed to create tables: {e}")
+        except Exception:
+            self.logger.exception("Failed to create tables")
             return False
     
     def close(self):

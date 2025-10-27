@@ -12,7 +12,6 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from govmap.api_client import itm_to_wgs84
-from orchestration.data_pipeline import DataPipeline
 from orchestration.location import LocationQuery
 from orchestration.pipeline import (
     auto_expand_related_assets,
@@ -102,6 +101,8 @@ def send_notification_email(
 def collect_asset_data(self, asset_id: int) -> Dict[str, Any]:
     """Collect raw payloads for an asset without further processing."""
     from .models import Asset
+    from orchestration.data_pipeline import DataPipeline
+
 
     try:
         asset = Asset.objects.get(id=asset_id)
@@ -342,6 +343,8 @@ def _append_result(results: List[Dict[str, Any]], source: str, data: Any) -> Non
 
 @shared_task
 def persist_asset_data(previous: Dict[str, Any]) -> Dict[str, Any]:
+    from orchestration.data_pipeline import DataPipeline
+
     if previous.get("halt"):
         return previous
 

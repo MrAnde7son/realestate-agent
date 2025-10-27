@@ -23,9 +23,8 @@ from selenium.common.exceptions import (
     StaleElementReferenceException,
     TimeoutException,
 )
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
-from webdriver_manager.chrome import ChromeDriverManager
+ 
 
 
 @dataclass
@@ -105,7 +104,6 @@ class MavatSeleniumClient:
     def _init_driver(self):
         """Initialize the Selenium WebDriver."""
         if self.driver is None:
-            service = Service(ChromeDriverManager().install())
             options = webdriver.ChromeOptions()
             if self.headless:
                 options.add_argument('--headless')
@@ -118,7 +116,7 @@ class MavatSeleniumClient:
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
             options.add_experimental_option('useAutomationExtension', False)
             
-            self.driver = webdriver.Chrome(service=service, options=options)
+            self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(self.timeout)
             self.wait = WebDriverWait(self.driver, self.timeout)
             

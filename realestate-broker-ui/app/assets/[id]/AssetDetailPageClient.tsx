@@ -411,6 +411,33 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [decisiveSearch, setDecisiveSearch] = useState('')
   const [ramiSearch, setRamiSearch] = useState('')
 
+  // Responsive: detect mobile to tweak gallery props
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mql = window.matchMedia('(max-width: 640px)')
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      // Support both event and initial MediaQueryList
+      const matches = 'matches' in e ? e.matches : (e as MediaQueryList).matches
+      setIsMobile(matches)
+    }
+    // Set initial
+    handleChange(mql)
+    // Subscribe
+    if (mql.addEventListener) {
+      mql.addEventListener('change', handleChange)
+    } else if (mql.addListener) {
+      mql.addListener(handleChange)
+    }
+    return () => {
+      if (mql.removeEventListener) {
+        mql.removeEventListener('change', handleChange)
+      } else if (mql.removeListener) {
+        mql.removeListener(handleChange)
+      }
+    }
+  }, [])
+
   const primaryListing = React.useMemo(
     () => normalizePrimaryListing(asset?.primaryListing ?? asset?.primary_listing),
     [asset]
@@ -1988,9 +2015,9 @@ useDedupedEffect(() => {
             <CardContent>
               <ImageGallery 
                 images={listingImages} 
-                size="md" 
-                maxDisplay={4}
-                showThumbnails={true}
+                size={isMobile ? 'sm' : 'md'} 
+                maxDisplay={isMobile ? 2 : 4}
+                showThumbnails={!isMobile}
                 className="flex-wrap sm:flex-nowrap overflow-x-auto sm:overflow-visible"
               />
             </CardContent>

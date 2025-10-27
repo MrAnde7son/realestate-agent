@@ -95,9 +95,10 @@ class RealEstateAPIClient:
         response = self._make_request("POST", "/auth/login", json=data)
         
         # Set token if provided
-        if "access" in response:
-            self.set_token(response["access"])
-        
+        token = response.get("access_token") or response.get("access")
+        if token:
+            self.set_token(token)
+
         return response
     
     def register(self, email: str, password: str, username: str, **kwargs) -> Dict[str, Any]:
@@ -131,13 +132,14 @@ class RealEstateAPIClient:
         Returns:
             New access and refresh tokens
         """
-        data = {"refresh": refresh_token}
+        data = {"refresh_token": refresh_token}
         response = self._make_request("POST", "/auth/refresh", json=data)
-        
+
         # Update token if provided
-        if "access" in response:
-            self.set_token(response["access"])
-        
+        token = response.get("access_token") or response.get("access")
+        if token:
+            self.set_token(token)
+
         return response
     
     def logout(self, refresh_token: Optional[str] = None) -> Dict[str, Any]:

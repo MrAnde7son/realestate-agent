@@ -5,6 +5,24 @@ import AssetDetailPage from './page'
 import AssetDetailPageClient from './AssetDetailPageClient'
 import { useRouter } from 'next/navigation'
 
+// Local mock for matchMedia for this test file only
+beforeAll(() => {
+  // @ts-ignore
+  if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+    // @ts-ignore
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    }) as any
+  }
+})
+
 const mockUseAuth = {
   isAuthenticated: true,
   user: { id: '1', onboarding_flags: {} },

@@ -136,11 +136,7 @@ class RealEstateListing:
     
     def __str__(self):
         """String representation."""
-        return "RealEstateListing(title='{}', price={}, address='{}')".format(
-            self.title or 'N/A', 
-            self.price or 'N/A', 
-            self.address or 'N/A'
-        )
+        return f"RealEstateListing({', '.join([f'{k}={v}' for k, v in self.to_dict().items() if v is not None])})"
     
     def __repr__(self):
         return self.__str__()

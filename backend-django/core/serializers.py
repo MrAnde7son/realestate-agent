@@ -104,6 +104,7 @@ class AssetSerializer(MetaSerializerMixin):
     avgPricePerSqm = serializers.FloatField(source='avg_price_per_sqm', read_only=True)
     minPricePerSqm = serializers.FloatField(source='min_price_per_sqm', read_only=True)
     maxPricePerSqm = serializers.FloatField(source='max_price_per_sqm', read_only=True)
+    rentPrice = serializers.SerializerMethodField()
     
     # Planning and Legal Analysis fields
     rightsUsagePct = serializers.FloatField(source='rights_usage_pct', read_only=True)
@@ -126,6 +127,18 @@ class AssetSerializer(MetaSerializerMixin):
     recent_deal = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+
+    def get_rentPrice(self, obj):
+        value = getattr(obj, "rent_price", None)
+        if value not in (None, ""):
+            return value
+        meta = getattr(obj, "meta", {}) or {}
+        listing_prices = meta.get("listing_prices")
+        if isinstance(listing_prices, dict):
+            rent_val = listing_prices.get("rent")
+            if rent_val not in (None, ""):
+                return rent_val
+        return None
 
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
@@ -300,6 +313,7 @@ class AssetSerializer(MetaSerializerMixin):
             'area', 'total_area', 'balcony_area', 'parking_spaces', 'storage_room',
             'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',
             'last_renovation', 'price', 'price_per_sqm', 'rent_estimate',
+            'rent_price', 'rentPrice',
             'price_gap_pct','expected_price_range','model_price','confidence_pct','delta_vs_area_pct','cap_rate_pct','competition_1km','risk_flags','dom_percentile',
             'avg_price_per_sqm','min_price_per_sqm','max_price_per_sqm',
             'priceGapPct','modelPrice','confidencePct','capRatePct','avgPricePerSqm','minPricePerSqm','maxPricePerSqm',

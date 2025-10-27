@@ -14,7 +14,7 @@ function exportAssetCsv(asset: Asset) {
   // Export all available fields from the Asset type
   const headers = [
     'id', 'address', 'city', 'neighborhood', 'street', 'number', 'type', 'bedrooms', 'rooms', 'bathrooms',
-    'area', 'totalArea', 'balconyArea', 'parkingSpaces', 'price', 'pricePerSqm', 'pricePerSqmDisplay',
+    'area', 'totalArea', 'balconyArea', 'parkingSpaces', 'price', 'rentPrice', 'pricePerSqm', 'pricePerSqmDisplay',
     'description', 'block', 'parcel', 'subparcel', 'lat', 'lon', 'normalizedAddress', 'buildingType',
     'floor', 'totalFloors', 'storageRoom', 'elevator', 'airConditioning', 'furnished', 'renovated',
     'yearBuilt', 'lastRenovation', 'deltaVsAreaPct', 'domPercentile', 'competition1km', 'zoning',
@@ -81,6 +81,11 @@ export default function AssetCard({ asset }: AssetCardProps) {
       <div className="text-xl sm:text-2xl font-semibold text-primary">
         {asset.price != null ? fmtCurrency(asset.price) : '—'}
       </div>
+      {asset.rentPrice != null && (
+        <div className="text-xs sm:text-sm text-sub">
+          שכ"ד מבוקש: {fmtCurrency(asset.rentPrice)}
+        </div>
+      )}
       <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm text-sub">
         <div className="flex items-center gap-1">
           <Bed className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -115,4 +120,3 @@ export default function AssetCard({ asset }: AssetCardProps) {
     </Card>
   )
 }
-

@@ -49,6 +49,7 @@ const newAssetSchema = z.object({
   maxPricePerSqm: z.number().optional(),
   antennaDistanceM: z.number().optional(),
   shelterDistanceM: z.number().optional(),
+  rentPrice: z.number().optional(),
   rentEstimate: z.number().optional()
 })
 
@@ -205,6 +206,7 @@ export async function POST(req: Request) {
       'maxPricePerSqm',
       'antennaDistanceM',
       'shelterDistanceM',
+      'rentPrice',
       'rentEstimate'
     ] as const
 

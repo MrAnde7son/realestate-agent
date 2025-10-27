@@ -1952,6 +1952,14 @@ def _apply_asset_filters(queryset, params, user):
     if year_built_max is not None:
         queryset = queryset.filter(year_built__lte=year_built_max)
 
+    rent_price_min = _parse_optional_number(params.get("rentPriceMin"), int)
+    if rent_price_min is not None:
+        queryset = queryset.filter(rent_price__gte=rent_price_min)
+
+    rent_price_max = _parse_optional_number(params.get("rentPriceMax"), int)
+    if rent_price_max is not None:
+        queryset = queryset.filter(rent_price__lte=rent_price_max)
+
     rent_estimate_min = _parse_optional_number(params.get("rentEstimateMin"), int)
     if rent_estimate_min is not None:
         queryset = queryset.filter(rent_estimate__gte=rent_estimate_min)
@@ -2060,6 +2068,8 @@ def _get_asset_filter_metadata():
         total_area_max=Max("total_area"),
         year_built_min=Min("year_built"),
         year_built_max=Max("year_built"),
+        rent_price_min=Min("rent_price"),
+        rent_price_max=Max("rent_price"),
         rent_estimate_min=Min("rent_estimate"),
         rent_estimate_max=Max("rent_estimate"),
         price_gap_pct_min=Min("price_gap_pct"),
@@ -2123,6 +2133,7 @@ def _get_asset_filter_metadata():
         ),
         "totalAreaRange": _range_dict("total_area_min", "total_area_max"),
         "yearBuiltRange": _range_dict("year_built_min", "year_built_max"),
+        "rentPriceRange": _range_dict("rent_price_min", "rent_price_max"),
         "rentEstimateRange": _range_dict("rent_estimate_min", "rent_estimate_max"),
         "priceGapPctRange": _range_dict("price_gap_pct_min", "price_gap_pct_max"),
         "capRatePctRange": _range_dict("cap_rate_pct_min", "cap_rate_pct_max"),

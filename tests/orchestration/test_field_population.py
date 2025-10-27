@@ -124,6 +124,7 @@ class MockAsset:
     def __init__(self):
         self.id = 1
         self.price = None
+        self.rent_price = None
         self.total_area = None
         self.area = None
         self.price_per_sqm = None
@@ -199,8 +200,39 @@ class TestAssetFieldPopulation:
         assert asset.meta['primary_listing_source']['source'] == 'yad2'
         assert asset.meta['primary_listing_source']['listing_id'] == '12345'
         assert asset.meta['primary_listing_source']['address'] == 'רחוב הרצל 15, תל אביב'
+        assert asset.meta['listing_prices']['sale'] == 2500000
 
         # Verify save was called
+        assert asset.save_called
+
+    def test_rental_listing_price_tracked_in_meta(self):
+        asset = MockAsset()
+        asset.normalized_address = "רחוב הרצל 30, תל אביב"
+        asset.street = "הרצל"
+
+        listings = [
+            {
+                'price': 7800,
+                'size': 80,
+                'address': 'רחוב הרצל 30, תל אביב',
+                'rooms': 3,
+                'listing_type': 'rent',
+                'listing_id': 'rent-123',
+                'url': 'https://yad2.co.il/item/rent-123',
+            }
+        ]
+
+        _populate_asset_fields_from_listings(asset, listings)
+
+        assert asset.price is None
+        assert asset.area == 80
+        assert asset.price_per_sqm is None
+        assert asset.rent_price == 7800
+        assert asset.meta['listing_prices']['rent'] == 7800
+        primary_source = asset.meta['primary_listing_source']
+        assert primary_source['listing_type'] == 'rent'
+        assert primary_source['rent_price'] == 7800
+        assert 'price' not in primary_source
         assert asset.save_called
 
     def test_sets_commercial_flag_from_listings(self):

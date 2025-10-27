@@ -110,6 +110,10 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
     } },
+  { header:'₪ שכ"ד', accessorKey:'rentPrice', enableHiding: true, cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
+    } },
   { header:'₪/מ"ר', accessorKey:'pricePerSqm', enableHiding: true, cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>

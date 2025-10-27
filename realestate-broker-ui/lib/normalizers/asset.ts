@@ -17,6 +17,7 @@ export type Asset = {
   balconyArea?: number | null;
   parkingSpaces?: number | null;
   price?: number | null;
+  rentPrice?: number | null;
   pricePerSqm?: number | null;
   pricePerSqmDisplay?: number | null;
   description?: string | null;
@@ -103,6 +104,7 @@ export type Asset = {
     url?: string | null;
     features?: string[] | null;
     datePosted?: string | null;
+    rentPrice?: number | null;
   } | null;
   listingType?: string | null;
   adType?: string | null;
@@ -484,11 +486,15 @@ export function normalizeFromBackend(row: any): Asset {
 
     const url = coerceString(listing.url ?? listing.link ?? listing.listingUrl ?? listing.listing_url);
 
+    const isRentalListing =
+      typeof listing.listingType === 'string' && listing.listingType.toLowerCase() === 'rent'
+
     return {
       id: listing.id ?? listing.external_id ?? null,
       source: coerceString(listing.source) ?? null,
       title,
       price,
+      rentPrice: isRentalListing ? price : (listing as any).rentPrice ?? (listing as any).rent_price ?? null,
       address,
       rooms: rooms ?? null,
       roomsDisplay: roomsDisplay ?? null,
@@ -603,6 +609,21 @@ export function normalizeFromBackend(row: any): Asset {
     primaryListing?.price ??
     null;
 
+  const rentPriceValue =
+    parseNumeric(
+      row.rentPrice ??
+      row.rent_price ??
+      (row as any).rentalPrice ??
+      (row as any).rental_price
+    ) ??
+    ((normalizedListingTypeValue === 'rent' || primaryListingTypeValue === 'rent')
+      ? parseNumeric(
+          primaryListing?.price ??
+          (primaryListing as any)?.rentPrice ??
+          (primaryListing as any)?.rent_price
+        )
+      : null);
+
   const pricePerSqmDirect = parseNumeric(
     row.pricePerSqm ??
     row.price_per_sqm ??
@@ -690,6 +711,7 @@ export function normalizeFromBackend(row: any): Asset {
     balconyArea: row.balconyArea ?? row.balcony_area ?? null,
     parkingSpaces: row.parkingSpaces ?? row.parking_spaces ?? null,
     price: priceValue,
+    rentPrice: rentPriceValue,
     pricePerSqm: computedPricePerSqm,
     pricePerSqmDisplay: pricePerSqmDirect ?? computedPricePerSqm,
     description: descriptionValue,

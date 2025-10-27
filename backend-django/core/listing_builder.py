@@ -34,7 +34,19 @@ def build_listing(
     total_sqm = _first_nonempty(
         asset.total_area, meta.get("totalSqm"), raw.get("total_size")
     )
+    listing_prices_meta = meta.get("listing_prices")
+    if not isinstance(listing_prices_meta, dict):
+        listing_prices_meta = {}
+
     price = _first_nonempty(asset.price, meta.get("price"), raw.get("price"))
+    rent_price = _first_nonempty(
+        getattr(asset, "rent_price", None),
+        meta.get("rentPrice"),
+        meta.get("rent_price"),
+        listing_prices_meta.get("rent"),
+        raw.get("rent_price"),
+        raw.get("rentPrice"),
+    )
     ptype = _first_nonempty(
         asset.building_type, meta.get("type"), raw.get("property_type")
     )
@@ -81,6 +93,8 @@ def build_listing(
         "netSqm": net_sqm,
         "totalSqm": total_sqm,
         "price": price,
+        "rentPrice": rent_price,
+        "rent_price": rent_price,
         "pricePerSqm": ppsqm,
         "asset_status": asset.status,
         "lat": asset.lat,

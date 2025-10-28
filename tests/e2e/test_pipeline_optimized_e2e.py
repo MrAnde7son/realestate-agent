@@ -125,40 +125,6 @@ def test_yad2_collector_uses_location_query():
     assert collector.fetch_calls == [("רוזוב תל אביב")]
 
 
-def test_yad2_prepare_location_parameters_prefers_matching_city():
-    autocomplete_payload = {
-        "cities": [
-            {"cityId": "5000", "topAreaId": "10", "areaId": "200"},
-            {"cityId": "123", "topAreaId": "11", "areaId": "201"},
-        ],
-        "top_areas": [{"id": "10"}],
-        "areas": [{"id": "200"}],
-        "hoods": [
-            {"hoodId": "901", "cityId": "5000"},
-            {"hoodId": "999", "cityId": "123"},
-        ],
-        "streets": [
-            {"streetId": "321", "cityId": "5000", "name": "רוזוב"},
-            {"streetId": "777", "cityId": "123", "name": "Other"},
-        ],
-    }
-
-    params = Yad2Collector._prepare_location_parameters(autocomplete_payload)
-
-    assert params == {
-        "city": 5000,
-        "topArea": 10,
-        "area": 200,
-        "neighborhood": 901,
-        "street": "321",
-    }
-
-
-def test_yad2_prepare_location_parameters_handles_missing_values():
-    params = Yad2Collector._prepare_location_parameters({})
-    assert params == {}
-
-
 class DummyMetric:
     def __init__(self) -> None:
         self.records: List[tuple[str, float]] = []

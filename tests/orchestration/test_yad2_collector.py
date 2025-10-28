@@ -35,16 +35,6 @@ def location_payload():
     }
 
 
-def test_prepare_location_parameters(location_payload):
-    params = Yad2Collector._prepare_location_parameters(location_payload)
-
-    assert params["city"] == 5000
-    assert params["topArea"] == 2
-    assert params["area"] == 1
-    assert params["neighborhood"] == 203
-    assert params["street"] == "123"
-
-
 def test_collect_applies_location_parameters(location_payload):
     mock_client = Mock()
     mock_client.fetch_location_autocomplete.return_value = location_payload

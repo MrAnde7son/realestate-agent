@@ -1864,6 +1864,14 @@ useDedupedEffect(() => {
                 {asset.city}
                 {asset.neighborhood ? ` · ${asset.neighborhood}` : ''} · {asset.type ?? '—'} ·{' '}
                 {formatNumber(asset.area) ? `${formatNumber(asset.area)} מ״ר נטו` : '—'}
+                {asset.block || asset.parcel || asset.subparcel ? (
+                  <>
+                    {' · '}
+                    {asset.block && `גוש ${asset.block}`}
+                    {asset.parcel && `${asset.block ? ' · ' : ''}חלקה ${asset.parcel}`}
+                    {asset.subparcel && `${(asset.block || asset.parcel) ? ' · ' : ''}תת חלקה ${asset.subparcel}`}
+                  </>
+                ) : null}
               </p>
             </div>
           </div>
@@ -2088,8 +2096,20 @@ useDedupedEffect(() => {
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
           <Card>
             <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">רמת ביטחון</div>
-              <div className="text-2xl font-bold">{formatPercent(asset.confidencePct) ?? '—'}</div>
+              <div className="text-sm text-muted-foreground">מדד אטרקטיביות</div>
+              <div className="text-2xl font-bold">
+                {!!asset.confidencePct &&
+                !!asset.capRatePct &&
+                !!asset.priceGapPct
+                  ? Math.round(
+                      (asset.confidencePct + asset.capRatePct * 20 +
+                        (asset.priceGapPct < 0
+                          ? 100 + asset.priceGapPct
+                          : 100 - asset.priceGapPct)) /
+                        3
+                    )
+                  : '—'}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -2273,43 +2293,6 @@ useDedupedEffect(() => {
           </Card>
         )}
 
-        {/* Address Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>פרטי כתובת</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-            <div>
-              <div className="text-sm text-muted-foreground">עיר</div>
-              <div className="font-medium">{renderValue(asset.city, 'city')}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">רחוב</div>
-              <div className="font-medium">{renderValue(asset.street, 'street')}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">מס&apos;</div>
-              <div className="font-medium">{renderValue(asset.number, 'number')}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">גוש</div>
-              <div className="font-medium">{renderValue(asset.block, 'block')}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">חלקה</div>
-              <div className="font-medium">{renderValue(asset.parcel, 'parcel')}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">תת חלקה</div>
-              <div className="font-medium">{renderValue(asset.subparcel, 'subparcel')}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">מספר דירה</div>
-              <div className="font-medium">{renderValue(asset.apartment, 'apartment')}</div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList className="flex flex-wrap gap-2 md:flex-nowrap md:gap-0">
@@ -2329,7 +2312,9 @@ useDedupedEffect(() => {
           <TabsContent value="analysis" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
-                <CardHeader>פרטי הנכס</CardHeader>
+                <CardHeader>
+                <CardTitle>פרטי הנכס</CardTitle>
+                </CardHeader>
                 <CardBody className="space-y-2">
                   <div className="flex justify-between rtl:flex-row-reverse">
                     <span className="text-muted-foreground">סוג:</span>
@@ -2369,12 +2354,6 @@ useDedupedEffect(() => {
                     <span className="text-muted-foreground">שכונה:</span>
                     <span>{asset.neighborhood ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
-                    <span className="text-muted-foreground">רמת ביטחון:</span>
-                    <Badge variant={asset.confidencePct >= 80 ? 'success' : 'warning'}>
-                      {asset.confidencePct}%
-                    </Badge>
-                  </div>
                 </CardBody>
               </Card>
 
@@ -2401,6 +2380,12 @@ useDedupedEffect(() => {
                     <span className="text-muted-foreground">תשואה שנתית:</span>
                     <Badge variant={asset.capRatePct !== undefined && asset.capRatePct !== null && asset.capRatePct >= 3 ? 'success' : 'warning'}>
                       {formatPercent(asset.capRatePct, 1) ?? '—'}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between rtl:flex-row-reverse">
+                    <span className="text-muted-foreground">רמת ביטחון:</span>
+                    <Badge variant={asset.confidencePct >= 80 ? 'success' : 'warning'}>
+                      {asset.confidencePct}%
                     </Badge>
                   </div>
                   <div className="flex justify-between rtl:flex-row-reverse">
@@ -2471,55 +2456,6 @@ useDedupedEffect(() => {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <Tooltip.Provider delayDuration={0}>
-                  <Tooltip.Root>
-                    <Tooltip.Trigger asChild>
-                      <CardTitle>מדד אטרקטיביות</CardTitle>
-                    </Tooltip.Trigger>
-                    <Tooltip.Portal>
-                      <Tooltip.Content
-                        sideOffset={4}
-                        dir="rtl"
-                        className="rounded bg-gray-900 text-white px-2 py-1 text-xs max-w-xs text-center"
-                      >
-                        המדד מחושב כממוצע של רמת אמון הנתונים, תשואת ההון ופער המחיר מהשוק
-                      </Tooltip.Content>
-                    </Tooltip.Portal>
-                  </Tooltip.Root>
-                </Tooltip.Provider>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rtl:flex-row-reverse">
-                    <span>ציון כללי:</span>
-                    <div className="flex items-center gap-2">
-                      <div className="text-2xl font-bold">
-                        {!!asset.confidencePct &&
-                        !!asset.capRatePct &&
-                        !!asset.priceGapPct
-                          ? Math.round(
-                              (asset.confidencePct + asset.capRatePct * 20 +
-                                (asset.priceGapPct < 0
-                                  ? 100 + asset.priceGapPct
-                                  : 100 - asset.priceGapPct)) /
-                                3
-                            )
-                          : '—'}
-                      </div>
-                      <div className="text-sm text-muted-foreground">/100</div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {asset.priceGapPct < -10 ? "נכס במחיר אטרקטיביי מתחת לשוק" : 
-                     asset.priceGapPct > 10 ? "נכס יקר יחסית לשוק" : 
-                     "נכס במחיר הוגן יחסית לשוק"}
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>

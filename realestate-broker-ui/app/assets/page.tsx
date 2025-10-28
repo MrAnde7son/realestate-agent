@@ -1263,7 +1263,7 @@ export default function AssetsPage() {
       });
       throw error;
     }
-  }, [apiClient, buildFilterParams, toast]);
+  }, [buildFilterParams, toast]);
 
   const handleDeleteAsset = async (assetId: number) => {
     // Check if user is authenticated

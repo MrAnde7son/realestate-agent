@@ -83,7 +83,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
       </div>
       {asset.rentPrice != null && (
         <div className="text-xs sm:text-sm text-sub">
-          שכ"ד מבוקש: {fmtCurrency(asset.rentPrice)}
+          שכ&ldquo;ד מבוקש: {fmtCurrency(asset.rentPrice)}
         </div>
       )}
       <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm text-sub">

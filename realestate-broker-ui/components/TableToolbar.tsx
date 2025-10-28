@@ -410,7 +410,7 @@ export default function TableToolbar({
     const value = userAssetsQuickFilter.value ?? 'all';
     if (!value || value === 'all') return userAssetsDefaultLabel;
     return (
-      userAssetsQuickFilter.options.find(option => option.value === value)?.label ||
+      userAssetsQuickFilter.options?.find(option => option.value === value)?.label ||
       userAssetsDefaultLabel
     );
   })();

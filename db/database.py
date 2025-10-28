@@ -7,10 +7,27 @@ from abc import abstractmethod
 import logging
 from contextlib import contextmanager
 from typing import Iterator
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# Try to load .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    # Look for .env file in common locations
+    # 1. Current directory
+    if Path('.env').exists():
+        load_dotenv('.env')
+    # 2. backend-django directory (parent's sibling)
+    backend_django_dir = Path(__file__).resolve().parent.parent / 'backend-django'
+    env_file = backend_django_dir / '.env'
+    if env_file.exists():
+        load_dotenv(env_file)
+except ImportError:
+    # python-dotenv not available, skip
+    pass
 
 Base = declarative_base()
 
@@ -34,10 +51,15 @@ class SQLAlchemyDatabase(Database):
     logger = logging.getLogger(__name__)
 
     def __init__(self, database_url=None):
-        self.database_url = database_url or os.getenv(
-            "DATABASE_URL",
-            "sqlite:///./backend-django/db.sqlite3",
-        )
+        # Try to get DATABASE_URL from environment, with intelligent default
+        default_url = os.getenv("DATABASE_URL")
+        if not default_url:
+            # Default to db.sqlite3 in backend-django directory
+            backend_django_dir = Path(__file__).resolve().parent.parent / 'backend-django'
+            db_file = backend_django_dir / 'db.sqlite3'
+            default_url = f"sqlite:///{db_file}"
+        
+        self.database_url = database_url or default_url
         self.engine = None
         self.SessionLocal = None
         

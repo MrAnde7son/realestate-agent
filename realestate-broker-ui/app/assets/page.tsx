@@ -1597,6 +1597,7 @@ export default function AssetsPage() {
   const userAssetsFilterOptions = React.useMemo(
     () => [
       { value: "mine", label: "נכסים שלי" },
+      { value: "watchlist", label: "ברשימת המעקב שלי" },
       { value: "others", label: "נכסים של אחרים" },
     ],
     []

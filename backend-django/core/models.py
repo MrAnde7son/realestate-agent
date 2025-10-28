@@ -606,6 +606,14 @@ class Asset(models.Model):
         help_text="User who last updated this asset"
     )
 
+    watchers = models.ManyToManyField(
+        get_user_model(),
+        through="AssetWatchlistEntry",
+        related_name="watched_assets",
+        blank=True,
+        help_text="Users who are tracking this asset",
+    )
+
     def __str__(self):
         return f"Asset({self.id}, {self.scope_type}, {self.status})"
     
@@ -707,17 +715,43 @@ class Asset(models.Model):
         """Helper method to get nested values from meta."""
         if not self.meta:
             return default
-            
+
         keys = key_path.split('.')
         current = self.meta
-        
+
         for key in keys:
             if isinstance(current, dict) and key in current:
                 current = current[key]
             else:
                 return default
-                
+
         return current
+
+
+class AssetWatchlistEntry(models.Model):
+    """Mapping model for users tracking specific assets."""
+
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="asset_watchlist_entries",
+    )
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name="watchlist_entries",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "asset")
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["asset", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"AssetWatchlistEntry(user={self.user_id}, asset={self.asset_id})"
 
 
 class SourceRecord(models.Model):

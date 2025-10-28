@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye, Settings, Search, Plus, Phone, Play } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Settings, Search, Plus, Phone, Play, Handshake } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -361,6 +361,15 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
             title="צפה בפרטי נכס"
           >
             <Eye className="h-4 w-4" />
+          </Link>
+          <Link
+            className="text-indigo-600 hover:text-indigo-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+            href={`/assets/${row.original.id}/deal`}
+            onClick={e => e.stopPropagation()}
+            aria-label={`פתח סביבת עסקה לנכס ${row.original.address}`}
+            title="סביבת עסקה"
+          >
+            <Handshake className="h-4 w-4" />
           </Link>
           {onOpenAlert && (
             <button

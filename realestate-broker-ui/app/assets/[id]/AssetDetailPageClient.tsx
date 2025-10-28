@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
@@ -581,6 +581,22 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
 
     router.push(dealExpensesHref)
   }, [asset, assetDealPrice, dealExpensesHref, id, router, trackFeatureUsage])
+
+  const handleDealWorkspaceClick = React.useCallback(() => {
+    const assetIdentifier = asset?.id ?? id
+    const numericAssetId =
+      typeof assetIdentifier === 'number'
+        ? assetIdentifier
+        : Number.parseInt(String(assetIdentifier), 10)
+
+    trackFeatureUsage(
+      'deal_workspace_open',
+      Number.isFinite(numericAssetId) ? numericAssetId : undefined,
+      { source: 'asset_detail' }
+    )
+
+    router.push(`/assets/${id}/deal`)
+  }, [asset, id, router, trackFeatureUsage])
 
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
@@ -1940,6 +1956,10 @@ useDedupedEffect(() => {
                     צור דוח
                   </>
                 )}
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleDealWorkspaceClick}>
+                <Handshake className="h-4 w-4" />
+                סביבת עסקה
               </Button>
               <Button size="sm" onClick={handleDealExpensesClick}>
                 <Calculator className="h-4 w-4" />

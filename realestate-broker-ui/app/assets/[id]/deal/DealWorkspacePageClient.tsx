@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card'
@@ -13,7 +14,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
+import {
   ArrowRightLeft,
+  ArrowLeft,
   CheckCircle2,
   Clock3,
   FileText,
@@ -23,6 +33,8 @@ import {
   Layers,
   ShieldCheck,
   Sparkles,
+  Home,
+  Building,
 } from 'lucide-react'
 
 type DealStage = 'discovery' | 'negotiation' | 'legal' | 'financing' | 'closing'
@@ -107,21 +119,21 @@ type OfferDraft = {
 }
 
 const STAGE_FLOW: { key: DealStage; label: string; helper: string }[] = [
-  { key: 'discovery', label: 'Discovery', helper: 'Asset onboarding & evaluation' },
-  { key: 'negotiation', label: 'Negotiation', helper: 'Active offers & counters' },
-  { key: 'legal', label: 'Legal', helper: 'Contract drafting & signatures' },
-  { key: 'financing', label: 'Financing', helper: 'Mortgage & capital readiness' },
-  { key: 'closing', label: 'Closing', helper: 'Handover & settlement' },
+  { key: 'discovery', label: 'איתור והערכה', helper: 'איסוף חומר רקע והכנת הנכס לעסקה' },
+  { key: 'negotiation', label: 'מו״מ', helper: 'ניהול הצעות נגדיות ודיוקים במחיר' },
+  { key: 'legal', label: 'משפטי', helper: 'טיוטות חוזה, הערות וחתימות' },
+  { key: 'financing', label: 'מימון', helper: 'בדיקת מסלולים ואישורי אשראי' },
+  { key: 'closing', label: 'סגירה', helper: 'מסירת נכס והתחשבנות' },
 ]
 
 const PARTIES: Party[] = [
-  { id: 'party-buyer', name: 'Dana Levi', role: 'Buyer', side: 'buyer', email: 'dana@example.com' },
-  { id: 'party-buyer-agent', name: 'Noam Azulay', role: 'Buyer Agent', side: 'buyer', email: 'noam@nreteam.com' },
-  { id: 'party-buyer-lawyer', name: 'Adv. Liora Shore', role: 'Buyer Lawyer', side: 'buyer', email: 'liora@shorelegal.il' },
-  { id: 'party-seller', name: 'Itay Cohen', role: 'Seller', side: 'seller', email: 'itay@example.com' },
-  { id: 'party-seller-agent', name: 'Ruth Shalev', role: 'Seller Agent', side: 'seller', email: 'ruth@listings.co.il' },
-  { id: 'party-seller-lawyer', name: 'Adv. Yossi Bar', role: 'Seller Lawyer', side: 'seller', email: 'yossi@barlegal.il' },
-  { id: 'party-banker', name: 'Bank Leumi Desk', role: 'Mortgage Banker', side: 'neutral', email: 'mortgage@leumi.co.il' },
+  { id: 'party-buyer', name: 'דנה לוי', role: 'קונה', side: 'buyer', email: 'dana@example.com' },
+  { id: 'party-buyer-agent', name: 'נועם אזולאי', role: 'מתווך קונה', side: 'buyer', email: 'noam@nreteam.com' },
+  { id: 'party-buyer-lawyer', name: 'עו״ד ליאורה שור', role: 'עו״ד קונה', side: 'buyer', email: 'liora@shorelegal.il' },
+  { id: 'party-seller', name: 'איתי כהן', role: 'מוכר', side: 'seller', email: 'itay@example.com' },
+  { id: 'party-seller-agent', name: 'רות שלהב', role: 'מתווך מוכר', side: 'seller', email: 'ruth@listings.co.il' },
+  { id: 'party-seller-lawyer', name: 'עו״ד יוסי בר', role: 'עו״ד מוכר', side: 'seller', email: 'yossi@barlegal.il' },
+  { id: 'party-banker', name: 'מוקד בנק לאומי', role: 'בנקאי משכנתאות', side: 'neutral', email: 'mortgage@leumi.co.il' },
 ]
 
 const INITIAL_OFFERS: Offer[] = [
@@ -134,7 +146,7 @@ const INITIAL_OFFERS: Offer[] = [
     expiresAt: '2024-11-05T08:45:00Z',
     status: 'accepted',
     side: 'seller',
-    message: 'Accepted with agreed inspection timeline and move-in on Jan 15.',
+    message: 'התקבל עם לוח זמנים מוסכם לבדיקות וכניסה ב־15 בינואר.',
     conditions: {
       inspection: true,
       appraisalContingency: true,
@@ -150,7 +162,7 @@ const INITIAL_OFFERS: Offer[] = [
     expiresAt: '2024-10-31T15:10:00Z',
     status: 'countered',
     side: 'buyer',
-    message: 'Counter at 4.25M with earlier appraisal slot.',
+    message: 'הצעת נגד על 4.25 מ׳ עם קביעת הערכת שווי מוקדמת.',
     conditions: {
       inspection: true,
       appraisalContingency: true,
@@ -166,7 +178,7 @@ const INITIAL_OFFERS: Offer[] = [
     expiresAt: '2024-10-29T10:00:00Z',
     status: 'countered',
     side: 'buyer',
-    message: 'Initial offer including standard inspection.',
+    message: 'הצעה ראשונית הכוללת בדיקת נכס סטנדרטית.',
     conditions: {
       inspection: true,
       appraisalContingency: true,
@@ -178,78 +190,78 @@ const INITIAL_OFFERS: Offer[] = [
 const INITIAL_DOCUMENTS: DealDocument[] = [
   {
     id: 'doc-legal-1',
-    title: 'Draft Sale Agreement',
+    title: 'טיוטת הסכם מכר',
     kind: 'legal',
     uploadedAt: '2024-11-02T14:10:00Z',
-    uploader: 'Adv. Liora Shore',
+    uploader: 'עו״ד ליאורה שור',
     visibility: 'buyer_side',
-    summary: 'First draft with comments on liability clauses.',
+    summary: 'טיוטה ראשונה עם הערות על סעיפי אחריות.',
   },
   {
     id: 'doc-legal-2',
-    title: 'Seller Disclosure',
+    title: 'גילוי נאות של המוכר',
     kind: 'legal',
     uploadedAt: '2024-10-28T09:15:00Z',
-    uploader: 'Ruth Shalev',
+    uploader: 'רות שלהב',
     visibility: 'deal',
-    summary: 'Full seller disclosure package signed and notarized.',
+    summary: 'חבילת גילוי מלאה חתומה ומאומתת.',
   },
   {
     id: 'doc-appraisal-1',
-    title: 'Appraisal Report',
+    title: 'שומת שמאי',
     kind: 'appraisal',
     uploadedAt: '2024-10-30T11:20:00Z',
-    uploader: 'Dana Levi',
+    uploader: 'דנה לוי',
     visibility: 'buyer_side',
-    summary: 'Appraised value at ₪4.35M, variance +1.2% vs Nadlaner.',
+    summary: 'שווי מוערך ₪4.35 מ׳, סטייה של ‎+1.2% מול נדל״נר.',
   },
   {
     id: 'doc-architect-1',
-    title: 'Plan Set - Renovation',
+    title: 'תכנית שיפוץ מוצעת',
     kind: 'architect',
     uploadedAt: '2024-10-25T16:40:00Z',
-    uploader: 'Studio Arzi',
+    uploader: 'סטודיו ארצי',
     visibility: 'deal',
-    summary: 'Proposed layout changes with zoning compliance notes.',
+    summary: 'שינויים מוצעים בתכנית עם הערות תאימות לזכויות בנייה.',
   },
   {
     id: 'doc-mortgage-1',
-    title: 'Bank Leumi Offer',
+    title: 'הצעת בנק לאומי',
     kind: 'mortgage',
     uploadedAt: '2024-11-01T12:05:00Z',
-    uploader: 'Bank Leumi Desk',
+    uploader: 'מוקד בנק לאומי',
     visibility: 'buyer_side',
-    summary: 'Fixed 25y product at 3.95% headline rate.',
+    summary: 'מסלול קבוע ל־25 שנה בריבית 3.95%.',
   },
 ]
 
 const INITIAL_TASKS: DealTask[] = [
   {
     id: 'task-1',
-    title: 'Title search results review',
-    owner: 'Adv. Liora Shore',
+    title: 'סקירת נסח טאבו מעודכן',
+    owner: 'עו״ד ליאורה שור',
     status: 'in_progress',
     dueDate: '2024-11-06',
   },
   {
     id: 'task-2',
-    title: 'Finalize penalty clause',
-    owner: 'Adv. Yossi Bar',
+    title: 'סגירת סעיף פיצוי מוסכם',
+    owner: 'עו״ד יוסי בר',
     status: 'blocked',
     dueDate: '2024-11-05',
-    blocker: 'Waiting for seller approval on handover window.',
+    blocker: 'ממתינים לאישור המוכר לחלון מסירת הנכס.',
   },
   {
     id: 'task-3',
-    title: 'Schedule final inspection',
-    owner: 'Dana Levi',
+    title: 'תיאום בדיקה סופית בנכס',
+    owner: 'דנה לוי',
     status: 'todo',
     dueDate: '2024-11-12',
   },
   {
     id: 'task-4',
-    title: 'Collect updated pay slips for mortgage',
-    owner: 'Bank Leumi Desk',
+    title: 'איסוף תלושי שכר מעודכנים למשכנתא',
+    owner: 'מוקד בנק לאומי',
     status: 'done',
     dueDate: '2024-10-31',
   },
@@ -258,7 +270,7 @@ const INITIAL_TASKS: DealTask[] = [
 const INITIAL_MORTGAGE_OFFERS: MortgageOffer[] = [
   {
     id: 'mortgage-1',
-    lender: 'Bank Leumi',
+    lender: 'בנק לאומי',
     productType: 'mixed',
     ratePct: 3.95,
     aprPct: 4.12,
@@ -270,7 +282,7 @@ const INITIAL_MORTGAGE_OFFERS: MortgageOffer[] = [
   },
   {
     id: 'mortgage-2',
-    lender: 'Mizrahi Tefahot',
+    lender: 'מזרחי טפחות',
     productType: 'mixed',
     ratePct: 4.10,
     aprPct: 4.28,
@@ -282,7 +294,7 @@ const INITIAL_MORTGAGE_OFFERS: MortgageOffer[] = [
   },
   {
     id: 'mortgage-3',
-    lender: 'Discount Bank',
+    lender: 'בנק דיסקונט',
     productType: 'fixed',
     ratePct: 4.35,
     aprPct: 4.41,
@@ -300,38 +312,83 @@ const DEAL_METADATA = {
   acceptedOfferAmount: 4_320_000,
   targetClosingDate: '2025-01-15',
   lastUpdated: '2024-11-03T08:45:00Z',
-  address: 'Herzl 17, Tel Aviv',
+  address: 'הרצל 17, תל אביב',
 }
 
 const TIMELINE_FILTERS = [
-  { key: 'all' as const, label: 'All activity' },
-  { key: 'offers' as const, label: 'Offers' },
-  { key: 'documents' as const, label: 'Documents' },
-  { key: 'tasks' as const, label: 'Tasks' },
+  { key: 'all' as const, label: 'כל הפעילות' },
+  { key: 'offers' as const, label: 'הצעות' },
+  { key: 'documents' as const, label: 'מסמכים' },
+  { key: 'tasks' as const, label: 'משימות' },
 ]
 
 const DOC_FILTERS = [
-  { key: 'all' as const, label: 'All' },
-  { key: 'legal' as const, label: 'Legal' },
-  { key: 'appraisal' as const, label: 'Appraisal' },
-  { key: 'architect' as const, label: 'Architect' },
-  { key: 'mortgage' as const, label: 'Mortgage' },
+  { key: 'all' as const, label: 'הכל' },
+  { key: 'legal' as const, label: 'משפטי' },
+  { key: 'appraisal' as const, label: 'שומה' },
+  { key: 'architect' as const, label: 'אדריכל' },
+  { key: 'mortgage' as const, label: 'משכנתא' },
 ]
+
+const DOC_KIND_LABELS: Record<DealDocument['kind'], string> = {
+  legal: 'מסמך משפטי',
+  appraisal: 'שומת שמאי',
+  architect: 'מסמך אדריכלי',
+  mortgage: 'מסמכי מימון',
+}
+
+const DOC_VISIBILITY_LABELS: Record<DealDocument['visibility'], string> = {
+  deal: 'כל הצדדים',
+  buyer_side: 'צד הקונה',
+  seller_side: 'צד המוכר',
+}
+
+const OFFER_STATUS_LABELS: Record<Offer['status'], string> = {
+  accepted: 'התקבלה',
+  countered: 'הוגשה נגדית',
+  pending: 'ממתינה',
+  withdrawn: 'נמשכה',
+}
+
+const TASK_STATUS_LABELS: Record<DealTask['status'], string> = {
+  todo: 'טרם החל',
+  in_progress: 'בתהליך',
+  blocked: 'חסום',
+  done: 'הושלם',
+}
+
+const TIMELINE_TYPE_LABELS: Record<TimelineEvent['type'], string> = {
+  offer: 'הצעה',
+  document: 'מסמך',
+  task: 'משימה',
+}
+
+const FINANCING_TYPE_LABELS: Record<Offer['financingType'], string> = {
+  cash: 'מזומן',
+  mortgage: 'משכנתא',
+  mixed: 'משולב',
+}
+
+const MORTGAGE_PRODUCT_LABELS: Record<MortgageOffer['productType'], string> = {
+  fixed: 'קבועה',
+  variable: 'משתנה',
+  mixed: 'משולבת',
+}
 
 function formatDateTime(value: string) {
   const date = new Date(value)
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('he-IL', {
     dateStyle: 'medium',
     timeStyle: 'short',
-    timeZone: 'UTC',
+    timeZone: 'Asia/Jerusalem',
   }).format(date)
 }
 
 function formatDate(value: string) {
   const date = new Date(value)
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('he-IL', {
     dateStyle: 'medium',
-    timeZone: 'UTC',
+    timeZone: 'Asia/Jerusalem',
   }).format(date)
 }
 
@@ -355,17 +412,17 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     const offerEvents = offers.map<TimelineEvent>(offer => ({
       id: `timeline-offer-${offer.id}`,
       type: 'offer',
-      title: `${offer.side === 'buyer' ? 'Buyer' : 'Seller'} offer ₪${fmtNumber(offer.amount)}`,
+      title: `${offer.side === 'buyer' ? 'הצעת קונה' : 'הצעת מוכר'} ₪${fmtNumber(offer.amount)}`,
       timestamp: offer.submittedAt,
       description: offer.message,
       side: offer.side,
-      statusLabel: offer.status === 'accepted' ? 'Accepted' : offer.status === 'countered' ? 'Countered' : 'Pending',
+      statusLabel: OFFER_STATUS_LABELS[offer.status],
     }))
 
     const documentEvents = documents.map<TimelineEvent>(doc => ({
       id: `timeline-doc-${doc.id}`,
       type: 'document',
-      title: `${doc.kind.charAt(0).toUpperCase()}${doc.kind.slice(1)} document uploaded`,
+      title: `${DOC_KIND_LABELS[doc.kind]} הועלה`,
       timestamp: doc.uploadedAt,
       description: `${doc.title} • ${doc.summary}`,
       side: doc.visibility === 'buyer_side' ? 'buyer' : doc.visibility === 'seller_side' ? 'seller' : 'neutral',
@@ -374,11 +431,11 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     const taskEvents = tasks.map<TimelineEvent>(task => ({
       id: `timeline-task-${task.id}`,
       type: 'task',
-      title: `Task ${task.status === 'done' ? 'completed' : 'updated'}`,
+      title: `משימה ${task.status === 'done' ? 'הושלמה' : 'עודכנה'}`,
       timestamp: `${task.dueDate}T09:00:00Z`,
-      description: `${task.title} • Owner: ${task.owner}`,
-      side: task.owner.includes('Adv.') ? 'seller' : 'buyer',
-      statusLabel: task.status,
+      description: `${task.title} • אחראי: ${task.owner}`,
+      side: 'neutral',
+      statusLabel: TASK_STATUS_LABELS[task.status],
     }))
 
     return [...offerEvents, ...documentEvents, ...taskEvents].sort((a, b) =>
@@ -419,7 +476,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
       expiresAt: new Date(Date.now() + draft.expiresInHours * 60 * 60 * 1000).toISOString(),
       status: 'pending',
       side: 'buyer',
-      message: draft.message || 'Draft counter generated from workspace.',
+      message: draft.message || 'טיוטה נוצרה מתוך סביבת העסקה.',
       conditions: draft.conditions,
     }
     setOffers(prev => [newOffer, ...prev])
@@ -449,15 +506,52 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     const appraisal = documentCounts['appraisal'] ?? 0
     const architect = documentCounts['architect'] ?? 0
     const mortgage = documentCounts['mortgage'] ?? 0
-    return `${legal} legal • ${appraisal} appraisal • ${architect} architect • ${mortgage} mortgage`
+    return `${legal} משפטי • ${appraisal} שומה • ${architect} אדריכלי • ${mortgage} מימון`
   }, [documentCounts])
 
   return (
     <DashboardLayout>
       <DashboardShell>
+        <Breadcrumb className='mb-4'>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href='/' className='flex items-center gap-1'>
+                <Home className='h-4 w-4' />
+                בית
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink href='/assets' className='flex items-center gap-1'>
+                <Building className='h-4 w-4' />
+                נכסים
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink href={`/assets/${assetId}`} className='flex items-center gap-1'>
+                {DEAL_METADATA.address}
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>סביבת עסקה</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        <div className='mb-4 flex justify-end'>
+          <Button variant='ghost' size='sm' asChild>
+            <Link href={`/assets/${assetId}`}>
+              <ArrowLeft className='h-4 w-4 rtl:rotate-180' />
+              חזרה לפרטי הנכס
+            </Link>
+          </Button>
+        </div>
+
         <DashboardHeader
-          heading={`Deal Workspace for Asset ${assetId}`}
-          text='Track negotiations, documents, legal workstreams and financing in a single view.'
+          heading={`סביבת עסקה לנכס ${assetId}`}
+          text='נהלו הצעות, מסמכים, משימות ומשכנתאות במבט אחד מרוכז.'
         />
 
         <div className='grid gap-6 pb-10'>
@@ -548,7 +642,7 @@ function DealHeader({
       <CardHeader className='gap-4'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div>
-            <CardTitle className='text-3xl font-semibold'>Asset {assetId}</CardTitle>
+            <CardTitle className='text-3xl font-semibold'>נכס {assetId}</CardTitle>
             <CardDescription>{address}</CardDescription>
           </div>
           <Badge variant='info' className='flex items-center gap-2'>
@@ -559,22 +653,22 @@ function DealHeader({
 
         <div className='grid gap-4 md:grid-cols-3'>
           <DealHeaderStat
-            label='Accepted offer'
+            label='הצעה מאושרת'
             icon={<Handshake className='h-4 w-4 text-primary' />}
             value={fmtCurrency(acceptedOfferAmount)}
-            helper={`Vs. ask ${fmtCurrency(askingPrice)} (${computeGap(acceptedOfferAmount, askingPrice)})`}
+            helper={`מול מחיר מבוקש ${fmtCurrency(askingPrice)} (${computeGap(acceptedOfferAmount, askingPrice)})`}
           />
           <DealHeaderStat
-            label='Target closing'
+            label='תאריך יעד לסגירה'
             icon={<Clock3 className='h-4 w-4 text-primary' />}
             value={formatDate(targetClosingDate)}
-            helper={`Last updated ${formatDateTime(lastUpdated)}`}
+            helper={`עודכן לאחרונה ${formatDateTime(lastUpdated)}`}
           />
           <DealHeaderStat
-            label='Documents summary'
+            label='מסמכים בסביבה'
             icon={<FileText className='h-4 w-4 text-primary' />}
-            value={`${documentsCount} files`}
-            helper='Visibility controlled per side'
+            value={`${documentsCount} מסמכים`}
+            helper='חלוקת מסמכים לפי צד'
           />
         </div>
 
@@ -604,7 +698,7 @@ function DealHeader({
         </div>
 
         <div className='rounded-lg border bg-muted/40 p-4'>
-          <div className='text-sm font-semibold text-muted-foreground'>Parties</div>
+          <div className='text-sm font-semibold text-muted-foreground'>צדדים מעורבים</div>
           <div className='mt-3 flex flex-wrap gap-2'>
             {parties.map(party => (
               <Badge
@@ -658,9 +752,9 @@ function TimelinePanel({ events, activeFilter, onFilterChange, filterOptions }: 
       <CardHeader>
         <CardTitle className='flex items-center gap-2 text-xl'>
           <ArrowRightLeft className='h-5 w-5 text-primary' />
-          Deal timeline
+          ציר פעילות העסקה
         </CardTitle>
-        <CardDescription>Monitor offers, documents and legal actions as they happen.</CardDescription>
+        <CardDescription>עקבו אחר הצעות, מסמכים ומשימות בזמן אמת.</CardDescription>
       </CardHeader>
       <CardContent className='flex h-full flex-col gap-4'>
         <div className='flex flex-wrap gap-2'>
@@ -685,7 +779,7 @@ function TimelinePanel({ events, activeFilter, onFilterChange, filterOptions }: 
                     size='sm'
                     variant={event.side === 'buyer' ? 'success' : event.side === 'seller' ? 'secondary' : 'neutral'}
                   >
-                    {event.type.toUpperCase()}
+                    {TIMELINE_TYPE_LABELS[event.type]}
                   </Badge>
                   <div className='text-sm font-medium'>{event.title}</div>
                 </div>
@@ -693,13 +787,13 @@ function TimelinePanel({ events, activeFilter, onFilterChange, filterOptions }: 
               </div>
               <p className='mt-2 text-sm text-muted-foreground'>{event.description}</p>
               {event.statusLabel ? (
-                <div className='mt-2 text-xs font-semibold uppercase text-muted-foreground'>Status: {event.statusLabel}</div>
+                <div className='mt-2 text-xs font-semibold text-muted-foreground'>סטטוס: {event.statusLabel}</div>
               ) : null}
             </div>
           ))}
           {events.length === 0 ? (
             <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
-              No events for this filter yet. Switch filters to see other activity.
+              אין פעילות במסנן הנבחר. נסו לסנן אחרת כדי לראות אירועים נוספים.
             </div>
           ) : null}
         </div>
@@ -732,7 +826,7 @@ function DocsPanel({
       <CardHeader>
         <CardTitle className='flex items-center gap-2 text-xl'>
           <FileUp className='h-5 w-5 text-primary' />
-          Docs & intelligence
+          מסמכים ותובנות
         </CardTitle>
         <CardDescription>{summary}</CardDescription>
       </CardHeader>
@@ -750,7 +844,7 @@ function DocsPanel({
                 onClick={() => onFilterChange(filter.key)}
               >
                 {filter.label}
-                <Badge size='sm' variant='outline' className='ml-2 border-none bg-transparent text-muted-foreground'>
+                <Badge size='sm' variant='outline' className='me-2 border-none bg-transparent text-muted-foreground'>
                   {count}
                 </Badge>
               </Button>
@@ -764,16 +858,16 @@ function DocsPanel({
               <div className='flex flex-wrap items-center justify-between gap-2'>
                 <div>
                   <div className='text-sm font-semibold'>{doc.title}</div>
-                  <div className='text-xs text-muted-foreground'>Uploaded {formatDateTime(doc.uploadedAt)} • {doc.uploader}</div>
+                  <div className='text-xs text-muted-foreground'>הועלה ב־{formatDateTime(doc.uploadedAt)} • {doc.uploader}</div>
                 </div>
                 <Badge size='sm' variant={doc.kind === 'legal' ? 'secondary' : doc.kind === 'mortgage' ? 'info' : 'neutral'}>
-                  {doc.kind}
+                  {DOC_KIND_LABELS[doc.kind]}
                 </Badge>
               </div>
               <p className='mt-2 text-sm text-muted-foreground'>{doc.summary}</p>
               <div className='mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground'>
-                <span>Visibility: {doc.visibility.replace('_', ' ')}</span>
-                {doc.linkedOfferId ? <span>Linked to offer {doc.linkedOfferId}</span> : null}
+                <span>חשיפה: {DOC_VISIBILITY_LABELS[doc.visibility]}</span>
+                {doc.linkedOfferId ? <span>מקושר להצעה {doc.linkedOfferId}</span> : null}
               </div>
               <Button
                 size='sm'
@@ -781,13 +875,13 @@ function DocsPanel({
                 variant={selectedDocumentId === doc.id ? 'default' : 'outline'}
                 onClick={() => onLinkDocument(doc.id)}
               >
-                Link to latest offer
+                קשר להצעה האחרונה
               </Button>
             </div>
           ))}
           {documents.length === 0 ? (
             <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
-              No documents match the selected filter.
+              אין מסמכים במסנן שנבחר.
             </div>
           ) : null}
         </div>
@@ -807,7 +901,7 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
     downPaymentPct: latestOffer?.downPaymentPct ?? 30,
     financingType: latestOffer?.financingType ?? 'mixed',
     expiresInHours: 48,
-    message: 'Suggesting ₪20K seller credit for appliance refresh and faster closing.',
+    message: 'ממליצים על זיכוי ₪20 אלף למוצרי חשמל והקדמת מועד הסגירה.',
     conditions: latestOffer?.conditions ?? {
       inspection: true,
       appraisalContingency: true,
@@ -832,44 +926,44 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
     const items: { label: string; previous: string; next: string }[] = []
     if (draft.amount !== latestOffer.amount) {
       items.push({
-        label: 'Offer amount',
+        label: 'סכום ההצעה',
         previous: fmtCurrency(latestOffer.amount),
         next: fmtCurrency(draft.amount),
       })
     }
     if (draft.downPaymentPct !== latestOffer.downPaymentPct) {
       items.push({
-        label: 'Down payment %',
+        label: 'אחוז הון עצמי',
         previous: `${latestOffer.downPaymentPct}%`,
         next: `${draft.downPaymentPct}%`,
       })
     }
     if (draft.financingType !== latestOffer.financingType) {
       items.push({
-        label: 'Financing',
-        previous: latestOffer.financingType,
-        next: draft.financingType,
+        label: 'סוג המימון',
+        previous: FINANCING_TYPE_LABELS[latestOffer.financingType],
+        next: FINANCING_TYPE_LABELS[draft.financingType],
       })
     }
     if (draft.conditions.financingContingencyDays !== latestOffer.conditions.financingContingencyDays) {
       items.push({
-        label: 'Financing contingency',
-        previous: `${latestOffer.conditions.financingContingencyDays} days`,
-        next: `${draft.conditions.financingContingencyDays} days`,
+        label: 'תנאי מימון (ימים)',
+        previous: `${latestOffer.conditions.financingContingencyDays} ימים`,
+        next: `${draft.conditions.financingContingencyDays} ימים`,
       })
     }
     if (draft.conditions.inspection !== latestOffer.conditions.inspection) {
       items.push({
-        label: 'Inspection',
-        previous: latestOffer.conditions.inspection ? 'Included' : 'Waived',
-        next: draft.conditions.inspection ? 'Included' : 'Waived',
+        label: 'בדק בית',
+        previous: latestOffer.conditions.inspection ? 'כלול' : 'לא כלול',
+        next: draft.conditions.inspection ? 'כלול' : 'לא כלול',
       })
     }
     if (draft.conditions.appraisalContingency !== latestOffer.conditions.appraisalContingency) {
       items.push({
-        label: 'Appraisal contingency',
-        previous: latestOffer.conditions.appraisalContingency ? 'Required' : 'Waived',
-        next: draft.conditions.appraisalContingency ? 'Required' : 'Waived',
+        label: 'תנאי שומה',
+        previous: latestOffer.conditions.appraisalContingency ? 'נדרש' : 'בוטל',
+        next: draft.conditions.appraisalContingency ? 'נדרש' : 'בוטל',
       })
     }
     return items
@@ -878,20 +972,20 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     onSubmit(draft)
-    setStatusMessage('Draft counter saved to timeline.')
+    setStatusMessage('טיוטת ההצעה נשמרה בציר הזמן.')
   }
 
   const handleGenerateSuggestion = () => {
     setDraft(prev => ({
       ...prev,
       amount: prev.amount + 15_000,
-      message: 'AI suggestion: bump price slightly and shorten financing contingency to 12 days.',
+      message: 'הצעת המערכת: העלאה קלה במחיר והפחתת תנאי המימון ל־12 ימים.',
       conditions: {
         ...prev.conditions,
         financingContingencyDays: Math.max(12, prev.conditions.financingContingencyDays - 2),
       },
     }))
-    setStatusMessage('Suggestion applied based on comps and deal velocity.')
+    setStatusMessage('ההמלצה הוחלה על בסיס עסקאות דומות וקצב ההתקדמות.')
   }
 
   return (
@@ -899,15 +993,15 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
       <CardHeader>
         <CardTitle className='flex items-center gap-2 text-xl'>
           <Sparkles className='h-5 w-5 text-primary' />
-          Offer composer
+          מחולל הצעות
         </CardTitle>
-        <CardDescription>Iterate on counters with instant diffs versus the last seller response.</CardDescription>
+        <CardDescription>צרו הצעות נגדיות והשוו במהירות להצעה האחרונה שהתקבלה.</CardDescription>
       </CardHeader>
       <CardContent>
         <form className='space-y-4' onSubmit={handleSubmit}>
           <div className='grid gap-4 sm:grid-cols-2'>
             <label className='space-y-1 text-sm font-medium'>
-              Offer amount (₪)
+              סכום ההצעה (₪)
               <Input
                 value={draft.amount}
                 type='number'
@@ -915,7 +1009,7 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
               />
             </label>
             <label className='space-y-1 text-sm font-medium'>
-              Down payment (%)
+              הון עצמי (%)
               <Input
                 value={draft.downPaymentPct}
                 type='number'
@@ -923,7 +1017,7 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
               />
             </label>
             <label className='space-y-1 text-sm font-medium'>
-              Financing type
+              סוג מימון
               <div className='flex gap-2'>
                 {(['cash', 'mortgage', 'mixed'] as const).map(option => (
                   <Button
@@ -934,13 +1028,13 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
                     onClick={() => setDraft({ ...draft, financingType: option })}
                     aria-pressed={draft.financingType === option}
                   >
-                    {option}
+                    {FINANCING_TYPE_LABELS[option]}
                   </Button>
                 ))}
               </div>
             </label>
             <label className='space-y-1 text-sm font-medium'>
-              Expires in (hours)
+              תוקף (שעות)
               <Input
                 value={draft.expiresInHours}
                 type='number'
@@ -951,8 +1045,8 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
 
           <div className='grid gap-4 md:grid-cols-3'>
             <ConditionToggle
-              label='Inspection'
-              description='Retain inspection contingency'
+              label='בדק בית'
+              description='השאר תנאי בדיקת נכס'
               active={draft.conditions.inspection}
               onToggle={() =>
                 setDraft(prev => ({
@@ -962,8 +1056,8 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
               }
             />
             <ConditionToggle
-              label='Appraisal'
-              description='Require updated appraisal'
+              label='שומת שמאי'
+              description='דרוש שומת שמאי מעודכנת'
               active={draft.conditions.appraisalContingency}
               onToggle={() =>
                 setDraft(prev => ({
@@ -973,7 +1067,7 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
               }
             />
             <label className='space-y-1 text-sm font-medium'>
-              Financing contingency (days)
+              תנאי מימון (ימים)
               <Input
                 value={draft.conditions.financingContingencyDays}
                 type='number'
@@ -991,7 +1085,7 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
           </div>
 
           <label className='space-y-1 text-sm font-medium'>
-            Message to seller
+            הודעה למוכר
             <Textarea
               value={draft.message}
               rows={4}
@@ -1000,7 +1094,7 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
           </label>
 
           <div className='space-y-3 rounded-lg border bg-muted/40 p-4'>
-            <div className='text-sm font-semibold text-muted-foreground'>Diff vs last offer</div>
+            <div className='text-sm font-semibold text-muted-foreground'>השוואה להצעה האחרונה</div>
             {latestOffer ? (
               diff.length > 0 ? (
                 <ul className='space-y-2 text-sm'>
@@ -1008,17 +1102,17 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
                     <li key={item.label} className='flex items-center justify-between rounded-md bg-background p-2'>
                       <div className='font-medium'>{item.label}</div>
                       <div className='text-xs text-muted-foreground'>
-                        <span className='mr-2 line-through decoration-muted'>{item.previous}</span>
+                        <span className='me-2 line-through decoration-muted'>{item.previous}</span>
                         <span className='font-semibold text-primary'>{item.next}</span>
                       </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className='text-sm text-muted-foreground'>No changes detected versus the accepted offer.</p>
+                <p className='text-sm text-muted-foreground'>לא זוהו שינויים ביחס להצעה שהתקבלה.</p>
               )
             ) : (
-              <p className='text-sm text-muted-foreground'>Start drafting an offer to see diffs.</p>
+              <p className='text-sm text-muted-foreground'>התחילו לנסח הצעה כדי לראות השוואות.</p>
             )}
           </div>
 
@@ -1026,10 +1120,10 @@ function OfferComposer({ latestOffer, onSubmit }: OfferComposerProps) {
 
           <div className='flex flex-wrap items-center gap-3'>
             <Button type='submit' className='flex items-center gap-2'>
-              <CheckCircle2 className='h-4 w-4' /> Save counter draft
+              <CheckCircle2 className='h-4 w-4' /> שמור טיוטת הצעה
             </Button>
             <Button type='button' variant='outline' onClick={handleGenerateSuggestion} className='flex items-center gap-2'>
-              <Sparkles className='h-4 w-4 text-primary' /> Suggest counter
+              <Sparkles className='h-4 w-4 text-primary' /> הצע שיפור אוטומטי
             </Button>
           </div>
         </form>
@@ -1058,7 +1152,7 @@ function ConditionToggle({ label, description, active, onToggle }: ConditionTogg
     >
       <div className='text-sm font-semibold'>{label}</div>
       <div className='text-xs text-muted-foreground'>{description}</div>
-      <div className='mt-2 text-xs font-medium text-primary'>{active ? 'Included' : 'Not included'}</div>
+      <div className='mt-2 text-xs font-medium text-primary'>{active ? 'כלול' : 'לא כלול'}</div>
     </button>
   )
 }
@@ -1075,29 +1169,29 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
       <CardHeader>
         <CardTitle className='flex items-center gap-2 text-xl'>
           <Layers className='h-5 w-5 text-primary' />
-          Mortgage comparison
+          השוואת משכנתאות
         </CardTitle>
-        <CardDescription>Normalize bank terms to find the best financing fit.</CardDescription>
+        <CardDescription>השוו בין הצעות הבנקים ובחרו את מסלול המימון המתאים ביותר.</CardDescription>
       </CardHeader>
       <CardContent className='space-y-4'>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Lender</TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead>Rate</TableHead>
+              <TableHead>בנק</TableHead>
+              <TableHead>מסלול</TableHead>
+              <TableHead>ריבית</TableHead>
               <TableHead>APR</TableHead>
-              <TableHead>Monthly</TableHead>
-              <TableHead>Fees</TableHead>
-              <TableHead>Score</TableHead>
-              <TableHead></TableHead>
+              <TableHead>תשלום חודשי</TableHead>
+              <TableHead>עמלות</TableHead>
+              <TableHead>ציון</TableHead>
+              <TableHead>בחירה</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {offers.map(offer => (
               <TableRow key={offer.id} className={cn(recommendedId === offer.id && 'border-primary/70 bg-primary/5')}> 
                 <TableCell className='font-semibold'>{offer.lender}</TableCell>
-                <TableCell className='capitalize'>{offer.productType}</TableCell>
+                <TableCell>{MORTGAGE_PRODUCT_LABELS[offer.productType]}</TableCell>
                 <TableCell>{offer.ratePct.toFixed(2)}%</TableCell>
                 <TableCell>{offer.aprPct.toFixed(2)}%</TableCell>
                 <TableCell>{fmtCurrency(offer.monthlyPayment)}</TableCell>
@@ -1113,7 +1207,7 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
                     variant={offer.id === recommendedId ? 'default' : 'outline'}
                     onClick={() => onRecommend(offer.id)}
                   >
-                    {offer.id === recommendedId ? 'Recommended' : 'Recommend'}
+                    {offer.id === recommendedId ? 'מסלול מומלץ' : 'סמן כמומלץ'}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -1121,8 +1215,8 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
           </TableBody>
         </Table>
         <CardFooter className='justify-between px-0 pt-0 text-xs text-muted-foreground'>
-          <span>Rates normalized to APR with estimated fees and insurance.</span>
-          <span>Valid until {formatDateTime(offers[0].validUntil)}</span>
+          <span>הריביות מוצגות כ-APR כולל הערכת עמלות וביטוחים.</span>
+          <span>בתוקף עד {formatDateTime(offers[0].validUntil)}</span>
         </CardFooter>
       </CardContent>
     </Card>
@@ -1147,19 +1241,19 @@ function LegalChecklist({ tasks, onStatusChange }: LegalChecklistProps) {
       <CardHeader>
         <CardTitle className='flex items-center gap-2 text-xl'>
           <ShieldCheck className='h-5 w-5 text-primary' />
-          Legal & closing checklist
+          מעקב משפטי וסגירה
         </CardTitle>
-        <CardDescription>Track blockers and surface the next critical tasks.</CardDescription>
+        <CardDescription>נהלו חסמים ומשימות קריטיות עד לחתימה וסגירה.</CardDescription>
       </CardHeader>
       <CardContent className='space-y-6'>
         <div className='space-y-3'>
-          <div className='text-sm font-semibold text-muted-foreground'>Active</div>
+          <div className='text-sm font-semibold text-muted-foreground'>משימות פעילות</div>
           {grouped.active.map(task => (
             <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} />
           ))}
           {grouped.active.length === 0 ? (
             <div className='rounded-lg border border-dashed p-4 text-sm text-muted-foreground'>
-              All tasks are complete. Waiting on signatures.
+              כל המשימות הושלמו. ממתינים לחתימות.
             </div>
           ) : null}
         </div>
@@ -1167,13 +1261,13 @@ function LegalChecklist({ tasks, onStatusChange }: LegalChecklistProps) {
         <Separator />
 
         <div className='space-y-3'>
-          <div className='text-sm font-semibold text-muted-foreground'>Completed</div>
+          <div className='text-sm font-semibold text-muted-foreground'>משימות שהושלמו</div>
           {grouped.completed.map(task => (
             <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} isCompleted />
           ))}
           {grouped.completed.length === 0 ? (
             <div className='rounded-lg border border-dashed p-4 text-sm text-muted-foreground'>
-              No completed tasks yet.
+              אין משימות שהושלמו עדיין.
             </div>
           ) : null}
         </div>
@@ -1197,27 +1291,27 @@ function TaskRow({ task, onStatusChange, isCompleted }: TaskRowProps) {
       <div className='flex flex-wrap items-center justify-between gap-2'>
         <div>
           <div className='text-sm font-semibold'>{task.title}</div>
-          <div className='text-xs text-muted-foreground'>Owner: {task.owner} • Due {formatDate(task.dueDate)}</div>
+          <div className='text-xs text-muted-foreground'>אחראי: {task.owner} • יעד {formatDate(task.dueDate)}</div>
         </div>
-        <Badge size='sm' variant={statusVariant}>{task.status.replace('_', ' ')}</Badge>
+        <Badge size='sm' variant={statusVariant}>{TASK_STATUS_LABELS[task.status]}</Badge>
       </div>
       {task.blocker ? <p className='mt-2 text-xs text-amber-600'>{task.blocker}</p> : null}
       <div className='mt-3 flex flex-wrap items-center gap-2'>
         {!isCompleted ? (
           <>
             <Button size='sm' variant='outline' onClick={() => onStatusChange(task.id, 'in_progress')}>
-              Mark in progress
+              סמן כבתהליך
             </Button>
             <Button size='sm' variant='outline' onClick={() => onStatusChange(task.id, 'blocked')}>
-              Flag blocker
+              דווח על חסם
             </Button>
             <Button size='sm' onClick={() => onStatusChange(task.id, 'done')}>
-              Complete task
+              סמן כהושלם
             </Button>
           </>
         ) : (
           <Button size='sm' variant='outline' onClick={() => onStatusChange(task.id, 'todo')}>
-            Reopen task
+            פתח משימה מחדש
           </Button>
         )}
       </div>

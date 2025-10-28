@@ -136,7 +136,7 @@ describe('CombinedCrmTable', () => {
     const toggleButton = screen.getByRole('button', { name: 'פתיחת פרטי לקוח' });
     fireEvent.click(toggleButton);
 
-    expect(screen.getByText('לידים משויכים')).toBeInTheDocument();
+    expect(screen.getByText('נכסים משויכים')).toBeInTheDocument();
     expect(screen.getAllByText('Example Street 5').length).toBeGreaterThan(0);
   });
 

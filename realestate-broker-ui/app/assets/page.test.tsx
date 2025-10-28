@@ -16,6 +16,9 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
 }))
+vi.mock('@/components/MapView', () => ({
+  default: vi.fn(() => <div data-testid="map-view" />)
+}))
 const mockAssetsTable = vi.fn(({ 
   data,
   loading,
@@ -208,6 +211,41 @@ describe('AssetsPage', () => {
     consoleSpy.mockRestore()
   })
 
+
+  it('renders split view layout when large screens are detected', async () => {
+    const originalMatchMedia = window.matchMedia
+    const matchMediaMock = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(min-width: 1280px)',
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: matchMediaMock,
+    })
+
+    await act(async () => {
+      render(<AssetsPage />, { wrapper: TestWrapper })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('assets-table')).toBeInTheDocument()
+    })
+
+    expect(screen.getByTestId('map-view')).toBeInTheDocument()
+
+    if (originalMatchMedia) {
+      window.matchMedia = originalMatchMedia
+    } else {
+      delete (window as any).matchMedia
+    }
+  })
   it('handles refresh button click', async () => {
     await act(async () => {
       render(<AssetsPage />, { wrapper: TestWrapper })

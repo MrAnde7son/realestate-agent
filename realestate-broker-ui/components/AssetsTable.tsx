@@ -579,8 +579,8 @@ interface AssetsTableProps {
   onRefresh?: () => void
   onAddNew?: () => void
   extraActions?: React.ReactNode
-  viewMode?: 'table' | 'cards' | 'map'
-  onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
+  viewMode?: 'table' | 'cards' | 'map' | 'split'
+  onViewModeChange?: (mode: 'table' | 'cards' | 'map' | 'split') => void
   bulkActions?: AssetsTableBulkAction[]
   manualPagination?: boolean
   paginationState?: PaginationState
@@ -1409,8 +1409,8 @@ export default function AssetsTable({
               options: filters.status.options
             } : undefined}
           />
-          {/* Table view - show when viewMode is 'table' */}
-          {viewMode === 'table' && (
+          {/* Table view - show when viewMode is 'table' or 'split' */}
+          {(viewMode === 'table' || viewMode === 'split') && (
             <div className="overflow-x-auto overflow-y-hidden" role="region" aria-label="טבלת נכסים">
               <div className="min-w-full">
                 <Table style={{ width: '100%', minWidth: table.getCenterTotalSize() }}>

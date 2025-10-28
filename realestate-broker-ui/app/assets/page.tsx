@@ -85,6 +85,8 @@ type AssetFilterMetadata = {
   balconyAreaRange: { min: number | null; max: number | null };
 };
 
+type ViewMode = 'table' | 'cards' | 'map' | 'split';
+
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
@@ -279,7 +281,12 @@ export default function AssetsPage() {
     const value = searchParams.get("hasElevator");
     return value ?? "all";
   });
-  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const userSelectedViewMode = React.useRef(false);
+  const handleViewModeChange = React.useCallback((mode: ViewMode) => {
+    userSelectedViewMode.current = mode !== 'split';
+    setViewMode(mode);
+  }, []);
   const { user, isAuthenticated, refreshUser } = useAuth();
   const isAdmin = user?.role === 'admin';
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
@@ -287,6 +294,43 @@ export default function AssetsPage() {
   const pathname = usePathname();
   const { toast } = useToast();
   const { confirm } = useConfirm();
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(min-width: 1280px)');
+
+    const applyResponsiveView = (matches: boolean) => {
+      setViewMode(prev => {
+        if (matches) {
+          if (prev === 'split' || userSelectedViewMode.current) {
+            return prev;
+          }
+          return 'split';
+        }
+
+        if (prev === 'split') {
+          return 'table';
+        }
+
+        return prev;
+      });
+    };
+
+    applyResponsiveView(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      applyResponsiveView(event.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
 
   // Handle protected action (add new asset)
   const handleProtectedAction = (action: string) => {
@@ -1593,6 +1637,329 @@ export default function AssetsPage() {
     []
   );
 
+  const renderAssetsTable = () => (
+    <AssetsTable
+      data={assets}
+      loading={loading}
+      onDelete={isAdmin ? handleDeleteAsset : undefined}
+      searchValue={search}
+      onSearchChange={setSearch}
+      manualPagination
+      paginationState={pagination}
+      onPaginationChange={(next) => setPagination(next)}
+      pageCount={pageCount}
+      totalCount={totalCount}
+      pageSizeOptions={PAGE_SIZE_OPTIONS}
+      filters={{
+        city: {
+          value: city,
+          onChange: setCity,
+          options: cityOptions
+        },
+        type: {
+          value: typeFilter,
+          onChange: setTypeFilter,
+          options: typeOptions
+        },
+        priceMin: {
+          value: priceMin,
+          onChange: setPriceMin
+        },
+        priceMax: {
+          value: priceMax,
+          onChange: setPriceMax
+        },
+        neighborhood: {
+          value: neighborhood,
+          onChange: setNeighborhood,
+          options: neighborhoodOptions
+        },
+        zoning: {
+          value: zoning,
+          onChange: setZoning,
+          options: zoningOptions
+        },
+        risk: {
+          value: riskFilter,
+          onChange: setRiskFilter,
+          options: riskFilterOptions
+        },
+        documents: {
+          value: documentsFilter,
+          onChange: setDocumentsFilter,
+          options: documentsFilterOptions
+        },
+        status: {
+          value: statusFilter,
+          onChange: setStatusFilter,
+          options: statusOptions
+        },
+        pricePerSqmMin: {
+          value: pricePerSqmMin,
+          onChange: setPricePerSqmMin
+        },
+        pricePerSqmMax: {
+          value: pricePerSqmMax,
+          onChange: setPricePerSqmMax
+        },
+        remainingRightsMin: {
+          value: remainingRightsMin,
+          onChange: setRemainingRightsMin
+        },
+        remainingRightsMax: {
+          value: remainingRightsMax,
+          onChange: setRemainingRightsMax
+        },
+        block: {
+          value: blockFilter,
+          onChange: setBlockFilter,
+          options: blockOptions
+        },
+        parcel: {
+          value: parcelFilter,
+          onChange: setParcelFilter,
+          options: parcelOptions
+        },
+        rentalSale: {
+          value: rentalSaleFilter,
+          onChange: setRentalSaleFilter,
+          options: rentalSaleFilterOptions
+        },
+        adType: {
+          value: adTypeFilter,
+          onChange: setAdTypeFilter,
+          options: adTypeFilterOptions
+        },
+        commercial: {
+          value: commercialFilter,
+          onChange: setCommercialFilter,
+          options: commercialFilterOptions
+        },
+        userAssets: {
+          value: userAssetsFilter,
+          onChange: setUserAssetsFilter,
+          options: userAssetsFilterOptions
+        },
+        buildingType: {
+          value: buildingTypeFilter,
+          onChange: setBuildingTypeFilter,
+          options: buildingTypeOptions
+        },
+        floorMin: {
+          value: floorMin,
+          onChange: setFloorMin
+        },
+        floorMax: {
+          value: floorMax,
+          onChange: setFloorMax
+        },
+        areaMin: {
+          value: areaMin,
+          onChange: setAreaMin
+        },
+        areaMax: {
+          value: areaMax,
+          onChange: setAreaMax
+        },
+        bedrooms: {
+          value: { min: bedroomsMin, max: bedroomsMax },
+          onChange: ({ min, max }) => {
+            setBedroomsMin(min);
+            setBedroomsMax(max);
+          },
+          minPlaceholder: filterMetadata.bedroomRange.min != null ? `${filterMetadata.bedroomRange.min}` : 'מינ חדרי שינה',
+          maxPlaceholder: filterMetadata.bedroomRange.max != null ? `${filterMetadata.bedroomRange.max}` : 'מקס חדרי שינה',
+        },
+        bathrooms: {
+          value: { min: bathroomsMin, max: bathroomsMax },
+          onChange: ({ min, max }) => {
+            setBathroomsMin(min);
+            setBathroomsMax(max);
+          },
+          minPlaceholder: filterMetadata.bathroomRange.min != null ? `${filterMetadata.bathroomRange.min}` : 'מינ חדרי רחצה',
+          maxPlaceholder: filterMetadata.bathroomRange.max != null ? `${filterMetadata.bathroomRange.max}` : 'מקס חדרי רחצה',
+        },
+        totalFloors: {
+          value: { min: totalFloorsMin, max: totalFloorsMax },
+          onChange: ({ min, max }) => {
+            setTotalFloorsMin(min);
+            setTotalFloorsMax(max);
+          },
+          minPlaceholder: filterMetadata.totalFloorRange.min != null ? `${filterMetadata.totalFloorRange.min}` : 'מינ קומות בבניין',
+          maxPlaceholder: filterMetadata.totalFloorRange.max != null ? `${filterMetadata.totalFloorRange.max}` : 'מקס קומות בבניין',
+        },
+        totalArea: {
+          value: { min: totalAreaMin, max: totalAreaMax },
+          onChange: ({ min, max }) => {
+            setTotalAreaMin(min);
+            setTotalAreaMax(max);
+          },
+          minPlaceholder: filterMetadata.totalAreaRange.min != null ? `${filterMetadata.totalAreaRange.min}` : 'מינ שטח כולל',
+          maxPlaceholder: filterMetadata.totalAreaRange.max != null ? `${filterMetadata.totalAreaRange.max}` : 'מקס שטח כולל',
+        },
+        balconyArea: {
+          value: { min: balconyAreaMin, max: balconyAreaMax },
+          onChange: ({ min, max }) => {
+            setBalconyAreaMin(min);
+            setBalconyAreaMax(max);
+          },
+          minPlaceholder: filterMetadata.balconyAreaRange.min != null ? `${filterMetadata.balconyAreaRange.min}` : 'מינ שטח מרפסת',
+          maxPlaceholder: filterMetadata.balconyAreaRange.max != null ? `${filterMetadata.balconyAreaRange.max}` : 'מקס שטח מרפסת',
+        },
+        parkingSpaces: {
+          value: { min: parkingSpacesMin, max: parkingSpacesMax },
+          onChange: ({ min, max }) => {
+            setParkingSpacesMin(min);
+            setParkingSpacesMax(max);
+          },
+          minPlaceholder: filterMetadata.parkingSpaceRange.min != null ? `${filterMetadata.parkingSpaceRange.min}` : 'מינ חניות',
+          maxPlaceholder: filterMetadata.parkingSpaceRange.max != null ? `${filterMetadata.parkingSpaceRange.max}` : 'מקס חניות',
+        },
+        yearBuilt: {
+          value: { min: yearBuiltMin, max: yearBuiltMax },
+          onChange: ({ min, max }) => {
+            setYearBuiltMin(min);
+            setYearBuiltMax(max);
+          },
+          minPlaceholder: filterMetadata.yearBuiltRange.min != null ? `${filterMetadata.yearBuiltRange.min}` : 'משנת',
+          maxPlaceholder: filterMetadata.yearBuiltRange.max != null ? `${filterMetadata.yearBuiltRange.max}` : 'עד שנת',
+          step: 1,
+        },
+        rentEstimate: {
+          value: { min: rentEstimateMin, max: rentEstimateMax },
+          onChange: ({ min, max }) => {
+            setRentEstimateMin(min);
+            setRentEstimateMax(max);
+          },
+          minPlaceholder: filterMetadata.rentEstimateRange.min != null ? `${filterMetadata.rentEstimateRange.min}` : 'שכירות מינ',
+          maxPlaceholder: filterMetadata.rentEstimateRange.max != null ? `${filterMetadata.rentEstimateRange.max}` : 'שכירות מקס',
+        },
+        priceGapPct: {
+          value: { min: priceGapPctMin, max: priceGapPctMax },
+          onChange: ({ min, max }) => {
+            setPriceGapPctMin(min);
+            setPriceGapPctMax(max);
+          },
+          minPlaceholder: filterMetadata.priceGapPctRange.min != null ? `${filterMetadata.priceGapPctRange.min}` : 'פער מינ %',
+          maxPlaceholder: filterMetadata.priceGapPctRange.max != null ? `${filterMetadata.priceGapPctRange.max}` : 'פער מקס %',
+          step: 0.5,
+        },
+        capRatePct: {
+          value: { min: capRatePctMin, max: capRatePctMax },
+          onChange: ({ min, max }) => {
+            setCapRatePctMin(min);
+            setCapRatePctMax(max);
+          },
+          minPlaceholder: filterMetadata.capRatePctRange.min != null ? `${filterMetadata.capRatePctRange.min}` : 'תשואה מינ %',
+          maxPlaceholder: filterMetadata.capRatePctRange.max != null ? `${filterMetadata.capRatePctRange.max}` : 'תשואה מקס %',
+          step: 0.1,
+        },
+        rooms: {
+          value: roomsFilter,
+          onChange: setRoomsFilter,
+          options: roomsFilterOptions
+        },
+        features: {
+          value: featuresFilter,
+          onChange: setFeaturesFilter,
+          options: featuresFilterOptions
+        },
+        renovated: {
+          value: renovatedFilter,
+          onChange: setRenovatedFilter,
+          options: [
+            { value: 'all', label: 'הכל' },
+            { value: 'true', label: 'משופץ' },
+            { value: 'false', label: 'לא משופץ' },
+          ]
+        },
+        furnished: {
+          value: furnishedFilter,
+          onChange: setFurnishedFilter,
+          options: [
+            { value: 'all', label: 'הכל' },
+            { value: 'true', label: 'מרוהט' },
+            { value: 'false', label: 'לא מרוהט' },
+          ]
+        },
+        airConditioning: {
+          value: airConditioningFilter,
+          onChange: setAirConditioningFilter,
+          options: [
+            { value: 'all', label: 'הכל' },
+            { value: 'true', label: 'עם מיזוג' },
+            { value: 'false', label: 'ללא מיזוג' },
+          ]
+        },
+        storageRoom: {
+          value: storageRoomFilter,
+          onChange: setStorageRoomFilter,
+          options: [
+            { value: 'all', label: 'הכל' },
+            { value: 'true', label: 'עם מחסן' },
+            { value: 'false', label: 'ללא מחסן' },
+          ]
+        },
+        hasElevator: {
+          value: hasElevatorFilter,
+          onChange: setHasElevatorFilter,
+          options: [
+            { value: 'all', label: 'הכל' },
+            { value: 'true', label: 'עם מעלית' },
+            { value: 'false', label: 'ללא מעלית' },
+          ]
+        },
+      }}
+      onRefresh={fetchAssets}
+      onAddNew={() => {
+        if (isAuthenticated) {
+          setOpen(true);
+        } else {
+          handleProtectedAction("add-asset");
+        }
+      }}
+      extraActions={
+        <Button
+          onClick={() => setNadlanImportOpen(true)}
+          size="sm"
+          variant="outline"
+          className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
+        >
+          <DownloadCloud className="h-4 w-4" />
+          ייבוא מנדל&quot;ן וואן
+        </Button>
+      }
+      viewMode={viewMode}
+      onViewModeChange={handleViewModeChange}
+      bulkActions={[
+        ...(isAdmin
+          ? [
+              {
+                label: "מחק נבחרים",
+                action: handleBulkDelete,
+                icon: <Trash2 className="h-4 w-4" />,
+              },
+            ]
+          : []),
+        {
+          label: "סנכרן נתונים",
+          action: handleBulkSync,
+          icon: <RefreshCw className="h-4 w-4" />,
+        },
+        {
+          label: "צור דוחות",
+          action: handleBulkCreateReports,
+          icon: <FileText className="h-4 w-4" />,
+        },
+        {
+          label: "ייצא נבחרים",
+          action: handleBulkExport,
+          icon: <Download className="h-4 w-4" />,
+        }
+      ]}
+    />
+  );
+
 
   return (
     <DashboardLayout>
@@ -1814,333 +2181,41 @@ export default function AssetsPage() {
                 searchValue={search}
                 onSearchChange={setSearch}
                 height="600px"
-                onBackToTable={() => setViewMode('table')}
+                onBackToTable={() => handleViewModeChange('table')}
               />
             )
+          ) : viewMode === 'split' ? (
+            <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-start">
+              <div className="order-2 lg:order-1">{renderAssetsTable()}</div>
+              <div className="order-1 lg:order-2">
+                <div className="h-[360px] lg:h-[min(70vh,720px)] rounded-xl border border-border bg-card overflow-hidden">
+                  {loading ? (
+                    <div className="flex h-full flex-col items-center justify-center space-y-4 bg-muted/40">
+                      <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
+                      <div className="text-center text-sm text-muted-foreground">
+                        טוען נכסים למפה...
+                      </div>
+                    </div>
+                  ) : (
+                    <MapView
+                      key={`map-${viewMode}-${assets.length}`}
+                      assets={assets}
+                      center={[34.98, 31.0]}
+                      zoom={14}
+                      onAssetClick={(asset) => router.push(`/assets/${asset.id}`)}
+                      searchValue={search}
+                      onSearchChange={setSearch}
+                      height="100%"
+                      className="h-full"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
           ) : (
-            <AssetsTable
-              data={assets}
-              loading={loading}
-              onDelete={isAdmin ? handleDeleteAsset : undefined}
-              searchValue={search}
-              onSearchChange={setSearch}
-              manualPagination
-              paginationState={pagination}
-              onPaginationChange={(next) => setPagination(next)}
-              pageCount={pageCount}
-              totalCount={totalCount}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
-              filters={{
-                city: {
-                  value: city,
-                  onChange: setCity,
-                  options: cityOptions
-                },
-                type: {
-                  value: typeFilter,
-                  onChange: setTypeFilter,
-                  options: typeOptions
-                },
-                priceMin: {
-                  value: priceMin,
-                  onChange: setPriceMin
-                },
-                priceMax: {
-                  value: priceMax,
-                  onChange: setPriceMax
-                },
-                neighborhood: {
-                  value: neighborhood,
-                  onChange: setNeighborhood,
-                  options: neighborhoodOptions
-                },
-                zoning: {
-                  value: zoning,
-                  onChange: setZoning,
-                  options: zoningOptions
-                },
-                risk: {
-                  value: riskFilter,
-                  onChange: setRiskFilter,
-                  options: riskFilterOptions
-                },
-                documents: {
-                  value: documentsFilter,
-                  onChange: setDocumentsFilter,
-                  options: documentsFilterOptions
-                },
-                status: {
-                  value: statusFilter,
-                  onChange: setStatusFilter,
-                  options: statusOptions
-                },
-                pricePerSqmMin: {
-                  value: pricePerSqmMin,
-                  onChange: setPricePerSqmMin
-                },
-                pricePerSqmMax: {
-                  value: pricePerSqmMax,
-                  onChange: setPricePerSqmMax
-                },
-                remainingRightsMin: {
-                  value: remainingRightsMin,
-                  onChange: setRemainingRightsMin
-                },
-                remainingRightsMax: {
-                  value: remainingRightsMax,
-                  onChange: setRemainingRightsMax
-                },
-                block: {
-                  value: blockFilter,
-                  onChange: setBlockFilter,
-                  options: blockOptions
-                },
-                parcel: {
-                  value: parcelFilter,
-                  onChange: setParcelFilter,
-                  options: parcelOptions
-                },
-                rentalSale: {
-                  value: rentalSaleFilter,
-                  onChange: setRentalSaleFilter,
-                  options: rentalSaleFilterOptions
-                },
-                adType: {
-                  value: adTypeFilter,
-                  onChange: setAdTypeFilter,
-                  options: adTypeFilterOptions
-                },
-                commercial: {
-                  value: commercialFilter,
-                  onChange: setCommercialFilter,
-                  options: commercialFilterOptions
-                },
-                userAssets: {
-                  value: userAssetsFilter,
-                  onChange: setUserAssetsFilter,
-                  options: userAssetsFilterOptions
-                },
-                buildingType: {
-                  value: buildingTypeFilter,
-                  onChange: setBuildingTypeFilter,
-                  options: buildingTypeOptions
-                },
-                floorMin: {
-                  value: floorMin,
-                  onChange: setFloorMin
-                },
-                floorMax: {
-                  value: floorMax,
-                  onChange: setFloorMax
-                },
-                areaMin: {
-                  value: areaMin,
-                  onChange: setAreaMin
-                },
-                areaMax: {
-                  value: areaMax,
-                  onChange: setAreaMax
-                },
-                bedrooms: {
-                  value: { min: bedroomsMin, max: bedroomsMax },
-                  onChange: ({ min, max }) => {
-                    setBedroomsMin(min);
-                    setBedroomsMax(max);
-                  },
-                  minPlaceholder: filterMetadata.bedroomRange.min != null ? `${filterMetadata.bedroomRange.min}` : 'מינ חדרי שינה',
-                  maxPlaceholder: filterMetadata.bedroomRange.max != null ? `${filterMetadata.bedroomRange.max}` : 'מקס חדרי שינה',
-                },
-                bathrooms: {
-                  value: { min: bathroomsMin, max: bathroomsMax },
-                  onChange: ({ min, max }) => {
-                    setBathroomsMin(min);
-                    setBathroomsMax(max);
-                  },
-                  minPlaceholder: filterMetadata.bathroomRange.min != null ? `${filterMetadata.bathroomRange.min}` : 'מינ חדרי רחצה',
-                  maxPlaceholder: filterMetadata.bathroomRange.max != null ? `${filterMetadata.bathroomRange.max}` : 'מקס חדרי רחצה',
-                },
-                totalFloors: {
-                  value: { min: totalFloorsMin, max: totalFloorsMax },
-                  onChange: ({ min, max }) => {
-                    setTotalFloorsMin(min);
-                    setTotalFloorsMax(max);
-                  },
-                  minPlaceholder: filterMetadata.totalFloorRange.min != null ? `${filterMetadata.totalFloorRange.min}` : 'מינ קומות בבניין',
-                  maxPlaceholder: filterMetadata.totalFloorRange.max != null ? `${filterMetadata.totalFloorRange.max}` : 'מקס קומות בבניין',
-                },
-                totalArea: {
-                  value: { min: totalAreaMin, max: totalAreaMax },
-                  onChange: ({ min, max }) => {
-                    setTotalAreaMin(min);
-                    setTotalAreaMax(max);
-                  },
-                  minPlaceholder: filterMetadata.totalAreaRange.min != null ? `${filterMetadata.totalAreaRange.min}` : 'מינ שטח כולל',
-                  maxPlaceholder: filterMetadata.totalAreaRange.max != null ? `${filterMetadata.totalAreaRange.max}` : 'מקס שטח כולל',
-                },
-                balconyArea: {
-                  value: { min: balconyAreaMin, max: balconyAreaMax },
-                  onChange: ({ min, max }) => {
-                    setBalconyAreaMin(min);
-                    setBalconyAreaMax(max);
-                  },
-                  minPlaceholder: filterMetadata.balconyAreaRange.min != null ? `${filterMetadata.balconyAreaRange.min}` : 'מינ שטח מרפסת',
-                  maxPlaceholder: filterMetadata.balconyAreaRange.max != null ? `${filterMetadata.balconyAreaRange.max}` : 'מקס שטח מרפסת',
-                },
-                parkingSpaces: {
-                  value: { min: parkingSpacesMin, max: parkingSpacesMax },
-                  onChange: ({ min, max }) => {
-                    setParkingSpacesMin(min);
-                    setParkingSpacesMax(max);
-                  },
-                  minPlaceholder: filterMetadata.parkingSpaceRange.min != null ? `${filterMetadata.parkingSpaceRange.min}` : 'מינ חניות',
-                  maxPlaceholder: filterMetadata.parkingSpaceRange.max != null ? `${filterMetadata.parkingSpaceRange.max}` : 'מקס חניות',
-                },
-                yearBuilt: {
-                  value: { min: yearBuiltMin, max: yearBuiltMax },
-                  onChange: ({ min, max }) => {
-                    setYearBuiltMin(min);
-                    setYearBuiltMax(max);
-                  },
-                  minPlaceholder: filterMetadata.yearBuiltRange.min != null ? `${filterMetadata.yearBuiltRange.min}` : 'משנת',
-                  maxPlaceholder: filterMetadata.yearBuiltRange.max != null ? `${filterMetadata.yearBuiltRange.max}` : 'עד שנת',
-                  step: 1,
-                },
-                rentEstimate: {
-                  value: { min: rentEstimateMin, max: rentEstimateMax },
-                  onChange: ({ min, max }) => {
-                    setRentEstimateMin(min);
-                    setRentEstimateMax(max);
-                  },
-                  minPlaceholder: filterMetadata.rentEstimateRange.min != null ? `${filterMetadata.rentEstimateRange.min}` : 'שכירות מינ',
-                  maxPlaceholder: filterMetadata.rentEstimateRange.max != null ? `${filterMetadata.rentEstimateRange.max}` : 'שכירות מקס',
-                },
-                priceGapPct: {
-                  value: { min: priceGapPctMin, max: priceGapPctMax },
-                  onChange: ({ min, max }) => {
-                    setPriceGapPctMin(min);
-                    setPriceGapPctMax(max);
-                  },
-                  minPlaceholder: filterMetadata.priceGapPctRange.min != null ? `${filterMetadata.priceGapPctRange.min}` : 'פער מינ %',
-                  maxPlaceholder: filterMetadata.priceGapPctRange.max != null ? `${filterMetadata.priceGapPctRange.max}` : 'פער מקס %',
-                  step: 0.5,
-                },
-                capRatePct: {
-                  value: { min: capRatePctMin, max: capRatePctMax },
-                  onChange: ({ min, max }) => {
-                    setCapRatePctMin(min);
-                    setCapRatePctMax(max);
-                  },
-                  minPlaceholder: filterMetadata.capRatePctRange.min != null ? `${filterMetadata.capRatePctRange.min}` : 'תשואה מינ %',
-                  maxPlaceholder: filterMetadata.capRatePctRange.max != null ? `${filterMetadata.capRatePctRange.max}` : 'תשואה מקס %',
-                  step: 0.1,
-                },
-                rooms: {
-                  value: roomsFilter,
-                  onChange: setRoomsFilter,
-                  options: roomsFilterOptions
-                },
-                features: {
-                  value: featuresFilter,
-                  onChange: setFeaturesFilter,
-                  options: featuresFilterOptions
-                },
-                renovated: {
-                  value: renovatedFilter,
-                  onChange: setRenovatedFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    { value: 'true', label: 'משופץ' },
-                    { value: 'false', label: 'לא משופץ' },
-                  ]
-                },
-                furnished: {
-                  value: furnishedFilter,
-                  onChange: setFurnishedFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    { value: 'true', label: 'מרוהט' },
-                    { value: 'false', label: 'לא מרוהט' },
-                  ]
-                },
-                airConditioning: {
-                  value: airConditioningFilter,
-                  onChange: setAirConditioningFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    { value: 'true', label: 'עם מיזוג' },
-                    { value: 'false', label: 'ללא מיזוג' },
-                  ]
-                },
-                storageRoom: {
-                  value: storageRoomFilter,
-                  onChange: setStorageRoomFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    { value: 'true', label: 'עם מחסן' },
-                    { value: 'false', label: 'ללא מחסן' },
-                  ]
-                },
-                hasElevator: {
-                  value: hasElevatorFilter,
-                  onChange: setHasElevatorFilter,
-                  options: [
-                    { value: 'all', label: 'הכל' },
-                    { value: 'true', label: 'עם מעלית' },
-                    { value: 'false', label: 'ללא מעלית' },
-                  ]
-                },
-              }}
-              onRefresh={fetchAssets}
-              onAddNew={() => {
-                if (isAuthenticated) {
-                  setOpen(true);
-                } else {
-                  handleProtectedAction("add-asset");
-                }
-              }}
-              extraActions={
-                <Button
-                  onClick={() => setNadlanImportOpen(true)}
-                  size="sm"
-                  variant="outline"
-                  className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
-                >
-                  <DownloadCloud className="h-4 w-4" />
-                  ייבוא מנדל&quot;ן וואן
-                </Button>
-              }
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              bulkActions={[
-                ...(isAdmin
-                  ? [
-                      {
-                        label: "מחק נבחרים",
-                        action: handleBulkDelete,
-                        icon: <Trash2 className="h-4 w-4" />,
-                      },
-                    ]
-                  : []),
-                {
-                  label: "סנכרן נתונים",
-                  action: handleBulkSync,
-                  icon: <RefreshCw className="h-4 w-4" />,
-                },
-                {
-                  label: "צור דוחות",
-                  action: handleBulkCreateReports,
-                  icon: <FileText className="h-4 w-4" />,
-                },
-                {
-                  label: "ייצא נבחרים",
-                  action: handleBulkExport,
-                  icon: <Download className="h-4 w-4" />,
-                }
-              ]}
-            />
+            renderAssetsTable()
           )}
         </div>
-
         {/* Summary */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">

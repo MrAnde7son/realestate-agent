@@ -38,6 +38,7 @@ import {
   Grid3X3,
   List,
   Map,
+  PanelsTopLeft,
   X,
   Plus,
   RefreshCw,
@@ -199,8 +200,8 @@ interface TableToolbarProps {
   totalCount: number;
 
   // View mode
-  viewMode: 'table' | 'cards' | 'map';
-  onViewModeChange: (mode: 'table' | 'cards' | 'map') => void;
+  viewMode: 'table' | 'cards' | 'map' | 'split';
+  onViewModeChange: (mode: 'table' | 'cards' | 'map' | 'split') => void;
 
   // Actions
   onRefresh: () => void;
@@ -645,6 +646,16 @@ export default function TableToolbar({
             aria-label="תצוגת כרטיסים"
           >
             <Grid3X3 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'split' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onViewModeChange('split')}
+            className="h-10 w-10 rounded-full flex items-center justify-center"
+            title="תצוגה משולבת"
+            aria-label="תצוגה משולבת"
+          >
+            <PanelsTopLeft className="h-4 w-4" />
           </Button>
           <Button
             variant={viewMode === 'map' ? 'default' : 'outline'}

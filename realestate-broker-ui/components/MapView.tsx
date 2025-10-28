@@ -12,6 +12,7 @@ import { MapLayerService, LayerConfig } from '@/lib/map-layer-service'
 import type { Asset } from '@/lib/normalizers/asset'
 import { normalizeToLonLat } from '@/lib/geo/transform'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { cn } from '@/lib/utils'
 
 interface MapViewProps {
   assets: Asset[]
@@ -21,6 +22,7 @@ interface MapViewProps {
   searchValue: string
   onSearchChange: (value: string) => void
   height?: string
+  className?: string
   onBackToTable?: () => void
 }
 
@@ -111,6 +113,7 @@ export default function MapView({
   searchValue,
   onSearchChange,
   height = '600px',
+  className,
   onBackToTable
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
@@ -401,7 +404,13 @@ export default function MapView({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground" style={{ height }}>
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground',
+          className
+        )}
+        style={{ height }}
+      >
         <div className="text-center">
           <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p>{error}</p>
@@ -411,7 +420,7 @@ export default function MapView({
   }
 
   return (
-    <div className="relative w-full rounded-lg overflow-hidden" style={{ height }}>
+    <div className={cn('relative w-full rounded-lg overflow-hidden', className)} style={{ height }}>
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted">
           <div className="flex flex-col items-center space-y-2">

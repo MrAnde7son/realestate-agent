@@ -168,11 +168,21 @@ describe("TableToolbar quick filters", () => {
 
     const tableToggle = screen.getByLabelText("תצוגת טבלה");
     const cardsToggle = screen.getByLabelText("תצוגת כרטיסים");
+    const splitToggle = screen.getByLabelText("תצוגה משולבת");
     const mapToggle = screen.getByLabelText("תצוגת מפה");
 
     expect(tableToggle.className).toContain("rounded-full");
     expect(cardsToggle.className).toContain("rounded-full");
+    expect(splitToggle.className).toContain("rounded-full");
     expect(mapToggle.className).toContain("rounded-full");
+  });
+
+  it("invokes view mode change when selecting the split view", () => {
+    const { props } = renderToolbar();
+
+    fireEvent.click(screen.getByLabelText("תצוגה משולבת"));
+
+    expect(props.onViewModeChange).toHaveBeenCalledWith("split");
   });
 
   it("toggles the my assets quick filter", () => {

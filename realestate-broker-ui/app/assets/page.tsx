@@ -26,6 +26,8 @@ import {
   Download,
   FileText,
   DownloadCloud,
+  Star,
+  StarOff,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
@@ -94,6 +96,7 @@ export default function AssetsPage() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
   const [totalCount, setTotalCount] = useState(0);
+  const [watchingAssetIds, setWatchingAssetIds] = useState<Set<number>>(() => new Set());
   const [filterMetadata, setFilterMetadata] = useState<AssetFilterMetadata>({
     cities: [],
     types: [],
@@ -1102,6 +1105,95 @@ export default function AssetsPage() {
     hasElevatorFilter,
   ]);
 
+  const updateAssetsWatchState = React.useCallback((ids: number[], watched: boolean) => {
+    if (!ids.length) return;
+    setAssets(prev => {
+      if (!prev.length) {
+        return prev;
+      }
+      const idSet = new Set(ids);
+      let didChange = false;
+      const next = prev.map(asset => {
+        if (!idSet.has(asset.id)) {
+          return asset;
+        }
+        if (asset.isWatched === watched) {
+          return asset;
+        }
+        didChange = true;
+        return { ...asset, isWatched: watched };
+      });
+      return didChange ? next : prev;
+    });
+  }, []);
+
+  const handleToggleWatch = React.useCallback(
+    async (asset: Asset) => {
+      if (!isAuthenticated) {
+        toast({
+          title: "נדרשת התחברות",
+          description: "עליך להתחבר כדי לנהל רשימת מעקב",
+          variant: "destructive",
+        });
+        router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+        return;
+      }
+
+      const nextWatched = !(asset.isWatched ?? false);
+
+      setWatchingAssetIds(prev => {
+        const next = new Set(prev);
+        next.add(asset.id);
+        return next;
+      });
+
+      try {
+        const response = await apiClient.request(`/api/assets/${asset.id}/watch`, {
+          method: nextWatched ? "POST" : "DELETE",
+        });
+
+        if (response.ok) {
+          if (!nextWatched && userAssetsFilter === "watchlist") {
+            setAssets(prev => {
+              const next = prev.filter(item => item.id !== asset.id);
+              if (next.length !== prev.length) {
+                setTotalCount(current => Math.max(0, current - 1));
+              }
+              return next;
+            });
+          } else {
+            updateAssetsWatchState([asset.id], nextWatched);
+          }
+          toast({
+            title: nextWatched ? "נוסף לרשימת המעקב" : "הוסר מרשימת המעקב",
+            description: asset.address ?? undefined,
+            variant: "success",
+          });
+        } else {
+          toast({
+            title: "שגיאה בעדכון רשימת המעקב",
+            description: response.error || "הפעולה נכשלה",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error updating watchlist:", error);
+        toast({
+          title: "שגיאה בעדכון רשימת המעקב",
+          description: error instanceof Error ? error.message : "הפעולה נכשלה",
+          variant: "destructive",
+        });
+      } finally {
+        setWatchingAssetIds(prev => {
+          const next = new Set(prev);
+          next.delete(asset.id);
+          return next;
+        });
+      }
+    },
+    [isAuthenticated, router, toast, updateAssetsWatchState, userAssetsFilter]
+  );
+
   const handleDeleteAsset = async (assetId: number) => {
     // Check if user is authenticated
     if (!isAuthenticated) {
@@ -1317,6 +1409,116 @@ export default function AssetsPage() {
       console.error("Error performing bulk sync:", error);
       toast({
         title: "שגיאה בסנכרון",
+        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkWatch = async (selectedAssets: Asset[], { clearSelection }: BulkActionHelpers) => {
+    if (!selectedAssets.length) return;
+
+    if (!isAuthenticated) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "עליך להתחבר כדי לנהל רשימת מעקב",
+        variant: "destructive",
+      });
+      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+      return;
+    }
+
+    const assetIds = selectedAssets.map(asset => asset.id);
+
+    try {
+      const response = await apiClient.request<BulkActionResponseData>("/api/assets/bulk-action", {
+        method: "POST",
+        body: JSON.stringify({ action: "watch", assetIds }),
+      });
+
+      if (response.ok) {
+        const successfulIds = getSuccessfulIds(response.data);
+        if (successfulIds.length > 0) {
+          updateAssetsWatchState(successfulIds, true);
+        }
+        toast({
+          title: "הוספה למעקב",
+          description: summarizeBulkAction("הוספה למעקב", response.data),
+          variant: response.data && (response.data.failed || response.data.notFound) ? "default" : "success",
+        });
+        clearSelection();
+      } else {
+        toast({
+          title: "שגיאה בהוספה למעקב",
+          description: response.error || "הפעולה נכשלה",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error performing bulk watch:", error);
+      toast({
+        title: "שגיאה בהוספה למעקב",
+        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkUnwatch = async (selectedAssets: Asset[], { clearSelection }: BulkActionHelpers) => {
+    if (!selectedAssets.length) return;
+
+    if (!isAuthenticated) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "עליך להתחבר כדי לנהל רשימת מעקב",
+        variant: "destructive",
+      });
+      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+      return;
+    }
+
+    const assetIds = selectedAssets.map(asset => asset.id);
+
+    try {
+      const response = await apiClient.request<BulkActionResponseData>("/api/assets/bulk-action", {
+        method: "POST",
+        body: JSON.stringify({ action: "unwatch", assetIds }),
+      });
+
+      if (response.ok) {
+        const successfulIds = getSuccessfulIds(response.data);
+        if (successfulIds.length > 0) {
+          if (userAssetsFilter === "watchlist") {
+            setAssets(prev => {
+              const idSet = new Set(successfulIds);
+              const next = prev.filter(asset => !idSet.has(asset.id));
+              const removedCount = prev.length - next.length;
+              if (removedCount > 0) {
+                setTotalCount(current => Math.max(0, current - removedCount));
+              }
+              return next;
+            });
+          } else {
+            updateAssetsWatchState(successfulIds, false);
+          }
+        }
+        toast({
+          title: "הסרה ממעקב",
+          description: summarizeBulkAction("הסרה ממעקב", response.data),
+          variant: response.data && (response.data.failed || response.data.notFound) ? "default" : "success",
+        });
+        clearSelection();
+      } else {
+        toast({
+          title: "שגיאה בהסרה ממעקב",
+          description: response.error || "הפעולה נכשלה",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error performing bulk unwatch:", error);
+      toast({
+        title: "שגיאה בהסרה ממעקב",
         description: error instanceof Error ? error.message : "הפעולה נכשלה",
         variant: "destructive",
       });
@@ -1856,6 +2058,8 @@ export default function AssetsPage() {
               data={assets}
               loading={loading}
               onDelete={isAdmin ? handleDeleteAsset : undefined}
+              onToggleWatch={handleToggleWatch}
+              watchingAssetIds={watchingAssetIds}
               searchValue={search}
               onSearchChange={setSearch}
               manualPagination
@@ -2141,17 +2345,11 @@ export default function AssetsPage() {
                   handleProtectedAction("add-asset");
                 }
               }}
-              extraActions={
-                <Button
-                  onClick={() => setNadlanImportOpen(true)}
-                  size="sm"
-                  variant="outline"
-                  className="min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0"
-                >
-                  <DownloadCloud className="h-4 w-4" />
-                  ייבוא מנדל&quot;ן וואן
-                </Button>
-              }
+              importAction={{
+                label: 'ייבוא מנדל"ן וואן',
+                onClick: () => setNadlanImportOpen(true),
+                icon: <DownloadCloud className="h-4 w-4" />
+              }}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               bulkActions={[
@@ -2165,6 +2363,16 @@ export default function AssetsPage() {
                     ]
                   : []),
                 {
+                  label: "הוסף למעקב",
+                  action: handleBulkWatch,
+                  icon: <Star className="h-4 w-4" fill="currentColor" />,
+                },
+                {
+                  label: "הסר ממעקב",
+                  action: handleBulkUnwatch,
+                  icon: <StarOff className="h-4 w-4" />,
+                },
+                {
                   label: "סנכרן נתונים",
                   action: handleBulkSync,
                   icon: <RefreshCw className="h-4 w-4" />,
@@ -2173,11 +2381,6 @@ export default function AssetsPage() {
                   label: "צור דוחות",
                   action: handleBulkCreateReports,
                   icon: <FileText className="h-4 w-4" />,
-                },
-                {
-                  label: "ייצא נבחרים",
-                  action: handleBulkExport,
-                  icon: <Download className="h-4 w-4" />,
                 }
               ]}
             />

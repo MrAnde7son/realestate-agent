@@ -102,4 +102,25 @@ describe('AssetsTable', () => {
       expect(screen.getByText('השכרה')).toBeInTheDocument()
     })
   })
+
+  it('calls onToggleWatch when watch action is clicked', async () => {
+    const toggleSpy = vi.fn()
+    render(
+      <AssetsTable
+        data={[{ id: 1, address: 'Asset 1', city: 'City', isWatched: false } as any]}
+        onToggleWatch={toggleSpy}
+        watchingAssetIds={new Set()}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
+    })
+
+    const watchButton = screen.getByRole('button', { name: 'הוסף לרשימת המעקב' })
+    fireEvent.click(watchButton)
+
+    expect(toggleSpy).toHaveBeenCalledTimes(1)
+    expect(toggleSpy.mock.calls[0][0]).toMatchObject({ id: 1 })
+  })
 })

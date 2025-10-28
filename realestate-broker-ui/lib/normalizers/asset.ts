@@ -39,6 +39,7 @@ export type Asset = {
   normalizedAddress?: string | null;
   buildingType?: string | null;
   isCommercial?: boolean | null;
+  isWatched?: boolean | null;
   floor?: number | null;
   totalFloors?: number | null;
   storageRoom?: boolean | null;
@@ -692,6 +693,19 @@ export function normalizeFromBackend(row: any): Asset {
       ? parseNumeric(row.bedrooms)
       : normalizedBedrooms;
 
+  const watchedRaw = row.isWatched ?? row.is_watched ?? row.watched;
+  const isWatchedValue = (() => {
+    if (watchedRaw == null) return null;
+    if (typeof watchedRaw === 'boolean') return watchedRaw;
+    if (typeof watchedRaw === 'number') return watchedRaw !== 0;
+    if (typeof watchedRaw === 'string') {
+      const normalized = watchedRaw.trim().toLowerCase();
+      if (['true', '1', 'yes'].includes(normalized)) return true;
+      if (['false', '0', 'no'].includes(normalized)) return false;
+    }
+    return Boolean(watchedRaw);
+  })();
+
   return {
     id: Number(row.id ?? row.assetId ?? row.external_id),
     address: addressValue ?? null,
@@ -727,6 +741,7 @@ export function normalizeFromBackend(row: any): Asset {
     normalizedAddress: normalizedAddressValue ?? null,
     buildingType: buildingTypeValue,
     isCommercial,
+    isWatched: isWatchedValue,
     floor: floorValue ?? null,
     totalFloors: row.totalFloors ?? row.total_floors ?? null,
     storageRoom: row.storageRoom ?? row.storage_room ?? null,

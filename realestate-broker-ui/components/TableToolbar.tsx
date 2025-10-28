@@ -42,6 +42,7 @@ import {
   Plus,
   RefreshCw,
   ChevronDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
@@ -207,6 +208,11 @@ interface TableToolbarProps {
   onAddNew?: () => void;
   loading?: boolean;
   extraActions?: React.ReactNode;
+  importAction?: {
+    label: string;
+    onClick: () => void;
+    icon?: React.ReactNode;
+  };
 
   // Additional filters
   additionalFilters?: AdditionalFilterConfig[];
@@ -252,6 +258,7 @@ export default function TableToolbar({
   onAddNew,
   loading = false,
   extraActions,
+  importAction,
   additionalFilters = [],
   onAdditionalFilterChange,
   bulkActions = [],
@@ -1523,56 +1530,48 @@ export default function TableToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Bulk actions dropdown */}
-        {bulkActions.length > 0 && selectedCount > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={TOOLBAR_PILL_BUTTON_CLASSES}
-              >
-                <span className="hidden sm:inline">פעולות ({selectedCount})</span>
-                <span className="sm:hidden">({selectedCount})</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="bg-white">
-              <DropdownMenuLabel className="bg-white text-foreground">פעולות על נבחרים</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {bulkActions.map((action, index) => (
-                <DropdownMenuCheckboxItem 
-                  key={index}
-                  onClick={action.action}
-                  disabled={action.disabled}
-                  className="bg-white text-foreground hover:bg-muted"
-                >
-                  {action.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{action.icon}</span>}
-                  {action.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
-        {/* Export dropdown */}
+        {/* Actions dropdown - Always visible */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
               size="sm"
               className={TOOLBAR_PILL_BUTTON_CLASSES}
+              aria-label="פעולות על נתונים"
             >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">ייצוא</span>
+              <MoreHorizontal className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">פעולות</span>
+              {selectedCount > 0 && (
+                <>
+                  <Badge
+                    variant="secondary"
+                    className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ms-2"
+                  >
+                    {selectedCount}
+                  </Badge>
+                  <Badge
+                    variant="secondary"
+                    className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium sm:hidden ms-2"
+                  >
+                    {selectedCount}
+                  </Badge>
+                </>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="bg-white">
-            <DropdownMenuLabel className="bg-white text-foreground">ייצוא נתונים</DropdownMenuLabel>
+            <DropdownMenuLabel className="bg-white text-foreground">פעולות</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            
+            {/* Export section */}
+            <div className="px-2 py-1.5">
+              <span className="text-xs font-medium text-muted-foreground">ייצוא נתונים</span>
+            </div>
             <DropdownMenuCheckboxItem 
               onClick={onExportAll}
               className="bg-white text-foreground hover:bg-muted"
             >
+              <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               ייצוא הכל ({totalCount})
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem 
@@ -1580,8 +1579,47 @@ export default function TableToolbar({
               disabled={selectedCount === 0}
               className="bg-white text-foreground hover:bg-muted"
             >
+              <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               ייצוא נבחרים ({selectedCount})
             </DropdownMenuCheckboxItem>
+
+            {/* Import section */}
+            {importAction && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">ייבוא נתונים</span>
+                </div>
+                <DropdownMenuCheckboxItem 
+                  onClick={importAction.onClick}
+                  className="bg-white text-foreground hover:bg-muted"
+                >
+                  {importAction.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{importAction.icon}</span>}
+                  {importAction.label}
+                </DropdownMenuCheckboxItem>
+              </>
+            )}
+
+            {/* Bulk actions section - only show if items are selected */}
+            {bulkActions.length > 0 && selectedCount > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">פעולות על נבחרים ({selectedCount})</span>
+                </div>
+                {bulkActions.map((action, index) => (
+                  <DropdownMenuCheckboxItem 
+                    key={index}
+                    onClick={action.action}
+                    disabled={action.disabled}
+                    className="bg-white text-foreground hover:bg-muted"
+                  >
+                    {action.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{action.icon}</span>}
+                    {action.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -1596,8 +1634,6 @@ export default function TableToolbar({
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
         </Button>
-
-        {extraActions}
 
         {/* Add new */}
         {onAddNew && (

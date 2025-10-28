@@ -7,10 +7,9 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye, Settings, Search, Plus, Phone, Play } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Search, Plus, Phone, Play, Star, StarOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import AssetCard from './AssetCard'
 import AlertRulesManager from '@/components/alerts/alert-rules-manager'
@@ -87,7 +86,19 @@ const formatAdTypeLabel = (value?: string | null) => {
   return value
 }
 
-function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset) => void, onOpenAlert?: (assetId: number) => void): ColumnDef<Asset>[] {
+function createColumns({
+  onDelete,
+  onExport,
+  onOpenAlert,
+  onToggleWatch,
+  watchLoadingIds,
+}: {
+  onDelete?: (id: number) => void
+  onExport?: (asset: Asset) => void
+  onOpenAlert?: (assetId: number) => void
+  onToggleWatch?: (asset: Asset) => void
+  watchLoadingIds?: Set<number>
+}): ColumnDef<Asset>[] {
   return [
   {
     id: 'select',
@@ -146,8 +157,16 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
         )}
         
         <div className="flex-1 min-w-0">
-          <div className="font-semibold">
-            <Link href={`/assets/${row.original.id}`}>{row.original.address}</Link>
+          <div className="flex items-start gap-2 text-base font-semibold">
+            <Link href={`/assets/${row.original.id}`} className="flex-1 min-w-0">
+              <span className="block truncate">{row.original.address}</span>
+            </Link>
+            {row.original.isWatched && (
+              <Badge variant="outline" className="flex items-center gap-1 text-amber-600 border-amber-200 bg-amber-50">
+                <Star className="h-3 w-3 fill-current" />
+                במעקב
+              </Badge>
+            )}
           </div>
           <div className="text-xs text-sub">
               {row.original.city ?? '—'}
@@ -352,51 +371,80 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       size: 0,
       minSize: 0,
       maxSize: 0,
-      cell: ({ row }) => (
-        <div className="flex gap-2">
-          <Link 
-            className="text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-            href={`/assets/${row.original.id}`}
-            aria-label={`צפה בפרטי נכס ${row.original.address}`}
-            title="צפה בפרטי נכס"
-          >
-            <Eye className="h-4 w-4" />
-          </Link>
-          {onOpenAlert && (
-            <button
-              onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
-              className="text-amber-600 hover:text-amber-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-              title="הגדר התראות לנכס זה"
-              aria-label={`הגדר התראות לנכס ${row.original.address}`}
+      cell: ({ row }) => {
+        const watched = row.original.isWatched === true
+        const watchLoading = watchLoadingIds?.has(row.original.id) ?? false
+        const watchTitle = watched ? 'הסר מרשימת המעקב' : 'הוסף לרשימת המעקב'
+        return (
+          <div className="flex gap-2">
+            <Link 
+              className="text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+              href={`/assets/${row.original.id}`}
+              aria-label={`צפה בפרטי נכס ${row.original.address}`}
+              title="צפה בפרטי נכס"
             >
-              <Bell className="h-4 w-4" />
-            </button>
-          )}
-          {onExport && (
-            <button
-              onClick={e => { e.stopPropagation(); onExport(row.original) }}
-              className="text-green-600 hover:text-green-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-              aria-label={`ייצא נכס ${row.original.address}`}
-              title="ייצא נכס"
-            >
-              <Download className="h-4 w-4" />
-            </button>
-          )}
-          {onDelete && (
-            <button 
-              onClick={e => { 
-                e.stopPropagation(); 
-                onDelete(row.original.id) 
-              }} 
-              className="text-red-600 hover:text-red-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-              aria-label={`מחק נכס ${row.original.address}`}
-              title="מחק נכס"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      ) 
+              <Eye className="h-4 w-4" />
+            </Link>
+            {onToggleWatch && (
+              <button
+                type="button"
+                onClick={e => { 
+                  e.stopPropagation()
+                  onToggleWatch(row.original) 
+                }}
+                className={`rounded p-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  watched
+                    ? 'text-amber-500 hover:text-amber-600'
+                    : 'text-muted-foreground hover:text-amber-500'
+                } ${watchLoading ? 'pointer-events-none opacity-60' : ''}`}
+                title={watchTitle}
+                aria-label={watchTitle}
+                aria-pressed={watched}
+                disabled={watchLoading}
+              >
+                {watched ? (
+                  <Star className="h-4 w-4" fill="currentColor" />
+                ) : (
+                  <StarOff className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            {onOpenAlert && (
+              <button
+                onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
+                className="text-amber-600 hover:text-amber-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+                title="הגדר התראות לנכס זה"
+                aria-label={`הגדר התראות לנכס ${row.original.address}`}
+              >
+                <Bell className="h-4 w-4" />
+              </button>
+            )}
+            {onExport && (
+              <button
+                onClick={e => { e.stopPropagation(); onExport(row.original) }}
+                className="text-green-600 hover:text-green-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+                aria-label={`ייצא נכס ${row.original.address}`}
+                title="ייצא נכס"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            )}
+            {onDelete && (
+              <button 
+                onClick={e => { 
+                  e.stopPropagation(); 
+                  onDelete(row.original.id) 
+                }} 
+                className="text-red-600 hover:text-red-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+                aria-label={`מחק נכס ${row.original.address}`}
+                title="מחק נכס"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )
+      } 
     }
   ]
 }
@@ -420,6 +468,8 @@ interface AssetsTableProps {
   data?: Asset[]
   loading?: boolean
   onDelete?: (id: number) => void
+  onToggleWatch?: (asset: Asset) => void
+  watchingAssetIds?: Set<number>
   // Toolbar props
   searchValue?: string
   onSearchChange?: (value: string) => void
@@ -584,6 +634,11 @@ interface AssetsTableProps {
   onRefresh?: () => void
   onAddNew?: () => void
   extraActions?: React.ReactNode
+  importAction?: {
+    label: string;
+    onClick: () => void;
+    icon?: React.ReactNode;
+  };
   viewMode?: 'table' | 'cards' | 'map'
   onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
   bulkActions?: AssetsTableBulkAction[]
@@ -651,12 +706,15 @@ export default function AssetsTable({
   data = [],
   loading = false,
   onDelete,
+  onToggleWatch,
+  watchingAssetIds,
   searchValue = '',
   onSearchChange,
   filters,
   onRefresh,
   onAddNew,
   extraActions,
+  importAction,
   viewMode = 'table',
   onViewModeChange,
   bulkActions = [],
@@ -811,8 +869,14 @@ export default function AssetsTable({
   // Create columns with handleExportSingle - only after mounted to prevent hydration mismatch
   const columns = React.useMemo(() => {
     if (!mounted) return []
-    return createColumns(onDelete, handleExportSingle, handleOpenAlertModal)
-  }, [mounted, onDelete, handleExportSingle, handleOpenAlertModal])
+    return createColumns({
+      onDelete,
+      onExport: handleExportSingle,
+      onOpenAlert: handleOpenAlertModal,
+      onToggleWatch,
+      watchLoadingIds: watchingAssetIds,
+    })
+  }, [mounted, onDelete, handleExportSingle, handleOpenAlertModal, onToggleWatch, watchingAssetIds])
 
   const table = useReactTable({
     data,
@@ -1423,6 +1487,7 @@ export default function AssetsTable({
             onAddNew={onAddNew}
             loading={loading}
             extraActions={extraActions}
+            importAction={importAction}
             bulkActions={toolbarBulkActions}
             statusFilters={filters?.status ? {
               value: filters.status.value,

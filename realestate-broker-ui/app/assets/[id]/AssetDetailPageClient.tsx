@@ -89,6 +89,13 @@ const formatListingSourceLabel = (value?: string | null) => {
 
 const sanitizePhoneNumber = (value?: string | null) => (value ? value.replace(/[^+\d]/g, '') : '')
 
+const isAbortError = (error: unknown): boolean => {
+  if (error instanceof DOMException) {
+    return error.name === 'AbortError'
+  }
+  return typeof error === 'object' && error !== null && 'name' in error && (error as { name?: string }).name === 'AbortError'
+}
+
 const formatListingRooms = (rooms?: number | null, display?: string | null) => {
   if (typeof display === 'string') {
     const trimmed = display.trim()
@@ -988,7 +995,7 @@ React.useEffect(() => {
   }, [id])
 
   // Load documents organized by category
-  const loadDocumentsTable = React.useCallback(async () => {
+  const fetchDocumentsTable = React.useCallback(async (signal?: AbortSignal) => {
     if (!id) return
 
     setDocumentsLoading(true)
@@ -1032,11 +1039,14 @@ React.useEffect(() => {
       const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-document_date'
       params.set('ordering', orderingValue)
 
-      const response = await fetch(`/api/documents/table?${params.toString()}`)
+      const response = await apiClient.get(`/api/documents/table?${params.toString()}`, { signal })
       if (!response.ok) {
-        throw new Error('Failed to load documents')
+        throw new Error(response.error || 'Failed to load documents')
       }
-      const data = await response.json()
+      const data = (response.data as any) || {}
+      if (signal?.aborted) {
+        return
+      }
       setDocumentsData({
         items: data.results || [],
         total: data.count || 0,
@@ -1048,11 +1058,16 @@ React.useEffect(() => {
         },
       })
     } catch (error) {
+      if (isAbortError(error) || signal?.aborted) {
+        return
+      }
       console.error('Error loading documents:', error)
       setDocumentsError('שגיאה בטעינת מסמכים')
       setDocumentsData({ items: [], total: 0, filters: { category: [], type: [], source: [], status: [] } })
     } finally {
-      setDocumentsLoading(false)
+      if (!signal?.aborted) {
+        setDocumentsLoading(false)
+      }
     }
   }, [
     id,
@@ -1065,10 +1080,14 @@ React.useEffect(() => {
     documentsStatusFilter,
   ])
 
+  const loadDocumentsTable = React.useCallback(() => fetchDocumentsTable(), [fetchDocumentsTable])
+
 useDedupedEffect(() => {
   if (activeTab !== 'documents') return
-  loadDocumentsTable()
-}, [activeTab, loadDocumentsTable])
+  const controller = new AbortController()
+  fetchDocumentsTable(controller.signal)
+  return () => controller.abort()
+}, [activeTab, fetchDocumentsTable])
 
   useDedupedEffect(() => {
     setLoading(true)
@@ -1085,23 +1104,39 @@ useDedupedEffect(() => {
       .finally(() => setLoading(false))
   }, [id])
 
+const fetchAppraisals = React.useCallback(async (signal?: AbortSignal) => {
+  if (!id) return
+  try {
+    const response = await apiClient.get(`/api/assets/${id}/appraisal`, { signal })
+    if (!response.ok) {
+      throw new Error(response.error || 'Failed to load appraisal')
+    }
+    const data = (response.data as any) || {}
+    if (signal?.aborted) {
+      return
+    }
+    setComparables(data.comps || [])
+    setAppraisal(data.appraisal || null)
+    setDecisiveAppraisals(data.decisive_appraisals || [])
+    setRamiAppraisals(data.rami_appraisals || [])
+  } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
+    console.error('Error loading appraisal:', err)
+  }
+}, [id])
+
+const loadAppraisals = React.useCallback(() => fetchAppraisals(), [fetchAppraisals])
+
 useDedupedEffect(() => {
   if (activeTab !== 'appraisals') return
-  fetch(`/api/assets/${id}/appraisal`)
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to load appraisal')
-      return res.json()
-    })
-    .then(data => {
-      setComparables(data.comps || [])
-      setAppraisal(data.appraisal || null)
-      setDecisiveAppraisals(data.decisive_appraisals || [])
-      setRamiAppraisals(data.rami_appraisals || [])
-    })
-    .catch(err => console.error('Error loading appraisal:', err))
-}, [activeTab, id])
+  const controller = new AbortController()
+  fetchAppraisals(controller.signal)
+  return () => controller.abort()
+}, [activeTab, fetchAppraisals])
 
-const loadPermits = React.useCallback(async () => {
+const fetchPermits = React.useCallback(async (signal?: AbortSignal) => {
   if (!id) return
   setPermitsLoading(true)
   try {
@@ -1163,11 +1198,14 @@ const loadPermits = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-approval_date'
     params.set('ordering', orderingValue)
 
-    const response = await fetch(`/api/assets/${id}/permits?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/permits?${params.toString()}`, { signal })
     if (!response.ok) {
-      throw new Error('Failed to load permits')
+      throw new Error(response.error || 'Failed to load permits')
     }
-    const data = await response.json()
+    const data = (response.data as any) || {}
+    if (signal?.aborted) {
+      return
+    }
     setPermitsData({
       items: data.permits || [],
       total: data.count || 0,
@@ -1179,10 +1217,15 @@ const loadPermits = React.useCallback(async () => {
       },
     })
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading permits:', err)
     setPermitsData({ items: [], total: 0, filters: { stage: [], document_type: [], source: [], request_type: [] } })
   } finally {
-    setPermitsLoading(false)
+    if (!signal?.aborted) {
+      setPermitsLoading(false)
+    }
   }
 }, [
   id,
@@ -1202,12 +1245,16 @@ const loadPermits = React.useCallback(async () => {
   permitsExpiryDateTo,
 ])
 
+const loadPermits = React.useCallback(() => fetchPermits(), [fetchPermits])
+
 useDedupedEffect(() => {
   if (activeTab !== 'permits') return
-  loadPermits()
-}, [activeTab, loadPermits])
+  const controller = new AbortController()
+  fetchPermits(controller.signal)
+  return () => controller.abort()
+}, [activeTab, fetchPermits])
 
-const loadTransactions = React.useCallback(async () => {
+const fetchTransactions = React.useCallback(async (signal?: AbortSignal) => {
   if (!id) return
   setTransactionsLoading(true)
   try {
@@ -1258,11 +1305,14 @@ const loadTransactions = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-date'
     params.set('ordering', orderingValue)
 
-    const response = await fetch(`/api/assets/${id}/transactions?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/transactions?${params.toString()}`, { signal })
     if (!response.ok) {
-      throw new Error('Failed to load transactions')
+      throw new Error(response.error || 'Failed to load transactions')
     }
-    const data = await response.json()
+    const data = (response.data as any) || {}
+    if (signal?.aborted) {
+      return
+    }
     setTransactionsData({
       items: data.transactions || [],
       total: data.count || 0,
@@ -1272,11 +1322,16 @@ const loadTransactions = React.useCallback(async () => {
     })
     setMarketAnalysis(data.market_analysis || null)
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading transactions:', err)
     setTransactionsData({ items: [], total: 0, filters: { source: [] } })
     setMarketAnalysis(null)
   } finally {
-    setTransactionsLoading(false)
+    if (!signal?.aborted) {
+      setTransactionsLoading(false)
+    }
   }
 }, [
   id,
@@ -1293,12 +1348,16 @@ const loadTransactions = React.useCallback(async () => {
   transactionsAddressFilter,
 ])
 
+const loadTransactions = React.useCallback(() => fetchTransactions(), [fetchTransactions])
+
 useDedupedEffect(() => {
   if (activeTab !== 'transactions') return
-  loadTransactions()
-}, [activeTab, loadTransactions])
+  const controller = new AbortController()
+  fetchTransactions(controller.signal)
+  return () => controller.abort()
+}, [activeTab, fetchTransactions])
 
-const loadPlans = React.useCallback(async () => {
+const fetchPlans = React.useCallback(async (signal?: AbortSignal) => {
   if (!id) return
   setPlansLoading(true)
   try {
@@ -1336,11 +1395,14 @@ const loadPlans = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-effective_date'
     params.set('ordering', orderingValue)
 
-    const response = await fetch(`/api/assets/${id}/plans?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/plans?${params.toString()}`, { signal })
     if (!response.ok) {
-      throw new Error('Failed to load plans')
+      throw new Error(response.error || 'Failed to load plans')
     }
-    const data = await response.json()
+    const data = (response.data as any) || {}
+    if (signal?.aborted) {
+      return
+    }
     setPlansData({
       items: data.plans || [],
       total: data.count || 0,
@@ -1350,17 +1412,26 @@ const loadPlans = React.useCallback(async () => {
       },
     })
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading plans:', err)
     setPlansData({ items: [], total: 0, filters: { source: [], status: [] } })
   } finally {
-    setPlansLoading(false)
+    if (!signal?.aborted) {
+      setPlansLoading(false)
+    }
   }
 }, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter, plansPlanNumberFilter, plansDescriptionFilter])
 
+const loadPlans = React.useCallback(() => fetchPlans(), [fetchPlans])
+
 useDedupedEffect(() => {
   if (activeTab !== 'plans') return
-  loadPlans()
-}, [activeTab, loadPlans])
+  const controller = new AbortController()
+  fetchPlans(controller.signal)
+  return () => controller.abort()
+}, [activeTab, fetchPlans])
 
 useDedupedEffect(() => {
   if (!id) return
@@ -1399,12 +1470,13 @@ useDedupedEffect(() => {
   }, [canViewCrm, activeTab])
 
   // Update URL when active tab changes
-  const handleTabChange = (value: string) => {
+  const handleTabChange = React.useCallback((value: string) => {
+    if (value === activeTab) return
     setActiveTab(value)
     const url = new URL(window.location.href)
     url.searchParams.set('tab', value)
-    router.replace(url.pathname + url.search, { scroll: false })
-  }
+    router.replace(`${url.pathname}${url.search}`, { scroll: false })
+  }, [activeTab, router])
 
   const handleSyncData = async () => {
     if (!id || !asset?.address) return
@@ -2567,7 +2639,9 @@ useDedupedEffect(() => {
                   onChange: setPlansDescriptionFilter,
                 },
               }}
-              onRefresh={loadPlans}
+              onRefresh={() => {
+                void loadPlans()
+              }}
             />
           </TabsContent>
 
@@ -3220,7 +3294,9 @@ useDedupedEffect(() => {
                 source: permitsData.filters.source,
                 requestType: permitsData.filters.request_type,
               }}
-              onRefresh={loadPermits}
+              onRefresh={() => {
+                void loadPermits()
+              }}
               radius={permitRadius}
             />
           </TabsContent>
@@ -3305,7 +3381,9 @@ useDedupedEffect(() => {
                 value: transactionsAddressFilter,
                 onChange: setTransactionsAddressFilter,
               }}
-              onRefresh={loadTransactions}
+              onRefresh={() => {
+                void loadTransactions()
+              }}
               manualPagination
               manualSorting
               pageCount={Math.max(1, Math.ceil((transactionsData.total || 0) / transactionsPagination.pageSize))}
@@ -3342,16 +3420,8 @@ useDedupedEffect(() => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      fetch(`/api/assets/${id}/appraisal`)
-                        .then(res => res.json())
-                        .then(data => {
-                          setAppraisal(data.appraisal || null)
-                          setDecisiveAppraisals(data.decisive_appraisals || [])
-                          setRamiAppraisals(data.rami_appraisals || [])
-                        })
-                        .catch(err => console.error('Error refreshing appraisal:', err))
-                      
-                      loadTransactions()
+                      void loadAppraisals()
+                      void loadTransactions()
                     }}
                   >
                     🔄 רענן מידע
@@ -3459,13 +3529,7 @@ useDedupedEffect(() => {
                         },
                       }}
                       onRefresh={() => {
-                        fetch(`/api/assets/${id}/appraisal`)
-                          .then(res => res.json())
-                          .then(data => {
-                            setDecisiveAppraisals(data.decisive_appraisals || [])
-                            setRamiAppraisals(data.rami_appraisals || [])
-                          })
-                          .catch(err => console.error('Error refreshing appraisal tables:', err))
+                        void loadAppraisals()
                       }}
                     />
                   )}
@@ -3486,13 +3550,7 @@ useDedupedEffect(() => {
                         },
                       }}
                       onRefresh={() => {
-                        fetch(`/api/assets/${id}/appraisal`)
-                          .then(res => res.json())
-                          .then(data => {
-                            setDecisiveAppraisals(data.decisive_appraisals || [])
-                            setRamiAppraisals(data.rami_appraisals || [])
-                          })
-                          .catch(err => console.error('Error refreshing appraisal tables:', err))
+                        void loadAppraisals()
                       }}
                     />
                   )}
@@ -3517,7 +3575,9 @@ useDedupedEffect(() => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={loadDocumentsTable}
+                      onClick={() => {
+                        void loadDocumentsTable()
+                      }}
                       disabled={documentsLoading}
                     >
                       {documentsLoading ? (
@@ -3595,7 +3655,9 @@ useDedupedEffect(() => {
                       onChange: setDocumentsStatusFilter,
                     },
                   }}
-                  onRefresh={loadDocumentsTable}
+                  onRefresh={() => {
+                    void loadDocumentsTable()
+                  }}
                   totalCount={documentsData.total}
                   paginationState={documentsPagination}
                   onPaginationChange={setDocumentsPagination}

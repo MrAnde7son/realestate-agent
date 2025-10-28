@@ -456,8 +456,8 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     <DashboardLayout>
       <DashboardShell>
         <DashboardHeader
-          title={`Deal Workspace for Asset ${assetId}`}
-          description='Track negotiations, documents, legal workstreams and financing in a single view.'
+          heading={`Deal Workspace for Asset ${assetId}`}
+          text='Track negotiations, documents, legal workstreams and financing in a single view.'
         />
 
         <div className='grid gap-6 pb-10'>

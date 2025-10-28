@@ -10,10 +10,10 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
 
 vi.mock('@/components/layout/dashboard-shell', () => ({
   DashboardShell: ({ children }: { children: React.ReactNode }) => <div data-testid='shell'>{children}</div>,
-  DashboardHeader: ({ title, description }: { title?: React.ReactNode; description?: React.ReactNode }) => (
+  DashboardHeader: ({ heading, text }: { heading?: React.ReactNode; text?: React.ReactNode }) => (
     <div>
-      {title ? <h1>{title}</h1> : null}
-      {description ? <p>{description}</p> : null}
+      {heading ? <h1>{heading}</h1> : null}
+      {text ? <p>{text}</p> : null}
     </div>
   ),
 }))

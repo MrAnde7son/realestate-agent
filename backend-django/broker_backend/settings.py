@@ -141,6 +141,8 @@ if os.getenv('USE_CELERY', 'false').lower() == 'true':
     CELERY_WORKER_PREFETCH_MULTIPLIER = 1
     CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
     CELERY_WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "2"))
+    # Use threads pool instead of prefork on Apple Silicon to avoid SIGSEGV crashes
+    CELERY_WORKER_POOL = 'threads'  # or 'solo' for single-threaded (safer for ARM)
     CELERY_IMPORTS = ('core.tasks', 'imports.tasks')
     from celery.schedules import crontab
     CELERY_BEAT_SCHEDULE = {

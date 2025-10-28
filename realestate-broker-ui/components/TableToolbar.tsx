@@ -708,7 +708,7 @@ export default function TableToolbar({
                     }}
                   >
                     <DropdownMenuRadioItem value="all">כל הנכסים</DropdownMenuRadioItem>
-                    {userAssetsQuickFilter.options.map(option => (
+                    {(userAssetsQuickFilter.options ?? []).map(option => (
                       <DropdownMenuRadioItem key={option.value} value={option.value}>
                         {option.label}
                       </DropdownMenuRadioItem>

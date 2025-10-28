@@ -1,11 +1,11 @@
 import DealWorkspacePageClient from './DealWorkspacePageClient'
 
 type DealWorkspacePageProps = {
-  params: Promise<{ assetId: string }>
+  params: Promise<{ id: string }>
 }
 
 export default async function DealWorkspacePage({ params }: DealWorkspacePageProps) {
-  const { assetId } = await params
+  const { id } = await params
 
-  return <DealWorkspacePageClient assetId={assetId} />
+  return <DealWorkspacePageClient assetId={id} />
 }

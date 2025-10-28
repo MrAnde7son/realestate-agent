@@ -64,7 +64,7 @@ beforeEach(() => {
 
 describe('DealWorkspacePage', () => {
   it('resolves params promise for server component', async () => {
-    const element = await DealWorkspacePage({ params: Promise.resolve({ assetId: '321' }) })
+    const element = await DealWorkspacePage({ params: Promise.resolve({ id: '321' }) })
     expect(React.isValidElement(element)).toBe(true)
     if (React.isValidElement(element)) {
       expect(element.props.assetId).toBe('321')

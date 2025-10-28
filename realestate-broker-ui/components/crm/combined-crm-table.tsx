@@ -29,7 +29,14 @@ import {
   Trash2,
   CheckSquare,
 } from 'lucide-react';
-import { Contact, ContactTask, CreateContactData, Lead } from '@/lib/api/crm';
+import {
+  Contact,
+  ContactTask,
+  CreateContactData,
+  CreateTaskData,
+  Lead,
+  UpdateTaskData,
+} from '@/lib/api/crm';
 import { CrmApi } from '@/lib/api/crm';
 import { useToast } from '@/hooks/use-toast';
 import { ContactForm } from '@/components/crm/contact-form';
@@ -286,11 +293,21 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
 
   const handleCreateContactTask = async (
     contactId: number,
-    data: { title: string; description?: string; due_at?: string; status?: ContactTask['status'] }
+    data: CreateTaskData | UpdateTaskData
   ) => {
+    const title = data.title?.trim();
+    if (!title) {
+      toast({
+        title: 'שגיאה',
+        description: 'יש להזין כותרת למשימה',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       await CrmApi.createTask({
-        title: data.title,
+        title,
         description: data.description,
         due_at: data.due_at,
         status: data.status,

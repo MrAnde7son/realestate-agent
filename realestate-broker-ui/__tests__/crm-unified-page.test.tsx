@@ -4,14 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CrmUnifiedPage from '@/app/crm/page';
 import { CrmApi } from '@/lib/api/crm';
 
-const mockReplace = vi.fn();
-let mockSearchParams = new URLSearchParams();
 const trackEventMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-  useSearchParams: () => mockSearchParams,
-}));
 
 vi.mock('@/hooks/useAnalytics', () => ({
   useAnalytics: () => ({
@@ -40,37 +33,33 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
   ),
 }));
 
-vi.mock('@/components/crm/LeadsList', () => ({
-  __esModule: true,
-  default: ({ onConvertedToClient }: { onConvertedToClient?: (id: number) => void }) => (
-    <div data-testid="leads-list">
-      <button onClick={() => onConvertedToClient?.(123)}>convert</button>
+vi.mock('@/components/crm/combined-crm-table', () => ({
+  CombinedCrmTable: ({ contacts, leads, onRefresh }: any) => (
+    <div data-testid="combined-table">
+      <div>contacts:{contacts.length}</div>
+      <div>leads:{leads.length}</div>
+      <button onClick={() => onRefresh()}>refresh</button>
     </div>
   ),
-}));
-
-vi.mock('@/components/crm/ContactsList', () => ({
-  __esModule: true,
-  default: () => <div data-testid="contacts-list" />,
 }));
 
 vi.mock('@/lib/api/crm', () => ({
   CrmApi: {
     getContacts: vi.fn(),
     getLeads: vi.fn(),
+    getTasks: vi.fn(),
   },
 }));
 
 describe('CrmUnifiedPage', () => {
   beforeEach(() => {
-    mockReplace.mockReset();
     trackEventMock.mockReset();
-    mockSearchParams = new URLSearchParams();
     vi.mocked(CrmApi.getContacts).mockResolvedValue([]);
     vi.mocked(CrmApi.getLeads).mockResolvedValue([]);
+    vi.mocked(CrmApi.getTasks).mockResolvedValue([]);
   });
 
-  it('renders clients tab by default and tracks CRM open', async () => {
+  it('renders combined CRM table and tracks open event', async () => {
     render(<CrmUnifiedPage />);
 
     await waitFor(() => {
@@ -78,100 +67,45 @@ describe('CrmUnifiedPage', () => {
       expect(CrmApi.getLeads).toHaveBeenCalled();
     });
 
-    expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
+    expect(screen.getByTestId('combined-table')).toBeInTheDocument();
     expect(trackEventMock).toHaveBeenCalledWith({
       event: 'crm_opened',
-      meta: { tab: 'clients' },
+      meta: { view: 'combined' },
     });
   });
 
-  it('shows leads tab when tab query is leads', async () => {
-    mockSearchParams = new URLSearchParams('tab=leads');
+  it('shows KPI cards with correct values', async () => {
+    vi.mocked(CrmApi.getContacts).mockResolvedValue([
+      { id: 1, name: 'Contact A' },
+    ] as any);
+    vi.mocked(CrmApi.getLeads).mockResolvedValue([
+      { id: 1, status: 'new', contact: { name: 'Contact A' }, last_activity_at: new Date().toISOString() },
+      { id: 2, status: 'closed-won', contact: { name: 'Contact B' }, last_activity_at: new Date().toISOString() },
+    ] as any);
+
     render(<CrmUnifiedPage />);
 
-    await waitFor(() => {
-      expect(CrmApi.getContacts).toHaveBeenCalled();
-      expect(CrmApi.getLeads).toHaveBeenCalled();
-    });
-
-    expect(screen.getByTestId('leads-list')).toBeInTheDocument();
+    await screen.findByText('contacts:1');
+    await screen.findByText('leads:2');
   });
 
-  it('updates the URL and analytics when switching tabs', async () => {
+  it('allows refreshing data from the combined table', async () => {
     render(<CrmUnifiedPage />);
 
-    await waitFor(() => {
-      expect(CrmApi.getContacts).toHaveBeenCalled();
-      expect(CrmApi.getLeads).toHaveBeenCalled();
-    }, { timeout: 5000 });
+    await screen.findByTestId('combined-table');
 
-    // Wait for the component to finish loading
-    await waitFor(() => {
-      expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
-    }, { timeout: 5000 });
+    expect(CrmApi.getContacts).toHaveBeenCalled();
+    expect(CrmApi.getLeads).toHaveBeenCalled();
 
-    trackEventMock.mockClear();
-    const leadsTabButton = screen.getByRole('tab', { name: 'לידים' });
+    const initialContactsCalls = vi.mocked(CrmApi.getContacts).mock.calls.length;
+    const initialLeadsCalls = vi.mocked(CrmApi.getLeads).mock.calls.length;
 
-    fireEvent.mouseDown(leadsTabButton);
+    const refreshButton = await screen.findByText('refresh');
+    fireEvent.click(refreshButton);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/crm?tab=leads');
-    });
-
-    expect(trackEventMock).toHaveBeenCalledWith({
-      event: 'crm_tab_changed',
-      meta: { tab: 'leads' },
-    });
-  });
-
-  it('tracks analytics when KPI card is clicked', async () => {
-    render(<CrmUnifiedPage />);
-
-    await waitFor(() => {
-      expect(CrmApi.getContacts).toHaveBeenCalled();
-      expect(CrmApi.getLeads).toHaveBeenCalled();
-    }, { timeout: 5000 });
-
-    // Wait for the component to finish loading
-    await waitFor(() => {
-      expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
-    }, { timeout: 5000 });
-
-    trackEventMock.mockClear();
-    const leadsCardHeading = screen.getByRole('heading', { name: 'לידים' });
-    fireEvent.click(leadsCardHeading);
-
-    expect(trackEventMock).toHaveBeenCalledWith({
-      event: 'crm_card_clicked',
-      meta: { target: 'leads' },
-    });
-    expect(trackEventMock).toHaveBeenCalledWith({
-      event: 'crm_tab_changed',
-      meta: { tab: 'leads' },
-    });
-  });
-
-  it('navigates to clients when lead is converted', async () => {
-    mockSearchParams = new URLSearchParams('tab=leads');
-    render(<CrmUnifiedPage />);
-
-    await waitFor(() => {
-      expect(CrmApi.getContacts).toHaveBeenCalled();
-      expect(CrmApi.getLeads).toHaveBeenCalled();
-    });
-
-    trackEventMock.mockClear();
-    const convertButton = screen.getByText('convert');
-    fireEvent.click(convertButton);
-
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/crm?tab=clients');
-    });
-
-    expect(trackEventMock).toHaveBeenCalledWith({
-      event: 'crm_tab_changed',
-      meta: { tab: 'clients' },
+      expect(vi.mocked(CrmApi.getContacts).mock.calls.length).toBeGreaterThan(initialContactsCalls);
+      expect(vi.mocked(CrmApi.getLeads).mock.calls.length).toBeGreaterThan(initialLeadsCalls);
     });
   });
 });

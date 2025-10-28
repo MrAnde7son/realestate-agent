@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -17,11 +16,9 @@ import { useToast } from '@/hooks/use-toast';
 import { PageLoader } from '@/components/ui/page-loader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/Badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import LeadsList from '@/components/crm/LeadsList';
-import ContactsList from '@/components/crm/ContactsList';
 import { useAuth } from '@/lib/auth-context';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { CombinedCrmTable } from '@/components/crm/combined-crm-table';
 
 export default function CrmUnifiedPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -30,46 +27,8 @@ export default function CrmUnifiedPage() {
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '');
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const { trackEvent } = useAnalytics();
   const hasTrackedOpen = useRef(false);
-
-  const tabParam = searchParams?.get('tab');
-  const tab: 'leads' | 'clients' = tabParam === 'leads' ? 'leads' : 'clients';
-
-  const setTab = useCallback(
-    (nextTab: 'leads' | 'clients') => {
-      const params = new URLSearchParams(searchParams?.toString());
-      if (params.get('tab') === nextTab) {
-        // Still fire analytics to capture the intent even if tab didn't change
-        trackEvent({
-          event: 'crm_tab_changed',
-          meta: { tab: nextTab },
-        });
-        return;
-      }
-      params.set('tab', nextTab);
-      const query = params.toString();
-      router.replace(query ? `/crm?${query}` : '/crm');
-      trackEvent({
-        event: 'crm_tab_changed',
-        meta: { tab: nextTab },
-      });
-    },
-    [router, searchParams, trackEvent]
-  );
-
-  const handleCardClick = useCallback(
-    (target: 'leads' | 'clients') => {
-      trackEvent({
-        event: 'crm_card_clicked',
-        meta: { target },
-      });
-      setTab(target);
-    },
-    [setTab, trackEvent]
-  );
 
   const loadContacts = useCallback(async () => {
     try {
@@ -115,14 +74,18 @@ export default function CrmUnifiedPage() {
     }
   }, [toast]);
 
-  const loadAllData = useCallback(async () => {
+  const refreshData = useCallback(async () => {
+    await Promise.all([loadContacts(), loadLeads()]);
+  }, [loadContacts, loadLeads]);
+
+  const loadInitialData = useCallback(async () => {
     try {
       setIsLoading(true);
-      await Promise.all([loadContacts(), loadLeads()]);
+      await refreshData();
     } finally {
       setIsLoading(false);
     }
-  }, [loadContacts, loadLeads]);
+  }, [refreshData]);
 
   useEffect(() => {
     if (authLoading) {
@@ -134,18 +97,18 @@ export default function CrmUnifiedPage() {
       return;
     }
 
-    loadAllData();
-  }, [authLoading, canAccessCrm, loadAllData]);
+    void loadInitialData();
+  }, [authLoading, canAccessCrm, loadInitialData]);
 
   useEffect(() => {
     if (!authLoading && canAccessCrm && !hasTrackedOpen.current) {
       trackEvent({
         event: 'crm_opened',
-        meta: { tab },
+        meta: { view: 'combined' },
       });
       hasTrackedOpen.current = true;
     }
-  }, [authLoading, canAccessCrm, trackEvent, tab]);
+  }, [authLoading, canAccessCrm, trackEvent]);
 
   const stats = useMemo(() => {
     const totalLeads = leads.length;
@@ -218,7 +181,7 @@ export default function CrmUnifiedPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <Card className="cursor-pointer" onClick={() => handleCardClick('leads')}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
               <CardTitle className="text-sm font-medium rtl:text-start">לידים</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -229,7 +192,7 @@ export default function CrmUnifiedPage() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer" onClick={() => handleCardClick('clients')}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
               <CardTitle className="text-sm font-medium rtl:text-start">לקוחות</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -263,20 +226,7 @@ export default function CrmUnifiedPage() {
           </Card>
         </div>
 
-        <Tabs value={tab} onValueChange={(value) => setTab(value as 'leads' | 'clients')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="leads">לידים</TabsTrigger>
-            <TabsTrigger value="clients">לקוחות</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="leads" className="space-y-6">
-            <LeadsList onConvertedToClient={() => setTab('clients')} />
-          </TabsContent>
-          
-          <TabsContent value="clients" className="space-y-6">
-            <ContactsList />
-          </TabsContent>
-        </Tabs>
+        <CombinedCrmTable contacts={contacts} leads={leads} onRefresh={refreshData} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <Card>

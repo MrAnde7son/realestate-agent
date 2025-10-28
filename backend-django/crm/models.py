@@ -207,6 +207,21 @@ class Lead(models.Model):
         blank=True, 
         help_text="List of notes: [{'ts': ISO, 'text': '...'}]"
     )
+    completed_tasks_count = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        help_text="Number of associated contact tasks marked as completed",
+    )
+    pending_tasks_count = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        help_text="Number of associated contact tasks still pending",
+    )
+    total_tasks_count = models.PositiveIntegerField(
+        default=0,
+        editable=False,
+        help_text="Total number of contact tasks linked to this lead",
+    )
     last_activity_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -241,6 +256,9 @@ class Lead(models.Model):
                 if 'status' in changed_fields:
                     track_lead_status_changed(self, self.contact.owner_id, old_lead.status, self.status)
         
+        # Keep total tasks count in sync with the component counts
+        self.total_tasks_count = (self.completed_tasks_count or 0) + (self.pending_tasks_count or 0)
+
         super().save(*args, **kwargs)
         
         if is_new:

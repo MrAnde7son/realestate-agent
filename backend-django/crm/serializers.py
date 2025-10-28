@@ -141,11 +141,33 @@ class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = [
-            "id", "contact", "contact_id", "contact_id_write", "asset", "asset_id", "asset_id_read", "asset_address",
-            "asset_price", "asset_rooms", "asset_area", "status", "notes",
-            "last_activity_at", "created_at"
+            "id",
+            "contact",
+            "contact_id",
+            "contact_id_write",
+            "asset",
+            "asset_id",
+            "asset_id_read",
+            "asset_address",
+            "asset_price",
+            "asset_rooms",
+            "asset_area",
+            "status",
+            "notes",
+            "completed_tasks_count",
+            "pending_tasks_count",
+            "total_tasks_count",
+            "last_activity_at",
+            "created_at",
         ]
-        read_only_fields = ["id", "last_activity_at", "created_at"]
+        read_only_fields = [
+            "id",
+            "completed_tasks_count",
+            "pending_tasks_count",
+            "total_tasks_count",
+            "last_activity_at",
+            "created_at",
+        ]
 
     def to_internal_value(self, data):
         """Normalise notes submitted through multipart requests."""
@@ -236,7 +258,6 @@ class ContactTaskSerializer(serializers.ModelSerializer):
     """Serializer for contact tasks."""
 
     contact_id = serializers.PrimaryKeyRelatedField(
-        write_only=True,
         queryset=Contact.objects.all(),
         source="contact",
     )

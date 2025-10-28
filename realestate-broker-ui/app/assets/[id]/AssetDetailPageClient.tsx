@@ -1088,11 +1088,11 @@ React.useEffect(() => {
       const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-document_date'
       params.set('ordering', orderingValue)
 
-      const response = await fetch(`/api/documents/table?${params.toString()}`)
+      const response = await apiClient.get(`/api/documents/table?${params.toString()}`)
       if (!response.ok) {
-        throw new Error('Failed to load documents')
+        throw new Error(response.error || 'Failed to load documents')
       }
-      const data = await response.json()
+      const data = (response.data ?? {}) as any
       setDocumentsData({
         items: data.results || [],
         total: data.count || 0,
@@ -1143,12 +1143,11 @@ useDedupedEffect(() => {
 
 useDedupedEffect(() => {
   if (activeTab !== 'appraisals') return
-  fetch(`/api/assets/${id}/appraisal`)
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to load appraisal')
-      return res.json()
-    })
-    .then(data => {
+  apiClient
+    .get(`/api/assets/${id}/appraisal`)
+    .then(response => {
+      if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
+      const data = (response.data ?? {}) as any
       setComparables(data.comps || [])
       setAppraisal(data.appraisal || null)
       setDecisiveAppraisals(data.decisive_appraisals || [])
@@ -1219,11 +1218,11 @@ const loadPermits = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-approval_date'
     params.set('ordering', orderingValue)
 
-    const response = await fetch(`/api/assets/${id}/permits?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/permits?${params.toString()}`)
     if (!response.ok) {
-      throw new Error('Failed to load permits')
+      throw new Error(response.error || 'Failed to load permits')
     }
-    const data = await response.json()
+    const data = (response.data ?? {}) as any
     setPermitsData({
       items: data.permits || [],
       total: data.count || 0,
@@ -1314,11 +1313,11 @@ const loadTransactions = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-date'
     params.set('ordering', orderingValue)
 
-    const response = await fetch(`/api/assets/${id}/transactions?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/transactions?${params.toString()}`)
     if (!response.ok) {
-      throw new Error('Failed to load transactions')
+      throw new Error(response.error || 'Failed to load transactions')
     }
-    const data = await response.json()
+    const data = (response.data ?? {}) as any
     setTransactionsData({
       items: data.transactions || [],
       total: data.count || 0,
@@ -1392,11 +1391,11 @@ const loadPlans = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-effective_date'
     params.set('ordering', orderingValue)
 
-    const response = await fetch(`/api/assets/${id}/plans?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/plans?${params.toString()}`)
     if (!response.ok) {
-      throw new Error('Failed to load plans')
+      throw new Error(response.error || 'Failed to load plans')
     }
-    const data = await response.json()
+    const data = (response.data ?? {}) as any
     setPlansData({
       items: data.plans || [],
       total: data.count || 0,
@@ -3338,9 +3337,11 @@ useDedupedEffect(() => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      fetch(`/api/assets/${id}/appraisal`)
-                        .then(res => res.json())
-                        .then(data => {
+                      apiClient
+                        .get(`/api/assets/${id}/appraisal`)
+                        .then(response => {
+                          if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
+                          const data = (response.data ?? {}) as any
                           setAppraisal(data.appraisal || null)
                           setDecisiveAppraisals(data.decisive_appraisals || [])
                           setRamiAppraisals(data.rami_appraisals || [])
@@ -3455,9 +3456,11 @@ useDedupedEffect(() => {
                         },
                       }}
                       onRefresh={() => {
-                        fetch(`/api/assets/${id}/appraisal`)
-                          .then(res => res.json())
-                          .then(data => {
+                        apiClient
+                          .get(`/api/assets/${id}/appraisal`)
+                          .then(response => {
+                            if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
+                            const data = (response.data ?? {}) as any
                             setDecisiveAppraisals(data.decisive_appraisals || [])
                             setRamiAppraisals(data.rami_appraisals || [])
                           })
@@ -3482,9 +3485,11 @@ useDedupedEffect(() => {
                         },
                       }}
                       onRefresh={() => {
-                        fetch(`/api/assets/${id}/appraisal`)
-                          .then(res => res.json())
-                          .then(data => {
+                        apiClient
+                          .get(`/api/assets/${id}/appraisal`)
+                          .then(response => {
+                            if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
+                            const data = (response.data ?? {}) as any
                             setDecisiveAppraisals(data.decisive_appraisals || [])
                             setRamiAppraisals(data.rami_appraisals || [])
                           })

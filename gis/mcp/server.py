@@ -116,13 +116,6 @@ async def get_dangerous_buildings(ctx: Context, x: float, y: float, radius: int 
 
 
 @mcp.tool()
-async def get_preservation(ctx: Context, x: float, y: float, radius: int = 80):
-    """Get preservation-listed buildings within a radius (meters) from point (x,y)."""
-    gs = _get_client()
-    return gs.get_preservation(x, y, radius=radius)
-
-
-@mcp.tool()
 async def get_noise_levels(ctx: Context, x: float, y: float):
     """Get noise levels intersecting point (x,y)."""
     gs = _get_client()

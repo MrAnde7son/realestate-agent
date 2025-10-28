@@ -104,6 +104,7 @@ class AssetSerializer(MetaSerializerMixin):
     avgPricePerSqm = serializers.FloatField(source='avg_price_per_sqm', read_only=True)
     minPricePerSqm = serializers.FloatField(source='min_price_per_sqm', read_only=True)
     maxPricePerSqm = serializers.FloatField(source='max_price_per_sqm', read_only=True)
+    rentPrice = serializers.SerializerMethodField()
     
     # Planning and Legal Analysis fields
     rightsUsagePct = serializers.FloatField(source='rights_usage_pct', read_only=True)
@@ -126,6 +127,18 @@ class AssetSerializer(MetaSerializerMixin):
     recent_deal = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+
+    def get_rentPrice(self, obj):
+        value = getattr(obj, "rent_price", None)
+        if value not in (None, ""):
+            return value
+        meta = getattr(obj, "meta", {}) or {}
+        listing_prices = meta.get("listing_prices")
+        if isinstance(listing_prices, dict):
+            rent_val = listing_prices.get("rent")
+            if rent_val not in (None, ""):
+                return rent_val
+        return None
 
     def get_address(self, obj):
         """Get formatted address for frontend compatibility."""
@@ -204,13 +217,45 @@ class AssetSerializer(MetaSerializerMixin):
         return documents
 
     def _listing_sort_key(self, listing):
+        # Primary sort: exact address match
+        # Secondary sort: fetched_at timestamp
+        
+        # Try to get asset address from the context
+        asset_address = None
+        if hasattr(self, '_current_asset_address'):
+            asset_address = self._current_asset_address
+        elif hasattr(self.parent, 'instance') and self.parent.instance:
+            normalized_addr = getattr(self.parent.instance, "normalized_address", "") or ""
+            asset_address = normalized_addr.lower() if normalized_addr else None
+        
+        if hasattr(listing, "address"):
+            listing_addr = getattr(listing, "address", "") or ""
+            listing_address = listing_addr.lower() if listing_addr else ""
+        else:
+            listing_address = ""
+        
+        # Check for exact address match
+        if asset_address and listing_address:
+            # Exact match gets highest priority
+            if asset_address == listing_address:
+                return (1, 0, 0)  # Priority: exact match, full timestamp, 0 for tie-breaker
+            
+            # Check if street and number match (e.g., "ביריה 9")
+            asset_parts = asset_address.split()
+            if len(asset_parts) >= 2 and asset_parts[1].isdigit():
+                street_number = f"{asset_parts[0]} {asset_parts[1]}"
+                if street_number in listing_address:
+                    return (0.5, 0, 0)  # Priority: partial match, no timestamp needed
+        
+        # No address match or no address info available - sort by fetched_at
         fetched_at = getattr(listing, "fetched_at", None)
         if not fetched_at:
-            return float("-inf")
+            return (-1, 0, 0)  # Lower priority if no fetched_at
         try:
-            return fetched_at.timestamp()
+            timestamp = fetched_at.timestamp()
+            return (0, timestamp, 0)
         except (AttributeError, OSError, OverflowError, ValueError):  # pragma: no cover - safety
-            return float("-inf")
+            return (-1, 0, 0)
 
     def _get_primary_listing_instance(self, obj):
         if hasattr(obj, "_primary_listing_instance_cache"):
@@ -224,8 +269,50 @@ class AssetSerializer(MetaSerializerMixin):
         else:
             listings = list(obj.listings_m2m.all())
 
-        listings.sort(key=self._listing_sort_key, reverse=True)
-        primary = listings[0] if listings else None
+        if not listings:
+            obj._primary_listing_instance_cache = None
+            return None
+
+        # Get asset address for matching
+        normalized_addr = getattr(obj, "normalized_address", "") or ""
+        asset_address = normalized_addr.lower() if normalized_addr else None
+        
+        # Find listings with exact or partial address match
+        matched_listings = []
+        for listing in listings:
+            if hasattr(listing, "address"):
+                listing_addr = getattr(listing, "address", "") or ""
+                listing_address = listing_addr.lower() if listing_addr else ""
+            else:
+                listing_address = ""
+            
+            if not asset_address or not listing_address:
+                continue
+            
+            # Check for exact match
+            if asset_address == listing_address:
+                matched_listings.append((1, listing))  # Priority 1 = exact match
+                continue
+            
+            # Check for street+number match
+            asset_parts = asset_address.split()
+            if len(asset_parts) >= 2 and asset_parts[1].isdigit():
+                street_number = f"{asset_parts[0]} {asset_parts[1]}"
+                if street_number in listing_address:
+                    matched_listings.append((0.5, listing))  # Priority 0.5 = partial match
+        
+        if not matched_listings:
+            # No address match found - fall back to first listing (for assets without addresses)
+            if listings:
+                primary = listings[0]
+                obj._primary_listing_instance_cache = primary
+                return primary
+            obj._primary_listing_instance_cache = None
+            return None
+        
+        # Sort by priority only (exact matches first)
+        matched_listings.sort(key=lambda x: x[0], reverse=True)
+        primary = matched_listings[0][1]
         obj._primary_listing_instance_cache = primary
         return primary
 
@@ -300,6 +387,7 @@ class AssetSerializer(MetaSerializerMixin):
             'area', 'total_area', 'balcony_area', 'parking_spaces', 'storage_room',
             'elevator', 'air_conditioning', 'furnished', 'renovated', 'year_built',
             'last_renovation', 'price', 'price_per_sqm', 'rent_estimate',
+            'rent_price', 'rentPrice',
             'price_gap_pct','expected_price_range','model_price','confidence_pct','delta_vs_area_pct','cap_rate_pct','competition_1km','risk_flags','dom_percentile',
             'avg_price_per_sqm','min_price_per_sqm','max_price_per_sqm',
             'priceGapPct','modelPrice','confidencePct','capRatePct','avgPricePerSqm','minPricePerSqm','maxPricePerSqm',

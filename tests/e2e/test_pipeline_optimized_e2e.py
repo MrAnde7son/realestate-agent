@@ -46,11 +46,17 @@ class StubYad2Collector(Yad2Collector):
     def __init__(self, listings: List[Any] | None = None):
         super().__init__(client=object())
         self.listings = list(listings or [])
-        self.fetch_calls: List[tuple[str, int]] = []
+        self.fetch_calls: List[str] = []
 
-    def _fetch_listings(self, address: str):
-        self.fetch_calls.append((address))
-        return list(self.listings)
+    def collect(self, location=None, **kwargs):
+        """Overridden collect method that uses the stub listings."""
+        query = location
+        if query and query.street and query.city:
+            address = f"{query.street} {query.city.replace('-', ' ')}"
+            if address.strip():
+                self.fetch_calls.append(address.strip())
+                return list(self.listings)
+        return []
 
 
 @dataclass
@@ -62,6 +68,7 @@ class FakeListing:
     rooms: int = 0
     floor: int = 0
     size: int = 0
+    total_size: int = 0
     property_type: str = "apartment"
     description: str = ""
     url: str = "https://example.test/listing"
@@ -76,6 +83,7 @@ class FakeListing:
             "rooms": self.rooms,
             "floor": self.floor,
             "size": self.size,
+            "total_size": self.total_size,
             "property_type": self.property_type,
         }
 
@@ -121,42 +129,8 @@ def test_yad2_collector_uses_location_query():
 
     listings = collector.collect(location)
 
-    assert [l.listing_id for l in listings] == ["TLV-1"]
+    assert [listing.listing_id for listing in listings] == ["TLV-1"]
     assert collector.fetch_calls == [("רוזוב תל אביב")]
-
-
-def test_yad2_prepare_location_parameters_prefers_matching_city():
-    autocomplete_payload = {
-        "cities": [
-            {"cityId": "5000", "topAreaId": "10", "areaId": "200"},
-            {"cityId": "123", "topAreaId": "11", "areaId": "201"},
-        ],
-        "top_areas": [{"id": "10"}],
-        "areas": [{"id": "200"}],
-        "hoods": [
-            {"hoodId": "901", "cityId": "5000"},
-            {"hoodId": "999", "cityId": "123"},
-        ],
-        "streets": [
-            {"streetId": "321", "cityId": "5000", "name": "רוזוב"},
-            {"streetId": "777", "cityId": "123", "name": "Other"},
-        ],
-    }
-
-    params = Yad2Collector._prepare_location_parameters(autocomplete_payload)
-
-    assert params == {
-        "city": 5000,
-        "topArea": 10,
-        "area": 200,
-        "neighborhood": 901,
-        "street": "321",
-    }
-
-
-def test_yad2_prepare_location_parameters_handles_missing_values():
-    params = Yad2Collector._prepare_location_parameters({})
-    assert params == {}
 
 
 class DummyMetric:

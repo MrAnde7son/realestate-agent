@@ -30,6 +30,7 @@ class Listing(Base):
     rooms = Column(Float)
     floor = Column(String(50))
     size = Column(Float)
+    total_size = Column(Float)
     property_type = Column(String(100))
     description = Column(Text)
     url = Column(String(500))

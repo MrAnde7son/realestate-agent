@@ -65,9 +65,9 @@ def test_scrape_all_pages_aggregates_results(monkeypatch):
     def fake_scrape_page(page):
         if page > 2:
             return []
-        l = RealEstateListing()
-        l.title = f"Listing {page}"
-        return [l]
+        listing_obj = RealEstateListing()
+        listing_obj.title = f"Listing {page}"
+        return [listing_obj]
 
     monkeypatch.setattr(scraper, "scrape_page", fake_scrape_page)
     monkeypatch.setattr("time.sleep", lambda x: None)
@@ -123,6 +123,7 @@ def test_fetch_listings_converts_markers(monkeypatch):
                         "https://example.com/cover.jpg",
                         "https://example.com/extra.jpg",
                     ],
+                    "squareMeterBuild": 120,
                 },
                 "tags": [{"name": "חניה"}],
             }
@@ -154,6 +155,8 @@ def test_fetch_listings_converts_markers(monkeypatch):
     assert listing.listing_id == "56008383"
     assert listing.coordinates == (34.832671, 32.111408)
     assert listing.property_type == "דו משפחתי"
+    assert listing.total_size == 336
+    assert listing.size == 120
     assert listing.images == [
         "https://example.com/cover.jpg",
         "https://example.com/extra.jpg",

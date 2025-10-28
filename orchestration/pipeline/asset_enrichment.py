@@ -5,31 +5,23 @@ import os
 import re
 import time
 from contextlib import contextmanager
-from datetime import datetime, timedelta, date
-from typing import Any, Dict, Iterable, List, Optional
+from datetime import datetime, date
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from django.contrib.auth import get_user_model
 from govmap.api_client import itm_to_wgs84
 
 from utils.helpers import _first_nonempty, _safe_get
+from utils.market_utils import get_city_gross_yield
 from orchestration.pipeline.listings import _normalize_listings
 from orchestration.pipeline.documents import (
-    AssetDocument,
-    AssetListing,
-    AssetPermit,
-    AssetPlan,
-    AssetTransaction,
     Document,
     DjangoListing,
     Plan,
-    Permit,
     _convert_unix_timestamp_to_date,
     _collect_field_updates,
-    _ensure_document_link,
-    _ensure_plan_link,
     _ensure_transaction_link,
     _ensure_listing_link,
-    _ensure_permit_link,
     _upsert_document,
     _upsert_plan,
     _upsert_permit,
@@ -44,6 +36,41 @@ from orchestration.planning_legal_analyzer import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_listing_type_value(value: Any) -> Optional[str]:
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized:
+            return normalized.lower()
+    return None
+
+
+def _extract_listing_type(listing_data: Any) -> Tuple[Optional[str], Optional[str]]:
+    if not isinstance(listing_data, dict):
+        return None, None
+
+    listing_type_value = listing_data.get('listing_type') or listing_data.get('listingType')
+    normalized = _normalize_listing_type_value(listing_type_value)
+    if normalized:
+        return listing_type_value, normalized
+
+    meta = listing_data.get('meta')
+    if isinstance(meta, dict):
+        for key in ('listing_type', 'listingType'):
+            candidate = meta.get(key)
+            normalized = _normalize_listing_type_value(candidate)
+            if normalized:
+                return candidate, normalized
+
+        raw_meta = meta.get('raw')
+        if isinstance(raw_meta, dict):
+            candidate = raw_meta.get('listingType')
+            normalized = _normalize_listing_type_value(candidate)
+            if normalized:
+                return candidate, normalized
+
+    return None, None
 
 
 def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, govmap_autocomplete_data: Dict[str, Any], govmap_data: Dict[str, Any], gis_data: Dict[str, Any], gov_data: Dict[str, Any], plans: List[Dict[str, Any]], mavat_plans: List[Dict[str, Any]], handasa_archive: List[Dict[str, Any]], listings: Iterable[Any], x_itm: Optional[float] = None, y_itm: Optional[float] = None, lon_wgs84: Optional[float] = None, lat_wgs84: Optional[float] = None) -> None:
@@ -295,6 +322,10 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             if not market_data:
                 asset.meta.pop('market_data', None)
 
+    # Building rights calculation (after Yad2 to ensure area data is available)
+    with asset_update_phase("calculate_building_rights", asset_id):
+        _calculate_building_rights(asset, gis_data)
+
     # Timestamp -----------------------------------------------------------------------
     with asset_update_phase("timestamp_and_save", asset_id):
         from django.utils import timezone  # type: ignore
@@ -428,19 +459,12 @@ def _process_gis_data(asset, gis_data):
     asset.meta['gis_collector_data'] = gis_data
     logger.info(f"Asset {asset.id}: Stored gis_collector_data in metadata")
     
-    # Extract total area from parcels data
-    total_area_from_gis = None
+    # Extract parcel information (NOT total area - that's the building's area, not land area)
     if gis_data.get('parcels'):
         parcels = gis_data.get('parcels', [])
         if parcels:
-            # Get the total area from the first parcel (ms_shetach)
-            first_parcel = parcels[0]
-            total_area_from_gis = first_parcel.get('ms_shetach')
-            if total_area_from_gis:
-                asset.set_property('totalArea', total_area_from_gis, source='GIS', url='https://www.govmap.gov.il/')
-                
-            # Extract additional parcel information
-            parcel_data = first_parcel
+            # Extract parcel information
+            parcel_data = parcels[0]
             asset.set_property('parcelArea', parcel_data.get('ms_shetach'), source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('parcelRegisteredArea', parcel_data.get('ms_shetach_rashum'), source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('parcelStatus', parcel_data.get('t_status_hesder'), source='GIS', url='https://www.govmap.gov.il/')
@@ -511,52 +535,6 @@ def _process_gis_data(asset, gis_data):
             main_designation = main_rights.get('t_yeud_rashi', '')      # ייעוד ראשי
             asset.set_property('zoning', land_use_designation, source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('program', main_designation, source='GIS', url='https://www.govmap.gov.il/')
-            
-            # Building rights estimation - use total area for calculations
-            area_for_calculation = total_area_from_gis or asset.total_area or asset.area or 80
-            
-            # Try to get real building rights data
-            remaining_rights_sqm = None
-            source = 'GIS (calculated)'
-            
-            # Check if we have privilege page data
-            privilege_data_list = asset.get_property_value('privilege_page_data')
-            if privilege_data_list:
-                # Handle both old single dict format and new list format
-                if isinstance(privilege_data_list, list):
-                    # New list format - try each privilege page data
-                    for privilege_data in privilege_data_list:
-                        if privilege_data:
-                            try:
-                                from gis.rights_calculator import get_remaining_rights_sqm
-                                remaining_rights_sqm = get_remaining_rights_sqm(
-                                    privilege_data, 
-                                    area_for_calculation
-                                )
-                                if remaining_rights_sqm:
-                                    source = 'GIS (privilege page)'
-                                    break  # Use the first successful calculation
-                            except Exception as e:
-                                logger.warning(f"Failed to calculate rights from privilege page: {e}")
-                                continue
-                elif isinstance(privilege_data_list, dict):
-                    # Old single dict format - maintain backward compatibility
-                    try:
-                        from gis.rights_calculator import get_remaining_rights_sqm
-                        remaining_rights_sqm = get_remaining_rights_sqm(
-                            privilege_data_list, 
-                            area_for_calculation
-                        )
-                        if remaining_rights_sqm:
-                            source = 'GIS (privilege page)'
-                    except Exception as e:
-                        logger.warning(f"Failed to calculate rights from privilege page: {e}")
-            
-            asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
-            asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
-            # Only calculate service rights if remaining_rights_sqm is not None
-            service_rights_sqm = int(remaining_rights_sqm * 0.1) if remaining_rights_sqm is not None else None
-            asset.set_property('serviceRightsSqm', service_rights_sqm, source='GIS (calculated)', url='https://www.govmap.gov.il/')
 
     # Building permits - Enhanced processing for GIS collector data
     if gis_data.get('permits'):
@@ -705,6 +683,72 @@ def _process_gis_data(asset, gis_data):
     if antenna_distance < 50:
         risk_flags.append('קרוב מדי לאנטנה')
     asset.set_property('riskFlags', risk_flags, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+
+
+def _calculate_building_rights(asset, gis_data):
+    """
+    Calculate building rights with area data from Yad2.
+    
+    This runs after Yad2 processing to ensure we have the most up-to-date
+    area information for accurate rights calculations.
+    """
+    try:
+        # Only calculate if we have rights data
+        if not gis_data.get('rights'):
+            return
+        
+        rights = gis_data.get('rights', [])
+        if not rights:
+            return
+        
+        # Use area from Yad2 (or existing data if Yad2 didn't have area)
+        area_for_calculation = asset.total_area or asset.area
+        
+        # Try to get real building rights data
+        remaining_rights_sqm = None
+        source = 'GIS (calculated)'
+        
+        # Check if we have privilege page data
+        privilege_data_list = asset.get_property_value('privilege_page_data')
+        if privilege_data_list:
+            # Handle both old single dict format and new list format
+            if isinstance(privilege_data_list, list):
+                # New list format - try each privilege page data
+                for privilege_data in privilege_data_list:
+                    if privilege_data:
+                        try:
+                            from gis.rights_calculator import get_remaining_rights_sqm
+                            remaining_rights_sqm = get_remaining_rights_sqm(
+                                privilege_data, 
+                                area_for_calculation
+                            )
+                            if remaining_rights_sqm:
+                                source = 'GIS (privilege page)'
+                                break  # Use the first successful calculation
+                        except Exception as e:
+                            logger.debug(f"Failed to calculate rights from privilege page: {e}")
+                            continue
+            elif isinstance(privilege_data_list, dict):
+                # Old single dict format - maintain backward compatibility
+                try:
+                    from gis.rights_calculator import get_remaining_rights_sqm
+                    remaining_rights_sqm = get_remaining_rights_sqm(
+                        privilege_data_list, 
+                        area_for_calculation
+                    )
+                    if remaining_rights_sqm:
+                        source = 'GIS (privilege page)'
+                except Exception as e:
+                    logger.debug(f"Failed to calculate rights from privilege page: {e}")
+        
+        asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
+        asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+        # Only calculate service rights if remaining_rights_sqm is not None
+        service_rights_sqm = int(remaining_rights_sqm * 0.1) if remaining_rights_sqm is not None else None
+        asset.set_property('serviceRightsSqm', service_rights_sqm, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+        
+    except Exception as e:
+        logger.debug(f"Failed to calculate building rights: {e}")
 
 
 def _process_government_data(asset, gov_data):
@@ -1150,16 +1194,8 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         if not isinstance(listing_data, dict):
             return False
 
-        def _normalize(value):
-            if isinstance(value, str):
-                return value.strip().lower()
-            return None
-
-        listing_type_value = (
-            listing_data.get('listing_type')
-            or listing_data.get('listingType')
-        )
-        if _normalize(listing_type_value) == 'commercial':
+        _, normalized_listing_type = _extract_listing_type(listing_data)
+        if normalized_listing_type == 'commercial':
             return True
 
         meta = listing_data.get('meta')
@@ -1174,8 +1210,8 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                 if category_raw is not None and str(category_raw).strip() == '2':
                     return True
 
-                raw_listing_type = raw_meta.get('listingType')
-                if _normalize(raw_listing_type) == 'commercial':
+                _, normalized_raw_listing_type = _extract_listing_type(raw_meta)
+                if normalized_raw_listing_type == 'commercial':
                     return True
 
         return False
@@ -1235,24 +1271,60 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
             update_fields.add('neighborhood')
             logger.debug('[ASSET_FIELDS] Set neighborhood from listing: %s', asset.neighborhood)
     
-    # Price
-    if best_listing.get('price') and not asset.price:
-        asset.price = best_listing['price']
-        update_fields.add('price')
-        logger.debug('[ASSET_FIELDS] Set price from listing: %s', asset.price)
+    listing_type_value, listing_type_normalized = _extract_listing_type(best_listing)
+
+    listing_price = best_listing.get('price')
+    if listing_price is not None:
+        if asset.meta is None:
+            asset.meta = {}
+
+        listing_prices_meta = asset.meta.get('listing_prices')
+        if not isinstance(listing_prices_meta, dict):
+            listing_prices_meta = {}
+            asset.meta['listing_prices'] = listing_prices_meta
+
+        if listing_type_normalized == 'rent':
+            if listing_prices_meta.get('rent') != listing_price:
+                listing_prices_meta['rent'] = listing_price
+            if hasattr(asset, 'rent_price') and not getattr(asset, 'rent_price', None):
+                asset.rent_price = listing_price
+                update_fields.add('rent_price')
+                logger.debug('[ASSET_FIELDS] Set rent_price from listing: %s', asset.rent_price)
+        else:
+            if not asset.price:
+                asset.price = listing_price
+                update_fields.add('price')
+                logger.debug('[ASSET_FIELDS] Set price from listing: %s', asset.price)
+            if listing_prices_meta.get('sale') != listing_price:
+                listing_prices_meta['sale'] = listing_price
     
-    # Area (prefer area for net area, fallback to total_area)
-    listing_area = best_listing.get('area')
-    if listing_area:
-        if not asset.area:
-            asset.area = listing_area
-            update_fields.add('area')
-            logger.debug('[ASSET_FIELDS] Set area from listing: %s', asset.area)
-        elif not asset.total_area:
-            asset.total_area = listing_area
-            update_fields.add('total_area')
-            logger.debug('[ASSET_FIELDS] Set total_area from listing: %s', asset.total_area)
-    
+    # Area fields: size represents built area (net), total_size represents lot area (gross)
+    listing_net_area = _first_nonempty(
+        best_listing.get('size'),
+        best_listing.get('area'),
+        _safe_get(best_listing.get('meta'), 'size'),
+        _safe_get(best_listing.get('meta'), 'area'),
+        _safe_get(best_listing.get('meta'), 'netSqm'),
+    )
+    if listing_net_area and not asset.area:
+        # Track source and URL for area data (also sets the asset.area field)
+        asset.set_property('area', listing_net_area, source='Yad2', url=best_listing.get('url', 'https://www.yad2.co.il/'))
+        update_fields.add('area')
+        update_fields.add('meta')
+        logger.debug('[ASSET_FIELDS] Set area from listing size: %s', asset.area)
+
+    listing_total_area = _first_nonempty(
+        best_listing.get('total_size'),
+        _safe_get(best_listing.get('meta'), 'total_size'),
+        _safe_get(best_listing.get('meta'), 'totalSqm'),
+    )
+    if listing_total_area and not asset.total_area:
+        # Track source and URL for total_area data (also sets the asset.total_area field)
+        asset.set_property('total_area', listing_total_area, source='Yad2', url=best_listing.get('url', 'https://www.yad2.co.il/'))
+        update_fields.add('total_area')
+        update_fields.add('meta')
+        logger.debug('[ASSET_FIELDS] Set total_area from listing total_size: %s', asset.total_area)
+
     # Calculate price_per_sqm if we have both price and area
     if asset.price and (asset.total_area or asset.area):
         area_to_use = asset.total_area or asset.area
@@ -1332,7 +1404,7 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                 pass
 
     # Listing type and ad type for downstream filters
-    listing_type = best_listing.get('listing_type') or best_listing.get('listingType')
+    listing_type = listing_type_value or best_listing.get('listing_type') or best_listing.get('listingType')
     ad_type = best_listing.get('ad_type') or best_listing.get('adType')
     if listing_type and hasattr(asset, 'listing_type') and not getattr(asset, 'listing_type', None):
         asset.listing_type = listing_type
@@ -1342,20 +1414,33 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         update_fields.add('ad_type')
 
     # Store source information in meta
-    if not asset.meta:
+    if asset.meta is None:
         asset.meta = {}
-    
-    asset.meta['primary_listing_source'] = {
+
+    populated_fields = set(update_fields)
+    populated_fields.add('meta')
+
+    primary_listing_source = {
         'source': 'yad2',
         'listing_id': best_listing.get('listing_id'),
         'address': best_listing.get('address'),
         'url': best_listing.get('url'),
-        'populated_fields': list(update_fields)
+        'listing_type': listing_type,
+        'populated_fields': list(populated_fields),
     }
+    if listing_price is not None:
+        if listing_type_normalized == 'rent':
+            primary_listing_source['rent_price'] = listing_price
+        else:
+            primary_listing_source['price'] = listing_price
+
+    asset.meta['primary_listing_source'] = primary_listing_source
+    update_fields.add('meta')
     
     if update_fields:
         asset.save(update_fields=list(update_fields))
         logger.info('[ASSET_FIELDS] Updated asset %s fields: %s', asset.id, list(update_fields))
+
 
 def _calculate_market_metrics(asset, listings, gov_data):
     """Calculate and persist market metrics.
@@ -1386,6 +1471,9 @@ def _calculate_market_metrics(asset, listings, gov_data):
                 price = listing.get('price')
                 area = listing.get('area')
                 if price and area and area > 0:
+                    _, normalized_listing_type = _extract_listing_type(listing)
+                    if normalized_listing_type == 'rent':
+                        continue
                     ppm = price / area
                     ppm_data.append({
                         'ppm': ppm,
@@ -1485,12 +1573,16 @@ def _calculate_market_metrics(asset, listings, gov_data):
             metrics['ppmSources'] = {'transactions': 0, 'listings': 0, 'total': 0}
 
         # --- Rent & Cap Rate ---
-        if asset.area and asset.price:  # need both for cap rate
-            rent_estimate = asset.area * 65  # simple heuristic (NIS / sqm)
-            metrics['rentEstimate'] = int(rent_estimate)
-            annual_rent = rent_estimate * 12
-            if asset.price > 0:
-                metrics['capRatePct'] = round((annual_rent / asset.price) * 100, 2)
+        if asset.price:  # need price for rent estimation
+            # Calculate rent based on city-specific gross yield
+            gross_yield_pct = get_city_gross_yield(asset.city, asset.neighborhood)
+            # Gross Yield = Annual Rent / Property Price
+            # Therefore: Annual Rent = Property Price × Gross Yield %
+            annual_rent = asset.price * (gross_yield_pct / 100)
+            monthly_rent = annual_rent / 12
+            metrics['rentEstimate'] = int(monthly_rent)
+            # Cap rate is the same as gross yield in this calculation
+            metrics['capRatePct'] = round(gross_yield_pct, 2)
 
         # --- Risk Flags ---
         risk_flags = []
@@ -2567,6 +2659,5 @@ __all__ = [
     "update_asset_with_collected_data",
     "create_asset_snapshot",
     "_populate_asset_fields_from_listings",
-    "_populate_asset_fields_from_tabu",
     "_calculate_market_metrics",
 ]

@@ -77,6 +77,7 @@ graph TB
 | `price` | `price` | Direct mapping | `yad2` |
 | `price_per_sqm` | Calculated | `price / area` | `yad2` (calculated) |
 | `total_area` | `total_size` | Direct mapping | `yad2` |
+| `rent_price` | `price` (when listing type is rent) | Direct mapping | `yad2` |
 | `balcony_area` | `balcony_size` | Direct mapping | `yad2` |
 | `parking_spaces` | `parking` | Direct mapping | `yad2` |
 | `elevator` | `elevator` | Boolean conversion | `yad2` |

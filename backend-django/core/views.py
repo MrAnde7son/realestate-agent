@@ -1753,7 +1753,8 @@ def _apply_asset_filters(queryset, params, user):
 
     rental_sale = params.get("rentalSale")
     if rental_sale and rental_sale != "all":
-        normalized_rental_sale = (rental_sale or "").strip().lower()
+        rental_sale_str = str(rental_sale) if rental_sale else ""
+        normalized_rental_sale = rental_sale_str.strip().lower()
         matching_asset_ids = set(
             AssetListing.objects.filter(
                 listing__listing_type__iexact=normalized_rental_sale
@@ -1768,11 +1769,12 @@ def _apply_asset_filters(queryset, params, user):
                     for listing in yad2_listings:
                         if not isinstance(listing, dict):
                             continue
-                        listing_type_value = (
-                            listing.get("listing_type")
-                            or listing.get("listingType")
-                            or ""
-                        ).lower()
+                        # Safely extract listing_type
+                        listing_type_value = listing.get("listing_type") or listing.get("listingType")
+                        if listing_type_value and isinstance(listing_type_value, str):
+                            listing_type_value = listing_type_value.lower()
+                        else:
+                            listing_type_value = ""
                         if listing_type_value == normalized_rental_sale:
                             matching_asset_ids.add(asset.id)
                             break
@@ -1784,7 +1786,8 @@ def _apply_asset_filters(queryset, params, user):
 
     ad_type_filter = params.get("adType") or params.get("ad_type")
     if ad_type_filter and ad_type_filter != "all":
-        normalized_ad_type = (ad_type_filter or "").strip().lower()
+        ad_type_str = str(ad_type_filter) if ad_type_filter else ""
+        normalized_ad_type = ad_type_str.strip().lower()
         matching_asset_ids = set(
             AssetListing.objects.filter(
                 listing__ad_type__iexact=normalized_ad_type
@@ -1798,11 +1801,12 @@ def _apply_asset_filters(queryset, params, user):
                 for listing in yad2_listings:
                     if not isinstance(listing, dict):
                         continue
-                    ad_type_value = (
-                        listing.get("ad_type")
-                        or listing.get("adType")
-                        or ""
-                    ).lower()
+                    # Safely extract ad_type
+                    ad_type_value = listing.get("ad_type") or listing.get("adType")
+                    if ad_type_value and isinstance(ad_type_value, str):
+                        ad_type_value = ad_type_value.lower()
+                    else:
+                        ad_type_value = ""
                     if ad_type_value == normalized_ad_type:
                         matching_asset_ids.add(asset.id)
                         break
@@ -1952,6 +1956,14 @@ def _apply_asset_filters(queryset, params, user):
     if year_built_max is not None:
         queryset = queryset.filter(year_built__lte=year_built_max)
 
+    rent_price_min = _parse_optional_number(params.get("rentPriceMin"), int)
+    if rent_price_min is not None:
+        queryset = queryset.filter(rent_price__gte=rent_price_min)
+
+    rent_price_max = _parse_optional_number(params.get("rentPriceMax"), int)
+    if rent_price_max is not None:
+        queryset = queryset.filter(rent_price__lte=rent_price_max)
+
     rent_estimate_min = _parse_optional_number(params.get("rentEstimateMin"), int)
     if rent_estimate_min is not None:
         queryset = queryset.filter(rent_estimate__gte=rent_estimate_min)
@@ -2060,6 +2072,8 @@ def _get_asset_filter_metadata():
         total_area_max=Max("total_area"),
         year_built_min=Min("year_built"),
         year_built_max=Max("year_built"),
+        rent_price_min=Min("rent_price"),
+        rent_price_max=Max("rent_price"),
         rent_estimate_min=Min("rent_estimate"),
         rent_estimate_max=Max("rent_estimate"),
         price_gap_pct_min=Min("price_gap_pct"),
@@ -2123,6 +2137,7 @@ def _get_asset_filter_metadata():
         ),
         "totalAreaRange": _range_dict("total_area_min", "total_area_max"),
         "yearBuiltRange": _range_dict("year_built_min", "year_built_max"),
+        "rentPriceRange": _range_dict("rent_price_min", "rent_price_max"),
         "rentEstimateRange": _range_dict("rent_estimate_min", "rent_estimate_max"),
         "priceGapPctRange": _range_dict("price_gap_pct_min", "price_gap_pct_max"),
         "capRatePctRange": _range_dict("cap_rate_pct_min", "cap_rate_pct_max"),

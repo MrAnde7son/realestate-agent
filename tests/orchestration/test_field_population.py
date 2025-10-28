@@ -124,6 +124,7 @@ class MockAsset:
     def __init__(self):
         self.id = 1
         self.price = None
+        self.rent_price = None
         self.total_area = None
         self.area = None
         self.price_per_sqm = None
@@ -140,6 +141,30 @@ class MockAsset:
     
     def save(self, update_fields=None):
         self.save_called = True
+    
+    def set_property(self, key, value, source=None, url=None, meta_prefix=""):
+        """Unified setter that updates both direct fields and metadata."""
+        if value is None:
+            return
+        
+        # Initialize meta field if it doesn't exist
+        if not self.meta:
+            self.meta = {}
+        
+        # Store the value directly on the asset if the field exists
+        if hasattr(self, key):
+            try:
+                setattr(self, key, value)
+            except Exception as e:
+                pass
+        
+        # Store metadata for this property
+        meta_key = f"{meta_prefix}_{key}" if meta_prefix else key
+        self.meta[meta_key] = {
+            "value": value,
+            "source": source or "unknown",
+            "url": url
+        }
 
 
 class TestAssetFieldPopulation:
@@ -187,7 +212,7 @@ class TestAssetFieldPopulation:
         
         # Verify exact match was used (first listing)
         assert asset.price == 2500000
-        assert asset.area == 100  # Changed from total_area to area
+        assert asset.area == 100  # area field is populated
         assert asset.price_per_sqm == 25000  # 2500000 / 100
         assert asset.rooms == 4
         assert asset.bedrooms == 3
@@ -199,8 +224,39 @@ class TestAssetFieldPopulation:
         assert asset.meta['primary_listing_source']['source'] == 'yad2'
         assert asset.meta['primary_listing_source']['listing_id'] == '12345'
         assert asset.meta['primary_listing_source']['address'] == 'רחוב הרצל 15, תל אביב'
+        assert asset.meta['listing_prices']['sale'] == 2500000
 
         # Verify save was called
+        assert asset.save_called
+
+    def test_rental_listing_price_tracked_in_meta(self):
+        asset = MockAsset()
+        asset.normalized_address = "רחוב הרצל 30, תל אביב"
+        asset.street = "הרצל"
+
+        listings = [
+            {
+                'price': 7800,
+                'size': 80,
+                'address': 'רחוב הרצל 30, תל אביב',
+                'rooms': 3,
+                'listing_type': 'rent',
+                'listing_id': 'rent-123',
+                'url': 'https://yad2.co.il/item/rent-123',
+            }
+        ]
+
+        _populate_asset_fields_from_listings(asset, listings)
+
+        assert asset.price is None
+        assert asset.area == 80
+        assert asset.price_per_sqm is None
+        assert asset.rent_price == 7800
+        assert asset.meta['listing_prices']['rent'] == 7800
+        primary_source = asset.meta['primary_listing_source']
+        assert primary_source['listing_type'] == 'rent'
+        assert primary_source['rent_price'] == 7800
+        assert 'price' not in primary_source
         assert asset.save_called
 
     def test_sets_commercial_flag_from_listings(self):
@@ -254,7 +310,7 @@ class TestAssetFieldPopulation:
         
         # Verify no fields were populated since there's no exact match
         assert asset.price is None
-        assert asset.total_area is None
+        assert asset.area is None
         assert asset.price_per_sqm is None
         assert asset.rooms is None
         assert asset.bedrooms is None
@@ -293,7 +349,7 @@ class TestAssetFieldPopulation:
         
         # Verify no fields were populated since there's no exact match
         assert asset.price is None
-        assert asset.total_area is None
+        assert asset.area is None
         assert asset.price_per_sqm is None
         assert asset.rooms is None
         assert asset.bedrooms is None
@@ -307,7 +363,7 @@ class TestAssetFieldPopulation:
         # Create mock asset with existing data
         asset = MockAsset()
         asset.price = 2000000  # Already has price
-        asset.total_area = 90   # Already has area
+        asset.area = 90   # Already has area (changed from total_area to area)
         asset.rooms = 3        # Already has rooms
         asset.normalized_address = "רחוב הרצל 15, תל אביב"  # Add exact address for matching
         asset.neighborhood = 'קיים'
@@ -332,7 +388,7 @@ class TestAssetFieldPopulation:
         
         # Verify existing fields were not overwritten
         assert asset.price == 2000000  # Original value preserved
-        assert asset.total_area == 90   # Original value preserved
+        assert asset.area == 90   # Original value preserved (changed from total_area to area)
         assert asset.rooms == 3        # Original value preserved
         assert asset.neighborhood == 'קיים'
         

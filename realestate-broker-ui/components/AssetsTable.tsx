@@ -264,6 +264,10 @@ function createColumns(onDelete?: (id: number) => void, onExport?: (asset: Asset
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
     } },
+  { header:'₪ שכ"ד', accessorKey:'rentPrice', cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtCurrency(v)}</span>
+    } },
   { header:'₪/מ"ר', accessorKey:'pricePerSqm', cell: info => {
       const v = info.getValue() as number | null | undefined
       return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
@@ -511,6 +515,7 @@ interface AssetsTableProps {
     balconyArea?: NumberRangeFilterConfig
     parkingSpaces?: NumberRangeFilterConfig
     yearBuilt?: NumberRangeFilterConfig
+    rentPrice?: NumberRangeFilterConfig
     rentEstimate?: NumberRangeFilterConfig
     priceGapPct?: NumberRangeFilterConfig
     capRatePct?: NumberRangeFilterConfig
@@ -597,6 +602,7 @@ const DEFAULT_VISIBLE_COLUMNS = new Set([
   'select',
   'address',
   'price',
+  'rentPrice',
   'modelPrice',
   'rentEstimate',
   'actions'
@@ -610,6 +616,7 @@ const ALL_COLUMN_IDS = [
   'adType',
   'contact',
   'price',
+  'rentPrice',
   'pricePerSqm',
   'riskFlags',
   'deltaVsAreaPct',
@@ -1088,6 +1095,19 @@ export default function AssetsTable({
       })
     }
 
+    if (filters.rentPrice) {
+      items.push({
+        key: 'rentPrice',
+        label: 'מחיר שכירות',
+        type: 'number-range',
+        value: filters.rentPrice.value,
+        minPlaceholder: filters.rentPrice.minPlaceholder,
+        maxPlaceholder: filters.rentPrice.maxPlaceholder,
+        step: filters.rentPrice.step,
+        analyticsKey: 'rent_price'
+      })
+    }
+
     if (filters.rentEstimate) {
       items.push({
         key: 'rentEstimate',
@@ -1330,6 +1350,10 @@ export default function AssetsTable({
         case 'yearBuilt':
           filters.yearBuilt?.onChange(rangeValue)
           trackRange('year_built', rangeValue)
+          break
+        case 'rentPrice':
+          filters.rentPrice?.onChange(rangeValue)
+          trackRange('rent_price', rangeValue)
           break
         case 'rentEstimate':
           filters.rentEstimate?.onChange(rangeValue)

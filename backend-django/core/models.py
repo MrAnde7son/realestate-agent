@@ -467,6 +467,7 @@ class Asset(models.Model):
 
     # Financial fields
     price = models.IntegerField(blank=True, null=True)
+    rent_price = models.IntegerField(blank=True, null=True)
     price_per_sqm = models.IntegerField(blank=True, null=True)
     rent_estimate = models.IntegerField(blank=True, null=True)
 

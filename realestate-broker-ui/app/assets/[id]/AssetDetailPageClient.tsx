@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
@@ -69,6 +69,7 @@ const formatListingTypeLabel = (value?: string | null) => {
   const normalized = value.toLowerCase()
   if (normalized === 'rent') return 'השכרה'
   if (normalized === 'sale') return 'מכירה'
+  if (normalized === 'commercial') return 'מסחרי'
   return value
 }
 
@@ -464,6 +465,37 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
     return collected
   }, [asset, primaryListing])
 
+  const id = assetId
+
+  const assetDealPrice = React.useMemo(() => {
+    if (!asset) return null
+
+    const priceCandidates = [asset.price, asset.modelPrice, primaryListing?.price]
+    for (const candidate of priceCandidates) {
+      const numeric = toNumericOrNull(candidate)
+      if (numeric !== null) {
+        return numeric
+      }
+    }
+    return null
+  }, [asset, primaryListing])
+
+  const dealExpensesHref = React.useMemo(() => {
+    if (!asset) return '/deal-expenses'
+    const params = new URLSearchParams()
+    const assetIdentifier = asset.id ?? id
+    if (assetIdentifier !== undefined && assetIdentifier !== null) {
+      params.set('assetId', String(assetIdentifier))
+    }
+    if (assetDealPrice !== null) {
+      params.set('price', Math.round(assetDealPrice).toString())
+    }
+    const queryString = params.toString()
+    return queryString ? `/deal-expenses?${queryString}` : '/deal-expenses'
+  }, [asset, assetDealPrice, id])
+
+  const router = useRouter()
+
   const parkingRequirements = calculatedRights?.building_privileges?.parking_requirements ?? []
   const primaryParkingRequirement = parkingRequirements.length > 0 ? parkingRequirements[0] : null
   const { parkingValueDisplay, parkingUnitLabel } = useMemo(() => {
@@ -523,6 +555,32 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
 
     return { parkingValueDisplay: value, parkingUnitLabel: unit }
   }, [primaryParkingRequirement])
+
+  const handleDealExpensesClick = React.useCallback(() => {
+    if (!asset) {
+      router.push('/deal-expenses')
+      return
+    }
+
+    const assetIdentifier = asset.id ?? id
+    const numericAssetId =
+      typeof assetIdentifier === 'number'
+        ? assetIdentifier
+        : Number.parseInt(String(assetIdentifier), 10)
+
+    const meta: Record<string, any> = { source: 'asset_detail' }
+    if (assetDealPrice !== null) {
+      meta.price = assetDealPrice
+    }
+
+    trackFeatureUsage(
+      'deal_expense_cta',
+      Number.isFinite(numericAssetId) ? numericAssetId : undefined,
+      meta
+    )
+
+    router.push(dealExpensesHref)
+  }, [asset, assetDealPrice, dealExpensesHref, id, router, trackFeatureUsage])
 
 React.useEffect(() => {
   setPermitsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
@@ -588,7 +646,6 @@ React.useEffect(() => {
 React.useEffect(() => {
   setDocumentsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
 }, [documentsSorting])
-  const router = useRouter()
   const searchParams = useSearchParams()
   const provider = useMemo<SupportedLLMProvider>(() => {
     const providerKeys = ['provider', 'llm_provider', 'llm-provider']
@@ -600,7 +657,6 @@ React.useEffect(() => {
     }
     return DEFAULT_LLM_PROVIDER
   }, [searchParams])
-  const id = assetId
   const { user, isAuthenticated } = useAuth()
   const canViewCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user])
@@ -1876,6 +1932,10 @@ useDedupedEffect(() => {
                     צור דוח
                   </>
                 )}
+              </Button>
+              <Button size="sm" onClick={handleDealExpensesClick}>
+                <Calculator className="h-4 w-4" />
+                חשב הוצאות עסקה
               </Button>
               <Dialog open={sectionsModal} onOpenChange={setSectionsModal}>
                 <DialogContent>

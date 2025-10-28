@@ -213,12 +213,6 @@ graph TB
 **Purpose**: Find dangerous buildings within radius  
 **Inputs**: `x` (float), `y` (float), `radius` (int, default: 80)  
 **Outputs**: Dangerous building locations
-
-#### `get_preservation`
-**Purpose**: Find preservation-listed buildings within radius  
-**Inputs**: `x` (float), `y` (float), `radius` (int, default: 80)  
-**Outputs**: Heritage building data
-
 #### `get_noise_levels`
 **Purpose**: Get noise levels at a point  
 **Inputs**: `x` (float), `y` (float)  

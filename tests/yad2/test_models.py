@@ -9,6 +9,8 @@ def test_real_estate_listing_to_dict_and_str():
     listing.price = 1200000
     listing.address = 'Main St, Tel Aviv'
     listing.rooms = 3
+    listing.size = 75
+    listing.total_size = 110
     listing.documents = [{'type': 'tabu', 'url': 'http://example.com/tabu.pdf'}]
     listing.images = ['http://example.com/image.jpg']
     listing.video = 'http://example.com/video.mp4'
@@ -32,6 +34,8 @@ def test_real_estate_listing_to_dict_and_str():
     assert data['listing_type'] == 'sale'
     assert data['ad_type'] == 'private'
     assert data['recent_deal'] is True
+    assert data['size'] == 75
+    assert data['total_size'] == 110
     # ensure scraped_at is isoformat
     datetime.fromisoformat(data['scraped_at'])
 

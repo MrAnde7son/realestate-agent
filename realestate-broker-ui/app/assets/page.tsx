@@ -75,6 +75,7 @@ type AssetFilterMetadata = {
   balconyAreas: number[];
   totalAreaRange: { min: number | null; max: number | null };
   yearBuiltRange: { min: number | null; max: number | null };
+  rentPriceRange: { min: number | null; max: number | null };
   rentEstimateRange: { min: number | null; max: number | null };
   priceGapPctRange: { min: number | null; max: number | null };
   capRatePctRange: { min: number | null; max: number | null };
@@ -110,6 +111,7 @@ export default function AssetsPage() {
     balconyAreas: [],
     totalAreaRange: { min: null, max: null },
     yearBuiltRange: { min: null, max: null },
+    rentPriceRange: { min: null, max: null },
     rentEstimateRange: { min: null, max: null },
     priceGapPctRange: { min: null, max: null },
     capRatePctRange: { min: null, max: null },
@@ -213,6 +215,14 @@ export default function AssetsPage() {
   });
   const [yearBuiltMax, setYearBuiltMax] = useState<number | undefined>(() => {
     const val = searchParams.get("yearBuiltMax");
+    return val ? Number(val) : undefined;
+  });
+  const [rentPriceMin, setRentPriceMin] = useState<number | undefined>(() => {
+    const val = searchParams.get("rentPriceMin");
+    return val ? Number(val) : undefined;
+  });
+  const [rentPriceMax, setRentPriceMax] = useState<number | undefined>(() => {
+    const val = searchParams.get("rentPriceMax");
     return val ? Number(val) : undefined;
   });
   const [rentEstimateMin, setRentEstimateMin] = useState<number | undefined>(() => {
@@ -420,6 +430,10 @@ export default function AssetsPage() {
     setYearBuiltMin(yearBuiltMinVal ? Number(yearBuiltMinVal) : undefined);
     const yearBuiltMaxVal = searchParams.get("yearBuiltMax");
     setYearBuiltMax(yearBuiltMaxVal ? Number(yearBuiltMaxVal) : undefined);
+    const rentPriceMinVal = searchParams.get("rentPriceMin");
+    setRentPriceMin(rentPriceMinVal ? Number(rentPriceMinVal) : undefined);
+    const rentPriceMaxVal = searchParams.get("rentPriceMax");
+    setRentPriceMax(rentPriceMaxVal ? Number(rentPriceMaxVal) : undefined);
     const rentEstimateMinVal = searchParams.get("rentEstimateMin");
     setRentEstimateMin(rentEstimateMinVal ? Number(rentEstimateMinVal) : undefined);
     const rentEstimateMaxVal = searchParams.get("rentEstimateMax");
@@ -631,6 +645,16 @@ export default function AssetsPage() {
     } else {
       params.delete("yearBuiltMax");
     }
+    if (rentPriceMin !== undefined) {
+      params.set("rentPriceMin", rentPriceMin.toString());
+    } else {
+      params.delete("rentPriceMin");
+    }
+    if (rentPriceMax !== undefined) {
+      params.set("rentPriceMax", rentPriceMax.toString());
+    } else {
+      params.delete("rentPriceMax");
+    }
     if (rentEstimateMin !== undefined) {
       params.set("rentEstimateMin", rentEstimateMin.toString());
     } else {
@@ -777,6 +801,8 @@ export default function AssetsPage() {
     parkingSpacesMax,
     yearBuiltMin,
     yearBuiltMax,
+    rentPriceMin,
+    rentPriceMax,
     rentEstimateMin,
     rentEstimateMax,
     priceGapPctMin,
@@ -839,6 +865,8 @@ export default function AssetsPage() {
     parkingSpacesMax,
     yearBuiltMin,
     yearBuiltMax,
+    rentPriceMin,
+    rentPriceMax,
     rentEstimateMin,
     rentEstimateMax,
     priceGapPctMin,
@@ -910,6 +938,8 @@ export default function AssetsPage() {
       if (parkingSpacesMax != null) params.set("parkingSpacesMax", String(parkingSpacesMax));
       if (yearBuiltMin != null) params.set("yearBuiltMin", String(yearBuiltMin));
       if (yearBuiltMax != null) params.set("yearBuiltMax", String(yearBuiltMax));
+      if (rentPriceMin != null) params.set("rentPriceMin", String(rentPriceMin));
+      if (rentPriceMax != null) params.set("rentPriceMax", String(rentPriceMax));
       if (rentEstimateMin != null) params.set("rentEstimateMin", String(rentEstimateMin));
       if (rentEstimateMax != null) params.set("rentEstimateMax", String(rentEstimateMax));
       if (priceGapPctMin != null) params.set("priceGapPctMin", String(priceGapPctMin));
@@ -966,6 +996,7 @@ export default function AssetsPage() {
             balconyAreas: filters.balconyAreas ?? [],
             totalAreaRange: filters.totalAreaRange ?? { min: null, max: null },
             yearBuiltRange: filters.yearBuiltRange ?? { min: null, max: null },
+            rentPriceRange: filters.rentPriceRange ?? { min: null, max: null },
             rentEstimateRange: filters.rentEstimateRange ?? { min: null, max: null },
             priceGapPctRange: filters.priceGapPctRange ?? { min: null, max: null },
             capRatePctRange: filters.capRatePctRange ?? { min: null, max: null },
@@ -1048,6 +1079,8 @@ export default function AssetsPage() {
     parkingSpacesMax,
     yearBuiltMin,
     yearBuiltMax,
+    rentPriceMin,
+    rentPriceMax,
     rentEstimateMin,
     rentEstimateMax,
     priceGapPctMin,
@@ -2004,6 +2037,15 @@ export default function AssetsPage() {
                   minPlaceholder: filterMetadata.yearBuiltRange.min != null ? `${filterMetadata.yearBuiltRange.min}` : 'משנת',
                   maxPlaceholder: filterMetadata.yearBuiltRange.max != null ? `${filterMetadata.yearBuiltRange.max}` : 'עד שנת',
                   step: 1,
+                },
+                rentPrice: {
+                  value: { min: rentPriceMin, max: rentPriceMax },
+                  onChange: ({ min, max }) => {
+                    setRentPriceMin(min);
+                    setRentPriceMax(max);
+                  },
+                  minPlaceholder: filterMetadata.rentPriceRange.min != null ? `${filterMetadata.rentPriceRange.min}` : 'שכ"ד מינ',
+                  maxPlaceholder: filterMetadata.rentPriceRange.max != null ? `${filterMetadata.rentPriceRange.max}` : 'שכ"ד מקס',
                 },
                 rentEstimate: {
                   value: { min: rentEstimateMin, max: rentEstimateMax },

@@ -195,8 +195,8 @@ class Yad2Scraper:
                         try:
                             if int(token):
                                 continue
-                        except Exception:
-                            pass
+                        except (TypeError, ValueError) as parse_error:
+                            logger.debug("Token %s is not numeric: %s", token, parse_error)
 
                         token_to_listings.setdefault(token, []).append(listing)
 

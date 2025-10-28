@@ -25,7 +25,8 @@ Notes
 """
 
 from __future__ import annotations
-import atexit, shutil, os
+import atexit
+import shutil
 import json
 import logging
 import tempfile
@@ -38,6 +39,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import NoSuchElementException, WebDriverException
 
 
 from .exceptions import NadlanAPIError
@@ -356,8 +358,10 @@ class NadlanDealsScraper:
             if self.driver:
                 try:
                     self.driver.quit()
-                except Exception:
-                    pass
+                except WebDriverException as quit_error:
+                    logger.warning("Failed to quit Selenium driver cleanly: %s", quit_error)
+                except Exception as quit_error:
+                    logger.error("Unexpected error while quitting Selenium driver: %s", quit_error)
         finally:
             self.driver = None
             if self._tmp_profile_dir:
@@ -1309,9 +1313,12 @@ class NadlanDealsScraper:
             # Look for neighborhood name
             name_element = self.driver.find_element(By.CSS_SELECTOR, "h1, .neighborhood-name, .title")
             info['neigh_name'] = name_element.text.strip()
-        except Exception:
+        except NoSuchElementException:
             info['neigh_name'] = f"Neighborhood {neighbourhood_id}"
-        
+        except WebDriverException as name_error:
+            logger.warning("Failed to read neighborhood name for %s: %s", neighbourhood_id, name_error)
+            info['neigh_name'] = f"Neighborhood {neighbourhood_id}"
+
         try:
             # Look for other neighborhood details
             details = self.driver.find_elements(By.CSS_SELECTOR, ".neighborhood-details, .info, .details")
@@ -1320,8 +1327,8 @@ class NadlanDealsScraper:
                 if ':' in text:
                     key, value = text.split(':', 1)
                     info[key.strip()] = value.strip()
-        except Exception:
-            pass
+        except WebDriverException as details_error:
+            logger.debug("Failed to extract neighborhood details for %s: %s", neighbourhood_id, details_error)
         
         return info
 

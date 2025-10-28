@@ -69,7 +69,7 @@ def post_deals_neighborhood(neigh_id: str, session=None, max_retries=3):
             backoff *= 1.6
             continue
         # 400 base_name invalid => key typo; but you’ve set neighborhoodId, so raise
-        raise RuntimeError(f"HTTP {status} / JSON {j.get("statusCode")}: {str(j)[:300]}")
+        raise RuntimeError(f"HTTP {status} / JSON {j.get('statusCode')}: {str(j)[:300]}")
 
     raise RuntimeError("Gave up after 405 retries")
 

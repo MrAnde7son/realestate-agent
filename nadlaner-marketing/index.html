@@ -3,21 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <title>נדל"נר — החלטות נדל״ן חכמות בדקות, לא בשבועות</title>
+
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-32.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/favicon-32.png">
   <link rel="canonical" href="https://www.nadlaner.com/">
+  <link rel="alternate" hreflang="he-IL" href="https://www.nadlaner.com/">
+  <link rel="alternate" hreflang="x-default" href="https://www.nadlaner.com/">
 
   <!-- Meta description and keywords -->
-  <meta name="description" content="מאגדים שמאות, תכנון, משפטי ופיננסי — לדוח אחד שמתרגם נתונים להחלטה. דוחות אינדיקטיביים, איחוד נתונים ממקורות רשמיים, חישובי מסים ומימון, והתראות חכמות." />
-  <meta name="keywords" content="נדלנר, נדל״נר, נדל״ן, רביד נדלן, איתמר נדלן, Nadlaner, נדלן ישראל, דוח נדלן" />
-  <meta name="robots" content="index, follow" />
+  <meta name="description" content="נדל״נר מאגדת שכבות שמאות, תכנון, משפטי ופיננסי לדוח אחד: הערכת שווי אינדיקטיבית, בדיקות תב״ע/היתרים, מסים ומימון, והתראות חכמות — החלטות נדל״ן בדקות." />
+  <meta name="keywords" content="נדלנר, נדל״נר, Nadlaner, דוח נדלן, הערכת שווי דירה, בדיקת תכנון נדל״ן, תב״ע, קווי בניין, בדיקת היתרים, דוח נדל״ן מקיף, שמאות אינדיקטיבית, נדלן ישראל, real estate Israel, property valuation Israel, real estate report, zoning check, building lines, mortgage & taxes" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
   <meta name="language" content="Hebrew" />
   <meta name="geo.region" content="IL" />
   <meta name="geo.placename" content="Israel" />
+  <meta name="theme-color" content="#12b3a6" />
 
   <!-- OG/Twitter -->
   <meta property="og:title" content="נדל״נר — החלטות נדל״ן חכמות בדקות, לא בשבועות" />
@@ -28,13 +33,14 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:locale" content="he_IL" />
+  <meta property="og:site_name" content="נדל״נר" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="נדל״נר — החלטות נדל״ן חכמות בדקות, לא בשבועות" />
   <meta name="twitter:description" content="מאגדים שמאות, תכנון, משפטי ופיננסי — לדוח אחד שמתרגם נתונים להחלטה." />
   <meta name="twitter:image" content="https://www.nadlaner.com/og-image.jpg" />
 
   <!-- Tailwind CSS CDN (for production consider bundling and purging) -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com" defer></script>
 
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Inter", sans-serif; }
@@ -65,10 +71,10 @@
     .bar { background:linear-gradient(180deg,#14b8a6,#0ea5e9); border-radius:6px 6px 0 0; box-shadow: 0 1px 0 rgba(0,0,0,.06) inset; }
 
     /* Donut chart CSS */
-    .donut { --p1: 35; --p2: 20; --p3: 15; /* remaining percent automatically light */
+    .donut { --p1: 35; --p2: 20; --p3: 15;
       width:140px; height:140px; border-radius:50%;
       background:
-        conic-gradient(#0ea5e9 0 var(--p1)*1%, 
+        conic-gradient(#0ea5e9 0 calc(var(--p1)*1%),
                        #10b981 calc(var(--p1)*1%) calc((var(--p1)+var(--p2))*1%),
                        #f59e0b calc((var(--p1)+var(--p2))*1%) calc((var(--p1)+var(--p2)+var(--p3))*1%),
                        #e5e7eb 0);
@@ -79,7 +85,6 @@
       box-shadow: inset 0 0 0 1px #e5e7eb;
     }
 
-    /* Map frame for layer map */
     .map-frame { background:linear-gradient(180deg,#f0fdfa,#ecfeff); border:1px solid #e5e7eb; border-radius:12px; height:180px; display:grid; place-items:center; }
 
     @media (max-width: 640px){
@@ -89,7 +94,7 @@
     }
   </style>
 
-  <!-- Schema: Organization + People -->
+  <!-- Schema: Organization -->
   <script type="application/ld+json">
   {
     "@context":"https://schema.org",
@@ -107,17 +112,65 @@
     ]
   }
   </script>
+
+  <!-- Schema: SoftwareApplication (SaaS) + Offers -->
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"SoftwareApplication",
+    "name":"Nadlaner",
+    "applicationCategory":"BusinessApplication",
+    "operatingSystem":"Web",
+    "url":"https://www.nadlaner.com/",
+    "description":"פלטפורמת נדל״ן שמאגדת שכבות שמאות, תכנון, משפטי ופיננסי לדוחות אינדיקטיביים והחלטות מהירות.",
+    "offers":[
+      {"@type":"Offer","name":"Personal","price":"79","priceCurrency":"ILS","url":"https://app.nadlaner.com/auth"},
+      {"@type":"Offer","name":"Basic","price":"249","priceCurrency":"ILS","url":"https://app.nadlaner.com/signup?plan=basic"},
+      {"@type":"Offer","name":"Business","price":"799","priceCurrency":"ILS","url":"https://app.nadlaner.com/signup?plan=pro"}
+    ]
+  }
+  </script>
+
+  <!-- FAQ Schema (matches page FAQ) -->
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"FAQPage",
+    "mainEntity":[
+      {
+        "@type":"Question",
+        "name":"האם הנתונים בזמן אמת?",
+        "acceptedAnswer":{"@type":"Answer","text":"כן, אנו מושכים נתונים ממקורות רשמיים וצד־שלישי ומעדכנים באופן שוטף."}
+      },
+      {
+        "@type":"Question",
+        "name":"האם ניתן לייצא PDF ולהפיק דוחות ממותגים?",
+        "acceptedAnswer":{"@type":"Answer","text":"כן — כלול במסלול בסיסי ומעלה."}
+      },
+      {
+        "@type":"Question",
+        "name":"אפשר לשדרג או לבטל בכל רגע?",
+        "acceptedAnswer":{"@type":"Answer","text":"בוודאי — הכל מנוהל מהחשבון שלך."}
+      },
+      {
+        "@type":"Question",
+        "name":"כיצד מאחדים מקורות הנתונים?",
+        "acceptedAnswer":{"@type":"Answer","text":"מזינים כתובת או מדביקים קישור מודעה. המערכת מאחדת נתונים ממודעות למכירה והשכרה, GovMap, רמ״י, ומשרדי הממשלה."}
+      }
+    ]
+  }
+  </script>
 </head>
 <body class="bg-neutral-50 text-neutral-900">
 
   <!-- HEADER -->
   <header class="sticky-top border-b border-neutral-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <a href="#" class="flex items-center gap-2">
+      <a href="/" class="flex items-center gap-2" aria-label="דף הבית — נדל״נר">
         <img src="/favicon-32.png" alt="לוגו נדל״נר" width="32" height="32" loading="lazy" decoding="async" class="w-6 h-6" />
         <span class="font-bold brand">נדל"נר</span>
       </a>
-      <nav class="hidden md:flex items-center gap-6 text-sm">
+      <nav class="hidden md:flex items-center gap-6 text-sm" aria-label="ניווט ראשי">
         <a href="#product" class="hover:opacity-80">המערכת</a>
         <a href="#about" class="hover:opacity-80">מי אנחנו</a>
         <a href="#pricing" class="hover:opacity-80">תמחור</a>
@@ -125,10 +178,9 @@
         <a href="#demo" class="hover:opacity-80">דוגמה</a>
       </nav>
       <div class="hidden sm:flex items-center gap-2">
-        <a href="https://app.nadlaner.com/reports/r1.pdf" target="_blank" class="btn btn-secondary">📄 דוגמה</a>
+        <a href="https://app.nadlaner.com/reports/r1.pdf" target="_blank" class="btn btn-secondary" rel="noopener">📄 דוגמה</a>
         <a href="https://app.nadlaner.com/auth" class="btn btn-primary">🔓 הפק דוח</a>
       </div>
-      <!-- Mobile CTA button -->
       <a href="https://app.nadlaner.com/auth" class="sm:hidden btn btn-primary text-sm px-3 py-2">התחל</a>
     </div>
   </header>
@@ -149,7 +201,7 @@
           </ul>
           <div class="mt-6 flex flex-wrap gap-3">
             <a href="https://app.nadlaner.com/auth" class="btn btn-primary">🔓 הפק דוח על הנכס שלך</a>
-            <a href="https://app.nadlaner.com/reports/r1.pdf" target="_blank" class="btn btn-secondary">📄 צפה בדוח לדוגמה</a>
+            <a href="https://app.nadlaner.com/reports/r1.pdf" target="_blank" class="btn btn-secondary" rel="noopener">📄 צפה בדוח לדוגמה</a>
           </div>
           <p class="mt-3 text-sm text-neutral-500">מקורות נתונים: מודעות למכירה והשכרה, GovMap, רמ״י, משרדי הממשלה ועוד.</p>
 
@@ -157,7 +209,7 @@
           <div class="mt-4 inline-flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-sm font-medium">
             <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse" aria-hidden="true"></span>
             כבר מעל
-            <span id="reports-counter" class="font-bold" data-target="2450">0</span>
+            <span id="reports-counter" class="font-bold" data-target="2450" aria-live="polite">0</span>
             דוחות הופקו
             <span class="text-[12px] text-green-800/80">| עודכן: <time id="reports-updated"></time></span>
           </div>
@@ -174,7 +226,7 @@
             </div>
             <div class="p-4 sm:p-6">
               <div class="demo-shell aspect-4-3 rounded-xl ring-1 ring-neutral-200 overflow-hidden bg-white" id="demoShell">
-                <!-- Slide 1: property info with bar chart and layer map -->
+                <!-- Slide 1 -->
                 <section class="demo-slide is-active grid grid-cols-2 gap-0">
                   <div class="p-4">
                     <h4 class="font-semibold mb-1">פרטי נכס</h4>
@@ -199,7 +251,6 @@
                   <div class="p-4 bg-neutral-50">
                     <h4 class="font-semibold mb-2">מפת שכבות (תצ״א/קווי בניין)</h4>
                     <div class="map-frame">
-                      <!-- Inline SVG - no external images -->
                       <svg viewBox="0 0 320 180" width="300" height="170" role="img" aria-label="מפת שכבות סכמטית">
                         <defs>
                           <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
@@ -218,7 +269,7 @@
                     </div>
                   </div>
                 </section>
-                <!-- Slide 2: taxation breakdown -->
+                <!-- Slide 2 -->
                 <section class="demo-slide grid grid-cols-2 gap-0">
                   <div class="p-4">
                     <h4 class="font-semibold mb-1">מיסוי ועלויות עסקה</h4>
@@ -258,7 +309,6 @@
                   </div>
                 </section>
               </div>
-              <!-- Slide indicators -->
               <div class="demo-dots" aria-hidden="true">
                 <span class="demo-dot is-active"></span>
                 <span class="demo-dot"></span>
@@ -277,12 +327,11 @@
     </div>
   </section>
 
-  <!-- AUDIENCES / VALUE BY AUDIENCE -->
+  <!-- AUDIENCES -->
   <section id="audiences" class="py-12 sm:py-16 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <h2 class="text-2xl sm:text-3xl font-bold">למי נדל״נר נותנת ערך?</h2>
       <div class="mt-8 grid md:grid-cols-3 gap-6">
-        <!-- Brokers -->
         <div class="rounded-2xl border border-neutral-200 p-6 bg-white hover:shadow-sm transition">
           <span class="inline-block rounded-full px-3 py-1 text-xs font-semibold bg-teal-50 text-teal-700">מתווכים</span>
           <h3 class="mt-3 text-lg font-semibold">שירות פרימיום שמבדל אותך</h3>
@@ -292,7 +341,6 @@
             <li>• דוחות מקיפים לשיתוף עם לקוחות</li>
           </ul>
         </div>
-        <!-- Appraisers -->
         <div class="rounded-2xl border border-neutral-200 p-6 bg-white hover:shadow-sm transition">
           <span class="inline-block rounded-full px-3 py-1 text-xs font-semibold bg-teal-50 text-teal-700">שמאים</span>
           <h3 class="mt-3 text-lg font-semibold">מהירות ודיוק בקליק</h3>
@@ -302,7 +350,6 @@
             <li>• קיצור זמן הערכה משעות לדקות</li>
           </ul>
         </div>
-        <!-- Individuals -->
         <div class="rounded-2xl border border-neutral-200 p-6 bg-white hover:shadow-sm transition">
           <span class="inline-block rounded-full px-3 py-1 text-xs font-semibold bg-teal-50 text-teal-700">פרטיים</span>
           <h3 class="mt-3 text-lg font-semibold">ודאות בתהליך</h3>
@@ -325,16 +372,14 @@
       </div>
       <div class="grid md:grid-cols-2 gap-6 sm:gap-8 mt-8">
         <div class="text-center bg-white rounded-2xl border border-teal-100 p-5">
-          <!-- Replace src with actual downloaded image of Itamar -->
           <img src="itamar.jpeg" alt="Itamar Mizrahi" width="320" height="320" loading="lazy" decoding="async" class="w-24 h-24 mx-auto mb-3 rounded-full object-cover ring-2 ring-teal-200" />
           <h3 class="text-lg font-semibold">איתמר מזרחי — מייסד שותף</h3>
           <p class="text-neutral-600 text-sm mt-1">יזם סדרתי (מייסד Cymptom, נרכשה ע״י Tenable). מוביל מוצר/AI וצמיחה.</p>
           <div class="mt-3">
-            <a href="https://www.linkedin.com/in/itamarmizrahi" target="_blank" class="text-teal-700 hover:underline text-sm">LinkedIn</a>
+            <a href="https://www.linkedin.com/in/itamarmizrahi" target="_blank" rel="noopener" class="text-teal-700 hover:underline text-sm">LinkedIn</a>
           </div>
         </div>
         <div class="text-center bg-white rounded-2xl border border-teal-100 p-5">
-          <!-- Replace src with actual downloaded image of Ravid -->
           <img src="ravid.jpg" alt="Ravid Mizrahi" width="320" height="320" loading="lazy" decoding="async" class="w-24 h-24 mx-auto mb-3 rounded-full object-cover ring-2 ring-teal-200" />
           <h3 class="text-lg font-semibold">רביד מזרחי — שמאית מקרקעין בכירה, מייסדת שותפה</h3>
           <p class="text-neutral-600 text-sm mt-1">מומחית תכנון, איחוד וחלוקה וליווי פרויקטים מורכבים — מהיתרים ועד הערכות שווי.</p>
@@ -377,7 +422,7 @@
     </div>
   </section>
 
-  <!-- TRUST STATS SECTION -->
+  <!-- TRUST STATS -->
   <section class="py-12 sm:py-16 bg-neutral-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="grid sm:grid-cols-3 gap-5 text-center">
@@ -405,7 +450,6 @@
         <h2 class="text-2xl sm:text-3xl font-bold">💼 תמחור</h2>
       </div>
       <div class="grid md:grid-cols-3 gap-6">
-        <!-- Personal plan -->
         <div class="rounded-2xl border border-neutral-200 bg-white p-6">
           <h3 class="text-lg font-semibold">פרטי</h3>
           <p class="mt-1 text-3xl font-extrabold">₪79</p>
@@ -418,7 +462,6 @@
             <li>• תמיכה בדוא"ל</li>
           </ul>
         </div>
-        <!-- Basic plan - highlighted -->
         <div class="rounded-2xl border-2 border-teal-600 bg-white p-6 relative">
           <span class="absolute -top-3 right-4 bg-teal-600 text-white text-xs px-2 py-1 rounded-full">הכי משתלם</span>
           <h3 class="text-lg font-semibold">בסיסי</h3>
@@ -433,7 +476,6 @@
           </ul>
           <a href="https://app.nadlaner.com/signup?plan=basic" class="btn btn-primary mt-5 w-full">בחר בסיסי</a>
         </div>
-        <!-- Business plan -->
         <div class="rounded-2xl border border-neutral-200 bg-white p-6">
           <h3 class="text-lg font-semibold">עסקי</h3>
           <p class="mt-1 text-3xl font-extrabold">₪799<span class="text-base text-neutral-500">/חודש</span></p>
@@ -455,7 +497,7 @@
     </div>
   </section>
 
-  <!-- DISCLAIMER (restored) -->
+  <!-- DISCLAIMER -->
   <section class="py-16 bg-neutral-100" id="disclaimer">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center">
@@ -547,7 +589,7 @@
         <div>
           <h4 class="font-semibold mb-3">עקבו אחרינו</h4>
           <ul class="space-y-2 text-sm text-neutral-600">
-            <li><a href="https://www.linkedin.com/in/itamarmizrahi" target="_blank" class="hover:underline">LinkedIn — איתמר מזרחי</a></li>
+            <li><a href="https://www.linkedin.com/in/itamarmizrahi" target="_blank" rel="noopener" class="hover:underline">LinkedIn — איתמר מזרחי</a></li>
           </ul>
         </div>
       </div>
@@ -569,86 +611,92 @@
 
   <!-- SCRIPTS -->
   <script>
-    // Lazy loading for images without width/height; fill width/height after load
-    (function(){
-      document.querySelectorAll('img:not([data-lcp="true"])').forEach(img => {
-        if(!img.hasAttribute('loading')) img.setAttribute('loading','lazy');
-        if(!img.hasAttribute('decoding')) img.setAttribute('decoding','async');
-        if(!img.hasAttribute('width') || !img.hasAttribute('height')){
-          img.addEventListener('load', () => {
-            if(!img.hasAttribute('width'))  img.setAttribute('width',  img.naturalWidth || 1200);
-            if(!img.hasAttribute('height')) img.setAttribute('height', img.naturalHeight || 800);
-          }, {once:true});
-        }
-      });
-    })();
+    // Ensure Tailwind is loaded before running UI scripts when deferred
+    document.addEventListener('DOMContentLoaded', function(){
 
-    // Hide sticky CTA after first click and store state in session
-    (function(){
-      function hideSticky(){
-        document.getElementById('sticky-cta').style.display='none';
-        try { sessionStorage.setItem('stickyDismissed','1'); } catch(e){}
-      }
-      try { if(sessionStorage.getItem('stickyDismissed')==='1'){ hideSticky(); } } catch(e){}
-      document.addEventListener('click', e => {
-        const t = e.target.closest('a,button');
-        if(!t) return;
-        const inSticky = t.closest('#sticky-cta');
-        if(inSticky) hideSticky();
-      });
-    })();
+      // Lazy loading for images without width/height; fill width/height after load
+      (function(){
+        document.querySelectorAll('img:not([data-lcp="true"])').forEach(img => {
+          if(!img.hasAttribute('loading')) img.setAttribute('loading','lazy');
+          if(!img.hasAttribute('decoding')) img.setAttribute('decoding','async');
+          if(!img.hasAttribute('width') || !img.hasAttribute('height')){
+            img.addEventListener('load', () => {
+              if(!img.hasAttribute('width'))  img.setAttribute('width',  img.naturalWidth || 1200);
+              if(!img.hasAttribute('height')) img.setAttribute('height', img.naturalHeight || 800);
+            }, {once:true});
+          }
+        });
+      })();
 
-    // Animated reports counter + update date
-    (function(){
-      const el = document.getElementById('reports-counter');
-      if(!el) return;
-      const target = parseInt(el.getAttribute('data-target'), 10) || 2000;
-      const duration = 1600;
-      let start = null;
-      function step(ts){
-        if(!start) start = ts;
-        const p = Math.min((ts - start) / duration, 1);
-        const ease = 1 - Math.pow(1 - p, 3);
-        const val = Math.round(target * ease);
-        el.textContent = val.toLocaleString('he-IL');
-        if(p < 1) requestAnimationFrame(step);
-      }
-      const io = new IntersectionObserver(entries => {
-        if(entries.some(e => e.isIntersecting)){
-          requestAnimationFrame(step);
-          io.disconnect();
+      // Hide sticky CTA after first click and store state in session
+      (function(){
+        function hideSticky(){
+          var cta = document.getElementById('sticky-cta');
+          if(cta) cta.style.display='none';
+          try { sessionStorage.setItem('stickyDismissed','1'); } catch(e){}
         }
-      }, {threshold: 0.4});
-      io.observe(el);
-      const tu = document.getElementById('reports-updated');
-      if(tu){
-        const d = new Date();
-        tu.textContent = `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-      }
-    })();
+        try { if(sessionStorage.getItem('stickyDismissed')==='1'){ hideSticky(); } } catch(e){}
+        document.addEventListener('click', e => {
+          const t = e.target.closest('a,button');
+          if(!t) return;
+          const inSticky = t.closest('#sticky-cta');
+          if(inSticky) hideSticky();
+        });
+      })();
 
-    // Hero slideshow automatic rotation and on scroll for mobile
-    (function(){
-      const shell = document.getElementById('demoShell');
-      if(!shell) return;
-      const slides = shell.querySelectorAll('.demo-slide');
-      const dots = shell.parentElement.querySelectorAll('.demo-dot');
-      let i = 0;
-      function show(idx){
-        slides.forEach((s,j) => s.classList.toggle('is-active', j===idx));
-        dots.forEach((d,j) => d.classList.toggle('is-active', j===idx));
-      }
-      show(0);
-      setInterval(() => { i = (i+1) % slides.length; show(i); }, 3500);
-      let lastY = window.scrollY;
-      window.addEventListener('scroll', () => {
-        const dy = Math.abs(window.scrollY - lastY);
-        if(dy > 120 && window.innerWidth < 768){
-          i = (i+1) % slides.length; show(i);
-          lastY = window.scrollY;
+      // Animated reports counter + update date
+      (function(){
+        const el = document.getElementById('reports-counter');
+        if(!el) return;
+        const target = parseInt(el.getAttribute('data-target'), 10) || 2000;
+        const duration = 1600;
+        let start = null;
+        function step(ts){
+          if(!start) start = ts;
+          const p = Math.min((ts - start) / duration, 1);
+          const ease = 1 - Math.pow(1 - p, 3);
+          const val = Math.round(target * ease);
+          el.textContent = val.toLocaleString('he-IL');
+          if(p < 1) requestAnimationFrame(step);
         }
-      }, {passive:true});
-    })();
+        const io = new IntersectionObserver(entries => {
+          if(entries.some(e => e.isIntersecting)){
+            requestAnimationFrame(step);
+            io.disconnect();
+          }
+        }, {threshold: 0.4});
+        io.observe(el);
+        const tu = document.getElementById('reports-updated');
+        if(tu){
+          const d = new Date();
+          tu.textContent = `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        }
+      })();
+
+      // Hero slideshow automatic rotation + scroll nudge on mobile
+      (function(){
+        const shell = document.getElementById('demoShell');
+        if(!shell) return;
+        const slides = shell.querySelectorAll('.demo-slide');
+        const dots = shell.parentElement.querySelectorAll('.demo-dot');
+        let i = 0;
+        function show(idx){
+          slides.forEach((s,j) => s.classList.toggle('is-active', j===idx));
+          dots.forEach((d,j) => d.classList.toggle('is-active', j===idx));
+        }
+        show(0);
+        setInterval(() => { i = (i+1) % slides.length; show(i); }, 3500);
+        let lastY = window.scrollY;
+        window.addEventListener('scroll', () => {
+          const dy = Math.abs(window.scrollY - lastY);
+          if(dy > 120 && window.innerWidth < 768){
+            i = (i+1) % slides.length; show(i);
+            lastY = window.scrollY;
+          }
+        }, {passive:true});
+      })();
+
+    });
   </script>
 </body>
 </html>

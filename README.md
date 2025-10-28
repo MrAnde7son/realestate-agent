@@ -538,7 +538,6 @@ The platform provides **5 specialized MCP servers** with **25+ tools** for compr
 - **`get_plans_local/citywide`** — Planning data at different scales
 - **`get_parcels/blocks`** — Property boundaries and block info
 - **`get_dangerous_buildings`** — Safety hazard locations
-- **`get_preservation`** — Heritage-listed buildings
 - **`get_noise_levels`** — Environmental noise data
 - **`get_cell_antennas`** — Cellular infrastructure
 - **`get_green_areas`** — Parks and green spaces

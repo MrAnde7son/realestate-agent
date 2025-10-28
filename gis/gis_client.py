@@ -56,7 +56,6 @@ class TelAvivGS:
     L_PLANS_LOCAL    = "IView2/MapServer/528"         # תב"עות – מקומיות/מפורטות
     L_PLANS_CITY     = "IView2/MapServer/683"         # תכניות כלל עירוניות
     L_DANGER_BLDG    = "IView2/MapServer/591"         # מבנים מסוכנים
-    L_PRESERVE       = "IView2/MapServer/682"         # מבנים לשימור
     L_NOISE          = "IView2/MapServer/786"         # מפלסי רעש
     L_CELL           = "IView2/MapServer/625"         # אנטנות סלולריות קיימות
     L_CELL_WIP       = "IView2/MapServer/953"         # אנטנות בהקמה
@@ -289,9 +288,6 @@ class TelAvivGS:
 
     def get_dangerous_buildings(self, x: float, y: float, radius: int = 80) -> List[Dict[str, Any]]:
         return self._intersects_point(self.L_DANGER_BLDG, x, y, radius)
-
-    def get_preservation(self, x: float, y: float, radius: int = 80) -> List[Dict[str, Any]]:
-        return self._intersects_point(self.L_PRESERVE, x, y, radius)
 
     def get_noise_levels(self, x: float, y: float) -> List[Dict[str, Any]]:
         return self._intersects_point(self.L_NOISE, x, y)

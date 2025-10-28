@@ -68,6 +68,7 @@ class FakeListing:
     rooms: int = 0
     floor: int = 0
     size: int = 0
+    total_size: int = 0
     property_type: str = "apartment"
     description: str = ""
     url: str = "https://example.test/listing"
@@ -82,6 +83,7 @@ class FakeListing:
             "rooms": self.rooms,
             "floor": self.floor,
             "size": self.size,
+            "total_size": self.total_size,
             "property_type": self.property_type,
         }
 

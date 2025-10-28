@@ -90,6 +90,8 @@ class TestPPMModelPriceCalculation:
         asset.area = 110
         asset.price = 3000000  # Existing price for gap calculation
         asset.meta = {}
+        asset.city = 'Tel Aviv'  # Required for rent calculation
+        asset.neighborhood = None
         asset.save = Mock()
         
         # Mock Yad2 listings
@@ -120,7 +122,6 @@ class TestPPMModelPriceCalculation:
         
         # The test expects model price to be near the actual calculation
         # Let's adjust the expected value based on actual calculation
-        calculated_avg_ppm = asset.avg_price_per_sqm
         calculated_model_price = asset.model_price
         
         assert asset.avg_price_per_sqm == pytest.approx(expected_avg_ppm, rel=0.01)

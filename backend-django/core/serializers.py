@@ -225,9 +225,14 @@ class AssetSerializer(MetaSerializerMixin):
         if hasattr(self, '_current_asset_address'):
             asset_address = self._current_asset_address
         elif hasattr(self.parent, 'instance') and self.parent.instance:
-            asset_address = getattr(self.parent.instance, "normalized_address", "").lower()
+            normalized_addr = getattr(self.parent.instance, "normalized_address", "") or ""
+            asset_address = normalized_addr.lower() if normalized_addr else None
         
-        listing_address = getattr(listing, "address", "").lower() if hasattr(listing, "address") else ""
+        if hasattr(listing, "address"):
+            listing_addr = getattr(listing, "address", "") or ""
+            listing_address = listing_addr.lower() if listing_addr else ""
+        else:
+            listing_address = ""
         
         # Check for exact address match
         if asset_address and listing_address:
@@ -269,12 +274,17 @@ class AssetSerializer(MetaSerializerMixin):
             return None
 
         # Get asset address for matching
-        asset_address = getattr(obj, "normalized_address", "").lower() if hasattr(obj, "normalized_address") else None
+        normalized_addr = getattr(obj, "normalized_address", "") or ""
+        asset_address = normalized_addr.lower() if normalized_addr else None
         
         # Find listings with exact or partial address match
         matched_listings = []
         for listing in listings:
-            listing_address = getattr(listing, "address", "").lower() if hasattr(listing, "address") else ""
+            if hasattr(listing, "address"):
+                listing_addr = getattr(listing, "address", "") or ""
+                listing_address = listing_addr.lower() if listing_addr else ""
+            else:
+                listing_address = ""
             
             if not asset_address or not listing_address:
                 continue
@@ -292,7 +302,11 @@ class AssetSerializer(MetaSerializerMixin):
                     matched_listings.append((0.5, listing))  # Priority 0.5 = partial match
         
         if not matched_listings:
-            # No match found
+            # No address match found - fall back to first listing (for assets without addresses)
+            if listings:
+                primary = listings[0]
+                obj._primary_listing_instance_cache = primary
+                return primary
             obj._primary_listing_instance_cache = None
             return None
         

@@ -1753,7 +1753,8 @@ def _apply_asset_filters(queryset, params, user):
 
     rental_sale = params.get("rentalSale")
     if rental_sale and rental_sale != "all":
-        normalized_rental_sale = (rental_sale or "").strip().lower()
+        rental_sale_str = str(rental_sale) if rental_sale else ""
+        normalized_rental_sale = rental_sale_str.strip().lower()
         matching_asset_ids = set(
             AssetListing.objects.filter(
                 listing__listing_type__iexact=normalized_rental_sale
@@ -1768,11 +1769,12 @@ def _apply_asset_filters(queryset, params, user):
                     for listing in yad2_listings:
                         if not isinstance(listing, dict):
                             continue
-                        listing_type_value = (
-                            listing.get("listing_type")
-                            or listing.get("listingType")
-                            or ""
-                        ).lower()
+                        # Safely extract listing_type
+                        listing_type_value = listing.get("listing_type") or listing.get("listingType")
+                        if listing_type_value and isinstance(listing_type_value, str):
+                            listing_type_value = listing_type_value.lower()
+                        else:
+                            listing_type_value = ""
                         if listing_type_value == normalized_rental_sale:
                             matching_asset_ids.add(asset.id)
                             break
@@ -1784,7 +1786,8 @@ def _apply_asset_filters(queryset, params, user):
 
     ad_type_filter = params.get("adType") or params.get("ad_type")
     if ad_type_filter and ad_type_filter != "all":
-        normalized_ad_type = (ad_type_filter or "").strip().lower()
+        ad_type_str = str(ad_type_filter) if ad_type_filter else ""
+        normalized_ad_type = ad_type_str.strip().lower()
         matching_asset_ids = set(
             AssetListing.objects.filter(
                 listing__ad_type__iexact=normalized_ad_type
@@ -1798,11 +1801,12 @@ def _apply_asset_filters(queryset, params, user):
                 for listing in yad2_listings:
                     if not isinstance(listing, dict):
                         continue
-                    ad_type_value = (
-                        listing.get("ad_type")
-                        or listing.get("adType")
-                        or ""
-                    ).lower()
+                    # Safely extract ad_type
+                    ad_type_value = listing.get("ad_type") or listing.get("adType")
+                    if ad_type_value and isinstance(ad_type_value, str):
+                        ad_type_value = ad_type_value.lower()
+                    else:
+                        ad_type_value = ""
                     if ad_type_value == normalized_ad_type:
                         matching_asset_ids.add(asset.id)
                         break

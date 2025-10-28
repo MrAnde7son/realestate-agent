@@ -114,6 +114,7 @@ class AssetSerializer(MetaSerializerMixin):
 
     is_commercial = serializers.BooleanField(read_only=True)
     isCommercial = serializers.BooleanField(source='is_commercial', read_only=True)
+    isWatched = serializers.SerializerMethodField()
     
     # Enhanced Planning Metrics
     buildingCoveragePct = serializers.FloatField(source='building_coverage_pct', read_only=True)
@@ -377,6 +378,18 @@ class AssetSerializer(MetaSerializerMixin):
             return []
         photos = data.get("photos") or data.get("images") or []
         return photos or []
+
+    def get_isWatched(self, obj):
+        annotated_value = getattr(obj, "is_watched", None)
+        if annotated_value is not None:
+            return bool(annotated_value)
+
+        request = self.context.get("request") if isinstance(self.context, dict) else None
+        user = getattr(request, "user", None) if request else None
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+
+        return obj.watchlist_entries.filter(user=user).exists()
     
     class Meta:
         model = Asset
@@ -395,6 +408,7 @@ class AssetSerializer(MetaSerializerMixin):
             'buildingCoveragePct','heightAnalysis','setbackAnalysis',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'is_commercial', 'isCommercial',
+            'isWatched',
             'last_enriched_at', 'created_at', 'meta', 'documents',
             'primary_listing', 'listing_type', 'ad_type',
             'contact_name', 'contact_phone',

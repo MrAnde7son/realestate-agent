@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from core import views
-from core.models import Asset
+from core.models import Asset, AssetWatchlistEntry
 
 
 class DummyTask:
@@ -187,4 +187,66 @@ def test_bulk_report_generation(monkeypatch):
     assert response.status_code == status.HTTP_200_OK
     assert response.data["success"] == 2
     assert len(created_reports) == 2
+
+
+@pytest.mark.django_db
+def test_bulk_watch_adds_entries():
+    factory = APIRequestFactory()
+    user = get_user_model().objects.create_user(
+        email="watchbulk@example.com",
+        username="watchbulk",
+        password="password",
+    )
+    assets = [
+        Asset.objects.create(scope_type="address", city="City", number=idx)
+        for idx in (101, 102)
+    ]
+
+    request = factory.post(
+        "/api/assets/bulk-action",
+        data=json.dumps({
+            "action": "watch",
+            "assetIds": [asset.id for asset in assets],
+        }),
+        content_type="application/json",
+    )
+    force_authenticate(request, user=user)
+
+    response = views.assets_bulk_action(request)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert AssetWatchlistEntry.objects.filter(user=user).count() == 2
+    assert all(result["watched"] for result in response.data["results"])
+
+
+@pytest.mark.django_db
+def test_bulk_unwatch_removes_entries():
+    factory = APIRequestFactory()
+    user = get_user_model().objects.create_user(
+        email="unwatchbulk@example.com",
+        username="unwatchbulk",
+        password="password",
+    )
+    assets = [
+        Asset.objects.create(scope_type="address", city="City", number=idx)
+        for idx in (201, 202)
+    ]
+    for asset in assets:
+        AssetWatchlistEntry.objects.create(user=user, asset=asset)
+
+    request = factory.post(
+        "/api/assets/bulk-action",
+        data=json.dumps({
+            "action": "unwatch",
+            "assetIds": [asset.id for asset in assets],
+        }),
+        content_type="application/json",
+    )
+    force_authenticate(request, user=user)
+
+    response = views.assets_bulk_action(request)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert AssetWatchlistEntry.objects.filter(user=user).count() == 0
+    assert all(not result["watched"] for result in response.data["results"])
 

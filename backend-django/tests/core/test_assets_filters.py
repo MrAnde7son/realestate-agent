@@ -1,6 +1,8 @@
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework.test import APIClient
 
-from core.models import Asset
+from core.models import Asset, AssetWatchlistEntry
 
 
 class AssetFilterExtensionTests(TestCase):
@@ -158,3 +160,22 @@ class AssetFilterExtensionTests(TestCase):
 
         self.assertIn("capRatePctRange", filters)
         self.assertEqual(filters["capRatePctRange"], {"min": 2.5, "max": 4.9})
+
+    def test_watchlist_filter_returns_only_tracked_assets(self):
+        user = get_user_model().objects.create_user(
+            email="watch@example.com",
+            username="watch-user",
+            password="password123",
+        )
+        AssetWatchlistEntry.objects.create(user=user, asset=self.asset_mid)
+        AssetWatchlistEntry.objects.create(user=user, asset=self.asset_premium)
+
+        client = APIClient()
+        client.force_authenticate(user=user)
+        response = client.get("/api/assets", {"userAssets": "watchlist"})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        ids = {row["id"] for row in data.get("rows", [])}
+        self.assertEqual(ids, {self.asset_mid.id, self.asset_premium.id})
+        self.assertTrue(all(row.get("isWatched") for row in data.get("rows", [])))

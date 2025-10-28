@@ -42,6 +42,7 @@ import {
   Plus,
   RefreshCw,
   ChevronDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 
@@ -195,6 +196,7 @@ interface TableToolbarProps {
   // Export
   onExportSelected: () => void;
   onExportAll: () => void;
+  disableExportAll?: boolean;
   selectedCount: number;
   totalCount: number;
 
@@ -207,6 +209,11 @@ interface TableToolbarProps {
   onAddNew?: () => void;
   loading?: boolean;
   extraActions?: React.ReactNode;
+  importAction?: {
+    label: string;
+    onClick: () => void;
+    icon?: React.ReactNode;
+  };
 
   // Additional filters
   additionalFilters?: AdditionalFilterConfig[];
@@ -244,6 +251,7 @@ export default function TableToolbar({
   onResetColumns,
   onExportSelected,
   onExportAll,
+  disableExportAll = false,
   selectedCount,
   totalCount,
   viewMode,
@@ -252,6 +260,7 @@ export default function TableToolbar({
   onAddNew,
   loading = false,
   extraActions,
+  importAction,
   additionalFilters = [],
   onAdditionalFilterChange,
   bulkActions = [],
@@ -282,6 +291,7 @@ export default function TableToolbar({
   const [rentalSaleMenuOpen, setRentalSaleMenuOpen] = useState(false);
   const [adTypeMenuOpen, setAdTypeMenuOpen] = useState(false);
   const [commercialMenuOpen, setCommercialMenuOpen] = useState(false);
+  const [userAssetsMenuOpen, setUserAssetsMenuOpen] = useState(false);
 
   // Handle hydration mismatch
   React.useEffect(() => {
@@ -399,6 +409,18 @@ export default function TableToolbar({
     return (
       commercialFilter.options.find(option => option.value === commercialFilter.value)?.label ||
       commercialDefaultLabel
+    );
+  })();
+
+  const userAssetsDefaultLabel = 'הנכסים שלי';
+
+  const userAssetsSelectedLabel = (() => {
+    if (!userAssetsQuickFilter) return userAssetsDefaultLabel;
+    const value = userAssetsQuickFilter.value ?? 'all';
+    if (!value || value === 'all') return userAssetsDefaultLabel;
+    return (
+      userAssetsQuickFilter.options?.find(option => option.value === value)?.label ||
+      userAssetsDefaultLabel
     );
   })();
 
@@ -667,24 +689,42 @@ export default function TableToolbar({
             className="flex w-full flex-wrap items-center gap-2 pb-1 lg:pb-0"
           >
             {userAssetsQuickFilter && (
-              <Button
-                type="button"
-                variant={userAssetsActive ? 'default' : 'outline'}
-                size="sm"
-                className={TOOLBAR_PILL_BUTTON_CLASSES}
-                aria-pressed={userAssetsActive}
-                onClick={() => {
-                  const nextValue = userAssetsActive ? 'all' : 'mine';
-                  if (onAdditionalFilterChange) {
-                    onAdditionalFilterChange('userAssets', nextValue);
-                  } else {
-                    userAssetsQuickFilter.onChange(nextValue);
-                    trackFeatureUsage('filter', undefined, { filter_type: 'userAssets', value: nextValue });
-                  }
-                }}
-              >
-                הנכסים שלי
-              </Button>
+              <DropdownMenu open={userAssetsMenuOpen} onOpenChange={setUserAssetsMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={userAssetsActive ? 'default' : 'outline'}
+                    size="sm"
+                    className={TOOLBAR_PILL_BUTTON_CLASSES}
+                    aria-pressed={userAssetsActive}
+                  >
+                    <span>{userAssetsSelectedLabel}</span>
+                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56" style={{ direction: "rtl" }}>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">בחר בעלות</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={userAssetsQuickFilter.value ?? 'all'}
+                    onValueChange={(value) => {
+                      if (onAdditionalFilterChange) {
+                        onAdditionalFilterChange('userAssets', value);
+                      } else {
+                        userAssetsQuickFilter.onChange(value);
+                        trackFeatureUsage('filter', undefined, { filter_type: 'userAssets', value });
+                      }
+                    }}
+                  >
+                    <DropdownMenuRadioItem value="all">כל הנכסים</DropdownMenuRadioItem>
+                    {(userAssetsQuickFilter.options ?? []).map(option => (
+                      <DropdownMenuRadioItem key={option.value} value={option.value}>
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             {rentalSaleFilter && (
@@ -1074,21 +1114,31 @@ export default function TableToolbar({
 
                     {/* My Assets Checkbox - Prominent at top */}
                     {userAssetsAdditionalFilter && (
-                      <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border rtl:space-x-reverse">
-                        <input
-                          type="checkbox"
-                          id="my-assets-checkbox"
-                          checked={userAssetsAdditionalFilter?.value === 'mine'}
-                          onChange={(e) => {
-                            const value = e.target.checked ? 'mine' : 'all';
-                            onAdditionalFilterChange?.('userAssets', value);
-                            trackFeatureUsage('filter', undefined, { filter_type: 'my_assets', value });
+                      <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                        <Label className="text-sm font-medium">הצג נכסים לפי</Label>
+                        <Select
+                          value={userAssetsAdditionalFilter.value ?? 'all'}
+                          onValueChange={(value) => {
+                            if (onAdditionalFilterChange) {
+                              onAdditionalFilterChange('userAssets', value);
+                            } else {
+                              userAssetsQuickFilter?.onChange(value);
+                              trackFeatureUsage('filter', undefined, { filter_type: 'userAssets', value });
+                            }
                           }}
-                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <Label htmlFor="my-assets-checkbox" className="text-sm font-medium cursor-pointer">
-                          נכסים שלי בלבד
-                        </Label>
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="כל הנכסים" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">כל הנכסים</SelectItem>
+                            {userAssetsAdditionalFilter.options.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
 
@@ -1482,56 +1532,49 @@ export default function TableToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Bulk actions dropdown */}
-        {bulkActions.length > 0 && selectedCount > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={TOOLBAR_PILL_BUTTON_CLASSES}
-              >
-                <span className="hidden sm:inline">פעולות ({selectedCount})</span>
-                <span className="sm:hidden">({selectedCount})</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="bg-white">
-              <DropdownMenuLabel className="bg-white text-foreground">פעולות על נבחרים</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {bulkActions.map((action, index) => (
-                <DropdownMenuCheckboxItem 
-                  key={index}
-                  onClick={action.action}
-                  disabled={action.disabled}
-                  className="bg-white text-foreground hover:bg-muted"
-                >
-                  {action.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{action.icon}</span>}
-                  {action.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
-        {/* Export dropdown */}
+        {/* Actions dropdown - Always visible */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
               size="sm"
               className={TOOLBAR_PILL_BUTTON_CLASSES}
+              aria-label="פעולות על נתונים"
             >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">ייצוא</span>
+              <MoreHorizontal className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">פעולות</span>
+              {selectedCount > 0 && (
+                <>
+                  <Badge
+                    variant="secondary"
+                    className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ms-2"
+                  >
+                    {selectedCount}
+                  </Badge>
+                  <Badge
+                    variant="secondary"
+                    className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium sm:hidden ms-2"
+                  >
+                    {selectedCount}
+                  </Badge>
+                </>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="bg-white">
-            <DropdownMenuLabel className="bg-white text-foreground">ייצוא נתונים</DropdownMenuLabel>
+            <DropdownMenuLabel className="bg-white text-foreground">פעולות</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            
+            {/* Export section */}
+            <div className="px-2 py-1.5">
+              <span className="text-xs font-medium text-muted-foreground">ייצוא נתונים</span>
+            </div>
             <DropdownMenuCheckboxItem 
               onClick={onExportAll}
-              className="bg-white text-foreground hover:bg-muted"
+              disabled={disableExportAll}
+              className="bg-white text-foreground hover:bg-muted disabled:opacity-60 disabled:cursor-not-allowed"
             >
+              <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               ייצוא הכל ({totalCount})
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem 
@@ -1539,8 +1582,47 @@ export default function TableToolbar({
               disabled={selectedCount === 0}
               className="bg-white text-foreground hover:bg-muted"
             >
+              <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               ייצוא נבחרים ({selectedCount})
             </DropdownMenuCheckboxItem>
+
+            {/* Import section */}
+            {importAction && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">ייבוא נתונים</span>
+                </div>
+                <DropdownMenuCheckboxItem 
+                  onClick={importAction.onClick}
+                  className="bg-white text-foreground hover:bg-muted"
+                >
+                  {importAction.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{importAction.icon}</span>}
+                  {importAction.label}
+                </DropdownMenuCheckboxItem>
+              </>
+            )}
+
+            {/* Bulk actions section - only show if items are selected */}
+            {bulkActions.length > 0 && selectedCount > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">פעולות על נבחרים ({selectedCount})</span>
+                </div>
+                {bulkActions.map((action, index) => (
+                  <DropdownMenuCheckboxItem 
+                    key={index}
+                    onClick={action.action}
+                    disabled={action.disabled}
+                    className="bg-white text-foreground hover:bg-muted"
+                  >
+                    {action.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{action.icon}</span>}
+                    {action.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -1555,8 +1637,6 @@ export default function TableToolbar({
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
         </Button>
-
-        {extraActions}
 
         {/* Add new */}
         {onAddNew && (

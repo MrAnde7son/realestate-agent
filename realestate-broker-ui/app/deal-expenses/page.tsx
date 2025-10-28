@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/Card'
@@ -16,6 +16,7 @@ import { Buyer, calculatePurchaseTax } from '@/lib/purchase-tax'
 import { calculateServiceCosts, type ServiceInput, type BuildCostEstimate, type CostEstimateOptions, fetchBuildCostEstimate, fetchCostOptions, mergeBuildEstimateIntoDeal } from '@/lib/deal-expenses'
 import type { Asset } from '@/lib/normalizers/asset'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { useSearchParams } from 'next/navigation'
 
 type PropertyType = 'residential' | 'land'
 import {
@@ -68,7 +69,7 @@ export default function DealExpensesPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
   const [assetSearchQuery, setAssetSearchQuery] = useState('')
   const [showAssetDropdown, setShowAssetDropdown] = useState(false)
-  const [loadingAssets, setLoadingAssets] = useState(false)
+  const [loadingAssets, setLoadingAssets] = useState(true)
 
   // Dekel cost estimation state
   const [buildEstimate, setBuildEstimate] = useState<BuildCostEstimate | null>(null)
@@ -196,6 +197,38 @@ export default function DealExpensesPage() {
     }
   }, [result])
 
+  const searchParams = useSearchParams()
+  const assetIdParam = searchParams?.get('assetId') ?? null
+  const priceParamRaw = searchParams?.get('price') ?? null
+
+  const parsePriceParam = useCallback((value: string | null): number | null => {
+    if (!value) return null
+    const normalized = value.replace(/[^\d.]/g, '')
+    if (!normalized) return null
+    const numeric = Number.parseFloat(normalized)
+    return Number.isFinite(numeric) ? Math.round(numeric) : null
+  }, [])
+
+  const extractNumericPrice = useCallback(
+    (value: unknown): number | null => {
+      if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : null
+      }
+      if (typeof value === 'string') {
+        return parsePriceParam(value)
+      }
+      return null
+    },
+    [parsePriceParam]
+  )
+
+  const priceFromQuery = useMemo(() => parsePriceParam(priceParamRaw), [parsePriceParam, priceParamRaw])
+  const [paramsInitialized, setParamsInitialized] = useState(false)
+
+  useEffect(() => {
+    setParamsInitialized(false)
+  }, [assetIdParam, priceParamRaw])
+
   async function loadAssets() {
     setLoadingAssets(true)
     try {
@@ -211,40 +244,110 @@ export default function DealExpensesPage() {
     }
   }
 
-  function handleAssetSelect(asset: Asset) {
-    setSelectedAsset(asset)
-    setAssetSearchQuery('')
-    setShowAssetDropdown(false)
+  const applyAssetSelection = useCallback(
+    (
+      asset: Asset,
+      options: { track?: boolean; price?: number | null; source?: 'asset_select' | 'prefill' } = {}
+    ) => {
+      const { track = true, price, source = 'asset_select' } = options
 
-    // Track asset selection
-    trackCalculatorUsage('expense', 'asset_selected', {
-      asset_id: asset.id,
-      asset_address: asset.address,
-      asset_city: asset.city,
-      asset_price: asset.price,
-      asset_area: asset.area
-    })
-    
-    // Populate price and area from selected asset
-    if (asset.price) {
-      setPrice(asset.price)
-    }
-    if (asset.area) {
-      setArea(asset.area)
+      setSelectedAsset(asset)
+      setAssetSearchQuery('')
+      setShowAssetDropdown(false)
+
+      if (track) {
+        trackCalculatorUsage('expense', 'asset_selected', {
+          asset_id: asset.id,
+          asset_address: asset.address,
+          asset_city: asset.city,
+          asset_price: asset.price,
+          asset_area: asset.area
+        })
+      }
+
+      const resolvedPrice =
+        price !== undefined && price !== null
+          ? price
+          : extractNumericPrice(asset.price)
+
+      if (resolvedPrice !== null) {
+        setPrice(resolvedPrice)
+      }
+
+      if (asset.area) {
+        setArea(asset.area)
+      }
+
+      if (asset.type) {
+        const normalizedType = asset.type.toLowerCase()
+        const assetIsLand = normalizedType.includes('קרקע') || normalizedType.includes('land')
+        setPropertyType(assetIsLand ? 'land' : 'residential')
+        if (track) {
+          trackCalculatorUsage('expense', 'input_change', {
+            field: 'propertyType',
+            value: assetIsLand ? 'land' : 'residential',
+            selected_asset_id: asset.id,
+            source
+          })
+        }
+      }
+    },
+    [extractNumericPrice, trackCalculatorUsage]
+  )
+
+  const handleAssetSelect = useCallback(
+    (asset: Asset) => {
+      applyAssetSelection(asset)
+    },
+    [applyAssetSelection]
+  )
+
+  useEffect(() => {
+    if (paramsInitialized) return
+
+    if (!assetIdParam) {
+      if (priceFromQuery !== null) {
+        setPrice(priceFromQuery)
+      }
+      setParamsInitialized(true)
+      return
     }
 
-    if (asset.type) {
-      const normalizedType = asset.type.toLowerCase()
-      const assetIsLand = normalizedType.includes('קרקע') || normalizedType.includes('land')
-      setPropertyType(assetIsLand ? 'land' : 'residential')
-      trackCalculatorUsage('expense', 'input_change', {
-        field: 'propertyType',
-        value: assetIsLand ? 'land' : 'residential',
-        selected_asset_id: asset.id,
-        source: 'asset_select'
+    if (assets.length === 0) {
+      if (!loadingAssets) {
+        if (priceFromQuery !== null) {
+          setPrice(priceFromQuery)
+        }
+        setParamsInitialized(true)
+      }
+      return
+    }
+
+    const matchingAsset = assets.find(asset => String(asset.id) === assetIdParam)
+    if (matchingAsset) {
+      applyAssetSelection(matchingAsset, {
+        track: false,
+        price: priceFromQuery ?? undefined,
+        source: 'prefill'
       })
+      setParamsInitialized(true)
+      return
     }
-  }
+
+    if (!loadingAssets) {
+      if (priceFromQuery !== null) {
+        setPrice(priceFromQuery)
+      }
+      setParamsInitialized(true)
+    }
+  }, [
+    applyAssetSelection,
+    assetIdParam,
+    assets,
+    loadingAssets,
+    paramsInitialized,
+    priceFromQuery
+  ])
 
   function handleAssetClear() {
     setSelectedAsset(null)

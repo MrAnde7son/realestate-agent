@@ -206,6 +206,28 @@ describe('AssetDetailPage', () => {
     })
   })
 
+  it('navigates to deal expenses calculator with asset price prefilled', async () => {
+    await act(async () => {
+      render(<AssetDetailPageClient assetId="1" />)
+    })
+
+    const ctaButton = await screen.findByRole('button', { name: 'חשב הוצאות עסקה' })
+
+    await act(async () => {
+      fireEvent.click(ctaButton)
+    })
+
+    expect(mockUseRouter.push).toHaveBeenCalledWith('/deal-expenses?assetId=1&price=1000000')
+    expect(trackFeatureUsageMock).toHaveBeenCalledWith(
+      'deal_expense_cta',
+      1,
+      expect.objectContaining({
+        price: 1000000,
+        source: 'asset_detail'
+      })
+    )
+  })
+
   it('passes provider from search params when creating a share message', async () => {
     searchParamsGetMock.mockImplementation((key: string) =>
       key === 'provider' ? 'openai' : null

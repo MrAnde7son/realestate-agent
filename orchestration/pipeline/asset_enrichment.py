@@ -322,6 +322,10 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             if not market_data:
                 asset.meta.pop('market_data', None)
 
+    # Building rights calculation (after Yad2 to ensure area data is available)
+    with asset_update_phase("calculate_building_rights", asset_id):
+        _calculate_building_rights(asset, gis_data)
+
     # Timestamp -----------------------------------------------------------------------
     with asset_update_phase("timestamp_and_save", asset_id):
         from django.utils import timezone  # type: ignore
@@ -531,52 +535,6 @@ def _process_gis_data(asset, gis_data):
             main_designation = main_rights.get('t_yeud_rashi', '')      # ייעוד ראשי
             asset.set_property('zoning', land_use_designation, source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('program', main_designation, source='GIS', url='https://www.govmap.gov.il/')
-            
-            # Building rights estimation - use total area for calculations
-            area_for_calculation = asset.total_area or asset.area
-            
-            # Try to get real building rights data
-            remaining_rights_sqm = None
-            source = 'GIS (calculated)'
-            
-            # Check if we have privilege page data
-            privilege_data_list = asset.get_property_value('privilege_page_data')
-            if privilege_data_list:
-                # Handle both old single dict format and new list format
-                if isinstance(privilege_data_list, list):
-                    # New list format - try each privilege page data
-                    for privilege_data in privilege_data_list:
-                        if privilege_data:
-                            try:
-                                from gis.rights_calculator import get_remaining_rights_sqm
-                                remaining_rights_sqm = get_remaining_rights_sqm(
-                                    privilege_data, 
-                                    area_for_calculation
-                                )
-                                if remaining_rights_sqm:
-                                    source = 'GIS (privilege page)'
-                                    break  # Use the first successful calculation
-                            except Exception as e:
-                                logger.warning(f"Failed to calculate rights from privilege page: {e}")
-                                continue
-                elif isinstance(privilege_data_list, dict):
-                    # Old single dict format - maintain backward compatibility
-                    try:
-                        from gis.rights_calculator import get_remaining_rights_sqm
-                        remaining_rights_sqm = get_remaining_rights_sqm(
-                            privilege_data_list, 
-                            area_for_calculation
-                        )
-                        if remaining_rights_sqm:
-                            source = 'GIS (privilege page)'
-                    except Exception as e:
-                        logger.warning(f"Failed to calculate rights from privilege page: {e}")
-            
-            asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
-            asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
-            # Only calculate service rights if remaining_rights_sqm is not None
-            service_rights_sqm = int(remaining_rights_sqm * 0.1) if remaining_rights_sqm is not None else None
-            asset.set_property('serviceRightsSqm', service_rights_sqm, source='GIS (calculated)', url='https://www.govmap.gov.il/')
 
     # Building permits - Enhanced processing for GIS collector data
     if gis_data.get('permits'):
@@ -725,6 +683,72 @@ def _process_gis_data(asset, gis_data):
     if antenna_distance < 50:
         risk_flags.append('קרוב מדי לאנטנה')
     asset.set_property('riskFlags', risk_flags, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+
+
+def _calculate_building_rights(asset, gis_data):
+    """
+    Calculate building rights with area data from Yad2.
+    
+    This runs after Yad2 processing to ensure we have the most up-to-date
+    area information for accurate rights calculations.
+    """
+    try:
+        # Only calculate if we have rights data
+        if not gis_data.get('rights'):
+            return
+        
+        rights = gis_data.get('rights', [])
+        if not rights:
+            return
+        
+        # Use area from Yad2 (or existing data if Yad2 didn't have area)
+        area_for_calculation = asset.total_area or asset.area
+        
+        # Try to get real building rights data
+        remaining_rights_sqm = None
+        source = 'GIS (calculated)'
+        
+        # Check if we have privilege page data
+        privilege_data_list = asset.get_property_value('privilege_page_data')
+        if privilege_data_list:
+            # Handle both old single dict format and new list format
+            if isinstance(privilege_data_list, list):
+                # New list format - try each privilege page data
+                for privilege_data in privilege_data_list:
+                    if privilege_data:
+                        try:
+                            from gis.rights_calculator import get_remaining_rights_sqm
+                            remaining_rights_sqm = get_remaining_rights_sqm(
+                                privilege_data, 
+                                area_for_calculation
+                            )
+                            if remaining_rights_sqm:
+                                source = 'GIS (privilege page)'
+                                break  # Use the first successful calculation
+                        except Exception as e:
+                            logger.debug(f"Failed to calculate rights from privilege page: {e}")
+                            continue
+            elif isinstance(privilege_data_list, dict):
+                # Old single dict format - maintain backward compatibility
+                try:
+                    from gis.rights_calculator import get_remaining_rights_sqm
+                    remaining_rights_sqm = get_remaining_rights_sqm(
+                        privilege_data_list, 
+                        area_for_calculation
+                    )
+                    if remaining_rights_sqm:
+                        source = 'GIS (privilege page)'
+                except Exception as e:
+                    logger.debug(f"Failed to calculate rights from privilege page: {e}")
+        
+        asset.set_property('remainingRightsSqm', remaining_rights_sqm, source=source, url='https://www.govmap.gov.il/')
+        asset.set_property('mainRightsSqm', int(area_for_calculation), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+        # Only calculate service rights if remaining_rights_sqm is not None
+        service_rights_sqm = int(remaining_rights_sqm * 0.1) if remaining_rights_sqm is not None else None
+        asset.set_property('serviceRightsSqm', service_rights_sqm, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+        
+    except Exception as e:
+        logger.debug(f"Failed to calculate building rights: {e}")
 
 
 def _process_government_data(asset, gov_data):

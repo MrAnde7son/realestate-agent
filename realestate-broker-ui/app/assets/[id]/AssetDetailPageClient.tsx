@@ -69,6 +69,7 @@ const formatListingTypeLabel = (value?: string | null) => {
   const normalized = value.toLowerCase()
   if (normalized === 'rent') return 'השכרה'
   if (normalized === 'sale') return 'מכירה'
+  if (normalized === 'commercial') return 'מסחרי'
   return value
 }
 

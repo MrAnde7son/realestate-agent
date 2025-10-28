@@ -196,6 +196,7 @@ interface TableToolbarProps {
   // Export
   onExportSelected: () => void;
   onExportAll: () => void;
+  disableExportAll?: boolean;
   selectedCount: number;
   totalCount: number;
 
@@ -250,6 +251,7 @@ export default function TableToolbar({
   onResetColumns,
   onExportSelected,
   onExportAll,
+  disableExportAll = false,
   selectedCount,
   totalCount,
   viewMode,
@@ -1569,7 +1571,8 @@ export default function TableToolbar({
             </div>
             <DropdownMenuCheckboxItem 
               onClick={onExportAll}
-              className="bg-white text-foreground hover:bg-muted"
+              disabled={disableExportAll}
+              className="bg-white text-foreground hover:bg-muted disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
               ייצוא הכל ({totalCount})

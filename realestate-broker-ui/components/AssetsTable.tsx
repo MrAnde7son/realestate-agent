@@ -470,6 +470,7 @@ interface AssetsTableProps {
   onDelete?: (id: number) => void
   onToggleWatch?: (asset: Asset) => void
   watchingAssetIds?: Set<number>
+  onExportAllRequest?: () => Promise<Asset[]>
   // Toolbar props
   searchValue?: string
   onSearchChange?: (value: string) => void
@@ -708,6 +709,7 @@ export default function AssetsTable({
   onDelete,
   onToggleWatch,
   watchingAssetIds,
+  onExportAllRequest,
   searchValue = '',
   onSearchChange,
   filters,
@@ -758,6 +760,7 @@ export default function AssetsTable({
   const [selectedAssetId, setSelectedAssetId] = React.useState<number | null>(null)
   const [mounted, setMounted] = React.useState(false)
   const [internalPagination, setInternalPagination] = React.useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
+  const [exportingAll, setExportingAll] = React.useState(false)
 
   const manualPaginationActive = Boolean(manualPagination && paginationState && onPaginationChange)
   const resolvedPagination = manualPaginationActive ? paginationState! : internalPagination
@@ -924,6 +927,25 @@ export default function AssetsTable({
     const selected = table.getSelectedRowModel().rows.map(r => r.original)
     exportAssetsCsv(selected, table.getVisibleLeafColumns(), trackFeatureUsage)
   }
+
+  const handleExportAll = React.useCallback(async () => {
+    if (exportingAll) {
+      return
+    }
+    if (!onExportAllRequest) {
+      exportAssetsCsv(data, table.getVisibleLeafColumns(), trackFeatureUsage)
+      return
+    }
+    try {
+      setExportingAll(true)
+      const assets = await onExportAllRequest()
+      exportAssetsCsv(assets, table.getVisibleLeafColumns(), trackFeatureUsage)
+    } catch (error) {
+      console.error('Failed to export assets', error)
+    } finally {
+      setExportingAll(false)
+    }
+  }, [data, exportingAll, onExportAllRequest, table, trackFeatureUsage])
 
   const selectedAssets = React.useMemo(
     () => {
@@ -1478,7 +1500,8 @@ export default function AssetsTable({
             onResetColumns={handleResetColumns}
             columns={toolbarColumns}
             onExportSelected={handleExportSelected}
-            onExportAll={() => exportAssetsCsv(data, table.getVisibleLeafColumns(), trackFeatureUsage)}
+            onExportAll={handleExportAll}
+            disableExportAll={exportingAll}
             selectedCount={table.getSelectedRowModel().rows.length}
             totalCount={recordCount}
             viewMode={viewMode}

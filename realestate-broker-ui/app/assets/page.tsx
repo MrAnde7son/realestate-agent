@@ -892,13 +892,130 @@ export default function AssetsPage() {
   ]);
 
   // Function to fetch assets
+  const buildFilterParams = React.useCallback(() => {
+    const params = new URLSearchParams();
+
+    if (search) params.set("search", search);
+    if (city && city !== "all") params.set("city", city);
+    if (typeFilter && typeFilter !== "all") params.set("type", typeFilter);
+    if (priceMin != null) params.set("priceMin", String(priceMin));
+    if (priceMax != null) params.set("priceMax", String(priceMax));
+    if (neighborhood && neighborhood !== "all") params.set("neighborhood", neighborhood);
+    if (zoning && zoning !== "all") params.set("zoning", zoning);
+    if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
+    if (documentsFilter && documentsFilter !== "all") params.set("documents", documentsFilter);
+    if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+    if (rentalSaleFilter && rentalSaleFilter !== "all") params.set("rentalSale", rentalSaleFilter);
+    if (adTypeFilter && adTypeFilter !== "all") params.set("adType", adTypeFilter);
+    if (commercialFilter && commercialFilter !== "all") params.set("commercial", commercialFilter);
+    if (userAssetsFilter && userAssetsFilter !== "all") params.set("userAssets", userAssetsFilter);
+    if (buildingTypeFilter && buildingTypeFilter !== "all") params.set("buildingType", buildingTypeFilter);
+    if (floorMin != null) params.set("floorMin", String(floorMin));
+    if (floorMax != null) params.set("floorMax", String(floorMax));
+    if (areaMin != null) params.set("areaMin", String(areaMin));
+    if (areaMax != null) params.set("areaMax", String(areaMax));
+    if (bedroomsMin != null) params.set("bedroomsMin", String(bedroomsMin));
+    if (bedroomsMax != null) params.set("bedroomsMax", String(bedroomsMax));
+    if (bathroomsMin != null) params.set("bathroomsMin", String(bathroomsMin));
+    if (bathroomsMax != null) params.set("bathroomsMax", String(bathroomsMax));
+    if (totalFloorsMin != null) params.set("totalFloorsMin", String(totalFloorsMin));
+    if (totalFloorsMax != null) params.set("totalFloorsMax", String(totalFloorsMax));
+    if (totalAreaMin != null) params.set("totalAreaMin", String(totalAreaMin));
+    if (totalAreaMax != null) params.set("totalAreaMax", String(totalAreaMax));
+    if (balconyAreaMin != null) params.set("balconyAreaMin", String(balconyAreaMin));
+    if (balconyAreaMax != null) params.set("balconyAreaMax", String(balconyAreaMax));
+    if (parkingSpacesMin != null) params.set("parkingSpacesMin", String(parkingSpacesMin));
+    if (parkingSpacesMax != null) params.set("parkingSpacesMax", String(parkingSpacesMax));
+    if (yearBuiltMin != null) params.set("yearBuiltMin", String(yearBuiltMin));
+    if (yearBuiltMax != null) params.set("yearBuiltMax", String(yearBuiltMax));
+    if (rentPriceMin != null) params.set("rentPriceMin", String(rentPriceMin));
+    if (rentPriceMax != null) params.set("rentPriceMax", String(rentPriceMax));
+    if (rentEstimateMin != null) params.set("rentEstimateMin", String(rentEstimateMin));
+    if (rentEstimateMax != null) params.set("rentEstimateMax", String(rentEstimateMax));
+    if (priceGapPctMin != null) params.set("priceGapPctMin", String(priceGapPctMin));
+    if (priceGapPctMax != null) params.set("priceGapPctMax", String(priceGapPctMax));
+    if (capRatePctMin != null) params.set("capRatePctMin", String(capRatePctMin));
+    if (capRatePctMax != null) params.set("capRatePctMax", String(capRatePctMax));
+    if (roomsFilter && roomsFilter !== "all") params.set("rooms", roomsFilter);
+    if (featuresFilter && featuresFilter !== "all") params.set("features", featuresFilter);
+    if (pricePerSqmMin != null) params.set("pricePerSqmMin", String(pricePerSqmMin));
+    if (pricePerSqmMax != null) params.set("pricePerSqmMax", String(pricePerSqmMax));
+    if (remainingRightsMin != null) params.set("remainingRightsMin", String(remainingRightsMin));
+    if (remainingRightsMax != null) params.set("remainingRightsMax", String(remainingRightsMax));
+    if (blockFilter && blockFilter !== "all") params.set("block", blockFilter);
+    if (parcelFilter && parcelFilter !== "all") params.set("parcel", parcelFilter);
+    if (renovatedFilter && renovatedFilter !== "all") params.set("renovated", renovatedFilter);
+    if (furnishedFilter && furnishedFilter !== "all") params.set("furnished", furnishedFilter);
+    if (airConditioningFilter && airConditioningFilter !== "all") params.set("airConditioning", airConditioningFilter);
+    if (storageRoomFilter && storageRoomFilter !== "all") params.set("storageRoom", storageRoomFilter);
+    if (hasElevatorFilter && hasElevatorFilter !== "all") params.set("hasElevator", hasElevatorFilter);
+
+    return params;
+  }, [
+    search,
+    city,
+    typeFilter,
+    priceMin,
+    priceMax,
+    neighborhood,
+    zoning,
+    riskFilter,
+    documentsFilter,
+    statusFilter,
+    rentalSaleFilter,
+    adTypeFilter,
+    commercialFilter,
+    userAssetsFilter,
+    buildingTypeFilter,
+    floorMin,
+    floorMax,
+    areaMin,
+    areaMax,
+    bedroomsMin,
+    bedroomsMax,
+    bathroomsMin,
+    bathroomsMax,
+    totalFloorsMin,
+    totalFloorsMax,
+    totalAreaMin,
+    totalAreaMax,
+    balconyAreaMin,
+    balconyAreaMax,
+    parkingSpacesMin,
+    parkingSpacesMax,
+    yearBuiltMin,
+    yearBuiltMax,
+    rentPriceMin,
+    rentPriceMax,
+    rentEstimateMin,
+    rentEstimateMax,
+    priceGapPctMin,
+    priceGapPctMax,
+    capRatePctMin,
+    capRatePctMax,
+    roomsFilter,
+    featuresFilter,
+    pricePerSqmMin,
+    pricePerSqmMax,
+    remainingRightsMin,
+    remainingRightsMax,
+    blockFilter,
+    parcelFilter,
+    renovatedFilter,
+    furnishedFilter,
+    airConditioningFilter,
+    storageRoomFilter,
+    hasElevatorFilter,
+  ]);
+
   const fetchAssets = React.useCallback(async () => {
     try {
       setLoading(true);
 
-      const params = new URLSearchParams();
       const isDefaultPageIndex = pagination.pageIndex === 0;
       const isDefaultPageSize = pagination.pageSize === DEFAULT_PAGE_SIZE;
+
+      const params = buildFilterParams();
 
       if (!isDefaultPageIndex) {
         params.set("page", String(pagination.pageIndex + 1));
@@ -907,62 +1024,6 @@ export default function AssetsPage() {
       if (!isDefaultPageSize) {
         params.set("pageSize", String(pagination.pageSize));
       }
-
-      if (search) params.set("search", search);
-      if (city && city !== "all") params.set("city", city);
-      if (typeFilter && typeFilter !== "all") params.set("type", typeFilter);
-      if (priceMin != null) params.set("priceMin", String(priceMin));
-      if (priceMax != null) params.set("priceMax", String(priceMax));
-      if (neighborhood && neighborhood !== "all") params.set("neighborhood", neighborhood);
-      if (zoning && zoning !== "all") params.set("zoning", zoning);
-      if (riskFilter && riskFilter !== "all") params.set("risk", riskFilter);
-      if (documentsFilter && documentsFilter !== "all") params.set("documents", documentsFilter);
-      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
-      if (rentalSaleFilter && rentalSaleFilter !== "all") params.set("rentalSale", rentalSaleFilter);
-      if (adTypeFilter && adTypeFilter !== "all") params.set("adType", adTypeFilter);
-      if (commercialFilter && commercialFilter !== "all") params.set("commercial", commercialFilter);
-      if (userAssetsFilter && userAssetsFilter !== "all") params.set("userAssets", userAssetsFilter);
-      if (buildingTypeFilter && buildingTypeFilter !== "all") params.set("buildingType", buildingTypeFilter);
-      if (floorMin != null) params.set("floorMin", String(floorMin));
-      if (floorMax != null) params.set("floorMax", String(floorMax));
-      if (areaMin != null) params.set("areaMin", String(areaMin));
-      if (areaMax != null) params.set("areaMax", String(areaMax));
-      if (bedroomsMin != null) params.set("bedroomsMin", String(bedroomsMin));
-      if (bedroomsMax != null) params.set("bedroomsMax", String(bedroomsMax));
-      if (bathroomsMin != null) params.set("bathroomsMin", String(bathroomsMin));
-      if (bathroomsMax != null) params.set("bathroomsMax", String(bathroomsMax));
-      if (totalFloorsMin != null) params.set("totalFloorsMin", String(totalFloorsMin));
-      if (totalFloorsMax != null) params.set("totalFloorsMax", String(totalFloorsMax));
-      if (totalAreaMin != null) params.set("totalAreaMin", String(totalAreaMin));
-      if (totalAreaMax != null) params.set("totalAreaMax", String(totalAreaMax));
-      if (balconyAreaMin != null) params.set("balconyAreaMin", String(balconyAreaMin));
-      if (balconyAreaMax != null) params.set("balconyAreaMax", String(balconyAreaMax));
-      if (parkingSpacesMin != null) params.set("parkingSpacesMin", String(parkingSpacesMin));
-      if (parkingSpacesMax != null) params.set("parkingSpacesMax", String(parkingSpacesMax));
-      if (yearBuiltMin != null) params.set("yearBuiltMin", String(yearBuiltMin));
-      if (yearBuiltMax != null) params.set("yearBuiltMax", String(yearBuiltMax));
-      if (rentPriceMin != null) params.set("rentPriceMin", String(rentPriceMin));
-      if (rentPriceMax != null) params.set("rentPriceMax", String(rentPriceMax));
-      if (rentEstimateMin != null) params.set("rentEstimateMin", String(rentEstimateMin));
-      if (rentEstimateMax != null) params.set("rentEstimateMax", String(rentEstimateMax));
-      if (priceGapPctMin != null) params.set("priceGapPctMin", String(priceGapPctMin));
-      if (priceGapPctMax != null) params.set("priceGapPctMax", String(priceGapPctMax));
-      if (capRatePctMin != null) params.set("capRatePctMin", String(capRatePctMin));
-      if (capRatePctMax != null) params.set("capRatePctMax", String(capRatePctMax));
-      if (roomsFilter && roomsFilter !== "all") params.set("rooms", roomsFilter);
-      if (featuresFilter && featuresFilter !== "all") params.set("features", featuresFilter);
-      if (pricePerSqmMin != null) params.set("pricePerSqmMin", String(pricePerSqmMin));
-      if (pricePerSqmMax != null) params.set("pricePerSqmMax", String(pricePerSqmMax));
-      if (remainingRightsMin != null) params.set("remainingRightsMin", String(remainingRightsMin));
-      if (remainingRightsMax != null) params.set("remainingRightsMax", String(remainingRightsMax));
-      if (blockFilter && blockFilter !== "all") params.set("block", blockFilter);
-      if (parcelFilter && parcelFilter !== "all") params.set("parcel", parcelFilter);
-      if (renovatedFilter && renovatedFilter !== "all") params.set("renovated", renovatedFilter);
-      if (furnishedFilter && furnishedFilter !== "all") params.set("furnished", furnishedFilter);
-      if (airConditioningFilter && airConditioningFilter !== "all") params.set("airConditioning", airConditioningFilter);
-      if (storageRoomFilter && storageRoomFilter !== "all") params.set("storageRoom", storageRoomFilter);
-      if (hasElevatorFilter && hasElevatorFilter !== "all") params.set("hasElevator", hasElevatorFilter);
-
       const query = params.toString();
       const endpoint = query ? `/api/assets?${query}` : "/api/assets";
       const response = await apiClient.get(endpoint);
@@ -1049,60 +1110,7 @@ export default function AssetsPage() {
   }, [
     pagination.pageIndex,
     pagination.pageSize,
-    search,
-    city,
-    typeFilter,
-    priceMin,
-    priceMax,
-    neighborhood,
-    zoning,
-    riskFilter,
-    documentsFilter,
-    statusFilter,
-    rentalSaleFilter,
-    adTypeFilter,
-    commercialFilter,
-    userAssetsFilter,
-    buildingTypeFilter,
-    floorMin,
-    floorMax,
-    areaMin,
-    areaMax,
-    bedroomsMin,
-    bedroomsMax,
-    bathroomsMin,
-    bathroomsMax,
-    totalFloorsMin,
-    totalFloorsMax,
-    totalAreaMin,
-    totalAreaMax,
-    balconyAreaMin,
-    balconyAreaMax,
-    parkingSpacesMin,
-    parkingSpacesMax,
-    yearBuiltMin,
-    yearBuiltMax,
-    rentPriceMin,
-    rentPriceMax,
-    rentEstimateMin,
-    rentEstimateMax,
-    priceGapPctMin,
-    priceGapPctMax,
-    capRatePctMin,
-    capRatePctMax,
-    roomsFilter,
-    featuresFilter,
-    pricePerSqmMin,
-    pricePerSqmMax,
-    remainingRightsMin,
-    remainingRightsMax,
-    blockFilter,
-    parcelFilter,
-    renovatedFilter,
-    furnishedFilter,
-    airConditioningFilter,
-    storageRoomFilter,
-    hasElevatorFilter,
+    buildFilterParams,
   ]);
 
   const updateAssetsWatchState = React.useCallback((ids: number[], watched: boolean) => {
@@ -1193,6 +1201,69 @@ export default function AssetsPage() {
     },
     [isAuthenticated, router, toast, updateAssetsWatchState, userAssetsFilter]
   );
+
+  const handleExportAllAssets = React.useCallback(async () => {
+    const EXPORT_PAGE_SIZE = 100;
+
+    try {
+      const baseParams = buildFilterParams();
+      baseParams.set("pageSize", String(EXPORT_PAGE_SIZE));
+
+      const allAssets: Asset[] = [];
+      let page = 1;
+
+      while (true) {
+        const pageParams = new URLSearchParams(baseParams);
+        pageParams.set("page", String(page));
+
+        const query = pageParams.toString();
+        const endpoint = query ? `/api/assets?${query}` : "/api/assets";
+        const response = await apiClient.get(endpoint);
+
+        if (!response.ok) {
+          throw new Error(response.error || "Failed to fetch assets for export");
+        }
+
+        const rows = (Array.isArray(response.data?.rows) ? response.data?.rows : []) as Asset[];
+        allAssets.push(...rows);
+
+        const paginationInfo = response.data?.pagination;
+
+        if (!paginationInfo) {
+          if (rows.length < EXPORT_PAGE_SIZE) {
+            break;
+          }
+        } else {
+          const total = paginationInfo.total ?? allAssets.length;
+          const pageSizeFromApi = paginationInfo.page_size ?? EXPORT_PAGE_SIZE;
+          const currentPage = paginationInfo.page ?? page;
+
+          if (pageSizeFromApi <= 0) {
+            break;
+          }
+          if (currentPage * pageSizeFromApi >= total) {
+            break;
+          }
+        }
+
+        page += 1;
+        if (page > 1000) {
+          console.warn("Aborting export after 1000 pages to prevent infinite loop");
+          break;
+        }
+      }
+
+      return allAssets;
+    } catch (error) {
+      console.error("Error exporting all assets:", error);
+      toast({
+        title: "שגיאה בייצוא",
+        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [apiClient, buildFilterParams, toast]);
 
   const handleDeleteAsset = async (assetId: number) => {
     // Check if user is authenticated
@@ -2060,6 +2131,7 @@ export default function AssetsPage() {
               onDelete={isAdmin ? handleDeleteAsset : undefined}
               onToggleWatch={handleToggleWatch}
               watchingAssetIds={watchingAssetIds}
+              onExportAllRequest={handleExportAllAssets}
               searchValue={search}
               onSearchChange={setSearch}
               manualPagination

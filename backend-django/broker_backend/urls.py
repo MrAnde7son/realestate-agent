@@ -8,6 +8,7 @@ urlpatterns = [
     path('api/', include('core.urls')),
     path('api/crm/', include('crm.urls')),
     path('api/imports/', include('imports.urls')),
+    path('api/deal-workspace/', include('deal_workspace.urls')),
     path(
         'r/<str:token>/',
         core_views.asset_share_read_only,

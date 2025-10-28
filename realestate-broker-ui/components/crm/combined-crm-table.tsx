@@ -28,6 +28,7 @@ import {
   Edit,
   Trash2,
   CheckSquare,
+  DownloadCloud,
 } from 'lucide-react';
 import {
   Contact,
@@ -45,6 +46,7 @@ import { LeadTaskSummary } from '@/components/crm/lead-task-summary';
 import { LeadRowActions } from '@/components/crm/lead-row-actions';
 import { ButtonLoader, PageLoader } from '@/components/ui/page-loader';
 import { TaskForm } from '@/components/crm/task-form';
+import ImportDialogNadlanOne from '@/components/import/ImportDialogNadlanOne';
 
 interface CombinedCrmTableProps {
   contacts: Contact[];
@@ -68,6 +70,7 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
   const [isTasksLoading, setIsTasksLoading] = useState(false);
   const [activeTaskContact, setActiveTaskContact] = useState<number | null>(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -89,6 +92,17 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
   useEffect(() => {
     void loadTasks();
   }, [loadTasks]);
+
+  const handleImportDialogChange = useCallback(
+    (open: boolean) => {
+      setIsImportDialogOpen(open);
+      if (!open) {
+        void onRefresh();
+        void loadTasks();
+      }
+    },
+    [loadTasks, onRefresh],
+  );
 
   const combinedRows = useMemo<CombinedRow[]>(() => {
     const leadsByContact = leads.reduce<Map<number, Lead[]>>((acc, lead) => {
@@ -392,27 +406,37 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rtl:flex-row-reverse">
-        <div className="space-y-1 rtl:text-start">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
           <h2 className="text-2xl font-bold">לקוחות ולידים</h2>
           <p className="text-sm text-muted-foreground">
             ניהול לקוחות, מעקב לידים ומשימות במקום אחד
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
-              לקוח חדש
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="mx-4 sm:mx-0">
-            <DialogHeader>
-              <DialogTitle>הוספת לקוח חדש</DialogTitle>
-            </DialogHeader>
-            <ContactForm onSubmit={handleCreateContact} isLoading={isSubmitting} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center rtl:flex-row-reverse">
+          <Button
+            variant="outline"
+            onClick={() => setIsImportDialogOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <DownloadCloud className="h-4 w-4" />
+            ייבוא נתונים מנדל&quot;ן וואן
+          </Button>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
+                לקוח חדש
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="mx-4 sm:mx-0">
+              <DialogHeader>
+                <DialogTitle>הוספת לקוח חדש</DialogTitle>
+              </DialogHeader>
+              <ContactForm onSubmit={handleCreateContact} isLoading={isSubmitting} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="relative">
@@ -490,7 +514,7 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
                       </TableCell>
                       <TableCell>
                         {uniqueAssets.length === 0 ? (
-                          <span className="text-sm text-muted-foreground rtl:text-start">אין לידים משויכים</span>
+                          <span className="text-sm text-muted-foreground rtl:text-start">אין נכסים משויכים</span>
                         ) : (
                           <div className="space-y-1 rtl:text-start">
                             {uniqueAssets.slice(0, 2).map((asset) => (
@@ -504,7 +528,7 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
                       </TableCell>
                       <TableCell>
                         {contactLeads.length === 0 ? (
-                          <span className="text-sm text-muted-foreground rtl:text-start">אין לידים</span>
+                          <span className="text-sm text-muted-foreground rtl:text-start">אין נכסים</span>
                         ) : (
                           <div className="flex flex-wrap gap-1 rtl:flex-row-reverse">
                             {activeStatuses.map((status) => (
@@ -610,18 +634,18 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
 
                             <section className="space-y-3">
                               <div className="flex items-center justify-between">
-                                <h3 className="font-semibold text-base">לידים משויכים</h3>
+                                <h3 className="font-semibold text-base">נכסים משויכים</h3>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => window.open('/assets', '_blank')}
                                 >
-                                  <Plus className="h-3 w-3 ms-1 rtl:me-1 rtl:ms-0" /> צור ליד חדש
+                                  <Plus className="h-3 w-3 ms-1 rtl:me-1 rtl:ms-0" /> מצא נכס ללקוח
                                 </Button>
                               </div>
 
                               {contactLeads.length === 0 ? (
-                                <div className="text-sm text-muted-foreground">לא קיימים לידים עבור לקוח זה</div>
+                                <div className="text-sm text-muted-foreground">לא קיימים נכסים עבור לקוח זה</div>
                               ) : (
                                 <div className="space-y-3">
                                   {contactLeads.map((lead) => (
@@ -778,6 +802,11 @@ export function CombinedCrmTable({ contacts, leads, onRefresh }: CombinedCrmTabl
           )}
         </DialogContent>
       </Dialog>
+      <ImportDialogNadlanOne
+        open={isImportDialogOpen}
+        onOpenChange={handleImportDialogChange}
+        mode="customers"
+      />
     </div>
   );
 }

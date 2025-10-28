@@ -217,13 +217,40 @@ class AssetSerializer(MetaSerializerMixin):
         return documents
 
     def _listing_sort_key(self, listing):
+        # Primary sort: exact address match
+        # Secondary sort: fetched_at timestamp
+        
+        # Try to get asset address from the context
+        asset_address = None
+        if hasattr(self, '_current_asset_address'):
+            asset_address = self._current_asset_address
+        elif hasattr(self.parent, 'instance') and self.parent.instance:
+            asset_address = getattr(self.parent.instance, "normalized_address", "").lower()
+        
+        listing_address = getattr(listing, "address", "").lower() if hasattr(listing, "address") else ""
+        
+        # Check for exact address match
+        if asset_address and listing_address:
+            # Exact match gets highest priority
+            if asset_address == listing_address:
+                return (1, 0, 0)  # Priority: exact match, full timestamp, 0 for tie-breaker
+            
+            # Check if street and number match (e.g., "ביריה 9")
+            asset_parts = asset_address.split()
+            if len(asset_parts) >= 2 and asset_parts[1].isdigit():
+                street_number = f"{asset_parts[0]} {asset_parts[1]}"
+                if street_number in listing_address:
+                    return (0.5, 0, 0)  # Priority: partial match, no timestamp needed
+        
+        # No address match or no address info available - sort by fetched_at
         fetched_at = getattr(listing, "fetched_at", None)
         if not fetched_at:
-            return float("-inf")
+            return (-1, 0, 0)  # Lower priority if no fetched_at
         try:
-            return fetched_at.timestamp()
+            timestamp = fetched_at.timestamp()
+            return (0, timestamp, 0)
         except (AttributeError, OSError, OverflowError, ValueError):  # pragma: no cover - safety
-            return float("-inf")
+            return (-1, 0, 0)
 
     def _get_primary_listing_instance(self, obj):
         if hasattr(obj, "_primary_listing_instance_cache"):
@@ -237,8 +264,41 @@ class AssetSerializer(MetaSerializerMixin):
         else:
             listings = list(obj.listings_m2m.all())
 
-        listings.sort(key=self._listing_sort_key, reverse=True)
-        primary = listings[0] if listings else None
+        if not listings:
+            obj._primary_listing_instance_cache = None
+            return None
+
+        # Get asset address for matching
+        asset_address = getattr(obj, "normalized_address", "").lower() if hasattr(obj, "normalized_address") else None
+        
+        # Find listings with exact or partial address match
+        matched_listings = []
+        for listing in listings:
+            listing_address = getattr(listing, "address", "").lower() if hasattr(listing, "address") else ""
+            
+            if not asset_address or not listing_address:
+                continue
+            
+            # Check for exact match
+            if asset_address == listing_address:
+                matched_listings.append((1, listing))  # Priority 1 = exact match
+                continue
+            
+            # Check for street+number match
+            asset_parts = asset_address.split()
+            if len(asset_parts) >= 2 and asset_parts[1].isdigit():
+                street_number = f"{asset_parts[0]} {asset_parts[1]}"
+                if street_number in listing_address:
+                    matched_listings.append((0.5, listing))  # Priority 0.5 = partial match
+        
+        if not matched_listings:
+            # No match found
+            obj._primary_listing_instance_cache = None
+            return None
+        
+        # Sort by priority only (exact matches first)
+        matched_listings.sort(key=lambda x: x[0], reverse=True)
+        primary = matched_listings[0][1]
         obj._primary_listing_instance_cache = primary
         return primary
 

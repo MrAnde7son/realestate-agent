@@ -46,11 +46,17 @@ class StubYad2Collector(Yad2Collector):
     def __init__(self, listings: List[Any] | None = None):
         super().__init__(client=object())
         self.listings = list(listings or [])
-        self.fetch_calls: List[tuple[str, int]] = []
+        self.fetch_calls: List[str] = []
 
-    def _fetch_listings(self, address: str):
-        self.fetch_calls.append((address))
-        return list(self.listings)
+    def collect(self, location=None, **kwargs):
+        """Overridden collect method that uses the stub listings."""
+        query = location
+        if query and query.street and query.city:
+            address = f"{query.street} {query.city.replace('-', ' ')}"
+            if address.strip():
+                self.fetch_calls.append(address.strip())
+                return list(self.listings)
+        return []
 
 
 @dataclass
@@ -121,7 +127,7 @@ def test_yad2_collector_uses_location_query():
 
     listings = collector.collect(location)
 
-    assert [l.listing_id for l in listings] == ["TLV-1"]
+    assert [listing.listing_id for listing in listings] == ["TLV-1"]
     assert collector.fetch_calls == [("רוזוב תל אביב")]
 
 

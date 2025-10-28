@@ -54,7 +54,7 @@ def test_pipeline_sends_alerts(monkeypatch):
         ):
             return [types.SimpleNamespace(
                 title="t", price=1, address="Fake 1", rooms=1,
-                floor=1, size=10, property_type="apt", description="",
+                floor=1, size=10, total_size=10, property_type="apt", description="",
                 url="http://example", listing_id="123", coordinates=(0, 0)
             )]
 

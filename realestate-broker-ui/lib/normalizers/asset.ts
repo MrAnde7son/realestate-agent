@@ -705,7 +705,7 @@ export function normalizeFromBackend(row: any): Asset {
     rooms: roomsValue ?? null,
     bathrooms: row.bathrooms ?? null,
     area: areaValue ?? null,
-    totalArea: row.totalArea ?? row.totalSqm ?? null,
+    totalArea: row.totalArea ?? row.total_area ?? row.totalSqm ?? row.total_sqm ?? null,
     subparcelArea: row.subparcelArea ?? row.subparcel_area ?? null,
     builtArea: row.builtArea ?? row.built_area ?? null,
     balconyArea: row.balconyArea ?? row.balcony_area ?? null,

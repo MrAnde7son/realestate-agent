@@ -261,7 +261,7 @@ export default function DealExpensesPage() {
           asset_address: asset.address,
           asset_city: asset.city,
           asset_price: asset.price,
-          asset_area: asset.area
+          asset_area: asset.totalArea ?? asset.area
         })
       }
 
@@ -274,8 +274,8 @@ export default function DealExpensesPage() {
         setPrice(resolvedPrice)
       }
 
-      if (asset.area) {
-        setArea(asset.area)
+      if (asset.totalArea || asset.area) {
+        setArea(asset.totalArea ?? asset.area ?? 0)
       }
 
       if (asset.type) {
@@ -1006,7 +1006,7 @@ export default function DealExpensesPage() {
                             {selectedAsset.neighborhood && ` • ${selectedAsset.neighborhood}`}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            {selectedAsset.area} מ&quot;ר • {fmtCurrency(selectedAsset.price || 0)}
+                            {(selectedAsset.totalArea ?? selectedAsset.area ?? 0)} מ&quot;ר • {fmtCurrency(selectedAsset.price || 0)}
                             {selectedAsset.type && ` • ${selectedAsset.type}`}
                             {selectedAsset.rooms && ` • ${selectedAsset.rooms} חדרים`}
                           </div>
@@ -1053,7 +1053,7 @@ export default function DealExpensesPage() {
                                   {asset.neighborhood && ` • ${asset.neighborhood}`}
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
-                                  {asset.area} מ&quot;ר • {fmtCurrency(asset.price || 0)}
+                                  {(asset.totalArea ?? asset.area ?? 0)} מ&quot;ר • {fmtCurrency(asset.price || 0)}
                                   {asset.type && ` • ${asset.type}`}
                                   {asset.rooms && ` • ${asset.rooms} חדרים`}
                                 </div>

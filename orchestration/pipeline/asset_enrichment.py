@@ -5,7 +5,7 @@ import os
 import re
 import time
 from contextlib import contextmanager
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from django.contrib.auth import get_user_model
@@ -455,19 +455,12 @@ def _process_gis_data(asset, gis_data):
     asset.meta['gis_collector_data'] = gis_data
     logger.info(f"Asset {asset.id}: Stored gis_collector_data in metadata")
     
-    # Extract total area from parcels data
-    total_area_from_gis = None
+    # Extract parcel information (NOT total area - that's the building's area, not land area)
     if gis_data.get('parcels'):
         parcels = gis_data.get('parcels', [])
         if parcels:
-            # Get the total area from the first parcel (ms_shetach)
-            first_parcel = parcels[0]
-            total_area_from_gis = first_parcel.get('ms_shetach')
-            if total_area_from_gis:
-                asset.set_property('totalArea', total_area_from_gis, source='GIS', url='https://www.govmap.gov.il/')
-                
-            # Extract additional parcel information
-            parcel_data = first_parcel
+            # Extract parcel information
+            parcel_data = parcels[0]
             asset.set_property('parcelArea', parcel_data.get('ms_shetach'), source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('parcelRegisteredArea', parcel_data.get('ms_shetach_rashum'), source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('parcelStatus', parcel_data.get('t_status_hesder'), source='GIS', url='https://www.govmap.gov.il/')
@@ -540,7 +533,7 @@ def _process_gis_data(asset, gis_data):
             asset.set_property('program', main_designation, source='GIS', url='https://www.govmap.gov.il/')
             
             # Building rights estimation - use total area for calculations
-            area_for_calculation = total_area_from_gis or asset.total_area or asset.area or 80
+            area_for_calculation = asset.total_area or asset.area
             
             # Try to get real building rights data
             remaining_rights_sqm = None
@@ -1290,8 +1283,10 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         _safe_get(best_listing.get('meta'), 'netSqm'),
     )
     if listing_net_area and not asset.area:
-        asset.area = listing_net_area
+        # Track source and URL for area data (also sets the asset.area field)
+        asset.set_property('area', listing_net_area, source='Yad2', url=best_listing.get('url', 'https://www.yad2.co.il/'))
         update_fields.add('area')
+        update_fields.add('meta')
         logger.debug('[ASSET_FIELDS] Set area from listing size: %s', asset.area)
 
     listing_total_area = _first_nonempty(
@@ -1300,8 +1295,10 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         _safe_get(best_listing.get('meta'), 'totalSqm'),
     )
     if listing_total_area and not asset.total_area:
-        asset.total_area = listing_total_area
+        # Track source and URL for total_area data (also sets the asset.total_area field)
+        asset.set_property('total_area', listing_total_area, source='Yad2', url=best_listing.get('url', 'https://www.yad2.co.il/'))
         update_fields.add('total_area')
+        update_fields.add('meta')
         logger.debug('[ASSET_FIELDS] Set total_area from listing total_size: %s', asset.total_area)
 
     # Calculate price_per_sqm if we have both price and area

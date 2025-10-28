@@ -31,6 +31,8 @@ from django.db.models import (
     F,
     CharField,
     Count,
+    Exists,
+    OuterRef,
 )
 from datetime import datetime
 from asgiref.sync import async_to_sync
@@ -66,7 +68,8 @@ from .models import (
     UserProfile,
     Snapshot,
     Document,
-    Plan
+    Plan,
+    AssetWatchlistEntry,
 )
 
 from .listing_builder import build_listing
@@ -1168,6 +1171,47 @@ def assets_bulk_action(request):
 
         message = f"Sync started for {success_count} of {len(requested_ids)} assets"
 
+    elif action in {"watch", "unwatch"}:
+        for asset_id in requested_ids:
+            asset = assets_map.get(asset_id)
+            if not asset:
+                not_found_count += 1
+                results.append({"assetId": asset_id, "status": "not_found"})
+                continue
+
+            if action == "watch":
+                _entry, created = AssetWatchlistEntry.objects.get_or_create(
+                    user=user,
+                    asset=asset,
+                )
+                success_count += 1
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "success",
+                        "watched": True,
+                        "created": created,
+                    }
+                )
+            else:
+                deleted, _ = AssetWatchlistEntry.objects.filter(
+                    user=user,
+                    asset=asset,
+                ).delete()
+                success_count += 1
+                results.append(
+                    {
+                        "assetId": asset_id,
+                        "status": "success",
+                        "watched": False,
+                        "removed": bool(deleted),
+                    }
+                )
+
+        message = (
+            f"Updated watchlist for {success_count} of {len(requested_ids)} assets"
+        )
+
     elif action in {"create_report", "report"}:
         sections = data.get("sections") or DEFAULT_REPORT_SECTIONS
 
@@ -1245,6 +1289,45 @@ def assets_bulk_action(request):
     )
 
     return Response(response_data, status=status_code)
+
+
+@api_view(["POST", "DELETE"])
+@permission_classes([IsAuthenticated])
+def asset_watch(request, asset_id):
+    """Add or remove an asset from the authenticated user's watchlist."""
+
+    try:
+        asset = Asset.objects.get(id=asset_id)
+    except Asset.DoesNotExist:
+        return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    user = request.user
+
+    if request.method == "POST":
+        _entry, created = AssetWatchlistEntry.objects.get_or_create(
+            user=user,
+            asset=asset,
+        )
+
+        return Response(
+            {
+                "assetId": asset.id,
+                "watched": True,
+                "created": created,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    deleted, _ = AssetWatchlistEntry.objects.filter(user=user, asset=asset).delete()
+
+    return Response(
+        {
+            "assetId": asset.id,
+            "watched": False,
+            "removed": bool(deleted),
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 def report_file(request, filename):
@@ -1832,6 +1915,8 @@ def _apply_asset_filters(queryset, params, user):
             queryset = queryset.filter(created_by=user)
         elif user_assets == "others":
             queryset = queryset.exclude(created_by=user)
+        elif user_assets in {"watchlist", "tracked"}:
+            queryset = queryset.filter(watchers=user)
 
     building_type = params.get("buildingType")
     if building_type and building_type != "all":
@@ -2161,8 +2246,20 @@ def _get_assets_list(request):
     page_size = min(page_size, MAX_ASSET_PAGE_SIZE)
 
     try:
+        user = getattr(request, "user", None)
         queryset = Asset.objects.all().order_by("-created_at").prefetch_related("listings_m2m")
-        queryset = _apply_asset_filters(queryset, params, getattr(request, "user", None))
+
+        if user and getattr(user, "is_authenticated", False):
+            queryset = queryset.annotate(
+                is_watched=Exists(
+                    AssetWatchlistEntry.objects.filter(
+                        user=user,
+                        asset_id=OuterRef("pk"),
+                    )
+                )
+            )
+
+        queryset = _apply_asset_filters(queryset, params, user)
 
         paginator = Paginator(queryset, page_size)
         try:
@@ -2173,7 +2270,7 @@ def _get_assets_list(request):
         serializer = AssetSerializer(
             page_obj.object_list,
             many=True,
-            context={"include_documents": False},
+            context={"include_documents": False, "request": request},
         )
 
         return Response(
@@ -2322,7 +2419,7 @@ def asset_detail(request, asset_id):
 
         # Use serializer to get properly formatted asset data with _meta
         from .serializers import AssetSerializer
-        serializer = AssetSerializer(asset)
+        serializer = AssetSerializer(asset, context={"request": request})
         asset_data = serializer.data
         
         # Debug: Log documents count

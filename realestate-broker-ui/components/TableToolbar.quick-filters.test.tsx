@@ -59,6 +59,7 @@ const createFilters = (): FiltersConfig => ({
     onChange: vi.fn(),
     options: [
       { value: "mine", label: "נכסים שלי" },
+      { value: "watchlist", label: "ברשימת המעקב שלי" },
       { value: "others", label: "נכסים של אחרים" },
     ],
   },
@@ -175,12 +176,28 @@ describe("TableToolbar quick filters", () => {
     expect(mapToggle.className).toContain("rounded-full");
   });
 
-  it("toggles the my assets quick filter", () => {
+  it("selects the 'my assets' option from the ownership quick filter", () => {
     const { props } = renderToolbar();
 
-    fireEvent.click(screen.getByRole("button", { name: "הנכסים שלי" }));
+    const trigger = screen.getByRole("button", { name: "הנכסים שלי" });
+    openDropdownMenu(trigger);
+
+    const option = screen.getByRole("menuitemradio", { name: "נכסים שלי" });
+    fireEvent.click(option);
 
     expect(props.onAdditionalFilterChange).toHaveBeenCalledWith("userAssets", "mine");
+  });
+
+  it("allows filtering by watchlist from the ownership quick filter", () => {
+    const { props } = renderToolbar();
+
+    const trigger = screen.getByRole("button", { name: "הנכסים שלי" });
+    openDropdownMenu(trigger);
+
+    const option = screen.getByRole("menuitemradio", { name: "ברשימת המעקב שלי" });
+    fireEvent.click(option);
+
+    expect(props.onAdditionalFilterChange).toHaveBeenCalledWith("userAssets", "watchlist");
   });
 
   it("allows choosing rental or sale directly", () => {

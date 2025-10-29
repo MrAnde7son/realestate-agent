@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import DealWorkspacePage from './page'
 import DealWorkspacePageClient from './DealWorkspacePageClient'
@@ -67,7 +67,7 @@ describe('DealWorkspacePage', () => {
     const element = await DealWorkspacePage({ params: Promise.resolve({ id: '321' }) })
     expect(React.isValidElement(element)).toBe(true)
     if (React.isValidElement(element)) {
-      expect(element.props.assetId).toBe('321')
+      expect((element as React.ReactElement<{ assetId: string }>).props.assetId).toBe('321')
     }
   })
 })
@@ -106,13 +106,22 @@ describe('DealWorkspacePageClient', () => {
   it('filters documents by type', async () => {
     render(<DealWorkspacePageClient assetId='42' />)
 
+    // Wait for documents panel to be rendered
+    await waitFor(() => {
+      expect(screen.getByText('מסמכים ותובנות')).toBeInTheDocument()
+    })
+
     const appraisalFilters = screen.getAllByRole('button', { name: /שומה/ })
-    fireEvent.click(appraisalFilters[0])
+    expect(appraisalFilters.length).toBeGreaterThan(0)
+    
+    await act(async () => {
+      fireEvent.click(appraisalFilters[0])
+    })
 
     await waitFor(() => {
       expect(screen.getByText('שומת שמאי')).toBeInTheDocument()
       expect(screen.queryByText('טיוטת הסכם מכר')).not.toBeInTheDocument()
-    })
+    }, { timeout: 2000 })
   })
 
   it('marks legal task as completed and moves it to completed section', async () => {

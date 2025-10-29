@@ -104,39 +104,63 @@ vi.mock('@/components/ui/dropdown-menu', async () => {
     DropdownMenuRadioGroup: ({
       children,
       onValueChange,
+      value,
+      defaultValue,
     }: {
       children: React.ReactNode
       onValueChange?: (value: string) => void
-    }) => (
-      <div role="radiogroup">
-        {React.Children.map(children, (child) => {
-          if (!React.isValidElement(child)) return child
-          const originalOnSelect = (child.props as { onSelect?: (value: string) => void }).onSelect
-          return React.cloneElement(child, {
-            onSelect: (value: string) => {
-              originalOnSelect?.(value)
-              onValueChange?.(value)
-            },
-          })
-        })}
-      </div>
-    ),
+      value?: string
+      defaultValue?: string
+    }) => {
+      const [internalValue, setInternalValue] = React.useState<string | undefined>(defaultValue)
+      const currentValue = value ?? internalValue
+
+      return (
+        <div role="radiogroup">
+          {React.Children.map(children, (child) => {
+            if (!React.isValidElement(child)) return child
+
+            const childProps = child.props as {
+              onSelect?: (value: string) => void
+              value?: string
+            }
+
+            const handleSelect = (newValue: string) => {
+              childProps.onSelect?.(newValue)
+              if (value === undefined) {
+                setInternalValue(newValue)
+              }
+              onValueChange?.(newValue)
+            }
+
+            return React.cloneElement(child, {
+              onSelect: handleSelect,
+              checked: currentValue !== undefined && childProps.value === currentValue,
+            })
+          })}
+        </div>
+      )
+    },
     DropdownMenuRadioItem: ({
       children,
       value,
       onSelect,
       className,
       disabled,
+      checked,
     }: {
       children: React.ReactNode
       value: string
       onSelect?: (value: string) => void
       className?: string
       disabled?: boolean
+      checked?: boolean
     }) => (
       <div
         role="menuitemradio"
         data-value={value}
+        aria-checked={checked ?? false}
+        data-state={checked ? 'checked' : 'unchecked'}
         onClick={disabled ? undefined : () => onSelect?.(value)}
         className={className}
       >

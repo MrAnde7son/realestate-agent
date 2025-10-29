@@ -344,6 +344,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [comparables, setComparables] = useState<any[]>([])
   const [appraisal, setAppraisal] = useState<any | null>(null)
   const [decisiveAppraisals, setDecisiveAppraisals] = useState<any[]>([])
+  const [appraisalsLoading, setAppraisalsLoading] = useState(false)
   const [ramiAppraisals, setRamiAppraisals] = useState<any[]>([])
   const [transactionsData, setTransactionsData] = useState<{ items: any[]; total: number; filters: { source: string[] } }>({ items: [], total: 0, filters: { source: [] } })
   const [transactionsLoading, setTransactionsLoading] = useState(false)
@@ -1208,39 +1209,70 @@ useDedupedEffect(() => {
     })()
   }, [id])
 
+const loadAppraisals = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
+  if (!id) return
+  const response = await apiClient.get(`/api/assets/${id}/appraisal`, { signal })
+  if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
+  if (signal?.aborted) return
+  const data = (response.data ?? {}) as any
+  setComparables(data.comps || [])
+  setAppraisal(data.appraisal || null)
+  setDecisiveAppraisals(data.decisive_appraisals || [])
+  setRamiAppraisals(data.rami_appraisals || [])
+}, [id])
+
 useDedupedEffect(() => {
   appraisalsControllerRef.current?.abort()
 
   if (activeTab !== 'appraisals') {
     appraisalsControllerRef.current = null
+    setAppraisalsLoading(false)
     return
   }
 
   const controller = new AbortController()
   appraisalsControllerRef.current = controller
+  setAppraisalsLoading(true)
 
-  ;(async () => {
-    try {
-      const response = await apiClient.get(`/api/assets/${id}/appraisal`, { signal: controller.signal })
-      if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
-      if (controller.signal.aborted) return
-      const data = (response.data ?? {}) as any
-      setComparables(data.comps || [])
-      setAppraisal(data.appraisal || null)
-      setDecisiveAppraisals(data.decisive_appraisals || [])
-      setRamiAppraisals(data.rami_appraisals || [])
-    } catch (err) {
+  loadAppraisals({ signal: controller.signal })
+    .catch((err) => {
       if (isAbortError(err) || controller.signal.aborted) {
         return
       }
       console.error('Error loading appraisal:', err)
-    } finally {
+    })
+    .finally(() => {
+      if (!controller.signal.aborted) {
+        setAppraisalsLoading(false)
+      }
       if (appraisalsControllerRef.current === controller) {
         appraisalsControllerRef.current = null
       }
-    }
-  })()
-}, [activeTab, id])
+    })
+}, [activeTab, loadAppraisals])
+
+const handleAppraisalsRefresh = React.useCallback(() => {
+  const controller = new AbortController()
+  appraisalsControllerRef.current?.abort()
+  appraisalsControllerRef.current = controller
+  setAppraisalsLoading(true)
+
+  loadAppraisals({ signal: controller.signal })
+    .catch((err) => {
+      if (isAbortError(err) || controller.signal.aborted) {
+        return
+      }
+      console.error('Error refreshing appraisal tables:', err)
+    })
+    .finally(() => {
+      if (!controller.signal.aborted) {
+        setAppraisalsLoading(false)
+      }
+      if (appraisalsControllerRef.current === controller) {
+        appraisalsControllerRef.current = null
+      }
+    })
+}, [loadAppraisals])
 
 const loadPermits = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
   if (!id) return
@@ -3537,17 +3569,7 @@ useDedupedEffect(() => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      apiClient
-                        .get(`/api/assets/${id}/appraisal`)
-                        .then(response => {
-                          if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
-                          const data = (response.data ?? {}) as any
-                          setAppraisal(data.appraisal || null)
-                          setDecisiveAppraisals(data.decisive_appraisals || [])
-                          setRamiAppraisals(data.rami_appraisals || [])
-                        })
-                        .catch(err => console.error('Error refreshing appraisal:', err))
-                      
+                      handleAppraisalsRefresh()
                       loadTransactions()
                     }}
                   >
@@ -3632,6 +3654,13 @@ useDedupedEffect(() => {
                       </CardContent>
                     </Card>
                   </>
+                ) : appraisalsLoading ? (
+                  <div className="text-center text-muted-foreground">
+                    <div className="py-8 flex flex-col items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <div className="text-sm">טוען נתוני שומות...</div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center text-muted-foreground">
                     <div className="py-8">
@@ -3644,9 +3673,10 @@ useDedupedEffect(() => {
                 )}
 
                 <div className="space-y-4">
-                  {normalizedDecisiveAppraisals.length > 0 && (
+                  {(appraisalsLoading || normalizedDecisiveAppraisals.length > 0) && (
                     <DecisiveAppraisalsTable
                       data={normalizedDecisiveAppraisals}
+                      loading={appraisalsLoading}
                       searchValue={decisiveSearch}
                       onSearchChange={setDecisiveSearch}
                       filters={{
@@ -3655,23 +3685,14 @@ useDedupedEffect(() => {
                           onChange: setDecisiveSourceFilter,
                         },
                       }}
-                      onRefresh={() => {
-                        apiClient
-                          .get(`/api/assets/${id}/appraisal`)
-                          .then(response => {
-                            if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
-                            const data = (response.data ?? {}) as any
-                            setDecisiveAppraisals(data.decisive_appraisals || [])
-                            setRamiAppraisals(data.rami_appraisals || [])
-                          })
-                          .catch(err => console.error('Error refreshing appraisal tables:', err))
-                      }}
+                      onRefresh={handleAppraisalsRefresh}
                     />
                   )}
 
-                  {normalizedRamiAppraisals.length > 0 && (
+                  {(appraisalsLoading || normalizedRamiAppraisals.length > 0) && (
                     <RamiAppraisalsTable
                       data={normalizedRamiAppraisals}
+                      loading={appraisalsLoading}
                       searchValue={ramiSearch}
                       onSearchChange={setRamiSearch}
                       filters={{
@@ -3684,21 +3705,11 @@ useDedupedEffect(() => {
                           onChange: setRamiStatusFilter,
                         },
                       }}
-                      onRefresh={() => {
-                        apiClient
-                          .get(`/api/assets/${id}/appraisal`)
-                          .then(response => {
-                            if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
-                            const data = (response.data ?? {}) as any
-                            setDecisiveAppraisals(data.decisive_appraisals || [])
-                            setRamiAppraisals(data.rami_appraisals || [])
-                          })
-                          .catch(err => console.error('Error refreshing appraisal tables:', err))
-                      }}
+                      onRefresh={handleAppraisalsRefresh}
                     />
                   )}
 
-                  {normalizedDecisiveAppraisals.length === 0 && normalizedRamiAppraisals.length === 0 && (
+                  {!appraisalsLoading && normalizedDecisiveAppraisals.length === 0 && normalizedRamiAppraisals.length === 0 && (
                     <div className="rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
                       לא נמצאו שומות מכריעות או שומות רמ״י לנכס זה.
                     </div>

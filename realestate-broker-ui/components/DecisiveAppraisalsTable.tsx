@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink } from 'lucide-react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import TablePagination from '@/components/TablePagination';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export interface DecisiveAppraisalRow {
   id: string;
@@ -272,6 +273,10 @@ export default function DecisiveAppraisalsTable({
     getPaginationRowModel: getPaginationRowModel(),
   });
 
+  const skeletonRowCount = Math.min(5, table.getState().pagination.pageSize || 10);
+  const visibleLeafColumns = table.getVisibleLeafColumns();
+  const showSkeletonRows = loading && data.length === 0;
+
   const toolbarColumns = table.getAllColumns()
     .filter((column) => column.getCanHide())
     .map((column) => ({
@@ -357,14 +362,6 @@ export default function DecisiveAppraisalsTable({
     }
   }, [filters?.source, trackFeatureUsage]);
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-border bg-card">
-        <div className="p-8 text-center text-muted-foreground">טוען שומות מכריעות...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="rounded-xl border border-border bg-card overflow-x-auto rtl" dir="rtl">
       <TableToolbar
@@ -388,6 +385,10 @@ export default function DecisiveAppraisalsTable({
         onRefresh={onRefresh || (() => {})}
         loading={loading}
       />
+
+      {showSkeletonRows && (
+        <div className="px-4 text-sm text-muted-foreground">טוען שומות מכריעות...</div>
+      )}
 
       <Table className="rtl">
         <TableHeader>
@@ -425,9 +426,19 @@ export default function DecisiveAppraisalsTable({
           ))}
         </TableHeader>
         <TableBody>
-          {filteredData.length === 0 ? (
+          {showSkeletonRows ? (
+            Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
+              <TableRow key={`skeleton-${rowIndex}`} className="hover:bg-transparent">
+                {visibleLeafColumns.map((column, columnIndex) => (
+                  <TableCell key={`skeleton-${rowIndex}-${column.id ?? columnIndex}`} className="text-start">
+                    <Skeleton className="h-4 w-full max-w-[140px]" />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : filteredData.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
+              <TableCell colSpan={visibleLeafColumns.length || columns.length} className="h-24 text-center">
                 <div className="text-muted-foreground py-8">לא נמצאו שומות מכריעות</div>
               </TableCell>
             </TableRow>

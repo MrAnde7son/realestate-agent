@@ -311,6 +311,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
             asset_id = request.query_params.get('asset_id')
             if asset_id:
+                # Filter by asset (both FK and M2M relationships)
+                # The distinct() is necessary to avoid duplicates from M2M JOIN
                 queryset = queryset.filter(Q(asset_id=asset_id) | Q(assets__id=asset_id)).distinct()
 
             search = request.query_params.get('search')
@@ -374,22 +376,39 @@ class DocumentViewSet(viewsets.ModelViewSet):
             else:
                 queryset = queryset.order_by('-document_date', '-id')
 
+            # Get total count first - can use database indexes efficiently
             total_count = queryset.count()
 
+            # Get paginated documents (fast, limited rows)
             documents = list(queryset[offset: offset + limit])
-            serialized = self.get_serializer(documents, many=True).data
+            serializer = self.get_serializer(documents, many=True)
+            serialized = list(serializer.data)  # Explicitly convert to list for type checker
             for item in serialized:
                 doc_type = item.get('document_type') or item.get('documentType')
                 item['category'] = self._get_category_for_type(doc_type)
 
-            distinct_types = list(queryset.values_list('document_type', flat=True).distinct())
-            distinct_sources = list(queryset.values_list('source', flat=True).distinct())
-            distinct_statuses = list(
-                queryset.exclude(status__isnull=True)
-                .exclude(status='')
-                .values_list('status', flat=True)
-                .distinct()
-            )
+            # For filter options, compute distinct values efficiently
+            # These queries benefit from database indexes on document_type, source, and status
+            # They scan the filtered queryset, so ensure proper indexes exist
+            try:
+                # Use the queryset directly - database will use indexes for these column scans
+                distinct_types = list(
+                    queryset.values_list('document_type', flat=True).distinct()
+                )
+                distinct_sources = list(
+                    queryset.values_list('source', flat=True).distinct()
+                )
+                distinct_statuses = list(
+                    queryset.exclude(status__isnull=True)
+                    .exclude(status='')
+                    .values_list('status', flat=True)
+                    .distinct()
+                )
+            except Exception as e:
+                logger.warning(f"Error computing distinct filter values: {e}")
+                distinct_types = []
+                distinct_sources = []
+                distinct_statuses = []
 
             categories = sorted({self._get_category_for_type(doc_type) for doc_type in distinct_types})
             categories = [category for category in categories if category]

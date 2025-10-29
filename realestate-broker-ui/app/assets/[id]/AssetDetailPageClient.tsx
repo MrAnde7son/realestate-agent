@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAnalytics } from '@/hooks/useAnalytics'
@@ -90,6 +90,23 @@ const formatListingSourceLabel = (value?: string | null) => {
 }
 
 const sanitizePhoneNumber = (value?: string | null) => (value ? value.replace(/[^+\d]/g, '') : '')
+
+type RouterLike = Pick<ReturnType<typeof useRouter>, 'replace'>
+
+export const syncTabWithUrl = (
+  value: string,
+  activeTab: string,
+  setActiveTab: (value: string) => void,
+  router: RouterLike,
+  currentHref: string = window.location.href
+) => {
+  if (value === activeTab) return false
+  setActiveTab(value)
+  const url = new URL(currentHref)
+  url.searchParams.set('tab', value)
+  router.replace(`${url.pathname}${url.search}`, { scroll: false })
+  return true
+}
 
 const formatListingRooms = (rooms?: number | null, display?: string | null) => {
   if (typeof display === 'string') {
@@ -1462,12 +1479,9 @@ useDedupedEffect(() => {
   }, [canViewCrm, activeTab])
 
   // Update URL when active tab changes
-  const handleTabChange = (value: string) => {
-    setActiveTab(value)
-    const url = new URL(window.location.href)
-    url.searchParams.set('tab', value)
-    router.replace(url.pathname + url.search, { scroll: false })
-  }
+  const handleTabChange = useCallback((value: string) => {
+    syncTabWithUrl(value, activeTab, setActiveTab, router)
+  }, [activeTab, router])
 
   const handleSyncData = async () => {
     if (!id || !asset?.address) return

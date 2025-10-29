@@ -620,15 +620,15 @@ def _process_gis_data(asset, gis_data):
     # Shelters
     if gis_data.get('shelters'):
         shelters = gis_data.get('shelters', [])
-        if shelters:
-            min_distance = min([s.get('distance', 999) for s in shelters if isinstance(s, dict)])
+        if shelters and len(shelters) > 0:
+            min_distance = min([s.get('distance') for s in shelters if isinstance(s, dict)])
             asset.set_property('shelterDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Cell antennas
     if gis_data.get('antennas'):
         antennas = gis_data.get('antennas', [])
-        if antennas:
-            min_distance = min([a.get('distance', 999) for a in antennas if isinstance(a, dict)])
+        if antennas and len(antennas) > 0:
+            min_distance = min([a.get('distance') for a in antennas if isinstance(a, dict)])
             asset.set_property('antennaDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Environmental fields
@@ -689,25 +689,26 @@ def _process_gis_data(asset, gis_data):
     # Metro stations - Major value driver
     if gis_data.get('metro_stations'):
         metro_stations = gis_data.get('metro_stations', [])
-        if metro_stations:
-            min_distance = min([s.get('distance', 999) for s in metro_stations if isinstance(s, dict) and s.get('distance')])
+        if metro_stations and len(metro_stations) > 0:
+            min_distance = min([s.get('distance') for s in metro_stations if isinstance(s, dict) and s.get('distance')])
             asset.set_property('metroStationDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('metroStationsCount', len(metro_stations), source='GIS', url='https://www.govmap.gov.il/')
     
     # Parking lots
-    if gis_data.get('parking_lots'):
-        parking_lots = gis_data.get('parking_lots', [])
-        if parking_lots:
-            asset.set_property('parkingLotsCount', len(parking_lots), source='GIS', url='https://www.govmap.gov.il/')
-            public_parking = [p for p in parking_lots if isinstance(p, dict) and p.get('type') == 'public']
+    parking_lots = gis_data.get('parking_lots')
+    if parking_lots:
+        asset.set_property('parkingLotsCount', len(parking_lots), source='GIS', url='https://www.govmap.gov.il/')
+        public_parking = [p for p in parking_lots if isinstance(p, dict) and p.get('type') == 'public']
+        if public_parking:
             asset.set_property('publicParkingLotsCount', len(public_parking), source='GIS', url='https://www.govmap.gov.il/')
     
     # Schools and kindergartens
-    if gis_data.get('schools'):
-        schools = gis_data.get('schools', [])
-        if schools:
-            asset.set_property('schoolsCount', len(schools), source='GIS', url='https://www.govmap.gov.il/')
-            min_distance = min([s.get('distance', 999) for s in schools if isinstance(s, dict) and s.get('distance')])
+    schools = gis_data.get('schools')
+    if schools:
+        asset.set_property('schoolsCount', len(schools), source='GIS', url='https://www.govmap.gov.il/')
+        distances = [s.get('distance') for s in schools if isinstance(s, dict) and s.get('distance')]
+        if distances:
+            min_distance = min(distances)
             asset.set_property('nearestSchoolDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Construction sites - indicates redevelopment intensity
@@ -723,18 +724,17 @@ def _process_gis_data(asset, gis_data):
             asset.set_property('affordableHousingProjectsCount', len(affordable_housing), source='GIS', url='https://www.govmap.gov.il/')
     
     # Bike paths - walkability indicator
-    if gis_data.get('bike_paths'):
-        bike_paths = gis_data.get('bike_paths', [])
-        if bike_paths:
-            asset.set_property('bikePathsCount', len(bike_paths), source='GIS', url='https://www.govmap.gov.il/')
-            asset.set_property('hasBikePaths', len(bike_paths) > 0, source='GIS', url='https://www.govmap.gov.il/')
+    bike_paths = gis_data.get('bike_paths')
+    if bike_paths:
+        asset.set_property('bikePathsCount', len(bike_paths), source='GIS', url='https://www.govmap.gov.il/')
+        asset.set_property('hasBikePaths', True, source='GIS', url='https://www.govmap.gov.il/')
     
     # Soil contamination - risk factor
     if gis_data.get('soil_contamination'):
         soil_contamination = gis_data.get('soil_contamination', [])
-        if soil_contamination:
+        if soil_contamination and len(soil_contamination) > 0:
             asset.set_property('soilContaminationSitesCount', len(soil_contamination), source='GIS', url='https://www.govmap.gov.il/')
-            min_distance = min([s.get('distance', 999) for s in soil_contamination if isinstance(s, dict) and s.get('distance')])
+            min_distance = min([s.get('distance') for s in soil_contamination if isinstance(s, dict) and s.get('distance')])
             asset.set_property('nearestSoilContaminationDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Green amenities (playgrounds, dog parks, public gardens)
@@ -746,32 +746,30 @@ def _process_gis_data(asset, gis_data):
             asset.set_property('playgroundsCount', len(playgrounds), source='GIS', url='https://www.govmap.gov.il/')
     
     # Medical facilities
-    if gis_data.get('medical_facilities'):
-        medical_facilities = gis_data.get('medical_facilities', [])
-        if medical_facilities:
-            asset.set_property('medicalFacilitiesCount', len(medical_facilities), source='GIS', url='https://www.govmap.gov.il/')
-            min_distance = min([m.get('distance', 999) for m in medical_facilities if isinstance(m, dict) and m.get('distance')])
+    medical_facilities = gis_data.get('medical_facilities')
+    if medical_facilities:
+        asset.set_property('medicalFacilitiesCount', len(medical_facilities), source='GIS', url='https://www.govmap.gov.il/')
+        distances = [m.get('distance') for m in medical_facilities if isinstance(m, dict) and m.get('distance')]
+        if distances:
+            min_distance = min(distances)
             asset.set_property('nearestMedicalFacilityDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Community facilities
-    if gis_data.get('community_facilities'):
-        community_facilities = gis_data.get('community_facilities', [])
-        if community_facilities:
-            asset.set_property('communityFacilitiesCount', len(community_facilities), source='GIS', url='https://www.govmap.gov.il/')
+    community_facilities = gis_data.get('community_facilities')
+    if community_facilities:
+        asset.set_property('communityFacilitiesCount', len(community_facilities), source='GIS', url='https://www.govmap.gov.il/')
     
     # TAMA 38 key areas - potential for redevelopment
-    if gis_data.get('tama38_key_areas'):
-        tama38_areas = gis_data.get('tama38_key_areas', [])
-        if tama38_areas:
-            asset.set_property('tama38KeyArea', len(tama38_areas) > 0, source='GIS', url='https://www.govmap.gov.il/')
-            asset.set_property('tama38KeyAreasCount', len(tama38_areas), source='GIS', url='https://www.govmap.gov.il/')
+    tama38_areas = gis_data.get('tama38_key_areas')
+    if tama38_areas:
+        asset.set_property('tama38KeyArea', True, source='GIS', url='https://www.govmap.gov.il/')
+        asset.set_property('tama38KeyAreasCount', len(tama38_areas), source='GIS', url='https://www.govmap.gov.il/')
     
     # Road works - disruption indicator
-    if gis_data.get('road_works'):
-        road_works = gis_data.get('road_works', [])
-        if road_works:
-            asset.set_property('roadWorksCount', len(road_works), source='GIS', url='https://www.govmap.gov.il/')
-            asset.set_property('hasActiveRoadWorks', len(road_works) > 0, source='GIS', url='https://www.govmap.gov.il/')
+    road_works = gis_data.get('road_works')
+    if road_works:
+        asset.set_property('roadWorksCount', len(road_works), source='GIS', url='https://www.govmap.gov.il/')
+        asset.set_property('hasActiveRoadWorks', True, source='GIS', url='https://www.govmap.gov.il/')
     
     # Risk flags - use get_property_value for unified access
     risk_flags = []
@@ -780,17 +778,17 @@ def _process_gis_data(asset, gis_data):
         risk_flags.append('רעש גבוה')
     if not green_within_300m:
         risk_flags.append('אין שטחים פתוחים קרובים')
-    shelter_distance = asset.get_property_value('shelterDistanceM') or 999
+    shelter_distance = asset.get_property_value('shelterDistanceM')
     if shelter_distance > 200:
         risk_flags.append('מרחק גדול ממקלט')
-    antenna_distance = asset.get_property_value('antennaDistanceM') or 999
+    antenna_distance = asset.get_property_value('antennaDistanceM')
     if antenna_distance < 50:
         risk_flags.append('קרוב מדי לאנטנה')
     
     # Add new risk factors
     soil_contamination_count = asset.get_property_value('soilContaminationSitesCount') or 0
     if soil_contamination_count > 0:
-        nearest_contamination = asset.get_property_value('nearestSoilContaminationDistanceM') or 999
+        nearest_contamination = asset.get_property_value('nearestSoilContaminationDistanceM')
         if nearest_contamination < 100:
             risk_flags.append('קרוב לאתר זיהום קרקע')
     
@@ -813,7 +811,7 @@ def _process_gis_data(asset, gis_data):
     
     schools_count = asset.get_property_value('schoolsCount') or 0
     if schools_count > 0:
-        nearest_school = asset.get_property_value('nearestSchoolDistanceM') or 999
+        nearest_school = asset.get_property_value('nearestSchoolDistanceM')
         if nearest_school <= 300:
             potential_indicators.append(f'קרוב לבתי ספר ({schools_count} בתי ספר וגנים)')
     

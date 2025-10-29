@@ -1239,7 +1239,7 @@ export default function TableToolbar({
   const transactionSectionDefaultOpen =
     transactionSectionItems.length > 0 &&
     ((statusFilters && statusFilters.value !== 'all') ||
-      (dateRange && (dateRange.from || dateRange.to)) ||
+      Boolean(dateRange && (dateRange.from || dateRange.to)) ||
       transactionAdditionalFilters.some(isAdditionalFilterActive));
 
   const advancedSectionDefaultOpen =

@@ -116,6 +116,9 @@ describe('ListingsPanel', () => {
     fireEvent.click(filterButton)
 
     const filterSheet = await screen.findByRole('dialog')
+    const transactionSectionToggle = within(filterSheet).getByRole('button', { name: 'סטטוס ומקור' })
+    fireEvent.click(transactionSectionToggle)
+
     const listingTypeLabel = within(filterSheet).getByText('סוג עסקה')
     const listingTypeContainer = listingTypeLabel.parentElement as HTMLElement
     const listingTypeTrigger = listingTypeContainer.querySelector('[role="combobox"]') as HTMLElement | null

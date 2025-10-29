@@ -21,12 +21,20 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2 } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 import { parseShareMessageResponse } from './shareMessage'
 import { useDedupedEffect } from '@/hooks/use-deduped-effect'
 import OnboardingProgress from '@/components/OnboardingProgress'
@@ -39,6 +47,7 @@ import DecisiveAppraisalsTable, { DecisiveAppraisalRow } from '@/components/Deci
 import RamiAppraisalsTable, { RamiAppraisalRow } from '@/components/RamiAppraisalsTable'
 import DocumentsTable, { DocumentRow } from '@/components/DocumentsTable'
 import PermitsTable, { PermitRow } from '@/components/PermitsTable'
+import AlertRulesManager from '@/components/alerts/alert-rules-manager'
 import type { SortingState } from '@tanstack/react-table'
 import {
   Breadcrumb,
@@ -349,7 +358,13 @@ interface AssetDetailPageClientProps {
 }
 
 export default function AssetDetailPageClient({ assetId }: AssetDetailPageClientProps) {
+  // All hooks must be called at the top level, in the same order every render
   const { trackFeatureUsage } = useAnalytics()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user, isAuthenticated } = useAuth()
+  const { toast } = useToast()
+  
   const [asset, setAsset] = useState<any>(null)
   const [comparables, setComparables] = useState<any[]>([])
   const [appraisal, setAppraisal] = useState<any | null>(null)
@@ -365,6 +380,10 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [uploading, setUploading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
+  const [watchingAsset, setWatchingAsset] = useState(false)
+  const [deletingAsset, setDeletingAsset] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [alertModalOpen, setAlertModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [syncMessage, setSyncMessage] = useState<string>('')
@@ -511,8 +530,6 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
     const queryString = params.toString()
     return queryString ? `/deal-expenses?${queryString}` : '/deal-expenses'
   }, [asset, assetDealPrice, id])
-
-  const router = useRouter()
 
   const parkingRequirements = calculatedRights?.building_privileges?.parking_requirements ?? []
   const primaryParkingRequirement = parkingRequirements.length > 0 ? parkingRequirements[0] : null
@@ -680,7 +697,7 @@ React.useEffect(() => {
 React.useEffect(() => {
   setDocumentsPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }))
 }, [documentsSorting])
-  const searchParams = useSearchParams()
+  
   const provider = useMemo<SupportedLLMProvider>(() => {
     const providerKeys = ['provider', 'llm_provider', 'llm-provider']
     for (const key of providerKeys) {
@@ -691,7 +708,6 @@ React.useEffect(() => {
     }
     return DEFAULT_LLM_PROVIDER
   }, [searchParams])
-  const { user, isAuthenticated } = useAuth()
   const canViewCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '')
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user])
   const resolveMetaEntry = React.useCallback(
@@ -1536,6 +1552,106 @@ useDedupedEffect(() => {
     }
   }
 
+  const handleToggleWatch = React.useCallback(async () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "עליך להתחבר כדי לנהל רשימת מעקב",
+        variant: "destructive",
+      })
+      router.push("/auth?redirect=" + encodeURIComponent(`/assets/${id}`))
+      return
+    }
+
+    if (!id) return
+
+    const nextWatched = !(asset?.isWatched ?? false)
+    setWatchingAsset(true)
+
+    try {
+      const response = await apiClient.request(`/api/assets/${id}/watch`, {
+        method: nextWatched ? "POST" : "DELETE",
+      })
+
+      if (response.ok) {
+        setAsset((prev: any) => ({
+          ...prev,
+          isWatched: nextWatched,
+        }))
+        toast({
+          title: nextWatched ? "נוסף לרשימת המעקב" : "הוסר מרשימת המעקב",
+          description: asset?.address ?? undefined,
+          variant: "default",
+        })
+      } else {
+        toast({
+          title: "שגיאה בעדכון רשימת המעקב",
+          description: response.error || "הפעולה נכשלה",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error updating watchlist:", error)
+      toast({
+        title: "שגיאה בעדכון רשימת המעקב",
+        description: error instanceof Error ? error.message : "הפעולה נכשלה",
+        variant: "destructive",
+      })
+    } finally {
+      setWatchingAsset(false)
+    }
+  }, [id, asset, isAuthenticated, toast, router])
+
+  const handleOpenAlerts = React.useCallback(() => {
+    if (!isAuthenticated) {
+      toast({
+        title: "נדרשת התחברות",
+        description: "עליך להתחבר כדי להגדיר התראות",
+        variant: "destructive",
+      })
+      router.push("/auth?redirect=" + encodeURIComponent(`/assets/${id}`))
+      return
+    }
+    setAlertModalOpen(true)
+  }, [isAuthenticated, id, toast, router])
+
+  const handleDeleteAsset = React.useCallback(async () => {
+    if (!id) return
+
+    setDeletingAsset(true)
+    try {
+      const response = await apiClient.request("/api/assets", {
+        method: "DELETE",
+        body: JSON.stringify({ assetId: Number(id) }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "הצלחה",
+          description: "הנכס נמחק בהצלחה",
+          variant: "default",
+        })
+        router.push("/assets")
+      } else {
+        toast({
+          title: "שגיאה",
+          description: `שגיאה במחיקת הנכס: ${response.error}`,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting asset:", error)
+      toast({
+        title: "שגיאה",
+        description: "שגיאה במחיקת הנכס",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingAsset(false)
+      setDeleteConfirmOpen(false)
+    }
+  }, [id, toast, router])
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -1937,24 +2053,7 @@ useDedupedEffect(() => {
               </div>
             )}
             <div className="flex flex-wrap gap-2 items-center justify-end md:justify-start">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSyncData}
-                disabled={syncing}
-              >
-                {syncing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    מסנכרן נתונים...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4" />
-                    סנכרן נתונים
-                  </>
-                )}
-              </Button>
+              {/* Primary Actions - Always Visible */}
               <Button
                 size="sm"
                 onClick={() => setSectionsModal(true)}
@@ -1962,24 +2061,108 @@ useDedupedEffect(() => {
               >
                 {generatingReport ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin me-2" />
                     יוצר דוח...
                   </>
                 ) : (
                   <>
-                    <FileText className="h-4 w-4" />
+                    <FileText className="h-4 w-4 me-2" />
                     צור דוח
                   </>
                 )}
               </Button>
-              <Button size="sm" variant="outline" onClick={handleDealWorkspaceClick}>
-                <Handshake className="h-4 w-4" />
+              <Button
+                size="sm"
+                onClick={handleDealWorkspaceClick}
+              >
+                <Handshake className="h-4 w-4 me-2" />
                 סביבת עסקה
               </Button>
-              <Button size="sm" onClick={handleDealExpensesClick}>
-                <Calculator className="h-4 w-4" />
-                חשב הוצאות עסקה
-              </Button>
+
+              {/* Actions Dropdown Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                  >
+                    <MoreVertical className="h-4 w-4 me-2" />
+                    עוד פעולות
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuItem
+                    onClick={handleSyncData}
+                    disabled={syncing}
+                  >
+                    {syncing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                        מסנכרן...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 ms-2" />
+                        סנכרן נתונים
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDealExpensesClick}>
+                    <Calculator className="h-4 w-4 ms-2" />
+                    חשב הוצאות עסקה
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleToggleWatch}
+                    disabled={watchingAsset}
+                  >
+                    {watchingAsset ? (
+                      <>
+                        <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                        מטופל...
+                      </>
+                    ) : asset?.isWatched ? (
+                      <>
+                        <Star className="h-4 w-4 ms-2 fill-amber-500" />
+                        הסר מרשימת המעקב
+                      </>
+                    ) : (
+                      <>
+                        <StarOff className="h-4 w-4 ms-2" />
+                        הוסף לרשימת המעקב
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShareModal(true)}>
+                    <Share2 className="h-4 w-4 ms-2" />
+                    צור הודעת פרסום
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleOpenAlerts}>
+                    <Bell className="h-4 w-4 ms-2" />
+                    הגדר התראות
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    disabled={deletingAsset}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    {deletingAsset ? (
+                      <>
+                        <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                        מוחק...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 ms-2" />
+                        מחק נכס
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Dialogs */}
               <Dialog open={sectionsModal} onOpenChange={setSectionsModal}>
                 <DialogContent>
                   <DialogHeader>
@@ -2006,7 +2189,7 @@ useDedupedEffect(() => {
                     <Button onClick={handleConfirmSections} disabled={generatingReport}>
                       {generatingReport ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin me-2" />
                           יוצר דוח...
                         </>
                       ) : (
@@ -2016,13 +2199,7 @@ useDedupedEffect(() => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShareModal(true)}
-              >
-                {'צור הודעת פרסום'}
-              </Button>
+
               <Dialog
                 open={shareModal}
                 onOpenChange={(open) => {
@@ -2100,6 +2277,46 @@ useDedupedEffect(() => {
                       </DialogFooter>
                     )}
                   </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={alertModalOpen} onOpenChange={setAlertModalOpen}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>הגדרת התראות לנכס</DialogTitle>
+                  </DialogHeader>
+                  {id && <AlertRulesManager assetId={Number(id)} />}
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>מחיקת נכס</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      האם אתה בטוח שברצונך למחוק את הנכס? פעולה זו לא ניתנת לביטול.
+                    </p>
+                    {asset?.address && (
+                      <p className="text-sm font-medium">{asset.address}</p>
+                    )}
+                  </div>
+                  <DialogFooter className="mt-4">
+                    <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                      ביטול
+                    </Button>
+                    <Button variant="destructive" onClick={handleDeleteAsset} disabled={deletingAsset}>
+                      {deletingAsset ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin me-2" />
+                          מוחק...
+                        </>
+                      ) : (
+                        'מחק נכס'
+                      )}
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>

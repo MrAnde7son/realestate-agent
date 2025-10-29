@@ -182,11 +182,12 @@ export default function DocumentCategory({
                   onClick={(e) => handleDownload(e, document)}
                   className="h-8 w-8 p-0"
                   title="הורד"
+                  aria-label="הורד מסמך"
                 >
                   <Download className="h-4 w-4" />
                 </Button>
               )}
-              
+
               {document.external_url && (
                 <Button
                   variant="ghost"
@@ -194,6 +195,7 @@ export default function DocumentCategory({
                   onClick={(e) => handleExternalLink(e, document)}
                   className="h-8 w-8 p-0"
                   title="פתח בקישור חיצוני"
+                  aria-label="פתח מסמך בחלון חדש"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>

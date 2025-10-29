@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink } from 'lucide-react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import TablePagination from '@/components/TablePagination';
-import { Skeleton } from '@/components/ui/skeleton';
+import { TableSkeletonRows } from '@/components/TableSkeletonRows';
 
 export interface DecisiveAppraisalRow {
   id: string;
@@ -363,7 +363,11 @@ export default function DecisiveAppraisalsTable({
   }, [filters?.source, trackFeatureUsage]);
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-x-auto rtl" dir="rtl">
+    <div
+      className="rounded-xl border border-border bg-card overflow-x-auto rtl"
+      dir="rtl"
+      aria-busy={loading}
+    >
       <TableToolbar
         searchValue={searchValue}
         onSearchChange={(value) => {
@@ -426,17 +430,9 @@ export default function DecisiveAppraisalsTable({
           ))}
         </TableHeader>
         <TableBody>
-          {showSkeletonRows ? (
-            Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
-              <TableRow key={`skeleton-${rowIndex}`} className="hover:bg-transparent">
-                {visibleLeafColumns.map((column, columnIndex) => (
-                  <TableCell key={`skeleton-${rowIndex}-${column.id ?? columnIndex}`} className="text-start">
-                    <Skeleton className="h-4 w-full max-w-[140px]" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : filteredData.length === 0 ? (
+          {loading ? (
+            <TableSkeletonRows columnCount={columns.length} />
+          ) : table.getRowModel().rows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={visibleLeafColumns.length || columns.length} className="h-24 text-center">
                 <div className="text-muted-foreground py-8">לא נמצאו שומות מכריעות</div>

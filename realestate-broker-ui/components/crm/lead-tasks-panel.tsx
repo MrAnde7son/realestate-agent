@@ -328,7 +328,13 @@ export function LeadTasksPanel({ lead, onClose }: LeadTasksPanelProps) {
                         <TableCell className="text-start">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                aria-label="פתח תפריט פעולות למשימה"
+                                title="פתח תפריט פעולות למשימה"
+                              >
                                 <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
                               </Button>
                             </DropdownMenuTrigger>

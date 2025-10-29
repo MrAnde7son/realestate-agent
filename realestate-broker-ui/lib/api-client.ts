@@ -26,14 +26,55 @@ class ApiClient {
     // Get the access token
     const token = authAPI.getAccessToken()
     
+    const { headers: providedHeaders, ...restOptions } = options
     const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
-      ...options,
+      ...restOptions,
     }
+
+    const headers: Record<string, string> = {}
+
+    const assignHeader = (key: string, value: string) => {
+      headers[key] = value
+    }
+
+    if (providedHeaders) {
+      if (providedHeaders instanceof Headers) {
+        providedHeaders.forEach((value, key) => assignHeader(key, value))
+      } else if (Array.isArray(providedHeaders)) {
+        for (const [key, value] of providedHeaders) {
+          if (key) assignHeader(key, String(value))
+        }
+      } else {
+        Object.entries(providedHeaders).forEach(([key, value]) => {
+          if (key) assignHeader(key, String(value))
+        })
+      }
+    }
+
+    const ensureHeader = (name: string, value: string) => {
+      const existingKey = Object.keys(headers).find((key) => key.toLowerCase() === name.toLowerCase())
+      if (!existingKey) {
+        headers[name] = value
+      }
+    }
+
+    if (token) {
+      ensureHeader('Authorization', `Bearer ${token}`)
+    }
+
+    const isFormDataBody = options.body instanceof FormData
+
+    if (isFormDataBody) {
+      for (const key of Object.keys(headers)) {
+        if (key.toLowerCase() === 'content-type') {
+          delete headers[key]
+        }
+      }
+    } else {
+      ensureHeader('Content-Type', 'application/json')
+    }
+
+    config.headers = headers
 
     try {
       

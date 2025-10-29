@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import AssetDetailPage from './page'
 import AssetDetailPageClient from './AssetDetailPageClient'
 import { useRouter } from 'next/navigation'
@@ -177,7 +177,7 @@ describe('AssetDetailPage', () => {
 
     expect(React.isValidElement(element)).toBe(true)
     if (React.isValidElement(element)) {
-      expect(element.props.assetId).toBe('server-test')
+      expect((element as React.ReactElement<{ assetId: string }>).props.assetId).toBe('server-test')
     }
   })
 
@@ -187,12 +187,19 @@ describe('AssetDetailPage', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
+      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
     })
 
-    const button = screen.getByText('צור הודעת פרסום')
+    // Open the dropdown menu
+    const moreActionsButton = screen.getByText('עוד פעולות')
     await act(async () => {
-      fireEvent.click(button)
+      fireEvent.click(moreActionsButton)
+    })
+
+    // Find and click the share message item in the dropdown
+    const shareMessageButton = await screen.findByText('צור הודעת פרסום')
+    await act(async () => {
+      fireEvent.click(shareMessageButton)
     })
 
     const createButton = await screen.findByText('צור הודעה')
@@ -211,8 +218,18 @@ describe('AssetDetailPage', () => {
       render(<AssetDetailPageClient assetId="1" />)
     })
 
-    const ctaButton = await screen.findByRole('button', { name: 'חשב הוצאות עסקה' })
+    await waitFor(() => {
+      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
+    })
 
+    // Open the dropdown menu
+    const moreActionsButton = screen.getByText('עוד פעולות')
+    await act(async () => {
+      fireEvent.click(moreActionsButton)
+    })
+
+    // Find and click the deal expenses item in the dropdown
+    const ctaButton = await screen.findByText('חשב הוצאות עסקה')
     await act(async () => {
       fireEvent.click(ctaButton)
     })
@@ -238,10 +255,17 @@ describe('AssetDetailPage', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
+      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
     })
 
-    const button = screen.getByText('צור הודעת פרסום')
+    // Open the dropdown menu
+    const moreActionsButton = screen.getByText('עוד פעולות')
+    await act(async () => {
+      fireEvent.click(moreActionsButton)
+    })
+
+    // Find and click the share message item in the dropdown
+    const button = await screen.findByText('צור הודעת פרסום')
     await act(async () => {
       fireEvent.click(button)
     })

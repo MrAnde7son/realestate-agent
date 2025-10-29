@@ -2107,7 +2107,9 @@ useDedupedEffect(() => {
                       </>
                     )}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDealExpensesClick}>
+                  <DropdownMenuItem 
+                    onClick={handleDealExpensesClick}
+                  >
                     <Calculator className="h-4 w-4 ms-2" />
                     חשב הוצאות עסקה
                   </DropdownMenuItem>
@@ -2133,11 +2135,15 @@ useDedupedEffect(() => {
                     )}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShareModal(true)}>
+                  <DropdownMenuItem 
+                    onClick={() => setShareModal(true)}
+                  >
                     <Share2 className="h-4 w-4 ms-2" />
                     צור הודעת פרסום
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleOpenAlerts}>
+                  <DropdownMenuItem 
+                    onClick={handleOpenAlerts}
+                  >
                     <Bell className="h-4 w-4 ms-2" />
                     הגדר התראות
                   </DropdownMenuItem>

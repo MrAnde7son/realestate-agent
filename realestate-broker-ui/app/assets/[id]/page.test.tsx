@@ -60,6 +60,21 @@ vi.mock('@/components/ImageGallery', () => ({
 vi.mock('@/components/DataBadge', () => ({
   default: () => <div>Data Badge</div>
 }))
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) => 
+    asChild ? children : <button>{children}</button>,
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div role="menu">{children}</div>,
+  DropdownMenuItem: ({ children, onClick, disabled, className }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => (
+    <div role="menuitem" onClick={disabled ? undefined : onClick} className={className}>{children}</div>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+}))
+vi.mock('@/hooks/use-toast', () => ({
+  useToast: () => ({
+    toast: vi.fn(),
+  }),
+}))
 
 describe('AssetDetailPage', () => {
   const mockUseRouter = {
@@ -187,7 +202,7 @@ describe('AssetDetailPage', () => {
 
     expect(React.isValidElement(element)).toBe(true)
     if (React.isValidElement(element)) {
-      expect(element.props.assetId).toBe('server-test')
+      expect((element as React.ReactElement<{ assetId: string }>).props.assetId).toBe('server-test')
     }
   })
 
@@ -241,12 +256,23 @@ describe('AssetDetailPage', () => {
     })
 
     await waitFor(() => {
+      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
+    })
+
+    // Open the dropdown menu
+    const moreActionsButton = screen.getByText('עוד פעולות')
+    await act(async () => {
+      fireEvent.click(moreActionsButton)
+    })
+
+    // Wait for dropdown to be visible and find the share message item
+    await waitFor(() => {
       expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
     })
 
-    const button = screen.getByText('צור הודעת פרסום')
+    const shareMessageButton = screen.getByText('צור הודעת פרסום')
     await act(async () => {
-      fireEvent.click(button)
+      fireEvent.click(shareMessageButton)
     })
 
     const createButton = await screen.findByText('צור הודעה')
@@ -265,8 +291,22 @@ describe('AssetDetailPage', () => {
       render(<AssetDetailPageClient assetId="1" />)
     })
 
-    const ctaButton = await screen.findByRole('button', { name: 'חשב הוצאות עסקה' })
+    await waitFor(() => {
+      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
+    })
 
+    // Open the dropdown menu
+    const moreActionsButton = screen.getByText('עוד פעולות')
+    await act(async () => {
+      fireEvent.click(moreActionsButton)
+    })
+
+    // Wait for dropdown to be visible and find the deal expenses item
+    await waitFor(() => {
+      expect(screen.getByText('חשב הוצאות עסקה')).toBeInTheDocument()
+    })
+
+    const ctaButton = screen.getByText('חשב הוצאות עסקה')
     await act(async () => {
       fireEvent.click(ctaButton)
     })
@@ -291,6 +331,17 @@ describe('AssetDetailPage', () => {
       render(<AssetDetailPageClient assetId="1" />)
     })
 
+    await waitFor(() => {
+      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
+    })
+
+    // Open the dropdown menu
+    const moreActionsButton = screen.getByText('עוד פעולות')
+    await act(async () => {
+      fireEvent.click(moreActionsButton)
+    })
+
+    // Wait for dropdown to be visible and find the share message item
     await waitFor(() => {
       expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
     })

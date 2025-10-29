@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'core',
     'crm',
-    'imports'
+    'imports',
+    'deal_workspace'
 ]
 
 MIDDLEWARE = [

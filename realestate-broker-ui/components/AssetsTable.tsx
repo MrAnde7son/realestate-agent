@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye, Search, Plus, Phone, Play, Star, StarOff } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Search, Plus, Phone, Play, Star, StarOff, Handshake } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -385,6 +385,15 @@ function createColumns({
             >
               <Eye className="h-4 w-4" />
             </Link>
+            <Link
+              className="text-indigo-600 hover:text-indigo-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+              href={`/assets/${row.original.id}/deal`}
+              onClick={e => e.stopPropagation()}
+              aria-label={`פתח סביבת עסקה לנכס ${row.original.address}`}
+              title="סביבת עסקה"
+            >
+              <Handshake className="h-4 w-4" />
+            </Link>
             {onToggleWatch && (
               <button
                 type="button"
@@ -444,7 +453,7 @@ function createColumns({
             )}
           </div>
         )
-      } 
+      }
     }
   ]
 }

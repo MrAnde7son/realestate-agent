@@ -3605,7 +3605,9 @@ useDedupedEffect(() => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => loadDocumentsTable()}
+                      onClick={() => {
+                        void loadDocumentsTable();
+                      }}
                       disabled={documentsLoading}
                     >
                       {documentsLoading ? (
@@ -3683,7 +3685,9 @@ useDedupedEffect(() => {
                       onChange: setDocumentsStatusFilter,
                     },
                   }}
-                  onRefresh={loadDocumentsTable}
+                  onRefresh={() => {
+                    void loadDocumentsTable();
+                  }}
                   totalCount={documentsData.total}
                   paginationState={documentsPagination}
                   onPaginationChange={setDocumentsPagination}

@@ -10,8 +10,35 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { MapLayerService, LayerConfig } from '@/lib/map-layer-service'
 import type { Asset } from '@/lib/normalizers/asset'
+import { buildMarkerDisplayData, shouldDisplayMarkerLabel, type MarkerDisplayData } from '@/components/map-marker-utils'
 import { normalizeToLonLat } from '@/lib/geo/transform'
 import 'maplibre-gl/dist/maplibre-gl.css'
+
+type MarkerElement = HTMLDivElement & { __cleanupTooltip?: () => void }
+
+const isCoarsePointerEnvironment = (): boolean => {
+  if (typeof window === 'undefined') return false
+  const { matchMedia, navigator } = window
+
+  const queries = ['(pointer: coarse)', '(hover: none)']
+  for (const query of queries) {
+    try {
+      if (matchMedia?.(query)?.matches) {
+        return true
+      }
+    } catch (error) {
+      console.warn('MapView: matchMedia check failed', error)
+    }
+  }
+
+  if (navigator) {
+    const nav = navigator as Navigator & { msMaxTouchPoints?: number }
+    if (typeof nav.maxTouchPoints === 'number' && nav.maxTouchPoints > 0) return true
+    if (typeof nav.msMaxTouchPoints === 'number' && nav.msMaxTouchPoints > 0) return true
+  }
+
+  return false
+}
 
 interface MapViewProps {
   assets: Asset[]
@@ -33,6 +60,108 @@ interface GeocodingResult {
       lng: number
     }
   }
+}
+
+const createMarkerLabelElement = (display: MarkerDisplayData) => {
+  const label = document.createElement('div')
+  label.className = 'asset-marker-label'
+  label.dataset.visible = 'false'
+  label.dataset.persist = 'false'
+  label.setAttribute('aria-hidden', 'true')
+
+  const addressEl = document.createElement('div')
+  addressEl.className = 'asset-marker-address'
+  addressEl.textContent = display.shortAddress
+  label.appendChild(addressEl)
+
+  const subline = display.priceLabel ?? display.cityLine
+  if (subline) {
+    const sublineEl = document.createElement('div')
+    sublineEl.className = display.priceLabel ? 'asset-marker-price' : 'asset-marker-city'
+    sublineEl.textContent = subline
+    label.appendChild(sublineEl)
+  }
+
+  return label
+}
+
+const createTooltipElement = (display: MarkerDisplayData) => {
+  const tooltip = document.createElement('div')
+  tooltip.className = 'asset-marker-tooltip'
+  tooltip.dataset.visible = 'false'
+  tooltip.setAttribute('role', 'tooltip')
+
+  const card = document.createElement('div')
+  card.className = 'asset-marker-tooltip-card'
+  tooltip.appendChild(card)
+
+  if (display.photoUrl) {
+    const photoWrapper = document.createElement('div')
+    photoWrapper.className = 'asset-marker-tooltip-photo'
+    const img = document.createElement('img')
+    img.src = display.photoUrl
+    img.alt = display.shortAddress
+    img.loading = 'lazy'
+    photoWrapper.appendChild(img)
+    card.appendChild(photoWrapper)
+  }
+
+  const details = document.createElement('div')
+  details.className = 'asset-marker-tooltip-details'
+  card.appendChild(details)
+
+  const addressEl = document.createElement('div')
+  addressEl.className = 'asset-marker-tooltip-address'
+  addressEl.textContent = display.fullAddress
+  details.appendChild(addressEl)
+
+  if (display.priceLabel) {
+    const priceEl = document.createElement('div')
+    priceEl.className = 'asset-marker-tooltip-price'
+    priceEl.textContent = display.priceLabel
+    details.appendChild(priceEl)
+  }
+
+  if (display.cityLine) {
+    const cityEl = document.createElement('div')
+    cityEl.className = 'asset-marker-tooltip-city'
+    cityEl.textContent = display.cityLine
+    details.appendChild(cityEl)
+  }
+
+  const metaItems = [
+    display.areaLabel,
+    display.roomsLabel,
+    display.propertyType,
+    display.pricePerSqmLabel,
+  ].filter((value): value is string => Boolean(value))
+
+  if (metaItems.length) {
+    const metaEl = document.createElement('div')
+    metaEl.className = 'asset-marker-tooltip-meta'
+    metaItems.forEach(text => {
+      const itemEl = document.createElement('span')
+      itemEl.textContent = text
+      metaEl.appendChild(itemEl)
+    })
+    details.appendChild(metaEl)
+  }
+
+  if (display.features.length) {
+    const featuresEl = document.createElement('div')
+    featuresEl.className = 'asset-marker-tooltip-features'
+    featuresEl.textContent = display.features.join(' • ')
+    details.appendChild(featuresEl)
+  }
+
+  if (display.sourceLabel) {
+    const sourceEl = document.createElement('div')
+    sourceEl.className = 'asset-marker-tooltip-source'
+    sourceEl.textContent = `מקור: ${display.sourceLabel}`
+    details.appendChild(sourceEl)
+  }
+
+  return tooltip
 }
 
 
@@ -123,6 +252,7 @@ export default function MapView({
   const layerService = useRef<MapLayerService | null>(null)
   const geocodingService = useRef<GeocodingService | null>(null)
   const markersRef = useRef<Record<string | number, maplibregl.Marker>>({})
+  const coarsePointerRef = useRef(false)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -133,8 +263,48 @@ export default function MapView({
 
   useEffect(() => { geocodingService.current = new GeocodingService() }, [])
 
+  const syncMarkerLabelVisibility = useCallback(() => {
+    if (!map.current) return
+
+    const totalMarkers = Object.keys(markersRef.current).length
+    const shouldPersist = shouldDisplayMarkerLabel({
+      totalAssets: totalMarkers,
+      zoom: map.current.getZoom(),
+      preferTouchDevice: coarsePointerRef.current,
+    })
+
+    Object.values(markersRef.current).forEach(marker => {
+      const element = marker.getElement() as HTMLElement | null
+      if (!element) return
+      const label = element.querySelector<HTMLDivElement>('.asset-marker-label')
+      const tooltip = element.querySelector<HTMLDivElement>('.asset-marker-tooltip')
+      if (!label) return
+
+      label.dataset.persist = shouldPersist ? 'true' : 'false'
+
+      if (shouldPersist) {
+        label.dataset.visible = 'true'
+        label.setAttribute('aria-hidden', 'false')
+      } else if (!tooltip || tooltip.dataset.visible !== 'true') {
+        label.classList.remove('asset-marker-label--hover')
+        label.dataset.visible = 'false'
+        label.setAttribute('aria-hidden', 'true')
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!map.current) return
+    const handleZoom = () => syncMarkerLabelVisibility()
+    const instance = map.current
+    instance.on('zoomend', handleZoom)
+    return () => {
+      instance.off('zoomend', handleZoom)
+    }
+  }, [syncMarkerLabelVisibility])
+
   const addAssetMarkers = useCallback(() => {
-    if (!map.current || !assets.length) return
+    if (!map.current) return
 
     const m = getMapOrThrow()
     console.log('MapView: Adding markers for', assets.length, 'assets')
@@ -142,12 +312,31 @@ export default function MapView({
     console.log('MapView: Map zoom:', map.current.getZoom())
 
     // Remove existing markers properly
-    Object.values(markersRef.current).forEach(m => m.remove())
+    Object.values(markersRef.current).forEach(markerInstance => {
+      const element = markerInstance.getElement() as MarkerElement | null
+      element?.__cleanupTooltip?.()
+      markerInstance.remove()
+    })
     markersRef.current = {}
 
-    const normalizedPoints: Array<{ lon: number; lat: number; asset: Asset; src: string }> = [];
+    if (!assets.length) {
+      syncMarkerLabelVisibility()
+      return
+    }
 
-    assets.forEach((asset, index) => {
+    const normalizedPoints: Array<{ lon: number; lat: number; asset: Asset; src: string }> = [];
+    const preferTouchDevice = isCoarsePointerEnvironment()
+    const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window
+    const outsideEventName: 'pointerdown' | 'touchstart' = supportsPointerEvents ? 'pointerdown' : 'touchstart'
+    coarsePointerRef.current = preferTouchDevice
+
+    const labelsVisibleByDefault = shouldDisplayMarkerLabel({
+      totalAssets: assets.length,
+      zoom: map.current?.getZoom(),
+      preferTouchDevice,
+    })
+
+    assets.forEach(asset => {
       const pt = normalizeToLonLat({
         lon: asset.lon,
         lat: asset.lat,
@@ -169,36 +358,130 @@ export default function MapView({
       const { lat, lon, source } = pt as any;
       normalizedPoints.push({ lon, lat, asset, src: source });
     
-      // Use a container element for the marker, and apply hover transforms to a child
-      // so we don't override MapLibre's own transform used for positioning.
-      const markerContainer = document.createElement('div');
-      markerContainer.className = 'asset-marker';
-      markerContainer.style.cssText = `
-        width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
-        z-index: 1000;
-      `;
+      const displayData = buildMarkerDisplayData(asset)
 
-      const innerEl = document.createElement('div');
-      innerEl.style.cssText = `
-        width: 40px; height: 40px; border-radius: 50%; background-color: #ef4444;
-        border: 4px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        cursor: pointer; display: flex; align-items: center; justify-content: center;
-        color: white; font-weight: bold; font-size: 14px; transition: transform 0.2s;
-      `;
-      innerEl.innerHTML = `<span>${index + 1}</span>`;
-      innerEl.title = `${asset.address ?? asset.id} • ${source}`;
+      const markerContainer = document.createElement('div') as MarkerElement
+      markerContainer.className = 'asset-marker'
+      markerContainer.style.zIndex = '1000'
+      markerContainer.style.touchAction = 'manipulation'
+      markerContainer.setAttribute('role', 'button')
+      markerContainer.tabIndex = 0
+      markerContainer.setAttribute('aria-label', displayData.fullAddress)
 
-      markerContainer.appendChild(innerEl);
+      const labelEl = createMarkerLabelElement(displayData)
 
-      markerContainer.addEventListener('click', () => onAssetClick(asset));
-      markerContainer.addEventListener('mouseenter', () => {
-        innerEl.style.transform = 'scale(1.1)';
-      });
-      markerContainer.addEventListener('mouseleave', () => {
-        innerEl.style.transform = 'scale(1)';
-      });
+      if (labelsVisibleByDefault) {
+        labelEl.dataset.visible = 'true'
+        labelEl.dataset.persist = 'true'
+        labelEl.setAttribute('aria-hidden', 'false')
+      }
+      markerContainer.appendChild(labelEl)
 
-      const marker = new maplibregl.Marker({ element: markerContainer })
+      const pinEl = document.createElement('div')
+      pinEl.className = 'asset-marker-pin'
+      markerContainer.appendChild(pinEl)
+
+      const tooltipEl = createTooltipElement(displayData)
+      const tooltipId = `asset-tooltip-${asset.id}`
+      tooltipEl.id = tooltipId
+      markerContainer.setAttribute('aria-describedby', tooltipId)
+      markerContainer.appendChild(tooltipEl)
+
+      let skipNextClick = false
+      let detachOutsideListener: (() => void) | null = null
+
+      const clearOutsideListener = () => {
+        if (detachOutsideListener) {
+          detachOutsideListener()
+          detachOutsideListener = null
+        }
+      }
+
+      const showTooltip = () => {
+        labelEl.dataset.visible = 'true'
+        labelEl.setAttribute('aria-hidden', 'false')
+        labelEl.classList.add('asset-marker-label--hover')
+        tooltipEl.dataset.visible = 'true'
+      }
+
+      const hideTooltip = () => {
+        clearOutsideListener()
+        labelEl.classList.remove('asset-marker-label--hover')
+        if (labelEl.dataset.persist !== 'true') {
+          labelEl.dataset.visible = 'false'
+          labelEl.setAttribute('aria-hidden', 'true')
+        } else {
+          labelEl.setAttribute('aria-hidden', 'false')
+        }
+        tooltipEl.dataset.visible = 'false'
+        skipNextClick = false
+      }
+
+      const registerOutsideListener = () => {
+        clearOutsideListener()
+        const handleOutside = (event: Event) => {
+          if (!markerContainer.contains(event.target as Node)) {
+            hideTooltip()
+          }
+        }
+        document.addEventListener(outsideEventName, handleOutside, true)
+        detachOutsideListener = () => {
+          document.removeEventListener(outsideEventName, handleOutside, true)
+        }
+      }
+
+      markerContainer.addEventListener('mouseenter', showTooltip)
+      markerContainer.addEventListener('mouseleave', hideTooltip)
+      markerContainer.addEventListener('focus', showTooltip)
+      markerContainer.addEventListener('blur', hideTooltip)
+
+      const handleCoarsePointerDown = (event: PointerEvent | TouchEvent) => {
+        if (!preferTouchDevice) return
+        const pointerType = 'pointerType' in event ? (event as PointerEvent).pointerType : 'touch'
+        if (pointerType && pointerType !== 'touch' && pointerType !== 'pen') return
+
+        const tooltipVisible = tooltipEl.dataset.visible === 'true'
+        if (!tooltipVisible) {
+          skipNextClick = true
+          showTooltip()
+          registerOutsideListener()
+        } else {
+          skipNextClick = false
+        }
+      }
+
+      if (supportsPointerEvents) {
+        markerContainer.addEventListener('pointerdown', handleCoarsePointerDown as (event: PointerEvent) => void)
+      } else {
+        markerContainer.addEventListener('touchstart', handleCoarsePointerDown as (event: TouchEvent) => void, {
+          passive: true,
+        })
+      }
+
+      markerContainer.addEventListener('click', event => {
+        if (skipNextClick) {
+          skipNextClick = false
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+
+        hideTooltip()
+        onAssetClick(asset)
+      })
+      markerContainer.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          hideTooltip()
+          onAssetClick(asset)
+        }
+      })
+
+      markerContainer.__cleanupTooltip = () => {
+        hideTooltip()
+      }
+
+      const marker = new maplibregl.Marker({ element: markerContainer, anchor: 'bottom' })
       .setLngLat([lon, lat])
       .addTo(m)
       markersRef.current[asset.id] = marker
@@ -220,7 +503,9 @@ export default function MapView({
       );
       map.current.fitBounds(bounds, { padding: 50 });
     }
-  }, [assets, onAssetClick])
+
+    syncMarkerLabelVisibility()
+  }, [assets, onAssetClick, syncMarkerLabelVisibility])
 
   // Initialize map
   useEffect(() => {

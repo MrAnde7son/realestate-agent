@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
@@ -63,6 +63,30 @@ export default function ImageGallery({
       setSelectedImage(selectedImage === 0 ? images.length - 1 : selectedImage - 1)
     }
   }
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!isFullscreen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedImage === null) return
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setSelectedImage(selectedImage === 0 ? images.length - 1 : selectedImage - 1)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setSelectedImage((selectedImage + 1) % images.length)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setIsFullscreen(false)
+        setSelectedImage(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFullscreen, selectedImage, images.length])
 
   return (
     <>
@@ -135,8 +159,11 @@ export default function ImageGallery({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute start-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
-                      onClick={prevImage}
+                      className="absolute start-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white z-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        prevImage()
+                      }}
                       aria-label="הצג תמונה קודמת"
                       title="הצג תמונה קודמת"
                     >
@@ -145,8 +172,11 @@ export default function ImageGallery({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute end-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
-                      onClick={nextImage}
+                      className="absolute end-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white z-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        nextImage()
+                      }}
                       aria-label="הצג תמונה הבאה"
                       title="הצג תמונה הבאה"
                     >

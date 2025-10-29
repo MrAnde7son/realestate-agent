@@ -2907,6 +2907,19 @@ useDedupedEffect(() => {
                   <span className="text-muted-foreground">היטל השבחה צפוי:</span>
                   <span>{asset.bettermentLevy ?? '—'}</span>
                 </div>
+                {asset.investmentPotential && (
+                  <div className="flex justify-between rtl:flex-row-reverse">
+                    <span className="text-muted-foreground">פוטנציאל השקעה:</span>
+                    <div className="text-end">
+                      {asset.investmentPotentialScore && (
+                        <Badge variant={asset.investmentPotentialScore === 'גבוה' ? 'success' : asset.investmentPotentialScore === 'בינוני' ? 'warning' : 'neutral'} className="mb-1">
+                          {asset.investmentPotentialScore}
+                        </Badge>
+                      )}
+                      <div className="text-sm mt-1">{asset.investmentPotential}</div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Enhanced Planning Metrics */}
                 <div className="flex justify-between rtl:flex-row-reverse">
@@ -3480,24 +3493,80 @@ useDedupedEffect(() => {
                 {/* Environmental Features */}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">שטחים ירוקים:</span>
-                  {renderValue(asset.greenWithin300m ? 'כן' : 'לא', 'greenWithin300m')}
+                  {renderValue(asset.openSpacesNearby ?? (asset.greenWithin300m ? 'כן' : 'לא'), 'openSpacesNearby')}
                 </div>
+                {asset.greenScore && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">ציון ירוק:</span>
+                    <Badge variant={asset.greenScore === 'גבוה' ? 'success' : asset.greenScore === 'בינוני' ? 'warning' : 'neutral'}>
+                      {asset.greenScore}
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">תחבורה ציבורית:</span>
                   {renderValue(asset.publicTransport ?? '—', 'publicTransport')}
                 </div>
+                {asset.metroStationDistanceM && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מרחק מתחנת מטרו:</span>
+                    {renderValue(`${asset.metroStationDistanceM} מ׳${asset.metroStationsCount ? ` (${asset.metroStationsCount} תחנות)` : ''}`, 'metroStationDistanceM')}
+                  </div>
+                )}
+                {asset.schoolsCount && asset.schoolsCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">בתי ספר וגני ילדים:</span>
+                    {renderValue(`${asset.schoolsCount}${asset.nearestSchoolDistanceM ? ` (קרוב ביותר: ${asset.nearestSchoolDistanceM} מ׳)` : ''}`, 'schoolsCount')}
+                  </div>
+                )}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מבני ציבור:</span>
                   {renderValue(asset.publicBuildings ?? '—', 'publicBuildings')}
                 </div>
+                {asset.medicalFacilitiesCount && asset.medicalFacilitiesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מתקנים רפואיים:</span>
+                    {renderValue(`${asset.medicalFacilitiesCount}${asset.nearestMedicalFacilityDistanceM ? ` (קרוב ביותר: ${asset.nearestMedicalFacilityDistanceM} מ׳)` : ''}`, 'medicalFacilitiesCount')}
+                  </div>
+                )}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מצב חניה:</span>
                   {renderValue(asset.parking ?? '—', 'parking')}
                 </div>
+                {asset.parkingLotsCount && asset.parkingLotsCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">חניונים באזור:</span>
+                    {renderValue(`${asset.parkingLotsCount} (${asset.publicParkingLotsCount || 0} ציבוריים)`, 'parkingLotsCount')}
+                  </div>
+                )}
+                {asset.hasBikePaths && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">שבילי אופניים:</span>
+                    {renderValue(`${asset.bikePathsCount || 0} שבילים בקרבת מקום`, 'bikePathsCount')}
+                  </div>
+                )}
+                {asset.greenAmenitiesCount && asset.greenAmenitiesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מתקני נופש ירוקים:</span>
+                    {renderValue(`${asset.greenAmenitiesCount}${asset.playgroundsCount ? ` (${asset.playgroundsCount} מגרשי משחקים)` : ''}`, 'greenAmenitiesCount')}
+                  </div>
+                )}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">פרויקטים סמוכים:</span>
                   {renderValue(asset.nearbyProjects ?? '—', 'nearbyProjects')}
                 </div>
+                {asset.constructionSitesCount && asset.constructionSitesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">אתרי בנייה פעילים:</span>
+                    {renderValue(`${asset.constructionSitesCount}`, 'constructionSitesCount')}
+                  </div>
+                )}
+                {asset.tama38KeyArea && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">אזור תמ״א 38:</span>
+                    <Badge variant="success">כן ({asset.tama38KeyAreasCount || 0} אזורים)</Badge>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

@@ -164,6 +164,75 @@ describe("TableToolbar quick filters", () => {
     expect(container).toHaveClass("w-full");
   });
 
+  it("organizes the full filters into guided sections", () => {
+    const additionalFilters = [
+      {
+        key: "neighborhood",
+        label: "שכונה",
+        type: "select" as const,
+        value: "all",
+        options: [
+          { value: "all", label: "כל השכונות" },
+          { value: "center", label: "מרכז" },
+        ],
+      },
+      {
+        key: "rooms",
+        label: "חדרים",
+        type: "select" as const,
+        value: "all",
+        options: [
+          { value: "all", label: "כל החדרים" },
+          { value: "3", label: "3 חדרים" },
+        ],
+      },
+      {
+        key: "source",
+        label: "מקור",
+        type: "select" as const,
+        value: "all",
+        options: [
+          { value: "all", label: "כל המקורות" },
+          { value: "yad2", label: "יד2" },
+        ],
+      },
+      {
+        key: "notes",
+        label: "הערות",
+        type: "text" as const,
+        value: "",
+        placeholder: "הקלד הערה",
+      },
+    ];
+
+    renderToolbar({ additionalFilters });
+
+    fireEvent.click(screen.getByRole("button", { name: "סינון" }));
+
+    const primaryToggle = screen.getByRole("button", { name: "מיקום ותקציב" });
+    expect(primaryToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("עיר")).toBeInTheDocument();
+    expect(screen.getByLabelText("מחיר מינימלי")).toBeInTheDocument();
+    expect(screen.getByText("שכונה")).toBeInTheDocument();
+
+    const propertyToggle = screen.getByRole("button", { name: "מאפייני נכס" });
+    expect(propertyToggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(propertyToggle);
+    expect(propertyToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("חדרים")).toBeInTheDocument();
+
+    const transactionToggle = screen.getByRole("button", { name: "סטטוס ומקור" });
+    fireEvent.click(transactionToggle);
+    expect(transactionToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("מקור")).toBeInTheDocument();
+
+    const advancedToggle = screen.getByRole("button", { name: "סינון מתקדם" });
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(advancedToggle);
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByPlaceholderText("הקלד הערה")).toBeInTheDocument();
+  });
+
   it("renders rounded view mode toggle buttons", () => {
     renderToolbar();
 

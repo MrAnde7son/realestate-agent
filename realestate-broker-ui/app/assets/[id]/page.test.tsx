@@ -60,116 +60,24 @@ vi.mock('@/components/ImageGallery', () => ({
 vi.mock('@/components/DataBadge', () => ({
   default: () => <div>Data Badge</div>
 }))
-vi.mock('@/components/ui/dropdown-menu', async () => {
-  const actual = await vi.importActual<typeof import('@/components/ui/dropdown-menu')>(
-    '@/components/ui/dropdown-menu'
-  )
-
-  return {
-    ...actual,
-    DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-    DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) =>
-      asChild ? children : <button>{children}</button>,
-    DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div role="menu">{children}</div>,
-    DropdownMenuLabel: ({ children }: { children: React.ReactNode }) => (
-      <div role="presentation" className="dropdown-menu-label">
-        {children}
-      </div>
-    ),
-    DropdownMenuItem: ({ children, onClick, disabled, className }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => (
-      <div role="menuitem" onClick={disabled ? undefined : onClick} className={className}>{children}</div>
-    ),
-    DropdownMenuCheckboxItem: ({
-      children,
-      checked,
-      onCheckedChange,
-      className,
-      disabled,
-    }: {
-      children: React.ReactNode
-      checked?: boolean
-      onCheckedChange?: (checked: boolean) => void
-      className?: string
-      disabled?: boolean
-    }) => (
-      <div
-        role="menuitemcheckbox"
-        aria-checked={checked}
-        onClick={disabled ? undefined : () => onCheckedChange?.(!checked)}
-        className={className}
-      >
-        {children}
-      </div>
-    ),
-    DropdownMenuRadioGroup: ({
-      children,
-      onValueChange,
-      value,
-      defaultValue,
-    }: {
-      children: React.ReactNode
-      onValueChange?: (value: string) => void
-      value?: string
-      defaultValue?: string
-    }) => {
-      const [internalValue, setInternalValue] = React.useState<string | undefined>(defaultValue)
-      const currentValue = value ?? internalValue
-
-      return (
-        <div role="radiogroup">
-          {React.Children.map(children, (child) => {
-            if (!React.isValidElement(child)) return child
-
-            const childProps = child.props as {
-              onSelect?: (value: string) => void
-              value?: string
-            }
-
-            const handleSelect = (newValue: string) => {
-              childProps.onSelect?.(newValue)
-              if (value === undefined) {
-                setInternalValue(newValue)
-              }
-              onValueChange?.(newValue)
-            }
-
-            return React.cloneElement(child, {
-              onSelect: handleSelect,
-              checked: currentValue !== undefined && childProps.value === currentValue,
-            })
-          })}
-        </div>
-      )
-    },
-    DropdownMenuRadioItem: ({
-      children,
-      value,
-      onSelect,
-      className,
-      disabled,
-      checked,
-    }: {
-      children: React.ReactNode
-      value: string
-      onSelect?: (value: string) => void
-      className?: string
-      disabled?: boolean
-      checked?: boolean
-    }) => (
-      <div
-        role="menuitemradio"
-        data-value={value}
-        aria-checked={checked ?? false}
-        data-state={checked ? 'checked' : 'unchecked'}
-        onClick={disabled ? undefined : () => onSelect?.(value)}
-        className={className}
-      >
-        {children}
-      </div>
-    ),
-    DropdownMenuSeparator: () => <hr />,
-  }
-})
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) =>
+    asChild ? children : <button>{children}</button>,
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div role="menu">{children}</div>,
+  DropdownMenuItem: ({ children, onClick, disabled, className }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => (
+    <div role="menuitem" onClick={disabled ? undefined : onClick} className={className}>{children}</div>
+  ),
+  DropdownMenuCheckboxItem: ({ children, onCheckedChange }: { children: React.ReactNode; onCheckedChange?: (checked: boolean) => void }) => (
+    <div role="menuitemcheckbox" aria-checked="false" onClick={() => onCheckedChange?.(true)}>{children}</div>
+  ),
+  DropdownMenuRadioGroup: ({ children }: { children: React.ReactNode }) => <div role="radiogroup">{children}</div>,
+  DropdownMenuRadioItem: ({ children, value, onClick }: { children: React.ReactNode; value: string; onClick?: () => void }) => (
+    <div role="menuitemradio" aria-checked="false" data-value={value} onClick={onClick}>{children}</div>
+  ),
+  DropdownMenuLabel: ({ children }: { children: React.ReactNode }) => <div role="presentation">{children}</div>,
+  DropdownMenuSeparator: () => <hr />,
+}))
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: vi.fn(),
@@ -307,9 +215,12 @@ describe('AssetDetailPage', () => {
   })
 
   it('aborts in-flight asset fetch when assetId changes', async () => {
-    const defaultFetch = global.fetch as unknown as vi.Mock
+    // Use vi as imported from vitest directly.
+    // @ts-expect-error: vi is not defined in global, but brought by vitest environment
+    const defaultFetch = global.fetch as unknown as jest.Mock
     let firstSignal: AbortSignal | undefined
 
+    // Use vi.fn for mocking (from vitest)
     const abortingFetch = vi.fn((url: string, options?: RequestInit) => {
       if (url === '/api/assets/1') {
         const signal = options?.signal as AbortSignal | undefined

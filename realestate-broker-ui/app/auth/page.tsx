@@ -26,13 +26,6 @@ const registerSchema = z.object({
   confirmPassword: z.string(),
   first_name: z.string().min(2, 'שם פרטי חייב להכיל לפחות 2 תווים'),
   last_name: z.string().min(2, 'שם משפחה חייב להכיל לפחות 2 תווים'),
-  equity: z.preprocess((val) => {
-    if (val === '' || val === null || val === undefined) {
-      return undefined
-    }
-    const numericValue = typeof val === 'number' ? val : parseFloat(val as string)
-    return Number.isNaN(numericValue) ? undefined : numericValue
-  }, z.number().min(0, 'הון עצמי חייב להיות מספר חיובי').optional()),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "סיסמאות אינן תואמות",
   path: ["confirmPassword"],
@@ -67,9 +60,6 @@ export default function AuthPage() {
 
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      equity: undefined,
-    },
   })
 
   const onLoginSubmit = async (data: LoginFormData) => {
@@ -84,11 +74,8 @@ export default function AuthPage() {
   const onRegisterSubmit = async (data: RegisterFormData) => {
     try {
       setError('')
-      const { confirmPassword, equity, ...registerData } = data
+      const { confirmPassword, ...registerData } = data
       const payload: RegisterCredentials = { ...registerData }
-      if (typeof equity === 'number' && !Number.isNaN(equity)) {
-        payload.equity = equity
-      }
       await register(payload, redirectTo)
     } catch (err: any) {
       setError(err.message || 'שגיאה בהרשמה')
@@ -279,27 +266,6 @@ export default function AuthPage() {
                     </p>
                   )}
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
-                  <Input
-                    id="equity"
-                    type="number"
-                    min="0"
-                    step="1000"
-                    placeholder="לדוגמה: 450000"
-                    {...registerForm.register('equity')}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    נשתמש בהון העצמי שלך כברירת מחדל במחשבון המשכנתא
-                  </p>
-                  {registerForm.formState.errors.equity && (
-                    <p className="text-sm text-destructive">
-                      {registerForm.formState.errors.equity.message}
-                    </p>
-                  )}
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="password">סיסמה</Label>
                   <div className="relative">

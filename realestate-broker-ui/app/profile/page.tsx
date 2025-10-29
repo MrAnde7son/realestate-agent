@@ -27,6 +27,7 @@ const profileSchema = z.object({
   phone: z.string().optional(),
   notify_email: z.boolean().optional(),
   notify_whatsapp: z.boolean().optional(),
+  equity: z.number().min(0, 'הון עצמי חייב להיות מספר חיובי').nullable().optional(),
 })
 
 const changePasswordSchema = z.object({
@@ -70,6 +71,7 @@ export default function ProfilePage() {
       phone: user?.phone || '',
       notify_email: user?.notify_email || false,
       notify_whatsapp: user?.notify_whatsapp || false,
+      equity: user?.equity ?? null,
     },
   })
 
@@ -93,6 +95,7 @@ export default function ProfilePage() {
         phone: user.phone || '',
         notify_email: user.notify_email || false,
         notify_whatsapp: user.notify_whatsapp || false,
+        equity: user.equity ?? null,
       })
     }
   }, [user, form])
@@ -346,6 +349,35 @@ export default function ProfilePage() {
                     {form.formState.errors.phone && (
                       <p className="text-sm text-destructive">
                         {form.formState.errors.phone.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
+                    <Input
+                      id="equity"
+                      type="number"
+                      min="0"
+                      step="1000"
+                      placeholder="לדוגמה: 450000"
+                      disabled={!isEditing}
+                      {...form.register('equity', {
+                        setValueAs: (value) => {
+                          if (value === '' || value === null || value === undefined) {
+                            return null
+                          }
+                          const numericValue = Number(value)
+                          return Number.isNaN(numericValue) ? null : numericValue
+                        },
+                      })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      נשתמש בהון העצמי שלך כברירת מחדל במחשבון המשכנתא
+                    </p>
+                    {form.formState.errors.equity && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.equity.message}
                       </p>
                     )}
                   </div>

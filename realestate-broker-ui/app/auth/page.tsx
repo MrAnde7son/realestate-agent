@@ -14,7 +14,6 @@ import Logo from '@/components/Logo'
 import { useAuth } from '@/lib/auth-context'
 import { LoginCredentials, RegisterCredentials } from '@/lib/auth'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const loginSchema = z.object({
   email: z.string().email('דוא״ל לא תקין'),
@@ -27,9 +26,6 @@ const registerSchema = z.object({
   confirmPassword: z.string(),
   first_name: z.string().min(2, 'שם פרטי חייב להכיל לפחות 2 תווים'),
   last_name: z.string().min(2, 'שם משפחה חייב להכיל לפחות 2 תווים'),
-  role: z.enum(['broker', 'appraiser', 'private'], {
-    required_error: 'בחר סוג משתמש',
-  }),
   equity: z.preprocess((val) => {
     if (val === '' || val === null || val === undefined) {
       return undefined
@@ -59,7 +55,7 @@ export default function AuthPage() {
   const mode = searchParams.get('mode')
   
   // Set initial mode based on URL parameter
-  React.useEffect(() => {
+  useEffect(() => {
     if (mode === 'signup') {
       setIsLogin(false)
     }
@@ -72,11 +68,9 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      role: 'private',
       equity: undefined,
     },
   })
-  const selectedRole = registerForm.watch('role')
 
   const onLoginSubmit = async (data: LoginFormData) => {
     try {
@@ -92,7 +86,7 @@ export default function AuthPage() {
       setError('')
       const { confirmPassword, equity, ...registerData } = data
       const payload: RegisterCredentials = { ...registerData }
-      if (registerData.role === 'private' && typeof equity === 'number' && !Number.isNaN(equity)) {
+      if (typeof equity === 'number' && !Number.isNaN(equity)) {
         payload.equity = equity
       }
       await register(payload, redirectTo)
@@ -287,53 +281,24 @@ export default function AuthPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="role">סוג משתמש</Label>
-                  <Select
-                    value={registerForm.watch('role')}
-                    onValueChange={(value) =>
-                      registerForm.setValue('role', value as 'broker' | 'appraiser' | 'private', {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="role">
-                      <SelectValue placeholder="בחר סוג משתמש" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="broker">מתווך</SelectItem>
-                      <SelectItem value="appraiser">שמאי</SelectItem>
-                      <SelectItem value="private">פרטי</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {registerForm.formState.errors.role && (
+                  <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
+                  <Input
+                    id="equity"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    placeholder="לדוגמה: 450000"
+                    {...registerForm.register('equity')}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    נשתמש בהון העצמי שלך כברירת מחדל במחשבון המשכנתא
+                  </p>
+                  {registerForm.formState.errors.equity && (
                     <p className="text-sm text-destructive">
-                      {registerForm.formState.errors.role.message}
+                      {registerForm.formState.errors.equity.message}
                     </p>
                   )}
                 </div>
-
-                {selectedRole === 'private' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
-                    <Input
-                      id="equity"
-                      type="number"
-                      min="0"
-                      step="1000"
-                      placeholder="לדוגמה: 450000"
-                      {...registerForm.register('equity')}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      נשתמש בהון העצמי שלך כברירת מחדל במחשבון המשכנתא
-                    </p>
-                    {registerForm.formState.errors.equity && (
-                      <p className="text-sm text-destructive">
-                        {registerForm.formState.errors.equity.message}
-                      </p>
-                    )}
-                  </div>
-                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="password">סיסמה</Label>

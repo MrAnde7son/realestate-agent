@@ -10,12 +10,6 @@ from rest_framework import status
 
 User = get_user_model()
 
-ALLOWED_REGISTRATION_ROLES = {
-    User.Role.BROKER,
-    User.Role.APPRAISER,
-    User.Role.PRIVATE,
-}
-
 DEFAULT_REGISTRATION_ROLE = User.Role.PRIVATE
 
 
@@ -71,16 +65,11 @@ class AuthenticationService:
             first_name = user_data.get('first_name', '')
             last_name = user_data.get('last_name', '')
             company = user_data.get('company', '')
-            requested_role = user_data.get('role')
             raw_equity = user_data.get('equity')
-            role = (
-                requested_role
-                if requested_role in ALLOWED_REGISTRATION_ROLES
-                else str(DEFAULT_REGISTRATION_ROLE)
-            )
+            role = str(DEFAULT_REGISTRATION_ROLE)
 
             equity = None
-            if role == str(User.Role.PRIVATE) and raw_equity not in (None, ""):
+            if raw_equity not in (None, ""):
                 try:
                     equity = Decimal(str(raw_equity))
                 except (InvalidOperation, TypeError):
@@ -385,6 +374,7 @@ class AuthenticationService:
                     password=make_password(None),  # No password for OAuth users
                     first_name=first_name,
                     last_name=last_name,
+                    role=str(DEFAULT_REGISTRATION_ROLE),
                     is_verified=True  # Google users are verified
                 )
             

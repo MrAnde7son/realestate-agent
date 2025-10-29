@@ -39,7 +39,6 @@ export interface RegisterCredentials {
   first_name?: string
   last_name?: string
   company?: string
-  role: 'broker' | 'appraiser' | 'private'
   equity?: number
 }
 

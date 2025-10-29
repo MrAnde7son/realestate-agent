@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink } from 'lucide-react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import TablePagination from '@/components/TablePagination';
+import { TableSkeletonRows } from '@/components/TableSkeletonRows';
 
 export interface DecisiveAppraisalRow {
   id: string;
@@ -357,16 +358,12 @@ export default function DecisiveAppraisalsTable({
     }
   }, [filters?.source, trackFeatureUsage]);
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-border bg-card">
-        <div className="p-8 text-center text-muted-foreground">טוען שומות מכריעות...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-xl border border-border bg-card overflow-x-auto rtl" dir="rtl">
+    <div
+      className="rounded-xl border border-border bg-card overflow-x-auto rtl"
+      dir="rtl"
+      aria-busy={loading}
+    >
       <TableToolbar
         searchValue={searchValue}
         onSearchChange={(value) => {
@@ -425,7 +422,9 @@ export default function DecisiveAppraisalsTable({
           ))}
         </TableHeader>
         <TableBody>
-          {filteredData.length === 0 ? (
+          {loading ? (
+            <TableSkeletonRows columnCount={columns.length} />
+          ) : table.getRowModel().rows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
                 <div className="text-muted-foreground py-8">לא נמצאו שומות מכריעות</div>

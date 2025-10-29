@@ -30,6 +30,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Calendar, Home, Building } from 'lucid
 import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import TablePagination from '@/components/TablePagination'
+import { TableSkeletonRows } from '@/components/TableSkeletonRows'
 
 interface Transaction {
   id?: string
@@ -492,7 +493,11 @@ export default function TransactionsTable({
   )
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-x-auto rtl" dir="rtl">
+    <div
+      className="rounded-xl border border-border bg-card overflow-x-auto rtl"
+      dir="rtl"
+      aria-busy={loading}
+    >
       {/* Integrated Toolbar */}
       <TableToolbar
         searchValue={searchValue}
@@ -605,7 +610,9 @@ export default function TransactionsTable({
             ))}
           </TableHeader>
           <TableBody>
-            {filteredData.length === 0 ? (
+            {loading ? (
+              <TableSkeletonRows columnCount={columns.length} />
+            ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
                   <div className="flex flex-col items-center justify-center py-8">

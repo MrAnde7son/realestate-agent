@@ -204,50 +204,74 @@ def _calculate_legal_restrictions(asset, gis_data: Dict[str, Any], tabu_data: Di
 
 def _calculate_urban_renewal_potential(asset, gis_data: Dict[str, Any]) -> Optional[str]:
     """
-    Calculate urban renewal potential based on permits, plans, and building age.
+    Calculate urban renewal potential based on TAMA 38 GIS data, permits, plans, and building age.
+    Primary source: tama38_key_areas from GIS collector (most reliable).
     """
     try:
-        # Check for urban renewal permits
+        # PRIMARY: Check for TAMA 38 key areas from GIS data (most reliable source)
+        tama38_key_areas = gis_data.get('tama38_key_areas')
+        if tama38_key_areas and isinstance(tama38_key_areas, (list, tuple)) and len(tama38_key_areas) > 0:
+            count = len(tama38_key_areas)
+            if count == 1:
+                return 'אזור תמ״א 38 - פוטנציאל התחדשות עירונית'
+            else:
+                return f'אזור תמ״א 38 - פוטנציאל התחדשות עירונית ({count} אזורים)'
+        
+        # SECONDARY: Check for urban renewal permits (TAMA 38 projects in progress)
         permits = gis_data.get('permits', [])
         urban_renewal_permits = []
         
         for permit in permits:
             if isinstance(permit, dict):
-                # Check if permit is for urban renewal
-                if permit.get('permit_urban_renewal'):
+                # Check if permit is for urban renewal (direct flags)
+                if permit.get('permit_urban_renewal') or permit.get('sw_hitchadshut_ironit'):
                     urban_renewal_permits.append(permit)
+                    continue
                 
-                # Check permit type for urban renewal keywords
-                permit_type = permit.get('permit_subject_type', '')
-                if any(keyword in permit_type.lower() for keyword in ['תמ"א', 'חידוש', 'פינוי', 'בינוי']):
+                # Check for TAMA 38 flags in permit
+                if permit.get('sw_tama_38') or permit.get('sw_tama_38_chadash') or permit.get('sw_tama_38_tosefet'):
+                    urban_renewal_permits.append(permit)
+                    continue
+                
+                # Check permit type/subject for urban renewal keywords
+                permit_type = permit.get('permit_subject_type', '') or ''
+                permit_description = permit.get('permit_description', '') or ''
+                permit_text = (permit_type + ' ' + permit_description).lower()
+                if any(keyword in permit_text for keyword in ['תמ"א', 'תמ״א', 'חידוש', 'פינוי', 'בינוי', 'tama']):
                     urban_renewal_permits.append(permit)
         
         if urban_renewal_permits:
-            return f'תמ"א 38/2 - {len(urban_renewal_permits)} היתרים'
+            return f'תמ"א 38/2 - {len(urban_renewal_permits)} היתרים פעילים'
         
-        # Check building age for renewal potential
+        # TERTIARY: Check building age for renewal potential (indicative but not definitive)
         if asset.year_built:
-            building_age = 2024 - asset.year_built  # Current year approximation
+            from datetime import datetime
+            current_year = datetime.now().year
+            building_age = current_year - asset.year_built
             if building_age > 30:
-                return 'פוטנציאל תמ"א 38/2 (בניין ישן)'
+                return 'פוטנציאל תמ"א 38/2 (בניין ישן - מעל 30 שנה)'
             elif building_age > 20:
-                return 'פוטנציאל חידוש עירוני (בניין בינוני)'
+                return 'פוטנציאל חידוש עירוני (בניין בינוני - מעל 20 שנה)'
         
-        # Check for nearby urban renewal projects
-        plans = gis_data.get('plans', [])
+        # FALLBACK: Check for nearby urban renewal plans (less specific)
+        plans = gis_data.get('local_plans', []) or gis_data.get('city_plans', []) or gis_data.get('plans', [])
         urban_renewal_plans = []
         
         for plan in plans:
             if isinstance(plan, dict):
-                plan_description = plan.get('description', '')
-                if any(keyword in plan_description.lower() for keyword in ['תמ"א', 'חידוש', 'פינוי', 'בינוי']):
+                plan_description = plan.get('description', '') or plan.get('plan_description', '') or ''
+                plan_name = plan.get('plan_name', '') or plan.get('name', '') or ''
+                plan_text = (plan_description + ' ' + plan_name).lower()
+                if any(keyword in plan_text for keyword in ['תמ"א', 'תמ״א', 'חידוש', 'פינוי', 'בינוי', 'tama']):
                     urban_renewal_plans.append(plan)
         
         if urban_renewal_plans:
             return f'תוכניות חידוש עירוני באזור ({len(urban_renewal_plans)} תוכניות)'
         
-    except (ValueError, TypeError):
-        pass
+    except (ValueError, TypeError) as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Error calculating urban renewal potential: {e}")
         
     return None
 

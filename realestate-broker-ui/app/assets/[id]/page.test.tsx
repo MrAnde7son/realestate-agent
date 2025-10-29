@@ -60,6 +60,21 @@ vi.mock('@/components/ImageGallery', () => ({
 vi.mock('@/components/DataBadge', () => ({
   default: () => <div>Data Badge</div>
 }))
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) => 
+    asChild ? children : <button>{children}</button>,
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div role="menu">{children}</div>,
+  DropdownMenuItem: ({ children, onClick, disabled, className }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => (
+    <div role="menuitem" onClick={disabled ? undefined : onClick} className={className}>{children}</div>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+}))
+vi.mock('@/hooks/use-toast', () => ({
+  useToast: () => ({
+    toast: vi.fn(),
+  }),
+}))
 
 describe('AssetDetailPage', () => {
   const mockUseRouter = {
@@ -196,8 +211,12 @@ describe('AssetDetailPage', () => {
       fireEvent.click(moreActionsButton)
     })
 
-    // Find and click the share message item in the dropdown
-    const shareMessageButton = await screen.findByText('צור הודעת פרסום')
+    // Wait for dropdown to be visible and find the share message item
+    await waitFor(() => {
+      expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
+    })
+
+    const shareMessageButton = screen.getByText('צור הודעת פרסום')
     await act(async () => {
       fireEvent.click(shareMessageButton)
     })
@@ -228,8 +247,12 @@ describe('AssetDetailPage', () => {
       fireEvent.click(moreActionsButton)
     })
 
-    // Find and click the deal expenses item in the dropdown
-    const ctaButton = await screen.findByText('חשב הוצאות עסקה')
+    // Wait for dropdown to be visible and find the deal expenses item
+    await waitFor(() => {
+      expect(screen.getByText('חשב הוצאות עסקה')).toBeInTheDocument()
+    })
+
+    const ctaButton = screen.getByText('חשב הוצאות עסקה')
     await act(async () => {
       fireEvent.click(ctaButton)
     })
@@ -264,8 +287,12 @@ describe('AssetDetailPage', () => {
       fireEvent.click(moreActionsButton)
     })
 
-    // Find and click the share message item in the dropdown
-    const button = await screen.findByText('צור הודעת פרסום')
+    // Wait for dropdown to be visible and find the share message item
+    await waitFor(() => {
+      expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
+    })
+
+    const button = screen.getByText('צור הודעת פרסום')
     await act(async () => {
       fireEvent.click(button)
     })

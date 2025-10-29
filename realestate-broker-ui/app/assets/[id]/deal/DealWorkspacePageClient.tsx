@@ -1180,7 +1180,7 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
               <TableHead>בנק</TableHead>
               <TableHead>מסלול</TableHead>
               <TableHead>ריבית</TableHead>
-              <TableHead>APR</TableHead>
+              <TableHead>ריבית בפועל</TableHead>
               <TableHead>תשלום חודשי</TableHead>
               <TableHead>עמלות</TableHead>
               <TableHead>ציון</TableHead>
@@ -1215,7 +1215,7 @@ function MortgageCompareTable({ offers, recommendedId, onRecommend }: MortgageCo
           </TableBody>
         </Table>
         <CardFooter className='justify-between px-0 pt-0 text-xs text-muted-foreground'>
-          <span>הריביות מוצגות כ-APR כולל הערכת עמלות וביטוחים.</span>
+          <span>הריביות מוצגות כריבית בפועל כולל הערכת עמלות וביטוחים.</span>
           <span>בתוקף עד {formatDateTime(offers[0].validUntil)}</span>
         </CardFooter>
       </CardContent>

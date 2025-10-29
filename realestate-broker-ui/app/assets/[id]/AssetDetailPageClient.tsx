@@ -166,6 +166,14 @@ const extractFeatureLabels = (raw: unknown): string[] => {
   return Array.from(new Set(collected))
 }
 
+const isAbortError = (error: unknown): error is DOMException =>
+  Boolean(
+    error &&
+      typeof error === 'object' &&
+      'name' in error &&
+      (error as { name?: unknown }).name === 'AbortError'
+  )
+
 const normalizePrimaryListing = (listing: any) => {
   if (!listing || typeof listing !== 'object') return null
 
@@ -998,20 +1006,23 @@ React.useEffect(() => {
     }
   }, [asset, calculatedRights, remainingRightsDisplayValue])
 
-  const loadRightsData = React.useCallback(async () => {
+  const loadRightsData = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
     if (!id) return
     setRightsLoading(true)
     setRightsError(null)
     try {
-      const response = await apiClient.get(`/api/assets/${id}/rights`)
+      const response = await apiClient.get(`/api/assets/${id}/rights`, { signal })
       if (!response.ok) {
         throw new Error(response.error || 'Failed to load rights')
       }
       const data = response.data
+      if (signal?.aborted) {
+        return
+      }
       // Store calculated rights for the new UI
       const calculated = data.calculated_rights || null
       setCalculatedRights(calculated)
-      
+
       const remainingRightsFromCalc =
         calculated?.summary?.remaining_rights_sqm ??
         calculated?.remaining_rights?.remaining_area_sqm
@@ -1034,17 +1045,22 @@ React.useEffect(() => {
       ]
       setRightsRows(allRightsRows)
     } catch (rightsErr) {
+      if (isAbortError(rightsErr) || signal?.aborted) {
+        return
+      }
       console.error('Error loading rights data:', rightsErr)
       setRightsRows([])
       setCalculatedRights(null)
       setRightsError('שגיאה בטעינת נתוני טאבו')
     } finally {
-      setRightsLoading(false)
+      if (!signal?.aborted) {
+        setRightsLoading(false)
+      }
     }
   }, [id])
 
   // Load documents organized by category
-  const loadDocumentsTable = React.useCallback(async () => {
+  const loadDocumentsTable = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
     if (!id) return
 
     setDocumentsLoading(true)
@@ -1088,11 +1104,14 @@ React.useEffect(() => {
       const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-document_date'
       params.set('ordering', orderingValue)
 
-      const response = await apiClient.get(`/api/documents/table?${params.toString()}`)
+      const response = await apiClient.get(`/api/documents/table?${params.toString()}`, { signal })
       if (!response.ok) {
         throw new Error(response.error || 'Failed to load documents')
       }
       const data = (response.data ?? {}) as any
+      if (signal?.aborted) {
+        return
+      }
       setDocumentsData({
         items: data.results || [],
         total: data.count || 0,
@@ -1104,11 +1123,16 @@ React.useEffect(() => {
         },
       })
     } catch (error) {
+      if (isAbortError(error) || signal?.aborted) {
+        return
+      }
       console.error('Error loading documents:', error)
       setDocumentsError('שגיאה בטעינת מסמכים')
       setDocumentsData({ items: [], total: 0, filters: { category: [], type: [], source: [], status: [] } })
     } finally {
-      setDocumentsLoading(false)
+      if (!signal?.aborted) {
+        setDocumentsLoading(false)
+      }
     }
   }, [
     id,
@@ -1123,40 +1147,63 @@ React.useEffect(() => {
 
 useDedupedEffect(() => {
   if (activeTab !== 'documents') return
-  loadDocumentsTable()
+  const controller = new AbortController()
+  loadDocumentsTable({ signal: controller.signal })
+  return () => controller.abort()
 }, [activeTab, loadDocumentsTable])
 
   useDedupedEffect(() => {
+    if (!id) return
+    const controller = new AbortController()
     setLoading(true)
-    apiClient.get(`/api/assets/${id}`)
-      .then(response => {
+    ;(async () => {
+      try {
+        const response = await apiClient.get(`/api/assets/${id}`, { signal: controller.signal })
         if (!response.ok) throw new Error(response.error || 'Failed to load asset')
+        if (controller.signal.aborted) return
         const assetData = response.data?.asset || response.data
         setAsset(assetData)
-      })
-      .catch(err => {
+      } catch (err) {
+        if (isAbortError(err) || controller.signal.aborted) {
+          return
+        }
         console.error('Error loading asset:', err)
         setError('שגיאה בטעינת הנכס')
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    })()
+
+    return () => controller.abort()
   }, [id])
 
 useDedupedEffect(() => {
   if (activeTab !== 'appraisals') return
-  apiClient
-    .get(`/api/assets/${id}/appraisal`)
-    .then(response => {
+  const controller = new AbortController()
+  ;(async () => {
+    try {
+      const response = await apiClient.get(`/api/assets/${id}/appraisal`, { signal: controller.signal })
       if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
+      if (controller.signal.aborted) return
       const data = (response.data ?? {}) as any
       setComparables(data.comps || [])
       setAppraisal(data.appraisal || null)
       setDecisiveAppraisals(data.decisive_appraisals || [])
       setRamiAppraisals(data.rami_appraisals || [])
-    })
-    .catch(err => console.error('Error loading appraisal:', err))
+    } catch (err) {
+      if (isAbortError(err) || controller.signal.aborted) {
+        return
+      }
+      console.error('Error loading appraisal:', err)
+    }
+  })()
+
+  return () => controller.abort()
 }, [activeTab, id])
 
-const loadPermits = React.useCallback(async () => {
+const loadPermits = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
   if (!id) return
   setPermitsLoading(true)
   try {
@@ -1218,11 +1265,16 @@ const loadPermits = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-approval_date'
     params.set('ordering', orderingValue)
 
-    const response = await apiClient.get(`/api/assets/${id}/permits?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/permits?${params.toString()}`, {
+      signal,
+    })
     if (!response.ok) {
       throw new Error(response.error || 'Failed to load permits')
     }
     const data = (response.data ?? {}) as any
+    if (signal?.aborted) {
+      return
+    }
     setPermitsData({
       items: data.permits || [],
       total: data.count || 0,
@@ -1234,10 +1286,15 @@ const loadPermits = React.useCallback(async () => {
       },
     })
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading permits:', err)
     setPermitsData({ items: [], total: 0, filters: { stage: [], document_type: [], source: [], request_type: [] } })
   } finally {
-    setPermitsLoading(false)
+    if (!signal?.aborted) {
+      setPermitsLoading(false)
+    }
   }
 }, [
   id,
@@ -1259,10 +1316,12 @@ const loadPermits = React.useCallback(async () => {
 
 useDedupedEffect(() => {
   if (activeTab !== 'permits') return
-  loadPermits()
+  const controller = new AbortController()
+  loadPermits({ signal: controller.signal })
+  return () => controller.abort()
 }, [activeTab, loadPermits])
 
-const loadTransactions = React.useCallback(async () => {
+const loadTransactions = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
   if (!id) return
   setTransactionsLoading(true)
   try {
@@ -1313,11 +1372,16 @@ const loadTransactions = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-date'
     params.set('ordering', orderingValue)
 
-    const response = await apiClient.get(`/api/assets/${id}/transactions?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/transactions?${params.toString()}`, {
+      signal,
+    })
     if (!response.ok) {
       throw new Error(response.error || 'Failed to load transactions')
     }
     const data = (response.data ?? {}) as any
+    if (signal?.aborted) {
+      return
+    }
     setTransactionsData({
       items: data.transactions || [],
       total: data.count || 0,
@@ -1327,11 +1391,16 @@ const loadTransactions = React.useCallback(async () => {
     })
     setMarketAnalysis(data.market_analysis || null)
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading transactions:', err)
     setTransactionsData({ items: [], total: 0, filters: { source: [] } })
     setMarketAnalysis(null)
   } finally {
-    setTransactionsLoading(false)
+    if (!signal?.aborted) {
+      setTransactionsLoading(false)
+    }
   }
 }, [
   id,
@@ -1350,10 +1419,12 @@ const loadTransactions = React.useCallback(async () => {
 
 useDedupedEffect(() => {
   if (activeTab !== 'transactions') return
-  loadTransactions()
+  const controller = new AbortController()
+  loadTransactions({ signal: controller.signal })
+  return () => controller.abort()
 }, [activeTab, loadTransactions])
 
-const loadPlans = React.useCallback(async () => {
+const loadPlans = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
   if (!id) return
   setPlansLoading(true)
   try {
@@ -1391,11 +1462,16 @@ const loadPlans = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-effective_date'
     params.set('ordering', orderingValue)
 
-    const response = await apiClient.get(`/api/assets/${id}/plans?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/plans?${params.toString()}`, {
+      signal,
+    })
     if (!response.ok) {
       throw new Error(response.error || 'Failed to load plans')
     }
     const data = (response.data ?? {}) as any
+    if (signal?.aborted) {
+      return
+    }
     setPlansData({
       items: data.plans || [],
       total: data.count || 0,
@@ -1405,26 +1481,37 @@ const loadPlans = React.useCallback(async () => {
       },
     })
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading plans:', err)
     setPlansData({ items: [], total: 0, filters: { source: [], status: [] } })
   } finally {
-    setPlansLoading(false)
+    if (!signal?.aborted) {
+      setPlansLoading(false)
+    }
   }
 }, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter, plansPlanNumberFilter, plansDescriptionFilter])
 
 useDedupedEffect(() => {
   if (activeTab !== 'plans') return
-  loadPlans()
+  const controller = new AbortController()
+  loadPlans({ signal: controller.signal })
+  return () => controller.abort()
 }, [activeTab, loadPlans])
 
 useDedupedEffect(() => {
   if (!id) return
-  loadRightsData()
+  const controller = new AbortController()
+  loadRightsData({ signal: controller.signal })
+  return () => controller.abort()
 }, [id, loadRightsData])
 
 useDedupedEffect(() => {
   if (activeTab !== 'rights') return
-  loadRightsData()
+  const controller = new AbortController()
+  loadRightsData({ signal: controller.signal })
+  return () => controller.abort()
 }, [activeTab, loadRightsData])
 
   useDedupedEffect(() => {

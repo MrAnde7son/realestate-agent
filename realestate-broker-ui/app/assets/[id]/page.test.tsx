@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import AssetDetailPage from './page'
 import AssetDetailPageClient from './AssetDetailPageClient'
 import { useRouter } from 'next/navigation'
@@ -110,6 +110,16 @@ describe('AssetDetailPage', () => {
           })
         })
       }
+      if (url.startsWith('/api/documents/table')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            results: [],
+            count: 0,
+            filters: { category: [], type: [], source: [], status: [] }
+          })
+        })
+      }
       if (url === '/api/documents/by_category?asset_id=1') {
         return Promise.resolve({
           ok: true,
@@ -179,6 +189,50 @@ describe('AssetDetailPage', () => {
     if (React.isValidElement(element)) {
       expect(element.props.assetId).toBe('server-test')
     }
+  })
+
+  it('aborts in-flight asset fetch when assetId changes', async () => {
+    const defaultFetch = global.fetch as unknown as vi.Mock
+    let firstSignal: AbortSignal | undefined
+
+    const abortingFetch = vi.fn((url: string, options?: RequestInit) => {
+      if (url === '/api/assets/1') {
+        const signal = options?.signal as AbortSignal | undefined
+        firstSignal = signal
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            const abortError = new Error('Aborted')
+            abortError.name = 'AbortError'
+            reject(abortError)
+          })
+        })
+      }
+      if (url === '/api/assets/2') {
+        const signal = options?.signal as AbortSignal | undefined
+        signal?.addEventListener('abort', () => {})
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: '2', address: 'Second Asset', documents: [] })
+        })
+      }
+      return defaultFetch(url, options)
+    })
+
+    global.fetch = abortingFetch as any
+
+    const { rerender } = render(<AssetDetailPageClient assetId="1" />)
+
+    await waitFor(() => {
+      expect(firstSignal).toBeDefined()
+    })
+
+    await act(async () => {
+      rerender(<AssetDetailPageClient assetId="2" />)
+    })
+
+    await waitFor(() => {
+      expect(firstSignal?.aborted).toBe(true)
+    })
   })
 
   it('shows error message when message creation fails', async () => {

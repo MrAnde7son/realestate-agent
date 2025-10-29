@@ -420,6 +420,15 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [decisiveSearch, setDecisiveSearch] = useState('')
   const [ramiSearch, setRamiSearch] = useState('')
 
+  const assetRequestControllerRef = React.useRef<AbortController | null>(null)
+  const appraisalsControllerRef = React.useRef<AbortController | null>(null)
+  const documentsControllerRef = React.useRef<AbortController | null>(null)
+  const permitsControllerRef = React.useRef<AbortController | null>(null)
+  const transactionsControllerRef = React.useRef<AbortController | null>(null)
+  const plansControllerRef = React.useRef<AbortController | null>(null)
+  const rightsControllerRef = React.useRef<AbortController | null>(null)
+  const activeMountsRef = React.useRef(0)
+
   // Responsive: detect mobile to tweak gallery props
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -1146,16 +1155,35 @@ React.useEffect(() => {
   ])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'documents') return
+  documentsControllerRef.current?.abort()
+
+  if (activeTab !== 'documents') {
+    documentsControllerRef.current = null
+    return
+  }
+
   const controller = new AbortController()
-  loadDocumentsTable({ signal: controller.signal })
-  return () => controller.abort()
+  documentsControllerRef.current = controller
+
+  void loadDocumentsTable({ signal: controller.signal }).finally(() => {
+    if (documentsControllerRef.current === controller) {
+      documentsControllerRef.current = null
+    }
+  })
 }, [activeTab, loadDocumentsTable])
 
   useDedupedEffect(() => {
-    if (!id) return
+    assetRequestControllerRef.current?.abort()
+
+    if (!id) {
+      assetRequestControllerRef.current = null
+      return
+    }
+
     const controller = new AbortController()
+    assetRequestControllerRef.current = controller
     setLoading(true)
+
     ;(async () => {
       try {
         const response = await apiClient.get(`/api/assets/${id}`, { signal: controller.signal })
@@ -1173,15 +1201,24 @@ useDedupedEffect(() => {
         if (!controller.signal.aborted) {
           setLoading(false)
         }
+        if (assetRequestControllerRef.current === controller) {
+          assetRequestControllerRef.current = null
+        }
       }
     })()
-
-    return () => controller.abort()
   }, [id])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'appraisals') return
+  appraisalsControllerRef.current?.abort()
+
+  if (activeTab !== 'appraisals') {
+    appraisalsControllerRef.current = null
+    return
+  }
+
   const controller = new AbortController()
+  appraisalsControllerRef.current = controller
+
   ;(async () => {
     try {
       const response = await apiClient.get(`/api/assets/${id}/appraisal`, { signal: controller.signal })
@@ -1197,10 +1234,12 @@ useDedupedEffect(() => {
         return
       }
       console.error('Error loading appraisal:', err)
+    } finally {
+      if (appraisalsControllerRef.current === controller) {
+        appraisalsControllerRef.current = null
+      }
     }
   })()
-
-  return () => controller.abort()
 }, [activeTab, id])
 
 const loadPermits = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
@@ -1315,10 +1354,21 @@ const loadPermits = React.useCallback(async ({ signal }: { signal?: AbortSignal 
 ])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'permits') return
+  permitsControllerRef.current?.abort()
+
+  if (activeTab !== 'permits') {
+    permitsControllerRef.current = null
+    return
+  }
+
   const controller = new AbortController()
-  loadPermits({ signal: controller.signal })
-  return () => controller.abort()
+  permitsControllerRef.current = controller
+
+  void loadPermits({ signal: controller.signal }).finally(() => {
+    if (permitsControllerRef.current === controller) {
+      permitsControllerRef.current = null
+    }
+  })
 }, [activeTab, loadPermits])
 
 const loadTransactions = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
@@ -1418,10 +1468,21 @@ const loadTransactions = React.useCallback(async ({ signal }: { signal?: AbortSi
 ])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'transactions') return
+  transactionsControllerRef.current?.abort()
+
+  if (activeTab !== 'transactions') {
+    transactionsControllerRef.current = null
+    return
+  }
+
   const controller = new AbortController()
-  loadTransactions({ signal: controller.signal })
-  return () => controller.abort()
+  transactionsControllerRef.current = controller
+
+  void loadTransactions({ signal: controller.signal }).finally(() => {
+    if (transactionsControllerRef.current === controller) {
+      transactionsControllerRef.current = null
+    }
+  })
 }, [activeTab, loadTransactions])
 
 const loadPlans = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
@@ -1494,25 +1555,77 @@ const loadPlans = React.useCallback(async ({ signal }: { signal?: AbortSignal } 
 }, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter, plansPlanNumberFilter, plansDescriptionFilter])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'plans') return
+  plansControllerRef.current?.abort()
+
+  if (activeTab !== 'plans') {
+    plansControllerRef.current = null
+    return
+  }
+
   const controller = new AbortController()
-  loadPlans({ signal: controller.signal })
-  return () => controller.abort()
+  plansControllerRef.current = controller
+
+  void loadPlans({ signal: controller.signal }).finally(() => {
+    if (plansControllerRef.current === controller) {
+      plansControllerRef.current = null
+    }
+  })
 }, [activeTab, loadPlans])
 
 useDedupedEffect(() => {
-  if (!id) return
+  rightsControllerRef.current?.abort()
+
+  if (!id) {
+    rightsControllerRef.current = null
+    return
+  }
+
   const controller = new AbortController()
-  loadRightsData({ signal: controller.signal })
-  return () => controller.abort()
+  rightsControllerRef.current = controller
+
+  void loadRightsData({ signal: controller.signal }).finally(() => {
+    if (rightsControllerRef.current === controller) {
+      rightsControllerRef.current = null
+    }
+  })
 }, [id, loadRightsData])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'rights') return
+  if (activeTab !== 'rights') {
+    return
+  }
+
+  rightsControllerRef.current?.abort()
+
   const controller = new AbortController()
-  loadRightsData({ signal: controller.signal })
-  return () => controller.abort()
+  rightsControllerRef.current = controller
+
+  void loadRightsData({ signal: controller.signal }).finally(() => {
+    if (rightsControllerRef.current === controller) {
+      rightsControllerRef.current = null
+    }
+  })
 }, [activeTab, loadRightsData])
+
+  useEffect(() => {
+    activeMountsRef.current += 1
+
+    return () => {
+      activeMountsRef.current -= 1
+
+      queueMicrotask(() => {
+        if (activeMountsRef.current === 0) {
+          assetRequestControllerRef.current?.abort()
+          appraisalsControllerRef.current?.abort()
+          documentsControllerRef.current?.abort()
+          permitsControllerRef.current?.abort()
+          transactionsControllerRef.current?.abort()
+          plansControllerRef.current?.abort()
+          rightsControllerRef.current?.abort()
+        }
+      })
+    }
+  }, [])
 
   useDedupedEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null

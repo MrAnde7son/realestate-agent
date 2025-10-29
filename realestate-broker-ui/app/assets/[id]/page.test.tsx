@@ -385,4 +385,101 @@ describe('AssetDetailPage', () => {
       expect(callCounts['/api/assets/1']).toBe(1)
     })
   })
+
+  it('loads documents data when switching to the documents tab in StrictMode', async () => {
+    const callCounts: Record<string, number> = {}
+
+    ;(global.fetch as any).mockImplementation((input: any) => {
+      const url = typeof input === 'string' ? input : input?.url ?? String(input)
+      callCounts[url] = (callCounts[url] ?? 0) + 1
+
+      if (url === '/api/assets/1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: '1',
+            address: 'Test Street 1',
+            documents: [],
+          })
+        })
+      }
+      if (url === '/api/assets/1/appraisal') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ comps: [], appraisal: null, decisive_appraisals: [], rami_appraisals: [] })
+        })
+      }
+      if (url === '/api/assets/1/transactions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ transactions: [], market_analysis: null })
+        })
+      }
+      if (url === '/api/assets/1/permits') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ permits: [] })
+        })
+      }
+      if (url === '/api/assets/1/plans') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ plans: [] })
+        })
+      }
+      if (url === '/api/assets/1/rights') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ calculated_rights: null, tabu_data: [], gis_rights: [], detailed_rights: [] })
+        })
+      }
+      if (url.startsWith('/api/documents/table')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            results: [
+              {
+                id: 'doc-1',
+                title: 'Doc 1',
+                category: 'tabu',
+                document_type: 'tabu',
+                status: 'active',
+                source: 'manual',
+              }
+            ],
+            count: 1,
+            filters: { category: [], type: [], source: [], status: [] }
+          })
+        })
+      }
+      if (url === '/api/settings') {
+        return Promise.resolve({ ok: true, json: async () => ({ report_sections: [] }) })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    await act(async () => {
+      render(
+        <React.StrictMode>
+          <AssetDetailPageClient assetId="1" />
+        </React.StrictMode>
+      )
+    })
+
+    await screen.findByRole('tablist')
+
+    const documentsTab = await screen.findByRole('tab', { name: 'מסמכים' })
+
+    await act(async () => {
+      fireEvent.mouseDown(documentsTab)
+      fireEvent.click(documentsTab)
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      const documentsCall = Object.keys(callCounts).find((key) => key.startsWith('/api/documents/table'))
+      expect(documentsCall).toBeDefined()
+      expect(callCounts[documentsCall!]).toBe(1)
+    })
+  })
 })

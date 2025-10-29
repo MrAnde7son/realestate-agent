@@ -9,12 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Mail, Lock, User, Building, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Building, Eye, EyeOff } from 'lucide-react'
 import Logo from '@/components/Logo'
 import { useAuth } from '@/lib/auth-context'
 import { LoginCredentials, RegisterCredentials } from '@/lib/auth'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const loginSchema = z.object({
   email: z.string().email('דוא״ל לא תקין'),
@@ -25,20 +24,8 @@ const registerSchema = z.object({
   email: z.string().email('דוא״ל לא תקין'),
   password: z.string().min(6, 'סיסמה חייבת להכיל לפחות 6 תווים'),
   confirmPassword: z.string(),
-  username: z.string().min(3, 'שם משתמש חייב להכיל לפחות 3 תווים'),
   first_name: z.string().min(2, 'שם פרטי חייב להכיל לפחות 2 תווים'),
   last_name: z.string().min(2, 'שם משפחה חייב להכיל לפחות 2 תווים'),
-  company: z.string().optional(),
-  role: z.enum(['broker', 'appraiser', 'private'], {
-    required_error: 'בחר סוג משתמש',
-  }),
-  equity: z.preprocess((val) => {
-    if (val === '' || val === null || val === undefined) {
-      return undefined
-    }
-    const numericValue = typeof val === 'number' ? val : parseFloat(val as string)
-    return Number.isNaN(numericValue) ? undefined : numericValue
-  }, z.number().min(0, 'הון עצמי חייב להיות מספר חיובי').optional()),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "סיסמאות אינן תואמות",
   path: ["confirmPassword"],
@@ -61,7 +48,7 @@ export default function AuthPage() {
   const mode = searchParams.get('mode')
   
   // Set initial mode based on URL parameter
-  React.useEffect(() => {
+  useEffect(() => {
     if (mode === 'signup') {
       setIsLogin(false)
     }
@@ -73,12 +60,7 @@ export default function AuthPage() {
 
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      role: 'private',
-      equity: undefined,
-    },
   })
-  const selectedRole = registerForm.watch('role')
 
   const onLoginSubmit = async (data: LoginFormData) => {
     try {
@@ -92,11 +74,8 @@ export default function AuthPage() {
   const onRegisterSubmit = async (data: RegisterFormData) => {
     try {
       setError('')
-      const { confirmPassword, equity, ...registerData } = data
+      const { confirmPassword, ...registerData } = data
       const payload: RegisterCredentials = { ...registerData }
-      if (registerData.role === 'private' && typeof equity === 'number' && !Number.isNaN(equity)) {
-        payload.equity = equity
-      }
       await register(payload, redirectTo)
     } catch (err: any) {
       setError(err.message || 'שגיאה בהרשמה')
@@ -274,20 +253,6 @@ export default function AuthPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="username">שם משתמש</Label>
-                  <Input
-                    id="username"
-                    placeholder="שם משתמש"
-                    {...registerForm.register('username')}
-                  />
-                  {registerForm.formState.errors.username && (
-                    <p className="text-sm text-destructive">
-                      {registerForm.formState.errors.username.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="email">דוא״ל</Label>
                   <Input
                     id="email"
@@ -301,67 +266,6 @@ export default function AuthPage() {
                     </p>
                   )}
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role">סוג משתמש</Label>
-                  <Select
-                    value={registerForm.watch('role')}
-                    onValueChange={(value) =>
-                      registerForm.setValue('role', value as 'broker' | 'appraiser' | 'private', {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="role">
-                      <SelectValue placeholder="בחר סוג משתמש" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="broker">מתווך</SelectItem>
-                      <SelectItem value="appraiser">שמאי</SelectItem>
-                      <SelectItem value="private">פרטי</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {registerForm.formState.errors.role && (
-                    <p className="text-sm text-destructive">
-                      {registerForm.formState.errors.role.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="company">חברה</Label>
-                    <Input
-                      id="company"
-                      placeholder="שם החברה (אופציונלי)"
-                      {...registerForm.register('company')}
-                    />
-                  </div>
-
-                  {selectedRole === 'private' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="equity">הון עצמי (אופציונלי)</Label>
-                      <Input
-                        id="equity"
-                        type="number"
-                        min="0"
-                        step="1000"
-                        placeholder="לדוגמה: 450000"
-                        {...registerForm.register('equity')}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        נשתמש בהון העצמי שלך כברירת מחדל במחשבון המשכנתא
-                      </p>
-                      {registerForm.formState.errors.equity && (
-                        <p className="text-sm text-destructive">
-                          {registerForm.formState.errors.equity.message}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="password">סיסמה</Label>
                   <div className="relative">

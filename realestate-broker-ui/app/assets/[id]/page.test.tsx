@@ -215,9 +215,12 @@ describe('AssetDetailPage', () => {
   })
 
   it('aborts in-flight asset fetch when assetId changes', async () => {
-    const defaultFetch = global.fetch as unknown as vi.Mock
+    // Use vi as imported from vitest directly.
+    // @ts-expect-error: vi is not defined in global, but brought by vitest environment
+    const defaultFetch = global.fetch as unknown as jest.Mock
     let firstSignal: AbortSignal | undefined
 
+    // Use vi.fn for mocking (from vitest)
     const abortingFetch = vi.fn((url: string, options?: RequestInit) => {
       if (url === '/api/assets/1') {
         const signal = options?.signal as AbortSignal | undefined

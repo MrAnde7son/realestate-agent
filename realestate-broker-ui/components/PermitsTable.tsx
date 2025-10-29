@@ -27,6 +27,7 @@ import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/c
 import TablePagination from '@/components/TablePagination';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { ArrowDown, ArrowUp, ArrowUpDown, Building, ExternalLink, FileDown } from 'lucide-react';
+import { TableSkeletonRows } from '@/components/TableSkeletonRows';
 
 export interface PermitRow {
   id: string;
@@ -765,20 +766,14 @@ export default function PermitsTable({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-border bg-card">
-        <div className="p-8 text-center">
-          <div className="text-muted-foreground">טוען היתרים...</div>
-        </div>
-      </div>
-    );
-  }
-
   const recordCount = manualPagination ? totalCount ?? data.length : filteredData.length;
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-x-auto rtl" dir="rtl">
+    <div
+      className="rounded-xl border border-border bg-card overflow-x-auto rtl"
+      dir="rtl"
+      aria-busy={loading}
+    >
       <TableToolbar
         searchValue={searchValue}
         onSearchChange={(value) => {
@@ -794,7 +789,7 @@ export default function PermitsTable({
         onAdditionalFilterChange={handleAdditionalFilterChange}
         columns={toolbarColumns}
         selectedCount={table.getSelectedRowModel().rows.length}
-        totalCount={filteredData.length}
+        totalCount={recordCount}
         onExportSelected={() => {}}
         onExportAll={() => {}}
         viewMode="table"
@@ -843,7 +838,9 @@ export default function PermitsTable({
             ))}
           </TableHeader>
           <TableBody>
-            {filteredData.length === 0 ? (
+            {loading ? (
+              <TableSkeletonRows columnCount={columns.length} />
+            ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
                   <div className="flex flex-col items-center justify-center py-8 space-y-2">

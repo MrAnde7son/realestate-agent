@@ -24,6 +24,7 @@ import { Calendar, Building, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-reac
 import TableToolbar, { AdditionalFilterConfig, AdditionalFilterValue } from '@/components/TableToolbar';
 import TablePagination from '@/components/TablePagination';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { TableSkeletonRows } from '@/components/TableSkeletonRows';
 
 interface Plan {
   id: string;
@@ -413,20 +414,10 @@ export default function PlansTable({
     trackFeatureUsage('filter', undefined, { filter_type: key, value });
   };
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-border bg-card">
-        <div className="p-8 text-center">
-          <div className="text-muted-foreground">טוען תוכניות...</div>
-        </div>
-      </div>
-    );
-  }
-
   const recordCount = manualPagination ? (totalCount ?? data.length) : filteredData.length;
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-x-auto rtl">
+    <div className="rounded-xl border border-border bg-card overflow-x-auto rtl" aria-busy={loading}>
       <TableToolbar
         searchValue={searchValue}
         onSearchChange={(value) => {
@@ -491,7 +482,9 @@ export default function PlansTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
+            {loading ? (
+              <TableSkeletonRows columnCount={columns.length} />
+            ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
                   <div className="flex flex-col items-center justify-center py-8">

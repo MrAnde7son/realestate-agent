@@ -667,16 +667,29 @@
   }
 
   .asset-marker-pin {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 9999px;
     background: var(--brand-teal);
     border: 3px solid #ffffff;
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.28), 0 0 0 4px rgba(18, 179, 166, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .asset-marker:hover .asset-marker-pin,
+  .asset-marker:focus-visible .asset-marker-pin {
+    transform: scale(1.08);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.32), 0 0 0 5px rgba(18, 179, 166, 0.45);
   }
 
   .dark .asset-marker-pin {
     border-color: rgba(15, 23, 42, 0.9);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.6), 0 0 0 4px rgba(94, 234, 212, 0.35);
+  }
+
+  .dark .asset-marker:hover .asset-marker-pin,
+  .dark .asset-marker:focus-visible .asset-marker-pin {
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.7), 0 0 0 5px rgba(94, 234, 212, 0.45);
   }
 
   .asset-marker-tooltip {

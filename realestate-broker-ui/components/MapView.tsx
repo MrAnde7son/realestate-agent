@@ -327,7 +327,6 @@ export default function MapView({
       markerContainer.style.zIndex = '1000'
       markerContainer.setAttribute('role', 'button')
       markerContainer.tabIndex = 0
-      markerContainer.title = displayData.fullAddress
       markerContainer.setAttribute('aria-label', displayData.fullAddress)
 
       const labelEl = createMarkerLabelElement(displayData)
@@ -344,6 +343,9 @@ export default function MapView({
       markerContainer.appendChild(pinEl)
 
       const tooltipEl = createTooltipElement(displayData)
+      const tooltipId = `asset-tooltip-${asset.id}`
+      tooltipEl.id = tooltipId
+      markerContainer.setAttribute('aria-describedby', tooltipId)
       markerContainer.appendChild(tooltipEl)
 
       const showTooltip = () => {

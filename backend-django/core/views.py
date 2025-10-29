@@ -233,12 +233,11 @@ def auth_login(request):
             'properties': {
                 'email': {'type': 'string', 'format': 'email'},
                 'password': {'type': 'string', 'minLength': 8},
-                'username': {'type': 'string'},
                 'first_name': {'type': 'string'},
                 'last_name': {'type': 'string'},
                 'equity': {'type': 'number', 'minimum': 0},
             },
-            'required': ['email', 'password', 'username']
+            'required': ['email', 'password']
         }
     },
     responses={
@@ -343,7 +342,7 @@ def auth_profile(request):
             "user": {
                 "id": user.id,
                 "email": user.email,
-                "username": user.username,
+                "username": user.email,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "company": getattr(user, "company", ""),
@@ -425,7 +424,7 @@ def auth_update_profile(request):
                 "user": {
                     "id": user.id,
                     "email": user.email,
-                    "username": user.username,
+                    "username": user.email,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "company": getattr(user, "company", ""),

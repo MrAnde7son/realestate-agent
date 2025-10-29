@@ -68,7 +68,6 @@ class AuthenticationService:
         try:
             email = user_data.get('email')
             password = user_data.get('password')
-            username = user_data.get('username')
             first_name = user_data.get('first_name', '')
             last_name = user_data.get('last_name', '')
             company = user_data.get('company', '')
@@ -97,13 +96,13 @@ class AuthenticationService:
                         'status': status.HTTP_400_BAD_REQUEST
                     }
             
-            if not email or not password or not username:
+            if not email or not password:
                 return {
                     'success': False,
-                    'error': 'Email, password, and username are required',
+                    'error': 'Email and password are required',
                     'status': status.HTTP_400_BAD_REQUEST
                 }
-            
+
             # Check if user already exists
             if User.objects.filter(email=email).exists():
                 return {
@@ -111,17 +110,10 @@ class AuthenticationService:
                     'error': 'User with this email already exists',
                     'status': status.HTTP_400_BAD_REQUEST
                 }
-            
-            if User.objects.filter(username=username).exists():
-                return {
-                    'success': False,
-                    'error': 'Username already taken',
-                    'status': status.HTTP_400_BAD_REQUEST
-                }
-            
+
             # Create user
             user = User.objects.create_user(
-                username=username,
+                username=email,
                 email=email,
                 password=password,
                 first_name=first_name,
@@ -150,7 +142,7 @@ class AuthenticationService:
                 'error': str(e),
                 'status': status.HTTP_500_INTERNAL_SERVER_ERROR
             }
-    
+
     def refresh_token(self, refresh_token: str) -> dict:
         """Refresh JWT token."""
         try:
@@ -387,16 +379,8 @@ class AuthenticationService:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
                 # Create new user
-                username = email.split('@')[0]  # Use email prefix as username
-                # Ensure username is unique
-                base_username = username
-                counter = 1
-                while User.objects.filter(username=username).exists():
-                    username = f"{base_username}{counter}"
-                    counter += 1
-                
                 user = User.objects.create_user(
-                    username=username,
+                    username=email,
                     email=email,
                     password=make_password(None),  # No password for OAuth users
                     first_name=first_name,
@@ -437,13 +421,13 @@ class AuthenticationService:
                 'error': str(e),
                 'status': status.HTTP_500_INTERNAL_SERVER_ERROR
             }
-    
+
     def _get_user_data(self, user) -> dict:
         """Extract user data for API responses."""
         return {
             'id': user.id,
             'email': user.email,
-            'username': user.username,
+            'username': user.email,
             'first_name': user.first_name,
             'last_name': user.last_name,
             'company': getattr(user, 'company', ''),

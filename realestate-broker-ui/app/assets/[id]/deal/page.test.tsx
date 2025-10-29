@@ -119,7 +119,8 @@ describe('DealWorkspacePageClient', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('שומת שמאי')).toBeInTheDocument()
+      const appraisalTexts = screen.getAllByText('שומת שמאי')
+      expect(appraisalTexts.length).toBeGreaterThan(0)
       expect(screen.queryByText('טיוטת הסכם מכר')).not.toBeInTheDocument()
     }, { timeout: 2000 })
   })

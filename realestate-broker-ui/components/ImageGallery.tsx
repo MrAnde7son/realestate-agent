@@ -23,6 +23,30 @@ export default function ImageGallery({
   const [selectedImage, setSelectedImage] = useState<number | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  // Keyboard navigation
+  useEffect(() => {
+    if (!isFullscreen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedImage === null || !images || images.length === 0) return
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setSelectedImage(selectedImage === 0 ? images.length - 1 : selectedImage - 1)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setSelectedImage((selectedImage + 1) % images.length)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setIsFullscreen(false)
+        setSelectedImage(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFullscreen, selectedImage, images])
+
   if (!images || images.length === 0) {
     return (
       <div className={`flex items-center justify-center bg-gray-100 rounded-lg ${className}`}>
@@ -63,30 +87,6 @@ export default function ImageGallery({
       setSelectedImage(selectedImage === 0 ? images.length - 1 : selectedImage - 1)
     }
   }
-
-  // Keyboard navigation
-  useEffect(() => {
-    if (!isFullscreen) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (selectedImage === null) return
-      
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        setSelectedImage(selectedImage === 0 ? images.length - 1 : selectedImage - 1)
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        setSelectedImage((selectedImage + 1) % images.length)
-      } else if (e.key === 'Escape') {
-        e.preventDefault()
-        setIsFullscreen(false)
-        setSelectedImage(null)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isFullscreen, selectedImage, images.length])
 
   return (
     <>

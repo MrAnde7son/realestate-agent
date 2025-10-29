@@ -27,6 +27,7 @@ import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calcula
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
+import { parseShareMessageResponse } from './shareMessage'
 import { useDedupedEffect } from '@/hooks/use-deduped-effect'
 import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
@@ -1735,9 +1736,9 @@ useDedupedEffect(() => {
         provider,
       })
       if (response.ok && response.data) {
-        const data = response.data as { text?: string; share_url?: string }
-        setShareMessage(data.text)
-        setShareUrl(data.share_url)
+        const { text, shareUrl: parsedUrl } = parseShareMessageResponse(response.data)
+        setShareMessage(text)
+        setShareUrl(parsedUrl)
 
         // Track marketing message creation
         trackFeatureUsage('marketing_message', parseInt(id), {

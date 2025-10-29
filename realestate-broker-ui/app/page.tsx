@@ -848,11 +848,6 @@ export default function HomePage() {
                   חשב משכנתא
                 </Link>
               </Button>
-              {!isAuthenticated && (
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  ניתן להשתמש במחשבון גם ללא התחברות
-                </p>
-              )}
             </CardContent>
           </Card>
         </div>

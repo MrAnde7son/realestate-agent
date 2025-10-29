@@ -842,23 +842,12 @@ export default function HomePage() {
               <CardDescription>
                 חשב משכנתאות ובדוק זכאות עם נתוני בנק ישראל בזמן אמת
               </CardDescription>
-              {isAuthenticated ? (
-                <Button asChild variant="outline" className="w-full mt-4">
-                  <Link href="/mortgage/analyze">
-                    <Banknote className="h-4 w-4 ms-2" />
-                    חשב משכנתא
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => handleProtectedAction("mortgage-calculator")}
-                  variant="outline"
-                  className="w-full mt-4"
-                >
+              <Button asChild variant="outline" className="w-full mt-4">
+                <Link href="/mortgage/analyze">
                   <Banknote className="h-4 w-4 ms-2" />
-                  התחבר למחשבון
-                </Button>
-              )}
+                  חשב משכנתא
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </div>

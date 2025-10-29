@@ -62,12 +62,20 @@ vi.mock('@/components/DataBadge', () => ({
 }))
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) => 
+  DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) =>
     asChild ? children : <button>{children}</button>,
   DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div role="menu">{children}</div>,
   DropdownMenuItem: ({ children, onClick, disabled, className }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => (
     <div role="menuitem" onClick={disabled ? undefined : onClick} className={className}>{children}</div>
   ),
+  DropdownMenuCheckboxItem: ({ children, onCheckedChange }: { children: React.ReactNode; onCheckedChange?: (checked: boolean) => void }) => (
+    <div role="menuitemcheckbox" aria-checked="false" onClick={() => onCheckedChange?.(true)}>{children}</div>
+  ),
+  DropdownMenuRadioGroup: ({ children }: { children: React.ReactNode }) => <div role="radiogroup">{children}</div>,
+  DropdownMenuRadioItem: ({ children, value, onClick }: { children: React.ReactNode; value: string; onClick?: () => void }) => (
+    <div role="menuitemradio" aria-checked="false" data-value={value} onClick={onClick}>{children}</div>
+  ),
+  DropdownMenuLabel: ({ children }: { children: React.ReactNode }) => <div role="presentation">{children}</div>,
   DropdownMenuSeparator: () => <hr />,
 }))
 vi.mock('@/hooks/use-toast', () => ({

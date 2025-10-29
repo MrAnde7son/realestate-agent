@@ -60,16 +60,92 @@ vi.mock('@/components/ImageGallery', () => ({
 vi.mock('@/components/DataBadge', () => ({
   default: () => <div>Data Badge</div>
 }))
-vi.mock('@/components/ui/dropdown-menu', () => ({
-  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) => 
-    asChild ? children : <button>{children}</button>,
-  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div role="menu">{children}</div>,
-  DropdownMenuItem: ({ children, onClick, disabled, className }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => (
-    <div role="menuitem" onClick={disabled ? undefined : onClick} className={className}>{children}</div>
-  ),
-  DropdownMenuSeparator: () => <hr />,
-}))
+vi.mock('@/components/ui/dropdown-menu', async () => {
+  const actual = await vi.importActual<typeof import('@/components/ui/dropdown-menu')>(
+    '@/components/ui/dropdown-menu'
+  )
+
+  return {
+    ...actual,
+    DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DropdownMenuTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) =>
+      asChild ? children : <button>{children}</button>,
+    DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div role="menu">{children}</div>,
+    DropdownMenuLabel: ({ children }: { children: React.ReactNode }) => (
+      <div role="presentation" className="dropdown-menu-label">
+        {children}
+      </div>
+    ),
+    DropdownMenuItem: ({ children, onClick, disabled, className }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => (
+      <div role="menuitem" onClick={disabled ? undefined : onClick} className={className}>{children}</div>
+    ),
+    DropdownMenuCheckboxItem: ({
+      children,
+      checked,
+      onCheckedChange,
+      className,
+      disabled,
+    }: {
+      children: React.ReactNode
+      checked?: boolean
+      onCheckedChange?: (checked: boolean) => void
+      className?: string
+      disabled?: boolean
+    }) => (
+      <div
+        role="menuitemcheckbox"
+        aria-checked={checked}
+        onClick={disabled ? undefined : () => onCheckedChange?.(!checked)}
+        className={className}
+      >
+        {children}
+      </div>
+    ),
+    DropdownMenuRadioGroup: ({
+      children,
+      onValueChange,
+    }: {
+      children: React.ReactNode
+      onValueChange?: (value: string) => void
+    }) => (
+      <div role="radiogroup">
+        {React.Children.map(children, (child) => {
+          if (!React.isValidElement(child)) return child
+          const originalOnSelect = (child.props as { onSelect?: (value: string) => void }).onSelect
+          return React.cloneElement(child, {
+            onSelect: (value: string) => {
+              originalOnSelect?.(value)
+              onValueChange?.(value)
+            },
+          })
+        })}
+      </div>
+    ),
+    DropdownMenuRadioItem: ({
+      children,
+      value,
+      onSelect,
+      className,
+      disabled,
+    }: {
+      children: React.ReactNode
+      value: string
+      onSelect?: (value: string) => void
+      className?: string
+      disabled?: boolean
+    }) => (
+      <div
+        role="menuitemradio"
+        data-value={value}
+        onClick={disabled ? undefined : () => onSelect?.(value)}
+        className={className}
+      >
+        {children}
+      </div>
+    ),
+    DropdownMenuSeparator: () => <hr />,
+  }
+})
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: vi.fn(),

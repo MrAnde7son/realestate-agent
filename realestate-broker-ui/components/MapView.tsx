@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { MapLayerService, LayerConfig } from '@/lib/map-layer-service'
 import type { Asset } from '@/lib/normalizers/asset'
-import { buildMarkerDisplayData, type MarkerDisplayData } from '@/components/map-marker-utils'
+import { buildMarkerDisplayData, shouldDisplayMarkerLabel, type MarkerDisplayData } from '@/components/map-marker-utils'
 import { normalizeToLonLat } from '@/lib/geo/transform'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -39,6 +39,9 @@ interface GeocodingResult {
 const createMarkerLabelElement = (display: MarkerDisplayData) => {
   const label = document.createElement('div')
   label.className = 'asset-marker-label'
+  label.dataset.visible = 'false'
+  label.dataset.persist = 'false'
+  label.setAttribute('aria-hidden', 'true')
 
   const addressEl = document.createElement('div')
   addressEl.className = 'asset-marker-address'
@@ -233,8 +236,47 @@ export default function MapView({
 
   useEffect(() => { geocodingService.current = new GeocodingService() }, [])
 
+  const syncMarkerLabelVisibility = useCallback(() => {
+    if (!map.current) return
+
+    const totalMarkers = Object.keys(markersRef.current).length
+    const shouldPersist = shouldDisplayMarkerLabel({
+      totalAssets: totalMarkers,
+      zoom: map.current.getZoom(),
+    })
+
+    Object.values(markersRef.current).forEach(marker => {
+      const element = marker.getElement() as HTMLElement | null
+      if (!element) return
+      const label = element.querySelector<HTMLDivElement>('.asset-marker-label')
+      const tooltip = element.querySelector<HTMLDivElement>('.asset-marker-tooltip')
+      if (!label) return
+
+      label.dataset.persist = shouldPersist ? 'true' : 'false'
+
+      if (shouldPersist) {
+        label.dataset.visible = 'true'
+        label.setAttribute('aria-hidden', 'false')
+      } else if (!tooltip || tooltip.dataset.visible !== 'true') {
+        label.classList.remove('asset-marker-label--hover')
+        label.dataset.visible = 'false'
+        label.setAttribute('aria-hidden', 'true')
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!map.current) return
+    const handleZoom = () => syncMarkerLabelVisibility()
+    const instance = map.current
+    instance.on('zoomend', handleZoom)
+    return () => {
+      instance.off('zoomend', handleZoom)
+    }
+  }, [syncMarkerLabelVisibility])
+
   const addAssetMarkers = useCallback(() => {
-    if (!map.current || !assets.length) return
+    if (!map.current) return
 
     const m = getMapOrThrow()
     console.log('MapView: Adding markers for', assets.length, 'assets')
@@ -245,7 +287,16 @@ export default function MapView({
     Object.values(markersRef.current).forEach(m => m.remove())
     markersRef.current = {}
 
+    if (!assets.length) {
+      syncMarkerLabelVisibility()
+      return
+    }
+
     const normalizedPoints: Array<{ lon: number; lat: number; asset: Asset; src: string }> = [];
+    const labelsVisibleByDefault = shouldDisplayMarkerLabel({
+      totalAssets: assets.length,
+      zoom: map.current?.getZoom(),
+    })
 
     assets.forEach(asset => {
       const pt = normalizeToLonLat({
@@ -280,6 +331,12 @@ export default function MapView({
       markerContainer.setAttribute('aria-label', displayData.fullAddress)
 
       const labelEl = createMarkerLabelElement(displayData)
+
+      if (labelsVisibleByDefault) {
+        labelEl.dataset.visible = 'true'
+        labelEl.dataset.persist = 'true'
+        labelEl.setAttribute('aria-hidden', 'false')
+      }
       markerContainer.appendChild(labelEl)
 
       const pinEl = document.createElement('div')
@@ -290,12 +347,20 @@ export default function MapView({
       markerContainer.appendChild(tooltipEl)
 
       const showTooltip = () => {
+        labelEl.dataset.visible = 'true'
+        labelEl.setAttribute('aria-hidden', 'false')
         labelEl.classList.add('asset-marker-label--hover')
         tooltipEl.dataset.visible = 'true'
       }
 
       const hideTooltip = () => {
         labelEl.classList.remove('asset-marker-label--hover')
+        if (labelEl.dataset.persist !== 'true') {
+          labelEl.dataset.visible = 'false'
+          labelEl.setAttribute('aria-hidden', 'true')
+        } else {
+          labelEl.setAttribute('aria-hidden', 'false')
+        }
         tooltipEl.dataset.visible = 'false'
       }
 
@@ -334,7 +399,9 @@ export default function MapView({
       );
       map.current.fitBounds(bounds, { padding: 50 });
     }
-  }, [assets, onAssetClick])
+
+    syncMarkerLabelVisibility()
+  }, [assets, onAssetClick, syncMarkerLabelVisibility])
 
   // Initialize map
   useEffect(() => {

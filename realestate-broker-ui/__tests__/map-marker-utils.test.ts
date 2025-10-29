@@ -5,6 +5,7 @@ import {
   formatPriceLabel,
   formatPricePerSqmLabel,
   formatRoomsLabel,
+  shouldDisplayMarkerLabel,
   truncateMiddle,
   type Asset,
 } from '@/components/map-marker-utils'
@@ -90,5 +91,12 @@ describe('map marker display helpers', () => {
     const truncated = truncateMiddle(long, 20)
     expect(truncated.length).toBeLessThanOrEqual(20)
     expect(truncated).toContain('…')
+  })
+
+  it('determines label visibility based on density and zoom', () => {
+    expect(shouldDisplayMarkerLabel({ totalAssets: 4 })).toBe(true)
+    expect(shouldDisplayMarkerLabel({ totalAssets: 30, zoom: 12 })).toBe(false)
+    expect(shouldDisplayMarkerLabel({ totalAssets: 30, zoom: 14 })).toBe(true)
+    expect(shouldDisplayMarkerLabel({ totalAssets: 0, zoom: 18 })).toBe(false)
   })
 })

@@ -22,6 +22,8 @@ export interface MarkerDisplayData {
 }
 
 const WHITESPACE_REGEX = /\s+/g
+const DENSE_ASSET_THRESHOLD = 12
+const DETAIL_ZOOM_THRESHOLD = 13.5
 
 const clean = (value: string | null | undefined): string | null => {
   if (!value) return null
@@ -187,6 +189,20 @@ export const buildMarkerDisplayData = (asset: Asset): MarkerDisplayData => {
     cityLine,
     sourceLabel,
   }
+}
+
+export const shouldDisplayMarkerLabel = ({
+  totalAssets,
+  zoom,
+}: {
+  totalAssets: number
+  zoom?: number | null
+}): boolean => {
+  if (totalAssets <= 0) return false
+  if (totalAssets <= DENSE_ASSET_THRESHOLD) return true
+  const effectiveZoom = zoom ?? 0
+  if (effectiveZoom >= DETAIL_ZOOM_THRESHOLD) return true
+  return false
 }
 
 export type { Asset }

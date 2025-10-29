@@ -371,43 +371,6 @@ function createColumns({
       size: 0,
       minSize: 0,
       maxSize: 0,
-<<<<<<< HEAD
-      cell: ({ row }) => (
-        <div className="flex gap-2">
-          <Link 
-            className="text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-            href={`/assets/${row.original.id}`}
-            aria-label={`צפה בפרטי נכס ${row.original.address}`}
-            title="צפה בפרטי נכס"
-          >
-            <Eye className="h-4 w-4" />
-          </Link>
-          <Link
-            className="text-indigo-600 hover:text-indigo-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-            href={`/assets/${row.original.id}/deal`}
-            onClick={e => e.stopPropagation()}
-            aria-label={`פתח סביבת עסקה לנכס ${row.original.address}`}
-            title="סביבת עסקה"
-          >
-            <Handshake className="h-4 w-4" />
-          </Link>
-          {onOpenAlert && (
-            <button
-              onClick={e => { e.stopPropagation(); onOpenAlert(row.original.id) }}
-              className="text-amber-600 hover:text-amber-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-              title="הגדר התראות לנכס זה"
-              aria-label={`הגדר התראות לנכס ${row.original.address}`}
-            >
-              <Bell className="h-4 w-4" />
-            </button>
-          )}
-          {onExport && (
-            <button
-              onClick={e => { e.stopPropagation(); onExport(row.original) }}
-              className="text-green-600 hover:text-green-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
-              aria-label={`ייצא נכס ${row.original.address}`}
-              title="ייצא נכס"
-=======
       cell: ({ row }) => {
         const watched = row.original.isWatched === true
         const watchLoading = watchLoadingIds?.has(row.original.id) ?? false
@@ -419,9 +382,17 @@ function createColumns({
               href={`/assets/${row.original.id}`}
               aria-label={`צפה בפרטי נכס ${row.original.address}`}
               title="צפה בפרטי נכס"
->>>>>>> a878e55e27fbd1015ab04552d24a9c4057d327c6
             >
               <Eye className="h-4 w-4" />
+            </Link>
+            <Link
+              className="text-indigo-600 hover:text-indigo-800 underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded p-1"
+              href={`/assets/${row.original.id}/deal`}
+              onClick={e => e.stopPropagation()}
+              aria-label={`פתח סביבת עסקה לנכס ${row.original.address}`}
+              title="סביבת עסקה"
+            >
+              <Handshake className="h-4 w-4" />
             </Link>
             {onToggleWatch && (
               <button
@@ -482,7 +453,7 @@ function createColumns({
             )}
           </div>
         )
-      } 
+      }
     }
   ]
 }

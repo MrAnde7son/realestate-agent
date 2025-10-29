@@ -3605,7 +3605,7 @@ useDedupedEffect(() => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={loadDocumentsTable}
+                      onClick={() => loadDocumentsTable()}
                       disabled={documentsLoading}
                     >
                       {documentsLoading ? (

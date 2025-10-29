@@ -2273,7 +2273,7 @@ useDedupedEffect(() => {
                         <Link
                           href={listingUrlValue}
                           target="_blank"
-                          rel="noopener noreferrer"
+                          rel="noopener noreferrer nofollow"
                           className="text-primary hover:underline"
                         >
                           צפייה במודעה

@@ -150,7 +150,14 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
       {/* Status Change Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" disabled={isLoading} className="h-8 w-8 p-0">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            className="h-8 w-8 p-0"
+            aria-label="עדכן סטטוס ליד"
+            title="עדכן סטטוס ליד"
+          >
             <Edit className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
@@ -170,7 +177,14 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
       {/* Add Note Dialog */}
       <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" disabled={isLoading} className="h-8 w-8 p-0">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            className="h-8 w-8 p-0"
+            aria-label="הוסף הערה לליד"
+            title="הוסף הערה לליד"
+          >
             <MessageSquare className="h-3 w-3" />
           </Button>
         </DialogTrigger>
@@ -210,38 +224,43 @@ export function LeadRowActions({ lead, onUpdate, onDelete, onShowTasks }: LeadRo
 
       {/* Show Tasks */}
       {onShowTasks && (
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           onClick={onShowTasks}
           disabled={isLoading}
           className="h-8 w-8 p-0"
           title="הצג משימות"
+          aria-label="הצג משימות לליד"
         >
           <CheckSquare className="h-3 w-3" />
         </Button>
       )}
 
       {/* Send Report */}
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         onClick={handleSendReport}
         disabled={isLoading || !lead.contact.email}
         title={!lead.contact.email ? 'אין כתובת אימייל' : 'שלח דוח'}
         className="h-8 w-8 p-0"
+        aria-label={
+          !lead.contact.email ? 'לא ניתן לשלוח דוח - אין כתובת אימייל' : 'שלח דוח ללקוח'
+        }
       >
         {isLoading ? <ButtonLoader size="sm" /> : <Send className="h-3 w-3" />}
       </Button>
 
       {/* Delete */}
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         onClick={() => onDelete(lead.id)}
         disabled={isLoading}
         className="text-destructive hover:text-destructive h-8 w-8 p-0"
         title="מחק"
+        aria-label="מחק ליד"
       >
         <Trash2 className="h-3 w-3" />
       </Button>

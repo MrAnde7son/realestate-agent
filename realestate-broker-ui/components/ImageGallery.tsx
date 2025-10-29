@@ -109,6 +109,8 @@ export default function ImageGallery({
                 variant="ghost"
                 size="icon"
                 onClick={closeFullscreen}
+                aria-label="סגור תצוגת תמונות"
+                title="סגור תצוגת תמונות"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -135,6 +137,8 @@ export default function ImageGallery({
                       size="icon"
                       className="absolute start-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
                       onClick={prevImage}
+                      aria-label="הצג תמונה קודמת"
+                      title="הצג תמונה קודמת"
                     >
                       <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                     </Button>
@@ -143,6 +147,8 @@ export default function ImageGallery({
                       size="icon"
                       className="absolute end-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
                       onClick={nextImage}
+                      aria-label="הצג תמונה הבאה"
+                      title="הצג תמונה הבאה"
                     >
                       <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                     </Button>

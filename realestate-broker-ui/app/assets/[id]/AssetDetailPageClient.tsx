@@ -184,6 +184,14 @@ const extractFeatureLabels = (raw: unknown): string[] => {
   return Array.from(new Set(collected))
 }
 
+const isAbortError = (error: unknown): error is DOMException =>
+  Boolean(
+    error &&
+      typeof error === 'object' &&
+      'name' in error &&
+      (error as { name?: unknown }).name === 'AbortError'
+  )
+
 const normalizePrimaryListing = (listing: any) => {
   if (!listing || typeof listing !== 'object') return null
 
@@ -354,6 +362,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [comparables, setComparables] = useState<any[]>([])
   const [appraisal, setAppraisal] = useState<any | null>(null)
   const [decisiveAppraisals, setDecisiveAppraisals] = useState<any[]>([])
+  const [appraisalsLoading, setAppraisalsLoading] = useState(false)
   const [ramiAppraisals, setRamiAppraisals] = useState<any[]>([])
   const [transactionsData, setTransactionsData] = useState<{ items: any[]; total: number; filters: { source: string[] } }>({ items: [], total: 0, filters: { source: [] } })
   const [transactionsLoading, setTransactionsLoading] = useState(false)
@@ -429,6 +438,15 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [documentsPagination, setDocumentsPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [decisiveSearch, setDecisiveSearch] = useState('')
   const [ramiSearch, setRamiSearch] = useState('')
+
+  const assetRequestControllerRef = React.useRef<AbortController | null>(null)
+  const appraisalsControllerRef = React.useRef<AbortController | null>(null)
+  const documentsControllerRef = React.useRef<AbortController | null>(null)
+  const permitsControllerRef = React.useRef<AbortController | null>(null)
+  const transactionsControllerRef = React.useRef<AbortController | null>(null)
+  const plansControllerRef = React.useRef<AbortController | null>(null)
+  const rightsControllerRef = React.useRef<AbortController | null>(null)
+  const activeMountsRef = React.useRef(0)
 
   // Responsive: detect mobile to tweak gallery props
   const [isMobile, setIsMobile] = useState(false)
@@ -1016,20 +1034,23 @@ React.useEffect(() => {
     }
   }, [asset, calculatedRights, remainingRightsDisplayValue])
 
-  const loadRightsData = React.useCallback(async () => {
+  const loadRightsData = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
     if (!id) return
     setRightsLoading(true)
     setRightsError(null)
     try {
-      const response = await apiClient.get(`/api/assets/${id}/rights`)
+      const response = await apiClient.get(`/api/assets/${id}/rights`, { signal })
       if (!response.ok) {
         throw new Error(response.error || 'Failed to load rights')
       }
       const data = response.data
+      if (signal?.aborted) {
+        return
+      }
       // Store calculated rights for the new UI
       const calculated = data.calculated_rights || null
       setCalculatedRights(calculated)
-      
+
       const remainingRightsFromCalc =
         calculated?.summary?.remaining_rights_sqm ??
         calculated?.remaining_rights?.remaining_area_sqm
@@ -1052,17 +1073,22 @@ React.useEffect(() => {
       ]
       setRightsRows(allRightsRows)
     } catch (rightsErr) {
+      if (isAbortError(rightsErr) || signal?.aborted) {
+        return
+      }
       console.error('Error loading rights data:', rightsErr)
       setRightsRows([])
       setCalculatedRights(null)
       setRightsError('שגיאה בטעינת נתוני טאבו')
     } finally {
-      setRightsLoading(false)
+      if (!signal?.aborted) {
+        setRightsLoading(false)
+      }
     }
   }, [id])
 
   // Load documents organized by category
-  const loadDocumentsTable = React.useCallback(async () => {
+  const loadDocumentsTable = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
     if (!id) return
 
     setDocumentsLoading(true)
@@ -1106,11 +1132,14 @@ React.useEffect(() => {
       const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-document_date'
       params.set('ordering', orderingValue)
 
-      const response = await apiClient.get(`/api/documents/table?${params.toString()}`)
+      const response = await apiClient.get(`/api/documents/table?${params.toString()}`, { signal })
       if (!response.ok) {
         throw new Error(response.error || 'Failed to load documents')
       }
       const data = (response.data ?? {}) as any
+      if (signal?.aborted) {
+        return
+      }
       setDocumentsData({
         items: data.results || [],
         total: data.count || 0,
@@ -1122,11 +1151,16 @@ React.useEffect(() => {
         },
       })
     } catch (error) {
+      if (isAbortError(error) || signal?.aborted) {
+        return
+      }
       console.error('Error loading documents:', error)
       setDocumentsError('שגיאה בטעינת מסמכים')
       setDocumentsData({ items: [], total: 0, filters: { category: [], type: [], source: [], status: [] } })
     } finally {
-      setDocumentsLoading(false)
+      if (!signal?.aborted) {
+        setDocumentsLoading(false)
+      }
     }
   }, [
     id,
@@ -1140,41 +1174,125 @@ React.useEffect(() => {
   ])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'documents') return
-  loadDocumentsTable()
+  documentsControllerRef.current?.abort()
+
+  if (activeTab !== 'documents') {
+    documentsControllerRef.current = null
+    return
+  }
+
+  const controller = new AbortController()
+  documentsControllerRef.current = controller
+
+  void loadDocumentsTable({ signal: controller.signal }).finally(() => {
+    if (documentsControllerRef.current === controller) {
+      documentsControllerRef.current = null
+    }
+  })
 }, [activeTab, loadDocumentsTable])
 
   useDedupedEffect(() => {
+    assetRequestControllerRef.current?.abort()
+
+    if (!id) {
+      assetRequestControllerRef.current = null
+      return
+    }
+
+    const controller = new AbortController()
+    assetRequestControllerRef.current = controller
     setLoading(true)
-    apiClient.get(`/api/assets/${id}`)
-      .then(response => {
+
+    ;(async () => {
+      try {
+        const response = await apiClient.get(`/api/assets/${id}`, { signal: controller.signal })
         if (!response.ok) throw new Error(response.error || 'Failed to load asset')
+        if (controller.signal.aborted) return
         const assetData = response.data?.asset || response.data
         setAsset(assetData)
-      })
-      .catch(err => {
+      } catch (err) {
+        if (isAbortError(err) || controller.signal.aborted) {
+          return
+        }
         console.error('Error loading asset:', err)
         setError('שגיאה בטעינת הנכס')
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+        if (assetRequestControllerRef.current === controller) {
+          assetRequestControllerRef.current = null
+        }
+      }
+    })()
   }, [id])
 
-useDedupedEffect(() => {
-  if (activeTab !== 'appraisals') return
-  apiClient
-    .get(`/api/assets/${id}/appraisal`)
-    .then(response => {
-      if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
-      const data = (response.data ?? {}) as any
-      setComparables(data.comps || [])
-      setAppraisal(data.appraisal || null)
-      setDecisiveAppraisals(data.decisive_appraisals || [])
-      setRamiAppraisals(data.rami_appraisals || [])
-    })
-    .catch(err => console.error('Error loading appraisal:', err))
-}, [activeTab, id])
+const loadAppraisals = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
+  if (!id) return
+  const response = await apiClient.get(`/api/assets/${id}/appraisal`, { signal })
+  if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
+  if (signal?.aborted) return
+  const data = (response.data ?? {}) as any
+  setComparables(data.comps || [])
+  setAppraisal(data.appraisal || null)
+  setDecisiveAppraisals(data.decisive_appraisals || [])
+  setRamiAppraisals(data.rami_appraisals || [])
+}, [id])
 
-const loadPermits = React.useCallback(async () => {
+useDedupedEffect(() => {
+  appraisalsControllerRef.current?.abort()
+
+  if (activeTab !== 'appraisals') {
+    appraisalsControllerRef.current = null
+    setAppraisalsLoading(false)
+    return
+  }
+
+  const controller = new AbortController()
+  appraisalsControllerRef.current = controller
+  setAppraisalsLoading(true)
+
+  loadAppraisals({ signal: controller.signal })
+    .catch((err) => {
+      if (isAbortError(err) || controller.signal.aborted) {
+        return
+      }
+      console.error('Error loading appraisal:', err)
+    })
+    .finally(() => {
+      if (!controller.signal.aborted) {
+        setAppraisalsLoading(false)
+      }
+      if (appraisalsControllerRef.current === controller) {
+        appraisalsControllerRef.current = null
+      }
+    })
+}, [activeTab, loadAppraisals])
+
+const handleAppraisalsRefresh = React.useCallback(() => {
+  const controller = new AbortController()
+  appraisalsControllerRef.current?.abort()
+  appraisalsControllerRef.current = controller
+  setAppraisalsLoading(true)
+
+  loadAppraisals({ signal: controller.signal })
+    .catch((err) => {
+      if (isAbortError(err) || controller.signal.aborted) {
+        return
+      }
+      console.error('Error refreshing appraisal tables:', err)
+    })
+    .finally(() => {
+      if (!controller.signal.aborted) {
+        setAppraisalsLoading(false)
+      }
+      if (appraisalsControllerRef.current === controller) {
+        appraisalsControllerRef.current = null
+      }
+    })
+}, [loadAppraisals])
+
+const loadPermits = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
   if (!id) return
   setPermitsLoading(true)
   try {
@@ -1236,11 +1354,16 @@ const loadPermits = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-approval_date'
     params.set('ordering', orderingValue)
 
-    const response = await apiClient.get(`/api/assets/${id}/permits?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/permits?${params.toString()}`, {
+      signal,
+    })
     if (!response.ok) {
       throw new Error(response.error || 'Failed to load permits')
     }
     const data = (response.data ?? {}) as any
+    if (signal?.aborted) {
+      return
+    }
     setPermitsData({
       items: data.permits || [],
       total: data.count || 0,
@@ -1252,10 +1375,15 @@ const loadPermits = React.useCallback(async () => {
       },
     })
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading permits:', err)
     setPermitsData({ items: [], total: 0, filters: { stage: [], document_type: [], source: [], request_type: [] } })
   } finally {
-    setPermitsLoading(false)
+    if (!signal?.aborted) {
+      setPermitsLoading(false)
+    }
   }
 }, [
   id,
@@ -1276,11 +1404,24 @@ const loadPermits = React.useCallback(async () => {
 ])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'permits') return
-  loadPermits()
+  permitsControllerRef.current?.abort()
+
+  if (activeTab !== 'permits') {
+    permitsControllerRef.current = null
+    return
+  }
+
+  const controller = new AbortController()
+  permitsControllerRef.current = controller
+
+  void loadPermits({ signal: controller.signal }).finally(() => {
+    if (permitsControllerRef.current === controller) {
+      permitsControllerRef.current = null
+    }
+  })
 }, [activeTab, loadPermits])
 
-const loadTransactions = React.useCallback(async () => {
+const loadTransactions = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
   if (!id) return
   setTransactionsLoading(true)
   try {
@@ -1331,11 +1472,16 @@ const loadTransactions = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-date'
     params.set('ordering', orderingValue)
 
-    const response = await apiClient.get(`/api/assets/${id}/transactions?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/transactions?${params.toString()}`, {
+      signal,
+    })
     if (!response.ok) {
       throw new Error(response.error || 'Failed to load transactions')
     }
     const data = (response.data ?? {}) as any
+    if (signal?.aborted) {
+      return
+    }
     setTransactionsData({
       items: data.transactions || [],
       total: data.count || 0,
@@ -1345,11 +1491,16 @@ const loadTransactions = React.useCallback(async () => {
     })
     setMarketAnalysis(data.market_analysis || null)
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading transactions:', err)
     setTransactionsData({ items: [], total: 0, filters: { source: [] } })
     setMarketAnalysis(null)
   } finally {
-    setTransactionsLoading(false)
+    if (!signal?.aborted) {
+      setTransactionsLoading(false)
+    }
   }
 }, [
   id,
@@ -1367,11 +1518,24 @@ const loadTransactions = React.useCallback(async () => {
 ])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'transactions') return
-  loadTransactions()
+  transactionsControllerRef.current?.abort()
+
+  if (activeTab !== 'transactions') {
+    transactionsControllerRef.current = null
+    return
+  }
+
+  const controller = new AbortController()
+  transactionsControllerRef.current = controller
+
+  void loadTransactions({ signal: controller.signal }).finally(() => {
+    if (transactionsControllerRef.current === controller) {
+      transactionsControllerRef.current = null
+    }
+  })
 }, [activeTab, loadTransactions])
 
-const loadPlans = React.useCallback(async () => {
+const loadPlans = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
   if (!id) return
   setPlansLoading(true)
   try {
@@ -1409,11 +1573,16 @@ const loadPlans = React.useCallback(async () => {
     const orderingValue = primarySort ? `${primarySort.desc ? '-' : ''}${orderingField}` : '-effective_date'
     params.set('ordering', orderingValue)
 
-    const response = await apiClient.get(`/api/assets/${id}/plans?${params.toString()}`)
+    const response = await apiClient.get(`/api/assets/${id}/plans?${params.toString()}`, {
+      signal,
+    })
     if (!response.ok) {
       throw new Error(response.error || 'Failed to load plans')
     }
     const data = (response.data ?? {}) as any
+    if (signal?.aborted) {
+      return
+    }
     setPlansData({
       items: data.plans || [],
       total: data.count || 0,
@@ -1423,27 +1592,90 @@ const loadPlans = React.useCallback(async () => {
       },
     })
   } catch (err) {
+    if (isAbortError(err) || signal?.aborted) {
+      return
+    }
     console.error('Error loading plans:', err)
     setPlansData({ items: [], total: 0, filters: { source: [], status: [] } })
   } finally {
-    setPlansLoading(false)
+    if (!signal?.aborted) {
+      setPlansLoading(false)
+    }
   }
 }, [id, plansPagination, plansSorting, plansSearch, plansSourceFilter, plansStatusFilter, plansPlanNumberFilter, plansDescriptionFilter])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'plans') return
-  loadPlans()
+  plansControllerRef.current?.abort()
+
+  if (activeTab !== 'plans') {
+    plansControllerRef.current = null
+    return
+  }
+
+  const controller = new AbortController()
+  plansControllerRef.current = controller
+
+  void loadPlans({ signal: controller.signal }).finally(() => {
+    if (plansControllerRef.current === controller) {
+      plansControllerRef.current = null
+    }
+  })
 }, [activeTab, loadPlans])
 
 useDedupedEffect(() => {
-  if (!id) return
-  loadRightsData()
+  rightsControllerRef.current?.abort()
+
+  if (!id) {
+    rightsControllerRef.current = null
+    return
+  }
+
+  const controller = new AbortController()
+  rightsControllerRef.current = controller
+
+  void loadRightsData({ signal: controller.signal }).finally(() => {
+    if (rightsControllerRef.current === controller) {
+      rightsControllerRef.current = null
+    }
+  })
 }, [id, loadRightsData])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'rights') return
-  loadRightsData()
+  if (activeTab !== 'rights') {
+    return
+  }
+
+  rightsControllerRef.current?.abort()
+
+  const controller = new AbortController()
+  rightsControllerRef.current = controller
+
+  void loadRightsData({ signal: controller.signal }).finally(() => {
+    if (rightsControllerRef.current === controller) {
+      rightsControllerRef.current = null
+    }
+  })
 }, [activeTab, loadRightsData])
+
+  useEffect(() => {
+    activeMountsRef.current += 1
+
+    return () => {
+      activeMountsRef.current -= 1
+
+      queueMicrotask(() => {
+        if (activeMountsRef.current === 0) {
+          assetRequestControllerRef.current?.abort()
+          appraisalsControllerRef.current?.abort()
+          documentsControllerRef.current?.abort()
+          permitsControllerRef.current?.abort()
+          transactionsControllerRef.current?.abort()
+          plansControllerRef.current?.abort()
+          rightsControllerRef.current?.abort()
+        }
+      })
+    }
+  }, [])
 
   useDedupedEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('reportSections') : null
@@ -3353,17 +3585,7 @@ useDedupedEffect(() => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      apiClient
-                        .get(`/api/assets/${id}/appraisal`)
-                        .then(response => {
-                          if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
-                          const data = (response.data ?? {}) as any
-                          setAppraisal(data.appraisal || null)
-                          setDecisiveAppraisals(data.decisive_appraisals || [])
-                          setRamiAppraisals(data.rami_appraisals || [])
-                        })
-                        .catch(err => console.error('Error refreshing appraisal:', err))
-                      
+                      handleAppraisalsRefresh()
                       loadTransactions()
                     }}
                   >
@@ -3448,6 +3670,13 @@ useDedupedEffect(() => {
                       </CardContent>
                     </Card>
                   </>
+                ) : appraisalsLoading ? (
+                  <div className="text-center text-muted-foreground">
+                    <div className="py-8 flex flex-col items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <div className="text-sm">טוען נתוני שומות...</div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center text-muted-foreground">
                     <div className="py-8">
@@ -3460,9 +3689,10 @@ useDedupedEffect(() => {
                 )}
 
                 <div className="space-y-4">
-                  {normalizedDecisiveAppraisals.length > 0 && (
+                  {(appraisalsLoading || normalizedDecisiveAppraisals.length > 0) && (
                     <DecisiveAppraisalsTable
                       data={normalizedDecisiveAppraisals}
+                      loading={appraisalsLoading}
                       searchValue={decisiveSearch}
                       onSearchChange={setDecisiveSearch}
                       filters={{
@@ -3471,23 +3701,14 @@ useDedupedEffect(() => {
                           onChange: setDecisiveSourceFilter,
                         },
                       }}
-                      onRefresh={() => {
-                        apiClient
-                          .get(`/api/assets/${id}/appraisal`)
-                          .then(response => {
-                            if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
-                            const data = (response.data ?? {}) as any
-                            setDecisiveAppraisals(data.decisive_appraisals || [])
-                            setRamiAppraisals(data.rami_appraisals || [])
-                          })
-                          .catch(err => console.error('Error refreshing appraisal tables:', err))
-                      }}
+                      onRefresh={handleAppraisalsRefresh}
                     />
                   )}
 
-                  {normalizedRamiAppraisals.length > 0 && (
+                  {(appraisalsLoading || normalizedRamiAppraisals.length > 0) && (
                     <RamiAppraisalsTable
                       data={normalizedRamiAppraisals}
+                      loading={appraisalsLoading}
                       searchValue={ramiSearch}
                       onSearchChange={setRamiSearch}
                       filters={{
@@ -3500,21 +3721,11 @@ useDedupedEffect(() => {
                           onChange: setRamiStatusFilter,
                         },
                       }}
-                      onRefresh={() => {
-                        apiClient
-                          .get(`/api/assets/${id}/appraisal`)
-                          .then(response => {
-                            if (!response.ok) throw new Error(response.error || 'Failed to load appraisal')
-                            const data = (response.data ?? {}) as any
-                            setDecisiveAppraisals(data.decisive_appraisals || [])
-                            setRamiAppraisals(data.rami_appraisals || [])
-                          })
-                          .catch(err => console.error('Error refreshing appraisal tables:', err))
-                      }}
+                      onRefresh={handleAppraisalsRefresh}
                     />
                   )}
 
-                  {normalizedDecisiveAppraisals.length === 0 && normalizedRamiAppraisals.length === 0 && (
+                  {!appraisalsLoading && normalizedDecisiveAppraisals.length === 0 && normalizedRamiAppraisals.length === 0 && (
                     <div className="rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
                       לא נמצאו שומות מכריעות או שומות רמ״י לנכס זה.
                     </div>
@@ -3534,7 +3745,9 @@ useDedupedEffect(() => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={loadDocumentsTable}
+                      onClick={() => {
+                        void loadDocumentsTable();
+                      }}
                       disabled={documentsLoading}
                     >
                       {documentsLoading ? (
@@ -3612,7 +3825,9 @@ useDedupedEffect(() => {
                       onChange: setDocumentsStatusFilter,
                     },
                   }}
-                  onRefresh={loadDocumentsTable}
+                  onRefresh={() => {
+                    void loadDocumentsTable();
+                  }}
                   totalCount={documentsData.total}
                   paginationState={documentsPagination}
                   onPaginationChange={setDocumentsPagination}

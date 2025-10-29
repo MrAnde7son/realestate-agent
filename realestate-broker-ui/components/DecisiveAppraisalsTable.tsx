@@ -273,6 +273,10 @@ export default function DecisiveAppraisalsTable({
     getPaginationRowModel: getPaginationRowModel(),
   });
 
+  const skeletonRowCount = Math.min(5, table.getState().pagination.pageSize || 10);
+  const visibleLeafColumns = table.getVisibleLeafColumns();
+  const showSkeletonRows = loading && data.length === 0;
+
   const toolbarColumns = table.getAllColumns()
     .filter((column) => column.getCanHide())
     .map((column) => ({
@@ -386,6 +390,10 @@ export default function DecisiveAppraisalsTable({
         loading={loading}
       />
 
+      {showSkeletonRows && (
+        <div className="px-4 text-sm text-muted-foreground">טוען שומות מכריעות...</div>
+      )}
+
       <Table className="rtl">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -426,7 +434,7 @@ export default function DecisiveAppraisalsTable({
             <TableSkeletonRows columnCount={columns.length} />
           ) : table.getRowModel().rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
+              <TableCell colSpan={visibleLeafColumns.length || columns.length} className="h-24 text-center">
                 <div className="text-muted-foreground py-8">לא נמצאו שומות מכריעות</div>
               </TableCell>
             </TableRow>

@@ -122,6 +122,9 @@ class ApiClient {
       }
       
     } catch (error) {
+      if (error && typeof error === 'object' && (error as any).name === 'AbortError') {
+        throw error
+      }
       return {
         data: undefined,
         error: error instanceof Error ? error.message : 'Request failed',

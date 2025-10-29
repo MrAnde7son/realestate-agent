@@ -1432,9 +1432,16 @@ useDedupedEffect(() => {
     if (stored) {
       try { setSections(JSON.parse(stored)) } catch {}
     } else {
-      fetch('/api/settings')
-        .then(res => res.json())
-        .then(data => setSections(data.report_sections || ALL_SECTIONS))
+      apiClient
+        .get('/api/settings')
+        .then((response) => {
+          if (response.ok && response.data) {
+            const settings = response.data as { report_sections?: string[] }
+            setSections(settings.report_sections || ALL_SECTIONS)
+          } else {
+            setSections(ALL_SECTIONS)
+          }
+        })
         .catch(() => setSections(ALL_SECTIONS))
     }
   }, [])
@@ -1697,14 +1704,13 @@ useDedupedEffect(() => {
     setGeneratingReport(true)
 
     try {
-      const res = await fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: Number(id), sections: selected })
+      const response = await apiClient.post('/api/reports', {
+        assetId: Number(id),
+        sections: selected,
       })
 
-      if (!res.ok) {
-        console.error('Report generation failed:', await res.text())
+      if (!response.ok) {
+        console.error('Report generation failed:', response.error || response.data)
         return
       }
       localStorage.removeItem('onboardingDismissed')
@@ -1724,13 +1730,12 @@ useDedupedEffect(() => {
     setShareMessage(null)
     setShareUrl(null)
     try {
-      const res = await fetch(`/api/assets/${id}/share-message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language, provider })
+      const response = await apiClient.post(`/api/assets/${id}/share-message`, {
+        language,
+        provider,
       })
-      if (res.ok) {
-        const data = await res.json()
+      if (response.ok && response.data) {
+        const data = response.data as { text?: string; share_url?: string }
         setShareMessage(data.text)
         setShareUrl(data.share_url)
 
@@ -1741,8 +1746,8 @@ useDedupedEffect(() => {
           provider
         })
       } else {
-        const errorData = await res.json().catch(() => ({}))
-        alert(errorData.details || errorData.error || 'שגיאה ביצירת הודעה')
+        const errorData = (response.data as { details?: string; error?: string } | undefined) || {}
+        alert(errorData.details || errorData.error || response.error || 'שגיאה ביצירת הודעה')
       }
     } catch (err) {
       console.error('Message generation failed:', err)
@@ -1761,13 +1766,7 @@ useDedupedEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('reportSections', JSON.stringify(sections))
     }
-    try {
-      fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report_sections: sections })
-      }).catch(() => {})
-    } catch {}
+    void apiClient.put('/api/settings', { report_sections: sections })
     await handleGenerateReport(sections)
     setSectionsModal(false)
   }
@@ -1789,12 +1788,12 @@ useDedupedEffect(() => {
     }
     setUploading(true)
     try {
-      const res = await fetch(`/api/assets/${id}/documents`, {
+      const response = await apiClient.request(`/api/assets/${id}/documents`, {
         method: 'POST',
         body: formData,
       })
-      if (res.ok) {
-        const responseData = await res.json()
+      if (response.ok) {
+        const responseData = (response.data as any) ?? {}
         const uploadedDoc = responseData.doc || responseData
         if (!uploadedDoc) {
           return
@@ -1815,6 +1814,8 @@ useDedupedEffect(() => {
         if (e.currentTarget) {
           e.currentTarget.reset()
         }
+      } else {
+        console.error('Upload failed:', response.error || response.data)
       }
     } catch (err) {
       console.error('Upload failed:', err)

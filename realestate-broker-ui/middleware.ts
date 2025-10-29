@@ -4,7 +4,6 @@ import { validateToken } from './lib/token-utils'
 
 // Routes that require authentication
 const protectedRoutes = [
-  '/mortgage',
   '/alerts',
   '/reports',
   '/profile',

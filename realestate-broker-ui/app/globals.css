@@ -709,6 +709,32 @@
     transform: translateX(-50%) translateY(0);
   }
 
+  @media (max-width: 640px) {
+    .asset-marker {
+      gap: 0.25rem;
+    }
+
+    .asset-marker-label {
+      min-width: 6rem;
+      max-width: 9rem;
+      padding: 0.35rem 0.6rem;
+    }
+
+    .asset-marker-address {
+      font-size: 0.875rem;
+    }
+
+    .asset-marker-price,
+    .asset-marker-city {
+      font-size: 0.75rem;
+    }
+
+    .asset-marker-tooltip-card {
+      min-width: 200px;
+      max-width: 220px;
+    }
+  }
+
   .asset-marker-tooltip-card {
     position: relative;
     background: #ffffff;

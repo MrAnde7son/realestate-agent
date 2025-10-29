@@ -194,11 +194,14 @@ export const buildMarkerDisplayData = (asset: Asset): MarkerDisplayData => {
 export const shouldDisplayMarkerLabel = ({
   totalAssets,
   zoom,
+  preferTouchDevice = false,
 }: {
   totalAssets: number
   zoom?: number | null
+  preferTouchDevice?: boolean
 }): boolean => {
   if (totalAssets <= 0) return false
+  if (preferTouchDevice) return true
   if (totalAssets <= DENSE_ASSET_THRESHOLD) return true
   const effectiveZoom = zoom ?? 0
   if (effectiveZoom >= DETAIL_ZOOM_THRESHOLD) return true

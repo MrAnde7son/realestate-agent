@@ -14,6 +14,32 @@ import { buildMarkerDisplayData, shouldDisplayMarkerLabel, type MarkerDisplayDat
 import { normalizeToLonLat } from '@/lib/geo/transform'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
+type MarkerElement = HTMLDivElement & { __cleanupTooltip?: () => void }
+
+const isCoarsePointerEnvironment = (): boolean => {
+  if (typeof window === 'undefined') return false
+  const { matchMedia, navigator } = window
+
+  const queries = ['(pointer: coarse)', '(hover: none)']
+  for (const query of queries) {
+    try {
+      if (matchMedia?.(query)?.matches) {
+        return true
+      }
+    } catch (error) {
+      console.warn('MapView: matchMedia check failed', error)
+    }
+  }
+
+  if (navigator) {
+    const nav = navigator as Navigator & { msMaxTouchPoints?: number }
+    if (typeof nav.maxTouchPoints === 'number' && nav.maxTouchPoints > 0) return true
+    if (typeof nav.msMaxTouchPoints === 'number' && nav.msMaxTouchPoints > 0) return true
+  }
+
+  return false
+}
+
 interface MapViewProps {
   assets: Asset[]
   center: [number, number]
@@ -226,6 +252,7 @@ export default function MapView({
   const layerService = useRef<MapLayerService | null>(null)
   const geocodingService = useRef<GeocodingService | null>(null)
   const markersRef = useRef<Record<string | number, maplibregl.Marker>>({})
+  const coarsePointerRef = useRef(false)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -243,6 +270,7 @@ export default function MapView({
     const shouldPersist = shouldDisplayMarkerLabel({
       totalAssets: totalMarkers,
       zoom: map.current.getZoom(),
+      preferTouchDevice: coarsePointerRef.current,
     })
 
     Object.values(markersRef.current).forEach(marker => {
@@ -284,7 +312,11 @@ export default function MapView({
     console.log('MapView: Map zoom:', map.current.getZoom())
 
     // Remove existing markers properly
-    Object.values(markersRef.current).forEach(m => m.remove())
+    Object.values(markersRef.current).forEach(markerInstance => {
+      const element = markerInstance.getElement() as MarkerElement | null
+      element?.__cleanupTooltip?.()
+      markerInstance.remove()
+    })
     markersRef.current = {}
 
     if (!assets.length) {
@@ -293,9 +325,15 @@ export default function MapView({
     }
 
     const normalizedPoints: Array<{ lon: number; lat: number; asset: Asset; src: string }> = [];
+    const preferTouchDevice = isCoarsePointerEnvironment()
+    const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window
+    const outsideEventName: 'pointerdown' | 'touchstart' = supportsPointerEvents ? 'pointerdown' : 'touchstart'
+    coarsePointerRef.current = preferTouchDevice
+
     const labelsVisibleByDefault = shouldDisplayMarkerLabel({
       totalAssets: assets.length,
       zoom: map.current?.getZoom(),
+      preferTouchDevice,
     })
 
     assets.forEach(asset => {
@@ -322,9 +360,10 @@ export default function MapView({
     
       const displayData = buildMarkerDisplayData(asset)
 
-      const markerContainer = document.createElement('div')
+      const markerContainer = document.createElement('div') as MarkerElement
       markerContainer.className = 'asset-marker'
       markerContainer.style.zIndex = '1000'
+      markerContainer.style.touchAction = 'manipulation'
       markerContainer.setAttribute('role', 'button')
       markerContainer.tabIndex = 0
       markerContainer.setAttribute('aria-label', displayData.fullAddress)
@@ -348,6 +387,16 @@ export default function MapView({
       markerContainer.setAttribute('aria-describedby', tooltipId)
       markerContainer.appendChild(tooltipEl)
 
+      let skipNextClick = false
+      let detachOutsideListener: (() => void) | null = null
+
+      const clearOutsideListener = () => {
+        if (detachOutsideListener) {
+          detachOutsideListener()
+          detachOutsideListener = null
+        }
+      }
+
       const showTooltip = () => {
         labelEl.dataset.visible = 'true'
         labelEl.setAttribute('aria-hidden', 'false')
@@ -356,6 +405,7 @@ export default function MapView({
       }
 
       const hideTooltip = () => {
+        clearOutsideListener()
         labelEl.classList.remove('asset-marker-label--hover')
         if (labelEl.dataset.persist !== 'true') {
           labelEl.dataset.visible = 'false'
@@ -364,6 +414,20 @@ export default function MapView({
           labelEl.setAttribute('aria-hidden', 'false')
         }
         tooltipEl.dataset.visible = 'false'
+        skipNextClick = false
+      }
+
+      const registerOutsideListener = () => {
+        clearOutsideListener()
+        const handleOutside = (event: Event) => {
+          if (!markerContainer.contains(event.target as Node)) {
+            hideTooltip()
+          }
+        }
+        document.addEventListener(outsideEventName, handleOutside, true)
+        detachOutsideListener = () => {
+          document.removeEventListener(outsideEventName, handleOutside, true)
+        }
       }
 
       markerContainer.addEventListener('mouseenter', showTooltip)
@@ -371,13 +435,51 @@ export default function MapView({
       markerContainer.addEventListener('focus', showTooltip)
       markerContainer.addEventListener('blur', hideTooltip)
 
-      markerContainer.addEventListener('click', () => onAssetClick(asset))
+      const handleCoarsePointerDown = (event: PointerEvent | TouchEvent) => {
+        if (!preferTouchDevice) return
+        const pointerType = 'pointerType' in event ? (event as PointerEvent).pointerType : 'touch'
+        if (pointerType && pointerType !== 'touch' && pointerType !== 'pen') return
+
+        const tooltipVisible = tooltipEl.dataset.visible === 'true'
+        if (!tooltipVisible) {
+          skipNextClick = true
+          showTooltip()
+          registerOutsideListener()
+        } else {
+          skipNextClick = false
+        }
+      }
+
+      if (supportsPointerEvents) {
+        markerContainer.addEventListener('pointerdown', handleCoarsePointerDown as (event: PointerEvent) => void)
+      } else {
+        markerContainer.addEventListener('touchstart', handleCoarsePointerDown as (event: TouchEvent) => void, {
+          passive: true,
+        })
+      }
+
+      markerContainer.addEventListener('click', event => {
+        if (skipNextClick) {
+          skipNextClick = false
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+
+        hideTooltip()
+        onAssetClick(asset)
+      })
       markerContainer.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
+          hideTooltip()
           onAssetClick(asset)
         }
       })
+
+      markerContainer.__cleanupTooltip = () => {
+        hideTooltip()
+      }
 
       const marker = new maplibregl.Marker({ element: markerContainer, anchor: 'bottom' })
       .setLngLat([lon, lat])

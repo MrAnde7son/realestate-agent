@@ -3674,6 +3674,19 @@ def asset_share_message(request, asset_id):
 
     srcs = SourceRecord.objects.filter(asset_id=asset.id).order_by("-fetched_at")
     listing = build_listing(asset, srcs)
+    keys_to_remove = [
+        "location_hint",
+        "handasa_archive",
+        "gis_collector_data",
+        "gisCoordinates",
+        "govmap_autocomplete_data",
+        "govmap_data",
+        "_meta",
+    ]
+    for key in keys_to_remove:
+        if key in listing:
+            del listing[key]
+
     logger.info(
         "Generating marketing message for asset %s in %s",
         asset_id,

@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     return response
   }
 
-  const filename = file instanceof File ? file.name : 'document'
+  const filename = ('name' in file && file.name) ? file.name : 'document'
   const assetUploadForm = new FormData()
   assetUploadForm.append('file', file, filename)
   assetUploadForm.append('document_type', 'other')

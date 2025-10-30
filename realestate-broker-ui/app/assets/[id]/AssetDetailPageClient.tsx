@@ -1891,7 +1891,7 @@ useDedupedEffect(() => {
           <Breadcrumb className="mb-4">
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href="/" className="flex items-center gap-1">
+                <BreadcrumbLink href="/assets" className="flex items-center gap-1">
                   <Home className="h-4 w-4" />
                   בית
                 </BreadcrumbLink>
@@ -2209,7 +2209,7 @@ useDedupedEffect(() => {
         <Breadcrumb className="mb-4">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/" className="flex items-center gap-1">
+              <BreadcrumbLink href="/assets" className="flex items-center gap-1">
                 <Home className="h-4 w-4" />
                 בית
               </BreadcrumbLink>

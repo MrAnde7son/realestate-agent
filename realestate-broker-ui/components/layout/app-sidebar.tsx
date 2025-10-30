@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
-  Home,
   Building,
   AlertCircle,
   Calculator,
@@ -39,11 +38,6 @@ import { useAuth } from "@/lib/auth-context";
 import { getRoleLabel } from "@/lib/role-constants";
 
 const baseNavigation = [
-  {
-    name: "בית",
-    href: "/",
-    icon: Home,
-  },
   {
     name: "נכסים",
     href: "/assets",
@@ -82,7 +76,6 @@ interface AppSidebarProps {
 }
 
 function isActive(href: string, path: string) {
-  if (href === "/") return path === "/";
   return path === href || path.startsWith(href + "/");
 }
 
@@ -142,7 +135,7 @@ export default function AppSidebar({
     >
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/assets" className="flex items-center gap-3">
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
           {!isCollapsed && (
             <span className="text-xl font-bold text-logo-title">נדל״נר</span>

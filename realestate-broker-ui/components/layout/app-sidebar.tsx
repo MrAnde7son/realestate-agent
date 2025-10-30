@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Home,
   Building,
+  Handshake,
   AlertCircle,
   Calculator,
   FileText,
@@ -48,6 +49,11 @@ const baseNavigation = [
     name: "נכסים",
     href: "/assets",
     icon: Building,
+  },
+  {
+    name: "עסקאות",
+    href: "/deals",
+    icon: Handshake,
   },
   {
     name: "לקוחות",

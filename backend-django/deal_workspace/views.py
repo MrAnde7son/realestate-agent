@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, time
 from typing import Iterable
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from django.utils import dateparse
+from django.utils import dateparse, timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -143,12 +144,49 @@ class DealViewSet(DealScopedMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self._is_admin():
-            return qs
-        deal_ids = self._participant_deal_ids()
-        if not deal_ids:
-            return qs.none()
-        return qs.filter(id__in=deal_ids)
+
+        if not self._is_admin():
+            deal_ids = self._participant_deal_ids()
+            if not deal_ids:
+                return qs.none()
+            qs = qs.filter(id__in=deal_ids)
+
+        params = self.request.query_params
+
+        stage = params.get("stage")
+        if stage:
+            qs = qs.filter(stage=stage)
+
+        deal_lead = params.get("deal_lead")
+        if deal_lead:
+            qs = qs.filter(deal_lead_id=deal_lead)
+
+        asset_id = params.get("asset_id")
+        if asset_id:
+            qs = qs.filter(asset_id=asset_id)
+
+        updated_after = params.get("updated_after")
+        if updated_after:
+            parsed = dateparse.parse_datetime(updated_after)
+            if not parsed:
+                parsed_date = dateparse.parse_date(updated_after)
+                if parsed_date:
+                    parsed = timezone.make_aware(
+                        datetime.combine(parsed_date, time.min)
+                    )
+            if parsed:
+                qs = qs.filter(updated_at__gte=parsed)
+
+        search = params.get("q")
+        if search:
+            qs = qs.filter(
+                Q(asset__normalized_address__icontains=search)
+                | Q(asset__city__icontains=search)
+                | Q(asset__street__icontains=search)
+                | Q(asset__neighborhood__icontains=search)
+            )
+
+        return qs.order_by("-updated_at", "-created_at")
 
     def perform_update(self, serializer):
         previous = serializer.instance.stage

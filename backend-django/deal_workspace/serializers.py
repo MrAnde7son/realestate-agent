@@ -25,6 +25,7 @@ class PartyRoleSerializer(serializers.ModelSerializer):
 
 class DealSerializer(serializers.ModelSerializer):
     party_roles = PartyRoleSerializer(many=True, read_only=True)
+    asset_summary = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Deal
@@ -37,8 +38,30 @@ class DealSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "party_roles",
+            "asset_summary",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "party_roles"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "party_roles",
+            "asset_summary",
+        ]
+
+    def get_asset_summary(self, obj):
+        asset = getattr(obj, "asset", None)
+        if not asset:
+            return None
+
+        return {
+            "id": asset.pk,
+            "address": getattr(asset, "address", None),
+            "city": getattr(asset, "city", None),
+            "neighborhood": getattr(asset, "neighborhood", None),
+            "price": getattr(asset, "price", None),
+            "status": getattr(asset, "status", None),
+            "building_type": getattr(asset, "building_type", None),
+        }
 
 
 class NegotiationSerializer(serializers.ModelSerializer):

@@ -2045,6 +2045,18 @@ useDedupedEffect(() => {
     }
     return asString
   })()
+
+  // Fallback ppm for header: prefer asset.pricePerSqm, else compute from listing price and size
+  const headerPricePerSqm: number | null = (() => {
+    if (asset?.pricePerSqm !== undefined && asset?.pricePerSqm !== null) return asset.pricePerSqm as number
+    if (listingPriceValue !== null && listingSizeValue) {
+      const denom = Number(listingSizeValue)
+      if (Number.isFinite(denom) && denom > 0) {
+        return Math.round(Number(listingPriceValue) / denom)
+      }
+    }
+    return null
+  })()
   const listingDescriptionValue =
     typeof primaryListing?.description === 'string'
       ? primaryListing.description.trim()
@@ -2257,8 +2269,8 @@ useDedupedEffect(() => {
           <div className="w-full text-start space-y-2 md:w-auto">
             <div className="text-3xl font-bold">{formatCurrency(asset.price) ?? '—'}</div>
             <div className="text-muted-foreground">
-              {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
-                ? `${formatCurrency(asset.pricePerSqm)}/מ״ר`
+              {headerPricePerSqm !== null
+                ? `${formatCurrency(headerPricePerSqm)}/מ״ר`
                 : '—'}
             </div>
             {/* Listing contact and creation date */}

@@ -2387,6 +2387,11 @@ useDedupedEffect(() => {
                 ? `${formatCurrency(headerPricePerSqm)}/מ״ר`
                 : '—'}
             </div>
+            {listingTypeLabel && (
+              <Badge variant="secondary" className="w-fit text-xs font-medium">
+                {listingTypeLabel}
+              </Badge>
+            )}
             {/* Listing contact and creation date */}
             {(primaryListing?.contactName || listingDatePostedDisplay) && (
               <div className="text-xs text-muted-foreground mt-2 space-y-1 text-start">

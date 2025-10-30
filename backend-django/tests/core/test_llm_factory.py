@@ -8,7 +8,7 @@ from core.llm.providers.gemini import GeminiAdapter
     GEMINI_API_KEY=None,
     GEMINI_MODEL=None,
     GOOGLE_API_KEY="google-key",
-    GOOGLE_MODEL="gemini-1.5-pro",
+    GOOGLE_MODEL="gemini-2.0-flash",
 )
 def test_create_llm_client_uses_google_api_key(monkeypatch):
     captured = {}

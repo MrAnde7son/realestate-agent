@@ -25,6 +25,7 @@ class GeminiAdapter(LLMClient):
             client_options=ClientOptions(
                 api_endpoint="https://us-generativelanguage.googleapis.com"
             ),
+            transport="rest",
         )
         self.model_name = settings.GEMINI_MODEL
 

@@ -7,7 +7,7 @@ from core.llm.providers.gemini import GeminiAdapter
 from core.llm.types import ChatMessage
 
 
-@override_settings(GEMINI_API_KEY="test-key", GEMINI_MODEL="gemini-2.5-flash")
+@override_settings(GEMINI_API_KEY="test-key", GEMINI_MODEL="gemini-2.0-flash")
 @pytest.mark.asyncio
 async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
     captured = {}
@@ -61,7 +61,7 @@ async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
 
     assert result == "ok"
     assert captured["configured_key"] == "test-key"
-    assert captured["model_name"] == "gemini-2.5-flash"
+    assert captured["model_name"] == "gemini-2.0-flash"
     assert captured["generation_config"] is None
     assert captured["system_instruction"] == (
         "You are helpful.\n\nFollow the brief."

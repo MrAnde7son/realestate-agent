@@ -1780,34 +1780,36 @@ export default function AssetsTable({
       
       {/* Card view - show when viewMode is 'cards' */}
       {viewMode === 'cards' && (
-        <div className="space-y-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 auto-rows-fr">
           {loading ? (
             Array.from({ length: 3 }).map((_, index) => (
-              <div key={`card-skeleton-${index}`} className="p-4 border rounded-lg space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-                <div className="flex space-x-2 rtl:space-x-reverse">
+              <div key={`card-skeleton-${index}`} className="h-full rounded-lg border p-4 space-y-3">
+                <Skeleton className="h-48 w-full rounded-md" />
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <div className="flex gap-2">
                   <Skeleton className="h-6 w-16" />
                   <Skeleton className="h-6 w-20" />
                   <Skeleton className="h-6 w-12" />
                 </div>
+                <Skeleton className="h-4 w-1/3" />
               </div>
             ))
           ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+            <div className="col-span-full flex flex-col items-center justify-center gap-4 py-12">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                 <Search className="h-8 w-8 text-muted-foreground" />
               </div>
-              <div className="text-center">
+              <div className="text-center space-y-2">
                 <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
                     ? 'נסה לשנות את הסינון או החיפוש'
                     : 'אין נכסים זמינים כרגע'}
                 </p>
                 {!searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew && (
                   <Button className="mt-4" onClick={onAddNew}>
-                    <Plus className="h-4 w-4 ms-2" />
+                    <Plus className="ms-2 h-4 w-4" />
                     הוסף נכס ראשון
                   </Button>
                 )}

@@ -38,12 +38,14 @@ import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
 
 import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
+import { ResponsiveContainer } from "@/components/layout/responsive-container";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import PlanLimitDialog from "@/components/PlanLimitDialog";
 import { apiClient } from "@/lib/api-client";
 import { useDedupedEffect } from "@/hooks/use-deduped-effect";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import type { PaginationState } from "@tanstack/react-table";
 
 const DEFAULT_RADIUS_METERS = 100;
@@ -293,6 +295,31 @@ export default function AssetsPage() {
     return value ?? "all";
   });
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
+  const [viewModeManuallySet, setViewModeManuallySet] = useState(false);
+  const { matches: isDesktop, isReady: isViewportReady } = useMediaQuery('(min-width: 1024px)');
+
+  const handleViewModeChange = React.useCallback(
+    (nextMode: 'table' | 'cards' | 'map') => {
+      setViewMode(nextMode);
+      setViewModeManuallySet(true);
+    },
+    [setViewMode, setViewModeManuallySet]
+  );
+
+  React.useEffect(() => {
+    if (!isViewportReady) {
+      return
+    }
+
+    if (!isDesktop && !viewModeManuallySet && viewMode !== 'cards') {
+      setViewMode('cards')
+      return
+    }
+
+    if (isDesktop && !viewModeManuallySet && viewMode === 'cards') {
+      setViewMode('table')
+    }
+  }, [isDesktop, isViewportReady, setViewMode, viewMode, viewModeManuallySet])
   const { user, isAuthenticated, refreshUser } = useAuth();
   const isAdmin = user?.role === 'admin';
   const onboardingState = React.useMemo(() => selectOnboardingState(user), [user]);
@@ -1903,7 +1930,8 @@ export default function AssetsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <ResponsiveContainer className="py-6 lg:py-8">
+        <div className="flex flex-col gap-6">
         {isAuthenticated && user?.onboarding_flags && !isOnboardingComplete(onboardingState) && (
           <OnboardingProgress state={onboardingState} />
         )}
@@ -2121,7 +2149,7 @@ export default function AssetsPage() {
                 searchValue={search}
                 onSearchChange={setSearch}
                 height="600px"
-                onBackToTable={() => setViewMode('table')}
+                onBackToTable={() => handleViewModeChange('table')}
               />
             )
           ) : (
@@ -2423,7 +2451,7 @@ export default function AssetsPage() {
                 icon: <DownloadCloud className="h-4 w-4" />
               }}
               viewMode={viewMode}
-              onViewModeChange={setViewMode}
+              onViewModeChange={handleViewModeChange}
               bulkActions={[
                 ...(isAdmin
                   ? [
@@ -2481,7 +2509,8 @@ export default function AssetsPage() {
             mode="properties"
         />
 
-              </div>
+        </div>
+      </ResponsiveContainer>
     </DashboardLayout>
   );
 }

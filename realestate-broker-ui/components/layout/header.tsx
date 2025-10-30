@@ -109,7 +109,10 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-80 p-0">
+          <SheetContent
+            side="right"
+            className="w-[min(320px,calc(100vw-1.5rem))] sm:w-96 p-0"
+          >
             {/* Accessibility titles - hidden visually but available to screen readers */}
             <SheetTitle className="sr-only">תפריט ניווט</SheetTitle>
             <SheetDescription className="sr-only">תפריט ניווט ראשי לאפליקציה</SheetDescription>

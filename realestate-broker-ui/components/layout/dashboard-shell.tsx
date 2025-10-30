@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
 import React from "react"
+import { ResponsiveContainer } from "./responsive-container"
 
 interface DashboardShellProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -9,9 +10,15 @@ export function DashboardShell({
   ...props
 }: DashboardShellProps) {
   return (
-    <div className={cn("flex-1 space-y-4 p-4 md:p-8 pt-6 pb-20 md:pb-8 min-h-full", className)} {...props}>
+    <ResponsiveContainer
+      className={cn(
+        "flex flex-col gap-4 py-6 pb-20 md:py-8 md:pb-8 min-h-full",
+        className
+      )}
+      {...props}
+    >
       {children}
-    </div>
+    </ResponsiveContainer>
   )
 }
 

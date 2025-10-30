@@ -134,23 +134,23 @@ export default function AppSidebar({
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-card border-l transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64",
+        "flex h-full flex-col bg-card transition-all duration-300 shadow-lg",
+        isCollapsed ? "w-16" : "w-52",
         className
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center border-b px-6">
+      <div className="flex h-14 items-center border-b px-4">
         <Link href="/assets" className="flex items-center gap-3">
           <Logo variant="symbol" size={28} color="var(--brand-teal)" />
           {!isCollapsed && (
-            <span className="text-xl font-bold text-logo-title">נדל״נר</span>
+            <span className="text-lg font-bold text-logo-title">נדל״נר</span>
           )}
         </Link>
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3">
         <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
           <nav className="space-y-2">
             {navigation.map((item) => {
@@ -168,7 +168,7 @@ export default function AppSidebar({
                         "flex items-center rounded-lg text-sm transition-colors",
                         isCollapsed
                           ? "justify-center px-2 py-3"
-                          : "gap-2 px-3 py-2",
+                          : "gap-2 px-2.5 py-2",
                         active
                           ? "bg-[var(--brand-teal)]/8 text-[var(--brand-teal)] font-semibold"
                           : "text-muted-foreground hover:text-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/8"
@@ -203,14 +203,14 @@ export default function AppSidebar({
       </div>
 
       {/* Footer with User Menu - Moved to bottom of sidebar */}
-      <div className="border-t p-4">
+      <div className="p-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               className={cn(
-                "w-full justify-start gap-3 px-2 py-2 h-auto",
-                isCollapsed ? "px-2" : "px-3"
+                "w-full justify-start gap-2 px-2 py-2 h-auto",
+                isCollapsed ? "px-2" : "px-2.5"
               )}
             >
               <Avatar className="h-8 w-8">
@@ -226,7 +226,6 @@ export default function AppSidebar({
                   </div>
                 </div>
               )}
-              {!isCollapsed && <ChevronDown className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent

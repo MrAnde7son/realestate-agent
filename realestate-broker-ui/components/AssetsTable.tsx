@@ -1593,7 +1593,7 @@ export default function AssetsTable({
   if (!mounted) {
     return (
       <div className="block">
-        <div className="rounded-xl border border-border bg-card overflow-x-auto">
+        <div className="rounded-xl border border-border/50 bg-card overflow-x-auto shadow-md">
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
           </div>
@@ -1604,8 +1604,8 @@ export default function AssetsTable({
 
   return (
     <>
-      <div className="block">
-        <div className="rounded-xl border border-border bg-card overflow-x-auto">
+      <div className="block w-full max-w-full">
+        <div className="rounded-xl border border-border/50 bg-card overflow-x-auto w-full max-w-full shadow-md">
           {/* Integrated Toolbar */}
           <TableToolbar
             searchValue={searchValue}
@@ -1653,9 +1653,9 @@ export default function AssetsTable({
           />
           {/* Table view - show when viewMode is 'table' */}
           {viewMode === 'table' && (
-            <div className="overflow-x-auto overflow-y-hidden" role="region" aria-label="טבלת נכסים">
-              <div className="min-w-full">
-                <Table style={{ width: '100%', minWidth: table.getCenterTotalSize() }}>
+            <div className="max-w-full" role="region" aria-label="טבלת נכסים">
+              <div className="min-w-fit">
+                <Table style={{ minWidth: table.getCenterTotalSize() }}>
                 <THead>
                   <TR className="group">
                     {table.getFlatHeaders().map(h=>(
@@ -1780,34 +1780,36 @@ export default function AssetsTable({
       
       {/* Card view - show when viewMode is 'cards' */}
       {viewMode === 'cards' && (
-        <div className="space-y-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 auto-rows-fr relative z-0">
           {loading ? (
             Array.from({ length: 3 }).map((_, index) => (
-              <div key={`card-skeleton-${index}`} className="p-4 border rounded-lg space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-                <div className="flex space-x-2 rtl:space-x-reverse">
+              <div key={`card-skeleton-${index}`} className="h-full rounded-lg bg-card/95 backdrop-blur-sm shadow-md p-4 space-y-3">
+                <Skeleton className="h-48 w-full rounded-md" />
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <div className="flex gap-2">
                   <Skeleton className="h-6 w-16" />
                   <Skeleton className="h-6 w-20" />
                   <Skeleton className="h-6 w-12" />
                 </div>
+                <Skeleton className="h-4 w-1/3" />
               </div>
             ))
           ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+            <div className="col-span-full flex flex-col items-center justify-center gap-4 py-12">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                 <Search className="h-8 w-8 text-muted-foreground" />
               </div>
-              <div className="text-center">
+              <div className="text-center space-y-2">
                 <h3 className="text-lg font-semibold text-foreground">לא נמצאו נכסים</h3>
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {searchValue || (filters && (filters.city.value !== 'all' || filters.type.value !== 'all' || filters.priceMin.value || filters.priceMax.value))
                     ? 'נסה לשנות את הסינון או החיפוש'
                     : 'אין נכסים זמינים כרגע'}
                 </p>
                 {!searchValue && filters && filters.city.value === 'all' && filters.type.value === 'all' && !filters.priceMin.value && !filters.priceMax.value && onAddNew && (
                   <Button className="mt-4" onClick={onAddNew}>
-                    <Plus className="h-4 w-4 ms-2" />
+                    <Plus className="ms-2 h-4 w-4" />
                     הוסף נכס ראשון
                   </Button>
                 )}

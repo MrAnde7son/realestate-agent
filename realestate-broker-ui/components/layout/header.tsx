@@ -92,7 +92,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   }
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
+    <header className="fixed top-0 inset-x-0 z-50 flex h-16 items-center justify-between bg-background px-4 sm:px-6 shadow-md">
       {/* Right side - Menu button, logo and company name (RTL layout) */}
       <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
         {/* Mobile hamburger menu */}
@@ -109,14 +109,17 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-80 p-0">
+          <SheetContent
+            side="right"
+            className="w-[min(320px,calc(100vw-1.5rem))] sm:w-96 p-0"
+          >
             {/* Accessibility titles - hidden visually but available to screen readers */}
             <SheetTitle className="sr-only">תפריט ניווט</SheetTitle>
             <SheetDescription className="sr-only">תפריט ניווט ראשי לאפליקציה</SheetDescription>
             
             <div className="flex h-full flex-col">
               {/* Mobile Header */}
-              <div className="flex h-16 items-center justify-between border-b px-6">
+              <div className="flex h-16 items-center justify-between px-6">
                 <div className="flex items-center gap-3">
                   <Logo variant="symbol" size={28} color="var(--brand-teal)" />
                   <span className="text-lg font-bold">נדל״נר</span>

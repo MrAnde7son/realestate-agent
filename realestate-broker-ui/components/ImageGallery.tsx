@@ -159,7 +159,7 @@ export default function ImageGallery({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute start-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white z-50"
+                      className="absolute start-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white z-10"
                       onClick={(e) => {
                         e.stopPropagation()
                         prevImage()

@@ -172,10 +172,10 @@ export default function CrmUnifiedPage() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto p-3 sm:p-6 space-y-6">
+      <div className="w-full p-3 sm:p-6 space-y-6 px-4 sm:px-6 lg:px-8">
         <div className="mb-2 sm:mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 rtl:text-start">ניהול לקוחות ולידים</h1>
-          <p className="text-muted-foreground text-sm sm:text-base rtl:text-start">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-end">ניהול לקוחות ולידים</h1>
+          <p className="text-muted-foreground text-sm sm:text-base text-end">
             ניהול לקוחות, מעקב לידים ושליחת דוחות ממותגים
           </p>
         </div>

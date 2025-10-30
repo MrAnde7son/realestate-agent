@@ -1,7 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import AssetsPage from './page'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { ConfirmProvider } from '@/hooks/use-confirm'
@@ -13,25 +12,40 @@ vi.mock('next/navigation', () => ({
   useSearchParams: vi.fn(),
   usePathname: vi.fn(),
 }))
+vi.mock('@/components/MapView', () => ({
+  __esModule: true,
+  default: ({ onBackToTable }: { onBackToTable?: () => void }) => (
+    <div data-testid="map-view" onClick={() => onBackToTable?.()} />
+  ),
+}))
 vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
 }))
+import AssetsPage from './page'
 const mockAssetsTable = vi.fn(({ 
   data,
   loading,
   onAddNew,
   searchValue,
   onSearchChange,
-  onDelete
+  onDelete,
+  viewMode = 'table',
+  onViewModeChange
 }: {
   data: any[],
   loading: boolean,
   onDelete?: any,
   onAddNew?: () => void,
   searchValue?: string,
-  onSearchChange?: (value: string) => void
+  onSearchChange?: (value: string) => void,
+  viewMode?: 'table' | 'cards' | 'map',
+  onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
 }) => (
-  <div data-testid="assets-table" data-has-delete={onDelete ? 'true' : 'false'}>
+  <div
+    data-testid="assets-table"
+    data-has-delete={onDelete ? 'true' : 'false'}
+    data-view-mode={viewMode}
+  >
     {/* Mock TableToolbar */}
     <div className="p-3 border-b">
       <div className="flex gap-2 items-center">
@@ -47,7 +61,7 @@ const mockAssetsTable = vi.fn(({
         <button className="px-3 py-1 border rounded">
           רענן
         </button>
-        <button className="px-3 py-1 border rounded">
+        <button className="px-3 py-1 border rounded" onClick={() => onViewModeChange?.('cards')}>
           סינון
         </button>
       </div>
@@ -88,6 +102,31 @@ const mockUseAuth = {
   refreshUser: vi.fn()
 }
 
+const originalMatchMedia = window.matchMedia ?? null
+let matchMediaListeners: Array<(event: MediaQueryListEvent) => void> = []
+
+const setMatchMedia = (matches: boolean) => {
+  matchMediaListeners = []
+  window.matchMedia = vi.fn().mockImplementation(() => ({
+    matches,
+    media: '(min-width: 1024px)',
+    onchange: null,
+    addEventListener: vi.fn((_, cb: (event: MediaQueryListEvent) => void) => {
+      matchMediaListeners.push(cb)
+    }),
+    removeEventListener: vi.fn((_, cb: (event: MediaQueryListEvent) => void) => {
+      matchMediaListeners = matchMediaListeners.filter((listener) => listener !== cb)
+    }),
+    addListener: vi.fn((cb: (event: MediaQueryListEvent) => void) => {
+      matchMediaListeners.push(cb)
+    }),
+    removeListener: vi.fn((cb: (event: MediaQueryListEvent) => void) => {
+      matchMediaListeners = matchMediaListeners.filter((listener) => listener !== cb)
+    }),
+    dispatchEvent: vi.fn(),
+  }))
+}
+
 // Test wrapper with providers
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <ConfirmProvider>
@@ -107,6 +146,7 @@ describe('AssetsPage', () => {
     mockUseSearchParams.get.mockReturnValue(null)
     mockUseSearchParams.toString.mockReturnValue('')
     ;(useAuth as any).mockReturnValue(mockUseAuth)
+    setMatchMedia(false)
 
     // Default successful fetch mock
     ;(global.fetch as any).mockImplementation((url: string, opts?: any) => {
@@ -158,6 +198,14 @@ describe('AssetsPage', () => {
     })
   })
 
+  afterAll(() => {
+    if (originalMatchMedia) {
+      window.matchMedia = originalMatchMedia
+    } else {
+      delete (window as any).matchMedia
+    }
+  })
+
   it('renders correctly with loaded assets', async () => {
     await act(async () => {
       render(<AssetsPage />, { wrapper: TestWrapper })
@@ -177,6 +225,55 @@ describe('AssetsPage', () => {
     expect(lastCall.paginationState).toEqual({ pageIndex: 0, pageSize: 25 })
     expect(lastCall.totalCount).toBe(2)
     expect(lastCall.pageSizeOptions).toEqual([10, 25, 50, 100])
+  })
+
+  it('defaults to card view on mobile screens', async () => {
+    await act(async () => {
+      render(<AssetsPage />, { wrapper: TestWrapper })
+    })
+
+    await waitFor(() => {
+      expect(mockAssetsTable).toHaveBeenCalled()
+    })
+
+    const lastCall = mockAssetsTable.mock.calls[mockAssetsTable.mock.calls.length - 1][0]
+    expect(lastCall.viewMode).toBe('cards')
+  })
+
+  it('keeps table view by default on desktop widths', async () => {
+    setMatchMedia(true)
+
+    await act(async () => {
+      render(<AssetsPage />, { wrapper: TestWrapper })
+    })
+
+    await waitFor(() => {
+      expect(mockAssetsTable).toHaveBeenCalled()
+    })
+
+    const lastCall = mockAssetsTable.mock.calls[mockAssetsTable.mock.calls.length - 1][0]
+    expect(lastCall.viewMode).toBe('table')
+  })
+
+  it('allows the user to override the view mode', async () => {
+    await act(async () => {
+      render(<AssetsPage />, { wrapper: TestWrapper })
+    })
+
+    await waitFor(() => {
+      expect(mockAssetsTable).toHaveBeenCalled()
+    })
+
+    const firstCall = mockAssetsTable.mock.calls[mockAssetsTable.mock.calls.length - 1][0]
+    expect(firstCall.viewMode).toBe('cards')
+
+    act(() => {
+      firstCall.onViewModeChange?.('map')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('map-view')).toBeInTheDocument()
+    })
   })
 
   it('shows loading state initially', async () => {

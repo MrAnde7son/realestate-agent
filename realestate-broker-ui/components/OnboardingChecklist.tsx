@@ -27,7 +27,7 @@ export default function OnboardingChecklist({ state }: Props) {
   }
 
   return (
-    <Card className="mb-4 border shadow-sm">
+    <Card className="mb-4">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4">
         <div>
           <CardTitle className="text-base font-semibold text-foreground">רשימת משימות</CardTitle>

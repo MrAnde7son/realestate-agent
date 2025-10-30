@@ -3700,6 +3700,7 @@ def asset_share_message(request, asset_id):
     )
 
     message = None
+    is_ai_generated = False
     try:
         llm = get_llm(request)
         options = BaseGenOptions(temperature=0.2)
@@ -3713,6 +3714,8 @@ def asset_share_message(request, asset_id):
         result = async_to_sync(llm.chat)(payload, options)
         if isinstance(result, str):
             message = result.strip() or None
+            if message:
+                is_ai_generated = True
     except Exception as e:
         logger.exception(
             "Error generating marketing message for asset %s: %s", asset_id, e
@@ -3728,14 +3731,15 @@ def asset_share_message(request, asset_id):
         rooms_s = "{} חדרים".format(int(rooms)) if rooms else "דירה"
         area_s = ' {} מ"ר'.format(int(area)) if area else ""
         message = "למכירה {}{} ב{}{}.".format(rooms_s, area_s, addr, price_s)
+        is_ai_generated = False
 
-    logger.info("Marketing message generated for asset %s", asset_id)
+    logger.info("Marketing message generated for asset %s: AI-generated: %s", asset_id, is_ai_generated)
 
     token = secrets.token_urlsafe(16)
     ShareToken.objects.create(asset=asset, token=token)
     share_url = "/r/{}".format(token)
 
-    response_data = {"text": message, "share_url": share_url}
+    response_data = {"text": message, "share_url": share_url, "is_ai_generated": is_ai_generated}
 
     return Response(response_data)
 

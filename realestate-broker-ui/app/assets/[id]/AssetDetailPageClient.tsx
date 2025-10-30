@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown, Sparkles } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
@@ -70,7 +70,7 @@ const normalizeProvider = (value: string | null | undefined): SupportedLLMProvid
 }
 
 const DEFAULT_LLM_PROVIDER: SupportedLLMProvider =
-  normalizeProvider(process.env.LLM_DEFAULT_PROVIDER) ?? 'groq'
+  normalizeProvider(process.env.LLM_DEFAULT_PROVIDER) ?? 'gemini'
 
 const ALL_SECTIONS = ['summary','permits','plans','environment', 'rights','comparables','mortgage','appendix']
 
@@ -2235,7 +2235,7 @@ useDedupedEffect(() => {
     setCreatingMessage(true)
     setShareMessage(null)
     setShareUrl(null)
-    setIsAIGenerated(true)
+    setIsAIGenerated(false)
     try {
       const response = await apiClient.post(`/api/assets/${id}/share-message`, {
         language,
@@ -2245,19 +2245,16 @@ useDedupedEffect(() => {
       // Backend always returns a message (AI-generated or fallback), even on errors
       // Check if we have data with a text property, regardless of response.ok
       if (response.data) {
-        const { text, shareUrl: parsedUrl } = parseShareMessageResponse(response.data)
+        const { text, shareUrl: parsedUrl, isAIGenerated } = parseShareMessageResponse(response.data)
         
         // Always set the message if we have one (even if it's a fallback)
         if (text) {
           setShareMessage(text)
           setShareUrl(parsedUrl)
-          
-          // Determine if message was AI-generated or fallback
-          const wasAIGenerated = response.ok && !response.data?.error
-          setIsAIGenerated(wasAIGenerated)
+          setIsAIGenerated(isAIGenerated)
 
-          // Track marketing message creation only on success
-          if (wasAIGenerated) {
+          // Track marketing message creation only when AI-generated
+          if (isAIGenerated) {
             trackFeatureUsage('marketing_message', parseInt(id), {
               message_type: 'share_message',
               language: language,
@@ -2625,14 +2622,23 @@ useDedupedEffect(() => {
                             value={shareMessage}
                           />
                         </div>
-                        {!isAIGenerated && (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Badge variant="outline" className="text-xs">
-                              הודעה בסיסית
-                            </Badge>
-                            <span>הודעה זו נוצרה אוטומטית ולא על ידי בינה מלאכותית</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {isAIGenerated ? (
+                            <>
+                              <Badge variant="accent" className="text-xs flex items-center gap-1">
+                                <Sparkles className="h-3 w-3" />
+                                נוצר על ידי בינה מלאכותית
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <Badge variant="outline" className="text-xs">
+                                הודעה בסיסית
+                              </Badge>
+                              <span>הודעה זו נוצרה אוטומטית ולא על ידי בינה מלאכותית</span>
+                            </>
+                          )}
+                        </div>
                         <DialogFooter className="flex gap-2">
                           <Button
                             size="sm"

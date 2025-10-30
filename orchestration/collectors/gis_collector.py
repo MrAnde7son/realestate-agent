@@ -1,6 +1,7 @@
 """GIS data collector implementation."""
 
 import logging
+import re
 from typing import Any, Dict, Optional, Tuple
 
 from gis.gis_client import TelAvivGS
@@ -160,6 +161,28 @@ class GISCollector(BaseCollector):
         
         return data
 
+    def _generate_spelling_variants(self, street: str) -> list[str]:
+        """Generate spelling variants by removing double characters.
+        
+        Handles any double character -> single character transformation:
+        - וו -> ו (double vav becoming single)
+        - Any double character -> single character
+        """
+        variants = set([street])  # Start with original
+        
+        # Find all double characters (same character repeated twice)
+        # Use regex to find any character that appears twice in a row
+        pattern = re.compile(r'(.)\1')
+        matches = list(pattern.finditer(street))
+        
+        # Generate variants by replacing each double character with single
+        for match in matches:
+            char = match.group(1)
+            variant = street.replace(char + char, char, 1)  # Replace first occurrence
+            variants.add(variant)
+        
+        return list(variants)
+    
     def _geocode(self, street: str, house_number: int, city: str = "") -> Tuple[float, float]:
         """Geocode an address to coordinates with fallback strategies."""
         # Try the original address first with like=True (same as MCP server)
@@ -179,6 +202,17 @@ class GISCollector(BaseCollector):
                 except Exception as e2:
                     logger.warning(f"Reversed geocoding failed: {e2}")
 
+        # Try spelling variants (e.g., double characters -> single)
+        variants = self._generate_spelling_variants(street)
+        for variant in variants:
+            if variant == street:
+                continue  # Already tried
+            try:
+                logger.info(f"Trying spelling variant: {variant}")
+                return self.client.get_address_coordinates(variant, house_number, like=True)
+            except Exception as e_variant:
+                logger.debug(f"Spelling variant '{variant}' failed: {e_variant}")
+
         # Try appending city if provided and not already part of the street string
         if city and city not in street:
             try:
@@ -190,6 +224,7 @@ class GISCollector(BaseCollector):
 
         # If all else fails, raise the original error
         raise Exception(f"All geocoding attempts failed for {street} {house_number}")
+
 
     def _extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
         """Extract block and parcel numbers from GIS data."""

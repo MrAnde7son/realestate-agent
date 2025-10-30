@@ -1393,13 +1393,16 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
             return None, None
         
         # Find the first numeric part (house number)
+        # We need to ensure we extract complete, standalone numeric tokens
         for i in range(len(parts) - 1):
-            # Check if the next part is a digit (or starts with a digit)
+            # Check if the next part is a complete numeric token (house number)
             next_part = parts[i + 1].strip()
-            # Remove common separators like commas, dashes
-            next_part_clean = next_part.rstrip(',-–—')
+            # Remove common separators like commas, dashes, periods from both ends
+            next_part_clean = next_part.strip(',-–—.')
             
-            if next_part_clean.isdigit():
+            # Ensure it's a complete numeric token (all digits, no partial matches)
+            # This ensures "2" doesn't get confused with "22" or "222"
+            if next_part_clean and next_part_clean.isdigit():
                 # Try to extract just the street name (the word directly before the number)
                 # In cases like "מרתף/ פרטר - ארלוזורוב 156", we want "ארלוזורוב"
                 # Look backwards from the number to find the street name word
@@ -1436,15 +1439,35 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         """
         Check if two addresses have the same street name and house number.
         Only returns True if both street name and number match exactly.
+        This ensures "2" doesn't match "22" or "222".
         """
         street1, num1 = _extract_street_and_number(address1)
         street2, num2 = _extract_street_and_number(address2)
         
-        # Both must have street and number, and they must match exactly
-        if street1 and num1 and street2 and num2:
-            return street1 == street2 and num1 == num2
+        # Both must have street and number
+        if not (street1 and num1 and street2 and num2):
+            return False
         
-        return False
+        # Street names must match exactly
+        if street1 != street2:
+            return False
+        
+        # Numbers must match exactly as strings
+        # This ensures "2" != "22" (different string lengths)
+        if num1 != num2:
+            return False
+        
+        # Additional safeguard: compare as integers to catch any edge cases
+        # This double-checks that numeric values are truly equal
+        try:
+            int1, int2 = int(num1), int(num2)
+            if int1 != int2:
+                return False
+        except (ValueError, TypeError):
+            # If conversion fails, string comparison above is sufficient
+            pass
+        
+        return True
 
     # Find the best listing to use as the primary source
     # Priority: exact address match > exact street+number match

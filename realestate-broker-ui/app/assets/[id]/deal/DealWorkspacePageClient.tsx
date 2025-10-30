@@ -13,6 +13,21 @@ import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import type { DealStage } from '@/lib/deals/types'
+import {
+  DEAL_METADATA,
+  INITIAL_DOCUMENTS,
+  INITIAL_MORTGAGE_OFFERS,
+  INITIAL_OFFERS,
+  INITIAL_TASKS,
+  PARTIES,
+  type DealDocument,
+  type OfferConditions,
+  type DealTask,
+  type MortgageOffer,
+  type Offer,
+  type Party,
+} from './mock-data'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -36,68 +51,6 @@ import {
   Home,
   Building,
 } from 'lucide-react'
-
-type DealStage = 'discovery' | 'negotiation' | 'legal' | 'financing' | 'closing'
-
-type Party = {
-  id: string
-  name: string
-  role: string
-  side: 'buyer' | 'seller' | 'neutral'
-  email: string
-}
-
-type OfferConditions = {
-  inspection: boolean
-  appraisalContingency: boolean
-  financingContingencyDays: number
-}
-
-type Offer = {
-  id: string
-  submittedAt: string
-  amount: number
-  downPaymentPct: number
-  financingType: 'cash' | 'mortgage' | 'mixed'
-  expiresAt: string
-  status: 'pending' | 'accepted' | 'countered' | 'withdrawn'
-  side: 'buyer' | 'seller'
-  message: string
-  conditions: OfferConditions
-}
-
-type DealDocument = {
-  id: string
-  title: string
-  kind: 'legal' | 'appraisal' | 'architect' | 'mortgage'
-  uploadedAt: string
-  uploader: string
-  visibility: 'deal' | 'buyer_side' | 'seller_side'
-  summary: string
-  linkedOfferId?: string
-}
-
-type DealTask = {
-  id: string
-  title: string
-  owner: string
-  status: 'todo' | 'in_progress' | 'blocked' | 'done'
-  dueDate: string
-  blocker?: string
-}
-
-type MortgageOffer = {
-  id: string
-  lender: string
-  productType: 'fixed' | 'variable' | 'mixed'
-  ratePct: number
-  aprPct: number
-  termMonths: number
-  monthlyPayment: number
-  feesTotal: number
-  validUntil: string
-  score: number
-}
 
 type TimelineEvent = {
   id: string
@@ -125,195 +78,6 @@ const STAGE_FLOW: { key: DealStage; label: string; helper: string }[] = [
   { key: 'financing', label: 'מימון', helper: 'בדיקת מסלולים ואישורי אשראי' },
   { key: 'closing', label: 'סגירה', helper: 'מסירת נכס והתחשבנות' },
 ]
-
-const PARTIES: Party[] = [
-  { id: 'party-buyer', name: 'דנה לוי', role: 'קונה', side: 'buyer', email: 'dana@example.com' },
-  { id: 'party-buyer-agent', name: 'נועם אזולאי', role: 'מתווך קונה', side: 'buyer', email: 'noam@nreteam.com' },
-  { id: 'party-buyer-lawyer', name: 'עו״ד ליאורה שור', role: 'עו״ד קונה', side: 'buyer', email: 'liora@shorelegal.il' },
-  { id: 'party-seller', name: 'איתי כהן', role: 'מוכר', side: 'seller', email: 'itay@example.com' },
-  { id: 'party-seller-agent', name: 'רות שלהב', role: 'מתווך מוכר', side: 'seller', email: 'ruth@listings.co.il' },
-  { id: 'party-seller-lawyer', name: 'עו״ד יוסי בר', role: 'עו״ד מוכר', side: 'seller', email: 'yossi@barlegal.il' },
-  { id: 'party-banker', name: 'מוקד בנק לאומי', role: 'בנקאי משכנתאות', side: 'neutral', email: 'mortgage@leumi.co.il' },
-]
-
-const INITIAL_OFFERS: Offer[] = [
-  {
-    id: 'offer-103',
-    submittedAt: '2024-11-03T08:45:00Z',
-    amount: 4_320_000,
-    downPaymentPct: 30,
-    financingType: 'mixed',
-    expiresAt: '2024-11-05T08:45:00Z',
-    status: 'accepted',
-    side: 'seller',
-    message: 'התקבל עם לוח זמנים מוסכם לבדיקות וכניסה ב־15 בינואר.',
-    conditions: {
-      inspection: true,
-      appraisalContingency: true,
-      financingContingencyDays: 14,
-    },
-  },
-  {
-    id: 'offer-102',
-    submittedAt: '2024-10-29T15:10:00Z',
-    amount: 4_250_000,
-    downPaymentPct: 35,
-    financingType: 'mixed',
-    expiresAt: '2024-10-31T15:10:00Z',
-    status: 'countered',
-    side: 'buyer',
-    message: 'הצעת נגד על 4.25 מ׳ עם קביעת הערכת שווי מוקדמת.',
-    conditions: {
-      inspection: true,
-      appraisalContingency: true,
-      financingContingencyDays: 21,
-    },
-  },
-  {
-    id: 'offer-101',
-    submittedAt: '2024-10-27T10:00:00Z',
-    amount: 4_150_000,
-    downPaymentPct: 30,
-    financingType: 'mortgage',
-    expiresAt: '2024-10-29T10:00:00Z',
-    status: 'countered',
-    side: 'buyer',
-    message: 'הצעה ראשונית הכוללת בדיקת נכס סטנדרטית.',
-    conditions: {
-      inspection: true,
-      appraisalContingency: true,
-      financingContingencyDays: 21,
-    },
-  },
-]
-
-const INITIAL_DOCUMENTS: DealDocument[] = [
-  {
-    id: 'doc-legal-1',
-    title: 'טיוטת הסכם מכר',
-    kind: 'legal',
-    uploadedAt: '2024-11-02T14:10:00Z',
-    uploader: 'עו״ד ליאורה שור',
-    visibility: 'buyer_side',
-    summary: 'טיוטה ראשונה עם הערות על סעיפי אחריות.',
-  },
-  {
-    id: 'doc-legal-2',
-    title: 'גילוי נאות של המוכר',
-    kind: 'legal',
-    uploadedAt: '2024-10-28T09:15:00Z',
-    uploader: 'רות שלהב',
-    visibility: 'deal',
-    summary: 'חבילת גילוי מלאה חתומה ומאומתת.',
-  },
-  {
-    id: 'doc-appraisal-1',
-    title: 'שומת שמאי',
-    kind: 'appraisal',
-    uploadedAt: '2024-10-30T11:20:00Z',
-    uploader: 'דנה לוי',
-    visibility: 'buyer_side',
-    summary: 'שווי מוערך ₪4.35 מ׳, סטייה של ‎+1.2% מול נדל״נר.',
-  },
-  {
-    id: 'doc-architect-1',
-    title: 'תכנית שיפוץ מוצעת',
-    kind: 'architect',
-    uploadedAt: '2024-10-25T16:40:00Z',
-    uploader: 'סטודיו ארצי',
-    visibility: 'deal',
-    summary: 'שינויים מוצעים בתכנית עם הערות תאימות לזכויות בנייה.',
-  },
-  {
-    id: 'doc-mortgage-1',
-    title: 'הצעת בנק לאומי',
-    kind: 'mortgage',
-    uploadedAt: '2024-11-01T12:05:00Z',
-    uploader: 'מוקד בנק לאומי',
-    visibility: 'buyer_side',
-    summary: 'מסלול קבוע ל־25 שנה בריבית 3.95%.',
-  },
-]
-
-const INITIAL_TASKS: DealTask[] = [
-  {
-    id: 'task-1',
-    title: 'סקירת נסח טאבו מעודכן',
-    owner: 'עו״ד ליאורה שור',
-    status: 'in_progress',
-    dueDate: '2024-11-06',
-  },
-  {
-    id: 'task-2',
-    title: 'סגירת סעיף פיצוי מוסכם',
-    owner: 'עו״ד יוסי בר',
-    status: 'blocked',
-    dueDate: '2024-11-05',
-    blocker: 'ממתינים לאישור המוכר לחלון מסירת הנכס.',
-  },
-  {
-    id: 'task-3',
-    title: 'תיאום בדיקה סופית בנכס',
-    owner: 'דנה לוי',
-    status: 'todo',
-    dueDate: '2024-11-12',
-  },
-  {
-    id: 'task-4',
-    title: 'איסוף תלושי שכר מעודכנים למשכנתא',
-    owner: 'מוקד בנק לאומי',
-    status: 'done',
-    dueDate: '2024-10-31',
-  },
-]
-
-const INITIAL_MORTGAGE_OFFERS: MortgageOffer[] = [
-  {
-    id: 'mortgage-1',
-    lender: 'בנק לאומי',
-    productType: 'mixed',
-    ratePct: 3.95,
-    aprPct: 4.12,
-    termMonths: 300,
-    monthlyPayment: 12_240,
-    feesTotal: 4_500,
-    validUntil: '2024-11-15T21:00:00Z',
-    score: 86,
-  },
-  {
-    id: 'mortgage-2',
-    lender: 'מזרחי טפחות',
-    productType: 'mixed',
-    ratePct: 4.10,
-    aprPct: 4.28,
-    termMonths: 300,
-    monthlyPayment: 12_540,
-    feesTotal: 3_800,
-    validUntil: '2024-11-18T21:00:00Z',
-    score: 82,
-  },
-  {
-    id: 'mortgage-3',
-    lender: 'בנק דיסקונט',
-    productType: 'fixed',
-    ratePct: 4.35,
-    aprPct: 4.41,
-    termMonths: 240,
-    monthlyPayment: 13_120,
-    feesTotal: 5_500,
-    validUntil: '2024-11-10T21:00:00Z',
-    score: 74,
-  },
-]
-
-const DEAL_METADATA = {
-  stage: 'legal' as DealStage,
-  askingPrice: 4_500_000,
-  acceptedOfferAmount: 4_320_000,
-  targetClosingDate: '2025-01-15',
-  lastUpdated: '2024-11-03T08:45:00Z',
-  address: 'הרצל 17, תל אביב',
-}
 
 const TIMELINE_FILTERS = [
   { key: 'all' as const, label: 'כל הפעילות' },

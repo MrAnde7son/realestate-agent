@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   ChevronDown,
   Building,
+  Handshake,
   AlertCircle,
   Calculator,
   FileText,
@@ -42,6 +43,11 @@ const baseNavigation = [
     name: "נכסים",
     href: "/assets",
     icon: Building,
+  },
+  {
+    name: "עסקאות",
+    href: "/deals",
+    icon: Handshake,
   },
   {
     name: "לקוחות",

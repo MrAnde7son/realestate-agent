@@ -201,7 +201,6 @@ export const shouldDisplayMarkerLabel = ({
   preferTouchDevice?: boolean
 }): boolean => {
   if (totalAssets <= 0) return false
-  if (preferTouchDevice) return true
   if (totalAssets <= DENSE_ASSET_THRESHOLD) return true
   const effectiveZoom = zoom ?? 0
   if (effectiveZoom >= DETAIL_ZOOM_THRESHOLD) return true

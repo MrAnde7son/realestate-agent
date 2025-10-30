@@ -62,29 +62,6 @@ interface GeocodingResult {
   }
 }
 
-const createMarkerLabelElement = (display: MarkerDisplayData) => {
-  const label = document.createElement('div')
-  label.className = 'asset-marker-label'
-  label.dataset.visible = 'false'
-  label.dataset.persist = 'false'
-  label.setAttribute('aria-hidden', 'true')
-
-  const addressEl = document.createElement('div')
-  addressEl.className = 'asset-marker-address'
-  addressEl.textContent = display.shortAddress
-  label.appendChild(addressEl)
-
-  const subline = display.priceLabel ?? display.cityLine
-  if (subline) {
-    const sublineEl = document.createElement('div')
-    sublineEl.className = display.priceLabel ? 'asset-marker-price' : 'asset-marker-city'
-    sublineEl.textContent = subline
-    label.appendChild(sublineEl)
-  }
-
-  return label
-}
-
 const createTooltipElement = (display: MarkerDisplayData) => {
   const tooltip = document.createElement('div')
   tooltip.className = 'asset-marker-tooltip'
@@ -368,15 +345,6 @@ export default function MapView({
       markerContainer.tabIndex = 0
       markerContainer.setAttribute('aria-label', displayData.fullAddress)
 
-      const labelEl = createMarkerLabelElement(displayData)
-
-      if (labelsVisibleByDefault) {
-        labelEl.dataset.visible = 'true'
-        labelEl.dataset.persist = 'true'
-        labelEl.setAttribute('aria-hidden', 'false')
-      }
-      markerContainer.appendChild(labelEl)
-
       const pinEl = document.createElement('div')
       pinEl.className = 'asset-marker-pin'
       markerContainer.appendChild(pinEl)
@@ -398,21 +366,11 @@ export default function MapView({
       }
 
       const showTooltip = () => {
-        labelEl.dataset.visible = 'true'
-        labelEl.setAttribute('aria-hidden', 'false')
-        labelEl.classList.add('asset-marker-label--hover')
         tooltipEl.dataset.visible = 'true'
       }
 
       const hideTooltip = () => {
         clearOutsideListener()
-        labelEl.classList.remove('asset-marker-label--hover')
-        if (labelEl.dataset.persist !== 'true') {
-          labelEl.dataset.visible = 'false'
-          labelEl.setAttribute('aria-hidden', 'true')
-        } else {
-          labelEl.setAttribute('aria-hidden', 'false')
-        }
         tooltipEl.dataset.visible = 'false'
         skipNextClick = false
       }

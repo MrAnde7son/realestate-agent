@@ -2314,6 +2314,7 @@ def asset_detail(request, asset_id):
             'permits_m2m',
             'plans',
             'plans_m2m',
+            'listings_m2m',  # Needed for primary_listing and price/pricePerSqm from listings
         ]
         if include_documents:
             prefetch_fields.extend(['documents', 'documents_m2m'])

@@ -2261,25 +2261,19 @@ useDedupedEffect(() => {
                 ? `${formatCurrency(asset.pricePerSqm)}/מ״ר`
                 : '—'}
             </div>
-            {/* Attribution Information */}
-            {asset.attribution && (
+            {/* Listing contact and creation date */}
+            {(primaryListing?.contactName || listingDatePostedDisplay) && (
               <div className="text-xs text-muted-foreground mt-2 space-y-1 text-start">
-                {asset.attribution.created_by && (
+                {primaryListing?.contactName && (
                   <div className="text-start">
-                    <span className="font-medium">נוצר על ידי: </span>
-                    <span>{asset.attribution.created_by.name}</span>
+                    <span className="font-medium">איש קשר: </span>
+                    <span>{primaryListing.contactName}</span>
                   </div>
                 )}
-                {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
+                {listingDatePostedDisplay && (
                   <div className="text-start">
-                    <span className="font-medium">עודכן לאחרונה על ידי: </span>
-                    <span>{asset.attribution.last_updated_by.name}</span>
-                  </div>
-                )}
-                {asset.recent_contributions && asset.recent_contributions.length > 0 && (
-                  <div className="text-start">
-                    <span className="font-medium">תרומות אחרונות: </span>
-                    <span>{asset.recent_contributions.length}</span>
+                    <span className="font-medium">פורסם: </span>
+                    <span>{listingDatePostedDisplay}</span>
                   </div>
                 )}
               </div>

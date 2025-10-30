@@ -80,6 +80,9 @@ class AssetSerializer(MetaSerializerMixin):
     address = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
     type = serializers.SerializerMethodField()
+    # Override to ensure fallback population from primary listing/area when DB fields are null
+    price = serializers.SerializerMethodField()
+    price_per_sqm = serializers.SerializerMethodField()
     # Expose market metric fields (snake_case) directly
     price_gap_pct = serializers.FloatField(read_only=True)
     expected_price_range = serializers.CharField(read_only=True)
@@ -172,6 +175,43 @@ class AssetSerializer(MetaSerializerMixin):
             rent_val = listing_prices.get("rent")
             if rent_val not in (None, ""):
                 return rent_val
+        return None
+
+    def get_price(self, obj):
+        """Return explicit asset price or fallback to primary listing price."""
+        value = getattr(obj, "price", None)
+        if value not in (None, ""):
+            return value
+        # Try reading from meta hint first
+        meta = getattr(obj, "meta", {}) or {}
+        listing_prices = meta.get("listing_prices")
+        if isinstance(listing_prices, dict):
+            listing_val = listing_prices.get("sale") or listing_prices.get("price")
+            if listing_val not in (None, ""):
+                return listing_val
+        # Fallback to primary listing normalized data
+        primary_price = self._get_primary_value(obj, "price", "price_value", "listing_price")
+        return primary_price
+
+    def get_price_per_sqm(self, obj):
+        """Return explicit asset price_per_sqm or compute from price and area/size."""
+        direct_value = getattr(obj, "price_per_sqm", None)
+        if direct_value not in (None, ""):
+            return direct_value
+        # Try primary listing's direct ppm
+        primary_ppm = self._get_primary_value(obj, "price_per_sqm", "pricePerSqm")
+        if primary_ppm not in (None, ""):
+            return primary_ppm
+        # Compute from price and area if available
+        price_val = self.get_price(obj)
+        area_val = getattr(obj, "area", None)
+        if area_val in (None, ""):
+            area_val = self._get_primary_value(obj, "size", "area", "square_meters", "squareMeters")
+        try:
+            if price_val not in (None, "") and area_val not in (None, "", 0):
+                return int(round(float(price_val) / float(area_val)))
+        except Exception:  # pragma: no cover - safety
+            return None
         return None
 
     def get_address(self, obj):

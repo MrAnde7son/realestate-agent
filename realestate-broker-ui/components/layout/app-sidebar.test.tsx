@@ -24,7 +24,7 @@ vi.mock("@/lib/auth-context", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: () => "/assets",
 }));
 
 vi.mock("next/link", () => ({
@@ -44,25 +44,25 @@ describe("AppSidebar accessibility when collapsed", () => {
   it("adds aria-labels and tooltips to collapsed navigation items", async () => {
     render(<AppSidebar isCollapsed />);
 
-    const homeLink = screen.getByRole("link", { name: "בית" });
+    const assetsLink = screen.getByRole("link", { name: "נכסים" });
 
-    expect(homeLink).toHaveAttribute("aria-label", "בית");
-    expect(homeLink.textContent?.trim()).toBe("");
+    expect(assetsLink).toHaveAttribute("aria-label", "נכסים");
+    expect(assetsLink.textContent?.trim()).toBe("");
 
-    fireEvent.focus(homeLink);
-    fireEvent.pointerEnter(homeLink);
+    fireEvent.focus(assetsLink);
+    fireEvent.pointerEnter(assetsLink);
 
     await waitFor(() => {
-      expect(screen.getByRole("tooltip")).toHaveTextContent("בית");
+      expect(screen.getByRole("tooltip")).toHaveTextContent("נכסים");
     });
   });
 
   it("continues to show inline labels when expanded", () => {
     render(<AppSidebar isCollapsed={false} />);
 
-    const homeLink = screen.getByRole("link", { name: "בית" });
-    expect(homeLink).toHaveTextContent("בית");
-    expect(homeLink).not.toHaveAttribute("aria-label");
+    const assetsLink = screen.getByRole("link", { name: "נכסים" });
+    expect(assetsLink).toHaveTextContent("נכסים");
+    expect(assetsLink).not.toHaveAttribute("aria-label");
   });
 });
 

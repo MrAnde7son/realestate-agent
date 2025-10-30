@@ -480,6 +480,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [creatingMessage, setCreatingMessage] = useState(false)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [isAIGenerated, setIsAIGenerated] = useState(true)
   const [shareModal, setShareModal] = useState(false)
   const [language, setLanguage] = useState('he')
   const [sectionsModal, setSectionsModal] = useState(false)
@@ -2234,29 +2235,43 @@ useDedupedEffect(() => {
     setCreatingMessage(true)
     setShareMessage(null)
     setShareUrl(null)
+    setIsAIGenerated(true)
     try {
       const response = await apiClient.post(`/api/assets/${id}/share-message`, {
         language,
         provider,
       })
-      if (response.ok && response.data) {
+      
+      // Backend always returns a message (AI-generated or fallback), even on errors
+      // Check if we have data with a text property, regardless of response.ok
+      if (response.data) {
         const { text, shareUrl: parsedUrl } = parseShareMessageResponse(response.data)
-        setShareMessage(text)
-        setShareUrl(parsedUrl)
+        
+        // Always set the message if we have one (even if it's a fallback)
+        if (text) {
+          setShareMessage(text)
+          setShareUrl(parsedUrl)
+          
+          // Determine if message was AI-generated or fallback
+          const wasAIGenerated = response.ok && !response.data?.error
+          setIsAIGenerated(wasAIGenerated)
 
-        // Track marketing message creation
-        trackFeatureUsage('marketing_message', parseInt(id), {
-          message_type: 'share_message',
-          language: language,
-          provider
-        })
-      } else {
-        const errorData = (response.data as { details?: string; error?: string } | undefined) || {}
-        alert(errorData.details || errorData.error || response.error || 'שגיאה ביצירת הודעה')
+          // Track marketing message creation only on success
+          if (wasAIGenerated) {
+            trackFeatureUsage('marketing_message', parseInt(id), {
+              message_type: 'share_message',
+              language: language,
+              provider
+            })
+          }
+        }
       }
+      
+      // Don't log fallback scenarios as errors - backend provides fallback, so this is expected
     } catch (err) {
-      console.error('Message generation failed:', err)
-      alert('שגיאה ביצירת הודעה')
+      // Use warn instead of error to avoid triggering error overlay in dev mode
+      // Backend should always return fallback, so this is unlikely
+      console.warn('Message generation request failed:', err)
     } finally {
       setCreatingMessage(false)
     }
@@ -2570,6 +2585,7 @@ useDedupedEffect(() => {
                   if (!open) {
                     setShareMessage(null)
                     setShareUrl(null)
+                    setIsAIGenerated(true)
                   }
                 }}
               >
@@ -2601,12 +2617,22 @@ useDedupedEffect(() => {
                       </div>
                     ) : shareMessage ? (
                       <div className="space-y-2">
-                        <textarea
-                          className="w-full border rounded p-2 text-sm"
-                          rows={4}
-                          readOnly
-                          value={shareMessage}
-                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <textarea
+                            className="w-full border rounded p-2 text-sm"
+                            rows={4}
+                            readOnly
+                            value={shareMessage}
+                          />
+                        </div>
+                        {!isAIGenerated && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="outline" className="text-xs">
+                              הודעה בסיסית
+                            </Badge>
+                            <span>הודעה זו נוצרה אוטומטית ולא על ידי בינה מלאכותית</span>
+                          </div>
+                        )}
                         <DialogFooter className="flex gap-2">
                           <Button
                             size="sm"

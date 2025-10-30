@@ -23,7 +23,7 @@ class GeminiAdapter(LLMClient):
         genai.configure(
             api_key=api_key,
             client_options=ClientOptions(
-                api_endpoint="https://us-generativelanguage.googleapis.com"
+                api_endpoint="https://generativelanguage.googleapis.com"
             ),
             transport="rest",
         )

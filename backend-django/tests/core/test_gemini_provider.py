@@ -73,5 +73,5 @@ async def test_gemini_chat_maps_system_message_to_instruction(monkeypatch):
     assert captured["sent_message"] == "Write message"
     assert (
         captured["client_options"].api_endpoint
-        == "https://us-generativelanguage.googleapis.com"
+        == "https://generativelanguage.googleapis.com"
     )

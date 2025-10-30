@@ -62,7 +62,7 @@ function formatDate(date: string) {
   }
 }
 
-function assetLabel(asset: DealAssetSummary | undefined): string {
+function assetLabel(asset: DealAssetSummary | null | undefined): string {
   if (!asset) return 'נכס ללא פרטים'
   if (asset.address) return asset.address
   if (asset.city) return `${asset.city} • נכס ${asset.id}`

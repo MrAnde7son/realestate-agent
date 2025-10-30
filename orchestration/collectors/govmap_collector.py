@@ -15,6 +15,7 @@ if "x" in result and "y" in result:
     print("Parcel data:", result["api_data"].get("parcel", "Not available"))
 """
 import logging
+from difflib import SequenceMatcher
 from typing import Any, Dict, Optional
 
 from orchestration.collectors.base_collector import BaseCollector
@@ -122,8 +123,13 @@ class GovMapCollector(BaseCollector):
                                         original_street = location.street.lower() if location.street else ""
                                         corrected_street_lower = corrected_street.lower()
                                         
+                                        # Calculate similarity ratio using SequenceMatcher
+                                        similarity_ratio = SequenceMatcher(None, original_street, corrected_street_lower).ratio()
+                                        
                                         # Only update if there's some similarity or if the original search was very generic
                                         should_update = (
+                                            # High similarity ratio (handles spelling variants like "לה גווארדיה" vs "לה גווארדייה")
+                                            similarity_ratio >= 0.75 or
                                             # Street names are similar (contains or is contained)
                                             original_street in corrected_street_lower or 
                                             corrected_street_lower in original_street or

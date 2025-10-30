@@ -27,7 +27,7 @@ describe('/api/assets/[id]/share-message', () => {
       'http://127.0.0.1:3000/api/assets/1/share-message',
       {
         method: 'POST',
-        body: JSON.stringify({ language: 'en', provider: 'gemini' }),
+        body: JSON.stringify({ language: 'en', provider: 'groq' }),
         headers: { 'Content-Type': 'application/json' }
       }
     )
@@ -41,7 +41,7 @@ describe('/api/assets/[id]/share-message', () => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: 'en', provider: 'gemini' })
+        body: JSON.stringify({ language: 'en', provider: 'groq' })
       }
     )
   })

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel
 
-LLMProvider = Literal["gemini", "openai"]
+LLMProvider = Literal["gemini", "openai", "groq"]
 
 
 class BaseGenOptions(BaseModel):

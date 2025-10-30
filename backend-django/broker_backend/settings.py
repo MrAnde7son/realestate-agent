@@ -35,6 +35,10 @@ GEMINI_MODEL = config("GEMINI_MODEL", default="gemini-2.0-flash")
 OPENAI_API_KEY = config("OPENAI_API_KEY", default="")
 OPENAI_MODEL = config("OPENAI_MODEL", default="gpt-4o-mini")
 
+# Groq
+GROQ_API_KEY = config("GROQ_API_KEY", default="")
+GROQ_MODEL = config("GROQ_MODEL", default="llama-3.1-70b-versatile")
+
 # Custom user model
 AUTH_USER_MODEL = 'core.User'
 

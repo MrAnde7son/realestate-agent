@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown, Sparkles } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
@@ -58,7 +58,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
-const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai'] as const
+const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai', 'groq'] as const
 type SupportedLLMProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number]
 
 const normalizeProvider = (value: string | null | undefined): SupportedLLMProvider | null => {
@@ -480,6 +480,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [creatingMessage, setCreatingMessage] = useState(false)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [isAIGenerated, setIsAIGenerated] = useState(true)
   const [shareModal, setShareModal] = useState(false)
   const [language, setLanguage] = useState('he')
   const [sectionsModal, setSectionsModal] = useState(false)
@@ -2234,29 +2235,53 @@ useDedupedEffect(() => {
     setCreatingMessage(true)
     setShareMessage(null)
     setShareUrl(null)
+    setIsAIGenerated(false)
     try {
       const response = await apiClient.post(`/api/assets/${id}/share-message`, {
         language,
         provider,
       })
-      if (response.ok && response.data) {
-        const { text, shareUrl: parsedUrl } = parseShareMessageResponse(response.data)
-        setShareMessage(text)
-        setShareUrl(parsedUrl)
-
-        // Track marketing message creation
-        trackFeatureUsage('marketing_message', parseInt(id), {
-          message_type: 'share_message',
-          language: language,
-          provider
-        })
-      } else {
-        const errorData = (response.data as { details?: string; error?: string } | undefined) || {}
-        alert(errorData.details || errorData.error || response.error || 'שגיאה ביצירת הודעה')
+      
+      // Check for error response
+      if (!response.ok || response.error) {
+        const errorMessage = (response.data as any)?.details || (response.data as any)?.error || response.error || 'Failed to create message'
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(errorMessage)
+        }
+        return
       }
+      
+      // Backend always returns a message (AI-generated or fallback), even on errors
+      // Check if we have data with a text property, regardless of response.ok
+      if (response.data) {
+        const { text, shareUrl: parsedUrl, isAIGenerated } = parseShareMessageResponse(response.data)
+        
+        // Always set the message if we have one (even if it's a fallback)
+        if (text) {
+          setShareMessage(text)
+          setShareUrl(parsedUrl)
+          setIsAIGenerated(isAIGenerated)
+
+          // Track marketing message creation only when AI-generated
+          if (isAIGenerated) {
+            trackFeatureUsage('marketing_message', parseInt(id), {
+              message_type: 'share_message',
+              language: language,
+              provider
+            })
+          }
+        }
+      }
+      
+      // Don't log fallback scenarios as errors - backend provides fallback, so this is expected
     } catch (err) {
-      console.error('Message generation failed:', err)
-      alert('שגיאה ביצירת הודעה')
+      // Use warn instead of error to avoid triggering error overlay in dev mode
+      // Backend should always return fallback, so this is unlikely
+      console.warn('Message generation request failed:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create message'
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(errorMessage)
+      }
     } finally {
       setCreatingMessage(false)
     }
@@ -2570,6 +2595,7 @@ useDedupedEffect(() => {
                   if (!open) {
                     setShareMessage(null)
                     setShareUrl(null)
+                    setIsAIGenerated(true)
                   }
                 }}
               >
@@ -2601,12 +2627,31 @@ useDedupedEffect(() => {
                       </div>
                     ) : shareMessage ? (
                       <div className="space-y-2">
-                        <textarea
-                          className="w-full border rounded p-2 text-sm"
-                          rows={4}
-                          readOnly
-                          value={shareMessage}
-                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <textarea
+                            className="w-full border rounded p-2 text-sm"
+                            rows={4}
+                            readOnly
+                            value={shareMessage}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {isAIGenerated ? (
+                            <>
+                              <Badge variant="accent" className="text-xs flex items-center gap-1">
+                                <Sparkles className="h-3 w-3" />
+                                נוצר על ידי בינה מלאכותית
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <Badge variant="outline" className="text-xs">
+                                הודעה בסיסית
+                              </Badge>
+                              <span>הודעה זו נוצרה אוטומטית ולא על ידי בינה מלאכותית</span>
+                            </>
+                          )}
+                        </div>
                         <DialogFooter className="flex gap-2">
                           <Button
                             size="sm"

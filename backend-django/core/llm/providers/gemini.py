@@ -10,9 +10,79 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..types import BaseGenOptions, ChatMessage, LLMClient
 
+# Google API exceptions for error handling
+try:
+    from google.api_core import exceptions as google_exceptions
+except ImportError:
+    google_exceptions = None
+
 
 class GeminiAdapter(LLMClient):
     provider = "gemini"
+
+    @staticmethod
+    def _classify_error(exception: Exception) -> Optional[Dict[str, str]]:
+        """
+        Classify Google API exceptions and return structured error info.
+        Returns None if the exception is not a Google API exception.
+        """
+        if not google_exceptions:
+            return None
+        
+        error_msg = str(exception).lower()
+        actual_exception = exception
+        
+        # Unwrap if it's wrapped in another exception
+        if hasattr(exception, '__cause__') and exception.__cause__:
+            actual_exception = exception.__cause__
+            error_msg = str(actual_exception).lower()
+        elif hasattr(exception, '__context__') and exception.__context__:
+            actual_exception = exception.__context__
+            error_msg = str(actual_exception).lower()
+        
+        # Check for rate limit errors
+        if isinstance(actual_exception, google_exceptions.TooManyRequests) or \
+           "too many requests" in error_msg or "quota exceeded" in error_msg or "rate limit" in error_msg:
+            return {
+                "type": "rate_limit",
+                "message": "API rate limit exceeded. Please try again in a minute.",
+                "details": str(actual_exception),
+            }
+        
+        # Check for model not found errors
+        if isinstance(actual_exception, google_exceptions.NotFound) or \
+           "not found" in error_msg or "404" in error_msg:
+            return {
+                "type": "model_not_found",
+                "message": "AI model not available. Please check your API configuration.",
+                "details": str(actual_exception),
+            }
+        
+        # Check for invalid argument errors
+        if isinstance(actual_exception, google_exceptions.InvalidArgument):
+            return {
+                "type": "invalid_request",
+                "message": "Invalid request to AI service. Please try again.",
+                "details": str(actual_exception),
+            }
+        
+        # Check for permission denied errors
+        if isinstance(actual_exception, google_exceptions.PermissionDenied):
+            return {
+                "type": "permission_denied",
+                "message": "API access denied. Please check your API key configuration.",
+                "details": str(actual_exception),
+            }
+        
+        # Check for service unavailable errors
+        if isinstance(actual_exception, google_exceptions.ServiceUnavailable):
+            return {
+                "type": "service_unavailable",
+                "message": "AI service is temporarily unavailable. Please try again later.",
+                "details": str(actual_exception),
+            }
+        
+        return None
 
     def __init__(self) -> None:
         api_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY
@@ -23,7 +93,7 @@ class GeminiAdapter(LLMClient):
         genai.configure(
             api_key=api_key,
             client_options=ClientOptions(
-                api_endpoint="https://us-generativelanguage.googleapis.com"
+                api_endpoint="https://generativelanguage.googleapis.com"
             ),
             transport="rest",
         )

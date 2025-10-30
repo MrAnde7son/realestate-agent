@@ -8,7 +8,7 @@ from .types import LLMProvider
 
 
 def _normalize_provider(provider: Optional[str]) -> Optional[LLMProvider]:
-    if provider in ("gemini", "openai"):
+    if provider in ("gemini", "openai", "groq"):
         return cast(LLMProvider, provider)
     return None
 

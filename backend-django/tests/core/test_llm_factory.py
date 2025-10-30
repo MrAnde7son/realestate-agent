@@ -26,6 +26,6 @@ def test_create_llm_client_uses_google_api_key(monkeypatch):
     assert captured["api_key"] == "google-key"
     assert (
         captured["client_options"].api_endpoint
-        == "https://us-generativelanguage.googleapis.com"
+        == "https://generativelanguage.googleapis.com"
     )
     assert client.model_name is None

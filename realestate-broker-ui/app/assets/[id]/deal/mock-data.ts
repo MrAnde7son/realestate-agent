@@ -27,15 +27,23 @@ export type Offer = {
   conditions: OfferConditions
 }
 
+export type DocumentKind = 'legal' | 'appraisal' | 'architect' | 'mortgage' | 'generic'
+
+export type DocumentVisibility = 'deal' | 'buyer_side' | 'seller_side'
+
+export type DocumentStatus = 'processing' | 'ready' | 'failed'
+
 export type DealDocument = {
   id: string
   title: string
-  kind: 'legal' | 'appraisal' | 'architect' | 'mortgage'
+  kind: DocumentKind
   uploadedAt: string
   uploader: string
-  visibility: 'deal' | 'buyer_side' | 'seller_side'
+  visibility: DocumentVisibility
   summary: string
   linkedOfferId?: string
+  status?: DocumentStatus
+  storageUrl?: string
 }
 
 export type DealTask = {
@@ -139,6 +147,8 @@ export const INITIAL_DOCUMENTS: DealDocument[] = [
     uploader: 'עו״ד ליאורה שור',
     visibility: 'deal',
     summary: 'עדכון סעיף מסירת החזקה ותיקוני אחריות לתשתיות.',
+    status: 'ready',
+    storageUrl: 'https://example.com/doc-legal-001.pdf',
     linkedOfferId: 'offer-103',
   },
   {
@@ -149,6 +159,8 @@ export const INITIAL_DOCUMENTS: DealDocument[] = [
     uploader: 'שמאי אברהם מילר',
     visibility: 'deal',
     summary: 'הערכת שווי מעודכנת ל-4.35M ₪ בהתאם להשוואות דומות בסביבה.',
+    status: 'ready',
+    storageUrl: 'https://example.com/doc-appraisal-001.pdf',
   },
   {
     id: 'doc-architect-001',
@@ -158,6 +170,8 @@ export const INITIAL_DOCUMENTS: DealDocument[] = [
     uploader: 'סטודיו קו ישר',
     visibility: 'buyer_side',
     summary: 'סקיצה לחלוקת פנים חדשה הכוללת הוספת משרד ביתי.',
+    status: 'ready',
+    storageUrl: 'https://example.com/doc-architect-001.pdf',
   },
   {
     id: 'doc-mortgage-001',
@@ -167,6 +181,8 @@ export const INITIAL_DOCUMENTS: DealDocument[] = [
     uploader: 'מוקד בנק לאומי',
     visibility: 'buyer_side',
     summary: 'אישור מימון עד 70% משווי העסקה עם ריבית קבועה ל-20 שנה.',
+    status: 'ready',
+    storageUrl: 'https://example.com/doc-mortgage-001.pdf',
   },
 ]
 

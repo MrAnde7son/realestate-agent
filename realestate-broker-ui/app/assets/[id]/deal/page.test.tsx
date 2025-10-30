@@ -3,6 +3,34 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import DealWorkspacePage from './page'
 import DealWorkspacePageClient from './DealWorkspacePageClient'
+import { INITIAL_DOCUMENTS } from './mock-data'
+
+const { mockGet, mockRequest, mockPost } = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  mockRequest: vi.fn(),
+  mockPost: vi.fn(),
+}))
+
+vi.mock('@/lib/api-client', () => {
+  const client = {
+    get: mockGet,
+    request: mockRequest,
+    post: mockPost,
+    put: vi.fn(),
+    delete: vi.fn(),
+    patch: vi.fn(),
+  }
+  return {
+    apiClient: client,
+    api: {
+      get: client.get,
+      post: client.post,
+      put: client.put,
+      delete: client.delete,
+      patch: client.patch,
+    },
+  }
+})
 
 vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid='layout'>{children}</div>,
@@ -58,8 +86,78 @@ vi.mock('@/components/ui/table', () => ({
   TableCell: ({ children, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) => <td {...props}>{children}</td>,
 }))
 
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) => (
+    <div data-testid='dialog'>{open ? children : null}</div>
+  ),
+  DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
+}))
+
+vi.mock('@/components/ui/select', () => ({
+  Select: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
+  SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SelectItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
+vi.mock('@/components/ui/label', () => ({
+  Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
+    <label {...props}>{children}</label>
+  ),
+}))
+
+const backendDeals = [{ id: 999, stage: 'legal' as const }]
+let backendDocuments: Array<{
+  id: number
+  deal: number
+  asset: number
+  kind: string
+  title: string
+  storage_url?: string
+  visibility_scope: string
+  status: string
+  created_at: string
+  updated_at: string
+  extracted_json: Record<string, unknown>
+}>
+
 beforeEach(() => {
   vi.clearAllMocks()
+  backendDocuments = INITIAL_DOCUMENTS.map((doc, index) => ({
+    id: index + 1,
+    deal: backendDeals[0].id,
+    asset: 501,
+    kind: doc.kind,
+    title: doc.title,
+    storage_url: doc.storageUrl,
+    visibility_scope: doc.visibility,
+    status: doc.status ?? 'ready',
+    created_at: doc.uploadedAt,
+    updated_at: doc.uploadedAt,
+    extracted_json: {
+      summary: doc.summary,
+      uploader: doc.uploader,
+      linked_offer_id: doc.linkedOfferId,
+    },
+  }))
+
+  mockGet.mockImplementation((endpoint: string) => {
+    if (endpoint.startsWith('/api/deals')) {
+      return Promise.resolve({ ok: true, status: 200, data: { deals: backendDeals } })
+    }
+    if (endpoint.startsWith('/api/deal-workspace/documents')) {
+      return Promise.resolve({ ok: true, status: 200, data: { documents: backendDocuments } })
+    }
+    return Promise.resolve({ ok: false, status: 404, error: 'Not found' })
+  })
+
+  mockRequest.mockResolvedValue({ ok: true, status: 200, data: {} })
+  mockPost.mockResolvedValue({ ok: true, status: 200, data: {} })
 })
 
 describe('DealWorkspacePage', () => {
@@ -73,21 +171,25 @@ describe('DealWorkspacePage', () => {
 })
 
 describe('DealWorkspacePageClient', () => {
-  it('renders stage badge and parties summary', () => {
+  it('renders stage badge and parties summary', async () => {
     render(<DealWorkspacePageClient assetId='501' />)
 
     expect(screen.getByText('נכס 501')).toBeInTheDocument()
     expect(screen.getByText('טיוטות חוזה, הערות וחתימות')).toBeInTheDocument()
-    const partyMentions = screen.getAllByText(/דנה לוי/)
-    expect(partyMentions.length).toBeGreaterThan(0)
+    await waitFor(() => {
+      const partyMentions = screen.getAllByText(/דנה לוי/)
+      expect(partyMentions.length).toBeGreaterThan(0)
+    })
   })
 
-  it('filters timeline events by documents category', () => {
+  it('filters timeline events by documents category', async () => {
     render(<DealWorkspacePageClient assetId='88' />)
+
+    await screen.findByText('מסמכים ותובנות')
 
     fireEvent.click(screen.getByRole('button', { name: 'מסמכים' }))
 
-    expect(screen.getByText('שומת שמאי הועלה')).toBeInTheDocument()
+    await screen.findByText('שומת שמאי הועלה')
     expect(screen.queryByText(/הצעת קונה/)).not.toBeInTheDocument()
   })
 
@@ -106,14 +208,11 @@ describe('DealWorkspacePageClient', () => {
   it('filters documents by type', async () => {
     render(<DealWorkspacePageClient assetId='42' />)
 
-    // Wait for documents panel to be rendered
-    await waitFor(() => {
-      expect(screen.getByText('מסמכים ותובנות')).toBeInTheDocument()
-    })
+    await screen.findByText('מסמכים ותובנות')
 
     const appraisalFilters = screen.getAllByRole('button', { name: /שומה/ })
     expect(appraisalFilters.length).toBeGreaterThan(0)
-    
+
     await act(async () => {
       fireEvent.click(appraisalFilters[0])
     })
@@ -159,14 +258,58 @@ describe('DealWorkspacePageClient', () => {
   it('links a document to the latest offer', async () => {
     render(<DealWorkspacePageClient assetId='77' />)
 
-    const linkButtons = screen.getAllByRole('button', { name: 'קשר להצעה האחרונה' })
-    const appraisalButton = linkButtons.find(button => button.parentElement?.textContent?.includes('שומת שמאי'))
-    expect(appraisalButton).toBeDefined()
+    await screen.findByText('מסמכים ותובנות')
 
-    fireEvent.click(appraisalButton as HTMLButtonElement)
+    const appraisalTitle = await screen.findByText('דו״ח שמאי מילר - עדכון שווי')
+    const cardContainer = appraisalTitle.closest('div')?.parentElement?.parentElement?.parentElement as HTMLElement | null
+    expect(cardContainer).not.toBeNull()
+
+    const appraisalButton = within(cardContainer as HTMLElement).getByRole('button', { name: 'קשר להצעה האחרונה' })
+
+    fireEvent.click(appraisalButton)
 
     await waitFor(() => {
-      expect(appraisalButton?.parentElement?.textContent).toMatch(/מקושר להצעה/)
+      expect(cardContainer?.textContent).toMatch(/מקושר להצעה/)
     })
+  })
+
+  it('uploads a document through the dialog and shows it in the list', async () => {
+    const newDoc = {
+      id: 5000,
+      deal: backendDeals[0].id,
+      asset: 501,
+      kind: 'mortgage',
+      title: 'אישור משכנתא בנק הפועלים',
+      storage_url: 'https://example.com/mortgage.pdf',
+      visibility_scope: 'buyer_side',
+      status: 'ready',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      extracted_json: { summary: 'אישור עקרוני עדכני', uploader: 'בנק הפועלים' },
+    }
+
+    mockRequest.mockResolvedValueOnce({ ok: true, status: 201, data: { document: newDoc } })
+
+    render(<DealWorkspacePageClient assetId='77' />)
+
+    await screen.findByRole('button', { name: 'העלה מסמך' })
+    fireEvent.click(screen.getByRole('button', { name: 'העלה מסמך' }))
+
+    const fileInput = screen.getByLabelText('בחר קובץ') as HTMLInputElement
+    const file = new File(['pdf-content'], 'mortgage.pdf', { type: 'application/pdf' })
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } })
+    })
+
+    const submitButton = screen.getByRole('button', { name: 'שמור מסמך' })
+    await act(async () => {
+      fireEvent.click(submitButton)
+    })
+
+    await screen.findByText('אישור משכנתא בנק הפועלים')
+    expect(mockRequest).toHaveBeenCalledWith(
+      '/api/deal-workspace/documents/upload',
+      expect.objectContaining({ method: 'POST', body: expect.any(FormData) })
+    )
   })
 })

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
@@ -22,12 +22,31 @@ import {
   INITIAL_TASKS,
   PARTIES,
   type DealDocument,
+  type DocumentKind,
+  type DocumentStatus,
+  type DocumentVisibility,
   type OfferConditions,
   type DealTask,
   type MortgageOffer,
   type Offer,
   type Party,
 } from './mock-data'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -41,16 +60,21 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Download,
   FileText,
   FileUp,
   Gavel,
   Handshake,
   Layers,
+  AlertCircle,
+  UploadCloud,
+  Loader2,
   ShieldCheck,
   Sparkles,
   Home,
   Building,
 } from 'lucide-react'
+import { apiClient } from '@/lib/api-client'
 
 type TimelineEvent = {
   id: string
@@ -71,6 +95,32 @@ type OfferDraft = {
   conditions: OfferConditions
 }
 
+type BackendDealSummary = {
+  id: number
+  stage?: DealStage
+}
+
+type BackendDocument = {
+  id: number
+  deal?: number | null
+  asset?: number | null
+  kind: DocumentKind
+  title: string
+  storage_url?: string
+  visibility_scope: DocumentVisibility
+  status?: DocumentStatus
+  created_at?: string
+  updated_at?: string
+  extracted_json?: Record<string, unknown> | null
+}
+
+type UploadFormState = {
+  title: string
+  kind: DocumentKind
+  visibility: DocumentVisibility
+  file: File | null
+}
+
 const STAGE_FLOW: { key: DealStage; label: string; helper: string }[] = [
   { key: 'discovery', label: 'איתור והערכה', helper: 'איסוף חומר רקע והכנת הנכס לעסקה' },
   { key: 'negotiation', label: 'מו״מ', helper: 'ניהול הצעות נגדיות ודיוקים במחיר' },
@@ -86,25 +136,84 @@ const TIMELINE_FILTERS = [
   { key: 'tasks' as const, label: 'משימות' },
 ]
 
-const DOC_FILTERS = [
-  { key: 'all' as const, label: 'הכל' },
-  { key: 'legal' as const, label: 'משפטי' },
-  { key: 'appraisal' as const, label: 'שומה' },
-  { key: 'architect' as const, label: 'אדריכל' },
-  { key: 'mortgage' as const, label: 'משכנתא' },
+type DocFilterKey = 'all' | DocumentKind
+
+const DOC_FILTERS: { key: DocFilterKey; label: string }[] = [
+  { key: 'all', label: 'הכל' },
+  { key: 'legal', label: 'משפטי' },
+  { key: 'appraisal', label: 'שומה' },
+  { key: 'architect', label: 'אדריכל' },
+  { key: 'mortgage', label: 'משכנתא' },
+  { key: 'generic', label: 'אחר' },
 ]
 
-const DOC_KIND_LABELS: Record<DealDocument['kind'], string> = {
+const DOC_KIND_LABELS: Record<DocumentKind, string> = {
   legal: 'מסמך משפטי',
   appraisal: 'שומת שמאי',
   architect: 'מסמך אדריכלי',
   mortgage: 'מסמכי מימון',
+  generic: 'מסמך נוסף',
 }
 
-const DOC_VISIBILITY_LABELS: Record<DealDocument['visibility'], string> = {
+const DOC_VISIBILITY_LABELS: Record<DocumentVisibility, string> = {
   deal: 'כל הצדדים',
   buyer_side: 'צד הקונה',
   seller_side: 'צד המוכר',
+}
+
+const DOC_STATUS_LABELS: Record<DocumentStatus, string> = {
+  processing: 'בטיפול',
+  ready: 'מוכן להורדה',
+  failed: 'העלאה נכשלה',
+}
+
+const DEFAULT_UPLOAD_FORM: UploadFormState = {
+  title: '',
+  kind: 'legal',
+  visibility: 'deal',
+  file: null,
+}
+
+function mapBackendDocument(doc: BackendDocument): DealDocument {
+  const uploadedAt = doc.updated_at || doc.created_at || new Date().toISOString()
+  const extracted = doc.extracted_json || {}
+  const summaryCandidate = typeof (extracted as Record<string, unknown>).summary === 'string'
+    ? (extracted as Record<string, string>).summary
+    : typeof (extracted as Record<string, unknown>).notes === 'string'
+      ? (extracted as Record<string, string>).notes
+      : null
+  const uploaderCandidate = typeof (extracted as Record<string, unknown>).uploader === 'string'
+    ? (extracted as Record<string, string>).uploader
+    : typeof (extracted as Record<string, unknown>).uploader_name === 'string'
+      ? (extracted as Record<string, string>).uploader_name
+      : null
+  const linkedOfferCandidate = typeof (extracted as Record<string, unknown>).linked_offer_id === 'string'
+    ? (extracted as Record<string, string>).linked_offer_id
+    : undefined
+
+  return {
+    id: String(doc.id),
+    title: doc.title,
+    kind: doc.kind,
+    uploadedAt,
+    uploader: uploaderCandidate || 'צוות העסקה',
+    visibility: doc.visibility_scope,
+    summary: summaryCandidate || 'מסמך נוסף שנוסף לסביבת העסקה.',
+    linkedOfferId: linkedOfferCandidate,
+    status: doc.status || 'processing',
+    storageUrl: doc.storage_url,
+  }
+}
+
+function statusBadgeVariant(status: DocumentStatus): 'success' | 'info' | 'destructive' {
+  switch (status) {
+    case 'ready':
+      return 'success'
+    case 'failed':
+      return 'destructive'
+    default:
+      return 'info'
+  }
 }
 
 const OFFER_STATUS_LABELS: Record<Offer['status'], string> = {
@@ -162,13 +271,150 @@ type DealWorkspacePageClientProps = {
 
 export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageClientProps) {
   const [offers, setOffers] = useState<Offer[]>(INITIAL_OFFERS)
-  const [documents, setDocuments] = useState<DealDocument[]>(INITIAL_DOCUMENTS)
+  const [documents, setDocuments] = useState<DealDocument[]>(() => [...INITIAL_DOCUMENTS])
   const [tasks, setTasks] = useState<DealTask[]>(INITIAL_TASKS)
   const [mortgageOffers] = useState<MortgageOffer[]>(INITIAL_MORTGAGE_OFFERS)
   const [timelineFilter, setTimelineFilter] = useState<(typeof TIMELINE_FILTERS)[number]['key']>('all')
-  const [docsFilter, setDocsFilter] = useState<(typeof DOC_FILTERS)[number]['key']>('all')
+  const [docsFilter, setDocsFilter] = useState<DocFilterKey>('all')
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
   const [recommendedMortgageId, setRecommendedMortgageId] = useState<string>('mortgage-1')
+  const [dealId, setDealId] = useState<number | null>(null)
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [documentsError, setDocumentsError] = useState<string | null>(null)
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [uploadForm, setUploadForm] = useState<UploadFormState>(DEFAULT_UPLOAD_FORM)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchDocuments = async () => {
+      setDocumentsLoading(true)
+      setDocumentsError(null)
+      try {
+        const dealsResponse = await apiClient.get<{ deals?: BackendDealSummary[] }>(
+          `/api/deals?asset_id=${assetId}`
+        )
+        if (cancelled) return
+
+        const dealsList = Array.isArray(dealsResponse.data?.deals)
+          ? dealsResponse.data?.deals
+          : []
+        const activeDeal = dealsList?.[0]
+
+        if (!activeDeal?.id) {
+          setDealId(null)
+          setDocuments([...INITIAL_DOCUMENTS])
+          setDocumentsError('לא נמצאה סביבת עסקה פעילה לנכס זה.')
+          return
+        }
+
+        setDealId(activeDeal.id)
+
+        const docsResponse = await apiClient.get<{ documents?: BackendDocument[] }>(
+          `/api/deal-workspace/documents?deal_id=${activeDeal.id}`
+        )
+        if (cancelled) return
+
+        if (docsResponse.ok && docsResponse.data) {
+          const raw = (docsResponse.data as { documents?: BackendDocument[] })?.documents
+          const payload = Array.isArray(raw)
+            ? raw
+            : Array.isArray(docsResponse.data)
+              ? (docsResponse.data as BackendDocument[])
+              : []
+
+          if (payload.length > 0) {
+            setDocuments(payload.map(mapBackendDocument))
+          } else {
+            setDocuments([])
+          }
+          setDocumentsError(null)
+        } else {
+          setDocuments([...INITIAL_DOCUMENTS])
+          setDocumentsError(
+            docsResponse.error || 'כשל בטעינת המסמכים - מוצגים נתוני דמו.'
+          )
+        }
+      } catch (error) {
+        if (cancelled) return
+        console.error('Failed to load deal workspace documents:', error)
+        setDocuments([...INITIAL_DOCUMENTS])
+        setDocumentsError('כשל בטעינת המסמכים - מוצגים נתוני דמו.')
+      } finally {
+        if (!cancelled) {
+          setDocumentsLoading(false)
+        }
+      }
+    }
+
+    fetchDocuments()
+
+    return () => {
+      cancelled = true
+    }
+  }, [assetId])
+
+  const handleUploadDialogChange = useCallback((open: boolean) => {
+    setIsUploadDialogOpen(open)
+    if (!open) {
+      setUploadForm({ ...DEFAULT_UPLOAD_FORM })
+      setUploadError(null)
+      setIsUploading(false)
+    }
+  }, [])
+
+  const handleUploadSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      if (!uploadForm.file) {
+        setUploadError('בחרו קובץ להעלאה.')
+        return
+      }
+      if (!dealId) {
+        setUploadError('לא נמצאה סביבת עסקה פעילה להעלאת מסמך.')
+        return
+      }
+
+      setIsUploading(true)
+      setUploadError(null)
+
+      const formData = new FormData()
+      formData.append('file', uploadForm.file)
+      formData.append('deal_id', String(dealId))
+      formData.append('asset_id', assetId)
+      formData.append('kind', uploadForm.kind)
+      formData.append('visibility', uploadForm.visibility)
+      const derivedTitle = uploadForm.title.trim() || uploadForm.file.name || 'מסמך'
+      formData.append('title', derivedTitle)
+
+      try {
+        const response = await apiClient.request<{ document?: BackendDocument }>(
+          '/api/deal-workspace/documents/upload',
+          {
+            method: 'POST',
+            body: formData,
+          }
+        )
+
+        if (!response.ok || !response.data?.document) {
+          throw new Error(response.error || 'ההעלאה נכשלה')
+        }
+
+        const backendDoc = response.data.document as BackendDocument
+        setDocuments(prev => [mapBackendDocument(backendDoc), ...prev])
+        setDocumentsError(null)
+        handleUploadDialogChange(false)
+      } catch (error) {
+        console.error('Failed to upload deal workspace document:', error)
+        setUploadError(error instanceof Error ? error.message : 'ההעלאה נכשלה')
+      } finally {
+        setIsUploading(false)
+      }
+    },
+    [assetId, dealId, handleUploadDialogChange, uploadForm.file, uploadForm.kind, uploadForm.title, uploadForm.visibility]
+  )
 
   const stageMeta = useMemo(() => STAGE_FLOW.find(stage => stage.key === DEAL_METADATA.stage) ?? STAGE_FLOW[0], [])
 
@@ -218,7 +464,7 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
   }, [docsFilter, documents])
 
   const documentCounts = useMemo(() => {
-    return documents.reduce<Record<string, number>>((acc, doc) => {
+    return documents.reduce<Partial<Record<DocumentKind, number>>>((acc, doc) => {
       acc[doc.kind] = (acc[doc.kind] ?? 0) + 1
       return acc
     }, {})
@@ -266,11 +512,12 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
   }
 
   const docsSummary = useMemo(() => {
-    const legal = documentCounts['legal'] ?? 0
-    const appraisal = documentCounts['appraisal'] ?? 0
-    const architect = documentCounts['architect'] ?? 0
-    const mortgage = documentCounts['mortgage'] ?? 0
-    return `${legal} משפטי • ${appraisal} שומה • ${architect} אדריכלי • ${mortgage} מימון`
+    const parts = DOC_FILTERS.filter(filter => filter.key !== 'all').map(filter => {
+      const key = filter.key as DocumentKind
+      const count = documentCounts[key] ?? 0
+      return `${count} ${filter.label}`
+    })
+    return parts.join(' • ')
   }, [documentCounts])
 
   return (
@@ -348,6 +595,9 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
               onLinkDocument={handleLinkDocument}
               selectedDocumentId={selectedDocumentId}
               summary={docsSummary}
+              onUploadClick={() => setIsUploadDialogOpen(true)}
+              isLoading={documentsLoading}
+              error={documentsError}
             />
           </div>
 
@@ -370,6 +620,105 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
           />
         </div>
       </DashboardShell>
+      <Dialog open={isUploadDialogOpen} onOpenChange={handleUploadDialogChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>העלה מסמך חדש לסביבת העסקה</DialogTitle>
+            <DialogDescription>
+              צרפו מסמכי משכנתא, מסמכים משפטיים או חומרים נוספים לזמינות לכלל צוות העסקה.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUploadSubmit} className='space-y-4'>
+            <div className='space-y-2'>
+              <Label htmlFor='document-title'>כותרת המסמך</Label>
+              <Input
+                id='document-title'
+                value={uploadForm.title}
+                onChange={event => setUploadForm(prev => ({ ...prev, title: event.target.value }))}
+                placeholder={uploadForm.file?.name || 'לדוגמה: אישור משכנתא'}
+              />
+            </div>
+            <div className='grid gap-4 md:grid-cols-2'>
+              <div className='space-y-2'>
+                <Label>סוג המסמך</Label>
+                <Select
+                  value={uploadForm.kind}
+                  onValueChange={value =>
+                    setUploadForm(prev => ({ ...prev, kind: value as DocumentKind }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder='בחרו סוג מסמך' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='mortgage'>מסמכי משכנתא</SelectItem>
+                    <SelectItem value='legal'>מסמך משפטי</SelectItem>
+                    <SelectItem value='appraisal'>שומת שמאי</SelectItem>
+                    <SelectItem value='architect'>מסמך אדריכלי</SelectItem>
+                    <SelectItem value='generic'>מסמך אחר</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className='space-y-2'>
+                <Label>חשיפה לצדדים</Label>
+                <Select
+                  value={uploadForm.visibility}
+                  onValueChange={value =>
+                    setUploadForm(prev => ({ ...prev, visibility: value as DocumentVisibility }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder='בחרו למי המסמך חשוף' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='deal'>כל הצדדים</SelectItem>
+                    <SelectItem value='buyer_side'>צד הקונה</SelectItem>
+                    <SelectItem value='seller_side'>צד המוכר</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='document-file'>בחר קובץ</Label>
+              <Input
+                id='document-file'
+                type='file'
+                accept='.pdf,.doc,.docx,.jpg,.jpeg,.png'
+                onChange={event => {
+                  const file = event.target.files?.[0] ?? null
+                  setUploadForm(prev => ({ ...prev, file }))
+                }}
+              />
+              <p className='text-xs text-muted-foreground'>ניתן להעלות קובצי PDF, Word או תמונה עד 10MB.</p>
+            </div>
+            {uploadError ? (
+              <div className='rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive'>
+                {uploadError}
+              </div>
+            ) : null}
+            <DialogFooter className='flex flex-wrap justify-end gap-2'>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => handleUploadDialogChange(false)}
+                disabled={isUploading}
+              >
+                בטל
+              </Button>
+              <Button type='submit' disabled={isUploading || !uploadForm.file}>
+                {isUploading ? (
+                  <>
+                    <Loader2 className='h-4 w-4 ms-2 animate-spin' />
+                    מעלה...
+                  </>
+                ) : (
+                  'שמור מסמך'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }
@@ -569,11 +918,14 @@ function TimelinePanel({ events, activeFilter, onFilterChange, filterOptions }: 
 type DocsPanelProps = {
   documents: DealDocument[]
   allDocuments: DealDocument[]
-  activeFilter: (typeof DOC_FILTERS)[number]['key']
-  onFilterChange: (value: (typeof DOC_FILTERS)[number]['key']) => void
+  activeFilter: DocFilterKey
+  onFilterChange: (value: DocFilterKey) => void
   onLinkDocument: (docId: string) => void
   selectedDocumentId: string | null
   summary: string
+  onUploadClick: () => void
+  isLoading: boolean
+  error?: string | null
 }
 
 function DocsPanel({
@@ -584,6 +936,9 @@ function DocsPanel({
   onLinkDocument,
   selectedDocumentId,
   summary,
+  onUploadClick,
+  isLoading,
+  error,
 }: DocsPanelProps) {
   return (
     <Card className='h-full'>
@@ -595,60 +950,106 @@ function DocsPanel({
         <CardDescription>{summary}</CardDescription>
       </CardHeader>
       <CardContent className='space-y-4'>
-        <div className='flex flex-wrap gap-2'>
-          {DOC_FILTERS.map(filter => {
-            const count = filter.key === 'all'
-              ? allDocuments.length
-              : allDocuments.filter(doc => doc.kind === filter.key).length
-            return (
-              <Button
-                key={filter.key}
-                size='sm'
-                variant={filter.key === activeFilter ? 'default' : 'outline'}
-                onClick={() => onFilterChange(filter.key)}
-              >
-                {filter.label}
-                <Badge size='sm' variant='outline' className='me-2 border-none bg-transparent text-muted-foreground'>
-                  {count}
-                </Badge>
-              </Button>
-            )
-          })}
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <div className='flex flex-wrap gap-2'>
+            {DOC_FILTERS.map(filter => {
+              const count = filter.key === 'all'
+                ? allDocuments.length
+                : allDocuments.filter(doc => doc.kind === filter.key).length
+              return (
+                <Button
+                  key={filter.key}
+                  size='sm'
+                  variant={filter.key === activeFilter ? 'default' : 'outline'}
+                  onClick={() => onFilterChange(filter.key)}
+                >
+                  {filter.label}
+                  <Badge size='sm' variant='outline' className='me-2 border-none bg-transparent text-muted-foreground'>
+                    {count}
+                  </Badge>
+                </Button>
+              )
+            })}
+          </div>
+          <Button size='sm' onClick={onUploadClick} variant='default'>
+            <UploadCloud className='h-4 w-4 ms-2' />
+            העלה מסמך
+          </Button>
         </div>
 
-        <div className='space-y-3'>
-          {documents.map(doc => (
-            <div key={doc.id} className='rounded-lg border bg-background p-4'>
-              <div className='flex flex-wrap items-center justify-between gap-2'>
-                <div>
-                  <div className='text-sm font-semibold'>{doc.title}</div>
-                  <div className='text-xs text-muted-foreground'>הועלה ב־{formatDateTime(doc.uploadedAt)} • {doc.uploader}</div>
+        {error ? (
+          <div className='flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+            <AlertCircle className='h-4 w-4' />
+            {error}
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
+            <Loader2 className='me-2 inline h-4 w-4 animate-spin' />
+            טוען מסמכים...
+          </div>
+        ) : (
+          <div className='space-y-3'>
+            {documents.map(doc => (
+              <div key={doc.id} className='rounded-lg border bg-background p-4'>
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  <div>
+                    <div className='text-sm font-semibold'>{doc.title}</div>
+                    <div className='text-xs text-muted-foreground'>הועלה ב־{formatDateTime(doc.uploadedAt)} • {doc.uploader}</div>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <Badge size='sm' variant={doc.kind === 'legal' ? 'secondary' : doc.kind === 'mortgage' ? 'info' : 'neutral'}>
+                      {DOC_KIND_LABELS[doc.kind]}
+                    </Badge>
+                    {doc.status ? (
+                      <Badge size='sm' variant={statusBadgeVariant(doc.status)}>
+                        {DOC_STATUS_LABELS[doc.status]}
+                      </Badge>
+                    ) : null}
+                  </div>
                 </div>
-                <Badge size='sm' variant={doc.kind === 'legal' ? 'secondary' : doc.kind === 'mortgage' ? 'info' : 'neutral'}>
-                  {DOC_KIND_LABELS[doc.kind]}
-                </Badge>
+                <p className='mt-2 text-sm text-muted-foreground'>{doc.summary}</p>
+                <div className='mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground'>
+                  <span>חשיפה: {DOC_VISIBILITY_LABELS[doc.visibility]}</span>
+                  {doc.linkedOfferId ? <span>מקושר להצעה {doc.linkedOfferId}</span> : null}
+                </div>
+                <div className='mt-3 flex flex-wrap gap-2'>
+                  <Button
+                    size='sm'
+                    variant={selectedDocumentId === doc.id ? 'default' : 'outline'}
+                    onClick={() => onLinkDocument(doc.id)}
+                  >
+                    קשר להצעה האחרונה
+                  </Button>
+                  {doc.storageUrl ? (
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      disabled={doc.status === 'processing'}
+                      asChild
+                    >
+                      <a href={doc.storageUrl} target='_blank' rel='noopener noreferrer'>
+                        <Download className='h-4 w-4 ms-2' />
+                        הורד מסמך
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button size='sm' variant='outline' disabled>
+                      <Download className='h-4 w-4 ms-2' />
+                      הורד מסמך
+                    </Button>
+                  )}
+                </div>
               </div>
-              <p className='mt-2 text-sm text-muted-foreground'>{doc.summary}</p>
-              <div className='mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground'>
-                <span>חשיפה: {DOC_VISIBILITY_LABELS[doc.visibility]}</span>
-                {doc.linkedOfferId ? <span>מקושר להצעה {doc.linkedOfferId}</span> : null}
+            ))}
+            {documents.length === 0 ? (
+              <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
+                אין מסמכים במסנן שנבחר.
               </div>
-              <Button
-                size='sm'
-                className='mt-3'
-                variant={selectedDocumentId === doc.id ? 'default' : 'outline'}
-                onClick={() => onLinkDocument(doc.id)}
-              >
-                קשר להצעה האחרונה
-              </Button>
-            </div>
-          ))}
-          {documents.length === 0 ? (
-            <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
-              אין מסמכים במסנן שנבחר.
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

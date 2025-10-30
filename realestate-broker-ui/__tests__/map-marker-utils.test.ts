@@ -93,11 +93,11 @@ describe('map marker display helpers', () => {
     expect(truncated).toContain('…')
   })
 
-  it('determines label visibility based on density, zoom, and touch preference', () => {
+  it('determines label visibility based on density and zoom', () => {
     expect(shouldDisplayMarkerLabel({ totalAssets: 4 })).toBe(true)
     expect(shouldDisplayMarkerLabel({ totalAssets: 30, zoom: 12 })).toBe(false)
     expect(shouldDisplayMarkerLabel({ totalAssets: 30, zoom: 14 })).toBe(true)
     expect(shouldDisplayMarkerLabel({ totalAssets: 0, zoom: 18 })).toBe(false)
-    expect(shouldDisplayMarkerLabel({ totalAssets: 30, zoom: 10, preferTouchDevice: true })).toBe(true)
+    expect(shouldDisplayMarkerLabel({ totalAssets: 30, zoom: 10, preferTouchDevice: true })).toBe(false)
   })
 })

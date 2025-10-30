@@ -14,7 +14,7 @@ import {
 export default function ContactsPage() {
   return (
     <DashboardLayout>
-      <div className="container mx-auto p-3 sm:p-6 space-y-6">
+      <div className="w-full p-3 sm:p-6 space-y-6 px-4 sm:px-6 lg:px-8">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>

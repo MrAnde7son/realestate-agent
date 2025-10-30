@@ -364,8 +364,26 @@
     direction: rtl;
   }
   
-  html[dir="rtl"] * {
+  /* Apply RTL text alignment only to elements without explicit alignment classes */
+  html[dir="rtl"] *:not([class*="text-"]) {
     text-align: right;
+  }
+  
+  /* Ensure explicit text alignment classes take precedence */
+  html[dir="rtl"] [class*="text-end"],
+  html[dir="rtl"] [class*="text-start"],
+  html[dir="rtl"] [class*="text-left"],
+  html[dir="rtl"] [class*="text-right"],
+  html[dir="rtl"] [class*="text-center"] {
+    text-align: inherit;
+  }
+  
+  html[dir="rtl"] .text-end {
+    text-align: right !important;
+  }
+  
+  html[dir="rtl"] .text-start {
+    text-align: left !important;
   }
 
   /* Accessibility Improvements */

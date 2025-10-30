@@ -1930,20 +1930,20 @@ export default function AssetsPage() {
 
   return (
     <DashboardLayout>
-      <ResponsiveContainer className="py-6 lg:py-8">
+      <div className="w-full py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-6">
-        {isAuthenticated && user?.onboarding_flags && !isOnboardingComplete(onboardingState) && (
-          <OnboardingProgress state={onboardingState} />
-        )}
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">רשימת נכסים</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
-              {loading ? 'טוען נכסים...' : `${totalCount} נכסים עם נתוני שמאות ותכנון מלאים`}
-            </p>
+          {isAuthenticated && user?.onboarding_flags && !isOnboardingComplete(onboardingState) && (
+            <OnboardingProgress state={onboardingState} />
+          )}
+          {/* Header */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-end">רשימת נכסים</h1>
+              <p className="text-sm sm:text-base text-muted-foreground text-end">
+                {loading ? 'טוען נכסים...' : `${totalCount} נכסים עם נתוני שמאות ותכנון מלאים`}
+              </p>
+            </div>
           </div>
-        </div>
 
 
         {/* Asset Creation Sheet - Keep the form but remove the trigger button */}
@@ -2127,10 +2127,9 @@ export default function AssetsPage() {
               </Sheet>
             )}
 
-
-        {/* Assets View */}
-        <div id="main-content">
-          {viewMode === 'map' ? (
+          {/* Assets View - Full Width */}
+          <div id="main-content" className="w-full z-0">
+            {viewMode === 'map' ? (
             loading ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
@@ -2148,7 +2147,7 @@ export default function AssetsPage() {
                 onAssetClick={(asset) => router.push(`/assets/${asset.id}`)}
                 searchValue={search}
                 onSearchChange={setSearch}
-                height="600px"
+                height="calc(100vh - 180px)"
                 onBackToTable={() => handleViewModeChange('table')}
               />
             )
@@ -2485,32 +2484,31 @@ export default function AssetsPage() {
               ]}
             />
           )}
-        </div>
+          </div>
 
-        {/* Summary */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            מציג {assets.length} מתוך {totalCount} נכסים
-          </p>
-        </div>
+          {/* Summary */}
+          <div className="flex items-center justify-between mt-6">
+            <p className="text-sm text-muted-foreground">
+              מציג {assets.length} מתוך {totalCount} נכסים
+            </p>
+          </div>
 
-        {/* Plan Limit Dialog */}
-        {planLimitError && (
-          <PlanLimitDialog
-            open={showPlanLimitDialog}
-            onOpenChange={setShowPlanLimitDialog}
-            error={planLimitError}
+          {/* Plan Limit Dialog */}
+          {planLimitError && (
+            <PlanLimitDialog
+              open={showPlanLimitDialog}
+              onOpenChange={setShowPlanLimitDialog}
+              error={planLimitError}
+            />
+          )}
+
+          <ImportDialogNadlanOne
+              open={nadlanImportOpen}
+              onOpenChange={setNadlanImportOpen}
+              mode="properties"
           />
-        )}
-
-        <ImportDialogNadlanOne
-            open={nadlanImportOpen}
-            onOpenChange={setNadlanImportOpen}
-            mode="properties"
-        />
-
         </div>
-      </ResponsiveContainer>
+      </div>
     </DashboardLayout>
   );
 }

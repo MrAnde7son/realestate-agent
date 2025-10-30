@@ -63,7 +63,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
     status === 'done' ? 'מוכן' : status === 'failed' ? 'שגיאה' : status === 'enriching' ? 'מתעשר' : 'ממתין'
 
   return (
-    <Card className="flex h-full flex-col gap-3 p-3 sm:p-4">
+    <Card variant="elevated" className="flex h-full flex-col gap-3 p-3 sm:p-4">
       {/* Images */}
       {asset.images && asset.images.length > 0 && (
         <ImageGallery

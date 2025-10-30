@@ -134,12 +134,12 @@ describe('DealWorkspacePageClient', () => {
     const completedHeader = screen.getAllByText('משימות שהושלמו')[0]
     const completedSection = completedHeader.parentElement as HTMLElement
     await waitFor(() => {
-      expect(within(completedSection).getByText('סקירת נסח טאבו מעודכן')).toBeInTheDocument()
+      expect(within(completedSection).getByText('תיאום בדיקת חשמל')).toBeInTheDocument()
     })
 
     const activeHeader = screen.getAllByText('משימות פעילות')[0]
     const activeSection = activeHeader.parentElement as HTMLElement
-    expect(within(activeSection).queryByText('סקירת נסח טאבו מעודכן')).not.toBeInTheDocument()
+    expect(within(activeSection).queryByText('תיאום בדיקת חשמל')).not.toBeInTheDocument()
   })
 
   it('marks mortgage offer as recommended', async () => {

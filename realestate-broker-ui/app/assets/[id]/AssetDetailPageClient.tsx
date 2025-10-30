@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2 } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
@@ -164,6 +164,87 @@ const toStringOrNull = (value: unknown): string | null => {
   if (typeof value === 'number' || typeof value === 'bigint') {
     return String(value)
   }
+  return null
+}
+
+export const resolveContributorDisplayName = (
+  person?: { name?: string | null; email?: string | null } | null
+): string | null => {
+  if (!person) return null
+  const name = typeof person.name === 'string' ? person.name.trim() : ''
+  if (name.length > 0) {
+    return name
+  }
+  const email = typeof person.email === 'string' ? person.email.trim() : ''
+  return email.length > 0 ? email : null
+}
+
+export const computeHeaderPriceValue = (
+  asset: any,
+  fallbackPrice: number | null | undefined = null
+): number | null => {
+  const candidates = [
+    asset?.price,
+    asset?.price_value,
+    asset?.priceValue,
+    asset?.modelPrice,
+    asset?.model_price,
+    asset?.rentPrice,
+    asset?.rent_price,
+    fallbackPrice,
+  ]
+
+  for (const candidate of candidates) {
+    const numeric = toNumericOrNull(candidate)
+    if (numeric !== null) {
+      return numeric
+    }
+  }
+
+  return null
+}
+
+export const computeHeaderPricePerSqmValue = (
+  asset: any,
+  headerPriceValue: number | null,
+  listingSizeValue: number | null
+): number | null => {
+  const directCandidates = [
+    asset?.pricePerSqm,
+    asset?.price_per_sqm,
+    asset?.pricePerSqmDisplay,
+    asset?.price_per_sqm_display,
+  ]
+
+  for (const candidate of directCandidates) {
+    const numeric = toNumericOrNull(candidate)
+    if (numeric !== null) {
+      return numeric
+    }
+  }
+
+  const areaCandidates = [
+    listingSizeValue,
+    asset?.area,
+    asset?.totalArea,
+    asset?.total_area,
+    asset?.netSqm,
+    asset?.net_sqm,
+  ]
+
+  for (const candidate of areaCandidates) {
+    const numericArea = toNumericOrNull(candidate)
+    if (
+      numericArea !== null &&
+      numericArea !== undefined &&
+      headerPriceValue !== null &&
+      headerPriceValue !== undefined &&
+      numericArea > 0
+    ) {
+      return Math.round(headerPriceValue / numericArea)
+    }
+  }
+
   return null
 }
 
@@ -403,6 +484,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [language, setLanguage] = useState('he')
   const [sectionsModal, setSectionsModal] = useState(false)
   const [sections, setSections] = useState<string[]>(ALL_SECTIONS)
+  const [listingDetailsExpanded, setListingDetailsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('analysis')
   const [rightsRows, setRightsRows] = useState<any[]>([])
   const [rightsLoading, setRightsLoading] = useState(false)
@@ -521,6 +603,10 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   }, [asset, primaryListing])
 
   const id = assetId
+
+  React.useEffect(() => {
+    setListingDetailsExpanded(false)
+  }, [assetId])
 
   const assetDealPrice = React.useMemo(() => {
     if (!asset) return null
@@ -2045,6 +2131,18 @@ useDedupedEffect(() => {
     }
     return asString
   })()
+
+  // Fallback ppm for header: prefer asset.pricePerSqm, else compute from listing price and size
+  const headerPricePerSqm: number | null = (() => {
+    if (asset?.pricePerSqm !== undefined && asset?.pricePerSqm !== null) return asset.pricePerSqm as number
+    if (listingPriceValue !== null && listingSizeValue) {
+      const denom = Number(listingSizeValue)
+      if (Number.isFinite(denom) && denom > 0) {
+        return Math.round(Number(listingPriceValue) / denom)
+      }
+    }
+    return null
+  })()
   const listingDescriptionValue =
     typeof primaryListing?.description === 'string'
       ? primaryListing.description.trim()
@@ -2058,6 +2156,34 @@ useDedupedEffect(() => {
       : []
   const sanitizedPrimaryPhone = sanitizePhoneNumber(primaryPhoneValue)
   const sanitizedSecondaryPhone = sanitizePhoneNumber(secondaryPhoneValue)
+  const headerPriceValue = computeHeaderPriceValue(asset, listingPriceValue)
+  const headerPriceDisplay = headerPriceValue !== null ? formatCurrency(headerPriceValue) : null
+  const headerPricePerSqmValue = computeHeaderPricePerSqmValue(
+    asset,
+    headerPriceValue,
+    listingSizeValue
+  )
+  const headerPricePerSqmDisplay =
+    headerPricePerSqmValue !== null ? formatCurrency(headerPricePerSqmValue) : null
+  const listingTypeLabel = listingTypeValue ? formatListingTypeLabel(listingTypeValue) : null
+  const createdByDisplay = resolveContributorDisplayName(asset.attribution?.created_by)
+  const lastUpdatedByDisplay = resolveContributorDisplayName(asset.attribution?.last_updated_by)
+  const shouldShowLastUpdatedBy = Boolean(
+    asset.attribution?.last_updated_by &&
+      asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id &&
+      lastUpdatedByDisplay
+  )
+  const assetUpdatedAtDisplay = formatDateValue(
+    asset.last_enriched_at ??
+      asset.lastEnrichedAt ??
+      asset.updated_at ??
+      asset.updatedAt ??
+      asset.created_at ??
+      asset.createdAt ??
+      asset.recent_contributions?.[0]?.created_at ??
+      asset.recent_contributions?.[0]?.createdAt ??
+      null
+  )
   const hasListingDetails = Boolean(
     listingTypeValue ||
       adTypeValue ||
@@ -2255,12 +2381,17 @@ useDedupedEffect(() => {
             </div>
           </div>
           <div className="w-full text-start space-y-2 md:w-auto">
-            <div className="text-3xl font-bold">{formatCurrency(asset.price) ?? '—'}</div>
+            <div className="text-3xl font-bold">{headerPriceDisplay ?? '—'}</div>
             <div className="text-muted-foreground">
-              {asset.pricePerSqm !== undefined && asset.pricePerSqm !== null
-                ? `${formatCurrency(asset.pricePerSqm)}/מ״ר`
+              {headerPricePerSqm !== null
+                ? `${formatCurrency(headerPricePerSqm)}/מ״ר`
                 : '—'}
             </div>
+            {listingTypeLabel && (
+              <Badge variant="secondary" className="w-fit text-xs font-medium">
+                {listingTypeLabel}
+              </Badge>
+            )}
             {/* Listing contact and creation date */}
             {(primaryListing?.contactName || listingDatePostedDisplay) && (
               <div className="text-xs text-muted-foreground mt-2 space-y-1 text-start">
@@ -2631,19 +2762,36 @@ useDedupedEffect(() => {
 
         {hasListingDetails && (
           <Card>
-            <CardHeader className="space-y-1">
-              <CardTitle>פרטי מודעה</CardTitle>
-              {listingSourceValue && (
-                <CardDescription>מקור: {formatListingSourceLabel(listingSourceValue)}</CardDescription>
-              )}
-              {listingTitleValue && (
-                <div className="text-sm font-medium text-foreground">{listingTitleValue}</div>
-              )}
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <CardTitle>פרטי מודעה</CardTitle>
+                {listingSourceValue && (
+                  <CardDescription>מקור: {formatListingSourceLabel(listingSourceValue)}</CardDescription>
+                )}
+                {listingTitleValue && (
+                  <div className="text-sm font-medium text-foreground">{listingTitleValue}</div>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setListingDetailsExpanded((prev) => !prev)}
+                className="flex items-center gap-1"
+                aria-expanded={listingDetailsExpanded}
+                aria-controls="listing-details-content"
+              >
+                {listingDetailsExpanded ? 'הסתר' : 'הצג'}
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${listingDetailsExpanded ? 'rotate-180' : ''}`}
+                />
+              </Button>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                <div>
-                  <div className="text-sm text-muted-foreground">מחיר מבוקש</div>
+            {listingDetailsExpanded && (
+              <CardContent id="listing-details-content" className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                  <div>
+                    <div className="text-sm text-muted-foreground">מחיר מבוקש</div>
                   <div className="font-medium">
                     {renderValue(listingPriceDisplay || undefined, 'primaryListing.price')}
                   </div>
@@ -2778,7 +2926,8 @@ useDedupedEffect(() => {
                   </div>
                 </div>
               )}
-            </CardContent>
+              </CardContent>
+            )}
           </Card>
         )}
 

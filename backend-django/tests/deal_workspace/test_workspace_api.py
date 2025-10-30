@@ -34,6 +34,7 @@ class DealWorkspaceAPITests(TestCase):
         self.seller_client.force_authenticate(self.seller)
         self.deal_id = self._create_deal()
         self.negotiation_id = self._start_negotiation()
+        self._create_additional_deals()
 
     def _create_deal(self) -> int:
         url = f"/api/deal-workspace/deals/{self.asset.id}"
@@ -64,6 +65,59 @@ class DealWorkspaceAPITests(TestCase):
         response = self.buyer_client.post(url, {}, format="json")
         self.assertEqual(response.status_code, 201, response.content)
         return response.data["id"]
+
+    def _create_additional_deals(self):
+        self.second_asset = Asset.objects.create(
+            scope_type="address",
+            city="Jerusalem",
+            status="pending",
+            normalized_address="King George 12, Jerusalem",
+            created_by=self.buyer,
+        )
+        self.third_user = User.objects.create_user(
+            username="observer",
+            email="observer@example.com",
+            password="password",
+        )
+        self.second_deal = workspace_models.Deal.objects.create(
+            asset=self.second_asset,
+            stage=workspace_models.Deal.Stage.LEGAL,
+            deal_lead=self.buyer,
+        )
+        workspace_models.PartyRole.objects.create(
+            deal=self.second_deal,
+            user=self.buyer,
+            role=workspace_models.PartyRole.Role.BUYER,
+            side=workspace_models.PartyRole.Side.BUYER,
+            invitation_status=workspace_models.PartyRole.InvitationStatus.ACCEPTED,
+        )
+        workspace_models.PartyRole.objects.create(
+            deal=self.second_deal,
+            user=self.seller,
+            role=workspace_models.PartyRole.Role.SELLER,
+            side=workspace_models.PartyRole.Side.SELLER,
+            invitation_status=workspace_models.PartyRole.InvitationStatus.ACCEPTED,
+        )
+
+        self.unrelated_asset = Asset.objects.create(
+            scope_type="address",
+            city="Haifa",
+            status="pending",
+            normalized_address="Allenby 4, Haifa",
+            created_by=self.third_user,
+        )
+        unrelated_deal = workspace_models.Deal.objects.create(
+            asset=self.unrelated_asset,
+            stage=workspace_models.Deal.Stage.DISCOVERY,
+            deal_lead=self.third_user,
+        )
+        workspace_models.PartyRole.objects.create(
+            deal=unrelated_deal,
+            user=self.third_user,
+            role=workspace_models.PartyRole.Role.AGENT,
+            side=workspace_models.PartyRole.Side.NEUTRAL,
+            invitation_status=workspace_models.PartyRole.InvitationStatus.ACCEPTED,
+        )
 
     def _buyer_role(self):
         return workspace_models.PartyRole.objects.get(
@@ -140,6 +194,53 @@ class DealWorkspaceAPITests(TestCase):
             workspace_models.AuditLog.objects.filter(
                 entity_type="offer", action="accepted"
             ).exists()
+        )
+
+    def test_list_deals_includes_asset_summary_and_filters(self):
+        response = self.buyer_client.get("/api/deal-workspace/deals", format="json")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 2)
+
+        first = data[0]
+        self.assertIn("asset_summary", first)
+        summary = first["asset_summary"]
+        self.assertEqual(summary["id"], first["asset"])
+        self.assertIn(summary["city"], {"Tel Aviv", "Jerusalem"})
+
+        stage_response = self.buyer_client.get(
+            "/api/deal-workspace/deals?stage=legal", format="json"
+        )
+        self.assertEqual(stage_response.status_code, 200)
+        stage_data = stage_response.json()
+        self.assertEqual(len(stage_data), 1)
+        self.assertEqual(stage_data[0]["id"], self.second_deal.id)
+
+        search_response = self.buyer_client.get(
+            "/api/deal-workspace/deals?q=Jerusalem", format="json"
+        )
+        self.assertEqual(search_response.status_code, 200)
+        search_data = search_response.json()
+        self.assertEqual(len(search_data), 1)
+        self.assertEqual(search_data[0]["asset_summary"]["city"], "Jerusalem")
+
+        seller_view = self.seller_client.get(
+            "/api/deal-workspace/deals", format="json"
+        )
+        self.assertEqual(seller_view.status_code, 200)
+        seller_data = seller_view.json()
+        self.assertEqual(len(seller_data), 2)
+
+        third_user_client = APIClient()
+        third_user_client.force_authenticate(self.third_user)
+        third_view = third_user_client.get(
+            "/api/deal-workspace/deals", format="json"
+        )
+        self.assertEqual(third_view.status_code, 200)
+        third_data = third_view.json()
+        self.assertEqual(len(third_data), 1)
+        self.assertEqual(
+            third_data[0]["asset_summary"]["city"], self.unrelated_asset.city
         )
 
     def test_document_visibility_respects_sides(self):

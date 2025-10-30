@@ -171,6 +171,30 @@ export type Asset = {
   publicBuildings?: string | null;
   parking?: string | null;
   nearbyProjects?: string | null;
+  greenScore?: string | null;
+  investmentPotential?: string | null;
+  investmentPotentialScore?: string | null;
+  metroStationDistanceM?: number | null;
+  metroStationsCount?: number | null;
+  parkingLotsCount?: number | null;
+  publicParkingLotsCount?: number | null;
+  schoolsCount?: number | null;
+  nearestSchoolDistanceM?: number | null;
+  constructionSitesCount?: number | null;
+  affordableHousingProjectsCount?: number | null;
+  bikePathsCount?: number | null;
+  hasBikePaths?: boolean | null;
+  soilContaminationSitesCount?: number | null;
+  nearestSoilContaminationDistanceM?: number | null;
+  greenAmenitiesCount?: number | null;
+  playgroundsCount?: number | null;
+  medicalFacilitiesCount?: number | null;
+  nearestMedicalFacilityDistanceM?: number | null;
+  communityFacilitiesCount?: number | null;
+  tama38KeyArea?: boolean | null;
+  tama38KeyAreasCount?: number | null;
+  roadWorksCount?: number | null;
+  hasActiveRoadWorks?: boolean | null;
   rightsUsagePct?: number | null;
   legalRestrictions?: string | null;
   urbanRenewalPotential?: string | null;
@@ -844,6 +868,30 @@ export function normalizeFromBackend(row: any): Asset {
     publicBuildings: row.publicBuildings ?? row.public_buildings ?? null,
     parking: row.parking ?? null,
     nearbyProjects: row.nearbyProjects ?? row.nearby_projects ?? null,
+    greenScore: row.greenScore ?? row.green_score ?? null,
+    investmentPotential: row.investmentPotential ?? row.investment_potential ?? null,
+    investmentPotentialScore: row.investmentPotentialScore ?? row.investment_potential_score ?? null,
+    metroStationDistanceM: row.metroStationDistanceM ?? row.metro_station_distance_m ?? null,
+    metroStationsCount: row.metroStationsCount ?? row.metro_stations_count ?? null,
+    parkingLotsCount: row.parkingLotsCount ?? row.parking_lots_count ?? null,
+    publicParkingLotsCount: row.publicParkingLotsCount ?? row.public_parking_lots_count ?? null,
+    schoolsCount: row.schoolsCount ?? row.schools_count ?? null,
+    nearestSchoolDistanceM: row.nearestSchoolDistanceM ?? row.nearest_school_distance_m ?? null,
+    constructionSitesCount: row.constructionSitesCount ?? row.construction_sites_count ?? null,
+    affordableHousingProjectsCount: row.affordableHousingProjectsCount ?? row.affordable_housing_projects_count ?? null,
+    bikePathsCount: row.bikePathsCount ?? row.bike_paths_count ?? null,
+    hasBikePaths: row.hasBikePaths ?? row.has_bike_paths ?? null,
+    soilContaminationSitesCount: row.soilContaminationSitesCount ?? row.soil_contamination_sites_count ?? null,
+    nearestSoilContaminationDistanceM: row.nearestSoilContaminationDistanceM ?? row.nearest_soil_contamination_distance_m ?? null,
+    greenAmenitiesCount: row.greenAmenitiesCount ?? row.green_amenities_count ?? null,
+    playgroundsCount: row.playgroundsCount ?? row.playgrounds_count ?? null,
+    medicalFacilitiesCount: row.medicalFacilitiesCount ?? row.medical_facilities_count ?? null,
+    nearestMedicalFacilityDistanceM: row.nearestMedicalFacilityDistanceM ?? row.nearest_medical_facility_distance_m ?? null,
+    communityFacilitiesCount: row.communityFacilitiesCount ?? row.community_facilities_count ?? null,
+    tama38KeyArea: row.tama38KeyArea ?? row.tama38_key_area ?? null,
+    tama38KeyAreasCount: row.tama38KeyAreasCount ?? row.tama38_key_areas_count ?? null,
+    roadWorksCount: row.roadWorksCount ?? row.road_works_count ?? null,
+    hasActiveRoadWorks: row.hasActiveRoadWorks ?? row.has_active_road_works ?? null,
     rightsUsagePct: row.rightsUsagePct ?? row.rights_usage_pct ?? null,
     legalRestrictions: row.legalRestrictions ?? row.legal_restrictions ?? null,
     urbanRenewalPotential: row.urbanRenewalPotential ?? row.urban_renewal_potential ?? null,

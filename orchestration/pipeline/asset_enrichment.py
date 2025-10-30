@@ -620,23 +620,44 @@ def _process_gis_data(asset, gis_data):
     # Shelters
     if gis_data.get('shelters'):
         shelters = gis_data.get('shelters', [])
-        if shelters:
-            min_distance = min([s.get('distance', 999) for s in shelters if isinstance(s, dict)])
-            asset.set_property('shelterDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+        if shelters and len(shelters) > 0:
+            distance_values = [s.get('distance') for s in shelters if isinstance(s, dict) and s.get('distance') is not None]
+            if distance_values:
+                min_distance = min(distance_values)
+                asset.set_property('shelterDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Cell antennas
     if gis_data.get('antennas'):
         antennas = gis_data.get('antennas', [])
-        if antennas:
-            min_distance = min([a.get('distance', 999) for a in antennas if isinstance(a, dict)])
-            asset.set_property('antennaDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+        if antennas and len(antennas) > 0:
+            distance_values = [a.get('distance') for a in antennas if isinstance(a, dict) and a.get('distance') is not None]
+            if distance_values:
+                min_distance = min(distance_values)
+                asset.set_property('antennaDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Environmental fields
     asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
     # Get greenWithin300m value for conditional logic
     green_within_300m = asset.get_property_value('greenWithin300m')
-    asset.set_property('openSpacesNearby', 'פארקים ושטחים פתוחים בקרבת מקום' if green_within_300m else 'אין שטחים פתוחים קרובים', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    green_amenities_count = asset.get_property_value('greenAmenitiesCount') or 0
+    bike_paths_count = asset.get_property_value('bikePathsCount') or 0
+    
+    # Enhanced green indicators calculation
+    green_indicators = []
+    if green_within_300m:
+        green_indicators.append('פארקים ושטחים פתוחים')
+    if green_amenities_count > 0:
+        green_indicators.append(f'מתקני נופש ירוקים ({green_amenities_count})')
+    if bike_paths_count > 0:
+        green_indicators.append(f'שבילי אופניים ({bike_paths_count})')
+    
+    if green_indicators:
+        asset.set_property('openSpacesNearby', ', '.join(green_indicators), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+        asset.set_property('greenScore', 'גבוה' if len(green_indicators) >= 2 else 'בינוני', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    else:
+        asset.set_property('openSpacesNearby', 'אין שטחים פתוחים קרובים', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+        asset.set_property('greenScore', 'נמוך', source='GIS (calculated)', url='https://www.govmap.gov.il/')
     
     # Calculate public buildings based on available infrastructure
     public_buildings_text = _calculate_public_buildings(gis_data, asset)
@@ -669,6 +690,91 @@ def _process_gis_data(asset, gis_data):
                     logger.debug(f"Failed to parse permit date: {e}")
                     pass
     
+    # Metro stations - Major value driver
+    if gis_data.get('metro_stations'):
+        metro_stations = gis_data.get('metro_stations', [])
+        if metro_stations and len(metro_stations) > 0:
+            min_distance = min([s.get('distance') for s in metro_stations if isinstance(s, dict) and s.get('distance')])
+            asset.set_property('metroStationDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+            asset.set_property('metroStationsCount', len(metro_stations), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Parking lots
+    parking_lots = gis_data.get('parking_lots')
+    if parking_lots:
+        asset.set_property('parkingLotsCount', len(parking_lots), source='GIS', url='https://www.govmap.gov.il/')
+        public_parking = [p for p in parking_lots if isinstance(p, dict) and p.get('type') == 'public']
+        if public_parking:
+            asset.set_property('publicParkingLotsCount', len(public_parking), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Schools and kindergartens
+    schools = gis_data.get('schools')
+    if schools:
+        asset.set_property('schoolsCount', len(schools), source='GIS', url='https://www.govmap.gov.il/')
+        distances = [s.get('distance') for s in schools if isinstance(s, dict) and s.get('distance')]
+        if distances:
+            min_distance = min(distances)
+            asset.set_property('nearestSchoolDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Construction sites - indicates redevelopment intensity
+    if gis_data.get('construction_sites'):
+        construction_sites = gis_data.get('construction_sites', [])
+        if construction_sites:
+            asset.set_property('constructionSitesCount', len(construction_sites), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Affordable housing projects - indicates supply pressure
+    if gis_data.get('affordable_housing'):
+        affordable_housing = gis_data.get('affordable_housing', [])
+        if affordable_housing:
+            asset.set_property('affordableHousingProjectsCount', len(affordable_housing), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Bike paths - walkability indicator
+    bike_paths = gis_data.get('bike_paths')
+    if bike_paths:
+        asset.set_property('bikePathsCount', len(bike_paths), source='GIS', url='https://www.govmap.gov.il/')
+        asset.set_property('hasBikePaths', True, source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Soil contamination - risk factor
+    if gis_data.get('soil_contamination'):
+        soil_contamination = gis_data.get('soil_contamination', [])
+        if soil_contamination and len(soil_contamination) > 0:
+            asset.set_property('soilContaminationSitesCount', len(soil_contamination), source='GIS', url='https://www.govmap.gov.il/')
+            min_distance = min([s.get('distance') for s in soil_contamination if isinstance(s, dict) and s.get('distance')])
+            asset.set_property('nearestSoilContaminationDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Green amenities (playgrounds, dog parks, public gardens)
+    if gis_data.get('green_amenities'):
+        green_amenities = gis_data.get('green_amenities', [])
+        if green_amenities:
+            asset.set_property('greenAmenitiesCount', len(green_amenities), source='GIS', url='https://www.govmap.gov.il/')
+            playgrounds = [g for g in green_amenities if isinstance(g, dict) and 'playground' in str(g.get('type', '')).lower()]
+            asset.set_property('playgroundsCount', len(playgrounds), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Medical facilities
+    medical_facilities = gis_data.get('medical_facilities')
+    if medical_facilities:
+        asset.set_property('medicalFacilitiesCount', len(medical_facilities), source='GIS', url='https://www.govmap.gov.il/')
+        distances = [m.get('distance') for m in medical_facilities if isinstance(m, dict) and m.get('distance')]
+        if distances:
+            min_distance = min(distances)
+            asset.set_property('nearestMedicalFacilityDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Community facilities
+    community_facilities = gis_data.get('community_facilities')
+    if community_facilities:
+        asset.set_property('communityFacilitiesCount', len(community_facilities), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # TAMA 38 key areas - potential for redevelopment
+    tama38_areas = gis_data.get('tama38_key_areas')
+    if tama38_areas:
+        asset.set_property('tama38KeyArea', True, source='GIS', url='https://www.govmap.gov.il/')
+        asset.set_property('tama38KeyAreasCount', len(tama38_areas), source='GIS', url='https://www.govmap.gov.il/')
+    
+    # Road works - disruption indicator
+    road_works = gis_data.get('road_works')
+    if road_works:
+        asset.set_property('roadWorksCount', len(road_works), source='GIS', url='https://www.govmap.gov.il/')
+        asset.set_property('hasActiveRoadWorks', True, source='GIS', url='https://www.govmap.gov.il/')
+    
     # Risk flags - use get_property_value for unified access
     risk_flags = []
     noise_level = asset.get_property_value('noiseLevel') or 0
@@ -676,13 +782,61 @@ def _process_gis_data(asset, gis_data):
         risk_flags.append('רעש גבוה')
     if not green_within_300m:
         risk_flags.append('אין שטחים פתוחים קרובים')
-    shelter_distance = asset.get_property_value('shelterDistanceM') or 999
+    shelter_distance = asset.get_property_value('shelterDistanceM')
     if shelter_distance > 200:
         risk_flags.append('מרחק גדול ממקלט')
-    antenna_distance = asset.get_property_value('antennaDistanceM') or 999
+    antenna_distance = asset.get_property_value('antennaDistanceM')
     if antenna_distance < 50:
         risk_flags.append('קרוב מדי לאנטנה')
+    
+    # Add new risk factors
+    soil_contamination_count = asset.get_property_value('soilContaminationSitesCount') or 0
+    if soil_contamination_count > 0:
+        nearest_contamination = asset.get_property_value('nearestSoilContaminationDistanceM')
+        if nearest_contamination < 100:
+            risk_flags.append('קרוב לאתר זיהום קרקע')
+    
+    road_works_count = asset.get_property_value('roadWorksCount') or 0
+    if road_works_count > 0:
+        risk_flags.append('עבודות כביש פעילות')
+    
     asset.set_property('riskFlags', risk_flags, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    
+    # Calculate potential assessment indicators
+    potential_indicators = []
+    metro_distance = asset.get_property_value('metroStationDistanceM')
+    if metro_distance and metro_distance <= 1000:
+        if metro_distance <= 300:
+            potential_indicators.append('קרוב מאוד לתחנת מטרו (פרימיום גבוה)')
+        elif metro_distance <= 500:
+            potential_indicators.append('קרוב לתחנת מטרו (פרימיום בינוני)')
+        else:
+            potential_indicators.append('בטווח של תחנת מטרו')
+    
+    schools_count = asset.get_property_value('schoolsCount') or 0
+    if schools_count > 0:
+        nearest_school = asset.get_property_value('nearestSchoolDistanceM')
+        if nearest_school <= 300:
+            potential_indicators.append(f'קרוב לבתי ספר ({schools_count} בתי ספר וגנים)')
+    
+    tama38_key_area = asset.get_property_value('tama38KeyArea')
+    if tama38_key_area:
+        potential_indicators.append('באזור תמ״א 38 - פוטנציאל התחדשות עירונית')
+    
+    affordable_housing_count = asset.get_property_value('affordableHousingProjectsCount') or 0
+    if affordable_housing_count > 0:
+        potential_indicators.append(f'פרויקטי דיור מועדף באזור ({affordable_housing_count}) - שינוי דמוגרפי צפוי')
+    
+    if potential_indicators:
+        asset.set_property('investmentPotential', '; '.join(potential_indicators), source='GIS (calculated)', url='https://www.govmap.gov.il/')
+        # Calculate potential score
+        potential_score = 'גבוה'
+        if len(potential_indicators) == 1:
+            potential_score = 'בינוני'
+        asset.set_property('investmentPotentialScore', potential_score, source='GIS (calculated)', url='https://www.govmap.gov.il/')
+    else:
+        asset.set_property('investmentPotential', 'אין אינדיקטורים מיוחדים לפוטנציאל', source='GIS (calculated)', url='https://www.govmap.gov.il/')
+        asset.set_property('investmentPotentialScore', 'נמוך', source='GIS (calculated)', url='https://www.govmap.gov.il/')
 
 
 def _calculate_building_rights(asset, gis_data):
@@ -1216,8 +1370,111 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
 
         return False
 
+    def _extract_street_and_number(address: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Extract street name and house number from an address.
+        Returns (street_name, house_number) or (None, None) if not found.
+        
+        Tries to extract just the street name word(s) directly before the house number,
+        ignoring prefixes like "מרתף/ פרטר -" or "דירה".
+        
+        Examples:
+        - "ארלוזורוב 59, תל אביב" -> ("ארלוזורוב", "59")
+        - "רוזוב 14" -> ("רוזוב", "14")
+        - "מרתף/ פרטר - ארלוזורוב 156" -> ("ארלוזורוב", "156")
+        - "street name" -> (None, None) if no number found
+        """
+        if not address or not isinstance(address, str):
+            return None, None
+        
+        address = address.strip().lower()
+        if not address:
+            return None, None
+        
+        # Split by spaces and look for a digit (house number)
+        parts = address.split()
+        if len(parts) < 2:
+            return None, None
+        
+        # Find the first numeric part (house number)
+        # We need to ensure we extract complete, standalone numeric tokens
+        for i in range(len(parts) - 1):
+            # Check if the next part is a complete numeric token (house number)
+            next_part = parts[i + 1].strip()
+            # Remove common separators like commas, dashes, periods from both ends
+            next_part_clean = next_part.strip(',-–—.')
+            
+            # Ensure it's a complete numeric token (all digits, no partial matches)
+            # This ensures "2" doesn't get confused with "22" or "222"
+            if next_part_clean and next_part_clean.isdigit():
+                # Try to extract just the street name (the word directly before the number)
+                # In cases like "מרתף/ פרטר - ארלוזורוב 156", we want "ארלוזורוב"
+                # Look backwards from the number to find the street name word
+                street_name = None
+                street_parts = []
+                for j in range(i, -1, -1):
+                    candidate = parts[j].strip().rstrip('/-–—,')
+                    # Skip empty strings and common separators/prefixes
+                    if not candidate or candidate in ['/', '-', '–', '—', ',']:
+                        continue
+                    # Skip if it's a digit
+                    if candidate.isdigit():
+                        break
+                    # If this looks like a street name (non-numeric, not too short)
+                    if len(candidate) > 1:
+                        street_parts.insert(0, candidate)
+                        # Take up to 2 words as street name (handles "רחוב דיזנגוף" or "ארלוזורוב")
+                        if len(street_parts) >= 2:
+                            break
+                
+                if street_parts:
+                    street_name = ' '.join(street_parts)
+                    return street_name, next_part_clean
+                
+                # Fallback: use everything before the number (cleaned)
+                # Only if we couldn't find a clean street name
+                all_before = ' '.join(parts[:i + 1]).strip().rstrip('/-–—,')
+                if all_before:
+                    return all_before, next_part_clean
+        
+        return None, None
+    
+    def _matches_street_and_number(address1: str, address2: str) -> bool:
+        """
+        Check if two addresses have the same street name and house number.
+        Only returns True if both street name and number match exactly.
+        This ensures "2" doesn't match "22" or "222".
+        """
+        street1, num1 = _extract_street_and_number(address1)
+        street2, num2 = _extract_street_and_number(address2)
+        
+        # Both must have street and number
+        if not (street1 and num1 and street2 and num2):
+            return False
+        
+        # Street names must match exactly
+        if street1 != street2:
+            return False
+        
+        # Numbers must match exactly as strings
+        # This ensures "2" != "22" (different string lengths)
+        if num1 != num2:
+            return False
+        
+        # Additional safeguard: compare as integers to catch any edge cases
+        # This double-checks that numeric values are truly equal
+        try:
+            int1, int2 = int(num1), int(num2)
+            if int1 != int2:
+                return False
+        except (ValueError, TypeError):
+            # If conversion fails, string comparison above is sufficient
+            pass
+        
+        return True
+
     # Find the best listing to use as the primary source
-    # Priority: exact address match > same street > any listing
+    # Priority: exact address match > exact street+number match
     best_listing = None
 
     update_fields = set()
@@ -1237,11 +1494,6 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
     # Try to find exact address match first
     if asset.normalized_address:
         asset_address = asset.normalized_address.lower()
-        # Extract street and number for more precise matching
-        asset_parts = asset_address.split()
-        street_number = None
-        if len(asset_parts) >= 2 and asset_parts[1].isdigit():
-            street_number = f"{asset_parts[0]} {asset_parts[1]}"
         
         for listing in normalized_listings:
             listing_address = listing.get('address', '').lower()
@@ -1251,8 +1503,8 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
                 best_listing = listing
                 break
             
-            # Check for street + number match (e.g., "רוזוב 14")
-            if street_number and street_number in listing_address:
+            # Check for exact street + number match (e.g., "ארלוזורוב 59")
+            if _matches_street_and_number(asset_address, listing_address):
                 best_listing = listing
                 break
     
@@ -1263,7 +1515,6 @@ def _populate_asset_fields_from_listings(asset, normalized_listings):
         return
 
     # Populate asset fields from the best listing
-
     if not asset.neighborhood:
         listing_neighborhood = _extract_listing_neighborhood(best_listing)
         if listing_neighborhood:
@@ -2471,6 +2722,21 @@ def _calculate_public_buildings(gis_data: Dict[str, Any], asset) -> str:
     if green_within_300m:
         indicators.append('שטחים ירוקים')
     
+    # Check for schools and kindergartens (new GIS data)
+    schools_count = asset.get_property_value('schoolsCount') or 0
+    if schools_count > 0:
+        indicators.append(f'בתי ספר וגני ילדים ({schools_count})')
+    
+    # Check for medical facilities (new GIS data)
+    medical_count = asset.get_property_value('medicalFacilitiesCount') or 0
+    if medical_count > 0:
+        indicators.append(f'מתקנים רפואיים ({medical_count})')
+    
+    # Check for community facilities (new GIS data)
+    community_count = asset.get_property_value('communityFacilitiesCount') or 0
+    if community_count > 0:
+        indicators.append(f'מתקני קהילה ({community_count})')
+    
     # Check for public buildings in permits
     permits = gis_data.get('permits', [])
     public_building_permits = []
@@ -2492,8 +2758,18 @@ def _calculate_public_buildings(gis_data: Dict[str, Any], asset) -> str:
         return "אין מבני ציבור קרובים"
 
 def _calculate_parking_availability(gis_data: Dict[str, Any], asset) -> str:
-    """Calculate parking availability based on permits and land use data."""
+    """Calculate parking availability based on permits, land use data, and parking lots."""
     parking_indicators = []
+    
+    # Check for parking lots (new GIS data)
+    parking_lots_count = asset.get_property_value('parkingLotsCount') or 0
+    public_parking_count = asset.get_property_value('publicParkingLotsCount') or 0
+    if parking_lots_count > 0:
+        if public_parking_count > 0:
+            parking_indicators.append(f'חניונים ציבוריים ({public_parking_count})')
+        if parking_lots_count > public_parking_count:
+            private_count = parking_lots_count - public_parking_count
+            parking_indicators.append(f'חניונים פרטיים ({private_count})')
     
     # Check permits for parking-related information
     permits = gis_data.get('permits', [])
@@ -2545,7 +2821,7 @@ def _calculate_parking_availability(gis_data: Dict[str, Any], asset) -> str:
         return "אין מידע על חניה"
 
 def _calculate_nearby_projects(gis_data: Dict[str, Any], asset) -> str:
-    """Calculate nearby projects based on recent permits and development activity."""
+    """Calculate nearby projects based on recent permits, construction sites, affordable housing, and TAMA 38 areas."""
     from datetime import datetime, timedelta
     
     projects = []
@@ -2567,13 +2843,29 @@ def _calculate_nearby_projects(gis_data: Dict[str, Any], asset) -> str:
     if recent_permits:
         projects.append(f'היתרי בניה חדשים ({len(recent_permits)} היתרים)')
     
+    # Check for ongoing construction sites (new GIS data)
+    construction_sites_count = asset.get_property_value('constructionSitesCount') or 0
+    if construction_sites_count > 0:
+        projects.append(f'אתרי בנייה פעילים ({construction_sites_count})')
+    
+    # Check for affordable housing projects (new GIS data)
+    affordable_housing_count = asset.get_property_value('affordableHousingProjectsCount') or 0
+    if affordable_housing_count > 0:
+        projects.append(f'פרויקטי דיור מועדף ({affordable_housing_count})')
+    
     # Check for ongoing construction
     ongoing_permits = [p for p in recent_permits 
                       if p.get('building_stage', '').lower() in ['בבניה', 'הקמה', 'בתהליך']]
     if ongoing_permits:
         projects.append(f'פרויקטים בהקמה ({len(ongoing_permits)} פרויקטים)')
     
-    # Check for TAMA 38 projects (renovation/expansion projects)
+    # Check for TAMA 38 key areas (new GIS data)
+    tama38_key_area = asset.get_property_value('tama38KeyArea')
+    tama38_areas_count = asset.get_property_value('tama38KeyAreasCount') or 0
+    if tama38_key_area and tama38_areas_count > 0:
+        projects.append(f'אזורי תמ״א 38 ({tama38_areas_count})')
+    
+    # Check for TAMA 38 projects in permits (renovation/expansion projects)
     tama38_permits = [p for p in recent_permits 
                      if p.get('sw_tama_38') or p.get('sw_tama_38_chadash') or p.get('sw_tama_38_tosefet')]
     if tama38_permits:

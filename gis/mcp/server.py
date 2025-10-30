@@ -174,5 +174,232 @@ async def get_building_privilege_page(
     return result
 
 
+@mcp.tool()
+async def get_affordable_housing_projects(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get affordable housing projects within a radius (meters) from point (x,y).
+    Pipeline of affordable housing; indicates supply pressure and long-term demographic mix.
+    """
+    gs = _get_client()
+    return gs.get_affordable_housing_projects(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_bike_paths(ctx: Context, x: float, y: float, radius: int = 300):
+    """Get bicycle paths within a radius (meters) from point (x,y).
+    Walkability and bike-accessibility = strong QoL indicator.
+    """
+    gs = _get_client()
+    return gs.get_bike_paths(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_metro_stations(ctx: Context, x: float, y: float, radius: int = 1000):
+    """Get metro stations (all lines: Red, Green, Purple) within a radius (meters) from point (x,y).
+    Major value driver; buyers pay 10–20% premium near stations.
+    """
+    gs = _get_client()
+    return gs.get_metro_stations(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_metro_stations_red(ctx: Context, x: float, y: float, radius: int = 1000):
+    """Get Red Line metro stations within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_metro_stations_red(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_metro_stations_green(ctx: Context, x: float, y: float, radius: int = 1000):
+    """Get Green Line metro stations within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_metro_stations_green(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_metro_stations_purple(ctx: Context, x: float, y: float, radius: int = 1000):
+    """Get Purple Line metro stations within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_metro_stations_purple(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_parking_lots(ctx: Context, x: float, y: float, radius: int = 300):
+    """Get public and private parking lots within a radius (meters) from point (x,y).
+    Parking scarcity strongly affects rental yield.
+    """
+    gs = _get_client()
+    return gs.get_parking_lots(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_parking_public(ctx: Context, x: float, y: float, radius: int = 300):
+    """Get public parking lots within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_parking_public(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_parking_private(ctx: Context, x: float, y: float, radius: int = 300):
+    """Get private parking lots within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_parking_private(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_soil_contamination(ctx: Context, x: float, y: float, radius: int = 200):
+    """Get soil contamination sites (rehabilitation and protection actions) within a radius (meters) from point (x,y).
+    Underrated risk factor in Tel Aviv (old industrial lots).
+    """
+    gs = _get_client()
+    return gs.get_soil_contamination(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_schools(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get schools and kindergartens within a radius (meters) from point (x,y).
+    School zone relevance for families. Integrates education score and school catchment overlay.
+    """
+    gs = _get_client()
+    return gs.get_schools(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_schools_kindergartens(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get kindergartens within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_schools_kindergartens(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_schools_only(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get schools (excluding kindergartens) within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_schools_only(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_green_amenities(ctx: Context, x: float, y: float, radius: int = 400):
+    """Get green amenities (playgrounds, dog parks, public gardens) within a radius (meters) from point (x,y).
+    Green amenity proximity drives price premiums. Enhances livability heatmap or filters.
+    """
+    gs = _get_client()
+    return gs.get_green_amenities(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_playgrounds(ctx: Context, x: float, y: float, radius: int = 400):
+    """Get playgrounds within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_playgrounds(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_dog_parks(ctx: Context, x: float, y: float, radius: int = 400):
+    """Get dog parks within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_dog_parks(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_public_gardens(ctx: Context, x: float, y: float, radius: int = 400):
+    """Get public gardens within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_public_gardens(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_medical_facilities(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get medical facilities (medical centers, health funds, pharmacies) within a radius (meters) from point (x,y).
+    Access to health services. Health coverage layer for older buyers.
+    """
+    gs = _get_client()
+    return gs.get_medical_facilities(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_medical_centers(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get medical centers within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_medical_centers(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_health_funds(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get health fund clinics within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_health_funds(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_pharmacies(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get pharmacies within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_pharmacies(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_community_facilities(ctx: Context, x: float, y: float, radius: int = 400):
+    """Get community facilities (community centers, youth and entrepreneurship centers) within a radius (meters) from point (x,y).
+    Social & community vitality indicator. "Community Index" per neighborhood.
+    """
+    gs = _get_client()
+    return gs.get_community_facilities(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_community_centers(ctx: Context, x: float, y: float, radius: int = 400):
+    """Get community centers within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_community_centers(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_youth_entrepreneurship_centers(ctx: Context, x: float, y: float, radius: int = 400):
+    """Get youth and entrepreneurship centers within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_youth_entrepreneurship_centers(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_construction_sites(ctx: Context, x: float, y: float, radius: int = 300):
+    """Get construction sites within a radius (meters) from point (x,y).
+    Indicates redevelopment intensity. Use for development-activity overlay (use permit + construction + TMA data).
+    """
+    gs = _get_client()
+    return gs.get_construction_sites(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_tama38_key_areas(ctx: Context, x: float, y: float, radius: int = 500):
+    """Get TAMA 38 policy key areas within a radius (meters) from point (x,y).
+    Captures buildings eligible for strengthening/redevelopment. Use for potential-rights calculator.
+    """
+    gs = _get_client()
+    return gs.get_tama38_key_areas(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_road_works(ctx: Context, x: float, y: float, radius: int = 200):
+    """Get road works and night works in public space within a radius (meters) from point (x,y).
+    Disruption + infrastructure upgrades. Use for temporal map layer ("current works").
+    """
+    gs = _get_client()
+    return gs.get_road_works(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_road_works_only(ctx: Context, x: float, y: float, radius: int = 200):
+    """Get road works within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_road_works_only(x, y, radius=radius)
+
+
+@mcp.tool()
+async def get_night_works_public(ctx: Context, x: float, y: float, radius: int = 200):
+    """Get night works in public space within a radius (meters) from point (x,y)."""
+    gs = _get_client()
+    return gs.get_night_works_public(x, y, radius=radius)
+
+
 if __name__ == "__main__":
     mcp.run() 

@@ -47,20 +47,56 @@ ALL_PERMIT_FIELDS = [
 class TelAvivGS:
     BASE = "https://gisn.tel-aviv.gov.il/arcgis/rest/services"
     # Layers
+    # Core/Basic layers (כתובות, חלקות, גושים)
     L_ADDR           = "IView2RekaHeb/MapServer/0"    # כתובות: t_rechov, ms_bayit, x,y,lon,lat
-    L_PERMITS        = "IView2/MapServer/772"         # בקשות והיתרי בניה
-    L_LAND_USE_MAIN  = "IView2/MapServer/514"         # יעודי קרקע עיקריים
-    L_LAND_USE_DET   = "IView2/MapServer/837"         # יעודי קרקע מפורט
     L_PARCELS        = "IView2/MapServer/524"         # חלקות
     L_BLOCKS         = "IView2/MapServer/525"         # גושים
+    # Building permits and planning (בקשות והיתרי בניה)
+    L_PERMITS        = "IView2/MapServer/772"         # בקשות והיתרי בניה
+    # Land use (יעודי קרקע)
+    L_LAND_USE_MAIN  = "IView2/MapServer/514"         # יעודי קרקע עיקריים
+    L_LAND_USE_DET   = "IView2/MapServer/837"         # יעודי קרקע מפורט
+    # Plans (תכניות)
     L_PLANS_LOCAL    = "IView2/MapServer/528"         # תב"עות – מקומיות/מפורטות
     L_PLANS_CITY     = "IView2/MapServer/683"         # תכניות כלל עירוניות
+    # Environmental and safety (מבנים מסוכנים, רעש, זיהומי קרקע)
     L_DANGER_BLDG    = "IView2/MapServer/591"         # מבנים מסוכנים
     L_NOISE          = "IView2/MapServer/786"         # מפלסי רעש
+    L_SOIL_CONTAMINATION = "IView2/MapServer/599"     # זיהומי קרקע – פעולות שיקום ומיגון
+    # Infrastructure (אנטנות סלולריות, מקלטים)
     L_CELL           = "IView2/MapServer/625"         # אנטנות סלולריות קיימות
     L_CELL_WIP       = "IView2/MapServer/953"         # אנטנות בהקמה
-    L_GREEN          = "IView2/MapServer/503"         # שטחים ירוקים
     L_SHELTERS       = "IView2/MapServer/592"         # מקלטים
+    # Transportation (תחבורה)
+    L_BIKE_PATHS     = "IView2/MapServer/577"         # שבילי אופניים
+    L_METRO_RED      = "IView2/MapServer/760"         # תחנות מטרו - הקו האדום
+    L_METRO_GREEN    = "IView2/MapServer/766"         # תחנות מטרו - הקו הירוק
+    L_METRO_PURPLE   = "IView2/MapServer/762"         # תחנות מטרו - הקו הסגול
+    L_PARKING_PUBLIC = "IView2/MapServer/555"         # חניונים ציבוריים
+    L_PARKING_PRIVATE = "IView2/MapServer/556"        # חניונים פרטיים
+    # Housing and development (דיור ופיתוח)
+    L_AFFORDABLE_HOUSING = "IView2/MapServer/746"    # פרויקטים דיור בהישג יד
+    # Education layers (גני ילדים / בתי ספר)
+    L_SCHOOLS_KINDERGARTENS = "IView2/MapServer/460"  # גני ילדים / בתי ספר
+    L_SCHOOLS = "IView2/MapServer/769"                # בתי ספר
+    # Green amenities (גני משחקים / גינות כלבים / שטחים ירוקים וגנים ציבוריים)
+    L_GREEN          = "IView2/MapServer/503"         # שטחים ירוקים
+    L_PLAYGROUNDS = "IView2/MapServer/696"            # גני משחקים
+    L_DOG_PARKS = "IView2/MapServer/586"              # גינות כלבים
+    L_PUBLIC_GARDENS = "IView2/MapServer/551"         # גנים ציבוריים
+    # Medical facilities (מרכזים רפואיים / קופות חולים / בתי מרקחת)
+    L_MEDICAL_CENTERS = "IView2/MapServer/563"        # מרכזים רפואיים
+    L_HEALTH_FUNDS = "IView2/MapServer/564"           # קופות חולים
+    L_PHARMACIES = "IView2/MapServer/565"             # בתי מרקחת
+    # Community centers (מרכזי קהילה / בתי צעירים ויזמות)
+    L_COMMUNITY_CENTERS = "IView2/MapServer/553"      # מרכזי קהילה
+    L_YOUTH_ENTREPRENEURSHIP = "IView2/MapServer/576" # בתי צעירים ויזמות
+    # Development and renewal (פיתוח והתחדשות)
+    L_CONSTRUCTION_SITES = "IView2/MapServer/499"     # אתרי בנייה
+    L_TAMA38_KEY_AREAS = "IView2/MapServer/801"      # מדיניות תמ״א 38 – מפתח אזורים
+    # Road works and public space works (עבודות תשתית)
+    L_ROAD_WORKS = "IView2/MapServer/852"            # עבודות כבישים
+    L_NIGHT_WORKS_PUBLIC = "IView2/MapServer/858"     # עבודות לילה במרחב הציבורי
 
     HDRS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)... Safari/537.36"}
 
@@ -302,6 +338,171 @@ class TelAvivGS:
 
     def get_shelters(self, x: float, y: float, radius: int = 200) -> List[Dict[str, Any]]:
         return self._intersects_point(self.L_SHELTERS, x, y, radius)
+
+    def get_affordable_housing_projects(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get affordable housing projects within a radius (meters) from point (x,y).
+        Pipeline of affordable housing; indicates supply pressure and long-term demographic mix.
+        """
+        return self._intersects_point(self.L_AFFORDABLE_HOUSING, x, y, radius)
+
+    def get_bike_paths(self, x: float, y: float, radius: int = 300) -> List[Dict[str, Any]]:
+        """Get bicycle paths within a radius (meters) from point (x,y).
+        Walkability and bike-accessibility = strong QoL indicator.
+        """
+        return self._intersects_point(self.L_BIKE_PATHS, x, y, radius)
+
+    def get_metro_stations(self, x: float, y: float, radius: int = 1000) -> List[Dict[str, Any]]:
+        """Get metro stations (all lines) within a radius (meters) from point (x,y).
+        Major value driver; buyers pay 10–20% premium near stations.
+        Returns stations from Red, Green, and Purple lines.
+        """
+        out = []
+        out += self._intersects_point(self.L_METRO_RED, x, y, radius)
+        out += self._intersects_point(self.L_METRO_GREEN, x, y, radius)
+        out += self._intersects_point(self.L_METRO_PURPLE, x, y, radius)
+        return out
+
+    def get_metro_stations_red(self, x: float, y: float, radius: int = 1000) -> List[Dict[str, Any]]:
+        """Get Red Line metro stations within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_METRO_RED, x, y, radius)
+
+    def get_metro_stations_green(self, x: float, y: float, radius: int = 1000) -> List[Dict[str, Any]]:
+        """Get Green Line metro stations within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_METRO_GREEN, x, y, radius)
+
+    def get_metro_stations_purple(self, x: float, y: float, radius: int = 1000) -> List[Dict[str, Any]]:
+        """Get Purple Line metro stations within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_METRO_PURPLE, x, y, radius)
+
+    def get_parking_lots(self, x: float, y: float, radius: int = 300) -> List[Dict[str, Any]]:
+        """Get public and private parking lots within a radius (meters) from point (x,y).
+        Parking scarcity strongly affects rental yield.
+        """
+        out = []
+        out += self._intersects_point(self.L_PARKING_PUBLIC, x, y, radius)
+        out += self._intersects_point(self.L_PARKING_PRIVATE, x, y, radius)
+        return out
+
+    def get_parking_public(self, x: float, y: float, radius: int = 300) -> List[Dict[str, Any]]:
+        """Get public parking lots within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_PARKING_PUBLIC, x, y, radius)
+
+    def get_parking_private(self, x: float, y: float, radius: int = 300) -> List[Dict[str, Any]]:
+        """Get private parking lots within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_PARKING_PRIVATE, x, y, radius)
+
+    def get_soil_contamination(self, x: float, y: float, radius: int = 200) -> List[Dict[str, Any]]:
+        """Get soil contamination sites (rehabilitation and protection actions) within a radius (meters) from point (x,y).
+        Underrated risk factor in Tel Aviv (old industrial lots).
+        """
+        return self._intersects_point(self.L_SOIL_CONTAMINATION, x, y, radius)
+
+    def get_schools(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get schools and kindergartens within a radius (meters) from point (x,y).
+        School zone relevance for families. Integrates education score and school catchment overlay.
+        """
+        out = []
+        out += self._intersects_point(self.L_SCHOOLS_KINDERGARTENS, x, y, radius)
+        out += self._intersects_point(self.L_SCHOOLS, x, y, radius)
+        return out
+
+    def get_schools_kindergartens(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get kindergartens within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_SCHOOLS_KINDERGARTENS, x, y, radius)
+
+    def get_schools_only(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get schools (excluding kindergartens) within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_SCHOOLS, x, y, radius)
+
+    def get_green_amenities(self, x: float, y: float, radius: int = 400) -> List[Dict[str, Any]]:
+        """Get green amenities (playgrounds, dog parks, public gardens) within a radius (meters) from point (x,y).
+        Green amenity proximity drives price premiums. Enhances livability heatmap or filters.
+        """
+        out = []
+        out += self._intersects_point(self.L_PLAYGROUNDS, x, y, radius)
+        out += self._intersects_point(self.L_DOG_PARKS, x, y, radius)
+        out += self._intersects_point(self.L_PUBLIC_GARDENS, x, y, radius)
+        return out
+
+    def get_playgrounds(self, x: float, y: float, radius: int = 400) -> List[Dict[str, Any]]:
+        """Get playgrounds within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_PLAYGROUNDS, x, y, radius)
+
+    def get_dog_parks(self, x: float, y: float, radius: int = 400) -> List[Dict[str, Any]]:
+        """Get dog parks within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_DOG_PARKS, x, y, radius)
+
+    def get_public_gardens(self, x: float, y: float, radius: int = 400) -> List[Dict[str, Any]]:
+        """Get public gardens within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_PUBLIC_GARDENS, x, y, radius)
+
+    def get_medical_facilities(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get medical facilities (medical centers, health funds, pharmacies) within a radius (meters) from point (x,y).
+        Access to health services. Health coverage layer for older buyers.
+        """
+        out = []
+        out += self._intersects_point(self.L_MEDICAL_CENTERS, x, y, radius)
+        out += self._intersects_point(self.L_HEALTH_FUNDS, x, y, radius)
+        out += self._intersects_point(self.L_PHARMACIES, x, y, radius)
+        return out
+
+    def get_medical_centers(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get medical centers within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_MEDICAL_CENTERS, x, y, radius)
+
+    def get_health_funds(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get health fund clinics within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_HEALTH_FUNDS, x, y, radius)
+
+    def get_pharmacies(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get pharmacies within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_PHARMACIES, x, y, radius)
+
+    def get_community_facilities(self, x: float, y: float, radius: int = 400) -> List[Dict[str, Any]]:
+        """Get community facilities (community centers, youth and entrepreneurship centers) within a radius (meters) from point (x,y).
+        Social & community vitality indicator. "Community Index" per neighborhood.
+        """
+        out = []
+        out += self._intersects_point(self.L_COMMUNITY_CENTERS, x, y, radius)
+        out += self._intersects_point(self.L_YOUTH_ENTREPRENEURSHIP, x, y, radius)
+        return out
+
+    def get_community_centers(self, x: float, y: float, radius: int = 400) -> List[Dict[str, Any]]:
+        """Get community centers within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_COMMUNITY_CENTERS, x, y, radius)
+
+    def get_youth_entrepreneurship_centers(self, x: float, y: float, radius: int = 400) -> List[Dict[str, Any]]:
+        """Get youth and entrepreneurship centers within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_YOUTH_ENTREPRENEURSHIP, x, y, radius)
+
+    def get_construction_sites(self, x: float, y: float, radius: int = 300) -> List[Dict[str, Any]]:
+        """Get construction sites within a radius (meters) from point (x,y).
+        Indicates redevelopment intensity. Use for development-activity overlay (use permit + construction + TMA data).
+        """
+        return self._intersects_point(self.L_CONSTRUCTION_SITES, x, y, radius)
+
+    def get_tama38_key_areas(self, x: float, y: float, radius: int = 500) -> List[Dict[str, Any]]:
+        """Get TAMA 38 policy key areas within a radius (meters) from point (x,y).
+        Captures buildings eligible for strengthening/redevelopment. Use for potential-rights calculator.
+        """
+        return self._intersects_point(self.L_TAMA38_KEY_AREAS, x, y, radius)
+
+    def get_road_works(self, x: float, y: float, radius: int = 200) -> List[Dict[str, Any]]:
+        """Get road works and night works in public space within a radius (meters) from point (x,y).
+        Disruption + infrastructure upgrades. Use for temporal map layer ("current works").
+        """
+        out = []
+        out += self._intersects_point(self.L_ROAD_WORKS, x, y, radius)
+        out += self._intersects_point(self.L_NIGHT_WORKS_PUBLIC, x, y, radius)
+        return out
+
+    def get_road_works_only(self, x: float, y: float, radius: int = 200) -> List[Dict[str, Any]]:
+        """Get road works within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_ROAD_WORKS, x, y, radius)
+
+    def get_night_works_public(self, x: float, y: float, radius: int = 200) -> List[Dict[str, Any]]:
+        """Get night works in public space within a radius (meters) from point (x,y)."""
+        return self._intersects_point(self.L_NIGHT_WORKS_PUBLIC, x, y, radius)
 
     def get_building_privilege_page(self, x: float, y: float, save_dir: Optional[str] = "privilege_pages") -> Optional[Dict[str, Any]]:
         """

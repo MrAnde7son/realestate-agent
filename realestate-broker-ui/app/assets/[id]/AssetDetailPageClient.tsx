@@ -2540,11 +2540,16 @@ useDedupedEffect(() => {
                       <p className="text-sm font-medium">{asset.address}</p>
                     )}
                   </div>
-                  <DialogFooter className="mt-4">
-                    <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                  <DialogFooter className="mt-4 gap-2">
+                    <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} className="w-full sm:w-auto">
                       ביטול
                     </Button>
-                    <Button variant="destructive" onClick={handleDeleteAsset} disabled={deletingAsset}>
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleDeleteAsset} 
+                      disabled={deletingAsset} 
+                      className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white border-red-600"
+                    >
                       {deletingAsset ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin me-2" />
@@ -2890,48 +2895,59 @@ useDedupedEffect(() => {
               <CardHeader>
                 <CardTitle>ניתוח תכנוני ומשפטי</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-4">
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">רמת ניצול זכויות:</span>
-                  <span>{asset.rightsUsagePct ? `${asset.rightsUsagePct}%` : '—'}</span>
+                  <span className="font-medium">{asset.rightsUsagePct ? `${asset.rightsUsagePct}%` : '—'}</span>
                 </div>
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">מגבלות משפטיות:</span>
-                  <span>{asset.legalRestrictions ?? '—'}</span>
+                  <span className="font-medium">{asset.legalRestrictions ?? '—'}</span>
                 </div>
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">פוטנציאל התחדשות:</span>
-                  <span>{asset.urbanRenewalPotential ?? '—'}</span>
+                  <span className="font-medium">{asset.urbanRenewalPotential ?? '—'}</span>
                 </div>
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">היטל השבחה צפוי:</span>
-                  <span>{asset.bettermentLevy ?? '—'}</span>
+                  <span className="font-medium">{asset.bettermentLevy ?? '—'}</span>
                 </div>
-                
-                {/* Enhanced Planning Metrics */}
+                {asset.investmentPotential && (
+                  <div className="flex justify-between rtl:flex-row-reverse">
+                    <span className="text-muted-foreground">פוטנציאל השקעה:</span>
+                    <div className="text-end">
+                      {asset.investmentPotentialScore && (
+                        <Badge variant={asset.investmentPotentialScore === 'גבוה' ? 'success' : asset.investmentPotentialScore === 'בינוני' ? 'warning' : 'neutral'} className="mb-1">
+                          {asset.investmentPotentialScore}
+                        </Badge>
+                      )}
+                      <div className="mt-1 font-medium">{asset.investmentPotential}</div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-between rtl:flex-row-reverse">
                   <span className="text-muted-foreground">אחוז כיסוי בנייה:</span>
-                  <span>{asset.buildingCoveragePct ? `${asset.buildingCoveragePct}%` : '—'}</span>
+                  <span className="font-medium">{asset.buildingCoveragePct ? `${asset.buildingCoveragePct}%` : '—'}</span>
                 </div>
                 
                 {/* Height Analysis */}
                 {asset.heightAnalysis && (
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-muted-foreground">ניתוח גובה:</div>
-                    <div className="flex justify-between rtl:flex-row-reverse text-sm">
+                  <div className="pt-3 border-t space-y-2">
+                    <div className="text-base font-semibold mb-2">ניתוח גובה</div>
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">קומות נוכחיות:</span>
-                      <span>{asset.heightAnalysis.current_floors ?? '—'}</span>
+                      <span className="font-medium">{asset.heightAnalysis.current_floors ?? '—'}</span>
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse text-sm">
+                    <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">קומות מותרות:</span>
-                      <span>{asset.heightAnalysis.allowed_floors ?? '—'}</span>
+                      <span className="font-medium">{asset.heightAnalysis.allowed_floors ?? '—'}</span>
                     </div>
                     {asset.heightAnalysis.height_compliance && (
-                      <div className="flex justify-between rtl:flex-row-reverse text-sm">
+                      <div className="flex justify-between rtl:flex-row-reverse">
                         <span className="text-muted-foreground">עמידה בתקן:</span>
-                        <span className={asset.heightAnalysis.height_compliance === 'compliant' ? 'text-green-600' : 'text-red-600'}>
+                        <Badge variant={asset.heightAnalysis.height_compliance === 'compliant' ? 'success' : 'error'} className="font-medium">
                           {asset.heightAnalysis.height_compliance === 'compliant' ? 'עומד' : 'לא עומד'}
-                        </span>
+                        </Badge>
                       </div>
                     )}
                   </div>
@@ -2939,9 +2955,9 @@ useDedupedEffect(() => {
                 
                 {/* Setback Analysis */}
                 {asset.setbackAnalysis && asset.setbackAnalysis.violations && asset.setbackAnalysis.violations.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-muted-foreground">הפרות נסיגה:</div>
-                    <div className="text-sm text-red-600">
+                  <div className="pt-3 border-t space-y-2">
+                    <div className="text-base font-semibold mb-2 text-red-600">הפרות נסיגה</div>
+                    <div className="text-sm text-red-600 bg-red-50 dark:bg-red-950/20 p-3 rounded-md">
                       {asset.setbackAnalysis.violations.join('; ')}
                     </div>
                   </div>
@@ -3480,24 +3496,80 @@ useDedupedEffect(() => {
                 {/* Environmental Features */}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">שטחים ירוקים:</span>
-                  {renderValue(asset.greenWithin300m ? 'כן' : 'לא', 'greenWithin300m')}
+                  {renderValue(asset.openSpacesNearby ?? (asset.greenWithin300m ? 'כן' : 'לא'), 'openSpacesNearby')}
                 </div>
+                {asset.greenScore && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">ציון ירוק:</span>
+                    <Badge variant={asset.greenScore === 'גבוה' ? 'success' : asset.greenScore === 'בינוני' ? 'warning' : 'neutral'}>
+                      {asset.greenScore}
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">תחבורה ציבורית:</span>
                   {renderValue(asset.publicTransport ?? '—', 'publicTransport')}
                 </div>
+                {asset.metroStationDistanceM && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מרחק מתחנת מטרו:</span>
+                    {renderValue(`${asset.metroStationDistanceM} מ׳${asset.metroStationsCount ? ` (${asset.metroStationsCount} תחנות)` : ''}`, 'metroStationDistanceM')}
+                  </div>
+                )}
+                {asset.schoolsCount && asset.schoolsCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">בתי ספר וגני ילדים:</span>
+                    {renderValue(`${asset.schoolsCount}${asset.nearestSchoolDistanceM ? ` (קרוב ביותר: ${asset.nearestSchoolDistanceM} מ׳)` : ''}`, 'schoolsCount')}
+                  </div>
+                )}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מבני ציבור:</span>
                   {renderValue(asset.publicBuildings ?? '—', 'publicBuildings')}
                 </div>
+                {asset.medicalFacilitiesCount && asset.medicalFacilitiesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מתקנים רפואיים:</span>
+                    {renderValue(`${asset.medicalFacilitiesCount}${asset.nearestMedicalFacilityDistanceM ? ` (קרוב ביותר: ${asset.nearestMedicalFacilityDistanceM} מ׳)` : ''}`, 'medicalFacilitiesCount')}
+                  </div>
+                )}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">מצב חניה:</span>
                   {renderValue(asset.parking ?? '—', 'parking')}
                 </div>
+                {asset.parkingLotsCount && asset.parkingLotsCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">חניונים באזור:</span>
+                    {renderValue(`${asset.parkingLotsCount} (${asset.publicParkingLotsCount || 0} ציבוריים)`, 'parkingLotsCount')}
+                  </div>
+                )}
+                {asset.hasBikePaths && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">שבילי אופניים:</span>
+                    {renderValue(`${asset.bikePathsCount || 0} שבילים בקרבת מקום`, 'bikePathsCount')}
+                  </div>
+                )}
+                {asset.greenAmenitiesCount && asset.greenAmenitiesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מתקני נופש ירוקים:</span>
+                    {renderValue(`${asset.greenAmenitiesCount}${asset.playgroundsCount ? ` (${asset.playgroundsCount} מגרשי משחקים)` : ''}`, 'greenAmenitiesCount')}
+                  </div>
+                )}
                 <div className="flex justify-between text-start">
                   <span className="text-muted-foreground">פרויקטים סמוכים:</span>
                   {renderValue(asset.nearbyProjects ?? '—', 'nearbyProjects')}
                 </div>
+                {asset.constructionSitesCount && asset.constructionSitesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">אתרי בנייה פעילים:</span>
+                    {renderValue(`${asset.constructionSitesCount}`, 'constructionSitesCount')}
+                  </div>
+                )}
+                {asset.tama38KeyArea && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">אזור תמ״א 38:</span>
+                    <Badge variant="success">כן ({asset.tama38KeyAreasCount || 0} אזורים)</Badge>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

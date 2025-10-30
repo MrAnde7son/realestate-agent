@@ -1,6 +1,7 @@
 """GIS data collector implementation."""
 
 import logging
+import re
 from typing import Any, Dict, Optional, Tuple
 
 from gis.gis_client import TelAvivGS
@@ -55,6 +56,18 @@ class GISCollector(BaseCollector):
             "dangerous": self.client.get_dangerous_buildings(x, y),
             "local_plans": self.client.get_plans_local(x, y),
             "city_plans": self.client.get_plans_citywide(x, y),
+            "metro_stations": self.client.get_metro_stations(x, y),
+            "parking_lots": self.client.get_parking_lots(x, y),
+            "schools": self.client.get_schools(x, y),
+            "construction_sites": self.client.get_construction_sites(x, y),
+            "affordable_housing": self.client.get_affordable_housing_projects(x, y),
+            "bike_paths": self.client.get_bike_paths(x, y),
+            "soil_contamination": self.client.get_soil_contamination(x, y),
+            "green_amenities": self.client.get_green_amenities(x, y),
+            "medical_facilities": self.client.get_medical_facilities(x, y),
+            "community_facilities": self.client.get_community_facilities(x, y),
+            "tama38_key_areas": self.client.get_tama38_key_areas(x, y),
+            "road_works": self.client.get_road_works(x, y),
         }
         block, parcel = self._extract_block_parcel(data)
         data.update({"block": block, "parcel": parcel, "x": x, "y": y})
@@ -82,6 +95,22 @@ class GISCollector(BaseCollector):
                 "green": [],
                 "noise": [],
                 "antennas": [],
+                "land_use_detailed": [],
+                "dangerous": [],
+                "local_plans": [],
+                "city_plans": [],
+                "metro_stations": [],
+                "parking_lots": [],
+                "schools": [],
+                "construction_sites": [],
+                "affordable_housing": [],
+                "bike_paths": [],
+                "soil_contamination": [],
+                "green_amenities": [],
+                "medical_facilities": [],
+                "community_facilities": [],
+                "tama38_key_areas": [],
+                "road_works": [],
                 "addresses": [],
                 "block": block_str,
                 "parcel": parcel_str,
@@ -110,6 +139,18 @@ class GISCollector(BaseCollector):
             "dangerous": self.client.get_dangerous_buildings(x, y),
             "local_plans": self.client.get_plans_local(x, y),
             "city_plans": self.client.get_plans_citywide(x, y),
+            "metro_stations": self.client.get_metro_stations(x, y),
+            "parking_lots": self.client.get_parking_lots(x, y),
+            "schools": self.client.get_schools(x, y),
+            "construction_sites": self.client.get_construction_sites(x, y),
+            "affordable_housing": self.client.get_affordable_housing_projects(x, y),
+            "bike_paths": self.client.get_bike_paths(x, y),
+            "soil_contamination": self.client.get_soil_contamination(x, y),
+            "green_amenities": self.client.get_green_amenities(x, y),
+            "medical_facilities": self.client.get_medical_facilities(x, y),
+            "community_facilities": self.client.get_community_facilities(x, y),
+            "tama38_key_areas": self.client.get_tama38_key_areas(x, y),
+            "road_works": self.client.get_road_works(x, y),
             "addresses": addresses,  # Include all addresses found
             "block": block_str,
             "parcel": parcel_str,
@@ -120,6 +161,28 @@ class GISCollector(BaseCollector):
         
         return data
 
+    def _generate_spelling_variants(self, street: str) -> list[str]:
+        """Generate spelling variants by removing double characters.
+        
+        Handles any double character -> single character transformation:
+        - וו -> ו (double vav becoming single)
+        - Any double character -> single character
+        """
+        variants = set([street])  # Start with original
+        
+        # Find all double characters (same character repeated twice)
+        # Use regex to find any character that appears twice in a row
+        pattern = re.compile(r'(.)\1')
+        matches = list(pattern.finditer(street))
+        
+        # Generate variants by replacing each double character with single
+        for match in matches:
+            char = match.group(1)
+            variant = street.replace(char + char, char, 1)  # Replace first occurrence
+            variants.add(variant)
+        
+        return list(variants)
+    
     def _geocode(self, street: str, house_number: int, city: str = "") -> Tuple[float, float]:
         """Geocode an address to coordinates with fallback strategies."""
         # Try the original address first with like=True (same as MCP server)
@@ -139,6 +202,17 @@ class GISCollector(BaseCollector):
                 except Exception as e2:
                     logger.warning(f"Reversed geocoding failed: {e2}")
 
+        # Try spelling variants (e.g., double characters -> single)
+        variants = self._generate_spelling_variants(street)
+        for variant in variants:
+            if variant == street:
+                continue  # Already tried
+            try:
+                logger.info(f"Trying spelling variant: {variant}")
+                return self.client.get_address_coordinates(variant, house_number, like=True)
+            except Exception as e_variant:
+                logger.debug(f"Spelling variant '{variant}' failed: {e_variant}")
+
         # Try appending city if provided and not already part of the street string
         if city and city not in street:
             try:
@@ -150,6 +224,7 @@ class GISCollector(BaseCollector):
 
         # If all else fails, raise the original error
         raise Exception(f"All geocoding attempts failed for {street} {house_number}")
+
 
     def _extract_block_parcel(self, data: Dict[str, Any]) -> Tuple[str, str]:
         """Extract block and parcel numbers from GIS data."""

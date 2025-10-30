@@ -111,6 +111,39 @@ class AssetSerializer(MetaSerializerMixin):
     legalRestrictions = serializers.CharField(source='legal_restrictions', read_only=True)
     urbanRenewalPotential = serializers.CharField(source='urban_renewal_potential', read_only=True)
     bettermentLevy = serializers.CharField(source='betterment_levy', read_only=True)
+    
+    # GIS Environment fields (from meta via get_property_value)
+    openSpacesNearby = serializers.SerializerMethodField()
+    publicBuildings = serializers.SerializerMethodField()
+    parking = serializers.SerializerMethodField()
+    nearbyProjects = serializers.SerializerMethodField()
+    publicTransport = serializers.SerializerMethodField()
+    greenScore = serializers.SerializerMethodField()
+    investmentPotential = serializers.SerializerMethodField()
+    investmentPotentialScore = serializers.SerializerMethodField()
+    
+    # New GIS data fields
+    metroStationDistanceM = serializers.SerializerMethodField()
+    metroStationsCount = serializers.SerializerMethodField()
+    parkingLotsCount = serializers.SerializerMethodField()
+    publicParkingLotsCount = serializers.SerializerMethodField()
+    schoolsCount = serializers.SerializerMethodField()
+    nearestSchoolDistanceM = serializers.SerializerMethodField()
+    constructionSitesCount = serializers.SerializerMethodField()
+    affordableHousingProjectsCount = serializers.SerializerMethodField()
+    bikePathsCount = serializers.SerializerMethodField()
+    hasBikePaths = serializers.SerializerMethodField()
+    soilContaminationSitesCount = serializers.SerializerMethodField()
+    nearestSoilContaminationDistanceM = serializers.SerializerMethodField()
+    greenAmenitiesCount = serializers.SerializerMethodField()
+    playgroundsCount = serializers.SerializerMethodField()
+    medicalFacilitiesCount = serializers.SerializerMethodField()
+    nearestMedicalFacilityDistanceM = serializers.SerializerMethodField()
+    communityFacilitiesCount = serializers.SerializerMethodField()
+    tama38KeyArea = serializers.SerializerMethodField()
+    tama38KeyAreasCount = serializers.SerializerMethodField()
+    roadWorksCount = serializers.SerializerMethodField()
+    hasActiveRoadWorks = serializers.SerializerMethodField()
 
     is_commercial = serializers.BooleanField(read_only=True)
     isCommercial = serializers.BooleanField(source='is_commercial', read_only=True)
@@ -391,6 +424,98 @@ class AssetSerializer(MetaSerializerMixin):
 
         return obj.watchlist_entries.filter(user=user).exists()
     
+    # GIS Environment field getters
+    def _get_property(self, obj, key):
+        """Helper to get property value from meta or direct field."""
+        return obj.get_property_value(key)
+    
+    def get_openSpacesNearby(self, obj):
+        return self._get_property(obj, 'openSpacesNearby')
+    
+    def get_publicBuildings(self, obj):
+        return self._get_property(obj, 'publicBuildings')
+    
+    def get_parking(self, obj):
+        return self._get_property(obj, 'parking')
+    
+    def get_nearbyProjects(self, obj):
+        return self._get_property(obj, 'nearbyProjects')
+    
+    def get_publicTransport(self, obj):
+        return self._get_property(obj, 'publicTransport')
+    
+    def get_greenScore(self, obj):
+        return self._get_property(obj, 'greenScore')
+    
+    def get_investmentPotential(self, obj):
+        return self._get_property(obj, 'investmentPotential')
+    
+    def get_investmentPotentialScore(self, obj):
+        return self._get_property(obj, 'investmentPotentialScore')
+    
+    def get_metroStationDistanceM(self, obj):
+        return self._get_property(obj, 'metroStationDistanceM')
+    
+    def get_metroStationsCount(self, obj):
+        return self._get_property(obj, 'metroStationsCount')
+    
+    def get_parkingLotsCount(self, obj):
+        return self._get_property(obj, 'parkingLotsCount')
+    
+    def get_publicParkingLotsCount(self, obj):
+        return self._get_property(obj, 'publicParkingLotsCount')
+    
+    def get_schoolsCount(self, obj):
+        return self._get_property(obj, 'schoolsCount')
+    
+    def get_nearestSchoolDistanceM(self, obj):
+        return self._get_property(obj, 'nearestSchoolDistanceM')
+    
+    def get_constructionSitesCount(self, obj):
+        return self._get_property(obj, 'constructionSitesCount')
+    
+    def get_affordableHousingProjectsCount(self, obj):
+        return self._get_property(obj, 'affordableHousingProjectsCount')
+    
+    def get_bikePathsCount(self, obj):
+        return self._get_property(obj, 'bikePathsCount')
+    
+    def get_hasBikePaths(self, obj):
+        return self._get_property(obj, 'hasBikePaths')
+    
+    def get_soilContaminationSitesCount(self, obj):
+        return self._get_property(obj, 'soilContaminationSitesCount')
+    
+    def get_nearestSoilContaminationDistanceM(self, obj):
+        return self._get_property(obj, 'nearestSoilContaminationDistanceM')
+    
+    def get_greenAmenitiesCount(self, obj):
+        return self._get_property(obj, 'greenAmenitiesCount')
+    
+    def get_playgroundsCount(self, obj):
+        return self._get_property(obj, 'playgroundsCount')
+    
+    def get_medicalFacilitiesCount(self, obj):
+        return self._get_property(obj, 'medicalFacilitiesCount')
+    
+    def get_nearestMedicalFacilityDistanceM(self, obj):
+        return self._get_property(obj, 'nearestMedicalFacilityDistanceM')
+    
+    def get_communityFacilitiesCount(self, obj):
+        return self._get_property(obj, 'communityFacilitiesCount')
+    
+    def get_tama38KeyArea(self, obj):
+        return self._get_property(obj, 'tama38KeyArea')
+    
+    def get_tama38KeyAreasCount(self, obj):
+        return self._get_property(obj, 'tama38KeyAreasCount')
+    
+    def get_roadWorksCount(self, obj):
+        return self._get_property(obj, 'roadWorksCount')
+    
+    def get_hasActiveRoadWorks(self, obj):
+        return self._get_property(obj, 'hasActiveRoadWorks')
+    
     class Meta:
         model = Asset
         fields = [
@@ -406,6 +531,13 @@ class AssetSerializer(MetaSerializerMixin):
             'priceGapPct','modelPrice','confidencePct','capRatePct','avgPricePerSqm','minPricePerSqm','maxPricePerSqm',
             'rightsUsagePct','legalRestrictions','urbanRenewalPotential','bettermentLevy',
             'buildingCoveragePct','heightAnalysis','setbackAnalysis',
+            'openSpacesNearby','publicBuildings','parking','nearbyProjects','publicTransport',
+            'greenScore','investmentPotential','investmentPotentialScore',
+            'metroStationDistanceM','metroStationsCount','parkingLotsCount','publicParkingLotsCount',
+            'schoolsCount','nearestSchoolDistanceM','constructionSitesCount','affordableHousingProjectsCount',
+            'bikePathsCount','hasBikePaths','soilContaminationSitesCount','nearestSoilContaminationDistanceM',
+            'greenAmenitiesCount','playgroundsCount','medicalFacilitiesCount','nearestMedicalFacilityDistanceM',
+            'communityFacilitiesCount','tama38KeyArea','tama38KeyAreasCount','roadWorksCount','hasActiveRoadWorks',
             'zoning', 'building_rights', 'permit_status', 'permit_date', 'is_demo',
             'is_commercial', 'isCommercial',
             'isWatched',

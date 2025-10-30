@@ -621,15 +621,19 @@ def _process_gis_data(asset, gis_data):
     if gis_data.get('shelters'):
         shelters = gis_data.get('shelters', [])
         if shelters and len(shelters) > 0:
-            min_distance = min([s.get('distance') for s in shelters if isinstance(s, dict)])
-            asset.set_property('shelterDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+            distance_values = [s.get('distance') for s in shelters if isinstance(s, dict) and s.get('distance') is not None]
+            if distance_values:
+                min_distance = min(distance_values)
+                asset.set_property('shelterDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Cell antennas
     if gis_data.get('antennas'):
         antennas = gis_data.get('antennas', [])
         if antennas and len(antennas) > 0:
-            min_distance = min([a.get('distance') for a in antennas if isinstance(a, dict)])
-            asset.set_property('antennaDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+            distance_values = [a.get('distance') for a in antennas if isinstance(a, dict) and a.get('distance') is not None]
+            if distance_values:
+                min_distance = min(distance_values)
+                asset.set_property('antennaDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
     
     # Environmental fields
     asset.set_property('publicTransport', 'קרוב לתחבורה ציבורית', source='GIS (calculated)', url='https://www.govmap.gov.il/')

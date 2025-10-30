@@ -96,7 +96,6 @@ except ImportError:
 from .tasks import run_data_pipeline
 from .analytics import track, track_search, track_feature_usage
 from .services.asset_links import (
-    asset_documents_all,
     asset_transactions_all,
     asset_listings_all,
 )
@@ -2300,22 +2299,31 @@ def asset_detail(request, asset_id):
         return JsonResponse({"error": "GET method required"}, status=405)
 
     try:
-        # Get asset using Django ORM with attribution data and documents
+        include_documents_param = request.GET.get("includeDocuments")
+        if include_documents_param is None:
+            include_documents_param = request.GET.get("include_documents")
+
+        include_documents = _parse_bool(include_documents_param)
+        if include_documents is None:
+            include_documents = False
+
+        prefetch_fields = [
+            'transactions',
+            'transactions_m2m',
+            'permits',
+            'permits_m2m',
+            'plans',
+            'plans_m2m',
+        ]
+        if include_documents:
+            prefetch_fields.extend(['documents', 'documents_m2m'])
+
+        # Get asset using Django ORM with attribution data and optional documents
         try:
-            asset = (
-                Asset.objects.select_related('created_by', 'last_updated_by')
-                .prefetch_related(
-                    'documents',
-                    'documents_m2m',
-                    'transactions',
-                    'transactions_m2m',
-                    'permits',
-                    'permits_m2m',
-                    'plans',
-                    'plans_m2m',
-                )
-                .get(id=asset_id)
-            )
+            queryset = Asset.objects.select_related('created_by', 'last_updated_by')
+            if prefetch_fields:
+                queryset = queryset.prefetch_related(*prefetch_fields)
+            asset = queryset.get(id=asset_id)
         except Asset.DoesNotExist:
             return JsonResponse({"error": "Asset not found"}, status=404)
 
@@ -2418,14 +2426,15 @@ def asset_detail(request, asset_id):
 
         # Use serializer to get properly formatted asset data with _meta
         from .serializers import AssetSerializer
-        serializer = AssetSerializer(asset, context={"request": request})
+        serializer = AssetSerializer(
+            asset,
+            context={
+                "request": request,
+                "include_documents": include_documents,
+            },
+        )
         asset_data = serializer.data
-        
-        # Debug: Log documents count
-        total_documents_qs = asset_documents_all(asset)
-        logger.info(f"Asset {asset_id} has {total_documents_qs.count()} documents")
-        logger.info(f"Asset {asset_id} documents in serializer: {len(asset_data.get('documents', []))}")
-        
+
         # Get CRM data for this asset
         crm_data = {}
         try:

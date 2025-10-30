@@ -86,12 +86,6 @@ from .serializers import (
 from .llm.select import get_llm
 from .llm.types import BaseGenOptions, ChatMessage
 
-# Google API exceptions for better error handling
-try:
-    from google.api_core import exceptions as google_exceptions
-except ImportError:
-    google_exceptions = None
-
 # Tenacity retry errors
 try:
     from tenacity import RetryError
@@ -3693,7 +3687,6 @@ def asset_share_message(request, asset_id):
     )
 
     message = None
-    error_info = None
     try:
         llm = get_llm(request)
         options = BaseGenOptions(temperature=0.2)
@@ -3705,121 +3698,31 @@ def asset_share_message(request, asset_id):
             ChatMessage(role="user", content=prompt),
         ]
         result = async_to_sync(llm.chat)(payload, options)
-        if isinstance(result, str) and result.strip():
-            message = result.strip()
+        if isinstance(result, str):
+            message = result.strip() or None
     except Exception as e:
-        # Unwrap tenacity RetryError to get the actual exception
-        actual_exception = e
-        if RetryError and isinstance(e, RetryError):
-            # RetryError.last_attempt contains the last attempt's exception
-            if hasattr(e, 'last_attempt') and e.last_attempt and e.last_attempt.exception():
-                actual_exception = e.last_attempt.exception()
-            # Also try accessing __cause__ or __context__ if available
-            elif hasattr(e, '__cause__') and e.__cause__:
-                actual_exception = e.__cause__
-            elif hasattr(e, '__context__') and e.__context__:
-                actual_exception = e.__context__
-        
-        # Handle specific Google API errors
-        # Also check error message strings as fallback (useful when exception is wrapped)
-        error_msg = str(actual_exception).lower()
-        if google_exceptions:
-            if isinstance(actual_exception, google_exceptions.TooManyRequests) or "too many requests" in error_msg or "quota exceeded" in error_msg or "rate limit" in error_msg:
-                error_info = {
-                    "type": "rate_limit",
-                    "message": "API rate limit exceeded. Please try again in a minute.",
-                    "details": str(actual_exception),
-                }
-                logger.warning(
-                    "Rate limit exceeded for asset %s: %s", asset_id, actual_exception
-                )
-            elif isinstance(actual_exception, google_exceptions.NotFound) or "not found" in error_msg or "404" in error_msg:
-                error_info = {
-                    "type": "model_not_found",
-                    "message": "AI model not available. Please check your API configuration.",
-                    "details": str(actual_exception),
-                }
-                logger.error(
-                    "Model not found for asset %s: %s", asset_id, actual_exception
-                )
-            elif isinstance(actual_exception, google_exceptions.InvalidArgument):
-                error_info = {
-                    "type": "invalid_request",
-                    "message": "Invalid request to AI service. Please try again.",
-                    "details": str(actual_exception),
-                }
-                logger.error(
-                    "Invalid argument for asset %s: %s", asset_id, actual_exception
-                )
-            elif isinstance(actual_exception, google_exceptions.PermissionDenied):
-                error_info = {
-                    "type": "permission_denied",
-                    "message": "API access denied. Please check your API key configuration.",
-                    "details": str(actual_exception),
-                }
-                logger.error(
-                    "Permission denied for asset %s: %s", asset_id, actual_exception
-                )
-            elif isinstance(actual_exception, google_exceptions.ServiceUnavailable):
-                error_info = {
-                    "type": "service_unavailable",
-                    "message": "AI service is temporarily unavailable. Please try again later.",
-                    "details": str(actual_exception),
-                }
-                logger.error(
-                    "Service unavailable for asset %s: %s", asset_id, actual_exception
-                )
-        
-        # For unknown errors or if google_exceptions is not available
-        if not error_info:
-            error_info = {
-                "type": "unknown_error",
-                "message": "An error occurred while generating the message.",
-                "details": str(actual_exception),
-            }
-            logger.exception(
-                "Error generating marketing message for asset %s: %s", asset_id, actual_exception
-            )
+        logger.exception(
+            "Error generating marketing message for asset %s: %s", asset_id, e
+        )
+        message = None
 
-    # Generate fallback message if LLM generation failed
-    # Always ensure we have a message, even if fallback generation fails
-    try:
-        if not message:
-            addr = listing.get("address") or ""
-            price = listing.get("price")
-            rooms = listing.get("rooms")
-            area = listing.get("netSqm")
-            price_s = " במחיר {:,}₪".format(price) if price else ""
-            rooms_s = "{} חדרים".format(int(rooms)) if rooms else "דירה"
-            area_s = ' {} מ"ר'.format(int(area)) if area else ""
-            message = "למכירה {}{} ב{}{}.".format(rooms_s, area_s, addr, price_s)
-            logger.info("Using fallback message for asset %s", asset_id)
-        else:
-            logger.info("AI-generated message for asset %s", asset_id)
-    except Exception as fallback_error:
-        # If fallback generation fails, use a basic message
-        logger.error("Error generating fallback message for asset %s: %s", asset_id, fallback_error)
-        message = "למכירה נכס ב{}.".format(asset.city or "תל אביב")
-
-    # Ensure message is never None or empty - final safety check
     if not message:
-        message = "למכירה נכס ב{}.".format(asset.city or "תל אביב")
-        logger.warning("Message was empty after all fallbacks for asset %s, using minimal message", asset_id)
+        addr = listing.get("address") or ""
+        price = listing.get("price")
+        rooms = listing.get("rooms")
+        area = listing.get("netSqm")
+        price_s = " במחיר {:,}₪".format(price) if price else ""
+        rooms_s = "{} חדרים".format(int(rooms)) if rooms else "דירה"
+        area_s = ' {} מ"ר'.format(int(area)) if area else ""
+        message = "למכירה {}{} ב{}{}.".format(rooms_s, area_s, addr, price_s)
+
+    logger.info("Marketing message generated for asset %s", asset_id)
 
     token = secrets.token_urlsafe(16)
     ShareToken.objects.create(asset=asset, token=token)
     share_url = "/r/{}".format(token)
 
     response_data = {"text": message, "share_url": share_url}
-    if error_info:
-        # Include error info but still return the fallback message
-        response_data["error"] = error_info
-        # For rate limits, return 429; for other API errors, return 503; otherwise 200 with warning
-        if error_info["type"] == "rate_limit":
-            return Response(response_data, status=status.HTTP_429_TOO_MANY_REQUESTS)
-        elif error_info["type"] in ("service_unavailable", "model_not_found", "permission_denied"):
-            return Response(response_data, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        # For other errors, still return 200 but with error info
 
     return Response(response_data)
 

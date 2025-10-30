@@ -58,7 +58,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
-const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai'] as const
+const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai', 'groq'] as const
 type SupportedLLMProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number]
 
 const normalizeProvider = (value: string | null | undefined): SupportedLLMProvider | null => {
@@ -70,7 +70,7 @@ const normalizeProvider = (value: string | null | undefined): SupportedLLMProvid
 }
 
 const DEFAULT_LLM_PROVIDER: SupportedLLMProvider =
-  normalizeProvider(process.env.LLM_DEFAULT_PROVIDER) ?? 'gemini'
+  normalizeProvider(process.env.LLM_DEFAULT_PROVIDER) ?? 'groq'
 
 const ALL_SECTIONS = ['summary','permits','plans','environment', 'rights','comparables','mortgage','appendix']
 

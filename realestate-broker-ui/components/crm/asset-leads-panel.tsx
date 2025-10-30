@@ -131,9 +131,9 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
             assetAddress={assetAddress}
             onCreated={handleContactAssigned}
             trigger={
-              <Button size="sm" className="w-full sm:w-auto">
-                <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
-                שייך לקוח
+              <Button size="sm" className="flex items-center justify-center gap-1.5">
+                <Plus className="h-4 w-4 shrink-0" />
+                <span>שייך לקוח</span>
               </Button>
             }
           />
@@ -156,9 +156,9 @@ export function AssetLeadsPanel({ assetId, assetAddress }: AssetLeadsPanelProps)
               assetAddress={assetAddress}
               onCreated={handleContactAssigned}
               trigger={
-                <Button size="sm">
-                  <Plus className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
-                  שייך לקוח ראשון
+                <Button size="sm" className="flex items-center justify-center gap-1.5">
+                  <Plus className="h-4 w-4 shrink-0" />
+                  <span>שייך לקוח ראשון</span>
                 </Button>
               }
             />

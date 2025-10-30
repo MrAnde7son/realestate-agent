@@ -191,6 +191,113 @@ function createColumns({
     )
   },
   {
+    header: 'עיר',
+    accessorKey: 'city',
+    cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <span>{value ?? '—'}</span>
+    },
+  },
+  {
+    header: 'רחוב',
+    accessorKey: 'street',
+    cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <span>{value ?? '—'}</span>
+    },
+  },
+  {
+    header: 'מס׳',
+    id: 'number',
+    accessorFn: row => row.number ?? null,
+    cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
+    },
+  },
+  {
+    header: 'דירה',
+    accessorKey: 'apartment',
+    cell: info => {
+      const value = info.getValue() as string | number | null | undefined
+      return <span>{value == null || value === '' ? '—' : String(value)}</span>
+    },
+  },
+  {
+    header: 'גוש',
+    accessorKey: 'block',
+    cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <span>{value ?? '—'}</span>
+    },
+  },
+  {
+    header: 'חלקה',
+    accessorKey: 'parcel',
+    cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <span>{value ?? '—'}</span>
+    },
+  },
+  {
+    header: 'תת חלקה',
+    accessorKey: 'subparcel',
+    cell: info => {
+      const value = info.getValue() as string | null | undefined
+      return <span>{value ?? '—'}</span>
+    },
+  },
+  {
+    header: 'מ"ר נטו',
+    id: 'area',
+    accessorFn: row => row.area ?? row.primaryListing?.size ?? null,
+    cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : `${fmtNumber(v)} מ"ר`}</span>
+    },
+  },
+  {
+    header: 'מ"ר כולל',
+    accessorKey: 'totalArea',
+    cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : `${fmtNumber(v)} מ"ר`}</span>
+    },
+  },
+  {
+    header: 'מ"ר מגרש',
+    accessorKey: 'subparcelArea',
+    cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : `${fmtNumber(v)} מ"ר`}</span>
+    },
+  },
+  {
+    header: 'מ"ר בנוי',
+    accessorKey: 'builtArea',
+    cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : `${fmtNumber(v)} מ"ר`}</span>
+    },
+  },
+  {
+    header: 'קומה',
+    id: 'floor',
+    accessorFn: row => row.floor ?? row.primaryListing?.floor ?? null,
+    cell: info => {
+      const v = info.getValue() as number | string | null | undefined
+      return <span>{v == null || v === '' ? '—' : String(v)}</span>
+    },
+  },
+  {
+    header: 'סה"כ קומות',
+    accessorKey: 'totalFloors',
+    cell: info => {
+      const v = info.getValue() as number | null | undefined
+      return <span className="font-mono">{v == null ? '—' : fmtNumber(v)}</span>
+    },
+  },
+  {
     header: 'סוג עסקה',
     id: 'listingType',
     accessorFn: row => row.listingType ?? row.primaryListing?.listingType ?? null,
@@ -667,6 +774,7 @@ const DEFAULT_VISIBLE_COLUMNS = new Set([
   'select',
   'address',
   'price',
+  'area',
   'rentPrice',
   'modelPrice',
   'rentEstimate',
@@ -676,6 +784,19 @@ const DEFAULT_VISIBLE_COLUMNS = new Set([
 const ALL_COLUMN_IDS = [
   'select',
   'address',
+  'city',
+  'street',
+  'number',
+  'apartment',
+  'block',
+  'parcel',
+  'subparcel',
+  'area',
+  'totalArea',
+  'subparcelArea',
+  'builtArea',
+  'floor',
+  'totalFloors',
   'assetStatus',
   'recentDeal',
   'adType',

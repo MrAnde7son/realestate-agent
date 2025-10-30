@@ -75,6 +75,12 @@ export type Asset = {
   permitStatus?: string | null;
   permitDate?: string | null;
   assetStatus?: string | null;
+  last_enriched_at?: string | null;
+  lastEnrichedAt?: string | null;
+  updated_at?: string | null;
+  updatedAt?: string | null;
+  created_at?: string | null;
+  createdAt?: string | null;
   documents?: any[];
   assetId?: number | null;
   primaryListing?: {
@@ -712,6 +718,12 @@ export function normalizeFromBackend(row: any): Asset {
 
   const typeValue = determineAssetType(row) ?? primaryListing?.propertyType ?? null;
 
+  const lastEnrichedAtValue = coerceDateString(
+    row.last_enriched_at ?? row.lastEnrichedAt ?? row.lastUpdatedAt ?? null
+  );
+  const updatedAtValue = coerceDateString(row.updated_at ?? row.updatedAt ?? null);
+  const createdAtValue = coerceDateString(row.created_at ?? row.createdAt ?? null);
+
   const bedroomsValue =
     row.bedrooms != null
       ? parseNumeric(row.bedrooms)
@@ -801,6 +813,12 @@ export function normalizeFromBackend(row: any): Asset {
     permitStatus: row.permitStatus ?? row.permit_status ?? null,
     permitDate: row.permitDate ?? row.permit_date ?? null,
     assetStatus: row.assetStatus ?? row.asset_status ?? row.status ?? null,
+    last_enriched_at: lastEnrichedAtValue,
+    lastEnrichedAt: lastEnrichedAtValue,
+    updated_at: updatedAtValue,
+    updatedAt: updatedAtValue,
+    created_at: createdAtValue,
+    createdAt: createdAtValue,
     documents: Array.isArray(row.documents) ? row.documents : (row.meta?.documents || []),
     assetId: row.assetId ?? row.asset_id ?? null,
     primaryListing,

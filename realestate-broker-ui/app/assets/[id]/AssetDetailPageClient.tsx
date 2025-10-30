@@ -1977,7 +1977,7 @@ useDedupedEffect(() => {
           <Breadcrumb className="mb-4">
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href="/" className="flex items-center gap-1">
+                <BreadcrumbLink href="/assets" className="flex items-center gap-1">
                   <Home className="h-4 w-4" />
                   בית
                 </BreadcrumbLink>
@@ -2130,6 +2130,18 @@ useDedupedEffect(() => {
       return `קומה ${asString}`
     }
     return asString
+  })()
+
+  // Fallback ppm for header: prefer asset.pricePerSqm, else compute from listing price and size
+  const headerPricePerSqm: number | null = (() => {
+    if (asset?.pricePerSqm !== undefined && asset?.pricePerSqm !== null) return asset.pricePerSqm as number
+    if (listingPriceValue !== null && listingSizeValue) {
+      const denom = Number(listingSizeValue)
+      if (Number.isFinite(denom) && denom > 0) {
+        return Math.round(Number(listingPriceValue) / denom)
+      }
+    }
+    return null
   })()
   const listingDescriptionValue =
     typeof primaryListing?.description === 'string'
@@ -2323,7 +2335,7 @@ useDedupedEffect(() => {
         <Breadcrumb className="mb-4">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/" className="flex items-center gap-1">
+              <BreadcrumbLink href="/assets" className="flex items-center gap-1">
                 <Home className="h-4 w-4" />
                 בית
               </BreadcrumbLink>
@@ -2371,37 +2383,23 @@ useDedupedEffect(() => {
           <div className="w-full text-start space-y-2 md:w-auto">
             <div className="text-3xl font-bold">{headerPriceDisplay ?? '—'}</div>
             <div className="text-muted-foreground">
-              {headerPricePerSqmDisplay ? `${headerPricePerSqmDisplay}/מ״ר` : '—'}
+              {headerPricePerSqm !== null
+                ? `${formatCurrency(headerPricePerSqm)}/מ״ר`
+                : '—'}
             </div>
-            {listingTypeLabel && (
-              <Badge variant="secondary" className="w-fit text-xs font-medium">
-                {listingTypeLabel}
-              </Badge>
-            )}
-            {(createdByDisplay || shouldShowLastUpdatedBy || assetUpdatedAtDisplay || (asset.recent_contributions?.length ?? 0) > 0) && (
+            {/* Listing contact and creation date */}
+            {(primaryListing?.contactName || listingDatePostedDisplay) && (
               <div className="text-xs text-muted-foreground mt-2 space-y-1 text-start">
-                {createdByDisplay && (
+                {primaryListing?.contactName && (
                   <div className="text-start">
-                    <span className="font-medium">נוצר על ידי: </span>
-                    <span>{createdByDisplay}</span>
+                    <span className="font-medium">איש קשר: </span>
+                    <span>{primaryListing.contactName}</span>
                   </div>
                 )}
-                {assetUpdatedAtDisplay && (
+                {listingDatePostedDisplay && (
                   <div className="text-start">
-                    <span className="font-medium">עודכן לאחרונה: </span>
-                    <span>{assetUpdatedAtDisplay}</span>
-                  </div>
-                )}
-                {shouldShowLastUpdatedBy && lastUpdatedByDisplay && (
-                  <div className="text-start">
-                    <span className="font-medium">עודכן על ידי: </span>
-                    <span>{lastUpdatedByDisplay}</span>
-                  </div>
-                )}
-                {asset.recent_contributions && asset.recent_contributions.length > 0 && (
-                  <div className="text-start">
-                    <span className="font-medium">תרומות אחרונות: </span>
-                    <span>{asset.recent_contributions.length}</span>
+                    <span className="font-medium">פורסם: </span>
+                    <span>{listingDatePostedDisplay}</span>
                   </div>
                 )}
               </div>

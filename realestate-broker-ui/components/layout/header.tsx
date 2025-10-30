@@ -11,7 +11,7 @@ import { GlobalSearch } from "./global-search"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Home, Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft, X, LineChart } from "lucide-react"
+import { Building, AlertCircle, Calculator, BarChart3, User, CreditCard, Settings, LogOut, Receipt, Banknote, Users, Plus, ArrowLeft, X, LineChart } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth-context"
@@ -22,7 +22,6 @@ interface HeaderProps {
 
 // Mobile navigation items
 const mobileNavigation = [
-  { name: "בית", href: "/", icon: Home },
   { name: "נכסים", href: "/assets", icon: Building },
   { name: "לקוחות", href: "/crm", icon: Users },
   { name: "התראות", href: "/alerts", icon: AlertCircle },
@@ -205,8 +204,8 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         </Button>
 
         <Link
-          href="/"
-          aria-label="עמוד הבית"
+          href="/assets"
+          aria-label="עמוד הנכסים"
           className="flex items-center gap-2 min-h-[44px]"
         >
           <div className="sm:hidden">

@@ -22,12 +22,6 @@ import { useAuth } from "@/lib/auth-context"
 
 const searchItems = [
   {
-    title: "בית",
-    href: "/",
-    icon: "🏠",
-    description: "דף הבית והסקירה הכללית"
-  },
-  {
     title: "נכסים",
     href: "/assets",
     icon: "🏢",

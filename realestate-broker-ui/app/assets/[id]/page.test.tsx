@@ -293,7 +293,7 @@ describe('AssetDetailPage', () => {
 
     await waitFor(() => {
       expect(global.alert).toHaveBeenCalledWith('Quota exceeded')
-      expect(lastShareMessagePayload).toEqual({ language: 'he', provider: 'groq' })
+      expect(lastShareMessagePayload).toEqual({ language: 'he', provider: 'gemini' })
     })
   })
 

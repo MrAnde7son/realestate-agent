@@ -2242,6 +2242,15 @@ useDedupedEffect(() => {
         provider,
       })
       
+      // Check for error response
+      if (!response.ok || response.error) {
+        const errorMessage = (response.data as any)?.details || (response.data as any)?.error || response.error || 'Failed to create message'
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(errorMessage)
+        }
+        return
+      }
+      
       // Backend always returns a message (AI-generated or fallback), even on errors
       // Check if we have data with a text property, regardless of response.ok
       if (response.data) {
@@ -2269,6 +2278,10 @@ useDedupedEffect(() => {
       // Use warn instead of error to avoid triggering error overlay in dev mode
       // Backend should always return fallback, so this is unlikely
       console.warn('Message generation request failed:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create message'
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(errorMessage)
+      }
     } finally {
       setCreatingMessage(false)
     }

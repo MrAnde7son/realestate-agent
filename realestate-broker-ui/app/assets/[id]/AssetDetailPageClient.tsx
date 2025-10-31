@@ -3776,19 +3776,19 @@ useDedupedEffect(() => {
 
           </TabsContent>
 
-          <TabsContent value="permits" className="space-y-4">
+          <TabsContent value="permits" className="space-y-4" dir="rtl">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="text-start">
+                <div className="flex justify-between items-start" dir="rtl">
+                  <div>
+                    <CardTitle className="text-end">היתרים</CardTitle>
+                    <CardDescription className="text-end">נתונים מעודכנים ממערכת ההיתרים של העירייה</CardDescription>
+                  </div>
+                  <div className="text-end">
                     <div className="text-2xl font-bold">{permitsData.total}</div>
                     <div className="text-sm text-muted-foreground">
                       בקשות פעילות ברדיוס {permitRadius} מטר
                     </div>
-                  </div>
-                  <div>
-                    <CardTitle>היתרים</CardTitle>
-                    <CardDescription>נתונים מעודכנים ממערכת ההיתרים של העירייה</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -3798,47 +3798,47 @@ useDedupedEffect(() => {
                 <CardHeader>נתוני גוש חלקה</CardHeader>
                 <CardBody className="space-y-2" dir="rtl">
                   {/* Parcel Information */}
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">שטח חלקה:</span>
                     {renderValue(asset.parcelArea ? `${asset.parcelArea.toLocaleString()} מ״ר` : '—', 'parcelArea')}
                   </div>
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">סטטוס חלקה:</span>
                     {renderValue(asset.parcelStatus, 'parcelStatus')}
                   </div>
                   
                   {/* Block Information */}
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">שטח גוש:</span>
                     {renderValue(asset.blockArea ? `${asset.blockArea.toLocaleString()} מ״ר` : '—', 'blockArea')}
                   </div>
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">מספר חלקות בגוש:</span>
                     {renderValue(asset.blockTotalParcels, 'blockTotalParcels')}
                   </div>
                   
                   {/* Permit Information */}
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">מספר היתרים:</span>
                     {renderValue(asset.totalPermits, 'totalPermits')}
                   </div>
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">מספר בקשה:</span>
                     {renderValue(asset.permitRequestNum, 'permitRequestNum')}
                   </div>
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">יחידות דיור:</span>
                     {renderValue(asset.permitHousingUnits, 'permitHousingUnits')}
                   </div>
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">שטח מגורים:</span>
                     {renderValue(asset.permitResidentialArea ? `${asset.permitResidentialArea.toLocaleString()} מ״ר` : '—', 'permitResidentialArea')}
                   </div>
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">שטח חניה:</span>
                     {renderValue(asset.permitParkingArea ? `${asset.permitParkingArea.toLocaleString()} מ״ר` : '—', 'permitParkingArea')}
                   </div>
-                  <div className="flex justify-between text-start">
+                  <div className="flex justify-between text-end">
                     <span className="text-muted-foreground">יחידות חניה:</span>
                     {renderValue(asset.permitParkingUnits, 'permitParkingUnits')}
                   </div>
@@ -3851,7 +3851,7 @@ useDedupedEffect(() => {
                 </CardHeader>
                 <CardContent className="space-y-4" dir="rtl">
                   <div className="space-y-2">
-                    <div className="flex justify-between text-start">
+                    <div className="flex justify-between text-end">
                       <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
                       {renderValue(
                         <Badge variant={asset.lastPermitQ ? 'success' : 'neutral'}>
@@ -3860,13 +3860,13 @@ useDedupedEffect(() => {
                         'lastPermitQ'
                       )}
                     </div>
-                    <div className="flex justify-between text-start">
+                    <div className="flex justify-between text-end">
                       <span className="text-muted-foreground">פעילות בנייה באזור:</span>
                       <span>{asset.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t">
-                    <div className="text-sm text-muted-foreground text-start">
+                    <div className="text-sm text-muted-foreground text-end">
                       נתונים מעודכנים ממערכת היתרי הבנייה של עיריית תל אביב
                     </div>
                   </div>
@@ -3879,15 +3879,15 @@ useDedupedEffect(() => {
                 </CardHeader>
                 <CardContent className="space-y-4" dir="rtl">
                   <div className="space-y-2">
-                    <div className="flex justify-between text-start">
+                    <div className="flex justify-between text-end">
                       <span className="text-muted-foreground">היתר בתוקף:</span>
                       {renderValue(<Badge variant="success">כן</Badge>, 'permitValid')}
                     </div>
-                    <div className="flex justify-between text-start">
+                    <div className="flex justify-between text-end">
                       <span className="text-muted-foreground">סוג היתר:</span>
                       {renderValue('מגורים', 'permitType')}
                     </div>
-                    <div className="flex justify-between text-start">
+                    <div className="flex justify-between text-end">
                       <span className="text-muted-foreground">אישורי חיבור:</span>
                       {renderValue(<Badge variant="success">מאושר</Badge>, 'utilityApprovals')}
                     </div>

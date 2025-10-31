@@ -1,53 +1,127 @@
-import React, { type HTMLAttributes, forwardRef } from 'react'
+import React, {
+  createContext,
+  useContext,
+  type HTMLAttributes,
+  forwardRef,
+} from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const cardVariants = cva(
-  'rounded-lg bg-card/95 backdrop-blur-sm text-card-foreground shadow-md',
+  'relative flex flex-col rounded-[var(--radius-2)] bg-card/95 text-card-foreground shadow-[var(--shadow-2)] backdrop-blur-sm transition-shadow duration-200',
   {
     variants: {
       variant: {
-        default: 'bg-card/95 backdrop-blur-sm shadow-md',
-        elevated: 'bg-card backdrop-blur-md shadow-lg',
-        outlined: 'bg-card/95 backdrop-blur-sm border-2 border-border shadow-md',
-        ghost: 'bg-transparent backdrop-blur-none shadow-none',
+        elevated: 'border border-border/60 shadow-[var(--shadow-2)] bg-card/95',
+        outline: 'border border-border/70 bg-background/95 shadow-none',
+        ghost: 'border border-transparent bg-transparent shadow-none backdrop-blur-none',
+      },
+      size: {
+        sm: '',
+        md: '',
+        lg: '',
       },
     },
     defaultVariants: {
-      variant: 'default',
+      variant: 'elevated',
+      size: 'md',
     },
   }
 )
 
+type CardVariantProps = VariantProps<typeof cardVariants>
+type CardSize = NonNullable<CardVariantProps['size']>
+
+const CardContext = createContext<{ size: CardSize }>({ size: 'md' })
+
+function useCardContext() {
+  return useContext(CardContext)
+}
+
+const headerPadding: Record<CardSize, string> = {
+  sm: 'px-4 py-3',
+  md: 'px-6 py-4',
+  lg: 'px-8 py-6',
+}
+
+const headerGap: Record<CardSize, string> = {
+  sm: 'gap-2',
+  md: 'gap-3',
+  lg: 'gap-4',
+}
+
+const sectionPadding: Record<CardSize, string> = {
+  sm: 'px-4 pb-4 pt-0',
+  md: 'px-6 pb-6 pt-0',
+  lg: 'px-8 pb-8 pt-0',
+}
+
+const footerPadding: Record<CardSize, string> = {
+  sm: 'px-4 pb-4 pt-0',
+  md: 'px-6 pb-6 pt-0',
+  lg: 'px-8 pb-8 pt-0',
+}
+
 export interface CardProps
   extends HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof cardVariants> {}
+    CardVariantProps {}
 
-export function Card({ variant = 'default', className, ...props }: CardProps) {
+export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
+  { size = 'md', className, variant, ...props },
+  ref
+) {
+  return (
+    <CardContext.Provider value={{ size }}>
+      <div
+        ref={ref}
+        className={cn(cardVariants({ size, variant }), className)}
+        {...props}
+      />
+    </CardContext.Provider>
+  )
+})
+
+export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(function CardHeader(
+  { className, ...props },
+  ref
+) {
+  const { size } = useCardContext()
   return (
     <div
-      className={cn(cardVariants({ variant }), className)}
+      ref={ref}
+      className={cn('flex flex-col', headerGap[size], headerPadding[size], className)}
       {...props}
     />
   )
-}
+})
 
-export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export const CardBody = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(function CardBody(
+  { className, ...props },
+  ref
+) {
+  const { size } = useCardContext()
   return (
     <div
-      className={cn('flex flex-col space-y-1.5 p-6', className)}
+      ref={ref}
+      className={cn(sectionPadding[size], className)}
       {...props}
     />
   )
-}
+})
 
-export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('p-6 pt-0', className)} {...props} />
-}
-
-export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('p-6 pt-0', className)} {...props} />
-}
+export const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(function CardContent(
+  { className, ...props },
+  ref
+) {
+  const { size } = useCardContext()
+  return (
+    <div
+      ref={ref}
+      className={cn(sectionPadding[size], className)}
+      {...props}
+    />
+  )
+})
 
 export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => {
@@ -71,14 +145,19 @@ export function CardDescription({ className, ...props }: HTMLAttributes<HTMLPara
   )
 }
 
-export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(function CardFooter(
+  { className, ...props },
+  ref
+) {
+  const { size } = useCardContext()
   return (
     <div
-      className={cn('flex items-center p-6 pt-0', className)}
+      ref={ref}
+      className={cn('flex items-center', footerPadding[size], className)}
       {...props}
     />
   )
-}
+})
 
 export { cardVariants }
 export default Card

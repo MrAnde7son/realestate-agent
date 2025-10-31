@@ -1411,7 +1411,7 @@ export default function DealExpensesPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {buyers.map((buyer, index) => (
-                <Card key={index} variant="outlined" className="p-4">
+                <Card key={index} variant="outline" className="p-4">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium text-sm">רוכש {index + 1}</h4>
@@ -1545,7 +1545,7 @@ export default function DealExpensesPage() {
                   services[key].includesVat === defaultValue.includesVat
                 
                 return (
-                  <Card key={key} variant="outlined" className="p-4">
+                  <Card key={key} variant="outline" className="p-4">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">

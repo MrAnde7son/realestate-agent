@@ -1,27 +1,42 @@
 import * as React from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Database } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
+import { Badge, type BadgeProps } from '@/components/ui/Badge';
 
 interface DataBadgeProps {
   source?: string;
   fetchedAt?: string;
   url?: string;
   defaultOpen?: boolean;
+  tone?: 'status' | 'type' | 'risk';
 }
 
-export default function DataBadge({ source, fetchedAt, url, defaultOpen = false }: DataBadgeProps) {
+const toneToVariant: Record<NonNullable<DataBadgeProps['tone']>, BadgeProps['variant']> = {
+  status: 'info',
+  type: 'neutral',
+  risk: 'warning',
+};
+
+export default function DataBadge({
+  source,
+  fetchedAt,
+  url,
+  defaultOpen = false,
+  tone = 'type',
+}: DataBadgeProps) {
   if (!source || !fetchedAt) return null;
   const date = new Date(fetchedAt).toISOString().split('T')[0];
+  const badgeVariant = toneToVariant[tone];
   return (
     <Tooltip.Provider delayDuration={0}>
       <Tooltip.Root defaultOpen={defaultOpen}>
         <Tooltip.Trigger asChild>
           <Badge
-            variant="neutral"
+            variant={badgeVariant}
             dir="rtl"
             className="gap-1 text-[10px] px-1 rtl:flex-row-reverse font-normal"
             data-testid="data-badge"
+            data-semantic={tone}
           >
             <Database className="w-3 h-3" />
             <span className="hidden sm:inline">{source}</span>

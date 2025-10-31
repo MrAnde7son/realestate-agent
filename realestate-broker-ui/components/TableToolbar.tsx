@@ -507,24 +507,52 @@ export default function TableToolbar({
 
   const additionalFiltersActive = additionalFilters?.some(isAdditionalFilterActive) ?? false;
 
-  const hasActiveFilters =
-    (cityFilter && cityFilter.value !== 'all') ||
-    (typeFilter && typeFilter.value !== 'all') ||
-    (priceMinFilter && priceMinFilter.value !== undefined) ||
-    (priceMaxFilter && priceMaxFilter.value !== undefined) ||
-    (pricePerSqmMinFilter && pricePerSqmMinFilter.value !== undefined) ||
-    (pricePerSqmMaxFilter && pricePerSqmMaxFilter.value !== undefined) ||
-    (areaMinFilter && areaMinFilter.value !== undefined) ||
-    (areaMaxFilter && areaMaxFilter.value !== undefined) ||
-    (remainingRightsMinFilter && remainingRightsMinFilter.value !== undefined) ||
-    (remainingRightsMaxFilter && remainingRightsMaxFilter.value !== undefined) ||
-    (rentalSaleFilter && rentalSaleFilter.value !== 'all') ||
-    (adTypeFilter && adTypeFilter.value !== 'all') ||
-    (commercialFilter && commercialFilter.value !== 'all') ||
-    additionalFiltersActive ||
-    (statusFilters && statusFilters.value !== 'all') ||
-    (dateRange && (dateRange.from || dateRange.to)) ||
-    userAssetsActive;
+  // Count active filters
+  const activeFilterCount = React.useMemo(() => {
+    let count = 0;
+    if (cityFilter && cityFilter.value !== 'all') count++;
+    if (typeFilter && typeFilter.value !== 'all') count++;
+    if (priceMinFilter && priceMinFilter.value !== undefined) count++;
+    if (priceMaxFilter && priceMaxFilter.value !== undefined) count++;
+    if (pricePerSqmMinFilter && pricePerSqmMinFilter.value !== undefined) count++;
+    if (pricePerSqmMaxFilter && pricePerSqmMaxFilter.value !== undefined) count++;
+    if (areaMinFilter && areaMinFilter.value !== undefined) count++;
+    if (areaMaxFilter && areaMaxFilter.value !== undefined) count++;
+    if (remainingRightsMinFilter && remainingRightsMinFilter.value !== undefined) count++;
+    if (remainingRightsMaxFilter && remainingRightsMaxFilter.value !== undefined) count++;
+    if (rentalSaleFilter && rentalSaleFilter.value !== 'all') count++;
+    if (adTypeFilter && adTypeFilter.value !== 'all') count++;
+    if (commercialFilter && commercialFilter.value !== 'all') count++;
+    if (statusFilters && statusFilters.value !== 'all') count++;
+    if (dateRange && (dateRange.from || dateRange.to)) count++;
+    if (userAssetsActive) count++;
+    // Count active additional filters
+    additionalFilters?.forEach(filter => {
+      if (isAdditionalFilterActive(filter)) count++;
+    });
+    return count;
+  }, [
+    cityFilter?.value,
+    typeFilter?.value,
+    priceMinFilter?.value,
+    priceMaxFilter?.value,
+    pricePerSqmMinFilter?.value,
+    pricePerSqmMaxFilter?.value,
+    areaMinFilter?.value,
+    areaMaxFilter?.value,
+    remainingRightsMinFilter?.value,
+    remainingRightsMaxFilter?.value,
+    rentalSaleFilter?.value,
+    adTypeFilter?.value,
+    commercialFilter?.value,
+    statusFilters?.value,
+    dateRange,
+    userAssetsActive,
+    additionalFilters,
+    isAdditionalFilterActive,
+  ]);
+
+  const hasActiveFilters = activeFilterCount > 0;
 
   const sanitizedAdditionalFilters = React.useMemo(
     () => additionalFilters.filter((filter) => filter.key !== 'userAssets'),
@@ -1713,8 +1741,8 @@ export default function TableToolbar({
                   <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                   <span className="hidden sm:inline">סינון</span>
                   {hasActiveFilters && (
-                    <Badge variant="secondary" className="h-4 w-4 sm:h-5 sm:w-5 p-0 flex items-center justify-center text-xs shrink-0">
-                      !
+                    <Badge variant="secondary" className="h-4 min-w-4 sm:h-5 sm:min-w-5 px-1 sm:px-1.5 flex items-center justify-center text-xs shrink-0 font-semibold">
+                      {activeFilterCount}
                     </Badge>
                   )}
                 </Button>
@@ -1726,15 +1754,21 @@ export default function TableToolbar({
                   <div className="space-y-4 max-h-[calc(100vh-120px)] overflow-y-auto pe-2">
                     <div className="flex items-center justify-between rtl:flex-row-reverse">
                       {hasActiveFilters && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={clearAllFilters}
-                          className="h-8 rounded-full px-3"
-                        >
-                          <X className="h-3 w-3 me-1" />
-                          נקה הכל
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {activeFilterCount} סינונים פעילים
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearAllFilters}
+                            className="h-8 rounded-full px-3"
+                            aria-label="נקה את כל הסינונים"
+                          >
+                            <X className="h-3 w-3 me-1" />
+                            נקה הכל
+                          </Button>
+                        </div>
                       )}
                     </div>
 

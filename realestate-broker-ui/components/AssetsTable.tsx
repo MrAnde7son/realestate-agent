@@ -1,13 +1,13 @@
 'use client'
 import * as React from 'react'
-import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, useReactTable, ColumnResizeMode, PaginationState, Updater } from '@tanstack/react-table'
+import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, getSortedRowModel, useReactTable, ColumnResizeMode, PaginationState, Updater, SortingState } from '@tanstack/react-table'
 import type { Asset } from '@/lib/normalizers/asset'
 import { fmtCurrency, fmtNumber, fmtPct } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Download, Bell, Eye, Search, Plus, Phone, Play, Star, StarOff, Handshake } from 'lucide-react'
+import { Trash2, Download, Bell, Eye, Search, Plus, Phone, Play, Star, StarOff, Handshake, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -122,7 +122,11 @@ function createColumns({
       />
     ),
     enableSorting: false,
-    enableHiding: false
+    enableHiding: false,
+    enableResizing: false,
+    size: 48,
+    minSize: 48,
+    maxSize: 48,
   },
   {
     header:'נכס',
@@ -474,6 +478,7 @@ function createColumns({
     { 
       header:'—', 
       id:'actions', 
+      enableSorting: false,
       enableResizing: false,
       size: 0,
       minSize: 0,
@@ -765,6 +770,9 @@ interface AssetsTableProps {
   pageCount?: number
   totalCount?: number
   pageSizeOptions?: number[]
+  manualSorting?: boolean
+  sortingState?: SortingState
+  onSortingChange?: (value: SortingState) => void
 }
 
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
@@ -856,6 +864,9 @@ export default function AssetsTable({
   pageCount,
   totalCount,
   pageSizeOptions,
+  manualSorting = false,
+  sortingState,
+  onSortingChange,
 }: AssetsTableProps){
   const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
@@ -891,14 +902,24 @@ export default function AssetsTable({
   const [mounted, setMounted] = React.useState(false)
   const [internalPagination, setInternalPagination] = React.useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
   const [exportingAll, setExportingAll] = React.useState(false)
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
 
   const manualPaginationActive = Boolean(manualPagination && paginationState && onPaginationChange)
+  const manualSortingActive = Boolean(manualSorting && sortingState !== undefined && onSortingChange)
   const resolvedPagination = manualPaginationActive ? paginationState! : internalPagination
+  const resolvedSorting = manualSortingActive ? sortingState! : internalSorting
 
   // Handle hydration mismatch
   React.useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Sync external sorting state when it changes
+  React.useEffect(() => {
+    if (manualSortingActive && sortingState) {
+      setInternalSorting(sortingState)
+    }
+  }, [manualSortingActive, sortingState])
 
   const handleOpenAlertModal = React.useCallback((assetId: number) => {
     setSelectedAssetId(assetId)
@@ -973,6 +994,22 @@ export default function AssetsTable({
     [manualPaginationActive, onPaginationChange, resolvedPagination]
   )
 
+  const handleSortingChange = React.useCallback(
+    (updater: Updater<SortingState>) => {
+      if (manualSortingActive) {
+        if (onSortingChange) {
+          const next = typeof updater === 'function' ? updater(resolvedSorting) : updater
+          onSortingChange(next)
+        }
+      } else {
+        setInternalSorting(prev =>
+          typeof updater === 'function' ? updater(prev) : updater
+        )
+      }
+    },
+    [manualSortingActive, onSortingChange, resolvedSorting]
+  )
+
   const computedPageCount = React.useMemo(() => {
     if (!manualPaginationActive) {
       return undefined
@@ -1019,16 +1056,26 @@ export default function AssetsTable({
       columnVisibility,
       columnSizing,
       pagination: resolvedPagination,
+      sorting: resolvedSorting,
     },
     enableRowSelection: true,
     enableColumnResizing: true,
+    enableSorting: true,
     columnResizeMode: 'onChange' as ColumnResizeMode,
     columnResizeDirection: 'rtl',
     onRowSelectionChange: setRowSelection,
     onColumnVisibilityChange: handleColumnVisibilityChange,
     onColumnSizingChange: handleColumnSizingChange,
     onPaginationChange: handlePaginationChange,
+    onSortingChange: handleSortingChange,
     getCoreRowModel: getCoreRowModel(),
+    ...(manualSortingActive
+      ? {
+          manualSorting: true as const,
+        }
+      : {
+          getSortedRowModel: getSortedRowModel(),
+        }),
     ...(manualPaginationActive
       ? {
           manualPagination: true as const,
@@ -1658,7 +1705,10 @@ export default function AssetsTable({
                 <Table style={{ minWidth: table.getCenterTotalSize() }}>
                 <THead>
                   <TR className="group">
-                    {table.getFlatHeaders().map(h=>(
+                    {table.getFlatHeaders().map(h=>{
+                      const sorted = h.column.getIsSorted()
+                      const canSort = h.column.getCanSort()
+                      return (
                       <TH 
                         key={h.id} 
                         className={`relative whitespace-nowrap ${h.column.id==='address'?'sticky end-0 bg-card z-10':''} ${
@@ -1666,12 +1716,36 @@ export default function AssetsTable({
                         } ${h.column.id === 'actions' ? 'w-full' : ''}`}
                         style={{ 
                           width: h.column.id === 'actions' ? 'auto' : h.getSize(),
-                          minWidth: h.column.id === 'address' ? '200px' : '80px'
+                          minWidth: h.column.id === 'address' ? '200px' : h.column.id === 'select' ? '48px' : '80px'
                         }}
                       >
                         <div className="flex items-center justify-between w-full">
-                          <div className="flex-1">
-                            {flexRender(h.column.columnDef.header, h.getContext())}
+                          <div className="flex-1 flex items-center gap-1">
+                            {canSort ? (
+                              <button
+                                type="button"
+                                onClick={h.column.getToggleSortingHandler()}
+                                className="flex items-center gap-1 text-xs font-medium hover:text-foreground transition-colors disabled:cursor-default"
+                                disabled={!canSort}
+                              >
+                                {flexRender(h.column.columnDef.header, h.getContext())}
+                                {canSort && (
+                                  <span className="text-muted-foreground">
+                                    {sorted === 'asc' ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : sorted === 'desc' ? (
+                                      <ArrowDown className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowUpDown className="h-3 w-3" />
+                                    )}
+                                  </span>
+                                )}
+                              </button>
+                            ) : (
+                              <div className="flex-1">
+                                {flexRender(h.column.columnDef.header, h.getContext())}
+                              </div>
+                            )}
                           </div>
                           {h.column.getCanResize() && (
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 ms-2">
@@ -1694,7 +1768,8 @@ export default function AssetsTable({
                           title="גרור לשינוי רוחב העמודה"
                         />
                       </TH>
-                    ))}
+                      )
+                    })}
                   </TR>
                 </THead>
                 <TBody
@@ -1761,7 +1836,7 @@ export default function AssetsTable({
                             className={`whitespace-nowrap ${cell.column.id==='address'?'sticky end-0 bg-card z-10':''} ${cell.column.id === 'actions' ? 'w-full' : ''}`}
                             style={{ 
                               width: cell.column.id === 'actions' ? 'auto' : cell.column.getSize(),
-                              minWidth: cell.column.id === 'address' ? '200px' : '80px'
+                              minWidth: cell.column.id === 'address' ? '200px' : cell.column.id === 'select' ? '48px' : '80px'
                             }}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}

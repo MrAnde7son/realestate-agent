@@ -62,7 +62,7 @@ const QUICK_FILTER_POPOVER_CLASSNAME =
   "w-[calc(100vw-2rem)] max-w-sm sm:w-80 rtl:text-right bg-background text-foreground";
 
 const TOOLBAR_PILL_BUTTON_CLASSES =
-  "min-h-[44px] rounded-full px-4 flex items-center gap-2 flex-shrink-0";
+  "h-8 sm:min-h-[44px] rounded-full px-2 sm:px-4 flex items-center gap-1 sm:gap-2 flex-shrink-0 text-xs sm:text-sm";
 
 interface FilterOptionOption {
   value: string;
@@ -1251,61 +1251,61 @@ export default function TableToolbar({
       advancedAdditionalFilters.some(isAdditionalFilterActive));
 
   return (
-    <div className="flex flex-col gap-3 p-3 sm:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
+    <div className="flex flex-col gap-2 p-2 sm:gap-3 sm:p-3 md:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
       {/* Search - Full width */}
       <div className="relative w-full">
-        <Search className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute end-2 sm:end-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
         <Input
           placeholder={searchPlaceholder}
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pe-10 w-full min-h-[44px]"
+          className="pe-8 sm:pe-10 w-full h-9 sm:min-h-[44px] text-sm sm:text-base"
           dir="rtl"
         />
       </div>
 
       {/* Layout controls - View mode (separate from table actions) */}
       <div className="flex w-full items-center justify-start" dir="rtl">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
             variant={viewMode === 'table' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('table')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
+            className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center p-0"
             title="תצוגת טבלה"
             aria-label="תצוגת טבלה"
          >
-            <List className="h-4 w-4" />
+            <List className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
           <Button
             variant={viewMode === 'cards' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('cards')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
+            className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center p-0"
             title="תצוגת כרטיסים"
             aria-label="תצוגת כרטיסים"
           >
-            <Grid3X3 className="h-4 w-4" />
+            <Grid3X3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
           <Button
             variant={viewMode === 'map' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('map')}
-            className="h-10 w-10 rounded-full flex items-center justify-center"
+            className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center p-0"
             title="תצוגת מפה"
             aria-label="תצוגת מפה"
           >
-            <Map className="h-4 w-4" />
+            <Map className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
         </div>
       </div>
 
       {/* Quick filters and toolbar actions */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between" dir="rtl">
+      <div className="flex flex-col gap-2 sm:gap-3 lg:flex-row lg:items-start lg:justify-between" dir="rtl">
         <div className="lg:flex-1">
           <div
             data-testid="quick-filters-container"
-            className="flex w-full flex-wrap items-center gap-2 pb-1 lg:pb-0"
+            className="flex w-full flex-wrap items-center gap-1.5 sm:gap-2 pb-1 lg:pb-0"
           >
             {userAssetsQuickFilter && (
               <DropdownMenu open={userAssetsMenuOpen} onOpenChange={setUserAssetsMenuOpen}>
@@ -1317,8 +1317,9 @@ export default function TableToolbar({
                     className={TOOLBAR_PILL_BUTTON_CLASSES}
                     aria-pressed={userAssetsActive}
                   >
-                    <span>{userAssetsSelectedLabel}</span>
-                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                    <span className="hidden sm:inline">{userAssetsSelectedLabel}</span>
+                    <span className="sm:hidden">הנכסים שלי</span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 rtl:rotate-180 shrink-0" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56" style={{ direction: "rtl" }}>
@@ -1355,8 +1356,9 @@ export default function TableToolbar({
                     size="sm"
                     className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
-                    <span>{rentalSaleSelectedLabel}</span>
-                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                    <span className="hidden sm:inline">{rentalSaleSelectedLabel}</span>
+                    <span className="sm:hidden">עיסקה</span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 rtl:rotate-180 shrink-0" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
@@ -1393,8 +1395,9 @@ export default function TableToolbar({
                     size="sm"
                     className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
-                    <span>{adTypeSelectedLabel}</span>
-                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                    <span className="hidden sm:inline">{adTypeSelectedLabel}</span>
+                    <span className="sm:hidden">מפרסם</span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 rtl:rotate-180 shrink-0" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
@@ -1431,8 +1434,9 @@ export default function TableToolbar({
                     size="sm"
                     className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
-                    <span>{commercialSelectedLabel}</span>
-                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                    <span className="hidden sm:inline">{commercialSelectedLabel}</span>
+                    <span className="sm:hidden">ייעוד</span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 rtl:rotate-180 shrink-0" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
@@ -1469,8 +1473,9 @@ export default function TableToolbar({
                     size="sm"
                     className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
-                    <span>{priceButtonText}</span>
-                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                    <span className="hidden sm:inline">{priceButtonText}</span>
+                    <span className="sm:hidden">מחיר</span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 rtl:rotate-180 shrink-0" aria-hidden="true" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -1571,8 +1576,9 @@ export default function TableToolbar({
                     size="sm"
                     className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
-                    <span>{areaButtonText}</span>
-                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                    <span className="hidden sm:inline">{areaButtonText}</span>
+                    <span className="sm:hidden">שטח</span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 rtl:rotate-180 shrink-0" aria-hidden="true" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -1673,8 +1679,9 @@ export default function TableToolbar({
                     size="sm"
                     className={TOOLBAR_PILL_BUTTON_CLASSES}
                   >
-                    <span>{typeButtonText}</span>
-                    <ChevronDown className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                    <span className="hidden sm:inline">{typeButtonText}</span>
+                    <span className="sm:hidden">סוג נכס</span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 rtl:rotate-180 shrink-0" aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48" style={{ direction: "rtl" }}>
@@ -1703,10 +1710,10 @@ export default function TableToolbar({
             <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className={TOOLBAR_PILL_BUTTON_CLASSES}>
-                  <Filter className="h-4 w-4" />
+                  <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                   <span className="hidden sm:inline">סינון</span>
                   {hasActiveFilters && (
-                    <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
+                    <Badge variant="secondary" className="h-4 w-4 sm:h-5 sm:w-5 p-0 flex items-center justify-center text-xs shrink-0">
                       !
                     </Badge>
                   )}
@@ -1829,7 +1836,7 @@ export default function TableToolbar({
 
         <div
           data-testid="toolbar-actions-container"
-          className="flex w-full flex-wrap items-center gap-2 justify-start lg:w-auto lg:justify-end"
+          className="flex w-full flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:w-auto lg:justify-end"
         >
         {/* Column selection */}
         <DropdownMenu>
@@ -1839,7 +1846,7 @@ export default function TableToolbar({
               size="sm"
               className={TOOLBAR_PILL_BUTTON_CLASSES}
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
               <span className="hidden sm:inline">עמודות</span>
             </Button>
           </DropdownMenuTrigger>
@@ -1939,19 +1946,19 @@ export default function TableToolbar({
               className={TOOLBAR_PILL_BUTTON_CLASSES}
               aria-label="פעולות על נתונים"
             >
-              <MoreHorizontal className="h-4 w-4 shrink-0" />
+              <MoreHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
               <span className="hidden sm:inline">פעולות</span>
               {selectedCount > 0 && (
                 <>
                   <Badge
                     variant="secondary"
-                    className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ms-2"
+                    className="hidden sm:inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 text-xs font-medium ms-1 sm:ms-2"
                   >
                     {selectedCount}
                   </Badge>
                   <Badge
                     variant="secondary"
-                    className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium sm:hidden ms-2"
+                    className="inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 text-xs font-medium sm:hidden ms-1 sm:ms-2"
                   >
                     {selectedCount}
                   </Badge>
@@ -2032,7 +2039,7 @@ export default function TableToolbar({
           disabled={loading}
           className={TOOLBAR_PILL_BUTTON_CLASSES}
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">רענן</span>
         </Button>
 
@@ -2043,7 +2050,7 @@ export default function TableToolbar({
             size="sm"
             className={TOOLBAR_PILL_BUTTON_CLASSES}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
             <span className="hidden sm:inline">הוסף חדש</span>
           </Button>
         )}
@@ -2051,8 +2058,8 @@ export default function TableToolbar({
       </div>
 
       {/* Bottom row - Status and info */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-sm text-muted-foreground rtl:sm:flex-row-reverse">
-        <div className="flex items-center gap-4 rtl:flex-row-reverse">
+      <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-2 sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground rtl:sm:flex-row-reverse">
+        <div className="flex items-center gap-2 sm:gap-4 rtl:flex-row-reverse">
           <span>
             {isClient && selectedCount > 0 ? `${selectedCount} נבחרים מתוך ` : ''}
             {totalCount} פריטים
@@ -2063,7 +2070,7 @@ export default function TableToolbar({
             </Badge>
           )}
         </div>
-        <div className="text-xs">
+        <div className="text-xs hidden sm:block">
           {isClient ? `${columns.filter(c => c.visible).length} מתוך ${columns.length} עמודות` : `${columns.length} עמודות`}
         </div>
       </div>

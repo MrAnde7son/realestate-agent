@@ -1,5 +1,6 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -7,32 +8,182 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fmtCurrency, fmtNumber } from '@/lib/utils'
-import { calculateAllScenarios, calculateLTV, calculateAffordability, type MortgageInput, type MortgageCalculation } from '@/lib/mortgage'
-import { Loader2, Calculator } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { fmtCurrency } from '@/lib/utils'
+import {
+  pricePortfolio,
+  calculateLTV,
+  calculateAffordability,
+  calcPrime,
+  type PortfolioInput,
+  type TrancheInput,
+  type PortfolioResult,
+  type TrackType,
+  type GraceType,
+  type RepaymentMethod
+} from '@/lib/mortgage'
+import { Loader2, Calculator, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOptionalAuth } from '@/lib/auth-context'
+interface UITranche extends TrancheInput {
+  id: string
+}
+
+const createId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return Math.random().toString(36).slice(2)
+}
+
+const TRACK_OPTIONS: { value: TrackType; label: string }[] = [
+  { value: 'PRIME', label: 'פריים' },
+  { value: 'FIXED_UNLINKED', label: 'קבועה לא צמודה' },
+  { value: 'FIXED_LINKED', label: 'קבועה צמודה מדד' },
+  { value: 'VARIABLE_BOI', label: 'משתנה עוגן בנק ישראל' },
+  { value: 'VARIABLE_BOND', label: 'משתנה עוגן אג&quot;ח' }
+]
+
+const REPAYMENT_OPTIONS: { value: RepaymentMethod; label: string }[] = [
+  { value: 'ANNUITY', label: 'שפיצר' },
+  { value: 'EQUAL_PRINCIPAL', label: 'קרן שווה' }
+]
+
+const GRACE_OPTIONS: { value: GraceType; label: string }[] = [
+  { value: 'NONE', label: 'ללא' },
+  { value: 'INTEREST_ONLY', label: 'רק ריבית' },
+  { value: 'FULL', label: 'דחיית תשלומים מלאה' }
+]
+
+const createDefaultTranches = (primeRate: number): UITranche[] => [
+  {
+    id: createId(),
+    name: 'Prime P-0.9',
+    amount: 450_000,
+    termMonths: 360,
+    track: 'PRIME',
+    anchorAnnual: primeRate,
+    marginAnnual: -0.9,
+    indexation: 'NONE',
+    repayment: 'ANNUITY',
+    graceType: 'NONE',
+    graceMonths: 0,
+    feesUpfront: 1_500
+  },
+  {
+    id: createId(),
+    name: 'Fixed Unlinked 4.7%',
+    amount: 540_000,
+    termMonths: 300,
+    track: 'FIXED_UNLINKED',
+    anchorAnnual: 4.7,
+    marginAnnual: 0,
+    indexation: 'NONE',
+    repayment: 'ANNUITY',
+    graceType: 'NONE',
+    graceMonths: 0,
+    feesUpfront: 1_500
+  },
+  {
+    id: createId(),
+    name: 'Var 5y Bond +0.8% CPI',
+    amount: 333_000,
+    termMonths: 360,
+    track: 'VARIABLE_BOND',
+    anchorAnnual: 3.9,
+    marginAnnual: 0.8,
+    resetEveryMonths: 60,
+    indexation: 'CPI',
+    cpiAnnualAssumption: 2,
+    repayment: 'ANNUITY',
+    graceType: 'NONE',
+    graceMonths: 0
+  }
+]
+
+const stressPresets = [
+  { id: 'base', label: 'בסיס', boiShock: 0, cpiShock: 0, description: 'ללא שינוי' },
+  { id: 'boi_up', label: 'BOI +1%', boiShock: 1, cpiShock: 0, description: 'בדיקת עליית ריבית פריים' },
+  { id: 'cpi_up', label: 'CPI +1%', boiShock: 0, cpiShock: 1, description: 'תרחיש אינפלציה גבוהה' },
+  { id: 'stress', label: 'תסריט קשוח', boiShock: 2, cpiShock: 1.5, description: 'ריבית גבוהה ואינפלציה' }
+]
 
 export default function MortgageAnalyzePage() {
   const { trackCalculatorUsage, trackCalculatorCalculation } = useAnalytics()
   const auth = useOptionalAuth()
   const user = auth?.user ?? null
-  
-  const [input, setInput] = useState<MortgageInput>({
-    loanAmount: 2800000,
-    loanTermYears: 25,
-    propertyValue: 3500000
-  })
-  
-  const [monthlyIncome, setMonthlyIncome] = useState<number>(35000)
-  const [calculations, setCalculations] = useState<MortgageCalculation[]>([])
-  const [boiRate, setBOIRate] = useState<number>(0)
+
+  const [primeRate, setPrimeRate] = useState<number>(calcPrime(4.75))
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [loadingBoiRate, setLoadingBoiRate] = useState<boolean>(true)
   const [calculating, setCalculating] = useState<boolean>(false)
+  const [selectedStress, setSelectedStress] = useState<string>('base')
   const [requiredEquity, setRequiredEquity] = useState<number | null>(null)
   const [isClient, setIsClient] = useState(false)
   const [userEquity, setUserEquity] = useState<number>(0)
+
+  const [propertyValue, setPropertyValue] = useState<number>(3_500_000)
+  const [monthlyIncome, setMonthlyIncome] = useState<number>(65_000)
+
+  const [envConfig, setEnvConfig] = useState<Omit<PortfolioInput, 'tranches'>>({
+    boiAnnual: 4.75,
+    primeSpread: 1.5,
+    boiShock: 0,
+    bondShock: 0,
+    cpiShock: 0,
+    monthlyIncome
+  })
+
+  const [tranches, setTranches] = useState<UITranche[]>(() => createDefaultTranches(primeRate))
+
+  const totalLoanAmount = useMemo(
+    () => tranches.reduce((sum, tranche) => sum + tranche.amount, 0),
+    [tranches]
+  )
+
+  const portfolioInput: PortfolioInput = useMemo(
+    () => ({
+      ...envConfig,
+      monthlyIncome,
+      tranches: tranches.map(({ id, ...rest }) => rest)
+    }),
+    [envConfig, monthlyIncome, tranches]
+  )
+
+  const portfolioResult: PortfolioResult = useMemo(
+    () => pricePortfolio(portfolioInput),
+    [portfolioInput]
+  )
+
+  const ltv = useMemo(
+    () => calculateLTV(totalLoanAmount, propertyValue),
+    [totalLoanAmount, propertyValue]
+  )
+
+  const affordability = useMemo(
+    () => calculateAffordability(monthlyIncome, portfolioResult.blendedFirstPayment),
+    [monthlyIncome, portfolioResult.blendedFirstPayment]
+  )
+
+  const rebalanceTranches = useCallback((targetLoanAmount: number) => {
+    setTranches(prev => {
+      const currentTotal = prev.reduce((sum, tranche) => sum + tranche.amount, 0)
+      if (prev.length === 0) return prev
+      if (targetLoanAmount <= 0) {
+        return prev.map(tranche => ({ ...tranche, amount: 0 }))
+      }
+      if (Math.abs(currentTotal - targetLoanAmount) < 1) {
+        return prev
+      }
+      if (currentTotal === 0) {
+        const equalAmount = targetLoanAmount / prev.length
+        return prev.map(tranche => ({ ...tranche, amount: equalAmount }))
+      }
+      const factor = targetLoanAmount / currentTotal
+      return prev.map(tranche => ({ ...tranche, amount: tranche.amount * factor }))
+    })
+  }, [])
 
   useEffect(() => {
     if (user?.role === 'private') {
@@ -42,68 +193,77 @@ export default function MortgageAnalyzePage() {
   }, [user])
 
   useEffect(() => {
-    // Set client-side flag
     setIsClient(true)
-    
-    // Fetch current BOI rate on component mount
-    fetchBOIRate()
-    // Track calculator page view
+    fetchBOIRateFromApi()
     trackCalculatorUsage('mortgage', 'page_view')
   }, [trackCalculatorUsage])
 
   useEffect(() => {
-    // Check for URL parameters from expenses calculator (only on client side)
-    if (isClient) {
-      const urlParams = new URLSearchParams(window.location.search)
-      const propertyValue = urlParams.get('propertyValue')
-      const totalExpenses = urlParams.get('totalExpenses')
-      
-      if (propertyValue || totalExpenses) {
-        // Track that data was pre-filled from expenses calculator
-        trackCalculatorUsage('mortgage', 'prefilled_from_expenses', {
-          property_value: propertyValue,
-          total_expenses: totalExpenses
-        })
-        
-        // Update input with pre-filled values
-        // propertyValue now contains the total cost (property + expenses)
-        if (propertyValue) {
-          const totalCost = parseInt(propertyValue)
-          setInput(prev => ({
-            ...prev,
-            propertyValue: totalCost,
-            loanAmount: totalCost, // Default to full amount, user can adjust
-            loanTermYears: prev.loanTermYears // Keep default term
-          }))
+    if (!isClient) return
+    const urlParams = new URLSearchParams(window.location.search)
+    const propertyValueParam = urlParams.get('propertyValue')
+    const totalExpenses = urlParams.get('totalExpenses')
+
+    if (propertyValueParam || totalExpenses) {
+      trackCalculatorUsage('mortgage', 'prefilled_from_expenses', {
+        property_value: propertyValueParam,
+        total_expenses: totalExpenses
+      })
+
+      if (propertyValueParam) {
+        const totalCost = Number(propertyValueParam)
+        if (!Number.isNaN(totalCost)) {
+          setPropertyValue(totalCost)
         }
-        
-        // Set total expenses for display
-        if (totalExpenses) {
-          setRequiredEquity(parseInt(totalExpenses))
+      }
+
+      if (totalExpenses) {
+        const expensesValue = Number(totalExpenses)
+        if (!Number.isNaN(expensesValue)) {
+          setRequiredEquity(expensesValue)
         }
       }
     }
   }, [isClient, trackCalculatorUsage])
 
   useEffect(() => {
-    // Calculate loan amount based on user equity
-    const loanAmount = Math.max(0, input.propertyValue - userEquity)
-    setInput(prev => ({ ...prev, loanAmount }))
-  }, [userEquity, input.propertyValue])
+    const targetLoan = Math.max(0, propertyValue - userEquity)
+    rebalanceTranches(targetLoan)
+  }, [propertyValue, userEquity, rebalanceTranches])
 
   useEffect(() => {
-    const results = calculateAllScenarios(input, boiRate)
-    setCalculations(results)
-  }, [input, boiRate])
+    setEnvConfig(prev => ({ ...prev, monthlyIncome }))
+  }, [monthlyIncome])
 
-  const fetchBOIRate = async () => {
+  useEffect(() => {
+    const newPrime = calcPrime(envConfig.boiAnnual, envConfig.primeSpread)
+    setPrimeRate(newPrime)
+    setTranches(prev => {
+      let changed = false
+      const next = prev.map(tranche => {
+        if (tranche.track === 'PRIME' && Math.abs(tranche.anchorAnnual - newPrime) > 0.001) {
+          changed = true
+          return { ...tranche, anchorAnnual: newPrime }
+        }
+        return tranche
+      })
+      return changed ? next : prev
+    })
+  }, [envConfig.boiAnnual, envConfig.primeSpread])
+
+  const fetchBOIRateFromApi = async () => {
     setLoadingBoiRate(true)
     try {
       const response = await fetch('/api/boi-rate')
       const data = await response.json()
       if (data.success) {
-        setBOIRate(data.data.baseRate)
-        setLastUpdated(data.data.lastUpdated)
+        const baseRate = Number(data.data.baseRate)
+        if (Number.isFinite(baseRate)) {
+          setEnvConfig(prev => ({ ...prev, boiAnnual: baseRate }))
+        }
+        if (data.data.lastUpdated) {
+          setLastUpdated(data.data.lastUpdated)
+        }
       }
     } catch (error) {
       console.error('Error fetching BOI rate:', error)
@@ -112,354 +272,505 @@ export default function MortgageAnalyzePage() {
     }
   }
 
-  const calculateMortgage = async () => {
+  const handleAnalyzePortfolio = async () => {
     setCalculating(true)
-    
-    // Track calculation start
+
     trackCalculatorUsage('mortgage', 'calculation_start', {
-      input_data: {
-        loanAmount: input.loanAmount,
-        loanTermYears: input.loanTermYears,
-        propertyValue: input.propertyValue,
-        monthlyIncome,
-        boiRate
-      }
+      property_value: propertyValue,
+      monthly_income: monthlyIncome,
+      boi_rate: envConfig.boiAnnual,
+      stress: { boiShock: envConfig.boiShock, cpiShock: envConfig.cpiShock },
+      tranches: tranches.map(({ id, ...tranche }) => tranche)
     })
-    
-    // Add small delay to show loading state
-    await new Promise(resolve => setTimeout(resolve, 500))
-    const results = calculateAllScenarios(input, boiRate)
-    setCalculations(results)
-    
-    // Track calculation completion
-    trackCalculatorCalculation('mortgage', {
-      loanAmount: input.loanAmount,
-      loanTermYears: input.loanTermYears,
-      propertyValue: input.propertyValue,
+
+    await new Promise(resolve => setTimeout(resolve, 400))
+
+    const latestResult = pricePortfolio({
+      ...envConfig,
       monthlyIncome,
-      boiRate
-    }, {
-      scenariosCount: results.length,
-      ltv: calculateLTV(input.loanAmount, input.propertyValue),
-      minMonthlyPayment: Math.min(...results.map(r => r.monthlyPayment)),
-      maxMonthlyPayment: Math.max(...results.map(r => r.monthlyPayment))
+      tranches: tranches.map(({ id, ...tranche }) => tranche)
     })
-    
+
+    trackCalculatorCalculation(
+      'mortgage',
+      {
+        propertyValue,
+        monthlyIncome,
+        boiRate: envConfig.boiAnnual,
+        stress: { boiShock: envConfig.boiShock, cpiShock: envConfig.cpiShock },
+        trancheCount: tranches.length
+      },
+      {
+        blendedFirstPayment: latestResult.blendedFirstPayment,
+        blendedMaxPayment: latestResult.blendedMaxPayment,
+        totalPaid: latestResult.totals.paid,
+        totalInterest: latestResult.totals.interest,
+        totalIndexation: latestResult.totals.indexation,
+        affordability: latestResult.affordability
+      }
+    )
+
     setCalculating(false)
   }
 
-  const ltv = calculateLTV(input.loanAmount, input.propertyValue)
-
-  // Input change handlers with analytics
-  const handleInputChange = (field: keyof MortgageInput, value: number) => {
-    const newInput = { ...input, [field]: value }
-    setInput(newInput)
-    trackCalculatorUsage('mortgage', 'input_change', {
-      field,
-      value,
-      input_data: newInput
-    })
+  const handleStressPreset = (presetId: string) => {
+    const preset = stressPresets.find(option => option.id === presetId)
+    if (!preset) return
+    setSelectedStress(presetId)
+    setEnvConfig(prev => ({
+      ...prev,
+      boiShock: preset.boiShock,
+      cpiShock: preset.cpiShock
+    }))
   }
 
-  const handleMonthlyIncomeChange = (value: number) => {
-    setMonthlyIncome(value)
-    trackCalculatorUsage('mortgage', 'input_change', {
-      field: 'monthlyIncome',
-      value,
-      input_data: { ...input, monthlyIncome: value }
-    })
+  const updateTranche = <K extends keyof TrancheInput>(id: string, field: K, value: TrancheInput[K]) => {
+    setTranches(prev => prev.map(tranche => (tranche.id === id ? { ...tranche, [field]: value } : tranche)))
   }
 
-  // Custom scenarios for comparison
-  const customScenarios = [
-    { name: 'תרחיש אופטימי', rate: 5.8, color: 'bg-green-50 dark:bg-green-950' },
-    { name: 'תרחיש ריאלי', rate: 6.3, color: 'bg-blue-50 dark:bg-blue-950' }, 
-    { name: 'תרחיש שמרני', rate: 7.0, color: 'bg-red-50 dark:bg-red-950' }
-  ]
+  const addTranche = () => {
+    const newTranche: UITranche = {
+      id: uuidv4(),
+      name: 'מסלול חדש',
+      amount: Math.max(0, propertyValue - userEquity - totalLoanAmount),
+      termMonths: 360,
+      track: 'FIXED_UNLINKED',
+      anchorAnnual: 4.5,
+      marginAnnual: 0,
+      indexation: 'NONE',
+      repayment: 'ANNUITY',
+      graceType: 'NONE',
+      graceMonths: 0,
+      feesUpfront: 0
+    }
+    setTranches(prev => [...prev, newTranche])
+  }
+
+  const removeTranche = (id: string) => {
+    setTranches(prev => prev.filter(tranche => tranche.id !== id))
+  }
+
+  const monthlyAtYear = (years: number) => portfolioResult.blendedMonthlyAt(years * 12)
 
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader heading="מחשבון משכנתא" text="חישוב ריבית בהתבסס על נתוני בנק ישראל בזמן אמת" />
-        
-        {/* Bank of Israel Rate Display */}
-        <Card className="mb-6">
-          <CardContent className="flex items-center justify-between p-4">
-            <div>
-              <div className="text-sm text-muted-foreground">ריבית בנק ישראל נוכחית</div>
-              {loadingBoiRate ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{boiRate}%</div>
-              )}
-            </div>
-            <div className="text-left">
-              {loadingBoiRate ? (
-                <Skeleton className="h-6 w-40" />
-              ) : (
-                <Badge variant="neutral">עדכון אחרון: {new Date(lastUpdated).toLocaleDateString('he-IL')}</Badge>
-              )}
-              <div className="text-xs text-muted-foreground mt-1">
-                <a href="https://www.boi.org.il/" target="_blank" rel="noopener noreferrer" className="underline">
-                  מקור: בנק ישראל
-                </a>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardHeader heading="מחשבון משכנתא" text="תכנון תיק משכנתא רב-מסלולי עם תרחישי לחץ" />
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Input Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>פרטי המשכנתא</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">מחיר הנכס</label>
-                <Input 
-                  type="number" 
-                  value={input.propertyValue}
-                  onChange={(e) => handleInputChange('propertyValue', parseInt(e.target.value) || 0)}
-                  placeholder="3,500,000" 
-                />
-              </div>
-              
-              {/* User Equity Input */}
-              <div>
-                <label className="block text-sm font-medium mb-2">הון עצמי</label>
-                <Input 
-                  type="number" 
-                  value={userEquity}
-                  onChange={(e) => setUserEquity(parseInt(e.target.value) || 0)}
-                  placeholder="500,000" 
-                />
-                <div className="text-xs text-muted-foreground mt-1">
-                  סכום ההון העצמי שלך (יופחת מהמחיר הכולל)
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">סכום הלוואה</label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="number"
-                    value={input.loanAmount}
-                    readOnly
-                    className="bg-muted text-right flex-1"
-                    placeholder="2,800,000"
-                  />
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    מחושב אוטומטית
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {fmtCurrency(input.propertyValue)} - {fmtCurrency(userEquity)} = {fmtCurrency(input.loanAmount)}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">תקופת הלוואה (שנים)</label>
-                <Input 
-                  type="number" 
-                  value={input.loanTermYears}
-                  onChange={(e) => handleInputChange('loanTermYears', parseInt(e.target.value) || 0)}
-                  placeholder="25" 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">הכנסה חודשית נטו</label>
-                <Input 
-                  type="number" 
-                  value={monthlyIncome}
-                  onChange={(e) => handleMonthlyIncomeChange(parseInt(e.target.value) || 0)}
-                  placeholder="35,000" 
-                />
-              </div>
-              
-              {/* LTV Display */}
-              <div className="p-3 bg-muted rounded-lg">
-                <div className="text-sm text-muted-foreground">יחס המימון (LTV)</div>
-                <div className="text-lg font-semibold">{ltv.toFixed(1)}%</div>
-                <Badge variant={ltv <= 75 ? 'success' : ltv <= 85 ? 'warning' : 'error'}>
-                  {ltv <= 75 ? 'יחס טוב' : ltv <= 85 ? 'יחס בינוני' : 'יחס גבוה'}
-                </Badge>
-              </div>
-
-              {/* Info from Expenses Calculator */}
-              {isClient && requiredEquity && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="text-xs text-blue-600 dark:text-blue-400 p-2 bg-blue-100 dark:bg-blue-800/30 rounded">
-                    💡 <strong>טיפ:</strong> המחיר הכולל כולל את הנכס + כל ההוצאות. הזן את ההון העצמי שלך למעלה כדי לחשב את המשכנתא הנדרשת.
+        <div className="grid gap-6 xl:grid-cols-[2fr,1fr]">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>נתוני בסיס</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">שווי נכס</label>
+                    <Input
+                      type="number"
+                      value={propertyValue}
+                      onChange={event => setPropertyValue(Number(event.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">הון עצמי</label>
+                    <Input
+                      type="number"
+                      value={userEquity}
+                      onChange={event => setUserEquity(Number(event.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">הכנסה חודשית</label>
+                    <Input
+                      type="number"
+                      value={monthlyIncome}
+                      onChange={event => setMonthlyIncome(Number(event.target.value) || 0)}
+                    />
                   </div>
                 </div>
-              )}
-              
-              <Button 
-                className="w-full" 
-                onClick={calculateMortgage}
-                disabled={!input.loanAmount || !input.propertyValue || !input.loanTermYears || calculating}
-              >
-                {calculating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    מחשב תרחישים...
-                  </>
-                ) : (
-                  <>
-                    <Calculator className="h-4 w-4" />
-                    חשב תרחישי משכנתא
-                  </>
+                <Separator />
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">ריבית בנק ישראל</label>
+                    <div className="flex items-center gap-2">
+                      {loadingBoiRate ? (
+                        <Skeleton className="h-10 w-full" />
+                      ) : (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={envConfig.boiAnnual}
+                          onChange={event => setEnvConfig(prev => ({ ...prev, boiAnnual: Number(event.target.value) || 0 }))}
+                        />
+                      )}
+                      <Button variant="outline" size="icon" onClick={fetchBOIRateFromApi} aria-label="רענון ריבית בנק ישראל">
+                        <Loader2 className={`h-4 w-4 ${loadingBoiRate ? 'animate-spin' : ''}`} />
+                      </Button>
+                    </div>
+                    {lastUpdated && (
+                      <p className="mt-1 text-xs text-muted-foreground">עדכון אחרון: {new Date(lastUpdated).toLocaleDateString('he-IL')}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">מרווח פריים</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={envConfig.primeSpread}
+                      onChange={event => setEnvConfig(prev => ({ ...prev, primeSpread: Number(event.target.value) || 0 }))}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">פריים נוכחי: {primeRate.toFixed(2)}%</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">שוק אג&quot;ח (תוספת)</label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={envConfig.bondShock ?? 0}
+                      onChange={event => setEnvConfig(prev => ({ ...prev, bondShock: Number(event.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+                <Separator />
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">תרחישי לחץ</label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {stressPresets.map(preset => (
+                      <Button
+                        key={preset.id}
+                        type="button"
+                        size="sm"
+                        variant={selectedStress === preset.id ? 'default' : 'outline'}
+                        onClick={() => handleStressPreset(preset.id)}
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    BOI Shock: {(envConfig.boiShock ?? 0).toFixed(2)}% · CPI Shock: {(envConfig.cpiShock ?? 0).toFixed(2)}%
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>מסלולים</CardTitle>
+                <Button type="button" onClick={addTranche} variant="outline" size="sm">
+                  <Plus className="mr-1 h-4 w-4" /> הוספת מסלול
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {tranches.map(tranche => (
+                  <div key={tranche.id} className="rounded-lg border p-4 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <Input
+                        value={tranche.name}
+                        onChange={event => updateTranche(tranche.id, 'name', event.target.value)}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Badge variant="neutral">{TRACK_OPTIONS.find(option => option.value === tranche.track)?.label}</Badge>
+                        {tranches.length > 1 && (
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeTranche(tranche.id)} aria-label="מחיקת מסלול">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">מסלול</label>
+                        <Select
+                          value={tranche.track}
+                          onValueChange={value => updateTranche(tranche.id, 'track', value as TrackType)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TRACK_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">סכום</label>
+                        <Input
+                          type="number"
+                          value={Math.round(tranche.amount)}
+                          onChange={event => updateTranche(tranche.id, 'amount', Number(event.target.value) || 0)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">תקופה (חודשים)</label>
+                        <Input
+                          type="number"
+                          value={tranche.termMonths}
+                          onChange={event => updateTranche(tranche.id, 'termMonths', Number(event.target.value) || 0)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">עוגן נוכחי (%)</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={tranche.anchorAnnual}
+                          onChange={event => updateTranche(tranche.id, 'anchorAnnual', Number(event.target.value) || 0)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">מרווח (%)</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={tranche.marginAnnual}
+                          onChange={event => updateTranche(tranche.id, 'marginAnnual', Number(event.target.value) || 0)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">הצמדה</label>
+                        <Select
+                          value={tranche.indexation ?? 'NONE'}
+                          onValueChange={value => updateTranche(tranche.id, 'indexation', value as 'CPI' | 'NONE')}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NONE">ללא</SelectItem>
+                            <SelectItem value="CPI">מדד</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">הנחת CPI שנתית (%)</label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={tranche.cpiAnnualAssumption ?? 0}
+                          onChange={event => updateTranche(tranche.id, 'cpiAnnualAssumption', Number(event.target.value) || 0)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">תדירות עדכון (חודשים)</label>
+                        <Input
+                          type="number"
+                          value={tranche.resetEveryMonths ?? 0}
+                          onChange={event => updateTranche(tranche.id, 'resetEveryMonths', Number(event.target.value) || undefined)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">שיטת החזר</label>
+                        <Select
+                          value={tranche.repayment}
+                          onValueChange={value => updateTranche(tranche.id, 'repayment', value as RepaymentMethod)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {REPAYMENT_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">חודשי גרייס</label>
+                        <Input
+                          type="number"
+                          value={tranche.graceMonths ?? 0}
+                          onChange={event => updateTranche(tranche.id, 'graceMonths', Number(event.target.value) || 0)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">סוג גרייס</label>
+                        <Select
+                          value={tranche.graceType ?? 'NONE'}
+                          onValueChange={value => updateTranche(tranche.id, 'graceType', value as GraceType)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {GRACE_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">עמלות פתיחת תיק</label>
+                        <Input
+                          type="number"
+                          value={tranche.feesUpfront ?? 0}
+                          onChange={event => updateTranche(tranche.id, 'feesUpfront', Number(event.target.value) || 0)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {tranches.length === 0 && (
+                  <div className="flex items-center gap-2 rounded-md border border-dashed p-4 text-muted-foreground">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>לא נוספו מסלולים. הוסף לפחות מסלול אחד כדי להפיק חישוב.</span>
+                  </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-end">
+              <Button onClick={handleAnalyzePortfolio} disabled={calculating || tranches.length === 0}>
+                {calculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />} חשב תיק
               </Button>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Bank Scenarios Results */}
-          <div className="space-y-4">
-            {calculations.length > 0 && (
-              <>
-                <h3 className="text-lg font-semibold">תרחישי בנקים (מבוסס על בנק ישראל {boiRate}%)</h3>
-                {calculations.map((calc, index) => {
-                  const affordability = calculateAffordability(monthlyIncome, calc.monthlyPayment)
-                  
-                  return (
-                    <Card key={index} className="relative">
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-base">{calc.scenario.name}</CardTitle>
-                            <p className="text-sm text-muted-foreground">{calc.scenario.description}</p>
-                          </div>
-                          <Badge variant={index === 0 ? 'default' : index === 1 ? 'accent' : 'neutral'}>
-                            {calc.scenario.totalRate.toFixed(2)}%
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <div className="text-sm text-muted-foreground">תשלום חודשי</div>
-                            <div className="text-lg font-bold">{fmtCurrency(calc.monthlyPayment)}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">סה״כ תשלומים</div>
-                            <div className="text-lg font-bold">{fmtCurrency(calc.totalPayment)}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <div className="text-sm text-muted-foreground">ריבית בלבד</div>
-                            <div className="font-semibold text-red-600">{fmtCurrency(calc.totalInterest)}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-muted-foreground">מרווח הבנק</div>
-                            <div className="font-semibold">{calc.scenario.bankMargin}%</div>
-                          </div>
-                        </div>
-
-                        {/* Affordability Indicator */}
-                        <div className="pt-2 border-t">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">
-                              יחס תשלום להכנסה: {affordability.ratio.toFixed(1)}%
-                            </span>
-                            <Badge variant={affordability.isAffordable ? 'success' : 'error'}>
-                              {affordability.isAffordable ? 'בר השגה' : 'מעבר ליכולת'}
-                            </Badge>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </>
+            {requiredEquity !== null && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>הון עצמי מינימלי לפי הוצאות עסקה</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    מסך הוצאות נוסף שנלקח מהחשבונית: {fmtCurrency(requiredEquity)}
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </div>
-        </div>
 
-        {/* Custom Scenarios Comparison */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>השוואת תרחישי ריבית</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {customScenarios.map((scenario) => {
-                const monthlyRate = scenario.rate / 100 / 12
-                const monthsTotal = input.loanTermYears * 12
-                const payment = input.loanAmount > 0 
-                  ? (input.loanAmount * monthlyRate * Math.pow(1 + monthlyRate, monthsTotal)) / (Math.pow(1 + monthlyRate, monthsTotal) - 1)
-                  : 0
-                
-                return (
-                  <div key={scenario.name} className={`p-4 rounded-lg ${scenario.color}`}>
-                    <h3 className="font-medium text-center">{scenario.name}</h3>
-                    <div className="text-center text-sm text-muted-foreground">{scenario.rate}% שנתי</div>
-                    <div className="text-center text-xl font-bold mt-2">
-                      {fmtCurrency(payment)}
-                    </div>
-                    <div className="text-center text-sm">לחודש</div>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>סיכום תיק</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">תשלום ראשון</span>
+                    <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.blendedFirstPayment)}</span>
                   </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Comparison Summary */}
-        {calculations.length > 1 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>השוואה בין הבנקים</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>הפרש תשלום חודשי (מקסימום vs מינימום):</span>
-                  <span className="font-bold">
-                    {fmtCurrency(Math.max(...calculations.map(c => c.monthlyPayment)) - Math.min(...calculations.map(c => c.monthlyPayment)))}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">תשלום מקסימלי</span>
+                    <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.blendedMaxPayment)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">סה&quot;כ הלוואה</span>
+                    <span className="text-lg font-semibold">{fmtCurrency(totalLoanAmount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">סה&quot;כ תשלומים (כולל עמלות)</span>
+                    <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.totals.paid)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>הפרש סה״כ ריבית (מקסימום vs מינימום):</span>
-                  <span className="font-bold text-red-600">
-                    {fmtCurrency(Math.max(...calculations.map(c => c.totalInterest)) - Math.min(...calculations.map(c => c.totalInterest)))}
-                  </span>
+                <Separator />
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>ריבית</span>
+                    <span>{fmtCurrency(portfolioResult.totals.interest)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>הצמדה</span>
+                    <span>{fmtCurrency(portfolioResult.totals.indexation)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>עמלות</span>
+                    <span>{fmtCurrency(portfolioResult.totals.fees)}</span>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                <Separator />
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>יחס החזר להכנסה</span>
+                    <Badge variant={affordability.isAffordable ? 'success' : 'destructive'}>
+                      {affordability.ratio.toFixed(1)}%
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>יחס מימון (LTV)</span>
+                    <Badge variant={ltv <= 60 ? 'success' : ltv <= 75 ? 'neutral' : 'destructive'}>
+                      {ltv.toFixed(1)}%
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Tips */}
-        <Card>
-          <CardHeader>
-            <CardTitle>טיפים למשכנתא</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <h3 className="font-medium mb-2">📈 השפעת ריבית בנק ישראל</h3>
-                <p className="text-sm text-muted-foreground">
-                  ריבית בנק ישראל מהווה בסיס לחישוב ריביות המשכנתא בכל הבנקים. שינוי של 0.25% יכול להשפיע על מאות שקלים בתשלום החודשי.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-medium mb-2">💡 הון עצמי מומלץ</h3>
-                <p className="text-sm text-muted-foreground">
-                  מומלץ להכין הון עצמי של לפחות 30% ממחיר הנכס כדי לקבל תנאי מימון טובים יותר ומרווחים נמוכים מהבנק.
-                </p>
-    </div>
-    <div>
-                <h3 className="font-medium mb-2">📊 יחס הכנסה להחזר</h3>
-                <p className="text-sm text-muted-foreground">
-                  ודאו שההחזר החודשי לא עולה על 30% מההכנסה הנטו המשפחתית כדי לשמור על איכות חיים טובה.
-                </p>
-    </div>
-      </div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>תשלומים עתידיים</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>שנה 1</span>
+                  <span>{fmtCurrency(monthlyAtYear(1))}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>שנה 5</span>
+                  <span>{fmtCurrency(monthlyAtYear(5))}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>שנה 10</span>
+                  <span>{fmtCurrency(monthlyAtYear(10))}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>פירוט מסלולים</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {portfolioResult.tranches.map((tranche, index) => (
+                  <div key={`${tranche.input.name}-${index}`} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{tranche.input.name}</div>
+                      <Badge variant="neutral">{TRACK_OPTIONS.find(option => option.value === tranche.input.track)?.label}</Badge>
+                    </div>
+                    <div className="mt-2 grid gap-2">
+                      <div className="flex items-center justify-between">
+                        <span>תשלום ראשון</span>
+                        <span>{fmtCurrency(tranche.firstPayment)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>תשלום מקסימלי</span>
+                        <span>{fmtCurrency(tranche.maxPayment)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>סה&quot;כ ריבית</span>
+                        <span>{fmtCurrency(tranche.totalInterest)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>סה&quot;כ הצמדה</span>
+                        <span>{fmtCurrency(tranche.totalIndexation)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>APR משוער</span>
+                        <span>{tranche.aprApprox.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </DashboardShell>
     </DashboardLayout>
   )

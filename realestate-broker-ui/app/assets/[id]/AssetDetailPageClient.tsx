@@ -2978,7 +2978,7 @@ useDedupedEffect(() => {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="flex flex-wrap gap-2 md:flex-nowrap md:gap-0">
+          <TabsList className="flex flex-wrap gap-2 md:flex-nowrap md:gap-0" dir="rtl">
             <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
             <TabsTrigger value="listings">מודעות</TabsTrigger>
             <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
@@ -2999,41 +2999,41 @@ useDedupedEffect(() => {
                 <CardTitle>פרטי הנכס</CardTitle>
                 </CardHeader>
                 <CardBody className="space-y-2">
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">סוג:</span>
                     <span>{asset.type ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">מ״ר נטו:</span>
                     <span>{formatNumber(asset.area) ?? '—'}</span>
                   </div>
                   {asset.total_area && (
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">שטח חלקה כולל:</span>
                       <span>{formatNumber(asset.total_area)} מ״ר</span>
                     </div>
                   )}
                   {asset.subparcelArea && (
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">שטח מגרש:</span>
                       <span>{formatNumber(asset.subparcelArea)} מ״ר</span>
                     </div>
                   )}
                   {asset.builtArea && (
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">שטח בנוי:</span>
                       <span>{formatNumber(asset.builtArea)} מ״ר</span>
                     </div>
                   )}
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">חדרים:</span>
                     <span>{asset.rooms ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">ייעוד:</span>
                     <span>{asset.zoning ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">שכונה:</span>
                     <span>{asset.neighborhood ?? '—'}</span>
                   </div>
@@ -3045,33 +3045,33 @@ useDedupedEffect(() => {
                   <CardTitle>אנליזה פיננסית</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">מחיר מודל:</span>
                     <span>{formatCurrency(asset.modelPrice) ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">פער למחיר:</span>
                     <Badge variant={asset.priceGapPct !== undefined && asset.priceGapPct !== null && asset.priceGapPct > 0 ? 'warning' : 'success'}>
                       {formatPercent(asset.priceGapPct, 1) ?? '—'}
                     </Badge>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">הערכת שכירות:</span>
                     <span>{formatCurrency(asset.rentEstimate) ?? '—'}</span>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">תשואה שנתית:</span>
                     <Badge variant={asset.capRatePct !== undefined && asset.capRatePct !== null && asset.capRatePct >= 3 ? 'success' : 'warning'}>
                       {formatPercent(asset.capRatePct, 1) ?? '—'}
                     </Badge>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">רמת ביטחון:</span>
                     <Badge variant={asset.confidencePct >= 80 ? 'success' : 'warning'}>
                       {asset.confidencePct}%
                     </Badge>
                   </div>
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">תחרות 1 ק״מ:</span>
                     <span>{asset.competition1km ?? '—'}</span>
                   </div>
@@ -3084,24 +3084,24 @@ useDedupedEffect(() => {
                 <CardTitle>ניתוח תכנוני ומשפטי</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between rtl:flex-row-reverse">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">רמת ניצול זכויות:</span>
                   <span className="font-medium">{asset.rightsUsagePct ? `${asset.rightsUsagePct}%` : '—'}</span>
                 </div>
-                <div className="flex justify-between rtl:flex-row-reverse">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">מגבלות משפטיות:</span>
                   <span className="font-medium">{asset.legalRestrictions ?? '—'}</span>
                 </div>
-                <div className="flex justify-between rtl:flex-row-reverse">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">פוטנציאל התחדשות:</span>
                   <span className="font-medium">{asset.urbanRenewalPotential ?? '—'}</span>
                 </div>
-                <div className="flex justify-between rtl:flex-row-reverse">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">היטל השבחה צפוי:</span>
                   <span className="font-medium">{asset.bettermentLevy ?? '—'}</span>
                 </div>
                 {asset.investmentPotential && (
-                  <div className="flex justify-between rtl:flex-row-reverse">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">פוטנציאל השקעה:</span>
                     <div className="text-end">
                       {asset.investmentPotentialScore && (
@@ -3113,7 +3113,7 @@ useDedupedEffect(() => {
                     </div>
                   </div>
                 )}
-                <div className="flex justify-between rtl:flex-row-reverse">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">אחוז כיסוי בנייה:</span>
                   <span className="font-medium">{asset.buildingCoveragePct ? `${asset.buildingCoveragePct}%` : '—'}</span>
                 </div>
@@ -3122,16 +3122,16 @@ useDedupedEffect(() => {
                 {asset.heightAnalysis && (
                   <div className="pt-3 border-t space-y-2">
                     <div className="text-base font-semibold mb-2">ניתוח גובה</div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">קומות נוכחיות:</span>
                       <span className="font-medium">{asset.heightAnalysis.current_floors ?? '—'}</span>
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">קומות מותרות:</span>
                       <span className="font-medium">{asset.heightAnalysis.allowed_floors ?? '—'}</span>
                     </div>
                     {asset.heightAnalysis.height_compliance && (
-                      <div className="flex justify-between rtl:flex-row-reverse">
+                      <div className="flex justify-between">
                         <span className="text-muted-foreground">עמידה בתקן:</span>
                         <Badge variant={asset.heightAnalysis.height_compliance === 'compliant' ? 'success' : 'error'} className="font-medium">
                           {asset.heightAnalysis.height_compliance === 'compliant' ? 'עומד' : 'לא עומד'}
@@ -3162,19 +3162,19 @@ useDedupedEffect(() => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">תכנית נוכחית:</span>
                       {renderValue(asset.program ?? 'לא זמין', 'program')}
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">ייעוד:</span>
                       {renderValue(<Badge variant="neutral">{asset.zoning ?? 'לא צוין'}</Badge>, 'zoning')}
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">סטטוס תוכנית:</span>
                       {renderValue(asset.planStatus ?? 'לא ידוע', 'planStatus')}
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">מגבלות תכנוניות:</span>
                       {renderValue(asset.publicObligations ?? 'אין', 'publicObligations')}
                     </div>
@@ -3193,7 +3193,7 @@ useDedupedEffect(() => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">סטטוס תכנוני:</span>
                       {renderValue(
                         <Badge variant={asset.planActive ? "success" : "neutral"}>
@@ -3202,7 +3202,7 @@ useDedupedEffect(() => {
                         'planActive'
                       )}
                     </div>
-                    <div className="flex justify-between rtl:flex-row-reverse">
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">הגבלות מיוחדות:</span>
                       {renderValue(asset.riskFlags?.length > 0 ? asset.riskFlags.join(', ') : 'אין', 'riskFlags')}
                     </div>
@@ -3532,7 +3532,7 @@ useDedupedEffect(() => {
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="rtl:flex-row-reverse">
+                          <TableRow>
                             <TableHead className="text-start">בעלים</TableHead>
                             <TableHead className="text-start">אחוז בעלות</TableHead>
                             <TableHead className="text-start">מספר זיהוי</TableHead>
@@ -3633,7 +3633,7 @@ useDedupedEffect(() => {
                               }
                               
                               return (
-                                <TableRow key={index} className="rtl:flex-row-reverse">
+                                <TableRow key={index}>
                                   <TableCell className="text-start font-medium">
                                     {ownerName || '—'}
                                   </TableCell>
@@ -3779,16 +3779,16 @@ useDedupedEffect(() => {
           <TabsContent value="permits" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-start rtl:flex-row-reverse">
-                  <div>
-                    <CardTitle>היתרים</CardTitle>
-                    <CardDescription>נתונים מעודכנים ממערכת ההיתרים של העירייה</CardDescription>
-                  </div>
+                <div className="flex justify-between items-start">
                   <div className="text-start">
                     <div className="text-2xl font-bold">{permitsData.total}</div>
                     <div className="text-sm text-muted-foreground">
                       בקשות פעילות ברדיוס {permitRadius} מטר
                     </div>
+                  </div>
+                  <div>
+                    <CardTitle>היתרים</CardTitle>
+                    <CardDescription>נתונים מעודכנים ממערכת ההיתרים של העירייה</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -4077,13 +4077,7 @@ useDedupedEffect(() => {
           <TabsContent value="appraisals" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center rtl:flex-row-reverse">
-                  <div>
-                    <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
-                    <CardDescription>
-                      מידע מעודכן מרמ״י, שומות מכריעות ועסקאות השוואה באזור
-                    </CardDescription>
-                  </div>
+                <div className="flex justify-between items-center">
                   <Button
                     variant="outline"
                     size="sm"
@@ -4094,6 +4088,12 @@ useDedupedEffect(() => {
                   >
                     🔄 רענן מידע
                   </Button>
+                  <div>
+                    <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
+                    <CardDescription>
+                      מידע מעודכן מרמ״י, שומות מכריעות ועסקאות השוואה באזור
+                    </CardDescription>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -4242,8 +4242,7 @@ useDedupedEffect(() => {
           <TabsContent value="documents" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center rtl:flex-row-reverse">
-                  <CardTitle>מסמכים</CardTitle>
+                <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -4266,6 +4265,7 @@ useDedupedEffect(() => {
                       )}
                     </Button>
                   </div>
+                  <CardTitle>מסמכים</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -4374,15 +4374,15 @@ useDedupedEffect(() => {
                     {asset.attribution.created_by && (
                       <div className="p-3 border rounded-lg text-start">
                         <h3 className="font-medium mb-2 text-sm">יוצר הנכס</h3>
-                        <div className="flex items-center gap-2 rtl:flex-row-reverse">
-                          <div className="flex-1 text-start">
-                            <p className="font-medium text-sm truncate">{asset.attribution.created_by.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{asset.attribution.created_by.email}</p>
-                          </div>
+                        <div className="flex items-center gap-2">
                           <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-xs font-medium">
                               {asset.attribution.created_by.name.charAt(0).toUpperCase()}
                             </span>
+                          </div>
+                          <div className="flex-1 text-start">
+                            <p className="font-medium text-sm truncate">{asset.attribution.created_by.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{asset.attribution.created_by.email}</p>
                           </div>
                         </div>
                       </div>
@@ -4391,15 +4391,15 @@ useDedupedEffect(() => {
                     {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
                       <div className="p-3 border rounded-lg text-start">
                         <h3 className="font-medium mb-2 text-sm">עודכן לאחרונה על ידי</h3>
-                        <div className="flex items-center gap-2 rtl:flex-row-reverse">
-                          <div className="flex-1 text-start">
-                            <p className="font-medium text-sm truncate">{asset.attribution.last_updated_by.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{asset.attribution.last_updated_by.email}</p>
-                          </div>
+                        <div className="flex items-center gap-2">
                           <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-xs font-medium">
                               {asset.attribution.last_updated_by.name.charAt(0).toUpperCase()}
                             </span>
+                          </div>
+                          <div className="flex-1 text-start">
+                            <p className="font-medium text-sm truncate">{asset.attribution.last_updated_by.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{asset.attribution.last_updated_by.email}</p>
                           </div>
                         </div>
                       </div>
@@ -4413,13 +4413,13 @@ useDedupedEffect(() => {
                   {asset.recent_contributions && asset.recent_contributions.length > 0 ? (
                     <div className="space-y-2">
                       {asset.recent_contributions.map((contrib: any, idx: number) => (
-                        <div key={idx} className="flex items-start gap-2 p-2 border rounded-lg rtl:flex-row-reverse">
+                        <div key={idx} className="flex items-start gap-2 p-2 border rounded-lg">
                           <div className="flex-1 text-start">
-                            <div className="flex items-center justify-between rtl:flex-row-reverse mb-1">
-                              <p className="font-medium text-sm">{contrib.user.name}</p>
+                            <div className="flex items-center justify-between mb-1">
                               <span className="text-xs text-muted-foreground">
                                 {new Date(contrib.created_at).toLocaleDateString('he-IL')}
                               </span>
+                              <p className="font-medium text-sm">{contrib.user.name}</p>
                             </div>
                             <p className="text-xs text-muted-foreground mb-1">
                               {getContributionTypeDisplay(contrib.type)}

@@ -530,9 +530,10 @@
     margin-left: 1rem;
   }
 
-  /* Ensure tabs display in RTL order */
+  /* Ensure tabs display in RTL order - first in code appears on right */
   html[dir="rtl"] .tabs-list {
-    flex-direction: row-reverse;
+    flex-direction: row;
+    direction: rtl;
   }
   
   /* RTL Table improvements */

@@ -726,8 +726,10 @@ def _process_gis_data(asset, gis_data):
     if gis_data.get('metro_stations'):
         metro_stations = gis_data.get('metro_stations', [])
         if metro_stations and len(metro_stations) > 0:
-            min_distance = min([s.get('distance') for s in metro_stations if isinstance(s, dict) and s.get('distance')])
-            asset.set_property('metroStationDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
+            distances = [s.get('distance') for s in metro_stations if isinstance(s, dict) and s.get('distance')]
+            if distances:
+                min_distance = min(distances)
+                asset.set_property('metroStationDistanceM', min_distance, source='GIS', url='https://www.govmap.gov.il/')
             asset.set_property('metroStationsCount', len(metro_stations), source='GIS', url='https://www.govmap.gov.il/')
     
     # Parking lots

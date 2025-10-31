@@ -1282,12 +1282,12 @@ export default function TableToolbar({
     <div className="flex flex-col gap-2 p-2 sm:gap-3 sm:p-3 md:p-4 border-b border-border bg-muted/30 rtl" dir="rtl">
       {/* Search - Full width */}
       <div className="relative w-full">
-        <Search className="absolute end-2 sm:end-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+        <Search className="absolute end-4 sm:end-5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
         <Input
           placeholder={searchPlaceholder}
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pe-8 sm:pe-10 w-full h-9 sm:min-h-[44px] text-sm sm:text-base"
+          className="!ps-3 !pe-[60px] sm:!pe-[72px] w-full h-9 sm:min-h-[44px] text-sm sm:text-base"
           dir="rtl"
         />
       </div>

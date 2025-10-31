@@ -118,12 +118,44 @@ def update_asset_with_collected_data(asset_id: int, block: str, parcel: str, gov
             asset.block = block
         if parcel:
             asset.parcel = parcel
-        # Prefer GovMap coordinates
-        if lon_wgs84 is not None and lat_wgs84 is not None:
-            asset.lat = lat_wgs84
-            asset.lon = lon_wgs84
-            logger.debug("Asset %s coordinates set from GovMap WGS84 (lat=%s lon=%s)", asset_id, lat_wgs84, lon_wgs84)
-        elif gis_data.get('x') and gis_data.get('y'):
+        
+        # Helper function to check if coordinates are valid (within Israel bounds)
+        def is_valid_israel_coords(lat, lon):
+            """Check if coordinates are within Israel bounds."""
+            if lat is None or lon is None:
+                return False
+            # Israel bounds: lat 29-34.8, lon 33-36.5
+            return 29 <= lat <= 34.8 and 33 <= lon <= 36.5
+        
+        # Check if current coordinates are invalid (None or out of bounds)
+        current_coords_valid = is_valid_israel_coords(asset.lat, asset.lon)
+        
+        # Prefer GovMap coordinates from parcel addresses (most accurate)
+        # Check if GovMap provided addresses with coordinates (from get_parcel_addresses)
+        govmap_addresses = govmap_data.get('addresses', [])
+        if govmap_addresses:
+            # Use coordinates from the first matching address (most specific)
+            first_addr = govmap_addresses[0]
+            addr_x = first_addr.get('x')
+            addr_y = first_addr.get('y')
+            if addr_x is not None and addr_y is not None:
+                try:
+                    addr_lon, addr_lat = itm_to_wgs84(addr_x, addr_y)
+                    # Always update if current coords are invalid, otherwise only if None
+                    if not current_coords_valid or asset.lat is None or asset.lon is None:
+                        asset.lat = addr_lat
+                        asset.lon = addr_lon
+                        logger.debug("Asset %s coordinates set from GovMap parcel addresses WGS84 (lat=%.8f lon=%.8f)", asset_id, addr_lat, addr_lon)
+                except Exception as e:
+                    logger.warning("Failed to convert GovMap parcel address coordinates for asset %s: %s", asset_id, e)
+        
+        # Fallback: Use provided WGS84 coordinates (from data pipeline conversion)
+        if (not current_coords_valid or asset.lat is None or asset.lon is None) and lon_wgs84 is not None and lat_wgs84 is not None:
+            if is_valid_israel_coords(lat_wgs84, lon_wgs84):
+                asset.lat = lat_wgs84
+                asset.lon = lon_wgs84
+                logger.debug("Asset %s coordinates set from GovMap WGS84 (lat=%.8f lon=%.8f)", asset_id, lat_wgs84, lon_wgs84)
+        elif (not current_coords_valid or asset.lat is None or asset.lon is None) and gis_data.get('x') and gis_data.get('y'):
             try:
                 lon_wgs84_gis, lat_wgs84_gis = itm_to_wgs84(gis_data.get('x'), gis_data.get('y'))
                 asset.lat = lat_wgs84_gis
@@ -783,21 +815,21 @@ def _process_gis_data(asset, gis_data):
     if not green_within_300m:
         risk_flags.append('אין שטחים פתוחים קרובים')
     shelter_distance = asset.get_property_value('shelterDistanceM')
-    if shelter_distance > 200:
+    if shelter_distance and shelter_distance > 200:
         risk_flags.append('מרחק גדול ממקלט')
     antenna_distance = asset.get_property_value('antennaDistanceM')
-    if antenna_distance < 50:
+    if antenna_distance and antenna_distance < 50:
         risk_flags.append('קרוב מדי לאנטנה')
     
     # Add new risk factors
     soil_contamination_count = asset.get_property_value('soilContaminationSitesCount') or 0
-    if soil_contamination_count > 0:
+    if soil_contamination_count and soil_contamination_count > 0:
         nearest_contamination = asset.get_property_value('nearestSoilContaminationDistanceM')
         if nearest_contamination < 100:
             risk_flags.append('קרוב לאתר זיהום קרקע')
     
     road_works_count = asset.get_property_value('roadWorksCount') or 0
-    if road_works_count > 0:
+    if road_works_count and road_works_count > 0:
         risk_flags.append('עבודות כביש פעילות')
     
     asset.set_property('riskFlags', risk_flags, source='GIS (calculated)', url='https://www.govmap.gov.il/')
@@ -814,9 +846,9 @@ def _process_gis_data(asset, gis_data):
             potential_indicators.append('בטווח של תחנת מטרו')
     
     schools_count = asset.get_property_value('schoolsCount') or 0
-    if schools_count > 0:
+    if schools_count and schools_count > 0:
         nearest_school = asset.get_property_value('nearestSchoolDistanceM')
-        if nearest_school <= 300:
+        if nearest_school and nearest_school <= 300:
             potential_indicators.append(f'קרוב לבתי ספר ({schools_count} בתי ספר וגנים)')
     
     tama38_key_area = asset.get_property_value('tama38KeyArea')
@@ -824,7 +856,7 @@ def _process_gis_data(asset, gis_data):
         potential_indicators.append('באזור תמ״א 38 - פוטנציאל התחדשות עירונית')
     
     affordable_housing_count = asset.get_property_value('affordableHousingProjectsCount') or 0
-    if affordable_housing_count > 0:
+    if affordable_housing_count and affordable_housing_count > 0:
         potential_indicators.append(f'פרויקטי דיור מועדף באזור ({affordable_housing_count}) - שינוי דמוגרפי צפוי')
     
     if potential_indicators:

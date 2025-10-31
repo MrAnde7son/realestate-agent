@@ -579,9 +579,9 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center rtl:flex-row-reverse">
-            <div>
-              <CardTitle className="text-start">מודעות</CardTitle>
-              <p className="text-sm text-muted-foreground text-start">
+            <div className="text-right">
+              <CardTitle>מודעות</CardTitle>
+              <p className="text-sm text-muted-foreground">
                 מודעות נדלן מהמקורות השונים
               </p>
             </div>

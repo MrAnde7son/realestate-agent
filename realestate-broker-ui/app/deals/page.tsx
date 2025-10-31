@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
@@ -69,6 +70,23 @@ function assetLabel(asset: DealAssetSummary | null | undefined): string {
   return `נכס ${asset.id}`
 }
 
+function translateStatus(status: string | null | undefined): string {
+  if (!status) return ''
+  const translations: Record<string, string> = {
+    'done': 'מוכן',
+    'failed': 'שגיאה',
+    'enriching': 'מתעשר',
+    'pending': 'ממתין',
+    'active': 'פעיל',
+    'archived': 'בארכיון',
+    'draft': 'טיוטה',
+    'processing': 'בעיבוד',
+    'synced': 'מסונכרן',
+    'none': 'ללא סטטוס',
+  }
+  return translations[status.toLowerCase()] || status
+}
+
 function stageBuckets(deals: DealSummary[]) {
   return DEAL_STAGE_ORDER.reduce<Record<DealStage, DealSummary[]>>((acc, stage) => {
     acc[stage] = deals.filter((deal) => deal.stage === stage)
@@ -84,6 +102,7 @@ function stageBuckets(deals: DealSummary[]) {
 }
 
 export default function DealsPage() {
+  const router = useRouter()
   const [deals, setDeals] = React.useState<DealSummary[]>(DEAL_SUMMARIES_MOCK)
   const [isLoading, setIsLoading] = React.useState(DEAL_SUMMARIES_MOCK.length === 0)
   const [error, setError] = React.useState<string | null>(null)
@@ -162,6 +181,16 @@ export default function DealsPage() {
       const endpoint = params.size > 0 ? `/api/deals?${params.toString()}` : '/api/deals'
       const response = await apiClient.get<DealsResponse>(endpoint)
       if (!response.ok) {
+        // Check for authentication errors
+        const data = response.data as any
+        if (response.status === 401 || 
+            response.error?.includes('Authentication credentials were not provided') ||
+            response.error?.includes('Authentication') ||
+            data?.detail?.includes('Authentication credentials were not provided')) {
+          // Redirect to login with current path as redirect parameter
+          router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+          return
+        }
         throw new Error(response.error || fallbackMessage)
       }
       const payload = response.data
@@ -171,6 +200,16 @@ export default function DealsPage() {
       setDeals(payload?.deals ?? [])
     } catch (err) {
       console.error('Failed to load deals:', err)
+      // Check if error is authentication related
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      if (errorMessage.includes('Authentication credentials were not provided') ||
+          errorMessage.includes('Authentication') ||
+          (typeof err === 'object' && err !== null && 'detail' in err && 
+           typeof (err as any).detail === 'string' && 
+           (err as any).detail.includes('Authentication credentials were not provided'))) {
+        router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        return
+      }
       setDeals(fallbackDeals)
       setError(
         fallbackDeals.length > 0
@@ -181,7 +220,7 @@ export default function DealsPage() {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [stageFilter, debouncedSearch, fallbackDeals])
+  }, [stageFilter, debouncedSearch, fallbackDeals, router])
 
   React.useEffect(() => {
     loadDeals()
@@ -201,6 +240,16 @@ export default function DealsPage() {
       const query = new URLSearchParams({ search: debouncedAssetSearch, limit: '6' })
       const response = await apiClient.get(`/api/assets?${query.toString()}`)
       if (!response.ok) {
+        // Check for authentication errors
+        const data = response.data as any
+        if (response.status === 401 || 
+            response.error?.includes('Authentication credentials were not provided') ||
+            response.error?.includes('Authentication') ||
+            data?.detail?.includes('Authentication credentials were not provided')) {
+          // Redirect to login with current path as redirect parameter
+          router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+          return
+        }
         setAssetError(response.error || 'שגיאה בטעינת נכסים')
         setAssetResults([])
         setAssetLoading(false)
@@ -221,6 +270,16 @@ export default function DealsPage() {
       setAssetLoading(false)
     })().catch((err) => {
       console.error('Asset search failed:', err)
+      // Check if error is authentication related
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      if (errorMessage.includes('Authentication credentials were not provided') ||
+          errorMessage.includes('Authentication') ||
+          (typeof err === 'object' && err !== null && 'detail' in err && 
+           typeof (err as any).detail === 'string' && 
+           (err as any).detail.includes('Authentication credentials were not provided'))) {
+        router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        return
+      }
       setAssetError('שגיאה בטעינת נכסים')
       setAssetResults([])
       setAssetLoading(false)
@@ -229,7 +288,7 @@ export default function DealsPage() {
     return () => {
       ignore = true
     }
-  }, [debouncedAssetSearch])
+  }, [debouncedAssetSearch, router])
 
   const totalDeals = deals.length
   const activeDeals = deals.filter((deal) => isActiveStage(deal.stage)).length
@@ -252,6 +311,16 @@ export default function DealsPage() {
     }
     const response = await apiClient.post('/api/deals', payload)
     if (!response.ok) {
+      // Check for authentication errors
+      const data = response.data as any
+      if (response.status === 401 || 
+          response.error?.includes('Authentication credentials were not provided') ||
+          response.error?.includes('Authentication') ||
+          data?.detail?.includes('Authentication credentials were not provided')) {
+        // Redirect to login with current path as redirect parameter
+        router.push(`/auth?redirect=${encodeURIComponent('/deals')}`)
+        return
+      }
       setCreateError(response.error || 'שגיאה ביצירת העסקה')
       setIsSubmitting(false)
       return
@@ -293,7 +362,7 @@ export default function DealsPage() {
               </Badge>
             ) : null}
             {asset?.status ? (
-              <Badge variant='secondary'>{asset.status}</Badge>
+              <Badge variant='secondary'>{translateStatus(asset.status)}</Badge>
             ) : null}
             {asset?.building_type ? (
               <Badge variant='secondary'>{asset.building_type}</Badge>

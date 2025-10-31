@@ -1259,7 +1259,7 @@ export default function TableToolbar({
           placeholder={searchPlaceholder}
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pe-10 text-start w-full min-h-[44px]"
+          className="pe-10 w-full min-h-[44px]"
           dir="rtl"
         />
       </div>

@@ -4078,6 +4078,12 @@ useDedupedEffect(() => {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
+                    <CardDescription>
+                      מידע מעודכן מרמ״י, שומות מכריעות ועסקאות השוואה באזור
+                    </CardDescription>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -4088,12 +4094,6 @@ useDedupedEffect(() => {
                   >
                     🔄 רענן מידע
                   </Button>
-                  <div>
-                    <CardTitle>שומות באיזור - שומות מכריעות, רמ״י ועוד</CardTitle>
-                    <CardDescription>
-                      מידע מעודכן מרמ״י, שומות מכריעות ועסקאות השוואה באזור
-                    </CardDescription>
-                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -4243,6 +4243,7 @@ useDedupedEffect(() => {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
+                  <CardTitle>מסמכים</CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -4265,7 +4266,6 @@ useDedupedEffect(() => {
                       )}
                     </Button>
                   </div>
-                  <CardTitle>מסמכים</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">

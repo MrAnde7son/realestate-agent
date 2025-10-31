@@ -578,7 +578,7 @@ export function ListingsPanel({ assetId }: ListingsPanelProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center rtl:flex-row-reverse">
+          <div className="flex justify-between items-center">
             <div className="text-right">
               <CardTitle>מודעות</CardTitle>
               <p className="text-sm text-muted-foreground">

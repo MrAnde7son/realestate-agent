@@ -1,6 +1,12 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
 import Image from 'next/image'
@@ -139,6 +145,9 @@ export default function ImageGallery({
                 <X className="h-4 w-4" />
               </Button>
             </div>
+            <DialogDescription className="sr-only">
+              גלריית תמונות בתצוגה מלאה. השתמשו בכפתורי הניווט למעבר בין תמונות ובכפתור הסגירה לחזרה לרשימת התמונות.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="relative flex-1 p-2 sm:p-4">

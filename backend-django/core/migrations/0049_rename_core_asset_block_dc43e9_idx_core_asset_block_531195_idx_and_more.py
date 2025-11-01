@@ -3,6 +3,62 @@
 from django.db import migrations
 
 
+def rename_index_if_exists(
+    apps,
+    schema_editor,
+    table_name,
+    old_name,
+    new_name,
+):
+    with schema_editor.connection.cursor() as cursor:
+        constraints = schema_editor.connection.introspection.get_constraints(
+            cursor, table_name
+        )
+
+    if old_name not in constraints:
+        return
+
+    if schema_editor.connection.vendor == "sqlite":
+        return
+
+    schema_editor.execute(
+        "ALTER INDEX IF EXISTS {} RENAME TO {}".format(
+            schema_editor.quote_name(old_name),
+            schema_editor.quote_name(new_name),
+        )
+    )
+
+
+def rename_block_index(apps, schema_editor):
+    rename_index_if_exists(
+        apps,
+        schema_editor,
+        "core_asset",
+        "core_asset_block_dc43e9_idx",
+        "core_asset_block_531195_idx",
+    )
+
+
+def rename_parcel_index(apps, schema_editor):
+    rename_index_if_exists(
+        apps,
+        schema_editor,
+        "core_asset",
+        "core_asset_parcel_38f908_idx",
+        "core_asset_parcel_ebd705_idx",
+    )
+
+
+def rename_subparcel_index(apps, schema_editor):
+    rename_index_if_exists(
+        apps,
+        schema_editor,
+        "core_asset",
+        "core_asset_subhelk_ec1101_idx",
+        "core_asset_subparc_d57846_idx",
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,19 +66,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_block_531195_idx",
-            old_name="core_asset_block_dc43e9_idx",
+        migrations.RunPython(
+            rename_block_index,
+            migrations.RunPython.noop,
         ),
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_parcel_ebd705_idx",
-            old_name="core_asset_parcel_38f908_idx",
+        migrations.RunPython(
+            rename_parcel_index,
+            migrations.RunPython.noop,
         ),
-        migrations.RenameIndex(
-            model_name="asset",
-            new_name="core_asset_subparc_d57846_idx",
-            old_name="core_asset_subhelk_ec1101_idx",
+        migrations.RunPython(
+            rename_subparcel_index,
+            migrations.RunPython.noop,
         ),
     ]

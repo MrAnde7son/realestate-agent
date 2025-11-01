@@ -1,7 +1,8 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-export interface PageHeaderProps extends React.HTMLAttributes<HTMLElement> {
+export interface PageHeaderProps
+  extends Omit<React.HTMLAttributes<HTMLElement>, 'title'> {
   title: React.ReactNode
   description?: React.ReactNode
   actions?: React.ReactNode

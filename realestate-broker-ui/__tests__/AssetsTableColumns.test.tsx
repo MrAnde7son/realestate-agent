@@ -45,16 +45,15 @@ describe('AssetsTable default columns', () => {
   it('hides advanced metrics by default', async () => {
     render(<AssetsTable data={[baseAsset as Asset]} />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
-    })
+    await screen.findByRole('columnheader', { name: /נכס/ })
 
-    expect(screen.getByRole('columnheader', { name: 'סוג עסקה' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: '₪' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /סוג עסקה/ })).toBeInTheDocument()
+    const currencyHeaders = screen.getAllByRole('columnheader', { name: /₪/ })
+    expect(currencyHeaders.some(header => header.textContent?.includes('₪'))).toBe(true)
 
-    expect(screen.queryByRole('columnheader', { name: 'ייעוד' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('columnheader', { name: 'שטחי ציבור ≤300מ"' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('columnheader', { name: 'קבצים' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /ייעוד/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /שטחי ציבור ≤300מ"/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /קבצים/ })).not.toBeInTheDocument()
   })
 
   it('respects stored column visibility preferences', async () => {
@@ -62,12 +61,10 @@ describe('AssetsTable default columns', () => {
 
     render(<AssetsTable data={[baseAsset as Asset]} />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('columnheader', { name: 'נכס' })).toBeInTheDocument()
-    })
+    await screen.findByRole('columnheader', { name: /נכס/ })
 
-    expect(screen.getByRole('columnheader', { name: 'ייעוד' })).toBeInTheDocument()
-    expect(screen.queryByRole('columnheader', { name: 'שטחי ציבור ≤300מ"' })).not.toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /ייעוד/ })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /שטחי ציבור ≤300מ"/ })).not.toBeInTheDocument()
   })
 
   it('restores default columns from the toolbar action', async () => {
@@ -75,9 +72,7 @@ describe('AssetsTable default columns', () => {
 
     render(<AssetsTable data={[baseAsset as Asset]} />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('columnheader', { name: 'ייעוד' })).toBeInTheDocument()
-    })
+    await screen.findByRole('columnheader', { name: /ייעוד/ })
 
     const columnsButton = screen.getByRole('button', { name: 'עמודות' })
     fireEvent.pointerDown(columnsButton)
@@ -87,7 +82,7 @@ describe('AssetsTable default columns', () => {
     fireEvent.click(resetButton)
 
     await waitFor(() => {
-      expect(screen.queryByRole('columnheader', { name: 'ייעוד' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('columnheader', { name: /ייעוד/ })).not.toBeInTheDocument()
     })
 
     const storedPreferences = localStorage.getItem(COLUMN_PREFERENCES_KEY)

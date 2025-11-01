@@ -758,6 +758,7 @@ interface AssetsTableProps {
   };
   viewMode?: 'table' | 'cards' | 'map'
   onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
+  onViewModePrefetch?: (mode: 'table' | 'cards' | 'map') => void
   bulkActions?: AssetsTableBulkAction[]
   manualPagination?: boolean
   paginationState?: PaginationState
@@ -849,6 +850,7 @@ export default function AssetsTable({
   importAction,
   viewMode = 'table',
   onViewModeChange,
+  onViewModePrefetch,
   bulkActions = [],
   manualPagination = false,
   paginationState,
@@ -1636,6 +1638,7 @@ export default function AssetsTable({
             totalCount={recordCount}
             viewMode={viewMode}
             onViewModeChange={onViewModeChange || (() => {})}
+            onViewModePrefetch={onViewModePrefetch}
             onRefresh={onRefresh || (() => {})}
             onAddNew={onAddNew}
             loading={loading}

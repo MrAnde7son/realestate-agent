@@ -1,7 +1,24 @@
 import { redirect } from "next/navigation";
-import AnalyticsClient from "./AnalyticsClient";
+import dynamic from "next/dynamic";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { DashboardShell, DashboardHeader } from "@/components/layout/dashboard-shell";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Loader2 } from "lucide-react";
+
+const AnalyticsClient = dynamic(() => import("./AnalyticsClient"), {
+  ssr: false,
+  loading: () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>טוען אנליטיקות...</CardTitle>
+        <CardDescription>אנא המתן בזמן שאנחנו טוענים את נתוני המערכת</CardDescription>
+      </CardHeader>
+      <CardContent className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </CardContent>
+    </Card>
+  ),
+});
 
 export const dynamic = "force-dynamic";
 

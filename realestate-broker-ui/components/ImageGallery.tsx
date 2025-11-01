@@ -63,6 +63,12 @@ export default function ImageGallery({
     lg: 'h-32 w-32 sm:h-48 sm:w-48'
   }
 
+  const sizeToSizes: Record<'sm' | 'md' | 'lg', string> = {
+    sm: '(max-width: 640px) 48px, (max-width: 768px) 64px, 80px',
+    md: '(max-width: 640px) 80px, (max-width: 768px) 112px, 128px',
+    lg: '(max-width: 640px) 120px, (max-width: 1024px) 160px, 192px'
+  }
+
   const displayImages = images.slice(0, maxDisplay)
   const remainingCount = images.length - maxDisplay
 
@@ -100,8 +106,8 @@ export default function ImageGallery({
                 fill
                 className="object-cover transition-transform group-hover:scale-105"
                 onClick={() => openFullscreen(index)}
-                sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 128px"
-                priority={index === 0}
+                sizes={sizeToSizes[size]}
+                loading="lazy"
               />
               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center pointer-events-none">
                 <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />

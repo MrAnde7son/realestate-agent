@@ -164,6 +164,21 @@ describe("TableToolbar quick filters", () => {
     expect(container).toHaveClass("w-full");
   });
 
+  it("prefetches the map view when interacting with the control", () => {
+    const onViewModePrefetch = vi.fn();
+    renderToolbar({ onViewModePrefetch });
+
+    const mapButton = screen.getByRole("button", { name: "תצוגת מפה" });
+
+    fireEvent.pointerEnter(mapButton);
+    expect(onViewModePrefetch).toHaveBeenCalledWith("map");
+
+    onViewModePrefetch.mockClear();
+
+    fireEvent.focus(mapButton);
+    expect(onViewModePrefetch).toHaveBeenCalledWith("map");
+  });
+
   it("organizes the full filters into guided sections", () => {
     const additionalFilters = [
       {

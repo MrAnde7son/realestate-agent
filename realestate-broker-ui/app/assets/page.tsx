@@ -28,6 +28,7 @@ import {
   DownloadCloud,
   Star,
   StarOff,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
@@ -36,7 +37,8 @@ import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
 
-import MapView from "@/components/MapView";
+import dynamic from "next/dynamic";
+import type { MapViewProps } from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { ResponsiveContainer } from "@/components/layout/responsive-container";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -47,6 +49,20 @@ import { apiClient } from "@/lib/api-client";
 import { useDedupedEffect } from "@/hooks/use-deduped-effect";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type { PaginationState } from "@tanstack/react-table";
+
+type DynamicMapViewComponent = React.ComponentType<MapViewProps> & {
+  preload?: () => Promise<typeof import("@/components/MapView")>;
+};
+
+const MapView = dynamic(() => import("@/components/MapView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center py-12 space-y-4">
+      <Loader2 className="h-6 w-6 animate-spin text-brand-teal" />
+      <p className="text-sm text-muted-foreground">טוען מפה...</p>
+    </div>
+  ),
+}) as DynamicMapViewComponent;
 
 const DEFAULT_RADIUS_METERS = 100;
 const DEFAULT_PAGE_SIZE = 25;
@@ -297,14 +313,26 @@ export default function AssetsPage() {
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'map'>('table');
   const [viewModeManuallySet, setViewModeManuallySet] = useState(false);
   const { matches: isDesktop, isReady: isViewportReady } = useMediaQuery('(min-width: 1024px)');
+  const prefetchMapView = React.useCallback(() => {
+    MapView.preload?.();
+  }, []);
 
   const handleViewModeChange = React.useCallback(
     (nextMode: 'table' | 'cards' | 'map') => {
+      if (nextMode === 'map') {
+        prefetchMapView();
+      }
       setViewMode(nextMode);
       setViewModeManuallySet(true);
     },
-    [setViewMode, setViewModeManuallySet]
+    [prefetchMapView]
   );
+
+  React.useEffect(() => {
+    if (viewMode === 'map') {
+      prefetchMapView();
+    }
+  }, [viewMode, prefetchMapView]);
 
   React.useEffect(() => {
     if (!isViewportReady) {
@@ -2167,6 +2195,11 @@ export default function AssetsPage() {
               pageCount={pageCount}
               totalCount={totalCount}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
+              onViewModePrefetch={(mode) => {
+                if (mode === 'map') {
+                  prefetchMapView();
+                }
+              }}
               filters={{
                 city: {
                   value: city,

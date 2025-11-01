@@ -264,6 +264,7 @@ interface TableToolbarProps {
   // View mode
   viewMode: 'table' | 'cards' | 'map';
   onViewModeChange: (mode: 'table' | 'cards' | 'map') => void;
+  onViewModePrefetch?: (mode: 'table' | 'cards' | 'map') => void;
 
   // Actions
   onRefresh: () => void;
@@ -317,6 +318,7 @@ export default function TableToolbar({
   totalCount,
   viewMode,
   onViewModeChange,
+  onViewModePrefetch,
   onRefresh,
   onAddNew,
   loading = false,
@@ -1291,6 +1293,9 @@ export default function TableToolbar({
             variant={viewMode === 'map' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('map')}
+            onPointerEnter={() => onViewModePrefetch?.('map')}
+            onFocus={() => onViewModePrefetch?.('map')}
+            onTouchStart={() => onViewModePrefetch?.('map')}
             className="h-10 w-10 rounded-full flex items-center justify-center"
             title="תצוגת מפה"
             aria-label="תצוגת מפה"

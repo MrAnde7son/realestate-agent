@@ -138,6 +138,14 @@ export default function DealExpensesPage() {
   }>(null)
 
   const resultsRef = useRef<HTMLDivElement | null>(null)
+  const pdfModulePromise = useRef<Promise<typeof import('jspdf')> | null>(null)
+
+  const prefetchPdfModule = useCallback(() => {
+    if (!pdfModulePromise.current) {
+      pdfModulePromise.current = import('jspdf')
+    }
+    return pdfModulePromise.current
+  }, [])
 
   useEffect(() => {
     fetch('/api/vat')
@@ -759,161 +767,93 @@ export default function DealExpensesPage() {
     link.click()
   }
 
-  function exportToPDF() {
+  const exportToPDF = useCallback(async () => {
     if (!result) return
 
-    // Track export action
     trackCalculatorExport('expense', 'pdf', {
       total_amount: result.total,
-      price: price,
-      area: area,
+      price,
+      area,
       buyers_count: buyers.length
     })
 
-    // Create a new window for PDF generation
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+    const { jsPDF } = await prefetchPdfModule()
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 40
+    const startX = pageWidth - margin
+    let y = 60
+
+    const addLine = (text: string, fontSize = 12, spacing = 18) => {
+      doc.setFontSize(fontSize)
+      doc.text(text, startX, y, { align: 'right' })
+      y += spacing
+    }
 
     const propertyTypeLabel = isLand ? 'קרקע' : 'נכס בנוי'
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="he">
-      <head>
-        <meta charset="UTF-8">
-        <title>חישוב הוצאות עסקה</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .header h1 { color: #2563eb; margin-bottom: 10px; }
-          .section { margin-bottom: 25px; }
-          .section h2 { color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
-          .row { display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; }
-          .row:nth-child(even) { background-color: #f9fafb; }
-          .label { font-weight: bold; }
-          .value { color: #059669; font-weight: bold; }
-          .total { background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
-          .total .value { font-size: 1.2em; color: #1d4ed8; }
-          .badge { background-color: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 10px; }
-          .footer { margin-top: 30px; text-align: center; color: #6b7280; font-size: 0.9em; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>מחשבון הוצאות עסקה</h1>
-          <p>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
-        </div>
+    addLine('מחשבון הוצאות עסקה', 18, 28)
+    addLine(`תאריך: ${new Date().toLocaleDateString('he-IL')}`, 12, 24)
 
-        <div class="section">
-          <h2>פרטי הנכס</h2>
-          <div class="row">
-            <span class="label">סוג הנכס:</span>
-            <span class="value">${propertyTypeLabel}</span>
-          </div>
-          <div class="row">
-            <span class="label">מחיר הנכס:</span>
-            <span class="value">${fmtCurrency(price)}</span>
-          </div>
-          <div class="row">
-            <span class="label">שטח הנכס:</span>
-            <span class="value">${area} מ&quot;ר</span>
-          </div>
-          ${isLand ? `
-          <div class="row">
-            <span class="label">שטח בנוי מתוכנן:</span>
-            <span class="value">${constructionArea} מ&quot;ר</span>
-          </div>
-          <div class="row">
-            <span class="label">עלות בנייה למ&quot;ר:</span>
-            <span class="value">${fmtCurrency(constructionCostPerSqm)}</span>
-          </div>
-          <div class="row">
-            <span class="label">האם העלות שהוזנה כוללת מע"מ:</span>
-            <span class="value">${constructionIncludesVat ? 'כן' : 'לא'}</span>
-          </div>
-          ` : ''}
-        </div>
+    addLine('פרטי הנכס', 14, 22)
+    addLine(`סוג הנכס: ${propertyTypeLabel}`)
+    addLine(`מחיר הנכס: ${fmtCurrency(price)}`)
+    addLine(`שטח הנכס: ${area} מ"ר`)
 
-        <div class="section">
-          <h2>מס רכישה</h2>
-          ${result.breakdown.map((item, index) => `
-            <div class="row">
-              <span class="label">
-                מס רכישה - ${item.buyer.name || `רוכש ${index + 1}`}
-                <span class="badge">${item.track === 'regular' ? 'רגיל' :
-                 item.track === 'oleh' ? 'עולה חדש' :
-                 item.track === 'disabled' ? 'נכה/עיוור' :
-                 item.track === 'bereaved' ? 'משפחה שכולה' :
-                 item.track === 'land' ? 'קרקע' : item.track}</span>
-              </span>
-              <span class="value">${fmtCurrency(item.tax)}</span>
-            </div>
-          `).join('')}
-          <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
-            <span class="label">סה&quot;כ מס רכישה:</span>
-            <span class="value">${fmtCurrency(result.totalTax)}</span>
-          </div>
-        </div>
+    if (isLand) {
+      addLine(`שטח בנוי מתוכנן: ${constructionArea ?? 0} מ"ר`)
+      addLine(`עלות בנייה למ"ר: ${fmtCurrency(constructionCostPerSqm)}`)
+      addLine(`האם העלות כוללת מע"מ: ${constructionIncludesVat ? 'כן' : 'לא'}`)
+    }
 
-        ${isLand ? `
-        <div class="section">
-          <h2>עלויות בנייה</h2>
-          <div class="row">
-            <span class="label">סה&quot;כ עלות בנייה:</span>
-            <span class="value">${fmtCurrency(result.constructionCost)}</span>
-          </div>
-        </div>
-        ` : ''}
+    y += 8
+    addLine('מס רכישה', 14, 22)
+    const trackLabels: Record<string, string> = {
+      regular: 'רגיל',
+      oleh: 'עולה חדש',
+      disabled: 'נכה/עיוור',
+      bereaved: 'משפחה שכולה',
+      land: 'קרקע'
+    }
+    result.breakdown.forEach((item, index) => {
+      const buyerLabel = item.buyer.name || `רוכש ${index + 1}`
+      const trackLabel = trackLabels[item.track] ?? item.track
+      addLine(`${fmtCurrency(item.tax)} — ${buyerLabel} (${trackLabel})`)
+    })
+    addLine(`סה"כ מס רכישה: ${fmtCurrency(result.totalTax)}`)
 
-        <div class="section">
-          <h2>הוצאות עיסקה</h2>
-          ${result.serviceBreakdown.map(item => `
-            <div class="row">
-              <span class="label">${item.label}:</span>
-              <span class="value">${fmtCurrency(item.cost)}</span>
-            </div>
-          `).join('')}
-          <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
-            <span class="label">סה&quot;כ הוצאות עיסקה:</span>
-            <span class="value">${fmtCurrency(result.serviceTotal)}</span>
-          </div>
-        </div>
+    if (isLand && result.constructionCost) {
+      y += 8
+      addLine('עלויות בנייה', 14, 22)
+      addLine(`סה"כ עלות בנייה: ${fmtCurrency(result.constructionCost)}`)
+    }
 
-        <div class="total">
-          <div class="row">
-            <span class="label">סה&quot;כ לתשלום:</span>
-            <span class="value">${fmtCurrency(result.total)}</span>
-          </div>
-        </div>
+    y += 8
+    addLine('הוצאות עסקה', 14, 22)
+    result.serviceBreakdown.forEach(item => {
+      addLine(`${fmtCurrency(item.cost)} — ${item.label}`)
+    })
+    addLine(`סה"כ הוצאות עסקה: ${fmtCurrency(result.serviceTotal)}`)
 
-        <div class="section">
-          <h2>מחיר למ&quot;ר</h2>
-          <div class="row">
-            <span class="label">לפני הוצאות:</span>
-            <span class="value">${fmtCurrency(result.pricePerSqBefore)}</span>
-          </div>
-          <div class="row">
-            <span class="label">אחרי הוצאות:</span>
-            <span class="value">${fmtCurrency(result.pricePerSqAfter)}</span>
-          </div>
-        </div>
+    y += 8
+    addLine('סיכום', 14, 22)
+    addLine(`סה"כ לתשלום: ${fmtCurrency(result.total)}`)
+    addLine(`מחיר למ"ר לפני הוצאות: ${fmtCurrency(result.pricePerSqBefore)}`)
+    addLine(`מחיר למ"ר אחרי הוצאות: ${fmtCurrency(result.pricePerSqAfter)}`)
 
-        <div class="footer">
-          <p>נוצר על ידי מחשבון הוצאות עסקה - ${new Date().toLocaleDateString('he-IL')}</p>
-        </div>
-      </body>
-      </html>
-    `
-
-    printWindow.document.write(htmlContent)
-    printWindow.document.close()
-    printWindow.focus()
-    
-    // Wait for content to load then print
-    setTimeout(() => {
-      printWindow.print()
-    }, 500)
-  }
+    doc.save(`חישוב_הוצאות_עסקה_${new Date().toISOString().split('T')[0]}.pdf`)
+  }, [
+    result,
+    trackCalculatorExport,
+    price,
+    area,
+    buyers,
+    isLand,
+    constructionArea,
+    constructionCostPerSqm,
+    constructionIncludesVat,
+    prefetchPdfModule
+  ])
 
   function goToMortgageCalculator() {
     if (!result) return
@@ -1630,7 +1570,14 @@ export default function DealExpensesPage() {
               <FileSpreadsheet className="h-4 w-4 ms-2" />
               ייצא ל-CSV
             </Button>
-            <Button onClick={exportToPDF} variant="outline" size="sm">
+            <Button
+              onClick={exportToPDF}
+              onPointerEnter={prefetchPdfModule}
+              onFocus={prefetchPdfModule}
+              onTouchStart={prefetchPdfModule}
+              variant="outline"
+              size="sm"
+            >
               <FileImage className="h-4 w-4 ms-2" />
               ייצא ל-PDF
             </Button>

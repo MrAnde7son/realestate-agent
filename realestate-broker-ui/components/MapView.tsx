@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Loader2, MapPin, Search, Layers, ArrowLeft } from 'lucide-react'
-import maplibregl from 'maplibre-gl'
+import type { Map as MapInstance, Marker as MapLibreMarker } from 'maplibre-gl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -12,7 +12,7 @@ import { MapLayerService, LayerConfig } from '@/lib/map-layer-service'
 import type { Asset } from '@/lib/normalizers/asset'
 import { buildMarkerDisplayData, shouldDisplayMarkerLabel, type MarkerDisplayData } from '@/components/map-marker-utils'
 import { normalizeToLonLat } from '@/lib/geo/transform'
-import 'maplibre-gl/dist/maplibre-gl.css'
+type MapLibreModule = typeof import('maplibre-gl')
 
 type MarkerElement = HTMLDivElement & { __cleanupTooltip?: () => void }
 
@@ -40,7 +40,7 @@ const isCoarsePointerEnvironment = (): boolean => {
   return false
 }
 
-interface MapViewProps {
+export interface MapViewProps {
   assets: Asset[]
   center: [number, number]
   zoom: number
@@ -220,15 +220,17 @@ export default function MapView({
   onBackToTable
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<maplibregl.Map | null>(null)
-  function getMapOrThrow(): maplibregl.Map {
+  const map = useRef<MapInstance | null>(null)
+  const maplibreRef = useRef<MapLibreModule | null>(null)
+  const [mapModuleLoaded, setMapModuleLoaded] = useState(false)
+  function getMapOrThrow(): MapInstance {
     const m = map.current
     if (!m) throw new Error('Map not initialized')
     return m
   }
   const layerService = useRef<MapLayerService | null>(null)
   const geocodingService = useRef<GeocodingService | null>(null)
-  const markersRef = useRef<Record<string | number, maplibregl.Marker>>({})
+  const markersRef = useRef<Record<string | number, MapLibreMarker>>({})
   const coarsePointerRef = useRef(false)
 
   const [loading, setLoading] = useState(true)
@@ -237,6 +239,32 @@ export default function MapView({
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [layers, setLayers] = useState<LayerConfig[]>([])
   const [showLayerControls, setShowLayerControls] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const loadMapLibrary = async () => {
+      try {
+        const maplibreModule = await import('maplibre-gl')
+        await import('maplibre-gl/dist/maplibre-gl.css')
+        if (cancelled) return
+        const resolved = (maplibreModule as MapLibreModule & { default?: MapLibreModule }).default || maplibreModule
+        maplibreRef.current = resolved
+        setMapModuleLoaded(true)
+      } catch (err) {
+        console.error('Failed to load map library:', err)
+        if (!cancelled) {
+          setError('שגיאה בטעינת ספריית המפה')
+          setLoading(false)
+        }
+      }
+    }
+
+    loadMapLibrary()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => { geocodingService.current = new GeocodingService() }, [])
 
@@ -281,7 +309,8 @@ export default function MapView({
   }, [syncMarkerLabelVisibility])
 
   const addAssetMarkers = useCallback(() => {
-    if (!map.current) return
+    const maplibre = maplibreRef.current
+    if (!map.current || !maplibre) return
 
     const m = getMapOrThrow()
     console.log('MapView: Adding markers for', assets.length, 'assets')
@@ -439,7 +468,7 @@ export default function MapView({
         hideTooltip()
       }
 
-      const marker = new maplibregl.Marker({ element: markerContainer, anchor: 'bottom' })
+      const marker = new maplibre.Marker({ element: markerContainer, anchor: 'bottom' })
       .setLngLat([lon, lat])
       .addTo(m)
       markersRef.current[asset.id] = marker
@@ -467,11 +496,12 @@ export default function MapView({
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || map.current) return
+    if (!mapContainer.current || map.current || !mapModuleLoaded || !maplibreRef.current) return
 
     const initializeMap = async () => {
       try {
-        map.current = new maplibregl.Map({
+        const maplibre = maplibreRef.current!
+        map.current = new maplibre.Map({
           container: mapContainer.current!,
           style: {
             version: 8,
@@ -568,7 +598,7 @@ export default function MapView({
       layerService.current = null
       geocodingService.current = null
     }
-  }, [center, zoom, addAssetMarkers])
+  }, [center, zoom, addAssetMarkers, mapModuleLoaded])
 
   // Update markers when assets change
   useEffect(() => {

@@ -1194,9 +1194,7 @@ export default function AssetsPage() {
 
   // Reset to first page when sorting changes
   React.useEffect(() => {
-    if (pagination.pageIndex !== 0) {
-      setPagination(prev => ({ ...prev, pageIndex: 0 }));
-    }
+    setPagination(prev => (prev.pageIndex !== 0 ? { ...prev, pageIndex: 0 } : prev));
   }, [sorting]);
 
   const updateAssetsWatchState = React.useCallback((ids: number[], watched: boolean) => {

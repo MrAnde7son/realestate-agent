@@ -266,22 +266,7 @@ describe('AssetDetailPage', () => {
       render(<AssetDetailPageClient assetId="1" />)
     })
 
-    await waitFor(() => {
-      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
-    })
-
-    // Open the dropdown menu
-    const moreActionsButton = screen.getByText('עוד פעולות')
-    await act(async () => {
-      fireEvent.click(moreActionsButton)
-    })
-
-    // Wait for dropdown to be visible and find the share message item
-    await waitFor(() => {
-      expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
-    })
-
-    const shareMessageButton = screen.getByText('צור הודעת פרסום')
+    const shareMessageButton = await screen.findByRole('button', { name: 'שיתוף' })
     await act(async () => {
       fireEvent.click(shareMessageButton)
     })
@@ -342,22 +327,7 @@ describe('AssetDetailPage', () => {
       render(<AssetDetailPageClient assetId="1" />)
     })
 
-    await waitFor(() => {
-      expect(screen.getByText('עוד פעולות')).toBeInTheDocument()
-    })
-
-    // Open the dropdown menu
-    const moreActionsButton = screen.getByText('עוד פעולות')
-    await act(async () => {
-      fireEvent.click(moreActionsButton)
-    })
-
-    // Wait for dropdown to be visible and find the share message item
-    await waitFor(() => {
-      expect(screen.getByText('צור הודעת פרסום')).toBeInTheDocument()
-    })
-
-    const button = screen.getByText('צור הודעת פרסום')
+    const button = await screen.findByRole('button', { name: 'שיתוף' })
     await act(async () => {
       fireEvent.click(button)
     })

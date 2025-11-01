@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { PageLoader } from '@/components/ui/page-loader'
-import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown, Sparkles } from 'lucide-react'
+import { ArrowLeft, RefreshCw, FileText, Loader2, Home, Building, Phone, Calculator, Handshake, Star, StarOff, Bell, Trash2, MoreVertical, Share2, ChevronDown, Sparkles, MessageCircle } from 'lucide-react'
 import ImageGallery from '@/components/ImageGallery'
 import { useAuth } from '@/lib/auth-context'
 import { apiClient } from '@/lib/api-client'
@@ -486,7 +486,7 @@ export default function AssetDetailPageClient({ assetId }: AssetDetailPageClient
   const [sectionsModal, setSectionsModal] = useState(false)
   const [sections, setSections] = useState<string[]>(ALL_SECTIONS)
   const [listingDetailsExpanded, setListingDetailsExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState('analysis')
+  const [activeTab, setActiveTab] = useState('overview')
   const [rightsRows, setRightsRows] = useState<any[]>([])
   const [rightsLoading, setRightsLoading] = useState(false)
   const [rightsError, setRightsError] = useState<string | null>(null)
@@ -1361,7 +1361,7 @@ const loadAppraisals = React.useCallback(async ({ signal }: { signal?: AbortSign
 useDedupedEffect(() => {
   appraisalsControllerRef.current?.abort()
 
-  if (activeTab !== 'appraisals') {
+  if (activeTab !== 'comps') {
     appraisalsControllerRef.current = null
     setAppraisalsLoading(false)
     return
@@ -1525,7 +1525,7 @@ const loadPermits = React.useCallback(async ({ signal }: { signal?: AbortSignal 
 useDedupedEffect(() => {
   permitsControllerRef.current?.abort()
 
-  if (activeTab !== 'permits') {
+  if (activeTab !== 'plans') {
     permitsControllerRef.current = null
     return
   }
@@ -1639,7 +1639,7 @@ const loadTransactions = React.useCallback(async ({ signal }: { signal?: AbortSi
 useDedupedEffect(() => {
   transactionsControllerRef.current?.abort()
 
-  if (activeTab !== 'transactions') {
+  if (activeTab !== 'comps') {
     transactionsControllerRef.current = null
     return
   }
@@ -1760,7 +1760,7 @@ useDedupedEffect(() => {
 }, [id, loadRightsData])
 
 useDedupedEffect(() => {
-  if (activeTab !== 'rights') {
+  if (activeTab !== 'mortgage') {
     return
   }
 
@@ -1818,16 +1818,10 @@ useDedupedEffect(() => {
   // Initialize active tab from URL
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab')
-    if (tabFromUrl && ['analysis', 'permits', 'plans', 'rights', 'transactions', 'appraisals', 'environment', 'documents', 'contributions'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['overview', 'documents', 'plans', 'comps', 'mortgage', 'activity'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
     }
   }, [searchParams])
-
-  useEffect(() => {
-    if (!canViewCrm && activeTab === 'crm') {
-      setActiveTab('analysis')
-    }
-  }, [canViewCrm, activeTab])
 
   // Update URL when active tab changes
   const handleTabChange = useCallback((value: string) => {
@@ -2006,9 +2000,9 @@ useDedupedEffect(() => {
           </div>
           <PageLoader message="טוען נתוני נכס..." showLogo={false} />
         </div>
-    </DashboardLayout>
-  )
-}
+      </DashboardLayout>
+    )
+  }
 
   if (error || !asset) {
     return (
@@ -2166,7 +2160,44 @@ useDedupedEffect(() => {
   )
   const headerPricePerSqmDisplay =
     headerPricePerSqmValue !== null ? formatCurrency(headerPricePerSqmValue) : null
+  const keyMetrics = [
+    { label: 'מחיר', value: headerPriceDisplay ?? '—' },
+    {
+      label: 'מחיר למ״ר',
+      value: headerPricePerSqmDisplay ? `${headerPricePerSqmDisplay}/מ״ר` : '—',
+    },
+    { label: 'חדרים', value: listingRoomsDisplay ?? '—' },
+    { label: 'שטח', value: listingSizeDisplay ?? '—' },
+  ]
+  const handleCallClick = () => {
+    if (!sanitizedPrimaryPhone) return
+    if (typeof window !== 'undefined') {
+      window.open(`tel:${sanitizedPrimaryPhone}`, '_self')
+    }
+  }
+  const handleWhatsappClick = () => {
+    if (!sanitizedPrimaryPhone) return
+    if (typeof window !== 'undefined') {
+      window.open(`https://wa.me/${sanitizedPrimaryPhone}`, '_blank', 'noopener,noreferrer')
+    }
+  }
   const listingTypeLabel = listingTypeValue ? formatListingTypeLabel(listingTypeValue) : null
+  const assetStatusLabel =
+    firstNonEmpty(asset.assetStatus, asset.permitStatus, (asset as any)?.status) || null
+  const exclusivityRaw =
+    (asset as any)?.exclusive ??
+    (asset as any)?.isExclusive ??
+    (asset as any)?.exclusivity ??
+    (asset as any)?.exclusivityStatus ??
+    null
+  const exclusivityLabel =
+    typeof exclusivityRaw === 'string'
+      ? exclusivityRaw
+      : typeof exclusivityRaw === 'boolean'
+        ? exclusivityRaw
+          ? 'בלעדיות'
+          : 'ללא בלעדיות'
+        : null
   const createdByDisplay = resolveContributorDisplayName(asset.attribution?.created_by)
   const lastUpdatedByDisplay = resolveContributorDisplayName(asset.attribution?.last_updated_by)
   const shouldShowLastUpdatedBy = Boolean(
@@ -2380,177 +2411,196 @@ useDedupedEffect(() => {
         </Breadcrumb>
         {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
         {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/assets">
-                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-                חזרה לרשימה
-              </Link>
-            </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold">{asset.address}</h1>
-              <p className="text-muted-foreground">
-                {asset.city}
-                {asset.neighborhood ? ` · ${asset.neighborhood}` : ''} · {asset.type ?? '—'} ·{' '}
-                {formatNumber(asset.area) ? `${formatNumber(asset.area)} מ״ר נטו` : '—'}
-                {asset.block || asset.parcel || asset.subparcel ? (
-                  <>
-                    {' · '}
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/assets">
+              <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+              חזרה לרשימה
+            </Link>
+          </Button>
+        </div>
+        <section className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+            <div className="flex-1 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {assetStatusLabel && (
+                  <Badge variant="secondary" className="text-xs font-medium">
+                    {assetStatusLabel}
+                  </Badge>
+                )}
+                {listingTypeLabel && (
+                  <Badge variant="outline" className="text-xs font-medium">
+                    {listingTypeLabel}
+                  </Badge>
+                )}
+                {exclusivityLabel && (
+                  <Badge variant="success" className="text-xs font-medium">
+                    {exclusivityLabel}
+                  </Badge>
+                )}
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold leading-tight text-start md:text-4xl">
+                  {asset.address ?? '—'}
+                </h1>
+                <p className="text-muted-foreground text-start">
+                  {asset.city}
+                  {asset.neighborhood ? ` · ${asset.neighborhood}` : ''}
+                  {asset.type ? ` · ${asset.type}` : ''}
+                  {listingSizeDisplay ? ` · ${listingSizeDisplay}` : ''}
+                </p>
+                {(asset.block || asset.parcel || asset.subparcel) && (
+                  <div className="text-sm text-muted-foreground text-start">
                     {asset.block && `גוש ${asset.block}`}
                     {asset.parcel && `${asset.block ? ' · ' : ''}חלקה ${asset.parcel}`}
-                    {asset.subparcel && `${(asset.block || asset.parcel) ? ' · ' : ''}תת חלקה ${asset.subparcel}`}
-                  </>
-                ) : null}
-              </p>
-            </div>
-          </div>
-          <div className="w-full text-start space-y-2 md:w-auto">
-            <div className="text-3xl font-bold">{headerPriceDisplay ?? '—'}</div>
-            <div className="text-muted-foreground">
-              {headerPricePerSqm !== null
-                ? `${formatCurrency(headerPricePerSqm)}/מ״ר`
-                : '—'}
-            </div>
-            {listingTypeLabel && (
-              <Badge variant="secondary" className="w-fit text-xs font-medium">
-                {listingTypeLabel}
-              </Badge>
-            )}
-            {/* Listing contact and creation date */}
-            {(primaryListing?.contactName || listingDatePostedDisplay) && (
-              <div className="text-xs text-muted-foreground mt-2 space-y-1 text-start">
-                {primaryListing?.contactName && (
-                  <div className="text-start">
-                    <span className="font-medium">איש קשר: </span>
-                    <span>{primaryListing.contactName}</span>
-                  </div>
-                )}
-                {listingDatePostedDisplay && (
-                  <div className="text-start">
-                    <span className="font-medium">פורסם: </span>
-                    <span>{listingDatePostedDisplay}</span>
+                    {asset.subparcel && `${asset.block || asset.parcel ? ' · ' : ''}תת חלקה ${asset.subparcel}`}
                   </div>
                 )}
               </div>
-            )}
-            <div className="flex flex-wrap gap-2 items-center justify-end md:justify-start">
-              {/* Primary Actions - Always Visible */}
-              <Button
-                size="sm"
-                onClick={() => setSectionsModal(true)}
-                disabled={generatingReport}
+            </div>
+            <div className="flex flex-col items-start gap-4 md:items-end">
+              <div className="space-y-1 text-start md:text-end">
+                <div className="text-4xl font-bold">{headerPriceDisplay ?? '—'}</div>
+                <div className="text-sm text-muted-foreground">
+                  {headerPricePerSqm !== null ? `${formatCurrency(headerPricePerSqm)}/מ״ר` : '—'}
+                </div>
+              </div>
+              <div className="space-y-1 text-sm text-muted-foreground text-start md:text-end">
+                {contactNameValue && <div>בעלים/ברוקר: {contactNameValue}</div>}
+                {listingDatePostedDisplay && <div>פורסם: {listingDatePostedDisplay}</div>}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleCallClick}
+                  disabled={!sanitizedPrimaryPhone}
+                >
+                  <Phone className="h-4 w-4 me-2" />
+                  שיחה
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleWhatsappClick}
+                  disabled={!sanitizedPrimaryPhone}
+                >
+                  <MessageCircle className="h-4 w-4 me-2" />
+                  וואטסאפ
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShareModal(true)}
+                >
+                  <Share2 className="h-4 w-4 me-2" />
+                  שיתוף
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSectionsModal(true)}
+                  disabled={generatingReport}
+                >
+                  {generatingReport ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin me-2" />
+                      יוצר דוח...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4 me-2" />
+                      דוח
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="flex items-center gap-2">
+                <MoreVertical className="h-4 w-4" />
+                עוד פעולות
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuItem onClick={handleDealWorkspaceClick}>
+                <Handshake className="h-4 w-4 ms-2" />
+                סביבת עסקה
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleSyncData}
+                disabled={syncing}
               >
-                {generatingReport ? (
+                {syncing ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin me-2" />
-                    יוצר דוח...
+                    <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                    מסנכרן...
                   </>
                 ) : (
                   <>
-                    <FileText className="h-4 w-4 me-2" />
-                    צור דוח
+                    <RefreshCw className="h-4 w-4 ms-2" />
+                    סנכרן נתונים
                   </>
                 )}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleDealWorkspaceClick}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDealExpensesClick}>
+                <Calculator className="h-4 w-4 ms-2" />
+                חשב הוצאות עסקה
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleToggleWatch}
+                disabled={watchingAsset}
               >
-                <Handshake className="h-4 w-4 me-2" />
-                סביבת עסקה
-              </Button>
+                {watchingAsset ? (
+                  <>
+                    <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                    מטופל...
+                  </>
+                ) : asset?.isWatched ? (
+                  <>
+                    <Star className="h-4 w-4 ms-2 fill-amber-500" />
+                    הסר מרשימת המעקב
+                  </>
+                ) : (
+                  <>
+                    <StarOff className="h-4 w-4 ms-2" />
+                    הוסף לרשימת המעקב
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleOpenAlerts}>
+                <Bell className="h-4 w-4 ms-2" />
+                הגדר התראות
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setDeleteConfirmOpen(true)}
+                disabled={deletingAsset}
+                className="text-destructive focus:text-destructive"
+              >
+                {deletingAsset ? (
+                  <>
+                    <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                    מוחק...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 ms-2" />
+                    מחק נכס
+                  </>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {syncMessage && (
+            <div className="text-sm text-muted-foreground">{syncMessage}</div>
+          )}
+        </div>
 
-              {/* Actions Dropdown Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                  >
-                    <MoreVertical className="h-4 w-4 me-2" />
-                    עוד פעולות
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem
-                    onClick={handleSyncData}
-                    disabled={syncing}
-                  >
-                    {syncing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 ms-2 animate-spin" />
-                        מסנכרן...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 ms-2" />
-                        סנכרן נתונים
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={handleDealExpensesClick}
-                  >
-                    <Calculator className="h-4 w-4 ms-2" />
-                    חשב הוצאות עסקה
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleToggleWatch}
-                    disabled={watchingAsset}
-                  >
-                    {watchingAsset ? (
-                      <>
-                        <Loader2 className="h-4 w-4 ms-2 animate-spin" />
-                        מטופל...
-                      </>
-                    ) : asset?.isWatched ? (
-                      <>
-                        <Star className="h-4 w-4 ms-2 fill-amber-500" />
-                        הסר מרשימת המעקב
-                      </>
-                    ) : (
-                      <>
-                        <StarOff className="h-4 w-4 ms-2" />
-                        הוסף לרשימת המעקב
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => setShareModal(true)}
-                  >
-                    <Share2 className="h-4 w-4 ms-2" />
-                    צור הודעת פרסום
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={handleOpenAlerts}
-                  >
-                    <Bell className="h-4 w-4 ms-2" />
-                    הגדר התראות
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setDeleteConfirmOpen(true)}
-                    disabled={deletingAsset}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    {deletingAsset ? (
-                      <>
-                        <Loader2 className="h-4 w-4 ms-2 animate-spin" />
-                        מוחק...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="h-4 w-4 ms-2" />
-                        מחק נכס
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Dialogs */}
+        {/* Dialogs */}
               <Dialog open={sectionsModal} onOpenChange={setSectionsModal}>
                 <DialogContent>
                   <DialogHeader>
@@ -2732,14 +2782,11 @@ useDedupedEffect(() => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </div>
-            {syncMessage && (
-              <div className="text-sm text-muted-foreground">{syncMessage}</div>
-            )}
-          </div>
-        </div>
+              {syncMessage && (
+                <div className="text-sm text-muted-foreground">{syncMessage}</div>
+              )}
 
-        {/* Images Gallery */}
+          {/* Images Gallery */}
         {listingImages.length > 0 && (
           <Card>
             <CardHeader>
@@ -2756,55 +2803,6 @@ useDedupedEffect(() => {
             </CardContent>
           </Card>
         )}
-
-        {/* Quick Stats */}
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">מדד אטרקטיביות</div>
-              <div className="text-2xl font-bold">
-                {!!asset.confidencePct &&
-                !!asset.capRatePct &&
-                !!asset.priceGapPct
-                  ? Math.round(
-                      (asset.confidencePct + asset.capRatePct * 20 +
-                        (asset.priceGapPct < 0
-                          ? 100 + asset.priceGapPct
-                          : 100 - asset.priceGapPct)) /
-                        3
-                    )
-                  : '—'}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">תשואה</div>
-              <div className="text-2xl font-bold">{formatPercent(asset.capRatePct, 1) ?? '—'}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">יתרת זכויות</div>
-              <div className="text-2xl font-bold">
-                {!!remainingRightsDisplayValue
-                  ? `+${formatNumber(remainingRightsDisplayValue)} מ״ר`
-                  : '—'}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">רמת רעש</div>
-              <div className="text-2xl font-bold">
-                {!!asset.noiseLevel
-                  ? `${asset.noiseLevel}/5`
-                  : '—'}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {hasListingDetails && (
           <Card>
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -2977,22 +2975,74 @@ useDedupedEffect(() => {
         )}
 
         {/* Main Content Tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="flex flex-wrap gap-2 md:flex-nowrap md:gap-0">
-            <TabsTrigger value="analysis">ניתוח כללי</TabsTrigger>
-            <TabsTrigger value="listings">מודעות</TabsTrigger>
-            <TabsTrigger value="transactions">עיסקאות השוואה</TabsTrigger>
-            <TabsTrigger value="permits">היתרים</TabsTrigger>
-            <TabsTrigger value="plans">תוכניות</TabsTrigger>
-            <TabsTrigger value="rights">זכויות</TabsTrigger>
-            <TabsTrigger value="environment">סביבה</TabsTrigger>
-            {canViewCrm && <TabsTrigger value="crm">לקוחות</TabsTrigger>}
-            <TabsTrigger value="appraisals">שומות באיזור</TabsTrigger>
-            <TabsTrigger value="documents">מסמכים</TabsTrigger>
-            {/* <TabsTrigger value="contributions">תרומות קהילה</TabsTrigger> */}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <div className="sticky top-0 z-30 -mx-6 border-b bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <TabsList className="flex w-full flex-wrap gap-2 bg-transparent p-0 md:w-auto">
+                <TabsTrigger value="overview">סקירה</TabsTrigger>
+                <TabsTrigger value="documents">מסמכים</TabsTrigger>
+                <TabsTrigger value="plans">תוכניות</TabsTrigger>
+                <TabsTrigger value="comps">השוואות</TabsTrigger>
+                <TabsTrigger value="mortgage">משכנתא</TabsTrigger>
+                <TabsTrigger value="activity">פעילות</TabsTrigger>
+              </TabsList>
+              <div className="flex flex-wrap items-center gap-6">
+                {keyMetrics.map((metric) => (
+                  <div key={metric.label} className="text-start">
+                    <div className="text-xs text-muted-foreground">{metric.label}</div>
+                    <div className="font-semibold">{metric.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-          <TabsContent value="analysis" className="space-y-4">
+          <div className="space-y-4 pt-6">
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">מדד אטרקטיביות</div>
+                  <div className="text-2xl font-bold">
+                    {!!asset.confidencePct &&
+                    !!asset.capRatePct &&
+                    !!asset.priceGapPct
+                      ? Math.round(
+                          (asset.confidencePct + asset.capRatePct * 20 +
+                            (asset.priceGapPct < 0
+                              ? 100 + asset.priceGapPct
+                              : 100 - asset.priceGapPct)) /
+                            3
+                        )
+                      : '—'}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">תשואה</div>
+                  <div className="text-2xl font-bold">{formatPercent(asset.capRatePct, 1) ?? '—'}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">יתרת זכויות</div>
+                  <div className="text-2xl font-bold">
+                    {!!remainingRightsDisplayValue
+                      ? `+${formatNumber(remainingRightsDisplayValue)} מ״ר`
+                      : '—'}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">רמת רעש</div>
+                  <div className="text-2xl font-bold">
+                    {!!asset.noiseLevel ? `${asset.noiseLevel}/5` : '—'}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -3152,6 +3202,115 @@ useDedupedEffect(() => {
                 )}
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>מידע סביבתי</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2" dir="rtl">
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">רמת רעש:</span>
+                  {renderValue(asset.noiseLevel ? `${asset.noiseLevel}/5` : '—', 'noiseLevel')}
+                </div>
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">מרחק מאנטנה:</span>
+                  {renderValue(asset.antennaDistanceM ? `${asset.antennaDistanceM} מ׳` : '—', 'antennaDistanceM')}
+                </div>
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">מרחק ממקלט:</span>
+                  {renderValue(asset.shelterDistanceM ? `${asset.shelterDistanceM} מ׳` : '—', 'shelterDistanceM')}
+                </div>
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">שטחים ירוקים:</span>
+                  {renderValue(asset.openSpacesNearby ?? (asset.greenWithin300m ? 'כן' : 'לא'), 'openSpacesNearby')}
+                </div>
+                {asset.greenScore && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">ציון ירוק:</span>
+                    <Badge variant={asset.greenScore === 'גבוה' ? 'success' : asset.greenScore === 'בינוני' ? 'warning' : 'neutral'}>
+                      {asset.greenScore}
+                    </Badge>
+                  </div>
+                )}
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">תחבורה ציבורית:</span>
+                  {renderValue(asset.publicTransport ?? '—', 'publicTransport')}
+                </div>
+                {asset.metroStationDistanceM && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מרחק מתחנת מטרו:</span>
+                    {renderValue(`${asset.metroStationDistanceM} מ׳${asset.metroStationsCount ? ` (${asset.metroStationsCount} תחנות)` : ''}`, 'metroStationDistanceM')}
+                  </div>
+                )}
+                {asset.schoolsCount && asset.schoolsCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">בתי ספר וגני ילדים:</span>
+                    {renderValue(`${asset.schoolsCount}${asset.nearestSchoolDistanceM ? ` (קרוב ביותר: ${asset.nearestSchoolDistanceM} מ׳)` : ''}`, 'schoolsCount')}
+                  </div>
+                )}
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">מבני ציבור:</span>
+                  {renderValue(asset.publicBuildings ?? '—', 'publicBuildings')}
+                </div>
+                {asset.medicalFacilitiesCount && asset.medicalFacilitiesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מתקנים רפואיים:</span>
+                    {renderValue(`${asset.medicalFacilitiesCount}${asset.nearestMedicalFacilityDistanceM ? ` (קרוב ביותר: ${asset.nearestMedicalFacilityDistanceM} מ׳)` : ''}`, 'medicalFacilitiesCount')}
+                  </div>
+                )}
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">מצב חניה:</span>
+                  {renderValue(asset.parking ?? '—', 'parking')}
+                </div>
+                {asset.parkingLotsCount && asset.parkingLotsCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">חניונים באזור:</span>
+                    {renderValue(`${asset.parkingLotsCount} (${asset.publicParkingLotsCount || 0} ציבוריים)`, 'parkingLotsCount')}
+                  </div>
+                )}
+                {asset.hasBikePaths && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">שבילי אופניים:</span>
+                    {renderValue(`${asset.bikePathsCount || 0} שבילים בקרבת מקום`, 'bikePathsCount')}
+                  </div>
+                )}
+                {asset.greenAmenitiesCount && asset.greenAmenitiesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מתקני נופש ירוקים:</span>
+                    {renderValue(`${asset.greenAmenitiesCount}${asset.playgroundsCount ? ` (${asset.playgroundsCount} מגרשי משחקים)` : ''}`, 'greenAmenitiesCount')}
+                  </div>
+                )}
+                <div className="flex justify-between text-start">
+                  <span className="text-muted-foreground">פרויקטים סמוכים:</span>
+                  {renderValue(asset.nearbyProjects ?? '—', 'nearbyProjects')}
+                </div>
+                {asset.constructionSitesCount && asset.constructionSitesCount > 0 && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">אתרי בנייה פעילים:</span>
+                    {renderValue(`${asset.constructionSitesCount}`, 'constructionSitesCount')}
+                  </div>
+                )}
+                {asset.tama38KeyArea && (
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">אזור תמ״א 38:</span>
+                    <Badge variant="success">כן ({asset.tama38KeyAreasCount || 0} אזורים)</Badge>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {asset.riskFlags && asset.riskFlags.length > 0 && (
+              <Card>
+                <CardHeader>סיכונים</CardHeader>
+                <CardBody className="flex flex-wrap gap-2">
+                  {asset.riskFlags.map((flag: string, i: number) => (
+                    <Badge key={i} variant={flag.includes('שימור') ? 'error' : 'warning'}>
+                      {flag}
+                    </Badge>
+                  ))}
+                </CardBody>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-4">
@@ -3187,11 +3346,11 @@ useDedupedEffect(() => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>תוכניות כלל עירוניות</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>תוכניות כלל עירוניות</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex justify-between rtl:flex-row-reverse">
                       <span className="text-muted-foreground">סטטוס תכנוני:</span>
@@ -3212,9 +3371,9 @@ useDedupedEffect(() => {
                       מידע נוסף על תוכניות עתידיות יתעדכן בהתאם לפרסומים חדשים
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+              </CardContent>
+            </Card>
+          </div>
 
 
             {/* Plans Table */}
@@ -3259,9 +3418,197 @@ useDedupedEffect(() => {
               }}
               onRefresh={loadPlans}
             />
+
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-start rtl:flex-row-reverse">
+                  <div>
+                    <CardTitle>היתרים</CardTitle>
+                    <CardDescription>נתונים מעודכנים ממערכת ההיתרים של העירייה</CardDescription>
+                  </div>
+                  <div className="text-start">
+                    <div className="text-2xl font-bold">{permitsData.total}</div>
+                    <div className="text-sm text-muted-foreground">
+                      בקשות פעילות ברדיוס {permitRadius} מטר
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card>
+                <CardHeader>נתוני גוש חלקה</CardHeader>
+                <CardBody className="space-y-2" dir="rtl">
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">שטח חלקה:</span>
+                    {renderValue(asset.parcelArea ? `${asset.parcelArea.toLocaleString()} מ״ר` : '—', 'parcelArea')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">סטטוס חלקה:</span>
+                    {renderValue(asset.parcelStatus, 'parcelStatus')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">שטח גוש:</span>
+                    {renderValue(asset.blockArea ? `${asset.blockArea.toLocaleString()} מ״ר` : '—', 'blockArea')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מספר חלקות בגוש:</span>
+                    {renderValue(asset.blockTotalParcels, 'blockTotalParcels')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מספר היתרים:</span>
+                    {renderValue(asset.totalPermits, 'totalPermits')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">מספר בקשה:</span>
+                    {renderValue(asset.permitRequestNum, 'permitRequestNum')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">יחידות דיור:</span>
+                    {renderValue(asset.permitHousingUnits, 'permitHousingUnits')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">שטח מגורים:</span>
+                    {renderValue(asset.permitResidentialArea ? `${asset.permitResidentialArea.toLocaleString()} מ״ר` : '—', 'permitResidentialArea')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">שטח חניה:</span>
+                    {renderValue(asset.permitParkingArea ? `${asset.permitParkingArea.toLocaleString()} מ״ר` : '—', 'permitParkingArea')}
+                  </div>
+                  <div className="flex justify-between text-start">
+                    <span className="text-muted-foreground">יחידות חניה:</span>
+                    {renderValue(asset.permitParkingUnits, 'permitParkingUnits')}
+                  </div>
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>היתרי בנייה באזור</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4" dir="rtl">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-start">
+                      <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
+                      {renderValue(
+                        <Badge variant={asset.lastPermitQ ? 'success' : 'neutral'}>
+                          {asset.lastPermitQ ?? 'לא זמין'}
+                        </Badge>,
+                        'lastPermitQ'
+                      )}
+                    </div>
+                    <div className="flex justify-between text-start">
+                      <span className="text-muted-foreground">פעילות בנייה באזור:</span>
+                      <span>{asset.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="text-sm text-muted-foreground text-start">
+                      נתונים מעודכנים ממערכת היתרי הבנייה של עיריית תל אביב
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>סטטוס היתרים</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4" dir="rtl">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-start">
+                      <span className="text-muted-foreground">היתר בתוקף:</span>
+                      {renderValue(<Badge variant="success">כן</Badge>, 'permitValid')}
+                    </div>
+                    <div className="flex justify-between text-start">
+                      <span className="text-muted-foreground">סוג היתר:</span>
+                      {renderValue('מגורים', 'permitType')}
+                    </div>
+                    <div className="flex justify-between text-start">
+                      <span className="text-muted-foreground">אישורי חיבור:</span>
+                      {renderValue(<Badge variant="success">מאושר</Badge>, 'utilityApprovals')}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <PermitsTable
+              data={normalizedPermits}
+              loading={permitsLoading}
+              searchValue={permitsSearch}
+              onSearchChange={setPermitsSearch}
+              filters={{
+                stage: {
+                  value: permitsStageFilter,
+                  onChange: setPermitsStageFilter,
+                  options: [],
+                },
+                documentType: {
+                  value: permitsTypeFilter,
+                  onChange: setPermitsTypeFilter,
+                  options: [],
+                },
+                source: {
+                  value: permitsSourceFilter,
+                  onChange: setPermitsSourceFilter,
+                  options: [],
+                },
+              }}
+              advancedFilters={{
+                requestType: {
+                  value: permitsRequestTypeFilter,
+                  onChange: setPermitsRequestTypeFilter,
+                },
+                permitNumber: {
+                  value: permitsPermitNumberFilter,
+                  onChange: setPermitsPermitNumberFilter,
+                },
+                requestNumber: {
+                  value: permitsRequestNumberFilter,
+                  onChange: setPermitsRequestNumberFilter,
+                },
+                description: {
+                  value: permitsDescriptionFilter,
+                  onChange: setPermitsDescriptionFilter,
+                },
+                approvalDate: {
+                  from: permitsApprovalDateFrom,
+                  to: permitsApprovalDateTo,
+                  onChange: ({ from, to }) => {
+                    setPermitsApprovalDateFrom(from)
+                    setPermitsApprovalDateTo(to)
+                  },
+                },
+                expiryDate: {
+                  from: permitsExpiryDateFrom,
+                  to: permitsExpiryDateTo,
+                  onChange: ({ from, to }) => {
+                    setPermitsExpiryDateFrom(from)
+                    setPermitsExpiryDateTo(to)
+                  },
+                },
+              }}
+              manualPagination
+              manualSorting
+              pageCount={Math.max(1, Math.ceil((permitsData.total || 0) / permitsPagination.pageSize))}
+              paginationState={permitsPagination}
+              onPaginationChange={setPermitsPagination}
+              sortingState={permitsSorting}
+              onSortingChange={setPermitsSorting}
+              totalCount={permitsData.total}
+              filterOptions={{
+                stage: permitsData.filters.stage,
+                documentType: permitsData.filters.document_type,
+                source: permitsData.filters.source,
+                requestType: permitsData.filters.request_type,
+              }}
+              onRefresh={loadPermits}
+              radius={permitRadius}
+            />
           </TabsContent>
 
-          <TabsContent value="rights" className="space-y-4">
+          <TabsContent value="mortgage" className="space-y-4">
             {/* Summary Metrics */}
             <Card>
               <CardHeader>
@@ -3661,317 +4008,9 @@ useDedupedEffect(() => {
             )}
           </TabsContent>
 
-          <TabsContent value="environment" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>מידע סביבתי</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2" dir="rtl">
-                {/* Environmental Measurements */}
-                <div className="flex justify-between text-start">
-                  <span className="text-muted-foreground">רמת רעש:</span>
-                  {renderValue(asset.noiseLevel ? `${asset.noiseLevel}/5` : '—', 'noiseLevel')}
-                </div>
-                <div className="flex justify-between text-start">
-                  <span className="text-muted-foreground">מרחק מאנטנה:</span>
-                  {renderValue(asset.antennaDistanceM ? `${asset.antennaDistanceM} מ׳` : '—', 'antennaDistanceM')}
-                </div>
-                <div className="flex justify-between text-start">
-                  <span className="text-muted-foreground">מרחק ממקלט:</span>
-                  {renderValue(asset.shelterDistanceM ? `${asset.shelterDistanceM} מ׳` : '—', 'shelterDistanceM')}
-                </div>
-                
-                {/* Environmental Features */}
-                <div className="flex justify-between text-start">
-                  <span className="text-muted-foreground">שטחים ירוקים:</span>
-                  {renderValue(asset.openSpacesNearby ?? (asset.greenWithin300m ? 'כן' : 'לא'), 'openSpacesNearby')}
-                </div>
-                {asset.greenScore && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">ציון ירוק:</span>
-                    <Badge variant={asset.greenScore === 'גבוה' ? 'success' : asset.greenScore === 'בינוני' ? 'warning' : 'neutral'}>
-                      {asset.greenScore}
-                    </Badge>
-                  </div>
-                )}
-                <div className="flex justify-between text-start">
-                  <span className="text-muted-foreground">תחבורה ציבורית:</span>
-                  {renderValue(asset.publicTransport ?? '—', 'publicTransport')}
-                </div>
-                {asset.metroStationDistanceM && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">מרחק מתחנת מטרו:</span>
-                    {renderValue(`${asset.metroStationDistanceM} מ׳${asset.metroStationsCount ? ` (${asset.metroStationsCount} תחנות)` : ''}`, 'metroStationDistanceM')}
-                  </div>
-                )}
-                {asset.schoolsCount && asset.schoolsCount > 0 && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">בתי ספר וגני ילדים:</span>
-                    {renderValue(`${asset.schoolsCount}${asset.nearestSchoolDistanceM ? ` (קרוב ביותר: ${asset.nearestSchoolDistanceM} מ׳)` : ''}`, 'schoolsCount')}
-                  </div>
-                )}
-                <div className="flex justify-between text-start">
-                  <span className="text-muted-foreground">מבני ציבור:</span>
-                  {renderValue(asset.publicBuildings ?? '—', 'publicBuildings')}
-                </div>
-                {asset.medicalFacilitiesCount && asset.medicalFacilitiesCount > 0 && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">מתקנים רפואיים:</span>
-                    {renderValue(`${asset.medicalFacilitiesCount}${asset.nearestMedicalFacilityDistanceM ? ` (קרוב ביותר: ${asset.nearestMedicalFacilityDistanceM} מ׳)` : ''}`, 'medicalFacilitiesCount')}
-                  </div>
-                )}
-                <div className="flex justify-between text-start">
-                  <span className="text-muted-foreground">מצב חניה:</span>
-                  {renderValue(asset.parking ?? '—', 'parking')}
-                </div>
-                {asset.parkingLotsCount && asset.parkingLotsCount > 0 && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">חניונים באזור:</span>
-                    {renderValue(`${asset.parkingLotsCount} (${asset.publicParkingLotsCount || 0} ציבוריים)`, 'parkingLotsCount')}
-                  </div>
-                )}
-                {asset.hasBikePaths && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">שבילי אופניים:</span>
-                    {renderValue(`${asset.bikePathsCount || 0} שבילים בקרבת מקום`, 'bikePathsCount')}
-                  </div>
-                )}
-                {asset.greenAmenitiesCount && asset.greenAmenitiesCount > 0 && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">מתקני נופש ירוקים:</span>
-                    {renderValue(`${asset.greenAmenitiesCount}${asset.playgroundsCount ? ` (${asset.playgroundsCount} מגרשי משחקים)` : ''}`, 'greenAmenitiesCount')}
-                  </div>
-                )}
-                <div className="flex justify-between text-start">
-                  <span className="text-muted-foreground">פרויקטים סמוכים:</span>
-                  {renderValue(asset.nearbyProjects ?? '—', 'nearbyProjects')}
-                </div>
-                {asset.constructionSitesCount && asset.constructionSitesCount > 0 && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">אתרי בנייה פעילים:</span>
-                    {renderValue(`${asset.constructionSitesCount}`, 'constructionSitesCount')}
-                  </div>
-                )}
-                {asset.tama38KeyArea && (
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">אזור תמ״א 38:</span>
-                    <Badge variant="success">כן ({asset.tama38KeyAreasCount || 0} אזורים)</Badge>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {asset.riskFlags && asset.riskFlags.length > 0 && (
-              <Card>
-                <CardHeader>סיכונים</CardHeader>
-                <CardBody className="flex flex-wrap gap-2">
-                  {asset.riskFlags.map((flag: string, i: number) => (
-                    <Badge key={i} variant={flag.includes('שימור') ? 'error' : 'warning'}>
-                      {flag}
-                    </Badge>
-                  ))}
-                </CardBody>
-              </Card>
-            )}
-
-          </TabsContent>
-
-          <TabsContent value="permits" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-start rtl:flex-row-reverse">
-                  <div>
-                    <CardTitle>היתרים</CardTitle>
-                    <CardDescription>נתונים מעודכנים ממערכת ההיתרים של העירייה</CardDescription>
-                  </div>
-                  <div className="text-start">
-                    <div className="text-2xl font-bold">{permitsData.total}</div>
-                    <div className="text-sm text-muted-foreground">
-                      בקשות פעילות ברדיוס {permitRadius} מטר
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card>
-                <CardHeader>נתוני גוש חלקה</CardHeader>
-                <CardBody className="space-y-2" dir="rtl">
-                  {/* Parcel Information */}
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">שטח חלקה:</span>
-                    {renderValue(asset.parcelArea ? `${asset.parcelArea.toLocaleString()} מ״ר` : '—', 'parcelArea')}
-                  </div>
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">סטטוס חלקה:</span>
-                    {renderValue(asset.parcelStatus, 'parcelStatus')}
-                  </div>
-                  
-                  {/* Block Information */}
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">שטח גוש:</span>
-                    {renderValue(asset.blockArea ? `${asset.blockArea.toLocaleString()} מ״ר` : '—', 'blockArea')}
-                  </div>
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">מספר חלקות בגוש:</span>
-                    {renderValue(asset.blockTotalParcels, 'blockTotalParcels')}
-                  </div>
-                  
-                  {/* Permit Information */}
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">מספר היתרים:</span>
-                    {renderValue(asset.totalPermits, 'totalPermits')}
-                  </div>
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">מספר בקשה:</span>
-                    {renderValue(asset.permitRequestNum, 'permitRequestNum')}
-                  </div>
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">יחידות דיור:</span>
-                    {renderValue(asset.permitHousingUnits, 'permitHousingUnits')}
-                  </div>
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">שטח מגורים:</span>
-                    {renderValue(asset.permitResidentialArea ? `${asset.permitResidentialArea.toLocaleString()} מ״ר` : '—', 'permitResidentialArea')}
-                  </div>
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">שטח חניה:</span>
-                    {renderValue(asset.permitParkingArea ? `${asset.permitParkingArea.toLocaleString()} מ״ר` : '—', 'permitParkingArea')}
-                  </div>
-                  <div className="flex justify-between text-start">
-                    <span className="text-muted-foreground">יחידות חניה:</span>
-                    {renderValue(asset.permitParkingUnits, 'permitParkingUnits')}
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>היתרי בנייה באזור</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4" dir="rtl">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-start">
-                      <span className="text-muted-foreground">רבעון אחרון עם היתר:</span>
-                      {renderValue(
-                        <Badge variant={asset.lastPermitQ ? 'success' : 'neutral'}>
-                          {asset.lastPermitQ ?? 'לא זמין'}
-                        </Badge>,
-                        'lastPermitQ'
-                      )}
-                    </div>
-                    <div className="flex justify-between text-start">
-                      <span className="text-muted-foreground">פעילות בנייה באזור:</span>
-                      <span>{asset.lastPermitQ ? 'גבוהה' : 'נמוכה'}</span>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t">
-                    <div className="text-sm text-muted-foreground text-start">
-                      נתונים מעודכנים ממערכת היתרי הבנייה של עיריית תל אביב
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>סטטוס היתרים</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4" dir="rtl">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-start">
-                      <span className="text-muted-foreground">היתר בתוקף:</span>
-                      {renderValue(<Badge variant="success">כן</Badge>, 'permitValid')}
-                    </div>
-                    <div className="flex justify-between text-start">
-                      <span className="text-muted-foreground">סוג היתר:</span>
-                      {renderValue('מגורים', 'permitType')}
-                    </div>
-                    <div className="flex justify-between text-start">
-                      <span className="text-muted-foreground">אישורי חיבור:</span>
-                      {renderValue(<Badge variant="success">מאושר</Badge>, 'utilityApprovals')}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <PermitsTable
-              data={normalizedPermits}
-              loading={permitsLoading}
-              searchValue={permitsSearch}
-              onSearchChange={setPermitsSearch}
-              filters={{
-                stage: {
-                  value: permitsStageFilter,
-                  onChange: setPermitsStageFilter,
-                  options: [],
-                },
-                documentType: {
-                  value: permitsTypeFilter,
-                  onChange: setPermitsTypeFilter,
-                  options: [],
-                },
-                source: {
-                  value: permitsSourceFilter,
-                  onChange: setPermitsSourceFilter,
-                  options: [],
-                },
-              }}
-              advancedFilters={{
-                requestType: {
-                  value: permitsRequestTypeFilter,
-                  onChange: setPermitsRequestTypeFilter,
-                },
-                permitNumber: {
-                  value: permitsPermitNumberFilter,
-                  onChange: setPermitsPermitNumberFilter,
-                },
-                requestNumber: {
-                  value: permitsRequestNumberFilter,
-                  onChange: setPermitsRequestNumberFilter,
-                },
-                description: {
-                  value: permitsDescriptionFilter,
-                  onChange: setPermitsDescriptionFilter,
-                },
-                approvalDate: {
-                  from: permitsApprovalDateFrom,
-                  to: permitsApprovalDateTo,
-                  onChange: ({ from, to }) => {
-                    setPermitsApprovalDateFrom(from)
-                    setPermitsApprovalDateTo(to)
-                  },
-                },
-                expiryDate: {
-                  from: permitsExpiryDateFrom,
-                  to: permitsExpiryDateTo,
-                  onChange: ({ from, to }) => {
-                    setPermitsExpiryDateFrom(from)
-                    setPermitsExpiryDateTo(to)
-                  },
-                },
-              }}
-              manualPagination
-              manualSorting
-              pageCount={Math.max(1, Math.ceil((permitsData.total || 0) / permitsPagination.pageSize))}
-              paginationState={permitsPagination}
-              onPaginationChange={setPermitsPagination}
-              sortingState={permitsSorting}
-              onSortingChange={setPermitsSorting}
-              totalCount={permitsData.total}
-              filterOptions={{
-                stage: permitsData.filters.stage,
-                documentType: permitsData.filters.document_type,
-                source: permitsData.filters.source,
-                requestType: permitsData.filters.request_type,
-              }}
-              onRefresh={loadPermits}
-              radius={permitRadius}
-            />
-          </TabsContent>
-
-          <TabsContent value="transactions" className="space-y-4">
+          
+          
+          <TabsContent value="comps" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>עיסקאות השוואה</CardTitle>
@@ -4072,9 +4111,7 @@ useDedupedEffect(() => {
                 source: transactionsData.filters.source,
               }}
             />
-          </TabsContent>
-
-          <TabsContent value="appraisals" className="space-y-4">
+          
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center rtl:flex-row-reverse">
@@ -4343,23 +4380,17 @@ useDedupedEffect(() => {
             </Card>
           </TabsContent>
 
-          {canViewCrm && (
-            <TabsContent value="crm" className="space-y-4">
+          <TabsContent value="activity" className="space-y-4">
+            <ListingsPanel
+              assetId={parseInt(id)}
+              assetAddress={asset.address}
+            />
+            {canViewCrm && (
               <AssetLeadsPanel
                 assetId={parseInt(id)}
                 assetAddress={asset.address}
               />
-            </TabsContent>
-          )}
-
-          <TabsContent value="listings" className="space-y-4">
-            <ListingsPanel 
-              assetId={parseInt(id)} 
-              assetAddress={asset.address}
-            />
-          </TabsContent>
-
-          <TabsContent value="contributions" className="space-y-4">
+            )}
             <Card>
               <CardHeader>
                 <CardTitle className="text-start">תרומות קהילה</CardTitle>
@@ -4368,7 +4399,6 @@ useDedupedEffect(() => {
                 </p>
               </CardHeader>
               <CardContent className="space-y-4 text-start">
-                {/* Attribution Summary */}
                 {asset.attribution && (
                   <div className="grid gap-3 lg:grid-cols-2">
                     {asset.attribution.created_by && (
@@ -4379,16 +4409,11 @@ useDedupedEffect(() => {
                             <p className="font-medium text-sm truncate">{asset.attribution.created_by.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{asset.attribution.created_by.email}</p>
                           </div>
-                          <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-medium">
-                              {asset.attribution.created_by.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
+                          <Badge variant="neutral" className="text-xs">יוצר</Badge>
                         </div>
                       </div>
                     )}
-                    
-                    {asset.attribution.last_updated_by && asset.attribution.last_updated_by.id !== asset.attribution.created_by?.id && (
+                    {asset.attribution.last_updated_by && (
                       <div className="p-3 border rounded-lg text-start">
                         <h3 className="font-medium mb-2 text-sm">עודכן לאחרונה על ידי</h3>
                         <div className="flex items-center gap-2 rtl:flex-row-reverse">
@@ -4396,84 +4421,78 @@ useDedupedEffect(() => {
                             <p className="font-medium text-sm truncate">{asset.attribution.last_updated_by.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{asset.attribution.last_updated_by.email}</p>
                           </div>
-                          <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-medium">
-                              {asset.attribution.last_updated_by.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
+                          <Badge variant="success" className="text-xs">עדכון אחרון</Badge>
                         </div>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Recent Contributions */}
-                <div className="text-start">
-                  <h3 className="font-medium mb-3 text-sm">תרומות אחרונות</h3>
-                  {asset.recent_contributions && asset.recent_contributions.length > 0 ? (
+                {asset.recent_contributions && asset.recent_contributions.length > 0 ? (
+                  <div className="space-y-3">
+                    <h3 className="font-medium text-sm">עדכונים אחרונים</h3>
                     <div className="space-y-2">
-                      {asset.recent_contributions.map((contrib: any, idx: number) => (
-                        <div key={idx} className="flex items-start gap-2 p-2 border rounded-lg rtl:flex-row-reverse">
-                          <div className="flex-1 text-start">
-                            <div className="flex items-center justify-between rtl:flex-row-reverse mb-1">
-                              <p className="font-medium text-sm">{contrib.user.name}</p>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(contrib.created_at).toLocaleDateString('he-IL')}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground mb-1">
-                              {getContributionTypeDisplay(contrib.type)}
-                              {contrib.field_name && ` - ${contrib.field_name}`}
-                            </p>
-                            {contrib.description && (
-                              <p className="text-xs text-start text-muted-foreground">{contrib.description}</p>
-                            )}
-                            {contrib.source && (
-                              <span className="inline-block px-1.5 py-0.5 text-xs bg-secondary rounded-full mt-1">
-                                {getSourceDisplay(contrib.source)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-medium">
-                              {contrib.user.name.charAt(0).toUpperCase()}
+                      {asset.recent_contributions.map((contribution: any, index: number) => (
+                        <div
+                          key={index}
+                          className="p-3 border rounded-lg space-y-1 text-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">
+                              {contribution.user?.name || contribution.user?.email || 'משתמש'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {contribution.created_at
+                                ? new Date(contribution.created_at).toLocaleDateString('he-IL')
+                                : contribution.createdAt
+                                  ? new Date(contribution.createdAt).toLocaleDateString('he-IL')
+                                  : ''}
                             </span>
                           </div>
+                          <div className="text-xs text-muted-foreground">
+                            {contribution.type === 'document_upload'
+                              ? 'העלה מסמך חדש'
+                              : contribution.type === 'comment'
+                                ? 'הוסיף הערה'
+                                : contribution.type === 'update'
+                                  ? 'עדכן פרטים'
+                                  : 'פעולה במערכת'}
+                          </div>
+                          {contribution.notes && (
+                            <div className="text-xs text-muted-foreground bg-muted/40 p-2 rounded">
+                              {contribution.notes}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <p className="text-sm">אין תרומות זמינות</p>
-                      <p className="text-xs">היה הראשון לתרום מידע על הנכס הזה!</p>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-sm text-muted-foreground py-4">
+                    עדיין לא נרשמו תרומות קהילה לנכס זה.
+                  </div>
+                )}
 
-                {/* Community Stats */}
-                <div className="grid gap-2 grid-cols-3">
-                  <div className="p-2 border rounded-lg text-center text-start">
-                    <div className="text-lg font-bold text-primary">
-                      {asset.recent_contributions?.length || 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">תרומות</div>
-                  </div>
-                  <div className="p-2 border rounded-lg text-center text-start">
-                    <div className="text-lg font-bold text-primary">
-                      {asset.attribution?.created_by ? 1 : 0}
-                    </div>
-                    <div className="text-xs text-muted-foreground">יוצר</div>
-                  </div>
-                  <div className="p-2 border rounded-lg text-center text-start">
-                    <div className="text-lg font-bold text-primary">
-                      {new Set(asset.recent_contributions?.map((c: any) => c.user.id) || []).size}
-                    </div>
-                    <div className="text-xs text-muted-foreground">תורמים</div>
+                <div className="p-4 border rounded-lg bg-muted/30 space-y-2 text-start">
+                  <h3 className="font-medium text-sm">רוצה לעזור לעדכן את הנכס?</h3>
+                  <p className="text-xs text-muted-foreground">
+                    תוכל להעלות מסמכים חדשים, לעדכן פרטים או לשתף תובנות על הנכס. כל תרומה עוזרת לקהילה!
+                  </p>
+                  <div className="flex gap-2 rtl:flex-row-reverse">
+                    <Button size="sm" onClick={() => setSectionsModal(true)}>העלה תרומה</Button>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href="/contribute">למד עוד</Link>
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
+
+          
+
+          </div>
+
         </Tabs>
       </div>
     </DashboardLayout>

@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
 import Image from 'next/image'
@@ -129,6 +129,10 @@ export default function ImageGallery({
               <DialogTitle>
                 תמונה {selectedImage !== null ? selectedImage + 1 : 1} מתוך {images.length}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                גלריית תמונות במצב מסך מלא. ניתן לנווט בין התמונות באמצעות חצי המקלדת או
+                הכפתורים על המסך, ולהשתמש במקש Escape לסגירת החלון.
+              </DialogDescription>
               <Button
                 variant="ghost"
                 size="icon"

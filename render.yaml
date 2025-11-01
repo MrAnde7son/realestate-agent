@@ -289,7 +289,6 @@ services:
   region: oregon
   dockerContext: .
   dockerfilePath: ./orchestration/Dockerfile.celery
-  startCommand: python orchestration/celery_health_service.py
   healthCheckPath: /healthz
   autoDeployTrigger: commit
   previews:

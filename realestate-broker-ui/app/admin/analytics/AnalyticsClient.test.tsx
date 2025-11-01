@@ -1,6 +1,73 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
+import { afterEach, beforeAll } from 'vitest';
 import AnalyticsClient from './AnalyticsClient';
+
+beforeAll(() => {
+  class MockResizeObserver {
+    private callback: ResizeObserverCallback;
+
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback;
+    }
+
+    observe(target: Element) {
+      const width = (target as HTMLElement).clientWidth || 1200;
+      const height = (target as HTMLElement).clientHeight || 800;
+
+      this.callback(
+        [
+          {
+            target,
+            contentRect: {
+              width,
+              height,
+              top: 0,
+              left: 0,
+              bottom: height,
+              right: width,
+              x: 0,
+              y: 0,
+            },
+          } as ResizeObserverEntry,
+        ],
+        this,
+      );
+    }
+
+    unobserve() {}
+
+    disconnect() {}
+  }
+
+  // @ts-expect-error - jsdom does not implement ResizeObserver
+  global.ResizeObserver = MockResizeObserver;
+});
+
+const renderWithDimensions = (ui: React.ReactElement) => {
+  const container = document.createElement('div');
+  Object.assign(container.style, {
+    width: '1200px',
+    height: '800px',
+  });
+  document.body.appendChild(container);
+
+  const result = render(ui, { container });
+
+  return {
+    ...result,
+    unmount: () => {
+      result.unmount();
+      if (container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+    },
+  };
+};
+
+afterEach(() => {
+  cleanup();
+});
 
 const mockDailyData = [
   {
@@ -36,27 +103,27 @@ const mockTopFailures = [
 
 describe('AnalyticsClient', () => {
   it('displays alerts KPI card with correct data', () => {
-    render(<AnalyticsClient daily={mockDailyData} topFailures={mockTopFailures} />);
+    renderWithDimensions(<AnalyticsClient daily={mockDailyData} topFailures={mockTopFailures} />);
     
     // Check that the alerts card is displayed
-    expect(screen.getByText('התראות')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'התראות' })).toBeInTheDocument();
     expect(screen.getByText('11')).toBeInTheDocument(); // Total alerts: 7 + 4
     expect(screen.getByText('התראות שנוצרו')).toBeInTheDocument();
   });
 
   it('displays all KPI cards', () => {
-    render(<AnalyticsClient daily={mockDailyData} topFailures={mockTopFailures} />);
+    renderWithDimensions(<AnalyticsClient daily={mockDailyData} topFailures={mockTopFailures} />);
     
     // Check all KPI cards are present
-    expect(screen.getByText('משתמשים')).toBeInTheDocument();
-    expect(screen.getByText('נכסים')).toBeInTheDocument();
-    expect(screen.getByText('דוחות')).toBeInTheDocument();
-    expect(screen.getByText('התראות')).toBeInTheDocument();
-    expect(screen.getByText('שגיאות')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'משתמשים' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'נכסים' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'דוחות' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'התראות' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'שגיאות' })).toBeInTheDocument();
   });
 
   it('calculates totals correctly', () => {
-    render(<AnalyticsClient daily={mockDailyData} topFailures={mockTopFailures} />);
+    renderWithDimensions(<AnalyticsClient daily={mockDailyData} topFailures={mockTopFailures} />);
     
     // Check calculated totals - use getAllByText since numbers appear multiple times
     expect(screen.getAllByText('8').length).toBeGreaterThan(0); // Total users: 5 + 3
@@ -67,10 +134,10 @@ describe('AnalyticsClient', () => {
   });
 
   it('handles empty data gracefully', () => {
-    render(<AnalyticsClient daily={[]} topFailures={[]} />);
+    renderWithDimensions(<AnalyticsClient daily={[]} topFailures={[]} />);
     
     // Should still display the KPI cards with 0 values
-    expect(screen.getAllByText('התראות').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'התראות' })).toBeInTheDocument();
     expect(screen.getAllByText('0').length).toBeGreaterThan(0);
   });
 });

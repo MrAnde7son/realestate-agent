@@ -330,7 +330,7 @@ export default function MortgageAnalyzePage() {
 
   const addTranche = () => {
     const newTranche: UITranche = {
-      id: uuidv4(),
+      id: createId(),
       name: 'מסלול חדש',
       amount: Math.max(0, propertyValue - userEquity - totalLoanAmount),
       termMonths: 360,

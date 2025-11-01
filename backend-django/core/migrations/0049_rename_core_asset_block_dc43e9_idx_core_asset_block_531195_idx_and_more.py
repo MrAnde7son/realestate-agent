@@ -18,8 +18,15 @@ def rename_index_if_exists(
     if old_name not in constraints:
         return
 
-    sql = schema_editor._rename_index_sql(table_name, old_name, new_name)
-    schema_editor.execute(sql)
+    if schema_editor.connection.vendor == "sqlite":
+        return
+
+    schema_editor.execute(
+        "ALTER INDEX IF EXISTS {} RENAME TO {}".format(
+            schema_editor.quote_name(old_name),
+            schema_editor.quote_name(new_name),
+        )
+    )
 
 
 def rename_block_index(apps, schema_editor):

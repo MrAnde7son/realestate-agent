@@ -28,6 +28,7 @@ import {
   DownloadCloud,
   Star,
   StarOff,
+  PlusCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
@@ -38,11 +39,13 @@ import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
 
 import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
+import { SectionHeader } from "@/components/layout/section-header";
 import { ResponsiveContainer } from "@/components/layout/responsive-container";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import PlanLimitDialog from "@/components/PlanLimitDialog";
+import { SavedFiltersMenu } from "@/components/filters/saved-filters-menu";
 import { apiClient } from "@/lib/api-client";
 import { useDedupedEffect } from "@/hooks/use-deduped-effect";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -329,11 +332,22 @@ export default function AssetsPage() {
   const { confirm } = useConfirm();
 
   // Handle protected action (add new asset)
-  const handleProtectedAction = (action: string) => {
-    if (!isAuthenticated) {
-      router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+  const handleProtectedAction = React.useCallback(
+    (action: string) => {
+      if (!isAuthenticated) {
+        router.push("/auth?redirect=" + encodeURIComponent("/assets"));
+      }
+    },
+    [isAuthenticated, router]
+  );
+
+  const handleOpenNewAsset = React.useCallback(() => {
+    if (isAuthenticated) {
+      setOpen(true);
+    } else {
+      handleProtectedAction("add-asset");
     }
-  };
+  }, [handleProtectedAction, isAuthenticated]);
 
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
@@ -1927,6 +1941,12 @@ export default function AssetsPage() {
     []
   );
 
+  const headerDescription = loading
+    ? "טוען נכסים..."
+    : totalCount === 0
+      ? "אין נכסים תואמים לסינון הנוכחי"
+      : "נכסים עם נתוני שמאות ותכנון מלאים";
+
 
   return (
     <DashboardLayout>
@@ -1935,15 +1955,42 @@ export default function AssetsPage() {
           {isAuthenticated && user?.onboarding_flags && !isOnboardingComplete(onboardingState) && (
             <OnboardingProgress state={onboardingState} />
           )}
-          {/* Header */}
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-end">רשימת נכסים</h1>
-              <p className="text-sm sm:text-base text-muted-foreground text-end">
-                {loading ? 'טוען נכסים...' : `${totalCount} נכסים עם נתוני שמאות ותכנון מלאים`}
-              </p>
-            </div>
-          </div>
+        <SectionHeader
+          title="רשימת נכסים"
+          count={totalCount}
+          countLabel="נכסים"
+          description={headerDescription}
+          savedFilters={<SavedFiltersMenu storageKey="assets" disabled={loading} />}
+          primaryActions={
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void fetchAssets();
+                }}
+                disabled={loading}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                רענון
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setNadlanImportOpen(true)}
+                className="gap-2"
+              >
+                <DownloadCloud className="h-4 w-4" />
+                ייבוא מנדל&quot;ן וואן
+              </Button>
+              <Button size="sm" onClick={handleOpenNewAsset} className="gap-2">
+                <PlusCircle className="h-4 w-4" />
+                הוסף נכס
+              </Button>
+            </>
+          }
+        />
 
 
         {/* Asset Creation Sheet - Keep the form but remove the trigger button */}

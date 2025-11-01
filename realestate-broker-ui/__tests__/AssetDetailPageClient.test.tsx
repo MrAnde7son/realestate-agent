@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { syncTabWithUrl } from '@/app/assets/[id]/AssetDetailPageClient'
+import { syncTabWithUrl, getDetailContextOptions } from '@/app/assets/[id]/AssetDetailPageClient'
 
 describe('syncTabWithUrl', () => {
   let setActiveTab: ReturnType<typeof vi.fn>
@@ -33,5 +33,19 @@ describe('syncTabWithUrl', () => {
     syncTabWithUrl('listings', 'analysis', setActiveTab, { replace } as any)
 
     expect(replace).toHaveBeenCalledWith('/assets/123?tab=listings&foo=bar', { scroll: false })
+  })
+})
+
+describe('getDetailContextOptions', () => {
+  it('includes CRM tab for authorized users', () => {
+    const options = getDetailContextOptions(true)
+    const values = options.map((option) => option.value)
+    expect(values).toContain('crm')
+  })
+
+  it('omits CRM tab when not authorized', () => {
+    const options = getDetailContextOptions(false)
+    const values = options.map((option) => option.value)
+    expect(values).not.toContain('crm')
   })
 })

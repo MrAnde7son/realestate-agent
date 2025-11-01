@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
-import { ChevronLeft, type LucideIcon } from "lucide-react"
+import { ChevronLeft } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -106,6 +106,18 @@ const BreadcrumbEllipsis = ({
 )
 BreadcrumbEllipsis.displayName = "BreadcrumbEllipsis"
 
+const BreadcrumbActions = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<"div">
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex flex-wrap items-center justify-end gap-2", className)}
+    {...props}
+  />
+))
+BreadcrumbActions.displayName = "BreadcrumbActions"
+
 export {
   Breadcrumb,
   BreadcrumbList,
@@ -114,4 +126,5 @@ export {
   BreadcrumbPage,
   BreadcrumbSeparator,
   BreadcrumbEllipsis,
+  BreadcrumbActions,
 }

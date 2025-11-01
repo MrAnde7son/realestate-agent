@@ -8,10 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/Card';
-import { Users, TrendingUp, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { Users, TrendingUp, CheckCircle, XCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { Lead, Contact, CrmApi } from '@/lib/api/crm';
 import Link from 'next/link';
 import DashboardLayout from '@/components/layout/dashboard-layout';
+import { SectionHeader } from '@/components/layout/section-header';
+import { SavedFiltersMenu } from '@/components/filters/saved-filters-menu';
 import { useToast } from '@/hooks/use-toast';
 import { PageLoader } from '@/components/ui/page-loader';
 import { Button } from '@/components/ui/button';
@@ -129,6 +131,49 @@ export default function CrmUnifiedPage() {
     };
   }, [leads]);
 
+  const totalRecords = leads.length + contacts.length;
+  const headerDescription = canAccessCrm
+    ? 'ניהול לקוחות, מעקב לידים ושליחת דוחות ממותגים'
+    : 'מודול הלקוחות זמין למשתמשים בעלי הרשאות מתאימות';
+
+  const sectionHeader = (
+    <SectionHeader
+      title='ניהול לקוחות ולידים'
+      count={canAccessCrm ? totalRecords : null}
+      countLabel='רשומות CRM'
+      description={headerDescription}
+      savedFilters={<SavedFiltersMenu storageKey='crm' disabled={!canAccessCrm || isLoading} />}
+      primaryActions={
+        <>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={() => {
+              void refreshData();
+            }}
+            disabled={isLoading || !canAccessCrm}
+            className='gap-2'
+          >
+            <RefreshCw className='h-4 w-4' />
+            רענון
+          </Button>
+          <Button variant='outline' size='sm' asChild disabled={!canAccessCrm} className='gap-2'>
+            <Link href='/crm/leads'>
+              <TrendingUp className='h-4 w-4' />
+              לידים
+            </Link>
+          </Button>
+          <Button size='sm' asChild disabled={!canAccessCrm} className='gap-2'>
+            <Link href='/crm/contacts'>
+              <Users className='h-4 w-4' />
+              לקוחות
+            </Link>
+          </Button>
+        </>
+      }
+    />
+  );
+
   const recentLeads = useMemo(
     () =>
       [...leads]
@@ -143,7 +188,12 @@ export default function CrmUnifiedPage() {
   if (authLoading || (isLoading && canAccessCrm)) {
     return (
       <DashboardLayout>
-        <PageLoader message="טוען נתוני לקוחות..." showLogo={false} />
+        <div className="pb-10">
+          {sectionHeader}
+          <div className="px-4 py-6 sm:px-6 lg:px-8">
+            <PageLoader message="טוען נתוני לקוחות..." showLogo={false} />
+          </div>
+        </div>
       </DashboardLayout>
     );
   }
@@ -151,20 +201,23 @@ export default function CrmUnifiedPage() {
   if (!authLoading && !canAccessCrm) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>גישה מוגבלת</CardTitle>
-              <CardDescription>
-                מודול הלקוחות זמין למשתמשים מסוג מתווך או שמאי בלבד.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>
-                אנא עדכן את סוג המשתמש שלך או צור קשר עם התמיכה אם ברצונך לקבל גישה לניהול לקוחות ולידים.
-              </p>
-            </CardContent>
-          </Card>
+        <div className="pb-10">
+          {sectionHeader}
+          <div className="px-4 py-6 sm:px-6 lg:px-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>גישה מוגבלת</CardTitle>
+                <CardDescription>
+                  מודול הלקוחות זמין למשתמשים מסוג מתווך או שמאי בלבד.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>
+                  אנא עדכן את סוג המשתמש שלך או צור קשר עם התמיכה אם ברצונך לקבל גישה לניהול לקוחות ולידים.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -172,14 +225,9 @@ export default function CrmUnifiedPage() {
 
   return (
     <DashboardLayout>
-      <div className="w-full p-3 sm:p-6 space-y-6 px-4 sm:px-6 lg:px-8">
-        <div className="mb-2 sm:mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-end">ניהול לקוחות ולידים</h1>
-          <p className="text-muted-foreground text-sm sm:text-base text-end">
-            ניהול לקוחות, מעקב לידים ושליחת דוחות ממותגים
-          </p>
-        </div>
-
+      <div className="pb-10">
+        {sectionHeader}
+        <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
@@ -345,6 +393,7 @@ export default function CrmUnifiedPage() {
             </CardContent>
           </Card>
         )}
+      </div>
       </div>
     </DashboardLayout>
   );

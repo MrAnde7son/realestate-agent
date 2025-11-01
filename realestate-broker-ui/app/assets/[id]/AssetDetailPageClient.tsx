@@ -56,6 +56,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
+  BreadcrumbActions,
 } from '@/components/ui/breadcrumb'
 
 const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai', 'groq'] as const
@@ -73,6 +74,38 @@ const DEFAULT_LLM_PROVIDER: SupportedLLMProvider =
   normalizeProvider(process.env.LLM_DEFAULT_PROVIDER) ?? 'gemini'
 
 const ALL_SECTIONS = ['summary','permits','plans','environment', 'rights','comparables','mortgage','appendix']
+
+const DETAIL_TAB_ORDER = [
+  'analysis',
+  'listings',
+  'transactions',
+  'permits',
+  'plans',
+  'rights',
+  'environment',
+  'crm',
+  'appraisals',
+  'documents',
+] as const
+
+const DETAIL_TAB_LABELS: Record<(typeof DETAIL_TAB_ORDER)[number], string> = {
+  analysis: 'ניתוח כללי',
+  listings: 'מודעות',
+  transactions: 'עיסקאות השוואה',
+  permits: 'היתרים',
+  plans: 'תוכניות',
+  rights: 'זכויות',
+  environment: 'סביבה',
+  crm: 'לקוחות',
+  appraisals: 'שומות באיזור',
+  documents: 'מסמכים',
+}
+
+export const getDetailContextOptions = (canViewCrm: boolean) =>
+  DETAIL_TAB_ORDER.filter((value) => (value === 'crm' ? canViewCrm : true)).map((value) => ({
+    value,
+    label: DETAIL_TAB_LABELS[value],
+  }))
 
 const formatListingTypeLabel = (value?: string | null) => {
   if (!value) return '—'
@@ -1834,6 +1867,69 @@ useDedupedEffect(() => {
     syncTabWithUrl(value, activeTab, setActiveTab, router)
   }, [activeTab, router])
 
+  const detailContextOptions = useMemo(() => getDetailContextOptions(canViewCrm), [canViewCrm])
+  const activeContextLabel = useMemo(() => {
+    const match = detailContextOptions.find((option) => option.value === activeTab)
+    return match?.label ?? DETAIL_TAB_LABELS.analysis
+  }, [detailContextOptions, activeTab])
+
+  const renderSecondaryNavigation = useCallback(
+    (addressLabel: string | null, isFetching = false) => (
+      <div className="sticky top-[var(--primary-nav-height,4rem)] z-40 border-b border-border/70 bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/">
+                    <Home className="h-4 w-4" />
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/assets" className="flex items-center gap-1">
+                    <Building className="h-4 w-4" />
+                    נכסים
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{addressLabel || '—'}</BreadcrumbPage>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{isFetching ? 'טוען...' : activeContextLabel}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <BreadcrumbActions className="gap-2">
+              <Button variant="outline" size="sm" asChild className="gap-1">
+                <Link href="/assets">
+                  <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+                  <span className="hidden sm:inline">חזרה לרשימת נכסים</span>
+                  <span className="sm:hidden">חזרה</span>
+                </Link>
+              </Button>
+              <Select value={activeTab} onValueChange={handleTabChange} disabled={isFetching}>
+                <SelectTrigger className="min-w-[12rem]" aria-label="בחירת הקשר נוכחי">
+                  <SelectValue placeholder="בחירת הקשר" />
+                </SelectTrigger>
+                <SelectContent>
+                  {detailContextOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </BreadcrumbActions>
+          </div>
+        </div>
+      </div>
+    ),
+    [activeContextLabel, activeTab, detailContextOptions, handleTabChange]
+  )
+
   const handleSyncData = async () => {
     if (!id || !asset?.address) return
     setSyncing(true)
@@ -1974,55 +2070,30 @@ useDedupedEffect(() => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <Breadcrumb className="mb-4">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                  <Home className="h-4 w-4" />
-                  בית
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                  <Building className="h-4 w-4" />
-                  נכסים
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>טוען...</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          <div className="flex items-center gap-2 mb-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/assets">
-                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-                חזרה לרשימה
-              </Link>
-            </Button>
+        <div className="pb-8">
+          {renderSecondaryNavigation('טוען נכס', true)}
+          <div className="px-4 py-6 sm:px-6 lg:px-8">
+            <PageLoader message="טוען נתוני נכס..." showLogo={false} />
           </div>
-          <PageLoader message="טוען נתוני נכס..." showLogo={false} />
         </div>
-    </DashboardLayout>
-  )
-}
+      </DashboardLayout>
+    )
+  }
 
   if (error || !asset) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Button variant="ghost" size="sm" asChild>
+        <div className="pb-8">
+          {renderSecondaryNavigation('נכס לא נמצא')}
+          <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-4">
+            <p className="text-sm text-muted-foreground">{error || 'לא הצלחנו לטעון את פרטי הנכס המבוקש.'}</p>
+            <Button variant="outline" size="sm" asChild className="w-fit gap-1 self-end">
               <Link href="/assets">
                 <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-                חזרה לרשימה
+                חזרה לרשימת נכסים
               </Link>
             </Button>
           </div>
-          <p>{error || 'לא הצלחנו לטעון את פרטי הנכס המבוקש.'}</p>
         </div>
       </DashboardLayout>
     )
@@ -2354,43 +2425,29 @@ useDedupedEffect(() => {
     }
   }
 
+  const assetDisplayName = firstNonEmpty(
+    asset.address,
+    asset.display_name,
+    asset.displayName,
+    asset.propertyTitle,
+    asset.city && asset.street ? `${asset.street}, ${asset.city}` : '',
+    asset.city,
+    asset.id ? `נכס ${asset.id}` : ''
+  )
+
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <Breadcrumb className="mb-4">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                <Home className="h-4 w-4" />
-                בית
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                <Building className="h-4 w-4" />
-                נכסים
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{asset.address}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/assets">
-                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-                חזרה לרשימה
-              </Link>
-            </Button>
-            <div className="flex-1">
+      <div className="pb-10">
+        {renderSecondaryNavigation(assetDisplayName)}
+        <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          {isAuthenticated && getCompletionPct(onboardingState) < 100 && (
+            <OnboardingProgress state={onboardingState} />
+          )}
+          {/* Header */}
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-2 text-right md:max-w-2xl">
               <h1 className="text-3xl font-bold">{asset.address}</h1>
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground sm:text-base">
                 {asset.city}
                 {asset.neighborhood ? ` · ${asset.neighborhood}` : ''} · {asset.type ?? '—'} ·{' '}
                 {formatNumber(asset.area) ? `${formatNumber(asset.area)} מ״ר נטו` : '—'}
@@ -2404,8 +2461,7 @@ useDedupedEffect(() => {
                 ) : null}
               </p>
             </div>
-          </div>
-          <div className="w-full text-start space-y-2 md:w-auto">
+            <div className="w-full text-start space-y-2 md:w-auto">
             <div className="text-3xl font-bold">{headerPriceDisplay ?? '—'}</div>
             <div className="text-muted-foreground">
               {headerPricePerSqm !== null
@@ -4476,6 +4532,7 @@ useDedupedEffect(() => {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
+    </div>
+  </DashboardLayout>
   )
 }

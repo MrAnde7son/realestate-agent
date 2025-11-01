@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="alternate icon" href="/brand/favicon-32.png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/brand/favicon-192.png" />
       </head>
-      <body className="min-h-[100dvh] bg-background font-sans antialiased">
+      <body className="min-h-[100dvh] bg-background font-sans antialiased [--primary-nav-height:4rem] [--secondary-nav-height:3.25rem]">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

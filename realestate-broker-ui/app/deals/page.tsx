@@ -3,7 +3,8 @@
 import React from 'react'
 import Link from 'next/link'
 import DashboardLayout from '@/components/layout/dashboard-layout'
-import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
+import { SectionHeader } from '@/components/layout/section-header'
+import { SavedFiltersMenu } from '@/components/filters/saved-filters-menu'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
@@ -347,31 +348,40 @@ export default function DealsPage() {
 
   return (
     <DashboardLayout>
-      <DashboardShell>
-        <DashboardHeader
-          heading='עסקאות ותהליכי סגירה'
-          text='תצוגה מרוכזת של כל העסקאות הפעילות וההזדמנויות שבדרך לסגירה'
-        >
-          <div className='flex flex-wrap items-center gap-2'>
-            <Button variant='outline' size='sm' onClick={() => loadDeals()} disabled={isRefreshing}>
-              {isRefreshing ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : <RefreshCw className='mr-2 h-4 w-4' />}
-              רענון
-            </Button>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button size='sm'>
-                  <PlusCircle className='mr-2 h-4 w-4' />
-                  פתיחת עסקה חדשה
-                </Button>
-              </DialogTrigger>
-              <DialogContent className='sm:max-w-lg'>
-                <DialogHeader>
-                  <DialogTitle>פתיחת מרחב עסקה חדש</DialogTitle>
-                  <DialogDescription>
-                    בחרו נכס קיים וקבעו את שלב הפתיחה ורמת הסודיות. ניתן לעדכן פרטים לאחר מכן במרחב העסקה.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className='space-y-4 py-2'>
+      <div className='pb-10'>
+        <SectionHeader
+          title='עסקאות ותהליכי סגירה'
+          count={deals.length}
+          countLabel='עסקאות'
+          description='תצוגה מרוכזת של כל העסקאות הפעילות וההזדמנויות שבדרך לסגירה'
+          savedFilters={<SavedFiltersMenu storageKey='deals' disabled={isLoading} />}
+          primaryActions={
+            <>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => loadDeals()}
+                disabled={isRefreshing}
+                className='gap-2'
+              >
+                {isRefreshing ? <Loader2 className='h-4 w-4 animate-spin' /> : <RefreshCw className='h-4 w-4' />}
+                רענון
+              </Button>
+              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button size='sm' className='gap-2'>
+                    <PlusCircle className='h-4 w-4' />
+                    פתיחת עסקה חדשה
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className='sm:max-w-lg'>
+                  <DialogHeader>
+                    <DialogTitle>פתיחת מרחב עסקה חדש</DialogTitle>
+                    <DialogDescription>
+                      בחרו נכס קיים וקבעו את שלב הפתיחה ורמת הסודיות. ניתן לעדכן פרטים לאחר מכן במרחב העסקה.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className='space-y-4 py-2'>
                   <div className='space-y-2'>
                     <label className='text-sm font-medium text-muted-foreground'>חיפוש נכס</label>
                     <div className='relative'>
@@ -472,10 +482,12 @@ export default function DealsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </div>
-        </DashboardHeader>
+            </>
+          }
+        />
 
-        <section className='space-y-6'>
+        <div className='space-y-6 px-4 py-6 sm:px-6 lg:px-8'>
+          <section className='space-y-6'>
           <Card className='border-muted bg-card/70'>
             <CardContent className='flex flex-col gap-4 pt-6 md:flex-row md:items-center md:justify-between'>
               <div className='flex flex-col gap-2'>
@@ -536,8 +548,9 @@ export default function DealsPage() {
             {renderStageColumn('closing')}
             {renderStageColumn('abandoned')}
           </div>
-        </section>
-      </DashboardShell>
+          </section>
+        </div>
+      </div>
     </DashboardLayout>
   )
 }

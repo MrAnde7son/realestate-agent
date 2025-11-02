@@ -22,58 +22,88 @@ vi.mock('@/components/layout/dashboard-layout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="dashboard-layout">{children}</div>
 }))
 import AssetsPage from './page'
-const mockAssetsTable = vi.fn(({ 
-  data,
-  loading,
-  onAddNew,
-  searchValue,
-  onSearchChange,
-  onDelete,
-  viewMode = 'table',
-  onViewModeChange
-}: {
-  data: any[],
-  loading: boolean,
-  onDelete?: any,
-  onAddNew?: () => void,
-  searchValue?: string,
-  onSearchChange?: (value: string) => void,
-  viewMode?: 'table' | 'cards' | 'map',
-  onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
-}) => (
-  <div
-    data-testid="assets-table"
-    data-has-delete={onDelete ? 'true' : 'false'}
-    data-view-mode={viewMode}
-  >
-    {/* Mock TableToolbar */}
-    <div className="p-3 border-b">
-      <div className="flex gap-2 items-center">
-        <input
-          placeholder="חיפוש בכתובת או עיר..."
-          value={searchValue || ''}
-          onChange={(e) => onSearchChange?.(e.target.value)}
-          className="px-3 py-1 border rounded"
-        />
-        <button onClick={onAddNew} className="px-3 py-1 bg-blue-500 text-white rounded">
-          הוסף חדש
-        </button>
-        <button className="px-3 py-1 border rounded">
-          רענן
-        </button>
-        <button className="px-3 py-1 border rounded" onClick={() => onViewModeChange?.('cards')}>
-          סינון
-        </button>
+const mockAssetsTable = vi.fn()
+
+function MockAssetsTableComponent(props: any) {
+  const {
+    onActionsStateChange,
+    totalCount,
+    data,
+    importAction,
+    bulkActions = [],
+    extraActions,
+    loading = false,
+    onRefresh,
+    onAddNew,
+    onDelete,
+    viewMode,
+    searchValue,
+    onSearchChange,
+    onViewModeChange,
+  } = props
+
+  React.useEffect(() => {
+    onActionsStateChange?.({
+      selectedCount: 0,
+      totalCount: totalCount ?? (data?.length ?? 0),
+      disableExportAll: false,
+      onExportAll: () => {},
+      onExportSelected: () => {},
+      importAction,
+      bulkActions: bulkActions.map((action: any) => ({
+        label: action.label,
+        icon: action.icon,
+        disabled: action.disabled,
+        action: () => {},
+      })),
+      extraActions,
+      loading,
+      onRefresh,
+      onAddNew,
+    })
+  }, [
+    onActionsStateChange,
+    totalCount,
+    data,
+    importAction,
+    bulkActions,
+    extraActions,
+    loading,
+    onRefresh,
+    onAddNew,
+  ])
+
+  mockAssetsTable(props)
+
+  return (
+    <div
+      data-testid="assets-table"
+      data-has-delete={onDelete ? 'true' : 'false'}
+      data-view-mode={viewMode ?? 'table'}
+    >
+      <div className="p-3 border-b">
+        <div className="flex gap-2 items-center">
+          <input
+            placeholder="חיפוש בכתובת או עיר..."
+            value={searchValue || ''}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            className="px-3 py-1 border rounded"
+          />
+          <button className="px-3 py-1 border rounded" onClick={() => onViewModeChange?.('cards')}>
+            סינון
+          </button>
+        </div>
+      </div>
+      <div>
+        {loading ? 'Loading...' : `${data?.length || 0} assets`}
       </div>
     </div>
-    <div>
-      {loading ? 'Loading...' : `${data?.length || 0} assets`}
-    </div>
-  </div>
-))
+  )
+}
 
 vi.mock('@/components/AssetsTable', () => ({
-  default: (props: any) => mockAssetsTable(props)
+  __esModule: true,
+  default: MockAssetsTableComponent,
 }))
 
 // Mock fetch globally
@@ -214,6 +244,7 @@ describe('AssetsPage', () => {
     expect(screen.getByText('רשימת נכסים')).toBeInTheDocument()
     expect(screen.getByText('הוסף חדש')).toBeInTheDocument()
     expect(screen.getByText('רענן')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'פעולות' })).toBeInTheDocument()
     
     await waitFor(() => {
       expect(screen.getByTestId('assets-table')).toBeInTheDocument()
@@ -225,6 +256,8 @@ describe('AssetsPage', () => {
     expect(lastCall.paginationState).toEqual({ pageIndex: 0, pageSize: 25 })
     expect(lastCall.totalCount).toBe(2)
     expect(lastCall.pageSizeOptions).toEqual([10, 25, 50, 100])
+    expect(lastCall.showToolbarActionsMenu).toBe(false)
+    expect(typeof lastCall.onActionsStateChange).toBe('function')
   })
 
   it('defaults to card view on mobile screens', async () => {

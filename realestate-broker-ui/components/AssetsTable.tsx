@@ -572,6 +572,29 @@ type AssetsTableBulkAction = {
   disabled?: boolean
 }
 
+export type AssetsTableActionsState = {
+  selectedCount: number
+  totalCount: number
+  disableExportAll: boolean
+  onExportAll: () => void
+  onExportSelected: () => void
+  importAction?: {
+    label: string
+    onClick: () => void
+    icon?: React.ReactNode
+  }
+  bulkActions: Array<{
+    label: string
+    icon?: React.ReactNode
+    action: () => void
+    disabled?: boolean
+  }>
+  extraActions?: React.ReactNode
+  loading: boolean
+  onRefresh?: () => void
+  onAddNew?: () => void
+}
+
 type NumberRangeFilterConfig = {
   value: { min?: number; max?: number }
   onChange: (value: { min?: number; max?: number }) => void
@@ -765,6 +788,8 @@ interface AssetsTableProps {
   pageCount?: number
   totalCount?: number
   pageSizeOptions?: number[]
+  showToolbarActionsMenu?: boolean
+  onActionsStateChange?: (state: AssetsTableActionsState) => void
 }
 
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
@@ -856,6 +881,8 @@ export default function AssetsTable({
   pageCount,
   totalCount,
   pageSizeOptions,
+  showToolbarActionsMenu = true,
+  onActionsStateChange,
 }: AssetsTableProps){
   const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
@@ -1053,10 +1080,10 @@ export default function AssetsTable({
     router.push(`/assets/${asset.id}`)
   }
 
-  const handleExportSelected = () => {
+  const handleExportSelected = React.useCallback(() => {
     const selected = table.getSelectedRowModel().rows.map(r => r.original)
     exportAssetsCsv(selected, table.getVisibleLeafColumns(), trackFeatureUsage)
-  }
+  }, [table, trackFeatureUsage])
 
   const handleExportAll = React.useCallback(async () => {
     if (exportingAll) {
@@ -1095,6 +1122,41 @@ export default function AssetsTable({
       })),
     [bulkActions, selectedAssets, clearSelection]
   )
+
+  const selectedRowCount = table.getSelectedRowModel().rows.length
+
+  const actionsState = React.useMemo<AssetsTableActionsState>(
+    () => ({
+      selectedCount: selectedRowCount,
+      totalCount: recordCount,
+      disableExportAll: exportingAll,
+      onExportAll: handleExportAll,
+      onExportSelected: handleExportSelected,
+      importAction,
+      bulkActions: toolbarBulkActions,
+      extraActions,
+      loading,
+      onRefresh,
+      onAddNew,
+    }),
+    [
+      recordCount,
+      exportingAll,
+      handleExportAll,
+      handleExportSelected,
+      importAction,
+      toolbarBulkActions,
+      extraActions,
+      loading,
+      onRefresh,
+      onAddNew,
+      selectedRowCount,
+    ]
+  )
+
+  React.useEffect(() => {
+    onActionsStateChange?.(actionsState)
+  }, [actionsState, onActionsStateChange])
 
   // Prepare columns for toolbar
   const toolbarColumns = table.getAllColumns()
@@ -1626,22 +1688,23 @@ export default function AssetsTable({
               priceMax: { value: undefined, onChange: () => {} }
             }}
             additionalFilters={additionalFilters}
-            onAdditionalFilterChange={handleAdditionalFilterChange}
-            onResetColumns={handleResetColumns}
-            columns={toolbarColumns}
-            onExportSelected={handleExportSelected}
-            onExportAll={handleExportAll}
-            disableExportAll={exportingAll}
-            selectedCount={table.getSelectedRowModel().rows.length}
-            totalCount={recordCount}
-            viewMode={viewMode}
-            onViewModeChange={onViewModeChange || (() => {})}
-            onRefresh={onRefresh || (() => {})}
-            onAddNew={onAddNew}
-            loading={loading}
-            extraActions={extraActions}
-            importAction={importAction}
-            bulkActions={toolbarBulkActions}
+          onAdditionalFilterChange={handleAdditionalFilterChange}
+          onResetColumns={handleResetColumns}
+          columns={toolbarColumns}
+          onExportSelected={handleExportSelected}
+          onExportAll={handleExportAll}
+          disableExportAll={exportingAll}
+          selectedCount={table.getSelectedRowModel().rows.length}
+          totalCount={recordCount}
+          viewMode={viewMode}
+          onViewModeChange={onViewModeChange || (() => {})}
+          onRefresh={onRefresh || (() => {})}
+          onAddNew={onAddNew}
+          loading={loading}
+          extraActions={extraActions}
+          importAction={importAction}
+          showActionsMenu={showToolbarActionsMenu}
+          bulkActions={toolbarBulkActions}
             statusFilters={filters?.status ? {
               value: filters.status.value,
               onChange: (value: string) => {

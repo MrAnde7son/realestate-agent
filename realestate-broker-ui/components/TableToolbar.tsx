@@ -266,7 +266,7 @@ interface TableToolbarProps {
   onViewModeChange: (mode: 'table' | 'cards' | 'map') => void;
 
   // Actions
-  onRefresh: () => void;
+  onRefresh?: () => void;
   onAddNew?: () => void;
   loading?: boolean;
   extraActions?: React.ReactNode;
@@ -275,6 +275,8 @@ interface TableToolbarProps {
     onClick: () => void;
     icon?: React.ReactNode;
   };
+
+  showActionsMenu?: boolean;
 
   // Additional filters
   additionalFilters?: AdditionalFilterConfig[];
@@ -322,6 +324,7 @@ export default function TableToolbar({
   loading = false,
   extraActions,
   importAction,
+  showActionsMenu = true,
   additionalFilters = [],
   onAdditionalFilterChange,
   bulkActions = [],
@@ -1930,122 +1933,128 @@ export default function TableToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Actions dropdown - Always visible */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={TOOLBAR_PILL_BUTTON_CLASSES}
-              aria-label="פעולות על נתונים"
-            >
-              <MoreHorizontal className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">פעולות</span>
-              {selectedCount > 0 && (
-                <>
-                  <Badge
-                    variant="secondary"
-                    className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ms-2"
-                  >
-                    {selectedCount}
-                  </Badge>
-                  <Badge
-                    variant="secondary"
-                    className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium sm:hidden ms-2"
-                  >
-                    {selectedCount}
-                  </Badge>
-                </>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="bg-white">
-            <DropdownMenuLabel className="bg-white text-foreground">פעולות</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            
-            {/* Export section */}
-            <div className="px-2 py-1.5">
-              <span className="text-xs font-medium text-muted-foreground">ייצוא נתונים</span>
-            </div>
-            <DropdownMenuCheckboxItem 
-              onClick={onExportAll}
-              disabled={disableExportAll}
-              className="bg-white text-foreground hover:bg-muted disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
-              ייצוא הכל ({totalCount})
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem 
-              onClick={onExportSelected}
-              disabled={selectedCount === 0}
-              className="bg-white text-foreground hover:bg-muted"
-            >
-              <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
-              ייצוא נבחרים ({selectedCount})
-            </DropdownMenuCheckboxItem>
-
-            {/* Import section */}
-            {importAction && (
-              <>
+        {showActionsMenu && (
+          <>
+            {/* Actions dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={TOOLBAR_PILL_BUTTON_CLASSES}
+                  aria-label="פעולות על נתונים"
+                >
+                  <MoreHorizontal className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">פעולות</span>
+                  {selectedCount > 0 && (
+                    <>
+                      <Badge
+                        variant="secondary"
+                        className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ms-2"
+                      >
+                        {selectedCount}
+                      </Badge>
+                      <Badge
+                        variant="secondary"
+                        className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium sm:hidden ms-2"
+                      >
+                        {selectedCount}
+                      </Badge>
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-white">
+                <DropdownMenuLabel className="bg-white text-foreground">פעולות</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+
+                {/* Export section */}
                 <div className="px-2 py-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">ייבוא נתונים</span>
+                  <span className="text-xs font-medium text-muted-foreground">ייצוא נתונים</span>
                 </div>
-                <DropdownMenuCheckboxItem 
-                  onClick={importAction.onClick}
+                <DropdownMenuCheckboxItem
+                  onClick={onExportAll}
+                  disabled={disableExportAll}
+                  className="bg-white text-foreground hover:bg-muted disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
+                  ייצוא הכל ({totalCount})
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  onClick={onExportSelected}
+                  disabled={selectedCount === 0}
                   className="bg-white text-foreground hover:bg-muted"
                 >
-                  {importAction.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{importAction.icon}</span>}
-                  {importAction.label}
+                  <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
+                  ייצוא נבחרים ({selectedCount})
                 </DropdownMenuCheckboxItem>
-              </>
+
+                {/* Import section */}
+                {importAction && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">ייבוא נתונים</span>
+                    </div>
+                    <DropdownMenuCheckboxItem
+                      onClick={importAction.onClick}
+                      className="bg-white text-foreground hover:bg-muted"
+                    >
+                      {importAction.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{importAction.icon}</span>}
+                      {importAction.label}
+                    </DropdownMenuCheckboxItem>
+                  </>
+                )}
+
+                {/* Bulk actions section - only show if items are selected */}
+                {bulkActions.length > 0 && selectedCount > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">פעולות על נבחרים ({selectedCount})</span>
+                    </div>
+                    {bulkActions.map((action, index) => (
+                      <DropdownMenuCheckboxItem
+                        key={index}
+                        onClick={action.action}
+                        disabled={action.disabled}
+                        className="bg-white text-foreground hover:bg-muted"
+                      >
+                        {action.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{action.icon}</span>}
+                        {action.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Refresh */}
+            {onRefresh && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRefresh}
+                disabled={loading}
+                className={TOOLBAR_PILL_BUTTON_CLASSES}
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">רענן</span>
+              </Button>
             )}
 
-            {/* Bulk actions section - only show if items are selected */}
-            {bulkActions.length > 0 && selectedCount > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">פעולות על נבחרים ({selectedCount})</span>
-                </div>
-                {bulkActions.map((action, index) => (
-                  <DropdownMenuCheckboxItem 
-                    key={index}
-                    onClick={action.action}
-                    disabled={action.disabled}
-                    className="bg-white text-foreground hover:bg-muted"
-                  >
-                    {action.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{action.icon}</span>}
-                    {action.label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </>
+            {/* Add new */}
+            {onAddNew && (
+              <Button
+                onClick={onAddNew}
+                size="sm"
+                className={TOOLBAR_PILL_BUTTON_CLASSES}
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">הוסף חדש</span>
+              </Button>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Refresh */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRefresh}
-          disabled={loading}
-          className={TOOLBAR_PILL_BUTTON_CLASSES}
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">רענן</span>
-        </Button>
-
-        {/* Add new */}
-        {onAddNew && (
-          <Button
-            onClick={onAddNew}
-            size="sm"
-            className={TOOLBAR_PILL_BUTTON_CLASSES}
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">הוסף חדש</span>
-          </Button>
+          </>
         )}
       </div>
       </div>

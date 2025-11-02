@@ -4,6 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,6 +22,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   RefreshCw,
   Trash2,
   Download,
@@ -29,12 +38,13 @@ import {
   Star,
   StarOff,
   PlusCircle,
+  MoreHorizontal,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingProgress from "@/components/OnboardingProgress";
 import { selectOnboardingState, isOnboardingComplete } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
-import AssetsTable from "@/components/AssetsTable";
+import AssetsTable, { AssetsTableActionsState } from "@/components/AssetsTable";
 import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
 
 import MapView from "@/components/MapView";
@@ -102,6 +112,7 @@ export default function AssetsPage() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
   const [totalCount, setTotalCount] = useState(0);
   const [watchingAssetIds, setWatchingAssetIds] = useState<Set<number>>(() => new Set());
+  const [tableActionsState, setTableActionsState] = useState<AssetsTableActionsState | null>(null);
   const [filterMetadata, setFilterMetadata] = useState<AssetFilterMetadata>({
     cities: [],
     types: [],
@@ -1947,6 +1958,14 @@ export default function AssetsPage() {
       ? "אין נכסים תואמים לסינון הנוכחי"
       : "נכסים עם נתוני שמאות ותכנון מלאים";
 
+  const actionsMenuState = tableActionsState;
+  const selectedCount = actionsMenuState?.selectedCount ?? 0;
+  const exportAllDisabled = actionsMenuState?.disableExportAll ?? false;
+  const totalForExport = actionsMenuState?.totalCount ?? totalCount;
+  const importActionConfig = actionsMenuState?.importAction;
+  const bulkMenuActions = actionsMenuState?.bulkActions ?? [];
+  const extraMenuActions = actionsMenuState?.extraActions;
+
 
   return (
     <DashboardLayout>
@@ -1975,18 +1994,104 @@ export default function AssetsPage() {
                 <RefreshCw className="h-4 w-4" />
                 רענון
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setNadlanImportOpen(true)}
-                className="gap-2"
-              >
-                <DownloadCloud className="h-4 w-4" />
-                ייבוא מנדל&quot;ן וואן
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={!actionsMenuState}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    פעולות
+                    {selectedCount > 0 && (
+                      <>
+                        <Badge
+                          variant="secondary"
+                          className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ms-2"
+                        >
+                          {selectedCount}
+                        </Badge>
+                        <Badge
+                          variant="secondary"
+                          className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium sm:hidden ms-2"
+                        >
+                          {selectedCount}
+                        </Badge>
+                      </>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-white">
+                  <DropdownMenuLabel className="bg-white text-foreground">פעולות</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">ייצוא נתונים</span>
+                  </div>
+                  <DropdownMenuCheckboxItem
+                    onClick={() => actionsMenuState?.onExportAll()}
+                    disabled={!actionsMenuState || exportAllDisabled}
+                    className="bg-white text-foreground hover:bg-muted disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
+                    ייצוא הכל ({totalForExport})
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    onClick={() => actionsMenuState?.onExportSelected()}
+                    disabled={!actionsMenuState || selectedCount === 0}
+                    className="bg-white text-foreground hover:bg-muted"
+                  >
+                    <Download className="h-4 w-4 me-2 rtl:ms-2 rtl:me-0" />
+                    ייצוא נבחרים ({selectedCount})
+                  </DropdownMenuCheckboxItem>
+                  {importActionConfig && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">ייבוא נתונים</span>
+                      </div>
+                      <DropdownMenuCheckboxItem
+                        onClick={importActionConfig.onClick}
+                        className="bg-white text-foreground hover:bg-muted"
+                      >
+                        {importActionConfig.icon && (
+                          <span className="me-2 rtl:ms-2 rtl:me-0">{importActionConfig.icon}</span>
+                        )}
+                        {importActionConfig.label}
+                      </DropdownMenuCheckboxItem>
+                    </>
+                  )}
+                  {bulkMenuActions.length > 0 && selectedCount > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">פעולות על נבחרים ({selectedCount})</span>
+                      </div>
+                      {bulkMenuActions.map((action, index) => (
+                        <DropdownMenuCheckboxItem
+                          key={`${action.label}-${index}`}
+                          onClick={action.action}
+                          disabled={action.disabled}
+                          className="bg-white text-foreground hover:bg-muted"
+                        >
+                          {action.icon && <span className="me-2 rtl:ms-2 rtl:me-0">{action.icon}</span>}
+                          {action.label}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </>
+                  )}
+                  {extraMenuActions && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">פעולות נוספות</div>
+                      <div className="px-2 py-1 text-sm text-foreground">{extraMenuActions}</div>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button size="sm" onClick={handleOpenNewAsset} className="gap-2">
                 <PlusCircle className="h-4 w-4" />
-                הוסף נכס
+                הוסף חדש
               </Button>
             </>
           }
@@ -2496,6 +2601,8 @@ export default function AssetsPage() {
                 onClick: () => setNadlanImportOpen(true),
                 icon: <DownloadCloud className="h-4 w-4" />
               }}
+              showToolbarActionsMenu={false}
+              onActionsStateChange={setTableActionsState}
               viewMode={viewMode}
               onViewModeChange={handleViewModeChange}
               bulkActions={[

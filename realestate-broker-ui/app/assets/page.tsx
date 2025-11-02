@@ -39,6 +39,7 @@ import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
 import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { ResponsiveContainer } from "@/components/layout/responsive-container";
+import { SectionHeader, type SectionHeaderAction } from "@/components/layout/section-header";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -1993,14 +1994,12 @@ export default function AssetsPage() {
             <OnboardingProgress state={onboardingState} />
           )}
           {/* Header */}
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-end">רשימת נכסים</h1>
-              <p className="text-sm sm:text-base text-muted-foreground text-end">
-                {loading ? 'טוען נכסים...' : `${totalCount} נכסים עם נתוני שמאות ותכנון מלאים`}
-              </p>
-            </div>
-          </div>
+          <SectionHeader
+            title="רשימת נכסים"
+            description={loading ? 'טוען נכסים...' : `${totalCount} נכסים עם נתוני שמאות ותכנון מלאים`}
+            count={totalCount}
+            countLabel="נכסים"
+          />
 
 
         {/* Asset Creation Sheet - Keep the form but remove the trigger button */}

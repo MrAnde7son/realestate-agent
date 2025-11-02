@@ -8,14 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/Card';
-import { Users, TrendingUp, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle, XCircle } from 'lucide-react';
 import { Lead, Contact, CrmApi } from '@/lib/api/crm';
-import Link from 'next/link';
 import DashboardLayout from '@/components/layout/dashboard-layout';
+import { SectionHeader } from '@/components/layout/section-header';
 import { useToast } from '@/hooks/use-toast';
 import { PageLoader } from '@/components/ui/page-loader';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/lib/auth-context';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { CombinedCrmTable } from '@/components/crm/combined-crm-table';
@@ -129,16 +127,6 @@ export default function CrmUnifiedPage() {
     };
   }, [leads]);
 
-  const recentLeads = useMemo(
-    () =>
-      [...leads]
-        .sort(
-          (a, b) =>
-            new Date(b.last_activity_at).getTime() - new Date(a.last_activity_at).getTime()
-        )
-        .slice(0, 5),
-    [leads]
-  );
 
   if (authLoading || (isLoading && canAccessCrm)) {
     return (
@@ -173,178 +161,39 @@ export default function CrmUnifiedPage() {
   return (
     <DashboardLayout>
       <div className="w-full p-3 sm:p-6 space-y-6 px-4 sm:px-6 lg:px-8">
-        <div className="mb-2 sm:mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-end">ניהול לקוחות ולידים</h1>
-          <p className="text-muted-foreground text-sm sm:text-base text-end">
-            ניהול לקוחות, מעקב לידים ושליחת דוחות ממותגים
-          </p>
-        </div>
+        <SectionHeader
+          title="ניהול לקוחות ולידים"
+          description="ניהול לקוחות, מעקב לידים ושליחת דוחות ממותגים"
+          count={contacts.length}
+          countLabel="לקוחות"
+        />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Key Metrics - Success & Failure Only */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
-              <CardTitle className="text-sm font-medium rtl:text-start">לידים</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base font-medium rtl:text-start">נסגרו בהצלחה</CardTitle>
+              <CheckCircle className="h-5 w-5 text-green-600" />
             </CardHeader>
             <CardContent className="rtl:text-start">
-              <div className="text-xl sm:text-2xl font-bold">{stats.totalLeads}</div>
-              <p className="text-xs text-muted-foreground">{stats.newLeads} חדשים</p>
+              <div className="text-2xl sm:text-3xl font-bold text-green-600">{stats.closedWon}</div>
+              <p className="text-sm text-muted-foreground mt-1">עסקאות שהושלמו</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
-              <CardTitle className="text-sm font-medium rtl:text-start">לקוחות</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base font-medium rtl:text-start">נסגרו ללא הצלחה</CardTitle>
+              <XCircle className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent className="rtl:text-start">
-              <div className="text-xl sm:text-2xl font-bold">{contacts.length}</div>
-              <p className="text-xs text-muted-foreground">לקוחות רשומים</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
-              <CardTitle className="text-sm font-medium rtl:text-start">המרה</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent className="rtl:text-start">
-              <div className="text-xl sm:text-2xl font-bold text-green-600">{stats.conversionRate}%</div>
-              <p className="text-xs text-muted-foreground">{stats.closedWon} נסגרו בהצלחה</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 rtl:flex-row-reverse">
-              <CardTitle className="text-sm font-medium rtl:text-start">נסגרו ללא הצלחה</CardTitle>
-              <XCircle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent className="rtl:text-start">
-              <div className="text-xl sm:text-2xl font-bold text-red-600">{stats.closedLost}</div>
-              <p className="text-xs text-muted-foreground">לא התממשו</p>
+              <div className="text-2xl sm:text-3xl font-bold text-red-600">{stats.closedLost}</div>
+              <p className="text-sm text-muted-foreground mt-1">לידים שלא התממשו</p>
             </CardContent>
           </Card>
         </div>
 
         <CombinedCrmTable contacts={contacts} leads={leads} onRefresh={refreshData} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          <Card>
-            <CardHeader className="rtl:text-start">
-              <CardTitle className="text-base sm:text-lg">פעולות מהירות</CardTitle>
-              <CardDescription className="text-sm">גישה מהירה לפעולות נפוצות</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-2 rtl:flex-row-reverse">
-                <Link href="/crm/contacts" className="flex-1">
-                  <Button className="w-full" size="sm">
-                    <Users className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
-                    ניהול לקוחות
-                  </Button>
-                </Link>
-                <Link href="/crm/leads" className="flex-1">
-                  <Button variant="outline" className="w-full" size="sm">
-                    <TrendingUp className="h-4 w-4 ms-2 rtl:me-2 rtl:ms-0" />
-                    ניהול לידים
-                  </Button>
-                </Link>
-              </div>
-              <div className="text-xs sm:text-sm text-muted-foreground rtl:text-start">
-                כדי ליצור ליד חדש, עבור לעמוד נכסים ולחץ על &quot;שייך לקוח&quot;
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="rtl:text-start">
-              <CardTitle className="text-base sm:text-lg">לידים אחרונים</CardTitle>
-              <CardDescription className="text-sm">פעילות אחרונה במערכת</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentLeads.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground rtl:text-start">
-                  אין לידים עדיין
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentLeads.map((lead) => (
-                    <div
-                      key={lead.id}
-                      className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-lg rtl:flex-row-reverse"
-                    >
-                      <div className="flex-1 rtl:text-start min-w-0">
-                        <div className="font-medium text-sm sm:text-base truncate">
-                          {lead.contact.name}
-                        </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground truncate">
-                          {lead.asset_address}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 sm:gap-2 rtl:flex-row-reverse flex-shrink-0">
-                        <Badge variant="outline" className="text-xs">
-                          {lead.status === 'new' && 'חדש'}
-                          {lead.status === 'contacted' && 'יצרתי קשר'}
-                          {lead.status === 'interested' && 'מתעניין'}
-                          {lead.status === 'negotiating' && 'במשא ומתן'}
-                          {lead.status === 'closed-won' && 'נסגר בהצלחה'}
-                          {lead.status === 'closed-lost' && 'נסגר ללא הצלחה'}
-                        </Badge>
-                        <Link href="/crm/leads">
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <ArrowRight className="h-3 w-3 rtl:rotate-180" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {stats.totalLeads > 0 && (
-          <Card>
-            <CardHeader className="rtl:text-start">
-              <CardTitle className="text-base sm:text-lg">התפלגות סטטוסים</CardTitle>
-              <CardDescription className="text-sm">פילוח הלידים לפי סטטוס</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-blue-600">{stats.newLeads}</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">חדשים</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-yellow-600">
-                    {leads.filter((l) => l.status === 'contacted').length}
-                  </div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">יצרתי קשר</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-orange-600">
-                    {leads.filter((l) => l.status === 'interested').length}
-                  </div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">מתעניינים</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-purple-600">
-                    {leads.filter((l) => l.status === 'negotiating').length}
-                  </div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">במשא ומתן</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-green-600">{stats.closedWon}</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">נסגרו בהצלחה</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-red-600">{stats.closedLost}</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">נסגרו ללא הצלחה</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </DashboardLayout>
   );

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
+import { SectionHeader, type SectionHeaderAction } from '@/components/layout/section-header'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
@@ -447,22 +448,29 @@ export default function DealsPage() {
   return (
     <DashboardLayout>
       <DashboardShell>
-        <DashboardHeader
-          heading='עסקאות ותהליכי סגירה'
-          text='תצוגה מרוכזת של כל העסקאות הפעילות וההזדמנויות שבדרך לסגירה'
+        <SectionHeader
+          title='עסקאות ותהליכי סגירה'
+          description='תצוגה מרוכזת של כל העסקאות הפעילות וההזדמנויות שבדרך לסגירה'
+          count={totalDeals}
+          countLabel="עסקאות"
+          primaryActions={[
+            {
+              label: 'רענון',
+              onClick: () => loadDeals(),
+              icon: isRefreshing ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : <RefreshCw className='mr-2 h-4 w-4' />,
+              variant: 'outline',
+              size: 'sm',
+              disabled: isRefreshing,
+            },
+          ]}
         >
-          <div className='flex flex-wrap items-center gap-2'>
-            <Button variant='outline' size='sm' onClick={() => loadDeals()} disabled={isRefreshing}>
-              {isRefreshing ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : <RefreshCw className='mr-2 h-4 w-4' />}
-              רענון
-            </Button>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button size='sm'>
-                  <PlusCircle className='mr-2 h-4 w-4' />
-                  פתיחת עסקה חדשה
-                </Button>
-              </DialogTrigger>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size='sm'>
+                <PlusCircle className='mr-2 h-4 w-4' />
+                פתיחת עסקה חדשה
+              </Button>
+            </DialogTrigger>
               <DialogContent className='sm:max-w-lg'>
                 <DialogHeader>
                   <DialogTitle>פתיחת מרחב עסקה חדש</DialogTitle>
@@ -571,8 +579,7 @@ export default function DealsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </div>
-        </DashboardHeader>
+        </SectionHeader>
 
         <section className='space-y-6'>
           <Card className='border-muted bg-card/70'>

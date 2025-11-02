@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { SectionHeader, type SectionHeaderAction } from '@/components/layout/section-header'
+import { useSavedFilters } from '@/hooks/use-saved-filters'
+import { SavedFilterPreset } from '@/components/layout/saved-filters-menu'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
@@ -123,6 +125,7 @@ export default function DealsPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [createError, setCreateError] = React.useState<string | null>(null)
   const isLoadingRef = React.useRef(false)
+  const { savedFilters, saveFilters, deleteFilter, applyFilter, hasActiveFilters } = useSavedFilters('deals')
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -327,6 +330,56 @@ export default function DealsPage() {
 
   const grouped = React.useMemo(() => stageBuckets(deals), [deals])
 
+  // Build current filter state for saving
+  const buildCurrentFilters = React.useCallback(() => {
+    return {
+      stageFilter,
+      search: debouncedSearch,
+    };
+  }, [stageFilter, debouncedSearch]);
+
+  // Handle save current filters
+  const handleSaveCurrentFilters = React.useCallback(() => {
+    const currentFilters = buildCurrentFilters();
+    const filterCount = Object.values(currentFilters).filter(v => 
+      v !== undefined && v !== null && v !== '' && v !== 'all'
+    ).length;
+    
+    if (filterCount === 0) {
+      return;
+    }
+
+    const label = stageFilter !== 'all' ? `שלב: ${DEAL_STAGE_LABELS[stageFilter].label}` : `חיפוש: ${debouncedSearch || 'כללי'}`;
+    saveFilters(currentFilters, label);
+  }, [buildCurrentFilters, saveFilters, stageFilter, debouncedSearch]);
+
+  // Apply saved filter
+  const handleApplyFilter = React.useCallback((filterData: Record<string, any>) => {
+    if (filterData.stageFilter !== undefined) setStageFilter(filterData.stageFilter || 'all');
+    if (filterData.search !== undefined) setSearch(filterData.search || '');
+  }, []);
+
+  // Convert saved filters to presets
+  const savedFilterPresets: SavedFilterPreset[] = React.useMemo(() => {
+    return savedFilters.map((filter) => ({
+      id: filter.id,
+      label: filter.label,
+      description: filter.description,
+      isActive: false,
+      isStarred: filter.isStarred,
+      onClick: () => {
+        applyFilter(filter.id, handleApplyFilter);
+      },
+      onDelete: () => {
+        deleteFilter(filter.id);
+      },
+    }));
+  }, [savedFilters, applyFilter, handleApplyFilter, deleteFilter]);
+
+  const hasActiveFiltersValue = React.useMemo(() => {
+    return hasActiveFilters(buildCurrentFilters());
+  }, [hasActiveFilters, buildCurrentFilters]);
+
   const handleCreateDeal = async () => {
     if (!selectedAsset) {
       setCreateError('בחרו נכס כדי לפתוח עסקה')
@@ -453,6 +506,9 @@ export default function DealsPage() {
           description='תצוגה מרוכזת של כל העסקאות הפעילות וההזדמנויות שבדרך לסגירה'
           count={totalDeals}
           countLabel="עסקאות"
+          savedFilterPresets={savedFilterPresets}
+          onSaveCurrentFilters={handleSaveCurrentFilters}
+          hasActiveFilters={hasActiveFiltersValue}
           primaryActions={[
             {
               label: 'רענון',

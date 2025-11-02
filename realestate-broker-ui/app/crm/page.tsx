@@ -27,6 +27,8 @@ export default function CrmUnifiedPage() {
   const canAccessCrm = ['broker', 'appraiser', 'admin'].includes(user?.role || '');
   const { trackEvent } = useAnalytics();
   const hasTrackedOpen = useRef(false);
+  // Saved filters - reserved for future page-level filter functionality
+  // Currently filters are handled within CombinedCrmTable component
 
   const loadContacts = useCallback(async () => {
     try {
@@ -126,6 +128,7 @@ export default function CrmUnifiedPage() {
       conversionRate: totalLeads > 0 ? Math.round((closedWon / totalLeads) * 100) : 0,
     };
   }, [leads]);
+
 
 
   if (authLoading || (isLoading && canAccessCrm)) {

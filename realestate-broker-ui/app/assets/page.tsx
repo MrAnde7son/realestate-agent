@@ -40,6 +40,9 @@ import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { ResponsiveContainer } from "@/components/layout/responsive-container";
 import { SectionHeader, type SectionHeaderAction } from "@/components/layout/section-header";
+import { useSavedFilters } from "@/hooks/use-saved-filters";
+import { SavedFilterPreset } from "@/components/layout/saved-filters-menu";
+import { TableActionsToolbar, type TableActionColumn, type TableAction } from "@/components/layout/table-actions-toolbar";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -329,6 +332,7 @@ export default function AssetsPage() {
   const pathname = usePathname();
   const { toast } = useToast();
   const { confirm } = useConfirm();
+  const { savedFilters, saveFilters, deleteFilter, applyFilter, hasActiveFilters } = useSavedFilters('assets');
 
   // Handle protected action (add new asset)
   const handleProtectedAction = (action: string) => {
@@ -1875,6 +1879,230 @@ export default function AssetsPage() {
     [totalCount, pagination.pageSize]
   );
 
+  // Build current filter state for saving
+  const buildCurrentFilters = React.useCallback(() => {
+    return {
+      search,
+      city,
+      type: typeFilter,
+      priceMin,
+      priceMax,
+      neighborhood,
+      zoning,
+      risk: riskFilter,
+      documents: documentsFilter,
+      status: statusFilter,
+      rentalSale: rentalSaleFilter,
+      adType: adTypeFilter,
+      commercial: commercialFilter,
+      userAssets: userAssetsFilter,
+      buildingType: buildingTypeFilter,
+      floorMin,
+      floorMax,
+      areaMin,
+      areaMax,
+      bedroomsMin,
+      bedroomsMax,
+      bathroomsMin,
+      bathroomsMax,
+      totalFloorsMin,
+      totalFloorsMax,
+      totalAreaMin,
+      totalAreaMax,
+      balconyAreaMin,
+      balconyAreaMax,
+      parkingSpacesMin,
+      parkingSpacesMax,
+      yearBuiltMin,
+      yearBuiltMax,
+      rentPriceMin,
+      rentPriceMax,
+      rentEstimateMin,
+      rentEstimateMax,
+      priceGapPctMin,
+      priceGapPctMax,
+      capRatePctMin,
+      capRatePctMax,
+      rooms: roomsFilter,
+      features: featuresFilter,
+      renovated: renovatedFilter,
+      furnished: furnishedFilter,
+      airConditioning: airConditioningFilter,
+      storageRoom: storageRoomFilter,
+      hasElevator: hasElevatorFilter,
+      block: blockFilter,
+      parcel: parcelFilter,
+      pricePerSqmMin,
+      pricePerSqmMax,
+      remainingRightsMin,
+      remainingRightsMax,
+    };
+  }, [
+    search, city, typeFilter, priceMin, priceMax, neighborhood, zoning, riskFilter,
+    documentsFilter, statusFilter, rentalSaleFilter, adTypeFilter, commercialFilter,
+    userAssetsFilter, buildingTypeFilter, floorMin, floorMax, areaMin, areaMax,
+    bedroomsMin, bedroomsMax, bathroomsMin, bathroomsMax, totalFloorsMin, totalFloorsMax,
+    totalAreaMin, totalAreaMax, balconyAreaMin, balconyAreaMax, parkingSpacesMin, parkingSpacesMax,
+    yearBuiltMin, yearBuiltMax, rentPriceMin, rentPriceMax, rentEstimateMin, rentEstimateMax,
+    priceGapPctMin, priceGapPctMax, capRatePctMin, capRatePctMax, roomsFilter, featuresFilter,
+    renovatedFilter, furnishedFilter, airConditioningFilter, storageRoomFilter, hasElevatorFilter,
+    blockFilter, parcelFilter, pricePerSqmMin, pricePerSqmMax, remainingRightsMin, remainingRightsMax,
+  ]);
+
+  // Apply saved filter
+  const handleApplyFilter = React.useCallback((filterData: Record<string, any>) => {
+    if (filterData.search !== undefined) setSearch(filterData.search || '');
+    if (filterData.city !== undefined) setCity(filterData.city || 'all');
+    if (filterData.type !== undefined) setTypeFilter(filterData.type || 'all');
+    if (filterData.priceMin !== undefined) setPriceMin(filterData.priceMin);
+    if (filterData.priceMax !== undefined) setPriceMax(filterData.priceMax);
+    if (filterData.neighborhood !== undefined) setNeighborhood(filterData.neighborhood || 'all');
+    if (filterData.zoning !== undefined) setZoning(filterData.zoning || 'all');
+    if (filterData.risk !== undefined) setRiskFilter(filterData.risk || 'all');
+    if (filterData.documents !== undefined) setDocumentsFilter(filterData.documents || 'all');
+    if (filterData.status !== undefined) setStatusFilter(filterData.status || 'all');
+    if (filterData.rentalSale !== undefined) setRentalSaleFilter(filterData.rentalSale || 'all');
+    if (filterData.adType !== undefined) setAdTypeFilter(filterData.adType || 'all');
+    if (filterData.commercial !== undefined) setCommercialFilter(filterData.commercial || 'all');
+    if (filterData.userAssets !== undefined) setUserAssetsFilter(filterData.userAssets || 'all');
+    if (filterData.buildingType !== undefined) setBuildingTypeFilter(filterData.buildingType || 'all');
+    if (filterData.floorMin !== undefined) setFloorMin(filterData.floorMin);
+    if (filterData.floorMax !== undefined) setFloorMax(filterData.floorMax);
+    if (filterData.areaMin !== undefined) setAreaMin(filterData.areaMin);
+    if (filterData.areaMax !== undefined) setAreaMax(filterData.areaMax);
+    if (filterData.bedroomsMin !== undefined) setBedroomsMin(filterData.bedroomsMin);
+    if (filterData.bedroomsMax !== undefined) setBedroomsMax(filterData.bedroomsMax);
+    if (filterData.bathroomsMin !== undefined) setBathroomsMin(filterData.bathroomsMin);
+    if (filterData.bathroomsMax !== undefined) setBathroomsMax(filterData.bathroomsMax);
+    if (filterData.totalFloorsMin !== undefined) setTotalFloorsMin(filterData.totalFloorsMin);
+    if (filterData.totalFloorsMax !== undefined) setTotalFloorsMax(filterData.totalFloorsMax);
+    if (filterData.totalAreaMin !== undefined) setTotalAreaMin(filterData.totalAreaMin);
+    if (filterData.totalAreaMax !== undefined) setTotalAreaMax(filterData.totalAreaMax);
+    if (filterData.balconyAreaMin !== undefined) setBalconyAreaMin(filterData.balconyAreaMin);
+    if (filterData.balconyAreaMax !== undefined) setBalconyAreaMax(filterData.balconyAreaMax);
+    if (filterData.parkingSpacesMin !== undefined) setParkingSpacesMin(filterData.parkingSpacesMin);
+    if (filterData.parkingSpacesMax !== undefined) setParkingSpacesMax(filterData.parkingSpacesMax);
+    if (filterData.yearBuiltMin !== undefined) setYearBuiltMin(filterData.yearBuiltMin);
+    if (filterData.yearBuiltMax !== undefined) setYearBuiltMax(filterData.yearBuiltMax);
+    if (filterData.rentPriceMin !== undefined) setRentPriceMin(filterData.rentPriceMin);
+    if (filterData.rentPriceMax !== undefined) setRentPriceMax(filterData.rentPriceMax);
+    if (filterData.rentEstimateMin !== undefined) setRentEstimateMin(filterData.rentEstimateMin);
+    if (filterData.rentEstimateMax !== undefined) setRentEstimateMax(filterData.rentEstimateMax);
+    if (filterData.priceGapPctMin !== undefined) setPriceGapPctMin(filterData.priceGapPctMin);
+    if (filterData.priceGapPctMax !== undefined) setPriceGapPctMax(filterData.priceGapPctMax);
+    if (filterData.capRatePctMin !== undefined) setCapRatePctMin(filterData.capRatePctMin);
+    if (filterData.capRatePctMax !== undefined) setCapRatePctMax(filterData.capRatePctMax);
+    if (filterData.rooms !== undefined) setRoomsFilter(filterData.rooms || 'all');
+    if (filterData.features !== undefined) setFeaturesFilter(filterData.features || 'all');
+    if (filterData.renovated !== undefined) setRenovatedFilter(filterData.renovated || 'all');
+    if (filterData.furnished !== undefined) setFurnishedFilter(filterData.furnished || 'all');
+    if (filterData.airConditioning !== undefined) setAirConditioningFilter(filterData.airConditioning || 'all');
+    if (filterData.storageRoom !== undefined) setStorageRoomFilter(filterData.storageRoom || 'all');
+    if (filterData.hasElevator !== undefined) setHasElevatorFilter(filterData.hasElevator || 'all');
+    if (filterData.block !== undefined) setBlockFilter(filterData.block || 'all');
+    if (filterData.parcel !== undefined) setParcelFilter(filterData.parcel || 'all');
+    if (filterData.pricePerSqmMin !== undefined) setPricePerSqmMin(filterData.pricePerSqmMin);
+    if (filterData.pricePerSqmMax !== undefined) setPricePerSqmMax(filterData.pricePerSqmMax);
+    if (filterData.remainingRightsMin !== undefined) setRemainingRightsMin(filterData.remainingRightsMin);
+    if (filterData.remainingRightsMax !== undefined) setRemainingRightsMax(filterData.remainingRightsMax);
+  }, []);
+
+  // Handle save current filters
+  const handleSaveCurrentFilters = React.useCallback(() => {
+    const currentFilters = buildCurrentFilters();
+    const filterCount = Object.values(currentFilters).filter(v => 
+      v !== undefined && v !== null && v !== '' && v !== 'all'
+    ).length;
+    
+    if (filterCount === 0) {
+      toast({
+        title: 'אין מסננים לשמירה',
+        description: 'הגדר לפחות מסנן אחד לפני שמירה',
+        variant: 'default',
+      });
+      return;
+    }
+
+    const label = `מסננים מותאמים (${filterCount} מסננים)`;
+    saveFilters(currentFilters, label);
+    toast({
+      title: 'מסננים נשמרו',
+      description: 'המסננים נשמרו בהצלחה',
+      variant: 'success',
+    });
+  }, [buildCurrentFilters, saveFilters, toast]);
+
+  // Convert saved filters to presets
+  const savedFilterPresets: SavedFilterPreset[] = React.useMemo(() => {
+    return savedFilters.map((filter) => ({
+      id: filter.id,
+      label: filter.label,
+      description: filter.description,
+      isActive: false, // Could check if current filters match
+      isStarred: filter.isStarred,
+      onClick: () => {
+        applyFilter(filter.id, handleApplyFilter);
+        toast({
+          title: 'מסננים הוחלו',
+          description: `הוחל המסנן "${filter.label}"`,
+          variant: 'default',
+        });
+      },
+      onDelete: () => {
+        deleteFilter(filter.id);
+        toast({
+          title: 'מסנן נמחק',
+          description: `המסנן "${filter.label}" נמחק`,
+          variant: 'default',
+        });
+      },
+    }));
+  }, [savedFilters, applyFilter, handleApplyFilter, deleteFilter, toast]);
+
+  const hasActiveFiltersValue = React.useMemo(() => {
+    return hasActiveFilters(buildCurrentFilters());
+  }, [hasActiveFilters, buildCurrentFilters]);
+
+  // Toolbar actions state
+  const [toolbarActionsProps, setToolbarActionsProps] = React.useState<{
+    columns?: TableActionColumn[]
+    selectedCount?: number
+    totalCount?: number
+    onExportSelected?: () => void
+    onExportAll?: () => void
+    disableExportAll?: boolean
+    onRefresh?: () => void
+    onAddNew?: () => void
+    loading?: boolean
+    importAction?: { label: string; onClick: () => void; icon?: React.ReactNode }
+    bulkActions?: TableAction[]
+    onResetColumns?: () => void
+  } | null>(null)
+
+  const handleToolbarActionsReady = React.useCallback((props: any) => {
+    setToolbarActionsProps(prev => {
+      // Only update if props actually changed to prevent infinite loops
+      const prevKey = prev ? JSON.stringify({
+        columnsCount: prev.columns?.length,
+        selectedCount: prev.selectedCount,
+        totalCount: prev.totalCount,
+        exportingAll: prev.disableExportAll,
+        loading: prev.loading,
+      }) : ''
+      const newKey = JSON.stringify({
+        columnsCount: props.columns?.length,
+        selectedCount: props.selectedCount,
+        totalCount: props.totalCount,
+        exportingAll: props.disableExportAll,
+        loading: props.loading,
+      })
+      if (prevKey === newKey && prev) {
+        return prev
+      }
+      return props
+    })
+  }, [])
+
 
   const cityOptions = React.useMemo(() => filterMetadata.cities, [filterMetadata.cities]);
   const typeOptions = React.useMemo(() => filterMetadata.types, [filterMetadata.types]);
@@ -1999,6 +2227,25 @@ export default function AssetsPage() {
             description={loading ? 'טוען נכסים...' : `${totalCount} נכסים עם נתוני שמאות ותכנון מלאים`}
             count={totalCount}
             countLabel="נכסים"
+            savedFilterPresets={savedFilterPresets}
+            onSaveCurrentFilters={handleSaveCurrentFilters}
+            hasActiveFilters={hasActiveFiltersValue}
+            toolbarActions={toolbarActionsProps && (
+              <TableActionsToolbar
+                columns={toolbarActionsProps.columns}
+                onResetColumns={toolbarActionsProps.onResetColumns}
+                exportAll={toolbarActionsProps.onExportAll}
+                exportSelected={toolbarActionsProps.onExportSelected}
+                importAction={toolbarActionsProps.importAction}
+                bulkActions={toolbarActionsProps.bulkActions}
+                selectedCount={toolbarActionsProps.selectedCount}
+                totalCount={toolbarActionsProps.totalCount}
+                disableExportAll={toolbarActionsProps.disableExportAll}
+                onRefresh={toolbarActionsProps.onRefresh}
+                onAddNew={toolbarActionsProps.onAddNew}
+                loading={toolbarActionsProps.loading}
+              />
+            )}
           />
 
 
@@ -2209,6 +2456,7 @@ export default function AssetsPage() {
             )
           ) : (
             <AssetsTable
+              onToolbarActionsReady={handleToolbarActionsReady}
               data={assets}
               loading={loading}
               onDelete={isAdmin ? handleDeleteAsset : undefined}

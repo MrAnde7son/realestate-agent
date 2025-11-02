@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { fetchBOIRate, getMortgageScenarios } from '@/lib/mortgage'
+import { fetchBOIRate, calcPrime } from '@/lib/mortgage'
 
-// API endpoint to fetch Bank of Israel interest rate
+// API endpoint to fetch Bank of Israel interest rate and derived prime rate
 export async function GET() {
   try {
     const { baseRate, lastUpdated } = await fetchBOIRate()
@@ -12,7 +12,7 @@ export async function GET() {
         baseRate,
         lastUpdated,
         source: 'בנק ישראל',
-        scenarios: getMortgageScenarios(baseRate)
+        primeRate: calcPrime(baseRate)
       }
     })
   } catch (error) {

@@ -242,6 +242,9 @@ interface TableToolbarProps {
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
 
+  // Hide actions container (when actions are rendered elsewhere)
+  hideActionsContainer?: boolean;
+
   // Filters
   filters?: TableToolbarFilters;
 
@@ -307,6 +310,7 @@ export default function TableToolbar({
   searchValue,
   onSearchChange,
   searchPlaceholder = "חיפוש...",
+  hideActionsContainer = false,
   filters,
   columns,
   onResetColumns,
@@ -796,7 +800,7 @@ export default function TableToolbar({
         <SelectTrigger>
           <SelectValue placeholder={filter.placeholder ?? `בחר ${filter.label.toLowerCase()}`} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="z-[110]">
           {(() => {
             const defaultValue = filter.defaultValue ?? 'all';
             const hasDefaultOption = filter.options?.some((option) => option.value === defaultValue);
@@ -842,7 +846,7 @@ export default function TableToolbar({
           <SelectTrigger>
             <SelectValue placeholder={cityFilter.placeholder ?? 'כל הערים'} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-[110]">
             {cityFilter.showAllOption !== false && (
               <SelectItem value="all">{cityFilter.allLabel ?? 'כל הערים'}</SelectItem>
             )}
@@ -960,7 +964,7 @@ export default function TableToolbar({
             <SelectTrigger>
               <SelectValue placeholder={typeFilter.placeholder ?? 'כל הסוגים'} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[110]">
               {typeFilter.showAllOption !== false && (
                 <SelectItem value="all">{typeFilter.allLabel ?? 'כל הסוגים'}</SelectItem>
               )}
@@ -1084,7 +1088,7 @@ export default function TableToolbar({
             <SelectTrigger>
               <SelectValue placeholder="כל הסטטוסים" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[110]">
               <SelectItem value="all">כל הסטטוסים</SelectItem>
               {statusFilters.options.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
@@ -1807,7 +1811,7 @@ export default function TableToolbar({
                           <SelectTrigger>
                             <SelectValue placeholder="כל הנכסים" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="z-[110]">
                             <SelectItem value="all">כל הנכסים</SelectItem>
                             {userAssetsAdditionalFilter.options.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
@@ -1886,10 +1890,11 @@ export default function TableToolbar({
           </div>
         </div>
 
-        <div
-          data-testid="toolbar-actions-container"
-          className="flex w-full flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:w-auto lg:justify-end"
-        >
+        {!hideActionsContainer && (
+          <div
+            data-testid="toolbar-actions-container"
+            className="flex w-full flex-wrap items-center gap-1.5 sm:gap-2 justify-start lg:w-auto lg:justify-end"
+          >
         {/* Column selection */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -2107,6 +2112,7 @@ export default function TableToolbar({
           </Button>
         )}
       </div>
+        )}
       </div>
 
       {/* Bottom row - Status and info */}

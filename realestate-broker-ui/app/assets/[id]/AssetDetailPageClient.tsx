@@ -37,7 +37,6 @@ import { apiClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { parseShareMessageResponse } from './shareMessage'
 import { useDedupedEffect } from '@/hooks/use-deduped-effect'
-import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
 import PlansTable from '@/components/PlansTable'
@@ -57,6 +56,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { PersistentBreadcrumb, type PersistentBreadcrumbItemType, type TabContextItem } from '@/components/ui/persistent-breadcrumb'
 
 const SUPPORTED_LLM_PROVIDERS = ['gemini', 'openai', 'groq'] as const
 type SupportedLLMProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number]
@@ -2354,31 +2354,44 @@ useDedupedEffect(() => {
     }
   }
 
+  const breadcrumbItems: PersistentBreadcrumbItemType[] = [
+    { label: 'בית', href: '/', icon: Home },
+    { label: 'נכסים', href: '/assets', icon: Building },
+    { label: asset.address },
+  ]
+
+  const tabContext: TabContextItem[] = [
+    { value: 'analysis', label: 'ניתוח כללי' },
+    { value: 'listings', label: 'מודעות' },
+    { value: 'transactions', label: 'עיסקאות השוואה' },
+    { value: 'permits', label: 'היתרים' },
+    { value: 'plans', label: 'תוכניות' },
+    { value: 'rights', label: 'זכויות' },
+    { value: 'environment', label: 'סביבה' },
+    ...(canViewCrm ? [{ value: 'crm', label: 'לקוחות' }] : []),
+    { value: 'appraisals', label: 'שומות באיזור' },
+    { value: 'documents', label: 'מסמכים' },
+  ]
+
+  const handleTabChangeViaBreadcrumb = (value: string) => {
+    setActiveTab(value)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', value)
+    router.replace(`${url.pathname}${url.search}`, { scroll: false })
+  }
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
-        <Breadcrumb className="mb-4">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                <Home className="h-4 w-4" />
-                בית
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/assets" className="flex items-center gap-1">
-                <Building className="h-4 w-4" />
-                נכסים
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{asset.address}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
+        <PersistentBreadcrumb
+          items={breadcrumbItems}
+          showBackToAssets={true}
+          tabContext={{
+            currentTab: activeTab,
+            tabs: tabContext,
+            onTabChange: handleTabChangeViaBreadcrumb,
+          }}
+        />
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">

@@ -31,7 +31,7 @@ const searchItems = [
     title: "לקוחות",
     href: "/crm",
     icon: "👥",
-    description: "ניהול לקוחות ולידים"
+    description: "ניהול לקוחות"
   },
   {
     title: "התראות",

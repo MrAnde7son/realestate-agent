@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import AnalyticsClient from "./AnalyticsClient";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { DashboardShell, DashboardHeader } from "@/components/layout/dashboard-shell";
+import { AnalyticsClientWrapper } from "./AnalyticsClientWrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +77,7 @@ export default async function AdminAnalyticsPage() {
           heading="מעקב ואנליטיקה"
           text="נתונים וסטטיסטיקות על פעילות המערכת"
         />
-        <AnalyticsClient daily={data.series} topFailures={data.top} />
+        <AnalyticsClientWrapper daily={data.series} topFailures={data.top} />
       </DashboardShell>
     </DashboardLayout>
   );

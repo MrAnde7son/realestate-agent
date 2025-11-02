@@ -250,7 +250,7 @@ class DataPipeline:
     # ------------------------------------------------------------------
     def _store_listing(self, session, listing: RealEstateListing) -> DBListing:
         # Check if listing already exists by listing_id
-        existing_listing = session.query(DBListing).filter_by(listing_id=listing.listing_id).first()
+        existing_listing = session.query(DBListing).filter_by(listing_id=str(listing.listing_id)).first()
         
         contact_name = getattr(listing, "contact_name", None)
         contact_phone = getattr(listing, "contact_phone", None)
@@ -322,7 +322,7 @@ class DataPipeline:
                 property_type=listing.property_type,
                 description=listing.description,
                 url=listing.url,
-                listing_id=listing.listing_id,
+                listing_id=str(listing.listing_id),
                 listing_type=getattr(listing, "listing_type", None),
                 ad_type=getattr(listing, "ad_type", None),
                 contact_name=contact_name,

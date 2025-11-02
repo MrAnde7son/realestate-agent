@@ -1190,8 +1190,6 @@ export default function AssetsTable({
     onResetColumns: handleResetColumns,
   }), [
     toolbarColumns,
-    table,
-    rowSelection, // Add rowSelection to ensure selectedCount updates
     selectedCount, // Add selectedCount as explicit dependency
     recordCount,
     handleExportSelected,

@@ -212,7 +212,7 @@ export default function MortgageAnalyzePage() {
   }, [])
 
   useEffect(() => {
-    if (user?.role === 'private') {
+    if (user?.equity !== undefined && user.equity !== null) {
       const equityValue = typeof user.equity === 'number' ? user.equity : 0
       setUserEquity(equityValue)
     }

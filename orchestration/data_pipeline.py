@@ -248,9 +248,28 @@ class DataPipeline:
             return 0
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _normalize_listing_id(listing_id: Any) -> Optional[str]:
+        """Return a normalized string representation for listing identifiers."""
+
+        if listing_id is None:
+            return None
+        if isinstance(listing_id, str):
+            cleaned = listing_id.strip()
+            return cleaned or None
+        try:
+            normalized = str(int(listing_id))
+        except (TypeError, ValueError):
+            normalized = str(listing_id)
+        normalized = normalized.strip()
+        return normalized or None
+
     def _store_listing(self, session, listing: RealEstateListing) -> DBListing:
+        normalized_listing_id = self._normalize_listing_id(getattr(listing, "listing_id", None))
+        listing.listing_id = normalized_listing_id
+
         # Check if listing already exists by listing_id
-        existing_listing = session.query(DBListing).filter_by(listing_id=listing.listing_id).first()
+        existing_listing = session.query(DBListing).filter_by(listing_id=normalized_listing_id).first()
         
         contact_name = getattr(listing, "contact_name", None)
         contact_phone = getattr(listing, "contact_phone", None)
@@ -322,7 +341,7 @@ class DataPipeline:
                 property_type=listing.property_type,
                 description=listing.description,
                 url=listing.url,
-                listing_id=listing.listing_id,
+                listing_id=normalized_listing_id,
                 listing_type=getattr(listing, "listing_type", None),
                 ad_type=getattr(listing, "ad_type", None),
                 contact_name=contact_name,

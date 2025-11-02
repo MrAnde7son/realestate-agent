@@ -190,7 +190,7 @@ def test_data_pipeline_integration():
     db = SQLAlchemyDatabase("sqlite:///:memory:")
     db.init_db()  # Initialize the database engine first
     db.create_tables()  # Then create tables
-    
+
     pipeline = DataPipeline(
         yad2=FakeYad2Collector(),
         gis=FakeGISCollector(),
@@ -260,6 +260,33 @@ def test_data_pipeline_integration():
             "http://example.com/photo2.jpg",
         ]
         assert stored_listing.video_url == "http://example.com/video.mp4"
+    finally:
+        session.close()
+
+
+def test_store_listing_normalizes_numeric_listing_id():
+    db = SQLAlchemyDatabase("sqlite:///:memory:")
+    db.init_db()
+    db.create_tables()
+
+    pipeline = DataPipeline(
+        db=db,
+        yad2=FakeYad2Collector(),
+        gis=FakeGISCollector(),
+        gov=FakeGovCollector(),
+        govmap=FakeGovMapCollector(),
+        rami=FakeRamiCollector(),
+        mavat=FakeMavatCollector(),
+        handasa=FakeHandasaCollector(),
+    )
+
+    session = db.get_session()
+    try:
+        listing = RealEstateListing(listing_id=1018900, title="Numeric listing")
+        stored_listing = pipeline._store_listing(session, listing)
+
+        assert stored_listing.listing_id == "1018900"
+        assert listing.listing_id == "1018900"
     finally:
         session.close()
 

@@ -77,10 +77,7 @@ export function SavedFiltersMenu({
               "שמור מסננים"
             )}
           </span>
-          <span className="sm:hidden">
-            {activePreset ? activePreset.label : "מסננים"}
-          </span>
-          <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 hidden sm:block" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

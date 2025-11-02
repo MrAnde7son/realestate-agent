@@ -20,24 +20,151 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/button'
 import { fmtCurrency, fmtNumber } from '@/lib/utils'
-import { BarChart3, MapPin } from 'lucide-react'
+import { BarChart3, MapPin, TrendingUp, Building } from 'lucide-react'
 import Link from 'next/link'
 
 interface DashboardChartsProps {
   marketData: any[]
   topAreas: any[]
+  propertyTypes: any[]
   isAuthenticated: boolean
   onProtectedAction: (action: string) => void
 }
 
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+
 export default function DashboardCharts({
   marketData,
   topAreas,
+  propertyTypes,
   isAuthenticated,
   onProtectedAction,
 }: DashboardChartsProps) {
   return (
     <>
+      {/* Charts Section */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+        {/* Market Trends Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>מגמות שוק - מחירים ממוצעים</CardTitle>
+            <CardDescription>
+              {isAuthenticated 
+                ? "מחירים ממוצעים מבוססים על נתוני מודעות למכירה"
+                : "מגמות מחירים זמינות במערכת"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {marketData && marketData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={marketData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value: number) => [
+                      fmtCurrency(value),
+                      "מחיר ממוצע",
+                    ]}
+                    labelFormatter={(label) => `חודש: ${label}`}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="avgPrice"
+                    stroke="#8884d8"
+                    fill="#8884d8"
+                    fillOpacity={0.3}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <TrendingUp className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-foreground">
+                    {isAuthenticated ? "אין נתוני שוק" : "נתוני שוק זמינים"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    {isAuthenticated 
+                      ? "עדיין אין נתוני שוק זמינים במערכת"
+                      : "התחבר כדי לראות נתוני שוק מפורטים ומגמות מחירים"
+                    }
+                  </p>
+                </div>
+                {!isAuthenticated && (
+                  <Button onClick={() => onProtectedAction("שוק")} className="mt-4">
+                    <TrendingUp className="h-4 w-4 me-2" />
+                    התחבר לצפייה בנתונים
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Property Types Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>התפלגות סוגי נכסים</CardTitle>
+            <CardDescription>
+              {isAuthenticated 
+                ? "חלוקה לפי סוגי נכסים במאגר"
+                : "חלוקה לפי סוגי נכסים זמינים"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {propertyTypes && propertyTypes.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={propertyTypes}
+                    cx="50%"
+                    cy="50%"
+                    nameKey="type"
+                    labelLine={false}
+                    label={({ type, percentage }) => `${type} ${percentage}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
+                    {propertyTypes.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <Building className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-foreground">אין נתוני נכסים</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    עדיין לא נוספו נכסים למאגר. התחל להוסיף נכסים כדי לראות את התפלגות סוגי הנכסים
+                  </p>
+                </div>
+                <Button asChild className="mt-4">
+                  <Link href="/assets">
+                    <Building className="h-4 w-4 me-2" />
+                    הוסף נכס ראשון
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Market Volume and Transactions */}
       <Card>
         <CardHeader>

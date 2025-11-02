@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/Badge";
 import { Loader2, RefreshCcw, FileSpreadsheet, FileJson } from "lucide-react";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { useToast } from "@/hooks/use-toast";
 
 interface ImportBatchRow {
   id: string;
@@ -71,8 +73,9 @@ export default function ImportHistoryPage() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<ImportBatchRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const loadImports = async () => {
+  const loadImports = useCallback(async ({ withSuccessToast = false } = {}) => {
     try {
       setLoading(true);
       setError(null);
@@ -87,17 +90,29 @@ export default function ImportHistoryPage() {
       }
       const payload = await response.json();
       setRows(payload.results || []);
+      if (withSuccessToast) {
+        toast({
+          variant: "success",
+          title: "הרשימה עודכנה",
+          description: "ייבוא הנתונים נטען מחדש בהצלחה.",
+        });
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "אירעה שגיאה בטעינת נתוני הייבוא");
+      const message = err instanceof Error ? err.message : "אירעה שגיאה בטעינת נתוני הייבוא";
+      setError(message);
+      toast({
+        variant: "destructive",
+        title: "שגיאה בטעינת הייבוא",
+        description: message,
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [modeFilter, toast]);
 
   useEffect(() => {
     loadImports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modeFilter]);
+  }, [loadImports]);
 
   const hasRows = rows.length > 0;
 
@@ -133,7 +148,7 @@ export default function ImportHistoryPage() {
             </Select>
             <Button
               variant="outline"
-              onClick={loadImports}
+              onClick={() => loadImports({ withSuccessToast: true })}
               disabled={loading}
               className="flex items-center gap-2"
             >
@@ -143,10 +158,22 @@ export default function ImportHistoryPage() {
           </div>
         </div>
 
+        <InlineAlert
+          variant="info"
+          title="כיצד מתבצע הייבוא?"
+          className="border-dashed bg-info/5"
+        >
+          <ol className="list-decimal space-y-1 pr-4 text-sm rtl:pr-0 rtl:pl-4">
+            <li>סננו לפי סוג הייבוא כדי להתמקד בקבוצת הנתונים הרלוונטית.</li>
+            <li>פתחו את דוח הסיכום לבחינת השורות שנוצרו, עודכנו או דולגו.</li>
+            <li>השתמשו בדוח השגיאות כדי לטפל במהירות ברישומים שנכשלו.</li>
+          </ol>
+        </InlineAlert>
+
         {error && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-destructive text-sm">
+          <InlineAlert variant="destructive" title="טעינת הנתונים נכשלה" className="border-solid">
             {error}
-          </div>
+          </InlineAlert>
         )}
 
         <div className="rounded-xl border bg-card">
@@ -168,8 +195,14 @@ export default function ImportHistoryPage() {
             <TableBody>
               {!hasRows && !loading && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
-                    אין ייבואים להצגה עדיין.
+                  <TableCell colSpan={10} className="py-10">
+                    <InlineAlert
+                      variant="info"
+                      title="אין ייבואים להצגה עדיין"
+                      className="mx-auto max-w-xl flex-col items-center text-center sm:flex-row sm:items-start sm:text-right"
+                    >
+                      התחילו תהליך ייבוא חדש ממסך הייבוא, או חזרו לכאן לאחר שהדאטה סונכרנה.
+                    </InlineAlert>
                   </TableCell>
                 </TableRow>
               )}

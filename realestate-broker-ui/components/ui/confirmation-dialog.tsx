@@ -14,34 +14,40 @@ import { useConfirm } from "@/hooks/use-confirm"
 
 export function ConfirmationDialog() {
   const { state, close } = useConfirm()
+  const confirmVariant = state.variant === "destructive" ? "destructive" : "default"
+  const confirmText = state.confirmText ?? "אישור"
+  const cancelText = state.cancelText ?? "ביטול"
+  const description = state.description?.toString().trim()
+  const hasDescription = Boolean(description)
 
   return (
     <AlertDialog open={state.isOpen} onOpenChange={close}>
       <AlertDialogContent className="sm:max-w-md w-[95vw] mx-auto">
         <AlertDialogHeader>
           <AlertDialogTitle>{state.title}</AlertDialogTitle>
-          {state.description && (
-            <AlertDialogDescription>
-              {state.description}
+          {hasDescription ? (
+            <AlertDialogDescription>{description}</AlertDialogDescription>
+          ) : (
+            <AlertDialogDescription className="sr-only">
+              {confirmVariant === "destructive"
+                ? "אשרו את הפעולה כדי להשלים אותה או בטלו לשמירה על הנתונים הקיימים."
+                : "אשרו את הפעולה כדי להמשיך או בחרו ביטול כדי להישאר במסך הנוכחי."}
             </AlertDialogDescription>
           )}
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-          <AlertDialogCancel 
+          <AlertDialogCancel
             onClick={state.onCancel}
             className="w-full sm:w-auto order-2 sm:order-1"
           >
-            {state.cancelText}
+            {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={state.onConfirm}
-            className={`w-full sm:w-auto order-1 sm:order-2 ${
-              state.variant === "destructive" 
-                ? "bg-red-600 hover:bg-red-700 text-white" 
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
+            variant={confirmVariant}
+            className="w-full sm:w-auto order-1 sm:order-2"
           >
-            {state.confirmText}
+            {confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -2,6 +2,9 @@
 
 import React, { useState, useCallback, createContext, useContext } from "react"
 
+const DEFAULT_CONFIRM_TEXT = "אישור"
+const DEFAULT_CANCEL_TEXT = "ביטול"
+
 interface ConfirmOptions {
   title: string
   description?: string
@@ -24,27 +27,33 @@ interface ConfirmContextType {
 
 const ConfirmContext = createContext<ConfirmContextType | undefined>(undefined)
 
+const INITIAL_STATE: ConfirmState = {
+  isOpen: false,
+  title: "",
+  description: "",
+  confirmText: DEFAULT_CONFIRM_TEXT,
+  cancelText: DEFAULT_CANCEL_TEXT,
+  variant: "default",
+}
+
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<ConfirmState>({
-    isOpen: false,
-    title: "",
-    description: "",
-    confirmText: "אישור",
-    cancelText: "ביטול",
-    variant: "default",
-  })
+  const [state, setState] = useState<ConfirmState>(INITIAL_STATE)
 
   const confirm = useCallback((options: ConfirmOptions): Promise<boolean> => {
     return new Promise((resolve) => {
       setState({
+        ...INITIAL_STATE,
         ...options,
+        confirmText: options.confirmText ?? DEFAULT_CONFIRM_TEXT,
+        cancelText: options.cancelText ?? DEFAULT_CANCEL_TEXT,
+        variant: options.variant ?? "default",
         isOpen: true,
         onConfirm: () => {
-          setState(prev => ({ ...prev, isOpen: false }))
+          setState(current => ({ ...current, isOpen: false }))
           resolve(true)
         },
         onCancel: () => {
-          setState(prev => ({ ...prev, isOpen: false }))
+          setState(current => ({ ...current, isOpen: false }))
           resolve(false)
         },
       })

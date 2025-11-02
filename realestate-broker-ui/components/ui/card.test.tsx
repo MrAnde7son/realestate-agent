@@ -52,4 +52,18 @@ describe('Card component', () => {
     expect(screen.getByTestId('content')).toHaveClass('px-4', 'pb-4', 'pt-0')
     expect(screen.getByTestId('footer')).toHaveClass('px-4', 'pb-4', 'pt-0')
   })
+
+  it('falls back to medium spacing when size is not provided', () => {
+    render(
+      <Card>
+        <CardHeader data-testid="header">Header</CardHeader>
+        <CardContent data-testid="content">Content</CardContent>
+        <CardFooter data-testid="footer">Footer</CardFooter>
+      </Card>
+    )
+
+    expect(screen.getByTestId('header')).toHaveClass('px-6', 'py-4')
+    expect(screen.getByTestId('content')).toHaveClass('px-6', 'pb-6', 'pt-0')
+    expect(screen.getByTestId('footer')).toHaveClass('px-6', 'pb-6', 'pt-0')
+  })
 })

@@ -30,7 +30,8 @@ const cardVariants = cva(
 )
 
 type CardVariantProps = VariantProps<typeof cardVariants>
-type CardSize = NonNullable<CardVariantProps['size']>
+type CardSize = Exclude<CardVariantProps['size'], null | undefined>
+type CardVariant = Exclude<CardVariantProps['variant'], null | undefined>
 
 const CardContext = createContext<{ size: CardSize }>({ size: 'md' })
 
@@ -62,19 +63,27 @@ const footerPadding: Record<CardSize, string> = {
   lg: 'px-8 pb-8 pt-0',
 }
 
-export interface CardProps
-  extends HTMLAttributes<HTMLDivElement>,
-    CardVariantProps {}
+export interface CardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'size'> {
+  /**
+   * Visual density applied to the card and automatically propagated to its sections.
+   */
+  size?: CardSize
+  /**
+   * Surface treatment for the card shell.
+   */
+  variant?: CardVariant
+}
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   { size = 'md', className, variant, ...props },
   ref
 ) {
+  const resolvedSize: CardSize = size ?? 'md'
   return (
-    <CardContext.Provider value={{ size }}>
+    <CardContext.Provider value={{ size: resolvedSize }}>
       <div
         ref={ref}
-        className={cn(cardVariants({ size, variant }), className)}
+        className={cn(cardVariants({ size: resolvedSize, variant }), className)}
         {...props}
       />
     </CardContext.Provider>

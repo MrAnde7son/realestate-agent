@@ -1,6 +1,11 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
 import Image from 'next/image'
@@ -90,7 +95,7 @@ export default function ImageGallery({
 
   return (
     <>
-      <div className={`flex gap-1 sm:gap-2 ${className}`}>
+      <div className={`flex gap-1 sm:gap-2 ${className}`} aria-describedby="גלריית תמונות">
         {displayImages.map((image, index) => (
           <div key={index} className="relative group">
             <div className={`relative ${sizeClasses[size]} rounded-lg overflow-hidden cursor-pointer`}>

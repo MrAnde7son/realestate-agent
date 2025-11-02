@@ -1,10 +1,13 @@
 FROM python:3.11-slim
 
-# Set working directory
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ libpq-dev \
     libnss3 libatk-bridge2.0-0 libxcb1 libxcomposite1 libxdamage1 libxfixes3 \
     libxrender1 libxtst6 libxi6 libdbus-1-3 libxrandr2 libasound2 \
@@ -15,20 +18,23 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend-django/requirements.txt /tmp/backend-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/backend-requirements.txt
 
-# Copy the Django project
-COPY . .
+# Copy the full repository so Django can import shared modules
+COPY . /app
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app
 USER app
 
+# Ensure Django and shared modules are importable regardless of working directory
+ENV PYTHONPATH=/app/backend-django:/app
+WORKDIR /app/backend-django
+
 # Expose port
 EXPOSE 8000
-
 
 # Launch gunicorn directly for the backend-only image
 CMD ["gunicorn", "broker_backend.wsgi:application", "--bind", "0.0.0.0:8000"]

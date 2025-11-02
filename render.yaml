@@ -210,7 +210,7 @@ services:
     sync: false
   region: oregon
   dockerContext: .
-  dockerfilePath: ./Dockerfile
+  dockerfilePath: ./backend-django/Dockerfile
   autoDeployTrigger: commit
   previews:
     generation: manual
@@ -289,7 +289,6 @@ services:
   region: oregon
   dockerContext: .
   dockerfilePath: ./orchestration/Dockerfile.celery
-  startCommand: python orchestration/celery_health_service.py
   healthCheckPath: /healthz
   autoDeployTrigger: commit
   previews:

@@ -380,8 +380,26 @@
     direction: rtl;
   }
   
-  /* Apply RTL text alignment only to elements without explicit alignment classes */
-  html[dir="rtl"] *:not([class*="text-"]) {
+  /* Apply RTL direction to body and all elements by default */
+  html[dir="rtl"] body,
+  html[dir="rtl"] body * {
+    direction: inherit;
+  }
+  
+  /* Apply RTL text alignment to common text containers */
+  html[dir="rtl"] p,
+  html[dir="rtl"] div,
+  html[dir="rtl"] span,
+  html[dir="rtl"] h1,
+  html[dir="rtl"] h2,
+  html[dir="rtl"] h3,
+  html[dir="rtl"] h4,
+  html[dir="rtl"] h5,
+  html[dir="rtl"] h6,
+  html[dir="rtl"] li,
+  html[dir="rtl"] td,
+  html[dir="rtl"] th,
+  html[dir="rtl"] label {
     text-align: right;
   }
   
@@ -400,6 +418,64 @@
   
   html[dir="rtl"] .text-start {
     text-align: left !important;
+  }
+  
+  /* Dialog RTL Support */
+  html[dir="rtl"] [role="dialog"],
+  html[dir="rtl"] [data-radix-dialog-content] {
+    direction: rtl;
+    text-align: right;
+  }
+  
+  html[dir="rtl"] [data-radix-dialog-content] p,
+  html[dir="rtl"] [data-radix-dialog-content] div,
+  html[dir="rtl"] [data-radix-dialog-content] span,
+  html[dir="rtl"] [data-radix-dialog-content] h1,
+  html[dir="rtl"] [data-radix-dialog-content] h2,
+  html[dir="rtl"] [data-radix-dialog-content] h3,
+  html[dir="rtl"] [data-radix-dialog-content] h4,
+  html[dir="rtl"] [data-radix-dialog-content] h5,
+  html[dir="rtl"] [data-radix-dialog-content] h6,
+  html[dir="rtl"] [data-radix-dialog-content] label {
+    text-align: right;
+  }
+  
+  /* Card RTL Support */
+  html[dir="rtl"] [class*="card"],
+  html[dir="rtl"] [class*="Card"] {
+    direction: rtl;
+    text-align: right;
+  }
+  
+  /* Alert Dialog RTL Support */
+  html[dir="rtl"] [role="alertdialog"],
+  html[dir="rtl"] [data-radix-alert-dialog-content] {
+    direction: rtl;
+    text-align: right;
+  }
+  
+  /* Select/Dropdown RTL Support */
+  html[dir="rtl"] [data-radix-select-content] {
+    direction: rtl;
+    text-align: right;
+  }
+  
+  /* Popover RTL Support */
+  html[dir="rtl"] [data-radix-popover-content] {
+    direction: rtl;
+    text-align: right;
+  }
+  
+  /* Tooltip RTL Support */
+  html[dir="rtl"] [data-radix-tooltip-content] {
+    direction: rtl;
+    text-align: right;
+  }
+  
+  /* Sheet RTL Support */
+  html[dir="rtl"] [data-radix-sheet-content] {
+    direction: rtl;
+    text-align: right;
   }
 
   /* Accessibility Improvements */
@@ -470,9 +546,10 @@
     margin-left: 1rem;
   }
 
-  /* Ensure tabs display in RTL order */
+  /* Ensure tabs display in RTL order - first in code appears on right */
   html[dir="rtl"] .tabs-list {
-    flex-direction: row-reverse;
+    flex-direction: row;
+    direction: rtl;
   }
   
   /* RTL Table improvements */

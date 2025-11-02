@@ -144,6 +144,7 @@ export default function AuthPage() {
                       type="email"
                       placeholder="הכנס את הדוא״ל שלך"
                       className="ps-10 pe-10"
+                      dir="rtl"
                       {...loginForm.register('email')}
                     />
                   </div>
@@ -163,6 +164,7 @@ export default function AuthPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="הכנס את הסיסמה שלך"
                       className="ps-10 pe-10"
+                      dir="rtl"
                       {...loginForm.register('password')}
                     />
                     <Button
@@ -229,6 +231,7 @@ export default function AuthPage() {
                     <Input
                       id="first_name"
                       placeholder="שם פרטי"
+                      dir="rtl"
                       {...registerForm.register('first_name')}
                     />
                     {registerForm.formState.errors.first_name && (
@@ -242,6 +245,7 @@ export default function AuthPage() {
                     <Input
                       id="last_name"
                       placeholder="שם משפחה"
+                      dir="rtl"
                       {...registerForm.register('last_name')}
                     />
                     {registerForm.formState.errors.last_name && (
@@ -258,6 +262,7 @@ export default function AuthPage() {
                     id="email"
                     type="email"
                     placeholder="הכנס את הדוא״ל שלך"
+                    dir="rtl"
                     {...registerForm.register('email')}
                   />
                   {registerForm.formState.errors.email && (
@@ -275,6 +280,7 @@ export default function AuthPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="הכנס סיסמה"
                       className="ps-10 pe-10"
+                      dir="rtl"
                       {...registerForm.register('password')}
                     />
                     <Button
@@ -307,6 +313,7 @@ export default function AuthPage() {
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="אמת את הסיסמה שלך"
                       className="ps-10 pe-10"
+                      dir="rtl"
                       {...registerForm.register('confirmPassword')}
                     />
                     <Button

@@ -24,11 +24,18 @@ def test_geocode_address_success(monkeypatch):
     gs = TelAvivGS()
     payload = {"features": [{"attributes": {"x": 178000.5, "y": 665000.25}}]}
 
-    def fake_get(url, params=None, headers=None, timeout=30):
+    def fake_post(url, data=None, headers=None, timeout=30, **kwargs):
         assert "IView2RekaHeb/MapServer/0/query" in url
+        assert data == {
+            "f": "pjson",
+            "where": "t_rechov LIKE '%הגולן%' AND ms_bayit = 1",
+            "outFields": "x,y",
+            "returnGeometry": "false",
+            "resultRecordCount": 1,
+        }
         return _make_response(json_payload=payload)
 
-    with mock.patch("requests.get", side_effect=fake_get):
+    with mock.patch("requests.post", side_effect=fake_post):
         x, y = gs.get_address_coordinates("הגולן", 1)
         assert isinstance(x, float) and isinstance(y, float)
         assert x == 178000.5 and y == 665000.25

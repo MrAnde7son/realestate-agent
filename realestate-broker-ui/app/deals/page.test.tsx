@@ -1,6 +1,6 @@
 import React from 'react'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import DealsPage from './page'
 import { DEAL_SUMMARIES_MOCK } from '@/app/assets/[id]/deal/mock-data'
 import type { DealSummary } from '@/lib/deals/types'
@@ -85,13 +85,22 @@ beforeEach(() => {
   mockPost.mockResolvedValue({ ok: true, data: { deal: sampleDeals[0] } })
 })
 
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+  vi.clearAllTimers()
+})
+
 describe('DealsPage', () => {
   it('renders deals grouped by stage', async () => {
-    render(<DealsPage />)
+    const { unmount } = render(<DealsPage />)
 
-    await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledWith('/api/deals')
-    })
+    await waitFor(
+      () => {
+        expect(mockGet).toHaveBeenCalledWith('/api/deals')
+      },
+      { timeout: 2000 }
+    )
 
     const firstAddress = sampleDeals[0]?.asset_summary?.address
     const secondAddress = sampleDeals[1]?.asset_summary?.address

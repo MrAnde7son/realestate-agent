@@ -2251,7 +2251,7 @@ def _get_assets_list(request):
 
     try:
         user = getattr(request, "user", None)
-        queryset = Asset.objects.all().order_by("-created_at").prefetch_related("listings_m2m")
+        queryset = Asset.objects.all().prefetch_related("listings_m2m")
 
         if user and getattr(user, "is_authenticated", False):
             queryset = queryset.annotate(
@@ -2264,6 +2264,63 @@ def _get_assets_list(request):
             )
 
         queryset = _apply_asset_filters(queryset, params, user)
+
+        # Handle ordering parameter
+        ordering_param = params.get("ordering", "-created_at")
+        if ordering_param:
+            ordering_field = ordering_param.lstrip("-")
+            ordering_map = {
+                "address": "normalized_address",
+                "city": "city",
+                "street": "street",
+                "number": "number",
+                "apartment": "apartment",
+                "block": "block",
+                "parcel": "parcel",
+                "subparcel": "subparcel",
+                "area": "area",
+                "total_area": "total_area",
+                "subparcel_area": "subparcel_area",
+                "built_area": "built_area",
+                "floor": "floor",
+                "total_floors": "total_floors",
+                "listing_type": "listing_type",
+                "ad_type": "ad_type",
+                "price": "price",
+                "rent_price": "rent_price",
+                "price_per_sqm": "price_per_sqm",
+                "delta_vs_area_pct": "delta_vs_area_pct",
+                "dom_percentile": "dom_percentile",
+                "competition_1km": "competition_1km",
+                "zoning": "zoning",
+                "remaining_rights_sqm": "remaining_rights_sqm",
+                "program": "program",
+                "last_permit_q": "last_permit_q",
+                "documents_count": "documents__count",  # Note: might need annotation
+                "noise_level": "noise_level",
+                "antenna_distance_m": "antenna_distance_m",
+                "green_within_300m": "green_within_300m",
+                "shelter_distance_m": "shelter_distance_m",
+                "asset_status": "asset_status",
+                "model_price": "model_price",
+                "price_gap_pct": "price_gap_pct",
+                "confidence_pct": "confidence_pct",
+                "cap_rate_pct": "cap_rate_pct",
+                "rent_estimate": "rent_estimate",
+                "recent_deal": "recent_deal",
+                "created_at": "created_at",
+            }
+            
+            if ordering_field in ordering_map:
+                mapped_field = ordering_map[ordering_field]
+                ordering_prefix = "-" if ordering_param.startswith("-") else ""
+                queryset = queryset.order_by(f"{ordering_prefix}{mapped_field}", "-id")
+            else:
+                # Default ordering if field not recognized
+                queryset = queryset.order_by("-created_at", "-id")
+        else:
+            # Default ordering if no ordering parameter
+            queryset = queryset.order_by("-created_at", "-id")
 
         paginator = Paginator(queryset, page_size)
         try:

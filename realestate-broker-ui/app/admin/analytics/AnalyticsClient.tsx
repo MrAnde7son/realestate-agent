@@ -1,23 +1,11 @@
 "use client";
 
 import React from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  CartesianGrid,
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-} from "recharts";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { chartPalette as C } from "@/lib/chart-palette";
-import { TrendingUp, TrendingDown, AlertTriangle, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Activity, Loader2 } from "lucide-react";
 
 interface Props {
   daily: any[];
@@ -25,7 +13,61 @@ interface Props {
 }
 
 export default function AnalyticsClient({ daily, topFailures }: Props) {
-  // Add safety checks for data
+  const [rechartsModule, setRechartsModule] = React.useState<typeof import('recharts') | null>(null);
+  const [chartsError, setChartsError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    import('recharts')
+      .then(module => {
+        if (cancelled) {
+          return;
+        }
+        setRechartsModule(module);
+      })
+      .catch(error => {
+        console.error('Failed to load Recharts library', error);
+        if (!cancelled) {
+          setChartsError('שגיאה בטעינת תרשימי האנליטיקה');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const ReResponsiveContainer = rechartsModule?.ResponsiveContainer;
+  const ReLineChart = rechartsModule?.LineChart;
+  const ReLine = rechartsModule?.Line;
+  const ReXAxis = rechartsModule?.XAxis;
+  const ReYAxis = rechartsModule?.YAxis;
+  const ReTooltip = rechartsModule?.Tooltip;
+  const ReLegend = rechartsModule?.Legend;
+  const ReCartesianGrid = rechartsModule?.CartesianGrid;
+  const ReAreaChart = rechartsModule?.AreaChart;
+  const ReArea = rechartsModule?.Area;
+  const chartsReady = Boolean(rechartsModule);
+
+  const renderChartLoadingState = (message: string) => (
+    <div className="flex h-full flex-col items-center justify-center text-center space-y-3">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  );
+
+  const renderChartErrorState = (message: string) => (
+    <div className="flex h-full flex-col items-center justify-center text-center space-y-3">
+      <AlertTriangle className="h-6 w-6 text-destructive" />
+      <p className="text-sm text-destructive">{message}</p>
+    </div>
+  );
+
+  const getChartStatus = (message: string) => (
+    chartsError ? renderChartErrorState(chartsError) : renderChartLoadingState(message)
+  );
+
   if (!daily || !Array.isArray(daily)) {
     return (
       <Card>
@@ -36,7 +78,7 @@ export default function AnalyticsClient({ daily, topFailures }: Props) {
       </Card>
     );
   }
-  
+
   if (!topFailures || !Array.isArray(topFailures)) {
     return (
       <Card>
@@ -270,68 +312,80 @@ export default function AnalyticsClient({ daily, topFailures }: Props) {
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={daily}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('he-IL', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                  labelFormatter={(value) => new Date(value).toLocaleDateString('he-IL')}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="users" 
-                  stroke={C.series1} 
-                  strokeWidth={2}
-                  name="משתמשים"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="assets" 
-                  stroke={C.series2} 
-                  strokeWidth={2}
-                  name="נכסים"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="reports" 
-                  stroke={C.series3} 
-                  strokeWidth={2}
-                  name="דוחות"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="alerts" 
-                  stroke={C.series4} 
-                  strokeWidth={2}
-                  name="התראות"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="page_views" 
-                  stroke="#8884d8" 
-                  strokeWidth={2}
-                  name="צפיות בדפים"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="searches_performed" 
-                  stroke="#82ca9d" 
-                  strokeWidth={2}
-                  name="חיפושים"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {chartsReady &&
+            ReResponsiveContainer &&
+            ReLineChart &&
+            ReLine &&
+            ReXAxis &&
+            ReYAxis &&
+            ReTooltip &&
+            ReLegend &&
+            ReCartesianGrid ? (
+              <ReResponsiveContainer width="100%" height="100%">
+                <ReLineChart data={daily}>
+                  <ReCartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+                  <ReXAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('he-IL', { month: 'short', day: 'numeric' })}
+                  />
+                  <ReYAxis tick={{ fontSize: 12 }} />
+                  <ReTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                    labelFormatter={(value) => new Date(value).toLocaleDateString('he-IL')}
+                  />
+                  <ReLegend />
+                  <ReLine
+                    type="monotone"
+                    dataKey="users"
+                    stroke={C.series1}
+                    strokeWidth={2}
+                    name="משתמשים"
+                  />
+                  <ReLine
+                    type="monotone"
+                    dataKey="assets"
+                    stroke={C.series2}
+                    strokeWidth={2}
+                    name="נכסים"
+                  />
+                  <ReLine
+                    type="monotone"
+                    dataKey="reports"
+                    stroke={C.series3}
+                    strokeWidth={2}
+                    name="דוחות"
+                  />
+                  <ReLine
+                    type="monotone"
+                    dataKey="alerts"
+                    stroke={C.series4}
+                    strokeWidth={2}
+                    name="התראות"
+                  />
+                  <ReLine
+                    type="monotone"
+                    dataKey="page_views"
+                    stroke="#8884d8"
+                    strokeWidth={2}
+                    name="צפיות בדפים"
+                  />
+                  <ReLine
+                    type="monotone"
+                    dataKey="searches_performed"
+                    stroke="#82ca9d"
+                    strokeWidth={2}
+                    name="חיפושים"
+                  />
+                </ReLineChart>
+              </ReResponsiveContainer>
+            ) : (
+              getChartStatus('טוען תרשים פעילות יומית...')
+            )}
           </div>
         </CardContent>
       </Card>
@@ -344,39 +398,50 @@ export default function AnalyticsClient({ daily, topFailures }: Props) {
         </CardHeader>
         <CardContent>
           <div className="h-[200px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={daily}>
-                <defs>
-                  <linearGradient id="colorErrors" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0.1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('he-IL', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                  labelFormatter={(value) => new Date(value).toLocaleDateString('he-IL')}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="errors" 
-                  stroke="hsl(var(--destructive))" 
-                  fillOpacity={1} 
-                  fill="url(#colorErrors)"
-                  name="שגיאות"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartsReady &&
+            ReResponsiveContainer &&
+            ReAreaChart &&
+            ReArea &&
+            ReXAxis &&
+            ReYAxis &&
+            ReTooltip &&
+            ReCartesianGrid ? (
+              <ReResponsiveContainer width="100%" height="100%">
+                <ReAreaChart data={daily}>
+                  <defs>
+                    <linearGradient id="colorErrors" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0.1} />
+                    </linearGradient>
+                  </defs>
+                  <ReCartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+                  <ReXAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('he-IL', { month: 'short', day: 'numeric' })}
+                  />
+                  <ReYAxis tick={{ fontSize: 12 }} />
+                  <ReTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                    labelFormatter={(value) => new Date(value).toLocaleDateString('he-IL')}
+                  />
+                  <ReArea
+                    type="monotone"
+                    dataKey="errors"
+                    stroke="hsl(var(--destructive))"
+                    fillOpacity={1}
+                    fill="url(#colorErrors)"
+                    name="שגיאות"
+                  />
+                </ReAreaChart>
+              </ReResponsiveContainer>
+            ) : (
+              getChartStatus('טוען תרשים מגמות שגיאות...')
+            )}
           </div>
         </CardContent>
       </Card>

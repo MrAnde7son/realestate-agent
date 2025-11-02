@@ -30,7 +30,8 @@ const mockAssetsTable = vi.fn(({
   onSearchChange,
   onDelete,
   viewMode = 'table',
-  onViewModeChange
+  onViewModeChange,
+  onPrefetchViewMode
 }: {
   data: any[],
   loading: boolean,
@@ -39,7 +40,8 @@ const mockAssetsTable = vi.fn(({
   searchValue?: string,
   onSearchChange?: (value: string) => void,
   viewMode?: 'table' | 'cards' | 'map',
-  onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void
+  onViewModeChange?: (mode: 'table' | 'cards' | 'map') => void,
+  onPrefetchViewMode?: (mode: 'table' | 'cards' | 'map') => void
 }) => (
   <div
     data-testid="assets-table"
@@ -63,6 +65,12 @@ const mockAssetsTable = vi.fn(({
         </button>
         <button className="px-3 py-1 border rounded" onClick={() => onViewModeChange?.('cards')}>
           סינון
+        </button>
+        <button
+          className="px-3 py-1 border rounded"
+          onMouseEnter={() => onPrefetchViewMode?.('map')}
+        >
+          מפה
         </button>
       </div>
     </div>
@@ -225,6 +233,11 @@ describe('AssetsPage', () => {
     expect(lastCall.paginationState).toEqual({ pageIndex: 0, pageSize: 25 })
     expect(lastCall.totalCount).toBe(2)
     expect(lastCall.pageSizeOptions).toEqual([10, 25, 50, 100])
+    expect(typeof lastCall.onPrefetchViewMode).toBe('function')
+
+    act(() => {
+      lastCall.onPrefetchViewMode?.('map')
+    })
   })
 
   it('defaults to card view on mobile screens', async () => {

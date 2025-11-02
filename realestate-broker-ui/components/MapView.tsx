@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Loader2, MapPin, Search, Layers, ArrowLeft } from 'lucide-react'
-import maplibregl from 'maplibre-gl'
+import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -13,6 +13,8 @@ import type { Asset } from '@/lib/normalizers/asset'
 import { buildMarkerDisplayData, shouldDisplayMarkerLabel, type MarkerDisplayData } from '@/components/map-marker-utils'
 import { normalizeToLonLat } from '@/lib/geo/transform'
 import 'maplibre-gl/dist/maplibre-gl.css'
+
+type MapLibreModule = typeof import('maplibre-gl')
 
 type MarkerElement = HTMLDivElement & { __cleanupTooltip?: () => void }
 
@@ -220,15 +222,42 @@ export default function MapView({
   onBackToTable
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<maplibregl.Map | null>(null)
-  function getMapOrThrow(): maplibregl.Map {
+  const map = useRef<MapLibreMap | null>(null)
+  const maplibreModuleRef = useRef<MapLibreModule | null>(null)
+  const maplibrePromiseRef = useRef<Promise<MapLibreModule> | null>(null)
+
+  const loadMapLibre = useCallback(async (): Promise<MapLibreModule> => {
+    if (maplibreModuleRef.current) {
+      return maplibreModuleRef.current
+    }
+
+    if (!maplibrePromiseRef.current) {
+      maplibrePromiseRef.current = import('maplibre-gl').then(loadedModule => {
+        const resolved = (loadedModule as MapLibreModule & { default?: MapLibreModule }).default ?? loadedModule
+        maplibreModuleRef.current = resolved
+        return resolved
+      })
+    }
+
+    return maplibrePromiseRef.current
+  }, [])
+
+  const getMaplibreOrThrow = useCallback((): MapLibreModule => {
+    const maplibreModule = maplibreModuleRef.current
+    if (!maplibreModule) {
+      throw new Error('MapLibre module not loaded')
+    }
+    return maplibreModule
+  }, [])
+
+  function getMapOrThrow(): MapLibreMap {
     const m = map.current
     if (!m) throw new Error('Map not initialized')
     return m
   }
   const layerService = useRef<MapLayerService | null>(null)
   const geocodingService = useRef<GeocodingService | null>(null)
-  const markersRef = useRef<Record<string | number, maplibregl.Marker>>({})
+  const markersRef = useRef<Record<string | number, MapLibreMarker>>({})
   const coarsePointerRef = useRef(false)
 
   const [loading, setLoading] = useState(true)
@@ -284,6 +313,7 @@ export default function MapView({
     if (!map.current) return
 
     const m = getMapOrThrow()
+    const maplibre = getMaplibreOrThrow()
     console.log('MapView: Adding markers for', assets.length, 'assets')
     console.log('MapView: Map center:', map.current.getCenter())
     console.log('MapView: Map zoom:', map.current.getZoom())
@@ -439,7 +469,7 @@ export default function MapView({
         hideTooltip()
       }
 
-      const marker = new maplibregl.Marker({ element: markerContainer, anchor: 'bottom' })
+      const marker = new maplibre.Marker({ element: markerContainer, anchor: 'bottom' })
       .setLngLat([lon, lat])
       .addTo(m)
       markersRef.current[asset.id] = marker
@@ -463,7 +493,7 @@ export default function MapView({
     }
 
     syncMarkerLabelVisibility()
-  }, [assets, onAssetClick, syncMarkerLabelVisibility])
+  }, [assets, getMaplibreOrThrow, onAssetClick, syncMarkerLabelVisibility])
 
   // Initialize map
   useEffect(() => {
@@ -471,7 +501,9 @@ export default function MapView({
 
     const initializeMap = async () => {
       try {
-        map.current = new maplibregl.Map({
+        const maplibre = await loadMapLibre()
+
+        map.current = new maplibre.Map({
           container: mapContainer.current!,
           style: {
             version: 8,
@@ -568,7 +600,7 @@ export default function MapView({
       layerService.current = null
       geocodingService.current = null
     }
-  }, [center, zoom, addAssetMarkers])
+  }, [center, zoom, addAssetMarkers, loadMapLibre])
 
   // Update markers when assets change
   useEffect(() => {

@@ -34,7 +34,6 @@ import {
   TrendingUp,
   Info,
   FileSpreadsheet,
-  FileImage,
   Search,
   X,
   MapPin,
@@ -138,6 +137,33 @@ export default function DealExpensesPage() {
   }>(null)
 
   const resultsRef = useRef<HTMLDivElement | null>(null)
+  const pdfModuleRef = useRef<typeof import('jspdf') | null>(null)
+  const pdfModulePromiseRef = useRef<Promise<typeof import('jspdf')> | null>(null)
+
+  const loadJsPdf = useCallback(async () => {
+    if (pdfModuleRef.current) {
+      return pdfModuleRef.current
+    }
+
+    if (!pdfModulePromiseRef.current) {
+      pdfModulePromiseRef.current = import('jspdf')
+    }
+
+    try {
+      const loadedModule = await pdfModulePromiseRef.current
+      pdfModuleRef.current = loadedModule
+      return loadedModule
+    } catch (error) {
+      pdfModulePromiseRef.current = null
+      throw error
+    }
+  }, [])
+
+  const prefetchJsPdf = useCallback(() => {
+    loadJsPdf().catch(error => {
+      console.error('Failed to preload jsPDF', error)
+    })
+  }, [loadJsPdf])
 
   useEffect(() => {
     fetch('/api/vat')
@@ -759,161 +785,107 @@ export default function DealExpensesPage() {
     link.click()
   }
 
-  function exportToPDF() {
+  const exportToPDF = useCallback(async () => {
     if (!result) return
 
-    // Track export action
     trackCalculatorExport('expense', 'pdf', {
       total_amount: result.total,
-      price: price,
-      area: area,
+      price,
+      area,
       buyers_count: buyers.length
     })
 
-    // Create a new window for PDF generation
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+    try {
+      const { jsPDF } = await loadJsPdf()
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+      doc.setR2L(true)
 
-    const propertyTypeLabel = isLand ? 'קרקע' : 'נכס בנוי'
+      const margin = 40
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      let cursorY = margin
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="he">
-      <head>
-        <meta charset="UTF-8">
-        <title>חישוב הוצאות עסקה</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .header h1 { color: #2563eb; margin-bottom: 10px; }
-          .section { margin-bottom: 25px; }
-          .section h2 { color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
-          .row { display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; }
-          .row:nth-child(even) { background-color: #f9fafb; }
-          .label { font-weight: bold; }
-          .value { color: #059669; font-weight: bold; }
-          .total { background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
-          .total .value { font-size: 1.2em; color: #1d4ed8; }
-          .badge { background-color: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 10px; }
-          .footer { margin-top: 30px; text-align: center; color: #6b7280; font-size: 0.9em; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>מחשבון הוצאות עסקה</h1>
-          <p>תאריך: ${new Date().toLocaleDateString('he-IL')}</p>
-        </div>
+      const ensureSpace = (height: number) => {
+        if (cursorY + height > pageHeight - margin) {
+          doc.addPage()
+          doc.setR2L(true)
+          cursorY = margin
+        }
+      }
 
-        <div class="section">
-          <h2>פרטי הנכס</h2>
-          <div class="row">
-            <span class="label">סוג הנכס:</span>
-            <span class="value">${propertyTypeLabel}</span>
-          </div>
-          <div class="row">
-            <span class="label">מחיר הנכס:</span>
-            <span class="value">${fmtCurrency(price)}</span>
-          </div>
-          <div class="row">
-            <span class="label">שטח הנכס:</span>
-            <span class="value">${area} מ&quot;ר</span>
-          </div>
-          ${isLand ? `
-          <div class="row">
-            <span class="label">שטח בנוי מתוכנן:</span>
-            <span class="value">${constructionArea} מ&quot;ר</span>
-          </div>
-          <div class="row">
-            <span class="label">עלות בנייה למ&quot;ר:</span>
-            <span class="value">${fmtCurrency(constructionCostPerSqm)}</span>
-          </div>
-          <div class="row">
-            <span class="label">האם העלות שהוזנה כוללת מע"מ:</span>
-            <span class="value">${constructionIncludesVat ? 'כן' : 'לא'}</span>
-          </div>
-          ` : ''}
-        </div>
+      const addHeading = (text: string) => {
+        ensureSpace(28)
+        doc.setFontSize(14)
+        doc.text(text, pageWidth - margin, cursorY, { align: 'right' })
+        cursorY += 22
+      }
 
-        <div class="section">
-          <h2>מס רכישה</h2>
-          ${result.breakdown.map((item, index) => `
-            <div class="row">
-              <span class="label">
-                מס רכישה - ${item.buyer.name || `רוכש ${index + 1}`}
-                <span class="badge">${item.track === 'regular' ? 'רגיל' :
-                 item.track === 'oleh' ? 'עולה חדש' :
-                 item.track === 'disabled' ? 'נכה/עיוור' :
-                 item.track === 'bereaved' ? 'משפחה שכולה' :
-                 item.track === 'land' ? 'קרקע' : item.track}</span>
-              </span>
-              <span class="value">${fmtCurrency(item.tax)}</span>
-            </div>
-          `).join('')}
-          <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
-            <span class="label">סה&quot;כ מס רכישה:</span>
-            <span class="value">${fmtCurrency(result.totalTax)}</span>
-          </div>
-        </div>
+      const addLine = (label: string, value: string) => {
+        ensureSpace(20)
+        doc.setFontSize(12)
+        doc.text(`${label}: ${value}`, pageWidth - margin, cursorY, { align: 'right' })
+        cursorY += 18
+      }
 
-        ${isLand ? `
-        <div class="section">
-          <h2>עלויות בנייה</h2>
-          <div class="row">
-            <span class="label">סה&quot;כ עלות בנייה:</span>
-            <span class="value">${fmtCurrency(result.constructionCost)}</span>
-          </div>
-        </div>
-        ` : ''}
+      doc.setFontSize(18)
+      doc.text('מחשבון הוצאות עסקה', pageWidth - margin, cursorY, { align: 'right' })
+      cursorY += 28
 
-        <div class="section">
-          <h2>הוצאות עיסקה</h2>
-          ${result.serviceBreakdown.map(item => `
-            <div class="row">
-              <span class="label">${item.label}:</span>
-              <span class="value">${fmtCurrency(item.cost)}</span>
-            </div>
-          `).join('')}
-          <div class="row" style="border-top: 1px solid #d1d5db; margin-top: 10px; padding-top: 10px;">
-            <span class="label">סה&quot;כ הוצאות עיסקה:</span>
-            <span class="value">${fmtCurrency(result.serviceTotal)}</span>
-          </div>
-        </div>
+      doc.setFontSize(12)
+      doc.text(`תאריך: ${new Date().toLocaleDateString('he-IL')}`, pageWidth - margin, cursorY, { align: 'right' })
+      cursorY += 24
 
-        <div class="total">
-          <div class="row">
-            <span class="label">סה&quot;כ לתשלום:</span>
-            <span class="value">${fmtCurrency(result.total)}</span>
-          </div>
-        </div>
+      addHeading('פרטי הנכס')
+      addLine('סוג הנכס', isLand ? 'קרקע' : 'נכס בנוי')
+      addLine('מחיר הנכס', fmtCurrency(price))
+      addLine('שטח הנכס', `${area} מ"ר`)
+      if (isLand) {
+        addLine('שטח בנוי מתוכנן', `${constructionArea} מ"ר`)
+        addLine('עלות בנייה למ"ר', fmtCurrency(constructionCostPerSqm))
+        addLine('עלות כוללת מע"מ', constructionIncludesVat ? 'כן' : 'לא')
+      }
 
-        <div class="section">
-          <h2>מחיר למ&quot;ר</h2>
-          <div class="row">
-            <span class="label">לפני הוצאות:</span>
-            <span class="value">${fmtCurrency(result.pricePerSqBefore)}</span>
-          </div>
-          <div class="row">
-            <span class="label">אחרי הוצאות:</span>
-            <span class="value">${fmtCurrency(result.pricePerSqAfter)}</span>
-          </div>
-        </div>
+      addHeading('מס רכישה')
+      result.breakdown.forEach((item, index) => {
+        const buyerName = item.buyer.name?.trim() ? item.buyer.name : `רוכש ${index + 1}`
+        const trackLabel = item.track === 'regular'
+          ? 'רגיל'
+          : item.track === 'oleh'
+          ? 'עולה חדש'
+          : item.track === 'disabled'
+          ? 'נכה/עיוור'
+          : item.track === 'bereaved'
+          ? 'משפחה שכולה'
+          : item.track === 'land'
+          ? 'קרקע'
+          : item.track
+        addLine(`${buyerName} (${trackLabel})`, fmtCurrency(item.tax))
+      })
+      addLine('סה"כ מס רכישה', fmtCurrency(result.totalTax))
 
-        <div class="footer">
-          <p>נוצר על ידי מחשבון הוצאות עסקה - ${new Date().toLocaleDateString('he-IL')}</p>
-        </div>
-      </body>
-      </html>
-    `
+      if (isLand && result.constructionCost > 0) {
+        addHeading('עלויות בנייה')
+        addLine('סה"כ עלות בנייה', fmtCurrency(result.constructionCost))
+      }
 
-    printWindow.document.write(htmlContent)
-    printWindow.document.close()
-    printWindow.focus()
-    
-    // Wait for content to load then print
-    setTimeout(() => {
-      printWindow.print()
-    }, 500)
-  }
+      addHeading('הוצאות עיסקה')
+      result.serviceBreakdown.forEach(item => {
+        addLine(item.label, fmtCurrency(item.cost))
+      })
+      addLine('סה"כ הוצאות עיסקה', fmtCurrency(result.serviceTotal))
+
+      addHeading('סיכום')
+      addLine('סה"כ לתשלום', fmtCurrency(result.total))
+      addLine('מחיר למ"ר לפני הוצאות', fmtCurrency(result.pricePerSqBefore))
+      addLine('מחיר למ"ר אחרי הוצאות', fmtCurrency(result.pricePerSqAfter))
+
+      const filename = `חישוב_הוצאות_עסקה_${new Date().toISOString().split('T')[0]}.pdf`
+      doc.save(filename)
+    } catch (error) {
+      console.error('Failed to export expenses PDF', error)
+      alert('אירעה שגיאה ביצירת קובץ ה-PDF. אנא נסו שוב.')
+    }
+  }, [area, buyers.length, constructionArea, constructionCostPerSqm, constructionIncludesVat, isLand, loadJsPdf, price, result, trackCalculatorExport])
 
   function goToMortgageCalculator() {
     if (!result) return
@@ -1630,8 +1602,15 @@ export default function DealExpensesPage() {
               <FileSpreadsheet className="h-4 w-4 ms-2" />
               ייצא ל-CSV
             </Button>
-            <Button onClick={exportToPDF} variant="outline" size="sm">
-              <FileImage className="h-4 w-4 ms-2" />
+            <Button
+              onClick={exportToPDF}
+              onMouseEnter={prefetchJsPdf}
+              onFocus={prefetchJsPdf}
+              onTouchStart={prefetchJsPdf}
+              variant="outline"
+              size="sm"
+            >
+              <FileText className="h-4 w-4 ms-2" />
               ייצא ל-PDF
             </Button>
           </div>

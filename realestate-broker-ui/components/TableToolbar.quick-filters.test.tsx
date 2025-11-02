@@ -376,4 +376,18 @@ describe("TableToolbar quick filters", () => {
 
     expect(filters.type.onChange).toHaveBeenCalledWith("דירה");
   });
+
+  it("prefetches the map view when the toggle is hovered or focused", () => {
+    const onPrefetchViewMode = vi.fn();
+    renderToolbar({ onPrefetchViewMode });
+
+    const mapButton = screen.getByRole("button", { name: "תצוגת מפה" });
+
+    fireEvent.mouseEnter(mapButton);
+    expect(onPrefetchViewMode).toHaveBeenCalledWith("map");
+
+    onPrefetchViewMode.mockClear();
+    fireEvent.focus(mapButton);
+    expect(onPrefetchViewMode).toHaveBeenCalledWith("map");
+  });
 });

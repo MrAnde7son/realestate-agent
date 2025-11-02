@@ -36,7 +36,6 @@ import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
 
-import MapView from "@/components/MapView";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { ResponsiveContainer } from "@/components/layout/responsive-container";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -47,6 +46,25 @@ import { apiClient } from "@/lib/api-client";
 import { useDedupedEffect } from "@/hooks/use-deduped-effect";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type { PaginationState, SortingState } from "@tanstack/react-table";
+import dynamic from "next/dynamic";
+
+type MapViewModule = typeof import("@/components/MapView");
+type MapViewComponent = MapViewModule["default"];
+type MapViewProps = MapViewComponent extends React.ComponentType<infer P> ? P : never;
+type DynamicMapViewComponent = React.ComponentType<MapViewProps> & { preload?: () => Promise<void> | void };
+
+const MapView = dynamic(() => import("@/components/MapView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center py-12 space-y-4">
+      <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
+      <div className="text-center">
+        <p className="text-sm sm:text-base text-muted-foreground">טוען מפה...</p>
+        <p className="text-xs sm:text-sm text-muted-foreground">מכין את השכבות הגאוגרפיות לתצוגה</p>
+      </div>
+    </div>
+  )
+}) as DynamicMapViewComponent;
 
 const DEFAULT_RADIUS_METERS = 100;
 const DEFAULT_PAGE_SIZE = 25;
@@ -299,12 +317,33 @@ export default function AssetsPage() {
   const [viewModeManuallySet, setViewModeManuallySet] = useState(false);
   const { matches: isDesktop, isReady: isViewportReady } = useMediaQuery('(min-width: 1024px)');
 
+  const mapPrefetchedRef = React.useRef(false);
+  const prefetchMapView = React.useCallback(() => {
+    if (mapPrefetchedRef.current) {
+      return;
+    }
+    mapPrefetchedRef.current = true;
+    MapView.preload?.();
+  }, []);
+
   const handleViewModeChange = React.useCallback(
     (nextMode: 'table' | 'cards' | 'map') => {
+      if (nextMode === 'map') {
+        prefetchMapView();
+      }
       setViewMode(nextMode);
       setViewModeManuallySet(true);
     },
-    [setViewMode, setViewModeManuallySet]
+    [prefetchMapView, setViewMode, setViewModeManuallySet]
+  );
+
+  const handlePrefetchViewMode = React.useCallback(
+    (mode: 'table' | 'cards' | 'map') => {
+      if (mode === 'map') {
+        prefetchMapView();
+      }
+    },
+    [prefetchMapView]
   );
 
   React.useEffect(() => {
@@ -2209,29 +2248,30 @@ export default function AssetsPage() {
               />
             )
           ) : (
-            <AssetsTable
-              data={assets}
-              loading={loading}
-              onDelete={isAdmin ? handleDeleteAsset : undefined}
-              onToggleWatch={handleToggleWatch}
-              watchingAssetIds={watchingAssetIds}
-              onExportAllRequest={handleExportAllAssets}
-              searchValue={search}
-              onSearchChange={setSearch}
-              manualPagination
-              paginationState={pagination}
-              onPaginationChange={(next) => setPagination(next)}
-              pageCount={pageCount}
-              totalCount={totalCount}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
-              manualSorting
-              sortingState={sorting}
-              onSortingChange={(next) => setSorting(next)}
-              filters={{
-                city: {
-                  value: city,
-                  onChange: setCity,
-                  options: cityOptions
+          <AssetsTable
+            data={assets}
+            loading={loading}
+            onDelete={isAdmin ? handleDeleteAsset : undefined}
+            onToggleWatch={handleToggleWatch}
+            watchingAssetIds={watchingAssetIds}
+            onExportAllRequest={handleExportAllAssets}
+            searchValue={search}
+            onSearchChange={setSearch}
+            manualPagination
+            paginationState={pagination}
+            onPaginationChange={(next) => setPagination(next)}
+            pageCount={pageCount}
+            totalCount={totalCount}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            manualSorting
+            sortingState={sorting}
+            onSortingChange={(next) => setSorting(next)}
+            onPrefetchViewMode={handlePrefetchViewMode}
+            filters={{
+              city: {
+                value: city,
+                onChange: setCity,
+                options: cityOptions
                 },
                 type: {
                   value: typeFilter,

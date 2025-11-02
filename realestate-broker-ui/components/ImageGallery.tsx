@@ -106,7 +106,7 @@ export default function ImageGallery({
                 className="object-cover transition-transform group-hover:scale-105"
                 onClick={() => openFullscreen(index)}
                 sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 128px"
-                priority={index === 0}
+                loading={index === 0 ? 'eager' : 'lazy'}
               />
               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center pointer-events-none">
                 <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -149,14 +149,14 @@ export default function ImageGallery({
           <div className="relative flex-1 p-2 sm:p-4">
             {selectedImage !== null && (
               <div className="relative h-64 sm:h-96 md:h-[500px]">
-                <Image
-                  src={images[selectedImage]}
-                  alt={`תמונה ${selectedImage + 1}`}
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 80vw"
-                  priority
-                />
+              <Image
+                src={images[selectedImage]}
+                alt={`תמונה ${selectedImage + 1}`}
+                fill
+                className="object-contain"
+                sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 80vw"
+                loading="eager"
+              />
                 
                 {/* Navigation buttons */}
                 {images.length > 1 && (

@@ -24,6 +24,7 @@ import {
   TrendingDown,
   Banknote,
   BarChart3,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -32,21 +33,6 @@ import { useDashboardData } from "@/lib/dashboard";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
 import { chartPalette as C } from "@/lib/chart-palette";
 import { KpiCard } from "@/components/KpiCard";
 import { TrendingUp, FileText, Bell, Building2 } from "lucide-react";
@@ -64,8 +50,10 @@ export default function HomePage() {
     return selectOnboardingState(user);
   }, [user]);
   const [mounted, setMounted] = useState(false);
-  
-  
+  const [rechartsModule, setRechartsModule] = useState<typeof import('recharts') | null>(null);
+  const [chartsError, setChartsError] = useState<string | null>(null);
+
+
   // Alert data state
   const [alertRules, setAlertRules] = useState<any[]>([]);
   const [alertEvents, setAlertEvents] = useState<any[]>([]);
@@ -101,6 +89,32 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+
+    let cancelled = false;
+
+    import('recharts')
+      .then(module => {
+        if (cancelled) {
+          return;
+        }
+        setRechartsModule(module);
+      })
+      .catch(err => {
+        console.error('Failed to load Recharts library', err);
+        if (!cancelled) {
+          setChartsError('שגיאה בטעינת ספריית התרשימים');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mounted]);
+
+  useEffect(() => {
     if (isAuthenticated) {
       fetchAlerts();
     }
@@ -111,6 +125,43 @@ export default function HomePage() {
       router.push("/auth?redirect=" + encodeURIComponent("/assets"));
     }
   };
+
+  const ReResponsiveContainer = rechartsModule?.ResponsiveContainer;
+  const ReAreaChart = rechartsModule?.AreaChart;
+  const ReArea = rechartsModule?.Area;
+  const ReBarChart = rechartsModule?.BarChart;
+  const ReBar = rechartsModule?.Bar;
+  const ReXAxis = rechartsModule?.XAxis;
+  const ReYAxis = rechartsModule?.YAxis;
+  const ReCartesianGrid = rechartsModule?.CartesianGrid;
+  const ReTooltip = rechartsModule?.Tooltip;
+  const RePieChart = rechartsModule?.PieChart;
+  const RePie = rechartsModule?.Pie;
+  const ReCell = rechartsModule?.Cell;
+  const ReLegend = rechartsModule?.Legend;
+  const chartsReady = Boolean(rechartsModule);
+
+  const renderChartLoadingState = (message: string) => (
+    <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  );
+
+  const renderChartErrorState = (message: string) => (
+    <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+        <AlertCircle className="h-8 w-8 text-destructive" />
+      </div>
+      <p className="text-sm text-destructive">{message}</p>
+    </div>
+  );
+
+  const getChartStatus = (loadingMessage: string) => (
+    chartsError ? renderChartErrorState(chartsError) : renderChartLoadingState(loadingMessage)
+  );
 
   // Prevent hydration mismatch by not rendering auth-dependent content until mounted
   if (!mounted || authLoading) {
@@ -410,27 +461,38 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               {displayData.marketData && displayData.marketData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={displayData.marketData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value: number) => [
-                        fmtCurrency(value),
-                        "מחיר ממוצע",
-                      ]}
-                      labelFormatter={(label) => `חודש: ${label}`}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="avgPrice"
-                      stroke="#8884d8"
-                      fill="#8884d8"
-                      fillOpacity={0.3}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                chartsReady &&
+                ReResponsiveContainer &&
+                ReAreaChart &&
+                ReArea &&
+                ReCartesianGrid &&
+                ReXAxis &&
+                ReYAxis &&
+                ReTooltip ? (
+                  <ReResponsiveContainer width="100%" height={300}>
+                    <ReAreaChart data={displayData.marketData}>
+                      <ReCartesianGrid strokeDasharray="3 3" />
+                      <ReXAxis dataKey="month" />
+                      <ReYAxis />
+                      <ReTooltip
+                        formatter={(value: number) => [
+                          fmtCurrency(value),
+                          "מחיר ממוצע",
+                        ]}
+                        labelFormatter={(label) => `חודש: ${label}`}
+                      />
+                      <ReArea
+                        type="monotone"
+                        dataKey="avgPrice"
+                        stroke="#8884d8"
+                        fill="#8884d8"
+                        fillOpacity={0.3}
+                      />
+                    </ReAreaChart>
+                  </ReResponsiveContainer>
+                ) : (
+                  getChartStatus('טוען תרשים מחירים ממוצעים...')
+                )
               ) : (
                 <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
                   <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -471,30 +533,40 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               {displayData.propertyTypes && displayData.propertyTypes.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={displayData.propertyTypes}
-                      cx="50%"
-                      cy="50%"
-                      nameKey="type"
-                      labelLine={false}
-                      label={({ type, percentage }) => `${type} ${percentage}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="count"
-                    >
-                      {displayData.propertyTypes.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                chartsReady &&
+                ReResponsiveContainer &&
+                RePieChart &&
+                RePie &&
+                ReCell &&
+                ReTooltip &&
+                ReLegend ? (
+                  <ReResponsiveContainer width="100%" height={300}>
+                    <RePieChart>
+                      <RePie
+                        data={displayData.propertyTypes}
+                        cx="50%"
+                        cy="50%"
+                        nameKey="type"
+                        labelLine={false}
+                        label={({ type, percentage }) => `${type} ${percentage}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="count"
+                      >
+                        {displayData.propertyTypes.map((entry, index) => (
+                          <ReCell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </RePie>
+                      <ReTooltip />
+                      <ReLegend />
+                    </RePieChart>
+                  </ReResponsiveContainer>
+                ) : (
+                  getChartStatus('טוען תרשים התפלגות נכסים...')
+                )
               ) : (
                 <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
                   <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -531,32 +603,43 @@ export default function HomePage() {
             </CardHeader>
           <CardContent>
             {displayData.marketData && displayData.marketData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={displayData.marketData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      name === "transactions" ? value : fmtCurrency(value),
-                      name === "transactions" ? "עסקאות + רשימות" : "נפח שוק",
-                    ]}
-                  />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="transactions"
-                    fill="#8884d8"
-                    name="transactions"
-                  />
-                  <Bar
-                    yAxisId="right"
-                    dataKey="volume"
-                    fill="#82ca9d"
-                    name="volume"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              chartsReady &&
+              ReResponsiveContainer &&
+              ReBarChart &&
+              ReBar &&
+              ReCartesianGrid &&
+              ReXAxis &&
+              ReYAxis &&
+              ReTooltip ? (
+                <ReResponsiveContainer width="100%" height={300}>
+                  <ReBarChart data={displayData.marketData}>
+                    <ReCartesianGrid strokeDasharray="3 3" />
+                    <ReXAxis dataKey="month" />
+                    <ReYAxis yAxisId="left" />
+                    <ReYAxis yAxisId="right" orientation="right" />
+                    <ReTooltip
+                      formatter={(value: number, name: string) => [
+                        name === "transactions" ? value : fmtCurrency(value),
+                        name === "transactions" ? "עסקאות + רשימות" : "נפח שוק",
+                      ]}
+                    />
+                    <ReBar
+                      yAxisId="left"
+                      dataKey="transactions"
+                      fill="#8884d8"
+                      name="transactions"
+                    />
+                    <ReBar
+                      yAxisId="right"
+                      dataKey="volume"
+                      fill="#82ca9d"
+                      name="volume"
+                    />
+                  </ReBarChart>
+                </ReResponsiveContainer>
+              ) : (
+                getChartStatus('טוען תרשים נפח עסקאות...')
+              )
             ) : (
               <div className="flex flex-col items-center justify-center h-[300px] text-center space-y-4">
                 <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">

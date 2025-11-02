@@ -30,7 +30,6 @@ import {
   StarOff,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import OnboardingProgress from "@/components/OnboardingProgress";
 import { selectOnboardingState, isOnboardingComplete } from "@/onboarding/selectors";
 import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
@@ -2218,9 +2217,6 @@ export default function AssetsPage() {
     <DashboardLayout>
       <div className="w-full py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-6">
-          {isAuthenticated && user?.onboarding_flags && !isOnboardingComplete(onboardingState) && (
-            <OnboardingProgress state={onboardingState} />
-          )}
           {/* Header */}
           <SectionHeader
             title="רשימת נכסים"

@@ -37,7 +37,6 @@ import { apiClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { parseShareMessageResponse } from './shareMessage'
 import { useDedupedEffect } from '@/hooks/use-deduped-effect'
-import OnboardingProgress from '@/components/OnboardingProgress'
 import { selectOnboardingState, getCompletionPct } from '@/onboarding/selectors'
 import { AssetLeadsPanel } from '@/components/crm/asset-leads-panel'
 import PlansTable from '@/components/PlansTable'
@@ -2393,7 +2392,6 @@ useDedupedEffect(() => {
             onTabChange: handleTabChangeViaBreadcrumb,
           }}
         />
-        {isAuthenticated && getCompletionPct(onboardingState) < 100 && <OnboardingProgress state={onboardingState} />}
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">

@@ -35,7 +35,8 @@ vi.mock('next/navigation', () => ({
   useRouter: vi.fn(),
   useSearchParams: vi.fn(() => ({
     get: searchParamsGetMock
-  }))
+  })),
+  usePathname: vi.fn(() => '/assets/1')
 }))
 vi.mock('@/lib/auth-context', () => ({
   useAuth: () => mockUseAuth,

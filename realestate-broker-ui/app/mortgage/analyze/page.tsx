@@ -868,7 +868,7 @@ export default function MortgageAnalyzePage() {
                         <span>{fmtCurrency(tranche.totalIndexation)}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>תשואה שנתית משוערת (APR)</span>
+                        <span>תשואה שנתית משוערת</span>
                         <span>{tranche.aprApprox.toFixed(2)}%</span>
                       </div>
                     </div>

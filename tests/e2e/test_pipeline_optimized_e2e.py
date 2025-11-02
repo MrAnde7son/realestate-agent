@@ -168,6 +168,32 @@ def isolate_pipeline(monkeypatch):
     yield
 
 
+class FakeQuery:
+    """Mock query object that supports filter_by().first() pattern."""
+    def __init__(self, session: "FakeSession", model_class: Any):
+        self._session = session
+        self._model_class = model_class
+        self._filters = {}
+
+    def filter_by(self, **kwargs):
+        """Add filters to the query."""
+        self._filters = kwargs
+        return self
+
+    def first(self):
+        """Return first matching object from session.added or None."""
+        for obj in self._session.added:
+            # Check if object matches all filter criteria
+            matches = True
+            for key, value in self._filters.items():
+                if not hasattr(obj, key) or getattr(obj, key) != value:
+                    matches = False
+                    break
+            if matches:
+                return obj
+        return None
+
+
 class FakeSession:
     def __init__(self):
         self.added: List[Any] = []
@@ -193,6 +219,10 @@ class FakeSession:
 
     def close(self) -> None:
         self.closed = True
+
+    def query(self, model_class: Any):
+        """Return a mock query object for the given model class."""
+        return FakeQuery(self, model_class)
 class StubGISCollector:
     def __init__(self, payload: Dict[str, Any]):
         self.payload = payload

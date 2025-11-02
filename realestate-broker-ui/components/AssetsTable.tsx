@@ -776,6 +776,20 @@ interface AssetsTableProps {
   manualSorting?: boolean
   sortingState?: SortingState
   onSortingChange?: (value: SortingState) => void
+  onToolbarActionsReady?: (props: {
+    columns: Array<{ id: string; header: string; visible: boolean; toggle: (value: boolean) => void }>
+    selectedCount: number
+    totalCount: number
+    onExportSelected: () => void
+    onExportAll: () => Promise<void>
+    disableExportAll: boolean
+    onRefresh: () => void
+    onAddNew?: () => void
+    loading: boolean
+    importAction?: { label: string; onClick: () => void; icon?: React.ReactNode }
+    bulkActions: Array<{ label: string; action: () => void; icon?: React.ReactNode; disabled?: boolean }>
+    onResetColumns?: () => void
+  }) => void
 }
 
 const COLUMN_PREFERENCES_KEY = 'assets-table-column-preferences'
@@ -871,6 +885,7 @@ export default function AssetsTable({
   manualSorting = false,
   sortingState,
   onSortingChange,
+  onToolbarActionsReady,
 }: AssetsTableProps){
   const { trackFeatureUsage, trackSearch } = useAnalytics()
   const router = useRouter()
@@ -1104,10 +1119,10 @@ export default function AssetsTable({
     router.push(`/assets/${asset.id}`)
   }
 
-  const handleExportSelected = () => {
+  const handleExportSelected = React.useCallback(() => {
     const selected = table.getSelectedRowModel().rows.map(r => r.original)
     exportAssetsCsv(selected, table.getVisibleLeafColumns(), trackFeatureUsage)
-  }
+  }, [table, trackFeatureUsage])
 
   const handleExportAll = React.useCallback(async () => {
     if (exportingAll) {
@@ -1156,6 +1171,73 @@ export default function AssetsTable({
       visible: column.getIsVisible(),
       toggle: (value: boolean) => column.toggleVisibility(value)
     }))
+
+  // Expose toolbar actions props to parent if callback provided
+  // Use ref to track previous props to prevent infinite loops
+  const prevPropsRef = React.useRef<string>('')
+  // Get selected count directly to ensure it updates with selection
+  const selectedCount = table.getSelectedRowModel().rows.length
+  const toolbarActionsProps = React.useMemo(() => ({
+    columns: toolbarColumns,
+    selectedCount, // Use the selectedCount variable calculated above
+    totalCount: recordCount,
+    onExportSelected: handleExportSelected,
+    onExportAll: handleExportAll,
+    disableExportAll: exportingAll,
+    onRefresh: onRefresh || (() => {}),
+    onAddNew,
+    loading,
+    importAction,
+    bulkActions: toolbarBulkActions,
+    onResetColumns: handleResetColumns,
+  }), [
+    toolbarColumns,
+    selectedCount, // Add selectedCount as explicit dependency
+    recordCount,
+    handleExportSelected,
+    handleExportAll,
+    exportingAll,
+    onRefresh,
+    onAddNew,
+    loading,
+    importAction,
+    toolbarBulkActions,
+    handleResetColumns,
+  ])
+
+  React.useEffect(() => {
+    if (!onToolbarActionsReady) return
+    
+    // Create a stable string representation to compare
+    const selectedCount = table.getSelectedRowModel().rows.length
+    const selectedIds = table.getSelectedRowModel().rows.map(r => r.id).sort().join(',')
+    const propsKey = JSON.stringify({
+      columnsCount: toolbarColumns.length,
+      selectedCount,
+      selectedIds, // Track actual selection to detect changes
+      totalCount: recordCount,
+      exportingAll,
+      loading,
+      bulkActionsCount: toolbarBulkActions.length,
+    })
+    
+    // Only call callback if meaningful values changed
+    if (propsKey !== prevPropsRef.current) {
+      prevPropsRef.current = propsKey
+      onToolbarActionsReady(toolbarActionsProps)
+    }
+  }, [
+    onToolbarActionsReady,
+    toolbarColumns.length,
+    table,
+    rowSelection, // Add rowSelection to dependencies to detect selection changes
+    recordCount,
+    exportingAll,
+    loading,
+    toolbarBulkActions.length,
+    toolbarActionsProps, // Include to ensure updated props are passed
+    // Note: We compare meaningful values to prevent infinite loops
+  ])
 
   const additionalFilters = React.useMemo(() => {
     if (!filters) return []
@@ -1670,6 +1752,7 @@ export default function AssetsTable({
               }
             }}
             searchPlaceholder="חיפוש בכתובת או עיר..."
+            hideActionsContainer={!!onToolbarActionsReady}
             filters={filters || {
               city: { value: 'all', onChange: () => {}, options: [] },
               type: { value: 'all', onChange: () => {}, options: [] },

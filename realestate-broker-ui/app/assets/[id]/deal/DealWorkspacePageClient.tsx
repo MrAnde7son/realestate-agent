@@ -55,6 +55,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { PersistentBreadcrumb, type PersistentBreadcrumbItemType } from '@/components/ui/persistent-breadcrumb'
 import {
   ArrowRightLeft,
   ArrowLeft,
@@ -520,45 +521,20 @@ export default function DealWorkspacePageClient({ assetId }: DealWorkspacePageCl
     return parts.join(' • ')
   }, [documentCounts])
 
+  const breadcrumbItems: PersistentBreadcrumbItemType[] = [
+    { label: 'בית', href: '/', icon: Home },
+    { label: 'נכסים', href: '/assets', icon: Building },
+    { label: DEAL_METADATA.address, href: `/assets/${assetId}` },
+    { label: 'סביבת עסקה' },
+  ]
+
   return (
     <DashboardLayout>
       <DashboardShell>
-        <Breadcrumb className='mb-4'>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href='/' className='flex items-center gap-1'>
-                <Home className='h-4 w-4' />
-                בית
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink href='/assets' className='flex items-center gap-1'>
-                <Building className='h-4 w-4' />
-                נכסים
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink href={`/assets/${assetId}`} className='flex items-center gap-1'>
-                {DEAL_METADATA.address}
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>סביבת עסקה</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-
-        <div className='mb-4 flex justify-end'>
-          <Button variant='ghost' size='sm' asChild>
-            <Link href={`/assets/${assetId}`}>
-              <ArrowLeft className='h-4 w-4 rtl:rotate-180' />
-              חזרה לפרטי הנכס
-            </Link>
-          </Button>
-        </div>
+        <PersistentBreadcrumb
+          items={breadcrumbItems}
+          showBackToAssets={true}
+        />
 
         <DashboardHeader
           heading={`סביבת עסקה לנכס ${assetId}`}

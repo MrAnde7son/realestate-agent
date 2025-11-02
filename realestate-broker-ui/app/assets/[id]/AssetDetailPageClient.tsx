@@ -167,6 +167,180 @@ const toStringOrNull = (value: unknown): string | null => {
   return null
 }
 
+const clampScore = (value: number, min = 0, max = 100): number => {
+  if (!Number.isFinite(value)) {
+    return min
+  }
+  return Math.min(Math.max(value, min), max)
+}
+
+type WeightedScoreInput = { value: number | null; weight: number }
+
+const computeWeightedScore = (entries: WeightedScoreInput[]): number | null => {
+  let totalWeight = 0
+  let totalValue = 0
+
+  for (const entry of entries) {
+    const { value, weight } = entry
+    if (!Number.isFinite(weight) || weight <= 0) continue
+    if (value === null || value === undefined || !Number.isFinite(value)) continue
+
+    totalWeight += weight
+    totalValue += clampScore(value) * weight
+  }
+
+  if (totalWeight === 0) {
+    return null
+  }
+
+  return Math.round(totalValue / totalWeight)
+}
+
+const pickNumeric = (...candidates: unknown[]): number | null => {
+  for (const candidate of candidates) {
+    const numeric = toNumericOrNull(candidate)
+    if (numeric !== null) {
+      return numeric
+    }
+  }
+  return null
+}
+
+const normalizeCountScore = (count: number | null, ideal: number): number | null => {
+  if (count === null || count === undefined) return null
+  if (!Number.isFinite(count) || ideal <= 0) return null
+  const bounded = Math.min(Math.max(count, 0), ideal)
+  return (bounded / ideal) * 100
+}
+
+export const calculatePotentialScore = (
+  asset: Record<string, any> | null,
+  remainingRightsSqm: number | null
+): number | null => {
+  if (!asset) return null
+
+  const direct = pickNumeric(
+    asset.investmentPotentialScore,
+    asset.investment_potential_score
+  )
+  if (direct !== null) {
+    return clampScore(direct)
+  }
+
+  const weightedEntries: WeightedScoreInput[] = []
+
+  const rightsUsage = pickNumeric(asset.rightsUsagePct, asset.rights_usage_pct)
+  if (rightsUsage !== null) {
+    weightedEntries.push({ value: 100 - clampScore(rightsUsage), weight: 5 })
+  }
+
+  if (typeof remainingRightsSqm === 'number' && Number.isFinite(remainingRightsSqm)) {
+    const area = pickNumeric(asset.area, asset.lotArea, asset.lot_area)
+    if (area !== null && area > 0) {
+      const ratioPct = (remainingRightsSqm / area) * 100
+      weightedEntries.push({ value: clampScore(ratioPct), weight: 3 })
+    } else {
+      const normalized = (Math.min(Math.max(remainingRightsSqm, 0), 200) / 200) * 100
+      weightedEntries.push({ value: clampScore(normalized), weight: 3 })
+    }
+  }
+
+  const tamaKeyArea = asset.tama38KeyArea ?? asset.tama38_key_area
+  if (tamaKeyArea !== null && tamaKeyArea !== undefined) {
+    if (typeof tamaKeyArea === 'boolean') {
+      weightedEntries.push({ value: tamaKeyArea ? 80 : 40, weight: 1 })
+    } else {
+      const numeric = toNumericOrNull(tamaKeyArea)
+      weightedEntries.push({ value: numeric !== null ? clampScore(numeric) : 70, weight: 1 })
+    }
+  }
+
+  const tamaCount = pickNumeric(asset.tama38KeyAreasCount, asset.tama38_key_areas_count)
+  if (tamaCount !== null) {
+    const normalized = normalizeCountScore(tamaCount, 4)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 1 })
+    }
+  }
+
+  const urbanRenewal = toStringOrNull(asset.urbanRenewalPotential ?? asset.urban_renewal_potential)
+  if (urbanRenewal) {
+    const normalized = (() => {
+      const value = urbanRenewal.toLowerCase()
+      if (['high', 'גבוה', 'yes', 'חיובי'].includes(value)) return 85
+      if (['medium', 'בינוני'].includes(value)) return 60
+      if (['low', 'נמוך', 'no', 'שלילי'].includes(value)) return 35
+      return null
+    })()
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 1 })
+    }
+  }
+
+  return computeWeightedScore(weightedEntries)
+}
+
+export const calculateEnvironmentScore = (asset: Record<string, any> | null): number | null => {
+  if (!asset) return null
+
+  const direct = pickNumeric(asset.environmentScore, asset.environment_score)
+  if (direct !== null) {
+    return clampScore(direct)
+  }
+
+  const weightedEntries: WeightedScoreInput[] = []
+
+  const greenScore = pickNumeric(asset.greenScore, asset.green_score)
+  if (greenScore !== null) {
+    weightedEntries.push({ value: clampScore(greenScore), weight: 4 })
+  }
+
+  const noiseLevel = pickNumeric(asset.noiseLevel, asset.noise_level)
+  if (noiseLevel !== null) {
+    const normalizedNoise = (() => {
+      const clampedNoise = Math.min(Math.max(noiseLevel, 0), 5)
+      // Lower noise is better; assume scale of 1-5 (or 0-5) where higher is noisier
+      const ratio = clampedNoise <= 1 ? 0 : (clampedNoise - 1) / 4
+      return clampScore(100 - ratio * 100)
+    })()
+    weightedEntries.push({ value: normalizedNoise, weight: 3 })
+  }
+
+  const schoolsCount = pickNumeric(asset.schoolsCount, asset.schools_count)
+  if (schoolsCount !== null) {
+    const normalized = normalizeCountScore(schoolsCount, 5)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 2 })
+    }
+  }
+
+  const greenAmenitiesCount = pickNumeric(asset.greenAmenitiesCount, asset.green_amenities_count)
+  if (greenAmenitiesCount !== null) {
+    const normalized = normalizeCountScore(greenAmenitiesCount, 8)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 2 })
+    }
+  }
+
+  const parkingLotsCount = pickNumeric(
+    asset.publicParkingLotsCount,
+    asset.public_parking_lots_count,
+    asset.parkingLotsCount,
+    asset.parking_lots_count
+  )
+  if (parkingLotsCount !== null) {
+    const normalized = normalizeCountScore(parkingLotsCount, 5)
+    if (normalized !== null) {
+      weightedEntries.push({ value: normalized, weight: 1 })
+    }
+  }
+
+  return computeWeightedScore(weightedEntries)
+}
+
+const formatScoreDisplay = (score: number | null): string =>
+  score === null ? '—' : `${score}/100`
+
 export const resolveContributorDisplayName = (
   person?: { name?: string | null; email?: string | null } | null
 ): string | null => {
@@ -1152,6 +1326,16 @@ React.useEffect(() => {
       estimated,
     }
   }, [asset, calculatedRights, remainingRightsDisplayValue])
+
+  const potentialScore = useMemo(
+    () => calculatePotentialScore(asset, remainingRightsDisplayValue),
+    [asset, remainingRightsDisplayValue]
+  )
+
+  const environmentScore = useMemo(
+    () => calculateEnvironmentScore(asset),
+    [asset]
+  )
 
   const loadRightsData = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
     if (!id) return
@@ -2797,22 +2981,20 @@ useDedupedEffect(() => {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">יתרת זכויות</div>
-              <div className="text-2xl font-bold">
-                {!!remainingRightsDisplayValue
-                  ? `+${formatNumber(remainingRightsDisplayValue)} מ״ר`
-                  : '—'}
+            <CardContent className="space-y-1 p-4">
+              <div className="text-sm font-medium text-muted-foreground">ציון פוטנציאל</div>
+              <div className="text-2xl font-bold">{formatScoreDisplay(potentialScore)}</div>
+              <div className="text-xs text-muted-foreground">
+                לפי פוטנציאל תמ״א, יתרת זכויות וכו׳
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">רמת רעש</div>
-              <div className="text-2xl font-bold">
-                {!!asset.noiseLevel
-                  ? `${asset.noiseLevel}/5`
-                  : '—'}
+            <CardContent className="space-y-1 p-4">
+              <div className="text-sm font-medium text-muted-foreground">ציון סביבה</div>
+              <div className="text-2xl font-bold">{formatScoreDisplay(environmentScore)}</div>
+              <div className="text-xs text-muted-foreground">
+                לפי בתי ספר, שטחים ירוקים, רעש חניה וכו׳
               </div>
             </CardContent>
           </Card>

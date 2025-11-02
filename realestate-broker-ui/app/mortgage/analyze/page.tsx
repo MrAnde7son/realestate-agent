@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import DashboardLayout from '@/components/layout/dashboard-layout'
 import { DashboardShell, DashboardHeader } from '@/components/layout/dashboard-shell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { fmtCurrency } from '@/lib/utils'
+import { cn, fmtCurrency } from '@/lib/utils'
 import {
   pricePortfolio,
   calculateLTV,
@@ -23,7 +23,7 @@ import {
   type GraceType,
   type RepaymentMethod
 } from '@/lib/mortgage'
-import { Loader2, Calculator, Plus, Trash2, AlertTriangle } from 'lucide-react'
+import { Loader2, Calculator, Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { useOptionalAuth } from '@/lib/auth-context'
 interface UITranche extends TrancheInput {
@@ -40,9 +40,9 @@ const createId = () => {
 const TRACK_OPTIONS: { value: TrackType; label: string }[] = [
   { value: 'PRIME', label: 'פריים' },
   { value: 'FIXED_UNLINKED', label: 'קבועה לא צמודה' },
-  { value: 'FIXED_LINKED', label: 'קבועה צמודה מדד' },
+  { value: 'FIXED_LINKED', label: 'קבועה צמודה למדד' },
   { value: 'VARIABLE_BOI', label: 'משתנה עוגן בנק ישראל' },
-  { value: 'VARIABLE_BOND', label: 'משתנה עוגן אג&quot;ח' }
+  { value: 'VARIABLE_BOND', label: 'משתנה עוגן אג״ח' }
 ]
 
 const REPAYMENT_OPTIONS: { value: RepaymentMethod; label: string }[] = [
@@ -59,7 +59,7 @@ const GRACE_OPTIONS: { value: GraceType; label: string }[] = [
 const createDefaultTranches = (primeRate: number): UITranche[] => [
   {
     id: createId(),
-    name: 'Prime P-0.9',
+    name: 'פריים (P-0.9)',
     amount: 450_000,
     termMonths: 360,
     track: 'PRIME',
@@ -73,7 +73,7 @@ const createDefaultTranches = (primeRate: number): UITranche[] => [
   },
   {
     id: createId(),
-    name: 'Fixed Unlinked 4.7%',
+    name: 'קבועה לא צמודה 4.7%',
     amount: 540_000,
     termMonths: 300,
     track: 'FIXED_UNLINKED',
@@ -87,7 +87,7 @@ const createDefaultTranches = (primeRate: number): UITranche[] => [
   },
   {
     id: createId(),
-    name: 'Var 5y Bond +0.8% CPI',
+    name: 'משתנה אג״ח +0.8% (צמוד מדד)',
     amount: 333_000,
     termMonths: 360,
     track: 'VARIABLE_BOND',
@@ -104,17 +104,26 @@ const createDefaultTranches = (primeRate: number): UITranche[] => [
 
 const stressPresets = [
   { id: 'base', label: 'בסיס', boiShock: 0, cpiShock: 0, description: 'ללא שינוי' },
-  { id: 'boi_up', label: 'BOI +1%', boiShock: 1, cpiShock: 0, description: 'בדיקת עליית ריבית פריים' },
-  { id: 'cpi_up', label: 'CPI +1%', boiShock: 0, cpiShock: 1, description: 'תרחיש אינפלציה גבוהה' },
-  { id: 'stress', label: 'תסריט קשוח', boiShock: 2, cpiShock: 1.5, description: 'ריבית גבוהה ואינפלציה' }
+  { id: 'boi_up', label: 'בנק ישראל +1%', boiShock: 1, cpiShock: 0, description: 'תרחיש עליית ריבית בנק ישראל' },
+  { id: 'cpi_up', label: 'מדד המחירים +1%', boiShock: 0, cpiShock: 1, description: 'תרחיש אינפלציה גבוהה' },
+  { id: 'stress', label: 'תרחיש קיצון', boiShock: 2, cpiShock: 1.5, description: 'ריבית גבוהה ואינפלציה' }
 ]
 
+const DEFAULT_BOI_RATE = 4.75
+const DEFAULT_PRIME_SPREAD = 1.5
+
 export default function MortgageAnalyzePage() {
+  const initialPrimeRate = calcPrime(DEFAULT_BOI_RATE, DEFAULT_PRIME_SPREAD)
+  const initialTranchesRef = useRef<UITranche[] | null>(null)
+  if (!initialTranchesRef.current) {
+    initialTranchesRef.current = createDefaultTranches(initialPrimeRate)
+  }
+
   const { trackCalculatorUsage, trackCalculatorCalculation } = useAnalytics()
   const auth = useOptionalAuth()
   const user = auth?.user ?? null
 
-  const [primeRate, setPrimeRate] = useState<number>(calcPrime(4.75))
+  const [primeRate, setPrimeRate] = useState<number>(initialPrimeRate)
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [loadingBoiRate, setLoadingBoiRate] = useState<boolean>(true)
   const [calculating, setCalculating] = useState<boolean>(false)
@@ -127,15 +136,25 @@ export default function MortgageAnalyzePage() {
   const [monthlyIncome, setMonthlyIncome] = useState<number>(65_000)
 
   const [envConfig, setEnvConfig] = useState<Omit<PortfolioInput, 'tranches'>>({
-    boiAnnual: 4.75,
-    primeSpread: 1.5,
+    boiAnnual: DEFAULT_BOI_RATE,
+    primeSpread: DEFAULT_PRIME_SPREAD,
     boiShock: 0,
     bondShock: 0,
     cpiShock: 0,
     monthlyIncome
   })
 
-  const [tranches, setTranches] = useState<UITranche[]>(() => createDefaultTranches(primeRate))
+  const [tranches, setTranches] = useState<UITranche[]>(initialTranchesRef.current ?? [])
+  const [expandedTranches, setExpandedTranches] = useState<Record<string, boolean>>(() => {
+    const initial = initialTranchesRef.current ?? []
+    return initial.reduce((acc, tranche) => {
+      acc[tranche.id] = true
+      return acc
+    }, {} as Record<string, boolean>)
+  })
+  const [highlightedTrancheId, setHighlightedTrancheId] = useState<string | null>(null)
+  const trancheRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const scrollTimeoutRef = useRef<number | null>(null)
 
   const totalLoanAmount = useMemo(
     () => tranches.reduce((sum, tranche) => sum + tranche.amount, 0),
@@ -164,6 +183,13 @@ export default function MortgageAnalyzePage() {
   const affordability = useMemo(
     () => calculateAffordability(monthlyIncome, portfolioResult.blendedFirstPayment),
     [monthlyIncome, portfolioResult.blendedFirstPayment]
+  )
+
+  const registerTrancheRef = useCallback(
+    (id: string) => (element: HTMLDivElement | null) => {
+      trancheRefs.current[id] = element
+    },
+    []
   )
 
   const rebalanceTranches = useCallback((targetLoanAmount: number) => {
@@ -251,6 +277,21 @@ export default function MortgageAnalyzePage() {
     })
   }, [envConfig.boiAnnual, envConfig.primeSpread])
 
+  useEffect(() => {
+    if (highlightedTrancheId === null) return
+    if (typeof window === 'undefined') return
+    const timeout = window.setTimeout(() => setHighlightedTrancheId(null), 2000)
+    return () => window.clearTimeout(timeout)
+  }, [highlightedTrancheId])
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current !== null && typeof window !== 'undefined') {
+        window.clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const fetchBOIRateFromApi = async () => {
     setLoadingBoiRate(true)
     try {
@@ -266,7 +307,7 @@ export default function MortgageAnalyzePage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching BOI rate:', error)
+      console.error('שגיאה בשליפת ריבית בנק ישראל:', error)
     } finally {
       setLoadingBoiRate(false)
     }
@@ -329,8 +370,9 @@ export default function MortgageAnalyzePage() {
   }
 
   const addTranche = () => {
+    const id = createId()
     const newTranche: UITranche = {
-      id: createId(),
+      id,
       name: 'מסלול חדש',
       amount: Math.max(0, propertyValue - userEquity - totalLoanAmount),
       termMonths: 360,
@@ -344,10 +386,34 @@ export default function MortgageAnalyzePage() {
       feesUpfront: 0
     }
     setTranches(prev => [...prev, newTranche])
+    setExpandedTranches(prev => ({ ...prev, [id]: true }))
+
+    if (scrollTimeoutRef.current !== null && typeof window !== 'undefined') {
+      window.clearTimeout(scrollTimeoutRef.current)
+    }
+
+    if (typeof window !== 'undefined') {
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        const node = trancheRefs.current[id]
+        if (node) {
+          node.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+          setHighlightedTrancheId(id)
+        }
+      }, 150)
+    }
   }
 
   const removeTranche = (id: string) => {
     setTranches(prev => prev.filter(tranche => tranche.id !== id))
+    setExpandedTranches(prev => {
+      const { [id]: _removed, ...rest } = prev
+      return rest
+    })
+    delete trancheRefs.current[id]
+  }
+
+  const toggleTrancheExpanded = (id: string) => {
+    setExpandedTranches(prev => ({ ...prev, [id]: !(prev[id] ?? true) }))
   }
 
   const monthlyAtYear = (years: number) => portfolioResult.blendedMonthlyAt(years * 12)
@@ -424,7 +490,7 @@ export default function MortgageAnalyzePage() {
                     <p className="mt-1 text-xs text-muted-foreground">פריים נוכחי: {primeRate.toFixed(2)}%</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">שוק אג&quot;ח (תוספת)</label>
+                    <label className="text-sm font-medium text-muted-foreground">תוספת לעוגן אג״ח</label>
                     <Input
                       type="number"
                       step="0.1"
@@ -450,7 +516,7 @@ export default function MortgageAnalyzePage() {
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    BOI Shock: {(envConfig.boiShock ?? 0).toFixed(2)}% · CPI Shock: {(envConfig.cpiShock ?? 0).toFixed(2)}%
+                    שינוי ריבית בנק ישראל: {(envConfig.boiShock ?? 0).toFixed(2)}% · שינוי מדד: {(envConfig.cpiShock ?? 0).toFixed(2)}%
                   </p>
                 </div>
               </CardContent>
@@ -459,173 +525,209 @@ export default function MortgageAnalyzePage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>מסלולים</CardTitle>
-                <Button type="button" onClick={addTranche} variant="outline" size="sm">
-                  <Plus className="mr-1 h-4 w-4" /> הוספת מסלול
+                <Button type="button" onClick={addTranche} variant="outline" size="sm" className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  <span>הוסף מסלול</span>
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {tranches.map(tranche => (
-                  <div key={tranche.id} className="rounded-lg border p-4 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <Input
-                        value={tranche.name}
-                        onChange={event => updateTranche(tranche.id, 'name', event.target.value)}
-                      />
-                      <div className="flex items-center gap-2">
-                        <Badge variant="neutral">{TRACK_OPTIONS.find(option => option.value === tranche.track)?.label}</Badge>
-                        {tranches.length > 1 && (
-                          <Button type="button" variant="ghost" size="icon" onClick={() => removeTranche(tranche.id)} aria-label="מחיקת מסלול">
-                            <Trash2 className="h-4 w-4" />
+                {tranches.map(tranche => {
+                  const isExpanded = expandedTranches[tranche.id] ?? true
+                  const trackLabel = TRACK_OPTIONS.find(option => option.value === tranche.track)?.label ?? ''
+                  return (
+                    <div
+                      key={tranche.id}
+                      ref={registerTrancheRef(tranche.id)}
+                      data-testid="tranche-editor"
+                      className={cn(
+                        'rounded-lg border bg-card p-4 transition-shadow',
+                        highlightedTrancheId === tranche.id && 'ring-2 ring-primary/50'
+                      )}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-1 flex-wrap items-center gap-3">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => toggleTrancheExpanded(tranche.id)}
+                            aria-label={isExpanded ? 'צמצום מסלול' : 'הרחבת מסלול'}
+                          >
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            <span className="sr-only">{isExpanded ? 'צמצום מסלול' : 'הרחבת מסלול'}</span>
                           </Button>
-                        )}
+                          <Input
+                            className="min-w-[180px] flex-1"
+                            value={tranche.name}
+                            onChange={event => updateTranche(tranche.id, 'name', event.target.value)}
+                          />
+                          <Badge variant="neutral">{trackLabel}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {tranches.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeTranche(tranche.id)}
+                              aria-label="מחיקת מסלול"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
+                      {isExpanded && (
+                        <div className="mt-4 space-y-4">
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">מסלול</label>
+                              <Select
+                                value={tranche.track}
+                                onValueChange={value => updateTranche(tranche.id, 'track', value as TrackType)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {TRACK_OPTIONS.map(option => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">סכום</label>
+                              <Input
+                                type="number"
+                                value={Math.round(tranche.amount)}
+                                onChange={event => updateTranche(tranche.id, 'amount', Number(event.target.value) || 0)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">תקופה (חודשים)</label>
+                              <Input
+                                type="number"
+                                value={tranche.termMonths}
+                                onChange={event => updateTranche(tranche.id, 'termMonths', Number(event.target.value) || 0)}
+                              />
+                            </div>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">עוגן נוכחי (%)</label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={tranche.anchorAnnual}
+                                onChange={event => updateTranche(tranche.id, 'anchorAnnual', Number(event.target.value) || 0)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">מרווח (%)</label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={tranche.marginAnnual}
+                                onChange={event => updateTranche(tranche.id, 'marginAnnual', Number(event.target.value) || 0)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">הצמדה</label>
+                              <Select
+                                value={tranche.indexation ?? 'NONE'}
+                                onValueChange={value => updateTranche(tranche.id, 'indexation', value as 'CPI' | 'NONE')}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="NONE">ללא</SelectItem>
+                                  <SelectItem value="CPI">מדד</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">הנחת מדד שנתית (%)</label>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                value={tranche.cpiAnnualAssumption ?? 0}
+                                onChange={event => updateTranche(tranche.id, 'cpiAnnualAssumption', Number(event.target.value) || 0)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">תדירות עדכון (חודשים)</label>
+                              <Input
+                                type="number"
+                                value={tranche.resetEveryMonths ?? 0}
+                                onChange={event => updateTranche(tranche.id, 'resetEveryMonths', Number(event.target.value) || undefined)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">שיטת החזר</label>
+                              <Select
+                                value={tranche.repayment}
+                                onValueChange={value => updateTranche(tranche.id, 'repayment', value as RepaymentMethod)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {REPAYMENT_OPTIONS.map(option => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">חודשי גרייס</label>
+                              <Input
+                                type="number"
+                                value={tranche.graceMonths ?? 0}
+                                onChange={event => updateTranche(tranche.id, 'graceMonths', Number(event.target.value) || 0)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">סוג גרייס</label>
+                              <Select
+                                value={tranche.graceType ?? 'NONE'}
+                                onValueChange={value => updateTranche(tranche.id, 'graceType', value as GraceType)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {GRACE_OPTIONS.map(option => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">עמלות פתיחת תיק</label>
+                              <Input
+                                type="number"
+                                value={tranche.feesUpfront ?? 0}
+                                onChange={event => updateTranche(tranche.id, 'feesUpfront', Number(event.target.value) || 0)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">מסלול</label>
-                        <Select
-                          value={tranche.track}
-                          onValueChange={value => updateTranche(tranche.id, 'track', value as TrackType)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TRACK_OPTIONS.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">סכום</label>
-                        <Input
-                          type="number"
-                          value={Math.round(tranche.amount)}
-                          onChange={event => updateTranche(tranche.id, 'amount', Number(event.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">תקופה (חודשים)</label>
-                        <Input
-                          type="number"
-                          value={tranche.termMonths}
-                          onChange={event => updateTranche(tranche.id, 'termMonths', Number(event.target.value) || 0)}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">עוגן נוכחי (%)</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={tranche.anchorAnnual}
-                          onChange={event => updateTranche(tranche.id, 'anchorAnnual', Number(event.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">מרווח (%)</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={tranche.marginAnnual}
-                          onChange={event => updateTranche(tranche.id, 'marginAnnual', Number(event.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">הצמדה</label>
-                        <Select
-                          value={tranche.indexation ?? 'NONE'}
-                          onValueChange={value => updateTranche(tranche.id, 'indexation', value as 'CPI' | 'NONE')}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="NONE">ללא</SelectItem>
-                            <SelectItem value="CPI">מדד</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">הנחת CPI שנתית (%)</label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={tranche.cpiAnnualAssumption ?? 0}
-                          onChange={event => updateTranche(tranche.id, 'cpiAnnualAssumption', Number(event.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">תדירות עדכון (חודשים)</label>
-                        <Input
-                          type="number"
-                          value={tranche.resetEveryMonths ?? 0}
-                          onChange={event => updateTranche(tranche.id, 'resetEveryMonths', Number(event.target.value) || undefined)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">שיטת החזר</label>
-                        <Select
-                          value={tranche.repayment}
-                          onValueChange={value => updateTranche(tranche.id, 'repayment', value as RepaymentMethod)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {REPAYMENT_OPTIONS.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">חודשי גרייס</label>
-                        <Input
-                          type="number"
-                          value={tranche.graceMonths ?? 0}
-                          onChange={event => updateTranche(tranche.id, 'graceMonths', Number(event.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">סוג גרייס</label>
-                        <Select
-                          value={tranche.graceType ?? 'NONE'}
-                          onValueChange={value => updateTranche(tranche.id, 'graceType', value as GraceType)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {GRACE_OPTIONS.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">עמלות פתיחת תיק</label>
-                        <Input
-                          type="number"
-                          value={tranche.feesUpfront ?? 0}
-                          onChange={event => updateTranche(tranche.id, 'feesUpfront', Number(event.target.value) || 0)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {tranches.length === 0 && (
                   <div className="flex items-center gap-2 rounded-md border border-dashed p-4 text-muted-foreground">
                     <AlertTriangle className="h-4 w-4" />
@@ -636,8 +738,13 @@ export default function MortgageAnalyzePage() {
             </Card>
 
             <div className="flex justify-end">
-              <Button onClick={handleAnalyzePortfolio} disabled={calculating || tranches.length === 0}>
-                {calculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />} חשב תיק
+              <Button
+                onClick={handleAnalyzePortfolio}
+                disabled={calculating || tranches.length === 0}
+                className="flex items-center gap-2"
+              >
+                {calculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+                <span>חשב תיק</span>
               </Button>
             </div>
 
@@ -648,7 +755,7 @@ export default function MortgageAnalyzePage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    מסך הוצאות נוסף שנלקח מהחשבונית: {fmtCurrency(requiredEquity)}
+                    סך הוצאות נוסף שנלקח מהחשבונית: {fmtCurrency(requiredEquity)}
                   </p>
                 </CardContent>
               </Card>
@@ -671,11 +778,11 @@ export default function MortgageAnalyzePage() {
                     <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.blendedMaxPayment)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">סה&quot;כ הלוואה</span>
+                    <span className="text-sm text-muted-foreground">סה״כ הלוואה</span>
                     <span className="text-lg font-semibold">{fmtCurrency(totalLoanAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">סה&quot;כ תשלומים (כולל עמלות)</span>
+                    <span className="text-sm text-muted-foreground">סה״כ תשלומים (כולל עמלות)</span>
                     <span className="text-lg font-semibold">{fmtCurrency(portfolioResult.totals.paid)}</span>
                   </div>
                 </div>
@@ -753,15 +860,15 @@ export default function MortgageAnalyzePage() {
                         <span>{fmtCurrency(tranche.maxPayment)}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>סה&quot;כ ריבית</span>
+                        <span>סה״כ ריבית</span>
                         <span>{fmtCurrency(tranche.totalInterest)}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>סה&quot;כ הצמדה</span>
+                        <span>סה״כ הצמדה</span>
                         <span>{fmtCurrency(tranche.totalIndexation)}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>APR משוער</span>
+                        <span>תשואה שנתית משוערת (APR)</span>
                         <span>{tranche.aprApprox.toFixed(2)}%</span>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Loader2, MapPin, Search, Layers, ArrowLeft } from 'lucide-react'
 import maplibregl from 'maplibre-gl'
 import { Button } from '@/components/ui/button'
@@ -233,12 +233,38 @@ export default function MapView({
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [localSearchValue, setLocalSearchValue] = useState(searchValue)
   const [searchResults, setSearchResults] = useState<GeocodingResult[]>([])
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [layers, setLayers] = useState<LayerConfig[]>([])
   const [showLayerControls, setShowLayerControls] = useState(false)
 
   useEffect(() => { geocodingService.current = new GeocodingService() }, [])
+  
+  // Sync local search value with prop
+  useEffect(() => {
+    setLocalSearchValue(searchValue)
+  }, [searchValue])
+
+  // Filter assets based on search query
+  const filteredAssets = useMemo(() => {
+    if (!localSearchValue?.trim()) return assets
+    
+    const query = localSearchValue.trim().toLowerCase()
+    return assets.filter(asset => {
+      const address = asset.address?.toLowerCase() || ''
+      const city = asset.city?.toLowerCase() || ''
+      const neighborhood = asset.neighborhood?.toLowerCase() || ''
+      const street = asset.street?.toLowerCase() || ''
+      const normalizedAddress = asset.normalizedAddress?.toLowerCase() || ''
+      
+      return address.includes(query) ||
+             city.includes(query) ||
+             neighborhood.includes(query) ||
+             street.includes(query) ||
+             normalizedAddress.includes(query)
+    })
+  }, [assets, localSearchValue])
 
   const syncMarkerLabelVisibility = useCallback(() => {
     if (!map.current) return
@@ -284,7 +310,7 @@ export default function MapView({
     if (!map.current) return
 
     const m = getMapOrThrow()
-    console.log('MapView: Adding markers for', assets.length, 'assets')
+    console.log('MapView: Adding markers for', filteredAssets.length, 'assets (filtered from', assets.length, ')')
     console.log('MapView: Map center:', map.current.getCenter())
     console.log('MapView: Map zoom:', map.current.getZoom())
 
@@ -296,7 +322,7 @@ export default function MapView({
     })
     markersRef.current = {}
 
-    if (!assets.length) {
+    if (!filteredAssets.length) {
       syncMarkerLabelVisibility()
       return
     }
@@ -308,12 +334,12 @@ export default function MapView({
     coarsePointerRef.current = preferTouchDevice
 
     const labelsVisibleByDefault = shouldDisplayMarkerLabel({
-      totalAssets: assets.length,
+      totalAssets: filteredAssets.length,
       zoom: map.current?.getZoom(),
       preferTouchDevice,
     })
 
-    assets.forEach(asset => {
+    filteredAssets.forEach((asset: Asset) => {
       const pt = normalizeToLonLat({
         lon: asset.lon,
         lat: asset.lat,
@@ -463,7 +489,7 @@ export default function MapView({
     }
 
     syncMarkerLabelVisibility()
-  }, [assets, onAssetClick, syncMarkerLabelVisibility])
+  }, [filteredAssets, onAssetClick, syncMarkerLabelVisibility, assets.length])
 
   // Initialize map
   useEffect(() => {
@@ -570,28 +596,36 @@ export default function MapView({
     }
   }, [center, zoom, addAssetMarkers])
 
-  // Update markers when assets change
+  // Update markers when filtered assets change
   useEffect(() => {
     if (map.current) addAssetMarkers()
-  }, [addAssetMarkers])
+  }, [addAssetMarkers, filteredAssets])
 
-  // Search handlers
+  // Search handlers - search assets first, then geographic places as fallback
   const handleSearch = useCallback(async (query: string) => {
-    if (!query.trim()) { setSearchResults([]); setShowSearchResults(false); return }
-    if (!geocodingService.current) return
-    try {
-      const results = await geocodingService.current.searchPlaces(query)
-      setSearchResults(results)
-      setShowSearchResults(true)
-    } catch (error) {
-      console.error('Search error:', error)
+    if (!query.trim()) { 
+      setSearchResults([])
+      setShowSearchResults(false)
+      return
+    }
+    
+    // First, show asset results (filteredAssets already handles this)
+    // For geographic search, show places as additional option
+    if (geocodingService.current) {
+      try {
+        const results = await geocodingService.current.searchPlaces(query)
+        setSearchResults(results)
+        setShowSearchResults(true)
+      } catch (error) {
+        console.error('Search error:', error)
+      }
     }
   }, [])
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => { handleSearch(searchValue) }, 300)
+    const timeoutId = setTimeout(() => { handleSearch(localSearchValue) }, 300)
     return () => clearTimeout(timeoutId)
-  }, [searchValue, handleSearch])
+  }, [localSearchValue, handleSearch])
 
   const handleSearchResultClick = useCallback(async (result: GeocodingResult) => {
     if (!map.current || !geocodingService.current) return
@@ -682,27 +716,59 @@ export default function MapView({
 
       {/* Search Bar */}
       <div className={`absolute top-4 z-20 ${onBackToTable ? 'start-48 end-24' : 'start-4 end-24'}`}>
-        <div className="relative">
-          <Search className="absolute end-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative max-w-xs">
+          <Search className="absolute end-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="חפש מיקום..."
-            className="pe-10 bg-white/90 backdrop-blur-sm"
+            value={localSearchValue}
+            onChange={(e) => {
+              const value = e.target.value
+              setLocalSearchValue(value)
+              // Don't immediately update parent to prevent reload
+              // Parent will be updated on Enter key or when search is cleared
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                setShowSearchResults(false)
+                // Update parent on enter
+                onSearchChange(localSearchValue)
+              }
+              if (e.key === 'Escape') {
+                setShowSearchResults(false)
+              }
+            }}
+            placeholder="חפש נכסים לפי כתובת, עיר או שכונה..."
+            className="h-8 pe-8 text-sm bg-white/90 backdrop-blur-sm"
             dir="rtl"
-            onFocus={() => setShowSearchResults(true)}
+            onFocus={() => {
+              if (localSearchValue) {
+                setShowSearchResults(true)
+              }
+            }}
           />
-          {showSearchResults && searchResults.length > 0 && (
-            <div className="absolute top-full start-0 end-0 mt-1 bg-white rounded-md shadow-lg border z-30 max-h-60 overflow-y-auto">
-              {searchResults.map((result) => (
-                <button
-                  key={result.place_id}
-                  onClick={() => handleSearchResultClick(result)}
-                  className="w-full px-4 py-2 text-start hover:bg-gray-50 border-b last:border-b-0"
-                >
-                  {result.formatted_address}
-                </button>
-              ))}
+          {/* Asset search results count */}
+          {localSearchValue && (
+            <div className="absolute top-full start-0 end-0 mt-1 bg-white rounded-md shadow-lg border z-30">
+              <div className="px-4 py-2 text-sm text-muted-foreground border-b">
+                נמצאו {filteredAssets.length} נכסים מתוך {assets.length}
+              </div>
+              {/* Geographic search results as additional options */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="max-h-48 overflow-y-auto">
+                  <div className="px-4 py-2 text-xs font-semibold text-muted-foreground border-b bg-gray-50">
+                    מיקומים גיאוגרפיים:
+                  </div>
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.place_id}
+                      onClick={() => handleSearchResultClick(result)}
+                      className="w-full px-4 py-2 text-start hover:bg-gray-50 border-b last:border-b-0 text-sm"
+                    >
+                      📍 {result.formatted_address}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -712,9 +778,9 @@ export default function MapView({
       <div className="absolute top-4 end-4 z-20">
         <Popover open={showLayerControls} onOpenChange={setShowLayerControls}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm">
-              <Layers className="h-4 w-4 me-2" />
-              שכבות
+            <Button variant="outline" size="sm" className="h-8 px-2 bg-white/90 backdrop-blur-sm">
+              <Layers className="h-3.5 w-3.5 me-1.5" />
+              <span className="text-xs">שכבות</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-80 bg-white text-gray-900 border border-gray-200" align="end">

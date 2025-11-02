@@ -35,8 +35,20 @@ import type { Asset } from "@/lib/normalizers/asset";
 import AssetsTable from "@/components/AssetsTable";
 import ImportDialogNadlanOne from "@/components/import/ImportDialogNadlanOne";
 
-import MapView from "@/components/MapView";
+import dynamic from "next/dynamic";
 import DashboardLayout from "@/components/layout/dashboard-layout";
+
+const MapView = dynamic(() => import("@/components/MapView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center py-12 space-y-4">
+      <RefreshCw className="h-8 w-8 animate-spin text-brand-teal" />
+      <div className="text-center">
+        <p className="text-sm sm:text-base text-muted-foreground">טוען מפה...</p>
+      </div>
+    </div>
+  ),
+});
 import { ResponsiveContainer } from "@/components/layout/responsive-container";
 import { SectionHeader, type SectionHeaderAction } from "@/components/layout/section-header";
 import { useSavedFilters } from "@/hooks/use-saved-filters";

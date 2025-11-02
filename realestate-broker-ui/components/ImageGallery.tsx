@@ -107,6 +107,8 @@ export default function ImageGallery({
                 onClick={() => openFullscreen(index)}
                 sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 128px"
                 priority={index === 0}
+                loading={index === 0 ? "eager" : "lazy"}
+                quality={85}
               />
               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center pointer-events-none">
                 <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -156,6 +158,7 @@ export default function ImageGallery({
                   className="object-contain"
                   sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 80vw"
                   priority
+                  quality={90}
                 />
                 
                 {/* Navigation buttons */}
@@ -211,6 +214,8 @@ export default function ImageGallery({
                       fill
                       className="object-cover"
                       sizes="(max-width: 640px) 48px, 64px"
+                      loading="lazy"
+                      quality={75}
                     />
                   </div>
                 ))}

@@ -11,7 +11,7 @@ export interface SectionHeaderAction {
   onClick: () => void
   icon?: React.ReactNode
   variant?: "default" | "outline" | "ghost" | "destructive"
-  size?: "sm" | "md" | "lg"
+  size?: "default" | "sm" | "lg" | "icon"
   disabled?: boolean
 }
 

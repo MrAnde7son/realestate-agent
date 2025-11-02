@@ -40,14 +40,31 @@ export async function POST(
         // Backend returned an error status
         const errorText = await resp.text()
         console.log('Backend asset sync failed with status:', resp.status, 'Error:', errorText)
-        
+
         let errorData
         try {
           errorData = JSON.parse(errorText)
         } catch {
           errorData = { error: errorText }
         }
-        
+
+        if (resp.status === 401 || resp.status === 403) {
+          const loginUrl = new URL('/auth', request.url)
+          const assetPath = `/assets/${id}`
+          loginUrl.searchParams.set('redirect', assetPath)
+
+          const unauthorizedResponse = NextResponse.json({
+            error: 'נדרש להתחבר מחדש',
+            details: errorData.error || 'תוקף ההתחברות פג, אנא התחבר מחדש',
+            redirect: `${loginUrl.pathname}${loginUrl.search}`
+          }, { status: resp.status })
+
+          unauthorizedResponse.headers.set('WWW-Authenticate', 'Bearer')
+          unauthorizedResponse.headers.set('X-Redirect-To', `${loginUrl.pathname}${loginUrl.search}`)
+
+          return unauthorizedResponse
+        }
+
         return NextResponse.json({
           error: errorData.error || 'שגיאה בסנכרון נתוני הנכס',
           details: errorData.details || errorData.message
